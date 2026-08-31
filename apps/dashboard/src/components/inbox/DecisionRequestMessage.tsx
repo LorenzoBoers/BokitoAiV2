@@ -14,8 +14,8 @@ import {
   UserRound,
   Zap,
 } from 'lucide-react'
-import { accountingProposalFromOptions } from '../../lib/accounting-proposal'
-import { AccountingProposalBlock } from './AccountingProposalBlock'
+import { moduleProposalFromOptions } from '../../lib/module-proposal'
+import { ModuleProposalBlock } from './ModuleProposalBlock'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
 import { composeDefaultSignatureHtml, plainTextToSignatureHtml, withAgentDisclaimer } from '../../lib/default-signature'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
@@ -288,7 +288,7 @@ export default function DecisionRequestMessage({
     !isActionSuggestion &&
     options.some((o) => o.action_type === 'create_queue_item')
   const internalNote = useMemo(() => internalNoteFromOptions(options), [options])
-  const accountingProposal = useMemo(() => accountingProposalFromOptions(options), [options])
+  const moduleProposal = useMemo(() => moduleProposalFromOptions(options), [options])
 
   // Sender identity for the approved reply: the operator's last choice wins,
   // otherwise this agent's default, then the tenant default.
@@ -686,7 +686,7 @@ export default function DecisionRequestMessage({
                 </div>
               ) : null}
             </div>
-            {accountingProposal ? <AccountingProposalBlock proposal={accountingProposal} /> : null}
+            {moduleProposal ? <ModuleProposalBlock proposal={moduleProposal} /> : null}
             {internalNote ? (
               <div className="mt-3 border-l-2 border-border/70 pl-3">
                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-text-muted">

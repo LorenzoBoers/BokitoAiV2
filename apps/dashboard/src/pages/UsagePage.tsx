@@ -205,7 +205,7 @@ export default function UsagePage() {
     <div>
       <PageGuideBanner page="cockpit" className="mb-4" />
       <ContentHeader
-        title={t('tabs.cockpit.title')}
+        title={t('settings.links.reports', { defaultValue: 'Reports' })}
         subtitle={t('pageHeaders.cockpitUsage')}
         meta={
           <div className="flex flex-wrap items-center gap-2">

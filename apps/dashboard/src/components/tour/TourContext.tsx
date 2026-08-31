@@ -16,7 +16,7 @@ import {
   Bot,
   Brain,
   CalendarClock,
-  Gauge,
+  Boxes,
   MessageSquare,
   ShieldCheck,
   Sparkles,
@@ -48,7 +48,7 @@ const PILLAR_ICONS: Record<(typeof WELCOME_PILLARS)[number], typeof Bot> = {
   communication: MessageSquare,
   ai: Bot,
   automations: CalendarClock,
-  cockpit: Gauge,
+  modules: Boxes,
   control: ShieldCheck,
 }
 

@@ -46,6 +46,7 @@ export type InstallMcpConnectionInput = {
   server_url?: string
   auth_type?: McpAuthType
   auth?: Record<string, unknown>
+  use_mock?: boolean
 }
 
 function isMcpProvider(provider: IntegrationProviderRow): boolean {
@@ -194,15 +195,23 @@ export async function installMcpConnection(input: InstallMcpConnectionInput): Pr
     (input.auth_type === 'bearer' && input.api_key
       ? { bearer_token: input.api_key, auth_type: 'bearer' }
       : undefined)
-  await installMcpIntegration({
+  const result = await installMcpIntegration({
     provider: input.provider,
     api_key: input.api_key,
     display_name: input.display_name,
     server_url: input.server_url,
     auth_type: input.auth_type,
+    use_mock: input.use_mock,
     ...(auth ? { auth } : {}),
     ...(mcpServerId != null ? { mcp_server_id: mcpServerId } : {}),
   })
+  const discovery = result.discovery
+  if (discovery && discovery.ok === false) {
+    throw new Error(discovery.error || 'Connection verification failed')
+  }
+  if (result.verified === false && !input.use_mock && (input.provider === 'king_accountancy' || input.provider === 'bjorn_lunden_mcp')) {
+    throw new Error('Connection was saved but not verified. Check your credentials and try again.')
+  }
 }
 
 export async function revokeMcpConnection(connectionId: string): Promise<void> {

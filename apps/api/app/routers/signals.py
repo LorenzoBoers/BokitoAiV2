@@ -13,6 +13,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth, require_verified_email
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
+from app.routers.signal_chat import router as chat_router
 from app.services import signal_tags as tag_svc
 from app.services import signal_threads as svc
 from app.services.channel_visibility import visible_channel_account_ids
@@ -20,6 +21,11 @@ from app.services.interpretation import triage_signal
 from app.services.signals import create_inbound_signal, serialize_signal
 
 router = APIRouter(prefix="/signals", tags=["signals"])
+
+# Assistant conversation facade (/signals/conversations, /signals/chat/targets).
+# Must register before the /{signal_id} routes below or Starlette would match
+# "conversations" as a signal_id and fail UUID validation.
+router.include_router(chat_router)
 
 
 class InboundSignalBody(BaseModel):

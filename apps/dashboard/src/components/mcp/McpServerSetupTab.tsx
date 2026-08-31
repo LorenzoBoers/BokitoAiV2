@@ -62,7 +62,7 @@ export function McpServerSetupTab() {
           <h2 className="text-lg font-medium text-text-heading">{t('integrations.mcp.servers.title')}</h2>
           <p className="text-sm text-text-secondary mt-1">{t('integrations.mcp.servers.description')}</p>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-            <Link to="/settings/marketplace" className="font-medium text-accent hover:underline">
+            <Link to="/modules/marketplace" className="font-medium text-accent hover:underline">
               {t('integrations.mcp.servers.openMarketplace')}
             </Link>
             <Link to="/agents" className="font-medium text-accent hover:underline">

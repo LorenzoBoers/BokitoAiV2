@@ -55,7 +55,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
   }, [token])
 
   const webhookUrl = setup?.webhookUrl || `${window.location.origin}/api/channels/whatsapp/webhook`
-  const activeStep = connected ? 3 : 2
+  const activeStep: number = connected ? 3 : 2
 
   const copyValue = useCallback(
     async (field: string, value: string) => {

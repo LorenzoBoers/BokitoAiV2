@@ -409,35 +409,35 @@ export type ChatTargetsResponse = {
   default_agent_id: string | null
 }
 
-export const listConversations = () => apiGet<Conversation[]>('/api/chat/conversations?channel=assistant')
+export const listConversations = () => apiGet<Conversation[]>('/api/signals/conversations?channel=assistant')
 
 export const createConversation = (
   title?: string,
   agentId?: string,
   contextSignalId?: string,
 ) =>
-  apiPost<Conversation>('/api/chat/conversations', {
+  apiPost<Conversation>('/api/signals/conversations', {
     ...(title ? { title } : {}),
     ...(agentId ? { agent_id: agentId } : {}),
     ...(contextSignalId ? { context_signal_id: contextSignalId } : {}),
   })
 
 export const renameConversation = (conversationId: string, title: string) =>
-  apiPatch<{ id: string; title: string }>(`/api/chat/conversations/${conversationId}`, { title })
+  apiPatch<{ id: string; title: string }>(`/api/signals/conversations/${conversationId}`, { title })
 
 export const deleteConversation = (conversationId: string) =>
-  apiDelete<{ ok: boolean }>(`/api/chat/conversations/${conversationId}`)
+  apiDelete<{ ok: boolean }>(`/api/signals/conversations/${conversationId}`)
 
 export const listChatMessages = (conversationId: string) =>
-  apiGet<ChatMessage[]>(`/api/chat/conversations/${conversationId}/messages`)
+  apiGet<ChatMessage[]>(`/api/signals/conversations/${conversationId}/messages`)
 
 export const sendChatMessage = (conversationId: string, content: string) =>
   apiPost<{ message: ChatMessage; usage?: unknown }>(
-    `/api/chat/conversations/${conversationId}/messages`,
+    `/api/signals/conversations/${conversationId}/messages`,
     { content },
   )
 
-export const listChatTargets = () => apiGet<ChatTargetsResponse>('/api/chat/targets')
+export const listChatTargets = () => apiGet<ChatTargetsResponse>('/api/signals/chat/targets')
 
 /**
  * Send a message and stream the assistant reply over SSE.
@@ -452,7 +452,7 @@ export async function streamChatMessage(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`
 
-  const res = await fetch(`${API_URL}/api/chat/conversations/${conversationId}/stream`, {
+  const res = await fetch(`${API_URL}/api/signals/conversations/${conversationId}/stream`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ content }),

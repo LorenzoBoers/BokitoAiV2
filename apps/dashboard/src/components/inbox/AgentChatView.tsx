@@ -15,7 +15,7 @@ import {
   type ChatDecision,
   type ChatDecisionOption,
   type ChatMessage,
-} from '../../lib/bokito-api'
+} from '../../lib/signals-api'
 import { ComposerCard } from '../ui/ComposerCard'
 import { ChatTranscriptSkeleton } from '../ui/skeleton'
 import { useMembers } from '../../hooks/useMembers'
@@ -29,8 +29,8 @@ import { AI_CARD_CLASS, AI_ICON_BOX_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/A
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
 import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
-import { accountingProposalFromOptions } from '../../lib/accounting-proposal'
-import { AccountingProposalBlock } from './AccountingProposalBlock'
+import { moduleProposalFromOptions } from '../../lib/module-proposal'
+import { ModuleProposalBlock } from './ModuleProposalBlock'
 import ChatMarkdown from './ChatMarkdown'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
@@ -44,7 +44,7 @@ type StreamState = {
   active: boolean
 }
 
-export type DirectChatPanelProps = {
+export type AgentChatViewProps = {
   conversationId: string
   title?: string | null
   agentName?: string | null
@@ -219,7 +219,7 @@ function ChatDecisionCard({
   const integrationProvider =
     options.find((o) => isModuleSetupAction(o.action_type))?.provider?.trim() || null
   const integrationBrand = integrationProvider ? resolveProviderBrand(integrationProvider) : null
-  const accountingProposal = accountingProposalFromOptions(options)
+  const moduleProposal = moduleProposalFromOptions(options)
 
   const act = async (option: ChatDecisionOption) => {
     if (!token || busy || resolved) return
@@ -285,7 +285,7 @@ function ChatDecisionCard({
           {displayBody}
         </p>
       ) : null}
-      {accountingProposal ? <AccountingProposalBlock proposal={accountingProposal} /> : null}
+      {moduleProposal ? <ModuleProposalBlock proposal={moduleProposal} /> : null}
       {!resolved ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {options.map((option, idx) => (
@@ -308,10 +308,13 @@ function ChatDecisionCard({
 }
 
 /**
- * AI chat pane for direct assistant/agent conversations inside the
- * Communication hub thread layout (list + detail + context panel).
+ * Chat-style conversation pane for direct assistant/agent threads: transcript
+ * bubbles, live streaming, decision cards, and a mention-aware chat composer.
+ *
+ * Rendered by ThreadDetail when the open thread is an assistant conversation,
+ * and embedded directly (hideHeader) by AgentSessionCard and Ask panels.
  */
-export default function DirectChatPanel({
+export function AgentChatView({
   conversationId,
   title,
   agentName,
@@ -327,7 +330,7 @@ export default function DirectChatPanel({
   copyLabel,
   composerPlaceholder,
   onSent,
-}: DirectChatPanelProps) {
+}: AgentChatViewProps) {
   const { t } = useTranslation('communication')
   const location = useLocation()
   const navigate = useNavigate()

@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, FolderPlus, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
@@ -40,6 +40,7 @@ import {
 import { useSignalStream } from '../../hooks/useSignalStream'
 import ThinkingTrace from './ThinkingTrace'
 import AgentSessionCard from './AgentSessionCard'
+import { AgentChatView } from './AgentChatView'
 import { draftThreadReply, resolveThreadDecision } from '../../lib/inbox-api'
 import {
   invokeSignalAgent,
@@ -50,6 +51,8 @@ import {
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, tokenizeMentions, type MentionItem } from '../../lib/mentions'
 import { createAgentTask } from '../../lib/orchestration-api'
+import { listProjects, type ProjectRow } from '../../lib/projects-api'
+import { createQueueItem } from '../../lib/project-work-api'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { tagPath } from '../../lib/messages-paths'
@@ -334,6 +337,134 @@ function AgentSessionLauncher({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/**
+ * Lightweight project picker: choosing a project creates a Task with
+ * origin "queue" on that project, linked back to this signal.
+ */
+function AddToProjectDialog({
+  open,
+  onClose,
+  signalId,
+  subject,
+}: {
+  open: boolean
+  onClose: () => void
+  signalId: string
+  subject: string
+}) {
+  const { t } = useTranslation('communication')
+  const [projects, setProjects] = useState<ProjectRow[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setProjects(null)
+    setLoadError(null)
+    listProjects()
+      .then((rows) => {
+        if (!cancelled) setProjects(rows)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setProjects([])
+          setLoadError(err instanceof Error ? err.message : t('addToProject.loadError'))
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, t])
+
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  const pick = async (project: ProjectRow) => {
+    if (busyId) return
+    setBusyId(project.id)
+    try {
+      await createQueueItem(project.id, {
+        title: subject || t('addToProject.untitledThread'),
+        body: t('addToProject.taskBody', { subject: subject || signalId }),
+        signal_id: signalId,
+      })
+      toast.success(t('addToProject.success', { name: project.name }))
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('addToProject.error'))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('addToProject.title')}
+    >
+      <div className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[13px] font-semibold text-text-heading">{t('addToProject.title')}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('composer.cancel')}
+            className="rounded-md p-1 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <p className="mt-0.5 text-[11.5px] text-text-muted">{t('addToProject.hint')}</p>
+        <div className="mt-3 max-h-64 space-y-0.5 overflow-y-auto">
+          {projects === null ? (
+            <p className="px-2 py-1.5 text-[12px] text-text-muted">{t('addToProject.loading')}</p>
+          ) : loadError ? (
+            <p className="px-2 py-1.5 text-[12px] text-status-error">{loadError}</p>
+          ) : projects.length === 0 ? (
+            <div className="px-2 py-1.5">
+              <p className="text-[12px] text-text-muted">{t('addToProject.empty')}</p>
+              <Link to="/projects" className="mt-1 inline-block text-[11.5px] font-medium text-accent hover:underline">
+                {t('addToProject.openProjects')}
+              </Link>
+            </div>
+          ) : (
+            projects.map((project) => (
+              <button
+                key={project.id}
+                type="button"
+                disabled={busyId != null}
+                onClick={() => void pick(project)}
+                className="flex w-full items-center gap-2 rounded-lg border border-transparent px-2.5 py-1.5 text-left text-[12.5px] text-text-primary transition-colors hover:border-border/60 hover:bg-bg-hover/60 disabled:opacity-50"
+              >
+                {busyId === project.id ? (
+                  <RefreshCw size={12} className="shrink-0 animate-spin text-text-muted" />
+                ) : (
+                  <FolderPlus size={12} className="shrink-0 text-text-muted" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{project.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -875,6 +1006,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [detail?.thread.contactEmail, membersById])
 
   const [creatingTask, setCreatingTask] = useState(false)
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false)
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
 
@@ -1135,6 +1267,29 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }
 
   const { thread } = detail
+
+  // Direct assistant/agent conversations render as a chat transcript with the
+  // chat composer instead of the customer-thread timeline. One component, two
+  // channel-aware presentations.
+  if ((thread.channel ?? '') === 'assistant') {
+    return (
+      <AgentChatView
+        conversationId={String(thread.id)}
+        title={thread.emailSubject}
+        agentName={thread.agentName}
+        agentKind={thread.agentKind}
+        onDeleted={() => {
+          onRefresh()
+          onBack?.()
+        }}
+        onRefreshThreads={onRefresh}
+        onBack={onBack}
+        onToggleContext={onToggleContact}
+        contextOpen={contactOpen}
+      />
+    )
+  }
+
   const hasActiveSession = (detail.sessions ?? []).some((s) => s.state === 'active')
   // What the header's name slot shows; the " · email" suffix is skipped when
   // this already is the email address (no name known), to avoid "x@y · x@y".
@@ -1475,6 +1630,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
                   </DropdownMenuItem>
                 ) : null}
+                <DropdownMenuItem className="gap-2" onClick={() => setProjectPickerOpen(true)}>
+                  <FolderPlus size={13} />
+                  {t('threadChrome.addToProject')}
+                </DropdownMenuItem>
                 {onDelete ? (
                   <DropdownMenuItem
                     disabled={deleting}
@@ -1820,6 +1979,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
         />
       ) : null}
+      <AddToProjectDialog
+        open={projectPickerOpen}
+        onClose={() => setProjectPickerOpen(false)}
+        signalId={String(thread.id)}
+        subject={thread.emailSubject ?? ''}
+      />
     </div>
     </TooltipProvider>
   )

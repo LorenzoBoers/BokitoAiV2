@@ -72,12 +72,14 @@ async def test_install_mcp_refuses_mock_in_prod(
 
     monkeypatch.setattr(get_settings(), "environment", "prod")
 
-    # Bjorn Lunden has a native integration, so installing it without a URL
-    # works even in production (no mock involved).
-    installed = await install_mcp(
-        session_override, tenant.id, provider="bjorn_lunden_mcp", api_key=""
-    )
-    assert installed["binding"]["config"]["server_url"] == "native://bjorn-lunden"
+    # Bjorn Lunden without credentials is refused in production.
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as missing:
+        await install_mcp(
+            session_override, tenant.id, provider="bjorn_lunden_mcp", api_key=""
+        )
+    assert missing.value.status_code == 400
 
     # Providers without a native integration or URL -> 422 asking for one.
     with pytest.raises(HTTPException) as no_url:

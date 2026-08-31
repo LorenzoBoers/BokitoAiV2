@@ -33,6 +33,12 @@ export type ChannelKey = (typeof CHANNEL_KEYS)[number]
 export const SUB_QUEUES = ['open', 'mine', 'unassigned', 'closed'] as const
 export type SubQueue = (typeof SUB_QUEUES)[number]
 
+/**
+ * Agent folders additionally get an `activity` sub-view: the agent's work log
+ * (internal run threads) instead of a chats status filter.
+ */
+export type AgentQueue = SubQueue | 'activity'
+
 /** Sub-queue → list `view` filter used by Communication and DirectCommunication. */
 export const SUB_QUEUE_TO_VIEW = {
   open: 'all_open',
@@ -44,7 +50,7 @@ export const SUB_QUEUE_TO_VIEW = {
 export type HubLeaf =
   | { type: 'inbox'; queue?: InboxQueue }
   | { type: 'decisions' }
-  | { type: 'agent'; agentId: string; queue?: SubQueue }
+  | { type: 'agent'; agentId: string; queue?: AgentQueue }
   | { type: 'runs'; queue: RunsQueue }
   | { type: 'channel'; channelKey: ChannelKey; connectionId?: string; queue?: SubQueue }
   | { type: 'tag'; tag: string; queue?: SubQueue }
@@ -58,7 +64,7 @@ export function inboxPath(queue?: InboxQueue | null, threadId?: string | null): 
   return withThread(base, threadId)
 }
 
-type PathOpts = { queue?: SubQueue; threadId?: string | null }
+type PathOpts = { queue?: AgentQueue; threadId?: string | null }
 
 /** Company-agent chats. Second arg is a thread id string or `{ queue, threadId }`. */
 export function agentChatPath(
@@ -75,6 +81,16 @@ export function agentChatPath(
 
 export function agentRunsPath(queue: RunsQueue = 'all', threadId?: string | null): string {
   return withThread(`/communication/runs/${queue}`, threadId)
+}
+
+/**
+ * Terminal-style live activity history (all agents, filterable per agent).
+ * Pinned at the bottom of the Communication sidebar.
+ */
+export function activityTerminalPath(agentId?: string | null): string {
+  return agentId
+    ? `/communication/activity?agent=${encodeURIComponent(agentId)}`
+    : '/communication/activity'
 }
 
 /** Sole Communication leaf for open DecisionRequests (customer + internal). */
@@ -152,6 +168,10 @@ export function isSubQueue(value: string): value is SubQueue {
   return (SUB_QUEUES as readonly string[]).includes(value)
 }
 
+function isAgentQueue(value: string): value is AgentQueue {
+  return value === 'activity' || isSubQueue(value)
+}
+
 /** Parse the active leaf from a pathname, ignoring any `/t/:threadId` suffix. */
 export function leafFromPath(pathname: string): HubLeaf | null {
   const match = pathname.match(/^\/communication\/([^/]+)(?:\/(.*))?$/)
@@ -178,7 +198,7 @@ export function leafFromPath(pathname: string): HubLeaf | null {
       return {
         type: 'agent',
         agentId: decodeURIComponent(parts[0]),
-        queue: second && isSubQueue(second) ? second : undefined,
+        queue: second && isAgentQueue(second) ? second : undefined,
       }
     }
     case 'runs': {

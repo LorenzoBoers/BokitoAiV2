@@ -1,6 +1,119 @@
-import type { IntegrationModuleRow } from './integrations-api'
+import type { LucideIcon } from 'lucide-react'
+import {
+  BookOpen,
+  Calculator,
+  FileText,
+  Landmark,
+  TrendingUp,
+} from 'lucide-react'
+import type { IntegrationModuleRow, ModuleToolCard } from './integrations-api'
 
-export type { IntegrationModuleRow }
+export type { IntegrationModuleRow, ModuleToolCard }
+
+const ACCOUNTING_TOOL_CARDS: ModuleToolCard[] = [
+  {
+    verb: 'list_companies',
+    label: 'Administrations',
+    description: 'List every administration (company file) available on connected packages.',
+    kind: 'read',
+  },
+  {
+    verb: 'get_company',
+    label: 'Administration detail',
+    description: 'Fetch one administration by id: name, currency, and package metadata.',
+    kind: 'read',
+  },
+  {
+    verb: 'search_parties',
+    label: 'Search contacts',
+    description: 'Search customers and suppliers by name, email, or chamber-of-commerce id.',
+    kind: 'read',
+  },
+  {
+    verb: 'get_party',
+    label: 'Contact detail',
+    description: 'Open one contact or supplier with addresses and payment details.',
+    kind: 'read',
+  },
+  {
+    verb: 'list_documents',
+    label: 'List invoices and bills',
+    description: 'List sales invoices and purchase bills, optionally filtered by status or party.',
+    kind: 'read',
+  },
+  {
+    verb: 'get_document',
+    label: 'Invoice or bill detail',
+    description: 'Fetch one invoice or bill including lines, totals, and payment state.',
+    kind: 'read',
+  },
+  {
+    verb: 'list_accounts',
+    label: 'Chart of accounts',
+    description: 'List ledger accounts (GL codes) used for booking.',
+    kind: 'read',
+  },
+  {
+    verb: 'get_account',
+    label: 'Account detail',
+    description: 'Fetch one ledger account with type and balance when the package provides it.',
+    kind: 'read',
+  },
+  {
+    verb: 'list_ledger',
+    label: 'Ledger entries',
+    description: 'List journal or ledger lines for a period or account.',
+    kind: 'read',
+  },
+  {
+    verb: 'list_outstanding',
+    label: 'Outstanding balances',
+    description: 'List open receivable and payable amounts per party or document.',
+    kind: 'read',
+  },
+  {
+    verb: 'list_bank_mutations',
+    label: 'Bank mutations',
+    description: 'List imported bank transactions waiting to be matched or booked.',
+    kind: 'read',
+  },
+  {
+    verb: 'summarize',
+    label: 'Summary',
+    description: 'Produce a short financial snapshot (open items, recent documents) for the agent.',
+    kind: 'read',
+  },
+  {
+    verb: 'propose_document',
+    label: 'Propose invoice or bill',
+    description: 'Draft a sales or purchase document; creates a decision before anything is written.',
+    kind: 'propose',
+  },
+  {
+    verb: 'propose_party',
+    label: 'Propose contact',
+    description: 'Draft a new or updated customer/supplier; requires human approval to apply.',
+    kind: 'propose',
+  },
+  {
+    verb: 'propose_booking',
+    label: 'Propose booking',
+    description: 'Draft a journal booking; applied only after you approve the decision.',
+    kind: 'propose',
+  },
+  {
+    verb: 'propose_match',
+    label: 'Propose payment match',
+    description: 'Propose matching a bank mutation to an open document.',
+    kind: 'propose',
+  },
+  {
+    verb: 'propose_send',
+    label: 'Propose send invoice',
+    description: 'Propose sending an invoice from the package; waits for your approval.',
+    kind: 'propose',
+  },
+]
 
 /** Shown while the catalog API is unreachable so module sections still render. */
 export const FALLBACK_MODULES: IntegrationModuleRow[] = [
@@ -12,16 +125,10 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     status: 'available',
     provider_slugs: ['king_accountancy', 'bjorn_lunden_mcp', 'moneybird'],
     planned_provider_slugs: ['exact_online', 'snelstart'],
-    verb_labels: [
-      'Administrations',
-      'Contacts',
-      'Invoices and bills',
-      'Chart of accounts',
-      'Ledger',
-      'Outstanding balances',
-      'Bank mutations',
-      'Summary',
-    ],
+    tool_cards: ACCOUNTING_TOOL_CARDS,
+    verbs: ACCOUNTING_TOOL_CARDS.filter((c) => c.kind === 'read').map((c) => c.verb),
+    propose_verbs: ACCOUNTING_TOOL_CARDS.filter((c) => c.kind === 'propose').map((c) => c.verb),
+    verb_labels: ACCOUNTING_TOOL_CARDS.filter((c) => c.kind === 'read').map((c) => c.label),
     needs_when: 'invoices, VAT, ledgers, outstanding balances, or bookkeeping',
     setup_steps: [
       'Install Accounting under Settings > Modules.',
@@ -30,9 +137,9 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
       'Finish setup to mark the module installed.',
     ],
     capability_summary:
-      'Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances. Writes always become a decision you approve.',
+      'Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances.',
     setup_path: '/modules/accounting',
-    workspace_path: '/ai/modules/accounting',
+    workspace_path: '/modules/accounting',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'not_installed',
@@ -45,16 +152,31 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     status: 'coming_soon',
     provider_slugs: [],
     planned_provider_slugs: ['gocardless_bank', 'tink', 'yapily', 'knab'],
+    tool_cards: [
+      { verb: 'list_accounts', label: 'Accounts', description: 'List linked bank accounts.', kind: 'read' },
+      { verb: 'get_balance', label: 'Balances', description: 'Read current balances.', kind: 'read' },
+      {
+        verb: 'list_transactions',
+        label: 'Transactions',
+        description: 'List recent bank transactions.',
+        kind: 'read',
+      },
+      {
+        verb: 'propose_payment',
+        label: 'Propose payment',
+        description: 'Draft an outgoing payment that only runs after you approve.',
+        kind: 'propose',
+      },
+    ],
     verb_labels: ['Accounts', 'Balances', 'Transactions'],
     needs_when: 'bank balances, transactions, or outgoing payments',
     setup_steps: [
       'This module is prepared but not connectable yet.',
       'When a bank connector ships, you will pick it here and approve payments as decisions.',
     ],
-    capability_summary:
-      'Later: read accounts, balances, and transactions. Payments stay a human-approved proposal.',
+    capability_summary: 'Later: read accounts, balances, and transactions.',
     setup_path: '/modules/banking',
-    workspace_path: '/ai/modules/banking',
+    workspace_path: '/modules/banking',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'coming_soon',
@@ -67,16 +189,26 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     status: 'coming_soon',
     provider_slugs: [],
     planned_provider_slugs: ['twelve_data', 'alpaca', 'bitvavo', 'tradingview_alerts'],
+    tool_cards: [
+      { verb: 'get_positions', label: 'Positions', description: 'List open positions.', kind: 'read' },
+      { verb: 'get_quotes', label: 'Quotes', description: 'Fetch quotes for watchlist symbols.', kind: 'read' },
+      { verb: 'list_watchlist', label: 'Watchlists', description: 'List tracked symbols.', kind: 'read' },
+      {
+        verb: 'propose_order',
+        label: 'Propose order',
+        description: 'Draft a trade order; execution waits for approval.',
+        kind: 'propose',
+      },
+    ],
     verb_labels: ['Positions', 'Quotes', 'Watchlists'],
     needs_when: 'positions, quotes, watchlists, or trade orders',
     setup_steps: [
       'This module is prepared but not connectable yet.',
       'When a broker or market-data connector ships, orders will land as decisions.',
     ],
-    capability_summary:
-      'Later: positions, quotes, and watchlists. Orders stay a human-approved proposal.',
+    capability_summary: 'Later: positions, quotes, and watchlists.',
     setup_path: '/modules/investing',
-    workspace_path: '/ai/modules/investing',
+    workspace_path: '/modules/investing',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'coming_soon',
@@ -89,16 +221,26 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     status: 'coming_soon',
     provider_slugs: [],
     planned_provider_slugs: ['google_drive', 'microsoft_graph_files', 'dropbox'],
+    tool_cards: [
+      { verb: 'search', label: 'Search files', description: 'Search external storage.', kind: 'read' },
+      { verb: 'list', label: 'List files', description: 'List files in a folder.', kind: 'read' },
+      { verb: 'get_content', label: 'Read content', description: 'Read file content into Knowledge.', kind: 'read' },
+      {
+        verb: 'propose_upload',
+        label: 'Propose upload',
+        description: 'Propose uploading a file after approval.',
+        kind: 'propose',
+      },
+    ],
     verb_labels: ['Search files', 'List files', 'Read content'],
     needs_when: 'files that live in Drive, SharePoint, or Dropbox',
     setup_steps: [
       'This module is prepared but not connectable yet.',
       'When a storage connector ships, reads feed Knowledge and uploads stay decisions.',
     ],
-    capability_summary:
-      'Later: search and read external files into Knowledge. Uploads stay a human-approved proposal.',
+    capability_summary: 'Later: search and read external files into Knowledge.',
     setup_path: '/modules/documents',
-    workspace_path: '/ai/modules/documents',
+    workspace_path: '/modules/documents',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'coming_soon',
@@ -125,6 +267,43 @@ export function plannedProviderLabel(slug: string): string {
   return PLANNED_PROVIDER_LABELS[slug] ?? slug.replace(/_/g, ' ')
 }
 
+/** Sidebar / rail icon per module slug (catalog Modules tab stays Boxes). */
+const MODULE_NAV_ICONS: Record<string, LucideIcon> = {
+  accounting: Calculator,
+  banking: Landmark,
+  investing: TrendingUp,
+  documents: FileText,
+}
+
+export function moduleNavIcon(slug: string): LucideIcon {
+  return MODULE_NAV_ICONS[slug] ?? BookOpen
+}
+
+/** Resolve tool cards from API or legacy verb_labels / verbs arrays. */
+export function resolveModuleToolCards(
+  module: Pick<IntegrationModuleRow, 'slug' | 'tool_cards' | 'verbs' | 'propose_verbs' | 'verb_labels'>,
+): ModuleToolCard[] {
+  if (module.tool_cards && module.tool_cards.length > 0) return module.tool_cards
+  const reads = (module.verbs ?? []).map((verb, i) => ({
+    verb,
+    label: module.verb_labels?.[i] ?? verb,
+    description: '',
+    kind: 'read' as const,
+  }))
+  const proposes = (module.propose_verbs ?? []).map((verb) => ({
+    verb,
+    label: verb,
+    description: '',
+    kind: 'propose' as const,
+  }))
+  return [...reads, ...proposes]
+}
+
+export function moduleToolPath(moduleSlug: string, verb: string): string {
+  if (verb.startsWith(`${moduleSlug}_`)) return verb
+  return `${moduleSlug}_${verb}`
+}
+
 /** i18n key fragment for a catalog verb label, e.g. "Invoices and bills" → "invoices_and_bills". */
 export function verbLabelKey(label: string): string {
   return label
@@ -143,11 +322,10 @@ export function moduleHomePath(module: Pick<IntegrationModuleRow, 'slug' | 'setu
 }
 
 export function moduleWorkspacePath(
-  module: Pick<IntegrationModuleRow, 'slug' | 'workspace_path'>,
+  module: Pick<IntegrationModuleRow, 'slug' | 'workspace_path' | 'setup_path'>,
 ): string {
-  const path = module.workspace_path?.trim()
-  if (path?.startsWith('/ai/modules/')) return path
-  return `/ai/modules/${encodeURIComponent(module.slug)}`
+  // Single module page: workspace and setup share `/modules/:slug`.
+  return moduleHomePath(module)
 }
 
 export function moduleInstallState(

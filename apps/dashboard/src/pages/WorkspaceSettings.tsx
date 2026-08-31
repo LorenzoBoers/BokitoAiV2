@@ -146,7 +146,7 @@ export default function WorkspaceSettings() {
             </span>
           </Link>
           <Link
-            to="/settings/marketplace"
+            to="/modules/marketplace"
             className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
           >
             <Puzzle size={14} className="shrink-0 text-accent" />

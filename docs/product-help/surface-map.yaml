@@ -103,8 +103,10 @@ communication:
 agent-runs:
   section: inbox
   routes:
+    - /communication/activity
     - /communication/runs
     - /communication/runs/all
+    - /communication/agent/{agentId}/activity
   code_globs:
     - apps/dashboard/src/pages/Communication.tsx
     - apps/dashboard/src/components/inbox/ThreadList.tsx
@@ -265,13 +267,11 @@ models:
 integrations:
   section: integrations
   routes:
-    - /settings/integrations
-    - /settings/marketplace
     - /modules
+    - /modules/connected
+    - /modules/marketplace
     - /modules/:slug
     - /ai/modules/:slug
-    - /settings/modules
-    - /settings/modules/:slug
   code_globs:
     - apps/dashboard/src/pages/IntegrationsConnected.tsx
     - apps/dashboard/src/pages/IntegrationsMarketplace.tsx
@@ -292,7 +292,7 @@ integrations:
 mcp:
   section: integrations
   routes:
-    - /settings/mcp
+    - /modules/tools
   code_globs:
     - apps/dashboard/src/components/mcp/**
     - apps/dashboard/src/pages/IntegrationsMcp.tsx

@@ -521,6 +521,24 @@ class AgentLoop:
             commit=True,
         )
 
+    async def _maybe_promote_to_task(self, tool_name: str) -> None:
+        """Lazy Task promotion: the first real-work tool call puts this run
+        on the ledger. Plain Q&A turns never reach here with a work tool, so
+        they stay Run-only."""
+        if self.run is None or self.run.task_id is not None:
+            return
+        from app.services.task_ledger import is_work_tool, promote_run_to_task
+
+        if not is_work_tool(tool_name):
+            return
+        await promote_run_to_task(
+            self.session,
+            self.run,
+            trust=self.trust,
+            signal_id=self.tool_signal_id,
+            first_tool=tool_name,
+        )
+
     async def _execute_tool_loop(
         self,
         llm_messages: list[dict[str, Any]],
@@ -531,6 +549,7 @@ class AgentLoop:
         for tool_use in response_content:
             if tool_use.get("type") != "tool_use":
                 continue
+            await self._maybe_promote_to_task(tool_use["name"])
             await self._log_event("tool_call", tool_use["name"], tool_use.get("input"))
             await self._publish_agent_step(
                 "tool_call",

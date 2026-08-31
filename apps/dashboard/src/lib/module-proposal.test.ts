@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { accountingProposalFromOptions } from './accounting-proposal'
+import { moduleProposalFromOptions } from './module-proposal'
 
-describe('accountingProposalFromOptions', () => {
+describe('moduleProposalFromOptions', () => {
   it('summarizes a party proposal from the apply option payload', () => {
-    const proposal = accountingProposalFromOptions([
+    const proposal = moduleProposalFromOptions([
       {
         action_type: 'accounting_apply_party',
         payload: {
@@ -16,17 +16,18 @@ describe('accountingProposalFromOptions', () => {
       },
       { action_type: 'reject' },
     ])
+    expect(proposal?.module).toBe('accounting')
     expect(proposal?.kind).toBe('party')
     expect(proposal?.rows).toEqual([
       { label: 'company', value: '2635 - Demo CSW' },
-      { label: 'party', value: 'Bokito Test BV' },
-      { label: 'kind', value: 'customer' },
+      { label: 'role', value: 'customer' },
+      { label: 'name', value: 'Bokito Test BV' },
       { label: 'email', value: 'test@bokito.ai' },
     ])
   })
 
   it('totals booking lines', () => {
-    const proposal = accountingProposalFromOptions([
+    const proposal = moduleProposalFromOptions([
       {
         action_type: 'accounting_apply_booking',
         payload: {
@@ -39,8 +40,20 @@ describe('accountingProposalFromOptions', () => {
     expect(proposal?.rows).toContainEqual({ label: 'lines', value: '2 — 100.00' })
   })
 
-  it('returns null without an accounting apply option', () => {
-    expect(accountingProposalFromOptions([{ action_type: 'send_reply', payload: {} }])).toBeNull()
-    expect(accountingProposalFromOptions([])).toBeNull()
+  it('handles any module slug without UI changes', () => {
+    const proposal = moduleProposalFromOptions([
+      {
+        action_type: 'banking_apply_payment',
+        payload: { amount: 1250, counterparty: 'Belastingdienst' },
+      },
+    ])
+    expect(proposal?.module).toBe('banking')
+    expect(proposal?.kind).toBe('payment')
+    expect(proposal?.rows).toContainEqual({ label: 'amount', value: '1250' })
+  })
+
+  it('returns null without a module apply option', () => {
+    expect(moduleProposalFromOptions([{ action_type: 'send_reply', payload: {} }])).toBeNull()
+    expect(moduleProposalFromOptions([])).toBeNull()
   })
 })

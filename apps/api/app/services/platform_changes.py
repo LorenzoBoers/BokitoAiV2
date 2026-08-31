@@ -232,56 +232,32 @@ async def propose_platform_change(
     session.add(change)
     await session.flush()
 
-    from app.models.notification import DecisionRequest, Notification
-    from app.services.notification_mail import decision_bell_status
-
-    notification = Notification(
-        tenant_id=tenant.id,
-        user_id=user_id,
-        kind="decision_request",
-        title=f"Review: {summary}",
-        body=summary,
-        status=await decision_bell_status(session, tenant.id, user_id),
-        payload_json=json.dumps({"platform_change_id": str(change.id)}),
-    )
-    session.add(notification)
-    await session.flush()
-    decision = DecisionRequest(
-        tenant_id=tenant.id,
-        notification_id=notification.id,
-        title=f"Review: {summary}",
-        summary=summary,
-        status="awaiting_human",
-        platform_change_id=change.id,
-        signal_id=signal_id,
-        options_json=json.dumps(
-            [
-                {
-                    "id": "approve",
-                    "label": "Approve",
-                    "action_type": "accept_platform_change",
-                    "payload": {"platform_change_id": str(change.id)},
-                },
-                {"id": "reject", "label": "Reject", "action_type": "reject"},
-            ]
-        ),
-    )
-    session.add(decision)
-    change.decision_id = decision.id
-    await session.flush()
-
     # Land the approval in Messages (same thread as the agent that proposed it
     # when signal_id is known; otherwise create an internal Activity thread).
-    from app.services.signal_decisions import append_decision_to_signal
+    from app.services.signal_decisions import create_decision
 
-    await append_decision_to_signal(
+    decision, _ = await create_decision(
         session,
         tenant.id,
-        decision,
+        title=f"Review: {summary}",
+        summary=summary,
+        options=[
+            {
+                "id": "approve",
+                "label": "Approve",
+                "action_type": "accept_platform_change",
+                "payload": {"platform_change_id": str(change.id)},
+            },
+            {"id": "reject", "label": "Reject", "action_type": "reject"},
+        ],
         user_id=user_id,
         agent_id=agent.id if agent else None,
         signal_id=signal_id,
+        platform_change_id=change.id,
+        notification_payload={"platform_change_id": str(change.id)},
     )
+    change.decision_id = decision.id
+    await session.flush()
 
     from app.gateway.publish import publish_decision
 

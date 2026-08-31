@@ -1,49 +1,40 @@
 /**
  * Navigation model for the control shell.
  *
- * Target rail: Cockpit, Communication, Contacts, Agenda, Projects,
- * Agents, Knowledge, Modules, Settings. Cockpit hosts Overview/Activity/Usage
- * as inner tabs; Knowledge hosts workspace docs including skills and memory.
+ * Rail: Communication, Agenda, Projects, Agents, Modules, Settings (6).
+ * Cockpit is demoted to a Reports view under Settings; Contacts nests under
+ * Communication; Knowledge nests under the Agents (AI) group.
  */
 
 import {
   Bot,
   Boxes,
-  Brain,
   CalendarDays,
-  Contact,
   FolderKanban,
-  Gauge,
   MessageSquare,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
 
 export type Tab =
-  | 'cockpit'
   | 'communication'
-  | 'contacts'
   | 'agenda'
   | 'agents'
   | 'projects'
-  | 'knowledge'
   | 'modules'
   | 'settings'
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Control', tabs: ['cockpit', 'communication', 'contacts', 'agenda', 'projects'] },
-  { label: 'AI', tabs: ['agents', 'knowledge'] },
+  { label: 'Control', tabs: ['communication', 'agenda', 'projects'] },
+  { label: 'AI', tabs: ['agents'] },
   { label: 'Settings', tabs: ['modules', 'settings'] },
 ]
 
 export const TAB_PATHS: Record<Tab, string> = {
-  cockpit: '/cockpit',
   communication: '/communication/inbox/open',
-  contacts: '/contacts',
   agenda: '/agenda',
   agents: '/agents',
   projects: '/projects',
-  knowledge: '/knowledge',
   modules: '/modules',
   settings: '/settings',
 }
@@ -51,39 +42,32 @@ export const TAB_PATHS: Record<Tab, string> = {
 /** Scheduled flows and recurring wakes — not the week calendar. */
 export const AGENDA_AUTOMATIONS_PATH = '/agenda?view=automations' as const
 
+/** Reports (former Cockpit): overview, activity and usage, linked from Settings. */
+export const REPORTS_PATH = '/cockpit' as const
+
 const TAB_ICONS: Record<Tab, LucideIcon> = {
-  cockpit: Gauge,
   communication: MessageSquare,
-  contacts: Contact,
   agenda: CalendarDays,
   agents: Bot,
   projects: FolderKanban,
-  // Knowledge identity: violet brain, recurring across the platform.
-  knowledge: Brain,
   modules: Boxes,
   settings: Settings,
 }
 
 const TAB_TITLES: Record<Tab, string> = {
-  cockpit: 'Cockpit',
   communication: 'Communication',
-  contacts: 'Contacts',
   agenda: 'Agenda',
   agents: 'Agents',
   projects: 'Projects',
-  knowledge: 'Knowledge',
   modules: 'Modules',
   settings: 'Settings',
 }
 
 const TAB_SUBTITLES: Record<Tab, string> = {
-  cockpit: 'Overview, activity and usage',
   communication: 'Chats, customer and agent threads',
-  contacts: 'People across your channels',
   agenda: 'Scheduled wakes, tasks and events',
   agents: 'People and agents you can chat with',
   projects: 'Shared goals for agents and threads',
-  knowledge: 'Docs, skills and memory',
   modules: 'Business capabilities, packages and sources',
   settings: 'Workspace configuration',
 }
@@ -136,26 +120,29 @@ export function markTabSeen(tab: Tab): void {
 export function tabFromPath(pathname: string): Tab | null {
   if (pathname === '/' || pathname.startsWith('/communication') || pathname.startsWith('/inbox'))
     return 'communication'
+  // Contacts nest under Communication.
+  if (pathname.startsWith('/contacts')) return 'communication'
+  if (pathname.startsWith('/agenda')) return 'agenda'
+  if (pathname.startsWith('/agents')) return 'agents'
+  if (pathname.startsWith('/projects')) return 'projects'
+  // Knowledge nests under the Agents (AI) group.
+  if (
+    pathname.startsWith('/knowledge') ||
+    pathname.startsWith('/workspace') ||
+    pathname.startsWith('/skills')
+  )
+    return 'agents'
+  if (pathname.startsWith('/modules')) return 'modules'
+  // Installed module workspaces live under AI, not Settings.
+  if (pathname.startsWith('/ai/modules')) return null
+  // Reports (former Cockpit) is reached from Settings.
   if (
     pathname.startsWith('/cockpit') ||
     pathname.startsWith('/overview') ||
     pathname.startsWith('/activity') ||
     pathname.startsWith('/usage')
   )
-    return 'cockpit'
-  if (pathname.startsWith('/contacts')) return 'contacts'
-  if (pathname.startsWith('/agenda')) return 'agenda'
-  if (pathname.startsWith('/agents')) return 'agents'
-  if (pathname.startsWith('/projects')) return 'projects'
-  if (
-    pathname.startsWith('/knowledge') ||
-    pathname.startsWith('/workspace') ||
-    pathname.startsWith('/skills')
-  )
-    return 'knowledge'
-  if (pathname.startsWith('/modules')) return 'modules'
-  // Installed module workspaces live under AI, not Settings.
-  if (pathname.startsWith('/ai/modules')) return null
+    return 'settings'
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
   return null
 }

@@ -161,52 +161,27 @@ async def create_action_suggestion(
             },
         )
 
-    from app.services.notification_mail import decision_bell_status
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+    from app.services.signal_decisions import create_decision
 
-    notification = Notification(
-        tenant_id=tenant_id,
+    decision, message = await create_decision(
+        session,
+        tenant_id,
+        title=NO_REPLY_DECISION_TITLE,
+        summary=text,
+        options=options,
         user_id=signal.assigned_user_id,
-        kind="decision_request",
-    title="No reply needed",
-    body=text[:500],
-    status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
-    payload_json=json.dumps(
-        {
+        agent_id=agent.id if agent else None,
+        signal_id=signal.id,
+        project_id=signal.project_id,
+        notification_title="No reply needed",
+        notification_payload={
             "kind": "action_suggestion",
             "channel": signal.channel,
             "signal_id": str(signal.id),
             "reason": reason,
             "run_id": str(run_id) if run_id else None,
-        }
-    ),
-    )
-    session.add(notification)
-    await session.flush()
-
-    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
-
-    decision = DecisionRequest(
-        tenant_id=tenant_id,
-        notification_id=notification.id,
-        title=NO_REPLY_DECISION_TITLE,
-        summary=text,
-        options_json=json.dumps(options),
-        status="awaiting_human",
-        project_id=signal.project_id,
-    )
-    session.add(decision)
-    await session.flush()
-
-    from app.services.signal_decisions import ingest_decision_request
-
-    message = await ingest_decision_request(
-        session,
-        tenant_id,
-        notification,
-        decision,
-        user_id=signal.assigned_user_id,
-        agent_id=agent.id if agent else None,
-        signal_id=signal.id,
+        },
     )
     apply_suggested_actions(signal)
     session.add(signal)
@@ -388,48 +363,24 @@ async def create_human_attention_suggestion(
             "input_placeholder": "e.g. Draft a short confirmation that we will call today",
         },
     ]
-    from app.services.notification_mail import decision_bell_status
-    from app.services.signal_decisions import ingest_decision_request
+    from app.services.signal_decisions import create_decision
 
-    notification = Notification(
-        tenant_id=tenant_id,
-        user_id=signal.assigned_user_id,
-        kind="decision_request",
-        title="Needs your attention",
-        body=text[:500],
-        status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
-        payload_json=json.dumps(
-            {
-                "kind": "needs_attention",
-                "channel": signal.channel,
-                "signal_id": str(signal.id),
-                "run_id": str(run_id) if run_id else None,
-            }
-        ),
-    )
-    session.add(notification)
-    await session.flush()
-
-    decision = DecisionRequest(
-        tenant_id=tenant_id,
-        notification_id=notification.id,
-        title="Needs your attention",
-        summary=text,
-        options_json=json.dumps(options),
-        status="awaiting_human",
-        project_id=signal.project_id,
-    )
-    session.add(decision)
-    await session.flush()
-
-    message = await ingest_decision_request(
+    decision, message = await create_decision(
         session,
         tenant_id,
-        notification,
-        decision,
+        title="Needs your attention",
+        summary=text,
+        options=options,
         user_id=signal.assigned_user_id,
         agent_id=agent.id if agent else None,
         signal_id=signal.id,
+        project_id=signal.project_id,
+        notification_payload={
+            "kind": "needs_attention",
+            "channel": signal.channel,
+            "signal_id": str(signal.id),
+            "run_id": str(run_id) if run_id else None,
+        },
     )
     apply_suggested_actions(signal)
     session.add(signal)
@@ -503,53 +454,29 @@ async def create_reply_suggestion(
         if isinstance(opt.get("payload"), dict):
             opt["payload"]["signal_id"] = str(signal.id)
 
-    from app.services.notification_mail import decision_bell_status
     from app.services.signal_threads import _defer_open_reply_suggestions
 
     # One open suggestion per thread: a newer draft replaces the leftover card.
     await _defer_open_reply_suggestions(session, tenant_id, signal.id)
 
-    notification = Notification(
-        tenant_id=tenant_id,
-        user_id=signal.assigned_user_id,
-        kind="decision_request",
-        title="Suggested reply",
-        body=text[:500],
-        status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
-        payload_json=json.dumps(
-            {
-                "kind": "reply_suggestion",
-                "channel": signal.channel,
-                "signal_id": str(signal.id),
-                "run_id": str(run_id) if run_id else None,
-            }
-        ),
-    )
-    session.add(notification)
-    await session.flush()
+    from app.services.signal_decisions import create_decision
 
-    decision = DecisionRequest(
-        tenant_id=tenant_id,
-        notification_id=notification.id,
-        title="Suggested reply",
-        summary=text,
-        options_json=json.dumps(options),
-        status="awaiting_human",
-        project_id=signal.project_id,
-    )
-    session.add(decision)
-    await session.flush()
-
-    from app.services.signal_decisions import ingest_decision_request
-
-    message = await ingest_decision_request(
+    decision, message = await create_decision(
         session,
         tenant_id,
-        notification,
-        decision,
+        title="Suggested reply",
+        summary=text,
+        options=options,
         user_id=signal.assigned_user_id,
         agent_id=agent.id,
         signal_id=signal.id,
+        project_id=signal.project_id,
+        notification_payload={
+            "kind": "reply_suggestion",
+            "channel": signal.channel,
+            "signal_id": str(signal.id),
+            "run_id": str(run_id) if run_id else None,
+        },
     )
 
     apply_suggested_actions(signal)

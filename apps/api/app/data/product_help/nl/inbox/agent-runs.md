@@ -1,24 +1,30 @@
 ---
-title: Agent-runs bekijken
-intro: Geplande scans en afgeronde resultaten staan hier — open goedkeuringen staan onder Beslissingen.
-description: Open Agent-runs om gepland werk te bekijken zonder het te mengen met klant-Open. Wachtende goedkeuringen gebruiken het blad Beslissingen.
-keywords: agent-runs, gepland, resultaten, wachtrij, inbox
+title: Agent-activiteit volgen
+intro: Geplande scans en afgeronde resultaten staan onder Activiteit — open goedkeuringen staan onder Beslissingen.
+description: Open Activiteit om agentwerk te bekijken zonder het te mengen met klant-Open. Wachtende goedkeuringen gebruiken het blad Beslissingen.
+keywords: activiteit, agent-runs, gepland, resultaten, wachtrij, inbox
 sort: 15
 related: communication,decisions,agenda,cockpit
 ---
 
-# Agent-runs bekijken
+# Agent-activiteit volgen
 
-Agent-runs zijn intern werk: een geplande scan, een opvolging, een afgerond resultaat. Ze blijven buiten Open zodat klantmail niet concurreert met achtergrondwerk. Open goedkeuringen staan onder [Beslissingen](/docs/ai/decisions), niet als vierde Agent-runs-chip.
+Activiteit is het live werklog van je AI: een terminal-achtige feed van alles wat agents deden en aan het doen zijn, gestreamd terwijl het gebeurt. Het blijft buiten Open zodat klantmail niet concurreert met achtergrondwerk. Open goedkeuringen staan onder [Beslissingen](/docs/ai/decisions).
 
-## Open de runs-lijst
+## Open de Activiteit-terminal
 
-![Agent-runs-lijst](/api/docs/assets/agent-runs/runs-list.png)
-*Gepland werk blijft buiten Open.*
+![Agent-activiteitlijst](/api/docs/assets/agent-runs/runs-list.png)
+*Een live log voor de hele AI-workforce.*
 
-1. Open in Communicatie **Agent-runs** (via Agents of een deep link). Klantmail blijft onder **Alle communicatie**.
-2. Gebruik de chips **Alles**, **Updates** en **Resultaten**. **Updates** is werk in uitvoering. **Resultaten** zijn afgeronde runs.
-3. Voor items die op een ja of nee wachten, open het zijbalkblad **Beslissingen** — dezelfde lijst als Cockpit **Wacht op beslissing**. Een gepauzeerde agent maakt een wake niet af tot je die hervat onder [Agents](/docs/ai/agents).
+1. Open in Communicatie **Activiteit**, vastgezet onderin de zijbalk naast Contacten. Klantmail blijft onder **Alle communicatie**.
+2. Lees het log als een terminal: elke regel toont de tijd, de agent, de stap en het resultaat — groen voor afgerond werk, rood voor fouten, blauw voor werk in uitvoering. Nieuwe regels streamen live binnen; **Naar nieuwste** laat de weergave het einde volgen.
+3. Filter met de agent-chips bovenaan of het zoekveld; **Ouder laden** bladert verder terug in de historie.
+4. Klik op een regel om het run-gesprek erachter te openen. Voor items die op een ja of nee wachten, open de paarse sub-weergave **Beslissingen** onder Alle communicatie — dezelfde lijst als Rapportages **Wacht op beslissing**. Een gepauzeerde agent maakt een wake niet af tot je die hervat onder [Agents](/docs/ai/agents).
+
+## Bekijk het werklog van een agent
+
+1. Vouw in de sectie **Agents** van de zijbalk de map van een agent uit.
+2. Open de sub-weergave **Activiteit**. Die opent dezelfde terminal, gefilterd op die agent — je chats met de agent blijven in zijn map, het werklog blijft in Activiteit, nooit gemengd in een lijst.
 
 ## Open een run en beslis
 

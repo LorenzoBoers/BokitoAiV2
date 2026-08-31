@@ -1,8 +1,9 @@
-"""Per-tenant encrypted secret store (LLM provider API keys).
+"""Legacy BYOK helpers on top of ProviderConnection.
 
-Wraps the ``TenantSecret`` table with the Fernet crypto helper. The raw key
-is only ever returned by ``get_secret`` for server-side provider calls; the
-client-facing ``list_status`` returns masked metadata only.
+The old ``tenant_secrets`` table is gone: per-tenant LLM keys live in
+``ProviderConnection`` (one row per provider label). These helpers keep the
+simple provider-keyed API used by model resolution and the settings screen —
+one implicit connection per base provider (anthropic / openai).
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.secret import TenantSecret
+from app.models.provider import ProviderConnection
 from app.services.crypto import decrypt_secret, encrypt_secret
 
 LLM_PROVIDERS = ("anthropic", "openai")
@@ -25,77 +26,77 @@ def _last4(raw: str) -> str:
     return raw[-4:] if len(raw) >= 4 else raw
 
 
+async def _provider_row(
+    session: AsyncSession, tenant_id: UUID, provider: str
+) -> ProviderConnection | None:
+    """Oldest connection of this base provider type (the implicit BYOK slot)."""
+    result = await session.execute(
+        select(ProviderConnection)
+        .where(
+            ProviderConnection.tenant_id == tenant_id,
+            ProviderConnection.provider_type == provider,
+        )
+        .order_by(ProviderConnection.created_at.asc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def set_secret(
     session: AsyncSession, tenant_id: UUID, provider: str, raw: str
-) -> TenantSecret:
+) -> ProviderConnection:
     raw = (raw or "").strip()
     if not raw:
         raise ValueError("Secret value cannot be empty")
-    result = await session.execute(
-        select(TenantSecret).where(
-            TenantSecret.tenant_id == tenant_id, TenantSecret.provider == provider
-        )
-    )
-    secret = result.scalar_one_or_none()
+    conn = await _provider_row(session, tenant_id, provider)
     now = datetime.utcnow()
-    if secret:
-        secret.encrypted_value = encrypt_secret(raw)
-        secret.last4 = _last4(raw)
-        secret.updated_at = now
+    if conn:
+        conn.encrypted_value = encrypt_secret(raw)
+        conn.last4 = _last4(raw)
+        conn.updated_at = now
     else:
-        secret = TenantSecret(
+        from app.services.provider_connections import DEFAULT_LABELS
+
+        conn = ProviderConnection(
             tenant_id=tenant_id,
-            provider=provider,
+            provider_type=provider,
+            label=DEFAULT_LABELS.get(provider, provider),
             encrypted_value=encrypt_secret(raw),
             last4=_last4(raw),
         )
-        session.add(secret)
+        session.add(conn)
     await session.commit()
-    await session.refresh(secret)
-    return secret
+    await session.refresh(conn)
+    return conn
 
 
 async def get_secret(session: AsyncSession, tenant_id: UUID, provider: str) -> str | None:
-    result = await session.execute(
-        select(TenantSecret).where(
-            TenantSecret.tenant_id == tenant_id, TenantSecret.provider == provider
-        )
-    )
-    secret = result.scalar_one_or_none()
-    if not secret or not secret.encrypted_value:
+    conn = await _provider_row(session, tenant_id, provider)
+    if not conn or not conn.encrypted_value or not conn.enabled:
         return None
-    value = decrypt_secret(secret.encrypted_value)
+    value = decrypt_secret(conn.encrypted_value)
     return value or None
 
 
 async def list_status(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
-    result = await session.execute(
-        select(TenantSecret).where(TenantSecret.tenant_id == tenant_id)
-    )
-    by_provider = {s.provider: s for s in result.scalars().all()}
     status: list[dict[str, Any]] = []
     for provider in LLM_PROVIDERS:
-        secret = by_provider.get(provider)
+        conn = await _provider_row(session, tenant_id, provider)
         status.append(
             {
                 "provider": provider,
-                "is_set": bool(secret and secret.encrypted_value),
-                "last4": secret.last4 if secret else "",
-                "updated_at": secret.updated_at.isoformat() if secret else None,
+                "is_set": bool(conn and conn.encrypted_value and conn.enabled),
+                "last4": conn.last4 if conn else "",
+                "updated_at": conn.updated_at.isoformat() if conn else None,
             }
         )
     return status
 
 
 async def delete_secret(session: AsyncSession, tenant_id: UUID, provider: str) -> bool:
-    result = await session.execute(
-        select(TenantSecret).where(
-            TenantSecret.tenant_id == tenant_id, TenantSecret.provider == provider
-        )
-    )
-    secret = result.scalar_one_or_none()
-    if not secret:
+    conn = await _provider_row(session, tenant_id, provider)
+    if not conn:
         return False
-    await session.delete(secret)
-    await session.commit()
-    return True
+    from app.services.provider_connections import delete_connection
+
+    return await delete_connection(session, tenant_id, conn.id)

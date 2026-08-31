@@ -360,7 +360,7 @@ export default function IntegrationsMarketplace() {
                 <Link to="/modules" className="font-medium text-accent hover:underline">
                   {t('integrations.marketplace.openModules')}
                 </Link>
-                <Link to="/settings/integrations" className="font-medium text-accent hover:underline">
+                <Link to="/modules/connected" className="font-medium text-accent hover:underline">
                   {t('integrations.marketplace.openConnected')}
                 </Link>
               </div>

@@ -118,8 +118,8 @@ def _ensure_builtin_loaded() -> None:
     if _builtin_loaded:
         return
     _builtin_loaded = True
-    import app.tools.accounting  # noqa: F401 — registers accounting module tools
     import app.tools.calendar  # noqa: F401 — registers calendar tools
+    import app.tools.module_tools  # noqa: F401 — registers {slug}_{verb} tools from the catalog
     import app.tools.modules  # noqa: F401 — registers list_modules / recommend_module
     import app.tools.builtin  # noqa: F401 — registers built-in tools
     import app.tools.project_work  # noqa: F401 — registers project queue/doc tools

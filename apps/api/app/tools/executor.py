@@ -56,6 +56,20 @@ async def execute_tool(
         )
         return {"error": f"Tool '{tool_name}' not permitted for this agent", "status": "denied"}
 
+    # Resource-scope enforcement (per-agent allowlists for projects etc.).
+    from app.services.agent_scopes import check_tool_scope
+
+    scope_error = await check_tool_scope(
+        session, tenant_id, agent, tool_input, project_id=project_id, write=spec.mutating
+    )
+    if scope_error:
+        await record_audit(
+            session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+            agent_id=agent_id, run_id=run_id, outcome="denied",
+            summary="Denied by agent resource scope", payload=tool_input,
+        )
+        return {"error": scope_error, "status": "denied"}
+
     # Allowance policy resolution.
     mode, reason = "allow", "approved"
     if not approved:

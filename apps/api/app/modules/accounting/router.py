@@ -7,9 +7,9 @@ missing.
 
 Writes: ``build_proposal`` shapes a DecisionRequest whose approve option is
 the matching ``accounting_apply_*`` tool. Apply verbs run here only after
-human approval and only when both write switches are on
-(``ACCOUNTING_WRITES_ENABLED`` env + ``modules.accounting.writes_enabled``
-tenant pref); otherwise they return a ``writes_disabled`` error.
+human approval and only when both write switches are on (``accounting`` in
+the ``MODULE_WRITES_ENABLED`` env + the tenant's ModuleInstall
+``writes_enabled`` pref); otherwise they return a ``writes_disabled`` error.
 """
 
 from __future__ import annotations
@@ -408,29 +408,22 @@ async def _summarize(
 
 
 async def writes_gate(session: AsyncSession, tenant_id: UUID) -> dict[str, Any] | None:
-    """Return a writes_disabled error unless BOTH write switches are on.
+    """Both write switches (platform env + tenant ModuleInstall pref) must be on."""
+    from app.modules.dispatch import module_writes_gate
 
-    Platform: env ACCOUNTING_WRITES_ENABLED (default off).
-    Tenant: modules.accounting.writes_enabled pref (default off).
-    """
-    if not get_settings().accounting_writes_enabled:
-        return module_error(
-            "writes_disabled",
-            "Accounting writes are disabled on this platform "
-            "(ACCOUNTING_WRITES_ENABLED is off). The approved decision is "
-            "recorded, but nothing was written to the accounting package.",
-        )
-    from app.modules.catalog import get_module_prefs
+    return await module_writes_gate(session, tenant_id, "accounting")
 
-    prefs = await get_module_prefs(session, tenant_id, "accounting")
-    if not bool(prefs.get("writes_enabled")):
-        return module_error(
-            "writes_disabled",
-            "Accounting writes are disabled for this workspace. An owner or "
-            "admin can enable them under Modules > Accounting. The approved "
-            "decision is recorded, but nothing was written.",
-        )
-    return None
+
+# Generic dispatch entry point (app.modules.dispatch imports by convention).
+async def call_verb(
+    session: AsyncSession,
+    tenant_id: UUID,
+    verb: str,
+    args: dict[str, Any] | None = None,
+    *,
+    agent_id: UUID | None = None,
+) -> dict[str, Any]:
+    return await call_accounting_verb(session, tenant_id, verb, args, agent_id=agent_id)
 
 
 def build_proposal(verb: str, args: dict[str, Any]) -> dict[str, Any] | None:

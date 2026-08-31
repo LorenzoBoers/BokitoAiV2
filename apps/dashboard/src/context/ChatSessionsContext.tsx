@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthContext'
-import { bokitoListConversations, type ConversationWithAgent } from '../lib/bokito-api'
+import { bokitoListConversations, type ConversationWithAgent } from '../lib/signals-api'
 import { agentChatPath, newConversationPath } from '../lib/messages-paths'
 import { onGatewayEvent } from '../lib/gateway'
 

@@ -11,14 +11,14 @@ async def test_chat_flow(client: AsyncClient):
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    targets = await client.get("/api/chat/targets", headers=headers)
+    targets = await client.get("/api/signals/chat/targets", headers=headers)
     assert targets.status_code == 200
     items = targets.json()["items"]
     assert items, "seeded workspace must expose at least one company agent"
     agent_id = items[0]["id"]
 
     conv = await client.post(
-        "/api/chat/conversations",
+        "/api/signals/conversations",
         json={"title": "Test chat", "agent_id": agent_id},
         headers=headers,
     )
@@ -26,7 +26,7 @@ async def test_chat_flow(client: AsyncClient):
     conv_id = conv.json()["id"]
 
     msg = await client.post(
-        f"/api/chat/conversations/{conv_id}/messages",
+        f"/api/signals/conversations/{conv_id}/messages",
         json={"content": "What is Bokito?"},
         headers=headers,
     )
@@ -46,7 +46,7 @@ async def test_chat_targets_company_only_and_create_requires_agent(
     login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
-    targets = await client.get("/api/chat/targets", headers=headers)
+    targets = await client.get("/api/signals/chat/targets", headers=headers)
     assert targets.status_code == 200
     payload = targets.json()
     assert all(item.get("kind") == "company" for item in payload["items"])
@@ -69,7 +69,7 @@ async def test_chat_targets_company_only_and_create_requires_agent(
     await session_override.commit()
 
     missing = await client.post(
-        "/api/chat/conversations",
+        "/api/signals/conversations",
         json={"title": "No agent"},
         headers=headers,
     )
@@ -101,7 +101,7 @@ async def test_admin_sees_all_company_agents_in_targets(client: AsyncClient, ses
 
     # The seeded user is the workspace owner: targets must include the
     # nobody-access agent.
-    targets = await client.get("/api/chat/targets", headers=headers)
+    targets = await client.get("/api/signals/chat/targets", headers=headers)
     assert targets.status_code == 200
     names = {item["name"] for item in targets.json()["items"]}
     assert "Hidden Ops Agent" in names

@@ -1,26 +1,22 @@
 import { appRoutes } from '../api/routes/app.routes'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
-export type RuntimeProfile = {
-  id: string
-  name: string
-  slug: string
-  role_tag: string
-  model: string
-  provider: string
-  max_loops: number
-  max_cost_cents: number
-}
-
 export type AgentTask = {
   id: string
+  kind?: string
   title: string
   description: string
   status: string
+  priority?: string
+  origin?: string
   pause_reason?: string | null
   signal_id?: string | null
   workstream_id?: string | null
   current_step_id?: string | null
+  assignee_kind?: string
+  assignee_agent_id?: string | null
+  assignee_user_id?: string | null
+  scheduled_for?: string | null
   context?: Record<string, unknown>
   created_at?: string
   completed_at?: string | null
@@ -39,7 +35,6 @@ export type WorkstreamStep = {
   name: string
   order: number
   agent_id?: string | null
-  runtime_profile_id?: string | null
   step_kind: string
   prompt_template?: string
   handoff_template?: string
@@ -61,14 +56,6 @@ export async function createWorkstream(body: { name: string; description?: strin
   return apiPost<{ id: string }>(appRoutes.orchestration.workstreams, body)
 }
 
-export async function listRuntimeProfiles(): Promise<RuntimeProfile[]> {
-  return apiGet<RuntimeProfile[]>(appRoutes.orchestration.runtimeProfiles)
-}
-
-export async function createRuntimeProfile(body: Partial<RuntimeProfile> & { name: string }): Promise<{ id: string }> {
-  return apiPost<{ id: string }>(appRoutes.orchestration.runtimeProfiles, body)
-}
-
 export async function listAgentTasks(opts?: { signalId?: string }): Promise<AgentTask[]> {
   const path = opts?.signalId
     ? `${appRoutes.orchestration.tasks}?signal_id=${encodeURIComponent(opts.signalId)}`
@@ -83,7 +70,6 @@ export async function createAgentTask(body: {
   workstream_id?: string
   agent_id?: string
   signal_id?: string
-  default_runtime_profile_id?: string
   success_criteria_json?: string
 }): Promise<AgentTask> {
   return apiPost<AgentTask>(appRoutes.orchestration.tasks, body)

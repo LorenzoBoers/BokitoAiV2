@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
-import { ApplicationCard } from '../components/integrations/ApplicationCard'
 import {
   ApplicationHubDialog,
   type ApplicationHubStep,
@@ -11,16 +10,24 @@ import {
 import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { ModuleConnectionsPanel } from '../components/integrations/ModuleConnectionsPanel'
 import { ModuleSourcesPanel } from '../components/integrations/ModuleSourcesPanel'
+import { ModuleOverview } from '../components/modules/ModuleOverview'
+import {
+  buildModulePackageItems,
+  type ModulePackageItem,
+} from '../components/integrations/ModulePackageGrid'
+import { ModuleProviderPickerDialog } from '../components/integrations/ModuleProviderPickerDialog'
+import { ModuleToolsetDropdown } from '../components/integrations/ModuleToolsetDropdown'
+import { ModuleToolsetPanel } from '../components/integrations/ModuleToolsetPanel'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
 import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
-import { ModuleToolsetDropdown } from '../components/integrations/ModuleToolsetDropdown'
 import { ModuleAgentsSection } from '../components/modules/ModuleAgentsSection'
 import { listAgents } from '../lib/agents-api'
-import { moduleIsInSetup, moduleIsOn, moduleWorkspacePath, plannedProviderLabel, verbLabelKey } from '../lib/integration-modules'
+import type { RuntimeAgent } from '../lib/workforce-api'
+import { moduleIsInSetup, moduleIsOn } from '../lib/integration-modules'
 import {
   parseHubConnectParam,
   stripOAuthCallbackParams,
@@ -64,11 +71,17 @@ export default function ModuleSetupPage() {
   const [hubOffer, setHubOffer] = useState<IntegrationOffer | null>(null)
   const [hubStep, setHubStep] = useState<ApplicationHubStep>('app')
   const [hubBanner, setHubBanner] = useState<HubBanner>(null)
-  const [companyAgents, setCompanyAgents] = useState<Array<{ id: string; name: string }>>([])
+  const [companyAgents, setCompanyAgents] = useState<RuntimeAgent[]>([])
+  const [providerPickerOpen, setProviderPickerOpen] = useState(false)
+  const [connectionsRefreshToken, setConnectionsRefreshToken] = useState(0)
+
+  const bumpConnections = useCallback(() => {
+    setConnectionsRefreshToken((n) => n + 1)
+  }, [])
 
   useEffect(() => {
     void listAgents()
-      .then((rows) => setCompanyAgents(rows.map((a) => ({ id: a.id, name: a.name }))))
+      .then((rows) => setCompanyAgents(rows.filter((a) => a.kind !== 'personal')))
       .catch(() => setCompanyAgents([]))
   }, [])
 
@@ -82,16 +95,14 @@ export default function ModuleSetupPage() {
   const description = module
     ? t(`integrations.modules.${module.slug}.description`, { defaultValue: module.description })
     : ''
-  const apps = useMemo(
-    () =>
-      applications.filter((app) => app.module === slug && app.status !== 'coming_soon'),
+  const moduleApps = useMemo(
+    () => applications.filter((app) => app.module === slug),
     [applications, slug],
   )
-  const comingSoonApps = useMemo(
-    () => applications.filter((app) => app.module === slug && app.status === 'coming_soon'),
-    [applications, slug],
+  const packageItems = useMemo(
+    () => buildModulePackageItems(moduleApps, module?.planned_provider_slugs ?? []),
+    [moduleApps, module?.planned_provider_slugs],
   )
-  const verbLabels = module?.verb_labels ?? []
   const setupSteps = (module?.setup_steps ?? []).map((step, index) =>
     t(`integrations.modules.${module?.slug}.setup.${index}`, { defaultValue: step }),
   )
@@ -100,7 +111,6 @@ export default function ModuleSetupPage() {
         defaultValue: module.capability_summary || '',
       })
     : ''
-  const planned = module?.planned_provider_slugs ?? []
   const canConnect = module?.status === 'available'
   const comingSoon = module?.status === 'coming_soon'
   const on = module ? moduleIsOn(module) : false
@@ -133,6 +143,17 @@ export default function ModuleSetupPage() {
     [],
   )
 
+  const openPackageItem = useCallback(
+    (item: ModulePackageItem) => {
+      if (!canConnect || item.status === 'coming_soon') return
+      const app = item.application
+      if (!app) return
+      const offer = app.offers[0] ?? null
+      openApplicationHub(app, on && offer ? 'offer-setup' : 'app', offer)
+    },
+    [canConnect, on, openApplicationHub],
+  )
+
   const applyCallbackBanner = useCallback(
     (params: URLSearchParams, connectParam: string | null) => {
       const integrationCb = parseIntegrationCallback(params)
@@ -142,12 +163,20 @@ export default function ModuleSetupPage() {
         const providerSlug = integrationCb.provider ?? 'github'
         const staticId = SLUG_TO_STATIC_ID[providerSlug] ?? providerSlug
         if (integrationCb.error) {
-          setHubBanner({ type: 'error', message: integrationCb.error })
+          const errorMessage =
+            integrationCb.error === 'oauth_not_configured'
+              ? t('integrations.hub.setup.oauthNotConfigured', {
+                  defaultValue:
+                    'OAuth for this package is not configured on the server. Set the provider client credentials, then try again.',
+                })
+              : integrationCb.error
+          setHubBanner({ type: 'error', message: errorMessage })
         } else if (integrationCb.connected) {
           setHubBanner({
             type: 'success',
             message: t('integrations.hub.setup.successRemoteMcp'),
           })
+          bumpConnections()
         }
         const target = resolveApplicationConnectTarget(applications, connectParam ?? staticId)
         if (target) {
@@ -179,7 +208,7 @@ export default function ModuleSetupPage() {
 
       return false
     },
-    [applications, openApplicationHub, t],
+    [applications, bumpConnections, openApplicationHub, t],
   )
 
   useEffect(() => {
@@ -215,12 +244,21 @@ export default function ModuleSetupPage() {
     navigate(connectedPathWithKind(kind))
   }
 
-  const openFirstPackage = () => {
-    const app = apps[0]
-    if (!app || !canConnect) return
-    const offer = app.offers[0] ?? null
-    openApplicationHub(app, on && offer ? 'offer-setup' : 'app', offer)
+  const openAddRegistration = () => {
+    if (!canConnect) return
+    setProviderPickerOpen(true)
   }
+
+  const packageHostSlugs = useMemo(() => {
+    const seen = new Set<string>()
+    const slugs: string[] = []
+    for (const item of packageItems) {
+      if (seen.has(item.hostSlug)) continue
+      seen.add(item.hostSlug)
+      slugs.push(item.hostSlug)
+    }
+    return slugs
+  }, [packageItems])
 
   const setupPrefill = t('integrations.modules.setup.assistantPrefill', {
     defaultValue:
@@ -260,17 +298,6 @@ export default function ModuleSetupPage() {
             <ArrowLeft size={12} />
             {t('integrations.modules.backToModules', { defaultValue: 'Back to Modules' })}
           </Link>
-          {module && on ? (
-            <Link
-              to={moduleWorkspacePath(module)}
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              {t('integrations.modules.openWorkspace', {
-                defaultValue: 'Open {{name}}',
-                name,
-              })}
-            </Link>
-          ) : null}
         </div>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -284,13 +311,7 @@ export default function ModuleSetupPage() {
           </div>
           {module && !comingSoon ? (
             <div className="flex flex-wrap items-center gap-2">
-              <ModuleToolsetDropdown
-                moduleSlug={module.slug}
-                verbLabels={verbLabels}
-                verbs={module.verbs}
-                proposeVerbs={module.propose_verbs}
-                capability={capability}
-              />
+              <ModuleToolsetDropdown module={module} />
               <ModuleInstallControls module={module} onAction={runModuleAction} />
             </div>
           ) : null}
@@ -303,7 +324,10 @@ export default function ModuleSetupPage() {
               name,
             })}
           </p>
-        ) : module && !comingSoon && on && !(module.tenant_status === 'connected' || module.connected) ? (
+        ) : module &&
+          !comingSoon &&
+          on &&
+          !(module.tenant_status === 'connected' || module.connected) ? (
           <p className="mt-3 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-sm text-text-primary">
             {t('integrations.modules.installedNoIntegration', {
               defaultValue:
@@ -347,7 +371,7 @@ export default function ModuleSetupPage() {
                 <Link to="/modules" className="font-medium text-accent hover:underline">
                   {t('integrations.modules.openCatalog', { defaultValue: 'Open Modules' })}
                 </Link>
-                <Link to="/settings/marketplace" className="font-medium text-accent hover:underline">
+                <Link to="/modules/marketplace" className="font-medium text-accent hover:underline">
                   {t('integrations.modules.openMarketplace', { defaultValue: 'Open Marketplace' })}
                 </Link>
               </div>
@@ -378,83 +402,37 @@ export default function ModuleSetupPage() {
               {capability ? (
                 <p className="max-w-2xl text-sm text-text-secondary">{capability}</p>
               ) : null}
-              <section>
-                <h3 className="mb-3 text-sm font-semibold text-text-primary">
-                  {t('integrations.modules.connectors', { defaultValue: 'Packages' })}
-                </h3>
-                {apps.length > 0 ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {apps.map((application) => (
-                      <ApplicationCard
-                        key={application.hostSlug}
-                        application={application}
-                        onOpenDetail={() => {
-                          if (!canConnect) return
-                          const offer = application.offers[0] ?? null
-                          openApplicationHub(
-                            application,
-                            on && offer ? 'offer-setup' : 'app',
-                            offer,
-                          )
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-                {planned.length > 0 || comingSoonApps.length > 0 ? (
-                  <div
-                    className={`${apps.length > 0 ? 'mt-3' : ''} rounded-lg border border-dashed border-border-default p-4`}
-                  >
-                    <p className="text-xs text-text-muted">
-                      {t('integrations.modules.planned', {
-                        defaultValue: 'Planned connectors: {{providers}}',
-                        providers: [
-                          ...new Set([
-                            ...planned.map(plannedProviderLabel),
-                            ...comingSoonApps.map((app) => app.name),
-                          ]),
-                        ].join(', '),
+              {on ? <ModuleOverview module={module} applications={applications} /> : null}
+              <ModuleConnectionsPanel
+                slug={slug}
+                onAddPackage={openAddRegistration}
+                packageHostSlugs={packageHostSlugs}
+                refreshToken={connectionsRefreshToken}
+              />
+              {!on ? (
+                <>
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                      {t('integrations.modules.verbsTitle', {
+                        defaultValue: 'What agents can do',
                       })}
-                    </p>
-                  </div>
-                ) : null}
-              </section>
-              {verbLabels.length > 0 ? (
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                    {t('integrations.modules.verbsTitle', { defaultValue: 'What agents can do' })}
-                  </h3>
-                  <ul className="flex flex-wrap gap-1.5">
-                    {verbLabels.map((label) => (
-                      <li
-                        key={label}
-                        className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-text-secondary"
-                      >
-                        {t(`integrations.modules.verbs.${verbLabelKey(label)}`, {
-                          defaultValue: label,
-                        })}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-text-muted">
-                    {t('integrations.modules.writesNote', {
-                      defaultValue: 'Writes always become a decision you approve.',
-                    })}
-                  </p>
-                </section>
+                    </h3>
+                    <ModuleToolsetPanel module={module} />
+                  </section>
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                      {t('integrations.modules.agents.sectionTitle', {
+                        defaultValue: 'Assigned agents',
+                      })}
+                    </h3>
+                    <ModuleAgentsSection
+                      moduleSlug={slug}
+                      agents={companyAgents}
+                      onChanged={() => void refreshCatalog()}
+                    />
+                  </section>
+                </>
               ) : null}
-              <section>
-                <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                  {t('integrations.modules.agents.sectionTitle', {
-                    defaultValue: 'Assigned agents',
-                  })}
-                </h3>
-                <ModuleAgentsSection
-                  moduleSlug={slug}
-                  agents={companyAgents}
-                  onChanged={() => void refreshCatalog()}
-                />
-              </section>
               {visibleSteps.length > 0 ? (
                 <section>
                   <h3 className="mb-2 text-sm font-semibold text-text-primary">
@@ -471,7 +449,12 @@ export default function ModuleSetupPage() {
           ) : null}
 
           {tab === 'connections' ? (
-            <ModuleConnectionsPanel slug={slug} onAddPackage={openFirstPackage} />
+            <ModuleConnectionsPanel
+              slug={slug}
+              onAddPackage={openAddRegistration}
+              packageHostSlugs={packageHostSlugs}
+              refreshToken={connectionsRefreshToken}
+            />
           ) : null}
 
           {tab === 'sources' ? <ModuleSourcesPanel slug={slug} /> : null}
@@ -516,6 +499,13 @@ export default function ModuleSetupPage() {
         </>
       )}
 
+      <ModuleProviderPickerDialog
+        open={providerPickerOpen}
+        onOpenChange={setProviderPickerOpen}
+        items={packageItems}
+        onSelect={openPackageItem}
+      />
+
       <ApplicationHubDialog
         key={
           hubApplication
@@ -539,7 +529,10 @@ export default function ModuleSetupPage() {
         initialOfferId={hubOffer?.integration.id ?? null}
         banner={hubBanner}
         onViewConnected={handleViewConnected}
-        onSaved={() => void refreshCatalog()}
+        onSaved={() => {
+          void refreshCatalog()
+          bumpConnections()
+        }}
       />
     </PageContent>
   )

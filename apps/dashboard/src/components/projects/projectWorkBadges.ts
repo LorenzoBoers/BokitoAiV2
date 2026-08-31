@@ -14,35 +14,35 @@ type BadgeVariant =
 
 export const QUEUE_STATUS_ORDER: QueueItemStatus[] = [
   'proposed',
-  'accepted',
+  'queued',
   'analyzing',
   'planned',
-  'in_progress',
+  'running',
   'verifying',
-  'done',
+  'completed',
   'rejected',
 ]
 
 /** Legal moves per status; mirrors QUEUE_TRANSITIONS in the API. */
 export const QUEUE_TRANSITIONS: Record<QueueItemStatus, QueueItemStatus[]> = {
-  proposed: ['accepted', 'rejected'],
-  accepted: ['analyzing', 'planned', 'rejected'],
-  analyzing: ['planned', 'accepted', 'rejected'],
-  planned: ['in_progress', 'analyzing', 'rejected'],
-  in_progress: ['verifying', 'planned', 'rejected'],
-  verifying: ['done', 'in_progress'],
-  done: [],
+  proposed: ['queued', 'rejected'],
+  queued: ['analyzing', 'planned', 'rejected'],
+  analyzing: ['planned', 'queued', 'rejected'],
+  planned: ['running', 'analyzing', 'rejected'],
+  running: ['verifying', 'planned', 'completed', 'rejected'],
+  verifying: ['completed', 'running'],
+  completed: [],
   rejected: ['proposed'],
 }
 
 export const QUEUE_STATUS_VARIANT: Record<QueueItemStatus, BadgeVariant> = {
   proposed: 'warning',
-  accepted: 'info',
+  queued: 'info',
   analyzing: 'accent',
   planned: 'info',
-  in_progress: 'accent',
+  running: 'accent',
   verifying: 'warning',
-  done: 'success',
+  completed: 'success',
   rejected: 'neutral',
 }
 

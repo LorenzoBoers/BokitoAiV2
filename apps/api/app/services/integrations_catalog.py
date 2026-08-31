@@ -39,6 +39,7 @@ HOSTS: list[dict[str, Any]] = [
     {"id": host_id("higgsfield"), "slug": "higgsfield", "name": "Higgsfield", "brand_color": "#111111", "initials": "HF"},
     {"id": host_id("whatsapp"), "slug": "whatsapp", "name": "WhatsApp", "brand_color": "#25d366", "initials": "WA"},
     {"id": host_id("moneybird"), "slug": "moneybird", "name": "Moneybird", "brand_color": "#0e5b99", "initials": "MB"},
+    {"id": host_id("gocardless"), "slug": "gocardless", "name": "GoCardless", "brand_color": "#f1f252", "initials": "GC"},
     {"id": host_id("exact"), "slug": "exact", "name": "Exact Online", "brand_color": "#e2001a", "initials": "EX"},
     {"id": host_id("snelstart"), "slug": "snelstart", "name": "SnelStart", "brand_color": "#f39200", "initials": "SS"},
 ]
@@ -179,6 +180,17 @@ PROVIDERS: list[dict[str, Any]] = [
         capabilities={"accounting": True},
         sort_order=8,
         module="accounting",
+    ),
+    _provider(
+        "gocardless_bank",
+        "GoCardless Bank Account Data",
+        "Read-only PSD2-toegang tot bankrekeningen, saldi en transacties, onder de Banking-module.",
+        "Bankieren",
+        "api_key",
+        host_slug="gocardless",
+        capabilities={"banking": True},
+        sort_order=11,
+        module="banking",
     ),
     _provider(
         "exact_online",

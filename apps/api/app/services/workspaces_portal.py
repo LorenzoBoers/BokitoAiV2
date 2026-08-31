@@ -816,12 +816,14 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
     # The generic "channel" step was dropped: the email step already covers
     # the flagship channel, and first_decision measures actual AI value.
     # Watching is the seeded platform check-in (enabled heartbeat).
+    # Communication-first order: connect a channel, chat with an agent,
+    # approve a decision, schedule a wake — then profile and team.
     steps = [
         {"id": "email", "done": email_done},
-        {"id": "company", "done": company_done},
         {"id": "assistant", "done": assistant_done},
-        {"id": "watching", "done": watching_done},
         {"id": "first_decision", "done": first_decision_done},
+        {"id": "watching", "done": watching_done},
+        {"id": "company", "done": company_done},
         {"id": "team", "done": team_done},
     ]
     return {"steps": steps, "completed": all(step["done"] for step in steps)}

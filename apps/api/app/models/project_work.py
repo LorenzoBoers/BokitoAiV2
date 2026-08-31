@@ -1,12 +1,12 @@
-"""Conversation-driven project work: queue items, smart-doc sections, resources.
+"""Conversation-driven project work: smart-doc sections, doc links, resources.
 
 The project queue is the motor, the project doc is the truth, the conversation
-is the source. A `ProjectQueueItem` captures an implementation request
-(feature, bug, task, idea, risk) that originated from a thread, a user, or an
-agent. The project agent analyzes it against the project documentation
-(`WorkspaceDoc` rows scoped by `project_id`), links it to the doc sections it
-touches (`QueueItemDocLink`), and drives section statuses on
-`ProjectDocSection` from open through implemented/verified.
+is the source. Queue items live on the unified Task ledger
+(`app.models.orchestration.AgentTask` with a workflow `kind`); this module
+keeps the project-doc layer: the project agent analyzes a queue task against
+the project documentation (`WorkspaceDoc` rows scoped by `project_id`), links
+it to the doc sections it touches (`TaskDocLink`), and drives section statuses
+on `ProjectDocSection` from open through implemented/verified.
 
 `ProjectResource` is the generic attachment slot for external surfaces a
 project operates on (repo, drive, notion, vibecode tools). Connectors land
@@ -19,21 +19,6 @@ from typing import Optional
 
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
-
-QUEUE_ITEM_KINDS = ("feature", "bug", "task", "idea", "risk")
-QUEUE_ITEM_PRIORITIES = ("low", "normal", "high", "urgent")
-# proposed -> accepted -> analyzing -> planned -> in_progress -> verifying -> done
-# plus terminal "rejected" (any pre-done state can reject).
-QUEUE_ITEM_STATUSES = (
-    "proposed",
-    "accepted",
-    "analyzing",
-    "planned",
-    "in_progress",
-    "verifying",
-    "done",
-    "rejected",
-)
 
 DOC_SECTION_STATUSES = (
     "open",
@@ -48,39 +33,6 @@ QUEUE_LINK_RELATIONS = ("implements", "modifies", "touches", "documents")
 
 PROJECT_RESOURCE_TYPES = ("repo", "drive", "notion", "sheet", "vibecode", "site", "other")
 PROJECT_RESOURCE_STATUSES = ("linked", "connected", "syncing", "error", "disconnected")
-
-
-class ProjectQueueItem(SQLModel, table=True):
-    __tablename__ = "project_queue_items"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    project_id: uuid.UUID = Field(foreign_key="projects.id", index=True)
-
-    kind: str = Field(default="task", index=True)
-    title: str
-    body: str = ""
-    priority: str = Field(default="normal", index=True)
-    status: str = Field(default="proposed", index=True)
-    duplicate_of_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="project_queue_items.id"
-    )
-
-    # Provenance: where the request came from (the conversation is the source).
-    origin_type: str = Field(default="user")  # conversation | user | agent | api | trigger
-    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
-    message_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signal_messages.id")
-    created_by_type: str = Field(default="user")  # user | agent | system
-    created_by_id: str = ""
-
-    # Analysis outcome written by the project agent.
-    impact_summary: str = ""
-    analyzed_at: Optional[datetime] = None
-    assigned_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
-
-    metadata_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ProjectDocSection(SQLModel, table=True):
@@ -110,17 +62,17 @@ class ProjectDocSection(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class QueueItemDocLink(SQLModel, table=True):
-    """Queue item <-> doc section link; history stays after items complete."""
+class TaskDocLink(SQLModel, table=True):
+    """Queue task <-> doc section link; history stays after tasks complete."""
 
-    __tablename__ = "queue_item_doc_links"
+    __tablename__ = "task_doc_links"
     __table_args__ = (
-        UniqueConstraint("queue_item_id", "section_id", name="uq_queue_item_section"),
+        UniqueConstraint("task_id", "section_id", name="uq_task_section"),
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    queue_item_id: uuid.UUID = Field(foreign_key="project_queue_items.id", index=True)
+    task_id: uuid.UUID = Field(foreign_key="agent_tasks.id", index=True)
     section_id: uuid.UUID = Field(foreign_key="project_doc_sections.id", index=True)
     relation: str = Field(default="touches")
     created_by_type: str = Field(default="agent")

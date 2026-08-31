@@ -9,7 +9,7 @@ related: mcp,models,channels,govern
 
 # Integraties koppelen
 
-Integraties zijn de tools die agents mogen aanroepen. Open **Modules** onder Instellingen op `/modules` om een bedrijfsfunctie te installeren, setup af te ronden en optionele integraties te beheren. Geïnstalleerde modules verschijnen onder **AI → Modules** (bijvoorbeeld Boekhouding). Open **Instellingen → Integraties** voor Verbonden, Marketplace en Gekoppelde tools.
+Integraties zijn de tools die agents mogen aanroepen. Alles koppelt op één plek: de **Modules**-hub in de zijbalk op `/modules`, met vier tabs — **Modules** (bedrijfsfuncties), **Verbonden** (wat live is), **Marketplace** (wat je kunt toevoegen) en **Gekoppelde tools** (MCP-toolservers). Geïnstalleerde modules verschijnen in de zijbalk onder **AI** (bijvoorbeeld Boekhouding).
 
 ## Zie wat gekoppeld is
 
@@ -31,26 +31,27 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 ## Installeer een bedrijfsmodule
 
 ![Modules-hub](/api/docs/assets/integrations/modules-hub.png)
-*Modules-catalogus onder Instellingen — installeren, daarna setup afronden.*
+*Modules-catalogus — installeren, daarna setup afronden.*
 
-1. Open **Modules** onder Instellingen.
+1. Open **Modules** in de zijbalk.
 2. Kies **Installeren** bij **Boekhouding** (of een andere live module). Status wordt **Setup**.
-3. Wijs op **Setup** (of Overzicht) **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
-4. Koppel optioneel een platformintegratie onder **Gebruikt integraties** (KING, Bjorn Lunden, Moneybird). Een koppeling zet de module in setup als die nog niet geïnstalleerd was; agent-toewijzing blijft verplicht.
-5. Kies **Doorgaan met toegewezen agent** om pakketten, standaarden en bronnen door te lopen, daarna **Setup afronden**. Status wordt **Geïnstalleerd** en de module verschijnt onder **AI → Modules**.
-6. Open de modulewerkplek vanuit het AI-menu, of **Beheren** voor Koppelingen, Bronnen en Setup.
+3. Open de modulepagina (`/modules/accounting`). Wijs **minstens één AI-agent** toe (avatar en kleur tonen in de picker). Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
+4. Bekijk **Wat agents kunnen doen**: elke tool toont een korte beschrijving, het pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is.
+5. Onder **Koppelingen** kies je **Registratie toevoegen**, kies een live package (KING, Bjorn Lunden, Moneybird) en vul de vereiste credentials in. De registratie wordt pas opgeslagen nadat de provider die accepteert. Geplande packages (Exact Online, SnelStart) blijven grijs en zijn nog niet koppelbaar.
+6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Setup afronden**. Status wordt **Geïnstalleerd** en de module verschijnt onder **AI → Modules** (zelfde URL).
 
 ## Koppel een optionele boekhoudintegratie
 
 ![Module-home](/api/docs/assets/integrations/module-home.png)
-*Module-home toont integraties die de module kan gebruiken, registraties, bronnen en AI-setup.*
+*Modulepagina toont registraties, bronnen en AI-setup op één oppervlak.*
 
-1. Open **Modules**, dan **Boekhouding**, dan **Overzicht** (of **Koppelingen**).
-2. Kies een integratie en rond setup op het platform af. Je kunt meerdere registraties van dezelfde provider toevoegen.
-3. Op **Koppelingen** hernoem je registraties, zet je de **Standaard** die agents moeten gebruiken, en kies je zo nodig een standaardadministratie.
-4. Alleen agents die aan de module zijn toegewezen mogen de gedeelde boekhoud-toolset gebruiken. Schrijven komt altijd als [beslissing](/docs/ai/decisions) binnen die jij eerst goedkeurt.
+1. Open **Modules**, dan **Boekhouding** (of open via **AI → Modules** — dezelfde pagina).
+2. Op **Koppelingen** (ook op Overzicht) kies je **Registratie toevoegen** en kies je een live package.
+3. Rond setup af met echte credentials (OAuth voor Moneybird, partner key plus administraties voor KING, client id/secret voor Bjorn Lunden). Alleen een willekeurige naam maakt geen werkende koppeling.
+4. Elke rij toont status (**Geverifieerd**, **Credentials nodig**, **Niet geverifieerd** of **Fout**), optionele provider-identiteit, en acties: **Verifiëren**, **Ontkoppelen**, **Hernoemen** (alleen weergavelabel) en **Als standaard** (alleen als geverifieerd).
+5. Alleen agents die aan de module zijn toegewezen mogen de gedeelde boekhoud-toolset gebruiken. Propose-tools landen als een [beslissing](/docs/ai/decisions) die jij goedkeurt.
 
-De modules **Bankieren**, **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar.
+**Bankieren** is installeerbaar met een read-only GoCardless Bank Account Data-koppeling (saldi en transacties; betalingen verschijnen alleen als voorstel). **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar; hun geplande packages verschijnen als uitgeschakelde rijen in de Registratie toevoegen-picker.
 
 ## Stuur boekhoudschrijfacties en agent-toegang
 

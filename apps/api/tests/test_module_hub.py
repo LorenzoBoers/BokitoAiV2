@@ -46,13 +46,15 @@ async def test_module_prefs_and_connections(client: AsyncClient, session_overrid
     ).scalar_one()
     await add_module_agent(session_override, tenant.id, "accounting", agent.id, is_default=True)
     await set_module_enabled(session_override, tenant.id, "accounting", True)
+    # Only credentialed + verified connections are listed and can become the
+    # module default, so seed both markers.
     conn = IntegrationConnection(
         tenant_id=tenant.id,
         provider="moneybird",
         display_name="Moneybird A",
         status="active",
-        credentials_json=json.dumps({}),
-        metadata_json=json.dumps({}),
+        credentials_json=json.dumps({"access_token": "test-token"}),
+        metadata_json=json.dumps({"last_verified_at": "2026-01-01T00:00:00+00:00"}),
     )
     session_override.add(conn)
     await session_override.commit()

@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next'
 
 const TABS = [
   { labelKey: 'cockpitTabs.overview', defaultLabel: 'Overview', to: '/cockpit', end: true },
-  { labelKey: 'cockpitTabs.activity', defaultLabel: 'Activity', to: '/cockpit/activity', end: false },
   { labelKey: 'cockpitTabs.usage', defaultLabel: 'Usage', to: '/cockpit/usage', end: false },
 ] as const
 
-/** Inner tab strip for the Cockpit surface (Overview / Activity / Usage). */
+/** Inner tab strip for the Reports surface (Overview / Usage) — the live
+ * activity log moved to the Communication hub (`/communication/activity`). */
 export default function CockpitTabs() {
   const { t } = useTranslation('nav')
   return (

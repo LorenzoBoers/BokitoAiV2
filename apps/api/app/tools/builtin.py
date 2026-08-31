@@ -640,29 +640,6 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
                 if stale_notif and stale_notif.status == "unread":
                     stale_notif.status = "read"
                     ctx.session.add(stale_notif)
-    from app.services.notification_mail import decision_bell_status
-
-    bell_status = await decision_bell_status(ctx.session, ctx.tenant_id, ctx.user_id)
-    notification = Notification(
-        tenant_id=ctx.tenant_id,
-        user_id=ctx.user_id,
-        kind="decision_request",
-        title=tool_input["title"],
-        body=tool_input.get("summary", ""),
-        status=bell_status,
-        payload_json=json.dumps(tool_input),
-    )
-    ctx.session.add(notification)
-    await ctx.session.flush()
-    if bell_status == "unread":
-        from app.gateway.publish import publish_notification
-
-        await publish_notification(
-            ctx.tenant_id,
-            notification_id=notification.id,
-            kind=notification.kind,
-            title=notification.title,
-        )
     project_uuid = None
     raw_project = tool_input.get("project_id")
     if raw_project:
@@ -670,27 +647,19 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
             project_uuid = UUID(str(raw_project))
         except ValueError:
             project_uuid = None
-    decision = DecisionRequest(
-        tenant_id=ctx.tenant_id,
-        notification_id=notification.id,
-        title=tool_input["title"],
-        summary=tool_input.get("summary", ""),
-        options_json=json.dumps(tool_input.get("options", [])),
-        status="awaiting_human",
-        project_id=project_uuid,
-    )
-    ctx.session.add(decision)
-    await ctx.session.flush()
-    from app.services.signal_decisions import ingest_decision_request
+    from app.services.signal_decisions import create_decision
 
-    await ingest_decision_request(
+    decision, _ = await create_decision(
         ctx.session,
         ctx.tenant_id,
-        notification,
-        decision,
+        title=tool_input["title"],
+        summary=tool_input.get("summary", ""),
+        options=tool_input.get("options", []),
         user_id=ctx.user_id,
         agent_id=ctx.agent.id if ctx.agent else None,
         signal_id=target_signal_id,
+        project_id=project_uuid,
+        notification_payload=tool_input,
     )
     await ctx.session.commit()
     return {"decision_request_id": str(decision.id), "status": "awaiting_human"}
@@ -1863,6 +1832,179 @@ register_tool(
         },
         handler=_set_platform_watch,
         mutating=True,
-        gated=False,
+        gated=True,
+    )
+)
+
+
+def _parse_when(raw: Any) -> "datetime | None":
+    from datetime import datetime as _dt
+
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = _dt.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    # Store naive UTC like the rest of the schema.
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(tz=None).replace(tzinfo=None)
+    return parsed
+
+
+async def _schedule_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Plan a Task for later: for yourself, a peer agent, or a human."""
+    from uuid import UUID as _UUID
+
+    from app.services.agent.style import strip_emoji
+    from app.services.orchestration.dispatcher import create_agent_task
+
+    assignee = str(tool_input.get("assignee") or "agent").strip().lower()
+    if assignee not in ("agent", "human"):
+        return {"error": "assignee must be 'agent' or 'human'"}
+    scheduled_for = _parse_when(tool_input.get("scheduled_for"))
+    if tool_input.get("scheduled_for") and scheduled_for is None:
+        return {"error": "scheduled_for must be an ISO datetime, e.g. 2026-09-04T09:00"}
+    agent_id = (
+        _UUID(str(tool_input["agent_id"]))
+        if tool_input.get("agent_id")
+        else (ctx.agent.id if ctx.agent else None)
+    )
+    user_id = _UUID(str(tool_input["user_id"])) if tool_input.get("user_id") else None
+    task = await create_agent_task(
+        ctx.session,
+        ctx.tenant_id,
+        title=strip_emoji(str(tool_input.get("title", ""))) or "Planned task",
+        description=str(tool_input.get("description") or ""),
+        agent_id=agent_id,
+        project_id=_UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
+        signal_id=ctx.signal_id,
+        created_by=ctx.user_id,
+        origin="delegation" if ctx.agent else "manual",
+        kind=str(tool_input.get("kind") or "task"),
+        priority=str(tool_input.get("priority") or "normal"),
+        assignee_kind=assignee,
+        assignee_user_id=user_id,
+        scheduled_for=scheduled_for,
+        auto_start=scheduled_for is None and assignee == "agent",
+    )
+    return {
+        "task_id": str(task.id),
+        "status": task.status,
+        "assignee_kind": task.assignee_kind,
+        "scheduled_for": task.scheduled_for.isoformat() if task.scheduled_for else None,
+    }
+
+
+async def _schedule_wake(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Create a Trigger that wakes an agent once or on a recurring schedule."""
+    from uuid import UUID as _UUID
+
+    from app.services.triggers import create_trigger, serialize_trigger
+
+    agent_id = (
+        _UUID(str(tool_input["agent_id"]))
+        if tool_input.get("agent_id")
+        else (ctx.agent.id if ctx.agent else None)
+    )
+    if agent_id is None:
+        return {"error": "No agent to wake: pass agent_id or call as an agent."}
+    instructions = str(tool_input.get("instructions") or "").strip()
+    if not instructions:
+        return {"error": "instructions is required: what should the agent do on wake?"}
+    name = str(tool_input.get("name") or "").strip() or instructions[:60]
+
+    run_at = _parse_when(tool_input.get("at"))
+    cron_expr = str(tool_input.get("cron") or "").strip()
+    try:
+        every_minutes = int(tool_input.get("every_minutes") or 0)
+    except (TypeError, ValueError):
+        every_minutes = 0
+    if run_at is not None:
+        kind, interval = "once", 0
+    elif cron_expr:
+        kind, interval = "cron", 0
+    elif every_minutes > 0:
+        kind, interval = "interval", max(5, every_minutes)
+    else:
+        return {"error": "Pass one of: at (ISO datetime), cron (5-field), or every_minutes."}
+
+    from fastapi import HTTPException
+
+    try:
+        trigger = await create_trigger(
+            ctx.session,
+            ctx.tenant_id,
+            name=name,
+            kind=kind,
+            cron_expr=cron_expr,
+            interval_minutes=interval,
+            agent_id=agent_id,
+            instructions=instructions,
+            run_at=run_at,
+        )
+    except HTTPException as exc:
+        return {"error": str(exc.detail)}
+    return {"trigger": serialize_trigger(trigger)}
+
+
+register_tool(
+    ToolSpec(
+        name="schedule_task",
+        description=(
+            "Plan a Task for later or assign work to a human. Set scheduled_for "
+            "(ISO datetime) to make it dormant until then; assignee 'human' puts "
+            "it in front of the team (optionally a specific user_id) instead of "
+            "an agent. Use this whenever something must be done later — by you, "
+            "a peer agent, or a person."
+        ),
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "assignee": {"type": "string", "enum": ["agent", "human"]},
+                "agent_id": {"type": "string", "description": "Agent to run it (default: yourself)."},
+                "user_id": {"type": "string", "description": "Specific human owner; empty = any member."},
+                "scheduled_for": {"type": "string", "description": "ISO datetime when the task becomes active."},
+                "project_id": {"type": "string"},
+                "kind": {"type": "string", "enum": ["task", "job", "feature", "bug", "idea", "risk"]},
+                "priority": {"type": "string", "enum": ["low", "normal", "high", "urgent"]},
+            },
+            "required": ["title"],
+        },
+        handler=_schedule_task,
+        mutating=True,
+        gated=True,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="schedule_wake",
+        description=(
+            "Schedule an agent wake as an Agenda trigger: once at a specific time "
+            "(at), on a cron schedule (cron), or every N minutes (every_minutes). "
+            "Wakes yourself by default or a peer agent via agent_id. Use for "
+            "'check this again Friday' or recurring follow-ups."
+        ),
+        category="triggers",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "instructions": {"type": "string", "description": "What the agent should do on wake."},
+                "agent_id": {"type": "string", "description": "Peer agent to wake (default: yourself)."},
+                "at": {"type": "string", "description": "ISO datetime for a one-off wake."},
+                "cron": {"type": "string", "description": "5-field cron expression for recurring wakes."},
+                "every_minutes": {"type": "integer", "description": "Interval wake in minutes (min 5)."},
+            },
+            "required": ["instructions"],
+        },
+        handler=_schedule_wake,
+        mutating=True,
+        gated=True,
     )
 )

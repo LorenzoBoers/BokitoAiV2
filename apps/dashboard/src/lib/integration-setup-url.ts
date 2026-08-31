@@ -35,8 +35,8 @@ export function setupIntegrationHref(input: {
   const moduleSlug = input.module?.trim()
   const provider = input.provider?.trim()
   if (moduleSlug) return moduleSetupPath(moduleSlug, provider, provider ? 'setup' : undefined)
-  if (provider) return `/settings/marketplace?connect=${encodeURIComponent(provider)}`
-  return '/settings/marketplace'
+  if (provider) return `/modules/marketplace?connect=${encodeURIComponent(provider)}`
+  return '/modules/marketplace'
 }
 
 export function buildIntegrationSetupReturnUrl(integrationId: string): string {
@@ -45,7 +45,11 @@ export function buildIntegrationSetupReturnUrl(integrationId: string): string {
     step: 'detail',
   })
   const path = window.location.pathname
-  const base = path.startsWith('/modules/') ? path : '/settings/marketplace'
+  const base = path.startsWith('/modules/') ? path : '/modules/marketplace'
+  // Module "Add registration" should create another OAuth login, not reuse the first.
+  if (path.startsWith('/modules/')) {
+    params.set('bokito_create_new', '1')
+  }
   return `${window.location.origin}${base}?${params.toString()}`
 }
 

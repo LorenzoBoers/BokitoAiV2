@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
+  Activity,
   Bot,
   ChevronRight,
   Inbox,
-  Mail,
   Plus,
   Scale,
   Settings,
   Tag,
+  Users,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -17,14 +18,15 @@ import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
 import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useSignalTags } from '../../hooks/useSignalTags'
-import { bokitoListChatTargets, type ChatTarget } from '../../lib/bokito-api'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
-import { mergeSidebarTagRows } from '../../lib/signals-api'
+import { bokitoListChatTargets, mergeSidebarTagRows, type ChatTarget } from '../../lib/signals-api'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
   inboxPath,
+  activityTerminalPath,
+  agentChatPath,
   decisionsPath,
   leafFromPath,
   leafKey,
@@ -374,6 +376,9 @@ type AgentsSectionProps = {
 }
 
 function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: AgentsSectionProps) {
+  const location = useLocation()
+  const activityTerminalActive = location.pathname.startsWith('/communication/activity')
+  const locationSearch = location.search
   return (
     <div className="space-y-0.5">
       {loading ? (
@@ -396,6 +401,8 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
       ) : null}
       {agents.map((agent) => {
         const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
+        const activityActive =
+          activityTerminalActive && new URLSearchParams(locationSearch).get('agent') === agent.id
         return (
           <SidebarFolder
             key={agent.id}
@@ -404,34 +411,25 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
             icon={<Bot size={14} className="shrink-0 text-ai-ink" />}
             activeLeaf={activeLeaf}
             defaultQueue={defaultQueueFor(baseLeaf)}
+            extra={
+              <NavLink
+                to={activityTerminalPath(agent.id)}
+                title={t('support.agents.activityHint')}
+                className={() =>
+                  cn(
+                    'nav-row nav-sub-row flex items-center gap-2 rounded-lg border px-3 py-1 text-[12px] font-medium',
+                    activityActive
+                      ? 'border-border/60 bg-bg-hover/85 text-text-heading'
+                      : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
+                  )
+                }
+              >
+                <span className="min-w-0 flex-1 truncate">{t('support.agents.activity')}</span>
+              </NavLink>
+            }
           />
         )
       })}
-    </div>
-  )
-}
-
-function SettingsSection({ t }: { t: TFn }) {
-  return (
-    <div className="space-y-0.5">
-      <NavLink to="/settings/channels" className={({ isActive }) => navLinkClass(isActive)}>
-        <Mail size={14} className="shrink-0 text-text-muted" />
-        <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.channels')}
-        </span>
-      </NavLink>
-      <NavLink to="/settings/communication" className={({ isActive }) => navLinkClass(isActive)}>
-        <Settings size={14} className="shrink-0 text-text-muted" />
-        <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.assistant')}
-        </span>
-      </NavLink>
-      <NavLink to="/settings" end className={({ isActive }) => navLinkClass(isActive)}>
-        <Settings size={14} className="shrink-0 text-text-muted" />
-        <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.allSettings')}
-        </span>
-      </NavLink>
     </div>
   )
 }
@@ -571,18 +569,27 @@ export default function MessagesHubNav() {
                     </NavLink>
                   )
                 })}
+                {/* Decisions: the human gate lives inside All communication as a
+                    purple sub-view — it is a queue over the same threads. */}
+                <NavLink
+                  to={decisionsPath()}
+                  title={t('support.decisions.hint')}
+                  className={() =>
+                    cn(
+                      'nav-row nav-sub-row flex items-center gap-2 rounded-lg border px-3 py-1 text-[12px] font-medium',
+                      activeLeaf?.type === 'decisions'
+                        ? 'border-ai/35 bg-ai/12 text-ai-ink'
+                        : 'border-transparent text-ai-ink/80 hover:border-ai/30 hover:bg-ai/10 hover:text-ai-ink',
+                    )
+                  }
+                >
+                  <Scale size={12} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
+                  <NavCountBadge count={counts.agentsAttention} placement="inline" />
+                </NavLink>
               </>
             }
           />
-          <NavLink
-            to={decisionsPath()}
-            title={t('support.decisions.hint')}
-            className={({ isActive }) => navLinkClass(isActive || activeLeaf?.type === 'decisions')}
-          >
-            <Scale size={14} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
-            <NavCountBadge count={counts.agentsAttention} placement="inline" />
-          </NavLink>
         </section>
 
         {visibleSections.map((section) => {
@@ -608,16 +615,37 @@ export default function MessagesHubNav() {
         })}
       </div>
 
-      {settingsVisible ? (
-        <div className="shrink-0 border-t border-border/40 pt-3 mt-2">
-          <CollapsibleSection
-            section="settings"
-            title={t(SECTION_LABELS.settings.labelKey)}
+      {/* Pinned bottom: platform-wide views that are not communication folders. */}
+      <div className="mt-2 shrink-0 space-y-0.5 border-t border-border/40 pt-2">
+        <NavLink
+          to={activityTerminalPath()}
+          title={t('support.activity.hint')}
+          className={({ isActive }) =>
+            navLinkClass(isActive && !new URLSearchParams(location.search).get('agent'))
+          }
+        >
+          <Activity size={14} className="shrink-0 text-text-muted" />
+          <span className="min-w-0 flex-1 truncate">{t('support.activity.label')}</span>
+        </NavLink>
+        <NavLink
+          to="/contacts"
+          title={t('support.contacts.hint')}
+          className={({ isActive }) => navLinkClass(isActive)}
+        >
+          <Users size={14} className="shrink-0 text-text-muted" />
+          <span className="min-w-0 flex-1 truncate">{t('support.contacts.label')}</span>
+        </NavLink>
+        {settingsVisible ? (
+          <NavLink
+            to="/settings/channels"
+            title={t('support.settings.channels')}
+            className={({ isActive }) => navLinkClass(isActive)}
           >
-            <SettingsSection t={t} />
-          </CollapsibleSection>
-        </div>
-      ) : null}
+            <Settings size={14} className="shrink-0 text-text-muted" />
+            <span className="min-w-0 flex-1 truncate">{t('support.section.settings')}</span>
+          </NavLink>
+        ) : null}
+      </div>
     </div>
   )
 }

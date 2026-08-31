@@ -1,7 +1,7 @@
 ---
 title: Producttour
 intro: Een snelle kaart van de interface — waar elk gebied voor is en wanneer je het gebruikt.
-description: Een gids van Bokito: de zijbalk, het commandopalet, Cockpit, Communicatie, Agenda, Kennis, Agents en Instellingen.
+description: Een gids van Bokito: de zijbalk, het commandopalet, Communicatie, Agenda, Projecten, Agents, Modules en Instellingen.
 keywords: tour, interface, navigatie, commandopalet, zijbalk
 sort: 40
 related: welcome,cockpit,communication
@@ -9,27 +9,26 @@ related: welcome,cockpit,communication
 
 # Producttour
 
-Bokito heeft één zijbalk. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
+Bokito heeft één zijbalk met zes gebieden. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
 
 ## Control: de dagelijkse loop
 
 ![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
-*Cockpit, Communicatie, Contacten, Agenda en Projecten.*
+*Communicatie, Agenda en Projecten.*
 
-- **Cockpit** — wat heeft mij vandaag nodig? Zie [Cockpit](/docs/getting-started/cockpit).
-- **Communicatie** — de gesprekken. Zie [Communicatie](/docs/inbox/communication).
-- **Contacten** — wie schrijft. Zie [Contacten](/docs/inbox/contacts).
+- **Communicatie** — de gesprekken, en de contacten erachter. Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
 - **Agenda** — wanneer agents wakker worden. Zie [Agenda](/docs/ai/agenda).
 - **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/projects).
 
 ## AI: de workforce
 
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
-- **Kennis** — waaruit ze antwoorden. Zie [Kennis](/docs/ai/knowledge).
+- **Kennis** — genest onder de AI-groep: waaruit agents antwoorden. Zie [Kennis](/docs/ai/knowledge).
+- **Modules** — bedrijfsfuncties en elke koppeling (Verbonden, Marketplace, Gekoppelde tools). Zie [Integraties](/docs/integrations/integrations).
 
 ## Instellingen: de controleruimte
 
-**E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen**, **Integraties**, **Setupgids** en **Govern** staan hier. Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide).
+**E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen**, **Setupgids**, **Govern** en **Rapportages** (de dagelijkse scan, het activiteitenlog en verbruik) staan hier. Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide) en [Rapportages](/docs/getting-started/cockpit).
 
 Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
 

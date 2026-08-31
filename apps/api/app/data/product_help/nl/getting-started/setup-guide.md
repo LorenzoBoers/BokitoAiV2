@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace-setupgids
 
-De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Werk van boven naar beneden. Open **Instellingen** en daarna **Setupgids** voor de live checklist; die blijft staan tot de workspace klaar is.
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen** en daarna **Setupgids** voor de live checklist; die blijft staan tot de workspace klaar is. De gids heeft twee fasen: **Eerst: één AI-lus werkend krijgen** (kanaal koppelen, met een agent chatten, een beslissing goedkeuren, de check-in plannen) en **Daarna: je workspace uitbreiden** (kennis, agents, modules, branding, cijfers en projecten).
 
 ## Workspace-basics en branding
 
@@ -38,22 +38,22 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Werk van boven
 1. Voeg dagelijkse documenten toe in [Kennis](/docs/ai/knowledge). Begin met Stem en Geheugen.
 2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). **Pauzeer** agents die je nog niet wilt laten draaien.
 3. Zet de houding onder [Autonomie](/docs/govern/autonomy). Begin voorzichtig.
-4. Optioneel: open **Projecten** via de zesde setup-pijler wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/projects).
-5. Optioneel: open **Modules** in de linkerzijbalk (of **Instellingen**, daarna **Modules**), en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
+4. Optioneel: open **Projecten** wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/projects).
+5. Optioneel: open **Modules** in de zijbalk en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
 
 ## Plan terugkerend werk
 
-Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in het gesprek **Platform check-in** in Berichten wanneer iets jou nodig heeft. Je zet die aan vanuit de setupgids, de Cockpit, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Cockpit](/docs/getting-started/cockpit) als dagelijkse ingang. Verbruikplafonds staan op Cockpit **Verbruik**.
+Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in het gesprek **Platform check-in** in Berichten wanneer iets jou nodig heeft. Je zet die aan vanuit de setupgids, Rapportages, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Rapportages](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Rapportages **Verbruik**.
 
 ## Volg de live checklist
 
-Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde stappen staan onder **Instellingen** en daarna **Setupgids**:
+Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde stappen staan onder **Instellingen** en daarna **Setupgids**, in activatievolgorde:
 
 1. **Koppel je kanalen** — maak een Bokito-adres aan of koppel Gmail/Outlook. Zie [Kanalen](/docs/inbox/channels).
-2. **Voeg bedrijfskennis toe** — Stem en Geheugen. Zie [Kennis](/docs/ai/knowledge).
-3. **Chat met je assistent** — **Nieuwe chat** loopt de rest van de setup. De assistent kan waken vanuit dat gesprek aanzetten.
+2. **Chat met je assistent** — **Nieuwe chat** loopt de rest van de setup. De assistent kan waken vanuit dat gesprek aanzetten.
+3. **Los je eerste beslissing op** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
 4. **Laat de assistent waken** — de uurlijkse check-in staat aan voor nieuwe workspaces. Bestaande workspaces zetten die aan vanuit de setupgids.
-5. **Los je eerste beslissing op** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
+5. **Voeg bedrijfskennis toe** — Stem en Geheugen. Zie [Kennis](/docs/ai/knowledge).
 6. **Nodig je team uit** — zie [Leden](/docs/getting-started/members).
 
-**Setup verbergen** verbergt alleen de kaart. Op Cockpit biedt de ondertitel daarna **Setupkaart tonen**. De checklist onder Instellingen blijft staan tot die stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, concepten onderbouwd zijn, het team erin zit, en je weet waar goedkeuringen gebeuren.
+**Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, concepten onderbouwd zijn, het team erin zit, en je weet waar goedkeuringen gebeuren.

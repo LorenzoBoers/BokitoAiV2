@@ -106,8 +106,18 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         mode: 'customer',
         variant: 'customer',
       }
+    case 'agent':
+      // The `activity` sub-view is the agent's work log: internal run threads
+      // scoped to this agent. Chat sub-queues are handled by DirectCommunication.
+      if (leaf.queue === 'activity') {
+        return {
+          filters: { folder: 'internal', view: 'internal', agentId: leaf.agentId },
+          mode: 'agent',
+          variant: 'customer',
+        }
+      }
+      return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
     default:
-      // agent chats are handled by DirectCommunication
       return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
   }
 }
@@ -137,7 +147,7 @@ export function mergeHubThreadFilters(
     ...leafFilters,
     search: extras.search,
     projectId: extras.projectId,
-    agentId: extras.agentId,
+    agentId: extras.agentId ?? leafFilters.agentId,
     unread: extras.unread || undefined,
     needsReply: extras.needsReply || undefined,
     needsDecision: extras.needsDecision || undefined,

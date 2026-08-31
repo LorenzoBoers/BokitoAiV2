@@ -90,28 +90,14 @@ async def test_internal_decision_thread(client: AsyncClient, session_override):
     from app.models.auth import Tenant
 
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    from app.models.notification import Notification
-    from app.services.signal_decisions import ingest_decision_request
+    from app.services.signal_decisions import create_decision
 
-    notification = Notification(
-        tenant_id=tenant.id,
-        kind="decision_request",
-        title="Approve deploy?",
-        body="Ready to ship",
-    )
-    session_override.add(notification)
-    await session_override.flush()
-    decision = DecisionRequest(
-        tenant_id=tenant.id,
-        notification_id=notification.id,
+    await create_decision(
+        session_override,
+        tenant.id,
         title="Approve deploy?",
         summary="Ready to ship",
-        options_json="[]",
-        status="awaiting_human",
     )
-    session_override.add(decision)
-    await session_override.flush()
-    await ingest_decision_request(session_override, tenant.id, notification, decision)
     await session_override.commit()
 
     listed = await client.get(
@@ -157,7 +143,7 @@ async def test_channel_filter_and_inbox_folder(client: AsyncClient, session_over
     assert widget.status_code == 200
 
     # An assistant chat should stay out of the shared inbox folder.
-    conv = await client.post("/api/chat/conversations", json={"title": "My chat"}, headers=headers)
+    conv = await client.post("/api/signals/conversations", json={"title": "My chat"}, headers=headers)
     assert conv.status_code == 200
 
     by_channel = await client.get("/api/signals?view=all&channel=widget", headers=headers)

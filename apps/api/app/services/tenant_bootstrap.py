@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
-from app.models.inbox import InboxSettings
 from app.services.language import platform_default_ui_language
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
@@ -78,14 +77,14 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
         "heartbeat.md",
         "heartbeat",
-        "# Daily check-in\n\n- Review open conversations needing a reply\n- Check pending decisions\n- If company.md or open threads mention invoices, VAT, or outstanding balances and accounting is off, use recommend_module; otherwise HEARTBEAT_OK\n",
+        "# Daily check-in\n\n- Review open conversations needing a reply\n- Check pending decisions\n- If company.md or open threads mention work a business module covers (see list_modules) and that module is off, use recommend_module; otherwise HEARTBEAT_OK\n",
     ),
 ]
 
 
 async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
-    # Persona lives in the persona.md workspace doc (DEFAULT_DOCS below).
-    session.add(InboxSettings(tenant_id=tenant_id))
+    # Persona lives in the persona.md workspace doc (DEFAULT_DOCS below);
+    # inbox policy lives in Tenant.settings_json (services/channel_ai.py).
     session.add(
         Agent(
             tenant_id=tenant_id,
@@ -109,20 +108,8 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             commit=False,
         )
     # Fresh tenants stay empty: no demo project, orchestrator or workstream.
-    # Only runtime profiles (infra defaults), the assistant, docs, one
-    # Platform check-in conversation, and an enabled hourly check-in.
-    from app.services.orchestration.bootstrap import seed_tenant_runtime_profiles
-
-    from sqlalchemy import select
-
-    profiles = await seed_tenant_runtime_profiles(session, tenant_id)
-    assistant = (
-        await session.execute(
-            select(Agent).where(Agent.tenant_id == tenant_id, Agent.role == "assistant").limit(1)
-        )
-    ).scalars().first()
-    if assistant and profiles.get("executor-standard"):
-        assistant.default_runtime_profile_id = profiles["executor-standard"].id
+    # Only the assistant, docs, one Platform check-in conversation, and an
+    # enabled hourly check-in. The Agent row is the single runtime passport.
     # Email stays empty until someone connects a mailbox or creates a Bokito
     # relay address. The website chat is the one channel that works the moment
     # the widget is embedded, so it gets a row to carry state and an off switch.

@@ -138,13 +138,16 @@ async def test_mcp_tenant_isolation(client: AsyncClient):
     assert signup_b.status_code == 200
     headers_b = _auth(signup_b.json()["access_token"])
 
+    # Coming-soon providers are rejected; a custom MCP server is the neutral
+    # install path for isolation checks.
     install_a = await client.post(
         f"{API}/integrations/mcp/install",
         headers=headers_a,
         json={
-            "provider": "higgsfield_mcp",
+            "provider": "custom_mcp",
             "api_key": "tenant-a-key",
-            "display_name": "Tenant A Higgsfield",
+            "display_name": "Tenant A Custom MCP",
+            "server_url": "https://mcp.tenant-a.example/mcp",
         },
     )
     assert install_a.status_code == 200

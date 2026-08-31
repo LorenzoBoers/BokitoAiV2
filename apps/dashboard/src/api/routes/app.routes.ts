@@ -66,6 +66,16 @@ export const appRoutes = {
   },
   signals: {
     threadsQuery: (params: URLSearchParams) => withQuery('/signals', params),
+    // Assistant conversation facade (chat with company agents).
+    chatTargets: '/signals/chat/targets',
+    conversations: '/signals/conversations',
+    conversationsQuery: (params: URLSearchParams) => withQuery('/signals/conversations', params),
+    conversation: (conversationId: string) =>
+      `/signals/conversations/${encodeURIComponent(conversationId)}`,
+    conversationMessages: (conversationId: string) =>
+      `/signals/conversations/${encodeURIComponent(conversationId)}/messages`,
+    conversationStream: (conversationId: string) =>
+      `/signals/conversations/${encodeURIComponent(conversationId)}/stream`,
     thread: (threadId: string) => `/signals/${threadId}`,
     threadDelete: (threadId: string) => `/signals/${threadId}`,
     threadMarkRead: (threadId: string) => `/signals/${threadId}/mark-read`,
@@ -111,7 +121,6 @@ export const appRoutes = {
     settings: '/inbox/settings',
   },
   orchestration: {
-    runtimeProfiles: '/orchestration/runtime-profiles',
     workstreams: '/orchestration/workstreams',
     tasks: '/orchestration/tasks',
     task: (id: string) => `/orchestration/tasks/${id}`,

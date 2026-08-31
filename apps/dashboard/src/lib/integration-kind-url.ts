@@ -16,13 +16,13 @@ export function kindFilterToParam(kind: IntegrationKindFilter): string | null {
 }
 
 export function marketplacePathWithKind(kind: IntegrationKindFilter): string {
-  const base = '/settings/marketplace'
+  const base = '/modules/marketplace'
   const param = kindFilterToParam(kind)
   return param ? `${base}?kind=${param}` : base
 }
 
 export function connectedPathWithKind(kind: IntegrationKindFilter): string {
-  const base = '/settings/integrations'
+  const base = '/modules/connected'
   const param = kindFilterToParam(kind)
   return param ? `${base}?kind=${param}` : base
 }

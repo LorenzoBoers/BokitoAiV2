@@ -184,13 +184,7 @@ async def _execute_agent_segment(
     run_role: str = "main",
     segment_index: int = 0,
 ) -> tuple[AgentRun, str]:
-    snapshot = await resolve_runtime_snapshot(
-        session,
-        tenant_id,
-        agent=agent,
-        step_runtime_profile_id=step.runtime_profile_id if step else None,
-        task_runtime_profile_id=task.default_runtime_profile_id,
-    )
+    snapshot = resolve_runtime_snapshot(agent)
     runtime_agent = apply_snapshot_to_agent(agent, snapshot)
 
     checkpoint_messages: list[dict] = []
@@ -313,7 +307,7 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
     ).scalar_one_or_none()
     if not task:
         return {"skipped": True, "reason": "task_not_found"}
-    if task.status in ("completed", "failed", "cancelled"):
+    if task.status in ("completed", "failed", "cancelled", "rejected"):
         return {"skipped": True, "reason": task.status}
 
     task.status = "running"
@@ -410,13 +404,23 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
             project_id=task.project_id,
             signal_id=task.signal_id,
         )
-        task.status = "awaiting_decision"
+        task.status = "awaiting_human"
         task.pause_reason = "human_gate"
         session.add(task)
         await session.commit()
         return {"paused": True, "reason": "human_gate"}
 
     agent = await _resolve_step_agent(session, tenant_id, step, task) if step else None
+    if not agent and task.assignee_agent_id:
+        agent = (
+            await session.execute(
+                select(Agent).where(
+                    Agent.id == task.assignee_agent_id,
+                    Agent.tenant_id == tenant_id,
+                    Agent.is_active.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
     if not agent:
         ctx_agent_id = ctx.get("agent_id")
         if ctx_agent_id:
@@ -454,7 +458,13 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
         )
         return {"failed": True, "reason": "no_agent"}
 
-    prompt = _build_handoff_prompt(step, task, step_outputs) if step else (task.description or task.title)
+    # Workflow wakes (project queue analysis/verify) carry their run
+    # instructions in context so the task description stays the original request.
+    prompt = (
+        _build_handoff_prompt(step, task, step_outputs)
+        if step
+        else (str(ctx.get("instructions") or "") or task.description or task.title)
+    )
 
     try:
         run, text = await _execute_agent_segment(
@@ -618,14 +628,28 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 return await run_agent_task_segment(session, tenant_id, task_id)
             return {"continued": True, "next_step_id": str(next_step_id)}
 
+    if ctx.get("workflow"):
+        # Workflow task: the agent moves the status via tools during the run
+        # (planned / verifying / completed). Only apply the fallback when the
+        # agent left the task in the transient "running" state.
+        if task.status == "running":
+            task.status = str(ctx.get("workflow_fallback_status") or "planned")
+        if task.status == "completed" and task.completed_at is None:
+            task.completed_at = datetime.utcnow()
+        task.updated_at = datetime.utcnow()
+        session.add(task)
+        await session.commit()
+        return {"completed": True, "run_id": str(run.id), "workflow_status": task.status}
+
     task.status = "completed"
     task.completed_at = datetime.utcnow()
+    task.updated_at = datetime.utcnow()
     session.add(task)
     await _mirror_task_message(
         session,
         task,
         kind="task_result",
-        body=f"Workstream completed: {task.title}",
+        body=f"Task completed: {task.title}",
         agent_id=agent.id if agent else None,
         metadata={"run_id": str(run.id), "status": "completed"},
     )

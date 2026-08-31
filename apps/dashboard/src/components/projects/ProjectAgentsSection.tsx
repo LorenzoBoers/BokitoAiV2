@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Loader2, Star, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { AgentOptionRow, type AgentVisualFields } from '../ui/AgentOptionRow'
+import { AgentSelect } from '../ui/AgentSelect'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import {
@@ -27,7 +28,7 @@ export function ProjectAgentsSection({
   agents,
 }: {
   projectId: string
-  agents: Array<{ id: string; name: string }>
+  agents: AgentVisualFields[]
 }) {
   const { t } = useTranslation('nav')
   const [roster, setRoster] = useState<ProjectAgentRow[]>([])
@@ -118,11 +119,18 @@ export function ProjectAgentsSection({
               className="flex items-center justify-between gap-2 rounded-md border border-border/50 px-2.5 py-1.5"
             >
               <span className="flex min-w-0 items-center gap-2">
-                <Link
-                  to={`/agents/${row.agent_id}`}
-                  className="truncate text-sm text-text-primary hover:text-accent hover:underline"
-                >
-                  {row.name}
+                <Link to={`/agents/${row.agent_id}`} className="min-w-0 hover:opacity-90">
+                  <AgentOptionRow
+                    agent={{
+                      id: row.agent_id,
+                      name: row.name,
+                      avatar_kind: row.avatar_kind,
+                      avatar_icon: row.avatar_icon,
+                      avatar_color: row.avatar_color,
+                      avatar_image_url: row.avatar_image_url,
+                    }}
+                    size={20}
+                  />
                 </Link>
                 {row.is_default ? (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
@@ -169,21 +177,14 @@ export function ProjectAgentsSection({
         </ul>
       )}
       {available.length > 0 ? (
-        <Select disabled={adding} value="" onValueChange={(value) => void add(value)}>
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue placeholder={t('projects.detail.agentAddPlaceholder')} />
-          </SelectTrigger>
-          <SelectContent>
-            {available.map((agent) => (
-              <SelectItem key={agent.id} value={agent.id}>
-                {agent.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AgentSelect
+          agents={available}
+          value=""
+          disabled={adding}
+          placeholder={t('projects.detail.agentAddPlaceholder')}
+          onValueChange={(value) => void add(value)}
+        />
       ) : null}
     </div>
   )
 }
-
-export default ProjectAgentsSection

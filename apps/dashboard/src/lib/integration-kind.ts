@@ -59,12 +59,12 @@ export function resolveIntegrationKind(
 export function getManagePath(kind: IntegrationKind): string {
   switch (kind) {
     case 'repository':
-      return '/settings/integrations?kind=repository'
+      return '/modules/connected?kind=repository'
     case 'inbox':
-      return '/settings/integrations?kind=inbox'
+      return '/modules/connected?kind=inbox'
     case 'calendar':
       return '/agenda'
     case 'mcp':
-      return '/settings/mcp'
+      return '/modules/tools'
   }
 }

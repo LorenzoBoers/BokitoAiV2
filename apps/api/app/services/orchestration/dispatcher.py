@@ -34,13 +34,18 @@ async def create_agent_task(
     project_id: UUID | None = None,
     workstream_id: UUID | None = None,
     agent_id: UUID | None = None,
-    default_runtime_profile_id: UUID | None = None,
     success_criteria_json: str = "{}",
     trigger_type: str = "manual",
     trigger_id: str | None = None,
     created_by: UUID | None = None,
     signal_id: UUID | None = None,
     auto_start: bool = True,
+    kind: str = "job",
+    origin: str = "manual",
+    priority: str = "normal",
+    assignee_kind: str = "agent",
+    assignee_user_id: UUID | None = None,
+    scheduled_for: datetime | None = None,
 ) -> AgentTask:
     if workstream_id:
         ws = (
@@ -73,15 +78,27 @@ async def create_agent_task(
         )
         signal_id = signal.id
 
+    is_human = assignee_kind == "human"
+    is_dormant = scheduled_for is not None and scheduled_for > datetime.utcnow()
+    # Human tasks that are due now surface as human work immediately;
+    # scheduled tasks (either kind) stay queued until the scheduler tick
+    # promotes them at scheduled_for.
+    status = "awaiting_human" if is_human and not is_dormant else "queued"
     task = AgentTask(
         tenant_id=tenant_id,
         project_id=project_id,
         signal_id=signal_id,
         workstream_id=workstream_id,
-        default_runtime_profile_id=default_runtime_profile_id,
+        kind=kind,
         title=title,
         description=description,
-        status="queued",
+        priority=priority,
+        status=status,
+        origin=origin,
+        assignee_kind=assignee_kind,
+        assignee_agent_id=None if is_human else agent_id,
+        assignee_user_id=assignee_user_id if is_human else None,
+        scheduled_for=scheduled_for,
         context_json=json.dumps({"agent_id": str(agent_id) if agent_id else None}),
         success_criteria_json=success_criteria_json,
         trigger_type=trigger_type,
@@ -108,7 +125,7 @@ async def create_agent_task(
     await session.commit()
     await session.refresh(task)
 
-    if auto_start:
+    if auto_start and not is_human and not is_dormant:
         from app.services.orchestration.queue import enqueue_agent_task_segment
 
         enqueued = await enqueue_agent_task_segment(str(tenant_id), str(task.id))
@@ -119,6 +136,59 @@ async def create_agent_task(
             await session.refresh(task)
 
     return task
+
+
+async def process_due_scheduled_tasks(
+    session: AsyncSession, tenant_id: UUID | None = None
+) -> int:
+    """Promote planned Tasks whose scheduled_for has arrived.
+
+    Agent tasks wake (enqueue a run segment); human tasks flip to
+    awaiting_human and notify the assignee. Called from the scheduler tick,
+    next to trigger firing.
+    """
+    now = datetime.utcnow()
+    conditions = [
+        AgentTask.status == "queued",
+        AgentTask.scheduled_for.is_not(None),  # type: ignore[union-attr]
+        AgentTask.scheduled_for <= now,
+    ]
+    if tenant_id is not None:
+        conditions.append(AgentTask.tenant_id == tenant_id)
+    rows = (await session.execute(select(AgentTask).where(*conditions))).scalars().all()
+    woken = 0
+    for task in rows:
+        # Clear the schedule first so a crashed wake never double-fires.
+        task.scheduled_for = None
+        task.updated_at = now
+        if task.assignee_kind == "human":
+            task.status = "awaiting_human"
+            session.add(task)
+            await session.commit()
+            from app.models.notification import Notification
+
+            session.add(
+                Notification(
+                    tenant_id=task.tenant_id,
+                    user_id=task.assignee_user_id,
+                    kind="task_due",
+                    title=task.title,
+                    body=(task.description or task.title)[:500],
+                    payload_json=json.dumps({"task_id": str(task.id)}),
+                )
+            )
+            await session.commit()
+        else:
+            session.add(task)
+            await session.commit()
+            from app.services.orchestration.queue import enqueue_agent_task_segment
+
+            if not await enqueue_agent_task_segment(str(task.tenant_id), str(task.id)):
+                from app.services.orchestration.runner import run_agent_task_segment
+
+                await run_agent_task_segment(session, task.tenant_id, task.id)
+        woken += 1
+    return woken
 
 
 async def cancel_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUID) -> AgentTask:
@@ -168,7 +238,7 @@ async def resume_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
     ).scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    if task.status not in ("paused", "awaiting_decision", "queued"):
+    if task.status not in ("paused", "awaiting_human", "queued"):
         raise HTTPException(status_code=400, detail=f"Cannot resume task in status {task.status}")
     was_human_gate = task.pause_reason == "human_gate"
     task.status = "running"
@@ -219,17 +289,24 @@ async def add_task_artifact(
 def serialize_agent_task(task: AgentTask) -> dict[str, Any]:
     return {
         "id": str(task.id),
+        "kind": task.kind,
         "title": task.title,
         "description": task.description,
         "status": task.status,
+        "priority": task.priority,
+        "origin": task.origin,
         "pause_reason": task.pause_reason,
         "project_id": str(task.project_id) if task.project_id else None,
         "signal_id": str(task.signal_id) if task.signal_id else None,
         "workstream_id": str(task.workstream_id) if task.workstream_id else None,
         "current_step_id": str(task.current_step_id) if task.current_step_id else None,
+        "assignee_kind": task.assignee_kind,
+        "assignee_agent_id": str(task.assignee_agent_id) if task.assignee_agent_id else None,
+        "assignee_user_id": str(task.assignee_user_id) if task.assignee_user_id else None,
         "context": _parse_json(task.context_json),
         "success_criteria": _parse_json(task.success_criteria_json),
         "trigger_type": task.trigger_type,
+        "scheduled_for": task.scheduled_for.isoformat() if task.scheduled_for else None,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "completed_at": task.completed_at.isoformat() if task.completed_at else None,
     }

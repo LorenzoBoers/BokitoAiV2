@@ -17,7 +17,6 @@ from app.models.orchestra import Workstream, WorkstreamStep
 from app.models.project import Project
 from app.models.signal import Signal
 from app.models.trigger import Trigger
-from app.services.orchestration.bootstrap import seed_tenant_runtime_profiles
 from app.services.tenant_bootstrap import serialize_settings
 from app.services.triggers import compute_next_run, next_cron_run
 
@@ -278,15 +277,14 @@ async def get_or_create_trading_mcp(
             session.add(server)
         return server
 
-    server = McpServer(
-        tenant_id=tenant_id,
+    from app.services.integrations_platform import register_mcp_server
+
+    server, _conn, _binding = await register_mcp_server(
+        session,
+        tenant_id,
         name=TRADING_MCP_NAME,
         server_url=server_url,
-        auth_json="{}",
-        is_active=True,
     )
-    session.add(server)
-    await session.flush()
     return server
 
 
@@ -395,8 +393,6 @@ async def get_or_create_strategy_workstream(
         )
     )
     ws = result.scalar_one_or_none()
-    profiles = await seed_tenant_runtime_profiles(session, tenant_id)
-    executor_profile = profiles.get("executor-standard")
 
     if not ws:
         ws = Workstream(
@@ -449,7 +445,6 @@ async def get_or_create_strategy_workstream(
                 workstream_id=ws.id,
                 order=order,
                 agent_id=orchestrator_id if kind != "human_gate" else None,
-                runtime_profile_id=executor_profile.id if executor_profile and kind == "agent" else None,
                 name=name,
                 step_kind=kind,
                 handoff_template=template,

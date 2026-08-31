@@ -1,11 +1,12 @@
 """Conversation-driven project work: queue lifecycle, smart-doc sections, links.
 
-Flow: a conversation (or user/agent) produces a `ProjectQueueItem`; accepting it
-wakes the project agent, which compares the request against the project's
-documentation, links the item to the doc sections it touches, and drives
-section statuses (open -> planned -> in_progress -> implemented -> verified).
-Every status transition is audited; items born from a thread echo progress
-back into that thread as SignalEvents.
+Flow: a conversation (or user/agent) produces a queue task (a workflow-kind
+row on the unified `AgentTask` ledger); accepting it wakes the project agent
+on that same task, which compares the request against the project's
+documentation, links the task to the doc sections it touches (`TaskDocLink`),
+and drives section statuses (open -> planned -> in_progress -> implemented ->
+verified). Every status transition is audited; tasks born from a thread echo
+progress back into that thread as SignalEvents.
 """
 
 from __future__ import annotations
@@ -20,33 +21,41 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.orchestration import (
+    QUEUE_ITEM_KINDS,
+    TASK_PRIORITIES,
+    TASK_STATUSES,
+    AgentTask,
+)
 from app.models.project_work import (
     DOC_SECTION_STATUSES,
     PROJECT_RESOURCE_STATUSES,
     PROJECT_RESOURCE_TYPES,
-    QUEUE_ITEM_KINDS,
-    QUEUE_ITEM_PRIORITIES,
-    QUEUE_ITEM_STATUSES,
     QUEUE_LINK_RELATIONS,
     ProjectDocSection,
-    ProjectQueueItem,
     ProjectResource,
-    QueueItemDocLink,
+    TaskDocLink,
 )
 from app.models.signal import SignalEvent
 from app.models.workspace import WorkspaceDoc
 
-# Legal queue-item transitions; "rejected" is reachable from any non-terminal state.
+# Legal workflow transitions on the unified status machine; "rejected" is
+# reachable from any non-terminal state. "running" doubles as the execution
+# status while an agent segment is live, so agent tools may finish a run by
+# moving running -> planned/verifying/completed directly.
 QUEUE_TRANSITIONS: dict[str, set[str]] = {
-    "proposed": {"accepted", "rejected"},
-    "accepted": {"analyzing", "planned", "rejected"},
-    "analyzing": {"planned", "accepted", "rejected"},
-    "planned": {"in_progress", "analyzing", "rejected"},
-    "in_progress": {"verifying", "planned", "rejected"},
-    "verifying": {"done", "in_progress"},
-    "done": set(),
+    "proposed": {"queued", "rejected"},
+    "queued": {"analyzing", "planned", "rejected"},
+    "analyzing": {"planned", "queued", "rejected"},
+    "planned": {"running", "analyzing", "rejected"},
+    "running": {"verifying", "planned", "completed", "rejected"},
+    "verifying": {"completed", "running"},
+    "completed": set(),
     "rejected": {"proposed"},
 }
+
+# Terminal / inactive workflow statuses (queue lists usually exclude these).
+QUEUE_INACTIVE_STATUSES = ("completed", "rejected", "cancelled", "failed")
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -57,7 +66,7 @@ def _iso(value: datetime | None) -> str | None:
 
 
 def serialize_queue_item(
-    item: ProjectQueueItem,
+    item: AgentTask,
     *,
     links: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
@@ -67,21 +76,23 @@ def serialize_queue_item(
         metadata = {}
     return {
         "id": str(item.id),
-        "project_id": str(item.project_id),
+        "project_id": str(item.project_id) if item.project_id else None,
         "kind": item.kind,
         "title": item.title,
-        "body": item.body,
+        "body": item.description,
         "priority": item.priority,
         "status": item.status,
         "duplicate_of_id": str(item.duplicate_of_id) if item.duplicate_of_id else None,
-        "origin_type": item.origin_type,
+        "origin_type": item.origin,
         "signal_id": str(item.signal_id) if item.signal_id else None,
         "message_id": str(item.message_id) if item.message_id else None,
         "created_by_type": item.created_by_type,
         "created_by_id": item.created_by_id,
         "impact_summary": item.impact_summary,
         "analyzed_at": _iso(item.analyzed_at),
-        "assigned_agent_id": str(item.assigned_agent_id) if item.assigned_agent_id else None,
+        "assigned_agent_id": str(item.assignee_agent_id) if item.assignee_agent_id else None,
+        "assignee_kind": item.assignee_kind,
+        "assignee_user_id": str(item.assignee_user_id) if item.assignee_user_id else None,
         "metadata": metadata,
         "links": links or [],
         "created_at": _iso(item.created_at),
@@ -295,11 +306,11 @@ async def set_section_status(
 
 async def get_queue_item(
     session: AsyncSession, tenant_id: UUID, item_id: UUID
-) -> ProjectQueueItem:
+) -> AgentTask:
     item = (
         await session.execute(
-            select(ProjectQueueItem).where(
-                ProjectQueueItem.id == item_id, ProjectQueueItem.tenant_id == tenant_id
+            select(AgentTask).where(
+                AgentTask.id == item_id, AgentTask.tenant_id == tenant_id
             )
         )
     ).scalar_one_or_none()
@@ -314,17 +325,17 @@ async def _links_for_items(
     if not item_ids:
         return {}
     result = await session.execute(
-        select(QueueItemDocLink, ProjectDocSection)
-        .join(ProjectDocSection, ProjectDocSection.id == QueueItemDocLink.section_id)
+        select(TaskDocLink, ProjectDocSection)
+        .join(ProjectDocSection, ProjectDocSection.id == TaskDocLink.section_id)
         .where(
-            QueueItemDocLink.tenant_id == tenant_id,
-            QueueItemDocLink.queue_item_id.in_(item_ids),
+            TaskDocLink.tenant_id == tenant_id,
+            TaskDocLink.task_id.in_(item_ids),
         )
-        .order_by(QueueItemDocLink.created_at)
+        .order_by(TaskDocLink.created_at)
     )
     out: dict[UUID, list[dict[str, Any]]] = {}
     for link, section in result.all():
-        out.setdefault(link.queue_item_id, []).append(
+        out.setdefault(link.task_id, []).append(
             {
                 "id": str(link.id),
                 "section_id": str(section.id),
@@ -348,15 +359,16 @@ async def list_queue_items(
     status: str | None = None,
     kind: str | None = None,
 ) -> list[dict[str, Any]]:
-    stmt = select(ProjectQueueItem).where(
-        ProjectQueueItem.tenant_id == tenant_id,
-        ProjectQueueItem.project_id == project_id,
+    stmt = select(AgentTask).where(
+        AgentTask.tenant_id == tenant_id,
+        AgentTask.project_id == project_id,
+        AgentTask.kind.in_(QUEUE_ITEM_KINDS),
     )
     if status:
-        stmt = stmt.where(ProjectQueueItem.status == status)
+        stmt = stmt.where(AgentTask.status == status)
     if kind:
-        stmt = stmt.where(ProjectQueueItem.kind == kind)
-    stmt = stmt.order_by(ProjectQueueItem.created_at.desc())
+        stmt = stmt.where(AgentTask.kind == kind)
+    stmt = stmt.order_by(AgentTask.created_at.desc())
     items = list((await session.execute(stmt)).scalars().all())
     links = await _links_for_items(session, tenant_id, [item.id for item in items])
     return [serialize_queue_item(item, links=links.get(item.id, [])) for item in items]
@@ -385,11 +397,11 @@ async def create_queue_item(
     created_by_type: str = "user",
     created_by_id: str = "",
     commit: bool = True,
-) -> ProjectQueueItem:
-    """Create a queue item; auto-accepts and starts analysis on autonomous projects."""
+) -> AgentTask:
+    """Create a queue task; auto-accepts and starts analysis on autonomous projects."""
     if kind not in QUEUE_ITEM_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
-    if priority not in QUEUE_ITEM_PRIORITIES:
+    if priority not in TASK_PRIORITIES:
         raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
     if not title.strip():
         raise HTTPException(status_code=400, detail="Title is required")
@@ -405,14 +417,16 @@ async def create_queue_item(
         raise HTTPException(status_code=404, detail="Project not found")
 
     now = datetime.utcnow()
-    item = ProjectQueueItem(
+    item = AgentTask(
         tenant_id=tenant_id,
         project_id=project_id,
         kind=kind,
         title=title.strip(),
-        body=body,
+        description=body,
         priority=priority,
-        origin_type=origin_type,
+        status="proposed",
+        origin=origin_type,
+        trigger_type="queue_item",
         signal_id=signal_id,
         message_id=message_id,
         created_by_type=created_by_type,
@@ -466,7 +480,7 @@ async def create_queue_item(
             session,
             tenant_id,
             item.id,
-            "accepted",
+            "queued",
             actor_type="system",
             actor_id="autonomous_mode",
         )
@@ -484,9 +498,9 @@ async def transition_queue_item(
     impact_summary: str | None = None,
     duplicate_of_id: UUID | None = None,
     commit: bool = True,
-) -> ProjectQueueItem:
+) -> AgentTask:
     """Validated status transition + audit + thread echo + analysis kickoff."""
-    if status not in QUEUE_ITEM_STATUSES:
+    if status not in TASK_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid queue item status: {status}")
     item = await get_queue_item(session, tenant_id, item_id)
     previous = item.status
@@ -499,6 +513,8 @@ async def transition_queue_item(
     now = datetime.utcnow()
     item.status = status
     item.updated_at = now
+    if status == "completed":
+        item.completed_at = now
     if impact_summary is not None:
         item.impact_summary = impact_summary
         item.analyzed_at = now
@@ -521,7 +537,7 @@ async def transition_queue_item(
         after={"status": status},
         commit=False,
     )
-    if item.signal_id and status in ("accepted", "done", "rejected"):
+    if item.signal_id and status in ("queued", "completed", "rejected"):
         session.add(
             SignalEvent(
                 signal_id=item.signal_id,
@@ -540,7 +556,7 @@ async def transition_queue_item(
     else:
         await session.flush()
 
-    if status == "accepted":
+    if status == "queued":
         # Acceptance wakes the project agent for doc impact analysis.
         await start_queue_item_analysis(session, tenant_id, item)
     return item
@@ -556,22 +572,22 @@ async def update_queue_item(
     kind: str | None = None,
     priority: str | None = None,
     assigned_agent_id: UUID | None = None,
-) -> ProjectQueueItem:
+) -> AgentTask:
     item = await get_queue_item(session, tenant_id, item_id)
     if title is not None and title.strip():
         item.title = title.strip()
     if body is not None:
-        item.body = body
+        item.description = body
     if kind is not None:
         if kind not in QUEUE_ITEM_KINDS:
             raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
         item.kind = kind
     if priority is not None:
-        if priority not in QUEUE_ITEM_PRIORITIES:
+        if priority not in TASK_PRIORITIES:
             raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
         item.priority = priority
     if assigned_agent_id is not None:
-        item.assigned_agent_id = assigned_agent_id
+        item.assignee_agent_id = assigned_agent_id
     item.updated_at = datetime.utcnow()
     session.add(item)
     await session.commit()
@@ -592,7 +608,7 @@ async def link_item_to_section(
     created_by_type: str = "agent",
     created_by_id: str = "",
     commit: bool = True,
-) -> QueueItemDocLink:
+) -> TaskDocLink:
     if relation not in QUEUE_LINK_RELATIONS:
         raise HTTPException(status_code=400, detail=f"Invalid link relation: {relation}")
     item = await get_queue_item(session, tenant_id, item_id)
@@ -609,9 +625,9 @@ async def link_item_to_section(
         raise HTTPException(status_code=400, detail="Section belongs to another project")
     existing = (
         await session.execute(
-            select(QueueItemDocLink).where(
-                QueueItemDocLink.queue_item_id == item_id,
-                QueueItemDocLink.section_id == section_id,
+            select(TaskDocLink).where(
+                TaskDocLink.task_id == item_id,
+                TaskDocLink.section_id == section_id,
             )
         )
     ).scalar_one_or_none()
@@ -622,9 +638,9 @@ async def link_item_to_section(
             await session.commit()
             await session.refresh(existing)
         return existing
-    link = QueueItemDocLink(
+    link = TaskDocLink(
         tenant_id=tenant_id,
-        queue_item_id=item_id,
+        task_id=item_id,
         section_id=section_id,
         relation=relation,
         created_by_type=created_by_type,
@@ -643,10 +659,10 @@ async def unlink_item_section(
     session: AsyncSession, tenant_id: UUID, item_id: UUID, section_id: UUID
 ) -> None:
     await session.execute(
-        delete(QueueItemDocLink).where(
-            QueueItemDocLink.tenant_id == tenant_id,
-            QueueItemDocLink.queue_item_id == item_id,
-            QueueItemDocLink.section_id == section_id,
+        delete(TaskDocLink).where(
+            TaskDocLink.tenant_id == tenant_id,
+            TaskDocLink.task_id == item_id,
+            TaskDocLink.section_id == section_id,
         )
     )
     await session.commit()
@@ -669,17 +685,17 @@ async def sections_for_project(
 async def links_for_sections(
     session: AsyncSession, tenant_id: UUID, section_ids: list[UUID]
 ) -> dict[UUID, list[dict[str, Any]]]:
-    """section_id -> linked queue items (current and historical)."""
+    """section_id -> linked queue tasks (current and historical)."""
     if not section_ids:
         return {}
     result = await session.execute(
-        select(QueueItemDocLink, ProjectQueueItem)
-        .join(ProjectQueueItem, ProjectQueueItem.id == QueueItemDocLink.queue_item_id)
+        select(TaskDocLink, AgentTask)
+        .join(AgentTask, AgentTask.id == TaskDocLink.task_id)
         .where(
-            QueueItemDocLink.tenant_id == tenant_id,
-            QueueItemDocLink.section_id.in_(section_ids),
+            TaskDocLink.tenant_id == tenant_id,
+            TaskDocLink.section_id.in_(section_ids),
         )
-        .order_by(QueueItemDocLink.created_at.desc())
+        .order_by(TaskDocLink.created_at.desc())
     )
     out: dict[UUID, list[dict[str, Any]]] = {}
     for link, item in result.all():
@@ -839,7 +855,7 @@ async def conversation_project_context(
         thread_project = next((p for p in projects if p.id == signal.project_id), None)
     if thread_project:
         open_items = await list_queue_items(session, tenant_id, thread_project.id)
-        active = [i for i in open_items if i["status"] not in ("done", "rejected")]
+        active = [i for i in open_items if i["status"] not in QUEUE_INACTIVE_STATUSES]
         lines.append(
             f"- This thread belongs to project '{thread_project.name}' "
             f"(slug: {thread_project.slug}); {len(active)} active queue item(s)."
@@ -918,7 +934,7 @@ async def _project_work_context(
             )
 
     open_items = await list_queue_items(session, tenant_id, project_id)
-    active = [i for i in open_items if i["status"] not in ("done", "rejected")]
+    active = [i for i in open_items if i["status"] not in QUEUE_INACTIVE_STATUSES]
     if active:
         lines.append("\n## Other active queue items (check for duplicates)")
         for i in active[:20]:
@@ -927,41 +943,81 @@ async def _project_work_context(
 
 
 ANALYSIS_INSTRUCTIONS = (
-    "You are analyzing a project queue item against the project documentation.\n"
-    "1. Read the queue item and the documentation sections below.\n"
+    "You are analyzing a project queue task against the project documentation.\n"
+    "1. Read the queue task and the documentation sections below.\n"
     "2. Decide which sections this request touches or modifies. Use "
     "link_queue_item_to_doc for each (relation: implements | modifies | touches).\n"
     "3. If the documentation needs a new or changed section to describe this "
     "request, update the project doc with write_doc (add a `## heading` per "
     "capability and a short acceptance checklist), then link the new section.\n"
     "4. Set touched sections to 'planned' with set_doc_section_status.\n"
-    "5. If this duplicates an existing queue item, say so and mark it via "
+    "5. If this duplicates an existing queue task, say so and mark it via "
     "update_queue_item_status with status 'rejected' and mention the duplicate.\n"
     "6. Finish with update_queue_item_status to 'planned' and include a concise "
     "impact summary of what this touches and why."
 )
 
 VERIFY_INSTRUCTIONS = (
-    "You are verifying that reality matches the documentation for a queue item.\n"
+    "You are verifying that reality matches the documentation for a queue task.\n"
     "1. Re-read the linked doc sections and their acceptance checklists.\n"
     "2. Use the available context (search_repo when a repo is connected, "
     "search_index, thread history) to check each checklist point.\n"
     "3. If everything matches: set the linked sections to 'implemented' (or "
     "'verified' when you have direct evidence) with set_doc_section_status and "
-    "move the item to 'done' with update_queue_item_status.\n"
+    "move the task to 'completed' with update_queue_item_status.\n"
     "4. If something does not match: describe the gap, update the doc if the "
-    "doc is wrong, and move the item back to 'in_progress' with your findings."
+    "doc is wrong, and move the task back to 'planned' with your findings."
 )
 
 
+async def _wake_task_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    item: AgentTask,
+    agent: Any,
+    *,
+    instructions: str,
+    fallback_status: str,
+) -> dict[str, Any]:
+    """Run an agent segment against the queue task itself (one ledger row).
+
+    The instructions live in `context_json` so the task description stays the
+    original request. `workflow=True` tells the runner to respect statuses the
+    agent sets via tools instead of force-completing the task.
+    """
+    try:
+        ctx = json.loads(item.context_json or "{}")
+        if not isinstance(ctx, dict):
+            ctx = {}
+    except json.JSONDecodeError:
+        ctx = {}
+    ctx["instructions"] = instructions
+    ctx["agent_id"] = str(agent.id)
+    ctx["workflow"] = True
+    ctx["workflow_fallback_status"] = fallback_status
+    item.context_json = json.dumps(ctx)
+    item.assignee_agent_id = agent.id
+    item.updated_at = datetime.utcnow()
+    session.add(item)
+    await session.commit()
+
+    from app.services.orchestration.queue import enqueue_agent_task_segment
+
+    if not await enqueue_agent_task_segment(str(tenant_id), str(item.id)):
+        from app.services.orchestration.runner import run_agent_task_segment
+
+        await run_agent_task_segment(session, tenant_id, item.id)
+    return {"task_id": str(item.id)}
+
+
 async def start_queue_item_analysis(
-    session: AsyncSession, tenant_id: UUID, item: ProjectQueueItem
+    session: AsyncSession, tenant_id: UUID, item: AgentTask
 ) -> dict[str, Any] | None:
-    """Wake the project agent: analyze the item against the project docs."""
+    """Wake the project agent on this task: analyze it against the project docs."""
     agent = await resolve_project_agent(session, tenant_id, item.project_id)
     if agent is None:
         return None
-    await transition_queue_item(
+    item = await transition_queue_item(
         session,
         tenant_id,
         item.id,
@@ -970,33 +1026,21 @@ async def start_queue_item_analysis(
         actor_id="queue_analysis",
     )
     context = await _project_work_context(session, tenant_id, item.project_id)
-    description = (
+    instructions = (
         f"{ANALYSIS_INSTRUCTIONS}\n\n"
-        f"## Queue item\n"
+        f"## Queue task\n"
         f"- id: {item.id}\n- kind: {item.kind}\n- priority: {item.priority}\n"
-        f"- title: {item.title}\n\n{item.body}\n\n{context}"
+        f"- title: {item.title}\n\n{item.description}\n\n{context}"
     )
-    from app.services.orchestration.dispatcher import create_agent_task
-
-    task = await create_agent_task(
-        session,
-        tenant_id,
-        title=f"Analyze queue item: {item.title}"[:200],
-        description=description,
-        project_id=item.project_id,
-        agent_id=agent.id,
-        trigger_type="queue_item",
-        trigger_id=str(item.id),
-        signal_id=item.signal_id,
-        auto_start=True,
+    return await _wake_task_agent(
+        session, tenant_id, item, agent, instructions=instructions, fallback_status="planned"
     )
-    return {"task_id": str(task.id)}
 
 
 async def start_queue_item_verification(
     session: AsyncSession, tenant_id: UUID, item_id: UUID
 ) -> dict[str, Any] | None:
-    """Wake the project agent: verify reality matches the linked doc sections."""
+    """Wake the project agent on this task: verify reality matches the docs."""
     item = await get_queue_item(session, tenant_id, item_id)
     if item.status != "verifying":
         item = await transition_queue_item(
@@ -1016,24 +1060,12 @@ async def start_queue_item_verification(
         f"- section_id={link['section_id']} [{link['section_status']}] {link['heading']} ({link['relation']})"
         for link in links.get(item.id, [])
     ) or "(no linked sections — link them first or verify against the docs)"
-    description = (
+    instructions = (
         f"{VERIFY_INSTRUCTIONS}\n\n"
-        f"## Queue item\n"
-        f"- id: {item.id}\n- title: {item.title}\n\n{item.body}\n\n"
+        f"## Queue task\n"
+        f"- id: {item.id}\n- title: {item.title}\n\n{item.description}\n\n"
         f"## Linked sections\n{linked_txt}\n\n{context}"
     )
-    from app.services.orchestration.dispatcher import create_agent_task
-
-    task = await create_agent_task(
-        session,
-        tenant_id,
-        title=f"Verify queue item: {item.title}"[:200],
-        description=description,
-        project_id=item.project_id,
-        agent_id=agent.id,
-        trigger_type="queue_item_verify",
-        trigger_id=str(item.id),
-        signal_id=item.signal_id,
-        auto_start=True,
+    return await _wake_task_agent(
+        session, tenant_id, item, agent, instructions=instructions, fallback_status="verifying"
     )
-    return {"task_id": str(task.id)}

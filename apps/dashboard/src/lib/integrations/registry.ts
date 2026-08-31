@@ -111,7 +111,9 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
     staticId: 'snelstart',
     platformSlug: 'snelstart',
     kind: 'mcp',
-    setupMode: 'api_key',
+    // Coming soon — do not route into custom MCP / API-key install.
+    setupMode: 'oauth2',
+    oauthStrategy: 'platform',
     connectionCountSource: 'platform',
   },
   {

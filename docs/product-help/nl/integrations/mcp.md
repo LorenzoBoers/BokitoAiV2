@@ -16,7 +16,7 @@ MCP is hoe agents externe tools aanroepen via een standaardprotocol. In het prod
 ![MCP-servers](/api/docs/assets/mcp/servers.png)
 *Voeg de server-URL en inloggegevens toe.*
 
-1. Open **Instellingen**, daarna **Integraties**, daarna **Gekoppelde tools** (dezelfde pagina als `/settings/mcp`).
+1. Open **Modules** in de zijbalk, daarna de tab **Gekoppelde tools** (dezelfde pagina als `/modules/tools`).
 2. Kies **Tool koppelen**. De dialoog heet **Toolserver toevoegen**. Vul een **Weergavenaam**, **Server-URL** en **Authenticatie** (**API-sleutel** of **Bearer-token**) plus **Geheim / token** in.
 3. **Verbinding opslaan**. De rij verschijnt onder **Geconfigureerde verbindingen**. Filter de lijst, kopieer het endpoint, en gebruik **Verbinding testen** — succes leest **Verbonden — N tools gevonden**. Ontkoppelen vraagt om bevestiging.
 

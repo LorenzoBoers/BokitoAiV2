@@ -115,7 +115,7 @@ export function CalendarConnectBar({
         {labels}
         {connections.some((c) => (c.event_count ?? 0) > 0)
           ? ` · ${t('agendaPage.calendar.eventCount', {
-              count: connections.reduce((n, c) => n + (c.event_count ?? 0), 0),
+              count: connections.reduce((n: number, c) => n + (c.event_count ?? 0), 0),
             })}`
           : null}
       </p>

@@ -1,9 +1,17 @@
-"""Assistant chat API backed by the unified Signal thread model.
+"""Assistant conversation endpoints of the unified Signals API.
 
 An assistant conversation is a `Signal` with channel="assistant" owned by the
-requesting user. The URL contract is kept compatible with the dashboard chat
-client; the storage layer is the same one used by Messages, email, and the
-widget.
+requesting user. These routes live under the `/signals` prefix (included by
+`app.routers.signals`) so Messages, email, the widget, and assistant chats all
+share one API family. Paths:
+
+- GET  /signals/chat/targets
+- GET/POST  /signals/conversations
+- PATCH/DELETE  /signals/conversations/{id}
+- GET/POST  /signals/conversations/{id}/messages
+- POST /signals/conversations/{id}/stream
+
+Takeover/release use the shared /signals/{signal_id}/takeover and /release.
 """
 
 import json
@@ -35,7 +43,7 @@ from app.services.personal_agents import (
     resolve_chat_target,
 )
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(tags=["signals"])
 logger = logging.getLogger(__name__)
 
 ASSISTANT_CHANNELS = ("assistant", "widget")
@@ -75,7 +83,9 @@ def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = N
 
 
 def _serialize_target(agent: Agent, *, is_default: bool = False) -> dict:
-    return {
+    from app.services.agent_avatar import avatar_payload
+
+    payload = {
         "id": str(agent.id),
         "name": agent.name,
         "kind": agent.kind,
@@ -83,9 +93,11 @@ def _serialize_target(agent: Agent, *, is_default: bool = False) -> dict:
         "runtime_status": agent.runtime_status,
         "is_default": is_default,
     }
+    payload.update(avatar_payload(agent))
+    return payload
 
 
-@router.get("/targets")
+@router.get("/chat/targets")
 async def chat_targets(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -200,34 +212,6 @@ async def delete_conversation(
     return {"ok": True}
 
 
-@router.post("/conversations/{conversation_id}/takeover")
-async def takeover(
-    conversation_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    signal = await _get_thread(session, conversation_id, auth.tenant.id)
-    signal.ai_paused = True
-    signal.assigned_user_id = auth.user.id
-    await session.commit()
-    return {"ai_paused": True}
-
-
-@router.post("/conversations/{conversation_id}/release")
-async def release(
-    conversation_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    signal = await _get_thread(session, conversation_id, auth.tenant.id)
-    signal.ai_paused = False
-    signal.assigned_user_id = None
-    await session.commit()
-    return {"ai_paused": False}
-
-
 @router.get("/conversations/{conversation_id}/messages")
 async def list_messages(
     conversation_id: UUID,
@@ -303,7 +287,7 @@ async def send_message(
         logger.exception("assistant chat failed for signal %s", signal.id)
         reply_text = _agent_error_message(exc, llm_meta)
         tokens = {}
-        _finalize_run(session, run, status="failed")
+        await _finalize_run(session, run, status="failed")
         assistant_msg = await append_signal_chat_message(
             session,
             signal,
@@ -340,7 +324,7 @@ async def send_message(
     )
     if signal.subject == "New conversation":
         signal.subject = body.content[:60]
-    _finalize_run(session, run, status="completed", tokens=tokens)
+    await _finalize_run(session, run, status="completed", tokens=tokens)
     await session.commit()
     await session.refresh(assistant_msg)
     return {
@@ -414,7 +398,7 @@ async def stream_message(
                     )
                     if signal.subject == "New conversation":
                         signal.subject = body.content[:60]
-                    _finalize_run(session, run, status="completed", tokens=event.get("usage") or {})
+                    await _finalize_run(session, run, status="completed", tokens=event.get("usage") or {})
                     await session.commit()
                     done_payload: dict = {
                         "text": final,
@@ -431,7 +415,7 @@ async def stream_message(
         except Exception as exc:
             logger.exception("assistant stream failed for signal %s", signal.id)
             error_text = _agent_error_message(exc, llm_meta)
-            _finalize_run(session, run, status="failed")
+            await _finalize_run(session, run, status="failed")
             await append_signal_chat_message(
                 session,
                 signal,
@@ -505,7 +489,7 @@ async def _agent_run(session, auth, signal: Signal, content: str):
     return agent, run
 
 
-def _finalize_run(session, run: AgentRun | None, *, status: str, tokens: dict | None = None) -> None:
+async def _finalize_run(session, run: AgentRun | None, *, status: str, tokens: dict | None = None) -> None:
     """Close the run record; callers commit. Runs must never stay 'running'."""
     if run is None:
         return
@@ -515,6 +499,10 @@ def _finalize_run(session, run: AgentRun | None, *, status: str, tokens: dict | 
         run.tokens_input = int(tokens.get("input_tokens") or 0)
         run.tokens_output = int(tokens.get("output_tokens") or 0)
     session.add(run)
+    # Mirror the outcome onto the ledger Task when this run was promoted.
+    from app.services.task_ledger import settle_run_task
+
+    await settle_run_task(session, run)
 
 
 def _agent_error_message(exc: Exception, llm_meta: dict) -> str:

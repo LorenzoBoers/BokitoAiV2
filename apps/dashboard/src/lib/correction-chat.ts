@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { appRoutes } from '../api/routes'
 import { apiPost } from './api'
-import { bokitoCreateConversation } from './bokito-api'
+import { bokitoCreateConversation } from './signals-api'
 import { agentChatPath, newConversationPath } from './messages-paths'
 
 export type CorrectionSubject = {

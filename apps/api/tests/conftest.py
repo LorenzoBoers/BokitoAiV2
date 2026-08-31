@@ -75,9 +75,6 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
     await session_override.refresh(tenant)
     await session_override.refresh(user)
     session_override.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
-    from app.models.inbox import InboxSettings
-
-    session_override.add(InboxSettings(tenant_id=tenant.id))
     session_override.add(
         Agent(
             tenant_id=tenant.id,

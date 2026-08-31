@@ -32,9 +32,9 @@ export const TOUR_STEPS: readonly TourStepDef[] = [
   },
   { id: 'ai', target: 'nav-group-ai', placement: 'right' },
   { id: 'agenda', target: 'nav-agenda', placement: 'right' },
-  { id: 'cockpit', target: 'nav-cockpit', placement: 'right' },
+  { id: 'modules', target: 'nav-modules', placement: 'right' },
   { id: 'settings', target: 'nav-settings', placement: 'right' },
 ]
 
 /** Pillar cards on the welcome screen, in display order (copy: `tour:welcome.pillars.{id}`). */
-export const WELCOME_PILLARS = ['communication', 'ai', 'automations', 'cockpit', 'control'] as const
+export const WELCOME_PILLARS = ['communication', 'ai', 'automations', 'modules', 'control'] as const

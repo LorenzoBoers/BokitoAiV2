@@ -1,20 +1,25 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import { inboxPath } from '../lib/messages-paths'
 import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
 import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
 import { ModuleToolsetDropdown } from '../components/integrations/ModuleToolsetDropdown'
-import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
+import { ModuleToolsetPanel } from '../components/integrations/ModuleToolsetPanel'
+import {
+  ModulePackageGrid,
+  buildModulePackageItems,
+  type ModulePackageItem,
+} from '../components/integrations/ModulePackageGrid'
 import { PageContent } from '../components/layout/PageContent'
+import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 import { Button } from '../components/ui/button'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import {
   moduleHomePath,
   moduleIsInSetup,
   moduleIsOn,
-  moduleWorkspacePath,
-  plannedProviderLabel,
 } from '../lib/integration-modules'
 import { moduleSetupPath } from '../lib/integration-setup-url'
 import type { IntegrationApplication } from '../lib/integration-applications'
@@ -27,16 +32,18 @@ function packageConnectId(app: IntegrationApplication): string {
 function UsesIntegrations({
   module,
   applications,
+  onOpenPackage,
 }: {
   module: IntegrationModuleRow
   applications: IntegrationApplication[]
+  onOpenPackage: (item: ModulePackageItem) => void
 }) {
   const { t } = useTranslation('nav')
-  const apps = applications.filter(
-    (app) => app.module === module.slug && app.status !== 'coming_soon',
-  )
-  const planned = module.planned_provider_slugs ?? []
-  if (apps.length === 0 && planned.length === 0) return null
+  const items = useMemo(() => {
+    const moduleApps = applications.filter((app) => app.module === module.slug)
+    return buildModulePackageItems(moduleApps, module.planned_provider_slugs ?? [])
+  }, [applications, module.slug, module.planned_provider_slugs])
+  if (items.length === 0) return null
 
   return (
     <div className="mt-4">
@@ -49,52 +56,7 @@ function UsesIntegrations({
             'Connect these on the platform. The module uses them when they are available.',
         })}
       </p>
-      {apps.length > 0 ? (
-        <ul className="flex flex-wrap items-center gap-2">
-          {apps.map((app) => {
-            const connected = (app.connectionCount ?? 0) > 0 || app.status === 'connected'
-            return (
-              <li key={app.hostSlug}>
-                <Link
-                  to={moduleSetupPath(module.slug, packageConnectId(app), 'setup')}
-                  aria-label={t('integrations.modules.openIntegration', {
-                    defaultValue: 'Open {{name}}',
-                    name: app.name,
-                  })}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 hover:border-accent/50 hover:bg-bg-hover/50"
-                >
-                  <IntegrationHostLogo
-                    logoUrl={app.brand.logoUrl}
-                    logoDarkUrl={app.brand.logoDarkUrl}
-                    initials={app.brand.initials}
-                    color={app.brand.color}
-                    name=""
-                    hostSlug={app.brand.hostSlug}
-                    size="sm"
-                    className="rounded-md"
-                  />
-                  <span className="text-xs text-text-secondary">{app.name}</span>
-                  <span
-                    className={`text-[10px] ${connected ? 'text-status-success' : 'text-text-muted'}`}
-                  >
-                    {connected
-                      ? t('integrations.modules.integrationOn', { defaultValue: 'On' })
-                      : t('integrations.modules.integrationOff', { defaultValue: 'Optional' })}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      ) : null}
-      {planned.length > 0 ? (
-        <p className={`${apps.length > 0 ? 'mt-2' : ''} text-xs text-text-muted`}>
-          {t('integrations.modules.planned', {
-            defaultValue: 'Planned connectors: {{providers}}',
-            providers: planned.map(plannedProviderLabel).join(', '),
-          })}
-        </p>
-      ) : null}
+      <ModulePackageGrid items={items} onOpen={onOpenPackage} />
     </div>
   )
 }
@@ -112,16 +74,19 @@ function LiveModuleCard({
   ) => Promise<unknown>
 }) {
   const { t } = useTranslation('nav')
+  const navigate = useNavigate()
   const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
   const description = t(`integrations.modules.${module.slug}.description`, {
     defaultValue: module.description,
   })
-  const capability = t(`integrations.modules.${module.slug}.capability`, {
-    defaultValue: module.capability_summary || '',
-  })
   const installed = moduleIsOn(module)
   const inSetup = moduleIsInSetup(module)
   const connected = module.tenant_status === 'connected' || Boolean(module.connected)
+
+  const openPackage = (item: ModulePackageItem) => {
+    if (!item.application) return
+    navigate(moduleSetupPath(module.slug, packageConnectId(item.application), 'setup'))
+  }
 
   return (
     <article className="rounded-xl border border-border/60 bg-bg-surface p-5 shadow-card">
@@ -133,7 +98,10 @@ function LiveModuleCard({
           </div>
           <p className="mt-1 text-sm text-text-secondary">{description}</p>
         </div>
-        <ModuleInstallControls module={module} onAction={runModuleAction} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ModuleToolsetDropdown module={module} />
+          <ModuleInstallControls module={module} onAction={runModuleAction} />
+        </div>
       </div>
 
       {inSetup ? (
@@ -166,30 +134,17 @@ function LiveModuleCard({
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <ModuleToolsetDropdown
-          moduleSlug={module.slug}
-          verbLabels={module.verb_labels ?? []}
-          verbs={module.verbs}
-          proposeVerbs={module.propose_verbs}
-          capability={capability}
-        />
+      <div className="mt-4">
+        <ModuleToolsetPanel module={module} />
       </div>
 
-      <UsesIntegrations module={module} applications={applications} />
+      <UsesIntegrations
+        module={module}
+        applications={applications}
+        onOpenPackage={openPackage}
+      />
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-        {installed ? (
-          <Link
-            to={moduleWorkspacePath(module)}
-            className="text-xs font-medium text-accent hover:underline"
-          >
-            {t('integrations.modules.openWorkspace', {
-              defaultValue: 'Open {{name}}',
-              name,
-            })}
-          </Link>
-        ) : null}
         <Link
           to={moduleHomePath(module)}
           className="text-xs font-medium text-accent hover:underline"
@@ -197,8 +152,8 @@ function LiveModuleCard({
           {inSetup
             ? t('integrations.modules.continueSetup', { defaultValue: 'Continue setup' })
             : installed
-              ? t('integrations.modules.manageCta', {
-                  defaultValue: 'Manage {{name}}',
+              ? t('integrations.modules.openWorkspace', {
+                  defaultValue: 'Open {{name}}',
                   name,
                 })
               : t('integrations.modules.setupCta', {
@@ -240,6 +195,7 @@ export default function ModulesPage() {
 
   return (
     <PageContent width="lg">
+      <IntegrationsTabs />
       <div className="mb-6">
         <p className="max-w-2xl text-sm text-text-secondary">
           {t('integrations.modules.pageIntro', {
@@ -295,7 +251,11 @@ export default function ModulesPage() {
                   const description = t(`integrations.modules.${module.slug}.description`, {
                     defaultValue: module.description,
                   })
-                  const planned = module.planned_provider_slugs ?? []
+                  const moduleApps = applications.filter((app) => app.module === module.slug)
+                  const items = buildModulePackageItems(
+                    moduleApps,
+                    module.planned_provider_slugs ?? [],
+                  )
                   return (
                     <article
                       key={module.slug}
@@ -311,13 +271,8 @@ export default function ModulesPage() {
                         <ModuleStatusBadge module={module} />
                       </div>
                       <p className="mt-1 text-xs text-text-muted">{description}</p>
-                      {planned.length > 0 ? (
-                        <p className="mt-2 text-xs text-text-muted">
-                          {t('integrations.modules.planned', {
-                            defaultValue: 'Planned connectors: {{providers}}',
-                            providers: planned.map(plannedProviderLabel).join(', '),
-                          })}
-                        </p>
+                      {items.length > 0 ? (
+                        <ModulePackageGrid items={items} className="mt-3" />
                       ) : null}
                     </article>
                   )
@@ -327,7 +282,7 @@ export default function ModulesPage() {
           ) : null}
 
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-            <Link to="/settings/marketplace" className="text-accent hover:underline">
+            <Link to="/modules/marketplace" className="text-accent hover:underline">
               {t('integrations.modules.browseMarketplace', {
                 defaultValue: 'Browse integrations on Marketplace',
               })}

@@ -1,4 +1,4 @@
-import { decisionsPath, inboxPath, agentRunsPath } from './messages-paths'
+import { activityTerminalPath, decisionsPath, inboxPath, agentRunsPath } from './messages-paths'
 
 export type NotificationPayload = Record<string, unknown>
 
@@ -48,11 +48,11 @@ export function pathForNotification(input: {
 
   if (kind === 'ops_alert') {
     if (typeof payload.account_id === 'string') return '/settings/channels'
-    return agentRunsPath('all')
+    return activityTerminalPath()
   }
 
   if (kind === 'status_update') {
-    return isInternalNotificationPayload(payload) ? agentRunsPath('all') : inboxPath('all')
+    return isInternalNotificationPayload(payload) ? activityTerminalPath() : inboxPath('all')
   }
 
   return null

@@ -37,6 +37,14 @@ Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Gove
 
 Websitebezoekers muteren de workspace nooit automatisch, ongeacht de houding. [Inbox AI](/docs/inbox/inbox-ai) bepaalt nog steeds wanneer een klantconcept verschijnt.
 
+## Eén draaiknop begrenst ook kanaal-AI
+
+De AI-modus per kanaal (voorstellen, automatisch, uit) is een weergave van de Berichten-toestemming: kanalen kunnen nooit meer dan Govern toestaat.
+
+1. Staat Berichten op **Eerst vragen**, dan gedragen kanalen op **Automatisch** zich als **Voorstellen**: antwoorden wachten op goedkeuring.
+2. Staat Berichten op **Weigeren**, dan staat AI uit op elk kanaal.
+3. Staat Berichten op **Toestaan**, dan geldt de eigen modus van elk kanaal.
+
 ## Wat nu
 
 Vergrendel tools op [Govern](/docs/govern/govern). Controleer of elke [agent](/docs/ai/agents) de houding erfde.

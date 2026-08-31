@@ -20,7 +20,6 @@ from app.routers import (
     auth,
     calendars,
     channels,
-    chat,
     cockpit,
     app_workspaces,
     custom_db,
@@ -161,7 +160,6 @@ api_prefix = settings.api_prefix
 app.include_router(gateway_router, prefix=api_prefix)
 app.include_router(health.router, prefix=api_prefix)
 app.include_router(auth.router, prefix=api_prefix)
-app.include_router(chat.router, prefix=api_prefix)
 app.include_router(me.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(integrations.router, prefix=api_prefix)

@@ -456,10 +456,22 @@ async def fire_trigger(
     await session.flush()
     await session.refresh(run)
 
+    # Scheduled jobs always land on the Task ledger. Heartbeats stay lazy:
+    # an all-clear check-in is not work, so the loop only promotes it when
+    # it actually does something.
+    if trigger.kind != "heartbeat":
+        from app.services.task_ledger import promote_run_to_task
+
+        await promote_run_to_task(session, run, title=trigger.name)
+
     loop = AgentLoop(session, trigger.tenant_id, None, agent=agent, run=run)
     text, _tokens = await loop.run_chat([{"role": "user", "content": prompt}])
     run.status = "completed"
     run.completed_at = datetime.utcnow()
+
+    from app.services.task_ledger import settle_run_task
+
+    await settle_run_task(session, run)
 
     suppressed = trigger.kind == "heartbeat" and text.strip().rstrip(".") == HEARTBEAT_OK
     if not suppressed and text.strip():

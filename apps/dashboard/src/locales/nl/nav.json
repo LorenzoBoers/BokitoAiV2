@@ -72,6 +72,7 @@
     "moduleSetup": "Module-setup",
     "moduleWorkspace": "Module",
     "connectedTools": "Gekoppelde tools",
+    "connected": "Gekoppeld",
     "myAssistant": "Mijn assistent"
   },
   "pageHeaders": {
@@ -706,6 +707,8 @@
   },
   "setupGuidePage": {
     "checking": "Workspace-status controleren...",
+    "phaseActivation": "Eerst: één AI-lus werkend krijgen",
+    "phaseExpand": "Daarna: je workspace uitbreiden",
     "pillarsReady": "{{done}} van {{total}} pijlers klaar",
     "preferTalking": "Liever praten dan klikken? De assistent zet alles met je op.",
     "startAssistant": "Start met de assistent",
@@ -923,6 +926,10 @@
   },
   "activityPage": {
     "all": "Alles",
+    "allAgents": "Alle agents",
+    "loadOlder": "Ouder laden",
+    "loadingOlder": "Ouder laden...",
+    "loading": "Activiteit laden...",
     "headlines": "Kopregels",
     "headlinesHint": "Alleen afgerond werk en beslissingen — denkstappen blijven verborgen",
     "fullLog": "Volledig log",
@@ -1860,42 +1867,8 @@
     "dark": "Donker",
     "light": "Licht"
   },
-  "rail": {
-    "home": "Home",
-    "support": "Communicatie",
-    "updates": "AI",
-    "assistent": "Assistent",
-    "integrations": "Integraties",
-    "data": "Data",
-    "workforce": "Workforce",
-    "agents": "Agenten",
-    "users": "Gebruikers",
-    "settings": "Instellingen",
-    "projects": "Projecten",
-    "pkb": "Project",
-    "changeRequest": "Verzoek",
-    "messages": "Berichten",
-    "orchestra": "Orchestra",
-    "aiOs": "AI OS",
-    "govern": "Govern"
-  },
   "sectionTitle": {
-    "home": "Home",
-    "users": "Gebruikers",
-    "settings": "Instellingen",
-    "inbox": "Communicatie",
-    "ai": "AI",
-    "assistent": "Assistent",
-    "integrations": "Integraties",
-    "workforce": "Workforce",
-    "agents": "Agenten",
-    "data": "Data",
-    "project": "Project",
-    "projects": "Projecten",
-    "projectHub": "Projecthub",
-    "orchestra": "Orchestra",
-    "aiOs": "AI OS",
-    "govern": "Govern"
+    "inbox": "Communicatie"
   },
   "repoStatus": {
     "notConnected": "Niet gekoppeld",
@@ -1904,55 +1877,6 @@
     "pending": "In wachtrij",
     "error": "Verbindingsprobleem",
     "connected": "Gekoppeld"
-  },
-  "home": {
-    "title": "Home",
-    "description": "Overzicht van je workspace: recente projecten, inbox en gecombineerde activiteit.",
-    "group": {
-      "overview": "Overzicht"
-    },
-    "quick": {
-      "newProject": "Nieuw project",
-      "openInbox": "Communicatie openen",
-      "integrations": "Integraties",
-      "assistent": "Assistent",
-      "aiOs": "AI OS-canvas",
-      "govern": "Govern"
-    },
-    "recentProjects": {
-      "title": "Recente projecten",
-      "viewAll": "Alle projecten",
-      "empty": "Nog geen projecten."
-    },
-    "inbox": {
-      "title": "Inbox",
-      "description": "Ga direct naar je belangrijkste wachtrijen."
-    },
-    "agentRuns": {
-      "title": "Recente agent runs",
-      "viewAll": "Alle runs",
-      "empty": "Nog geen agent runs."
-    },
-    "activity": {
-      "title": "Recente activiteit",
-      "empty": "Nog geen activiteit.",
-      "unknown": "-",
-      "unknownAgent": "Onbekende agent",
-      "unknownProject": "Onbekend project",
-      "crossProject": "Projectoverstijgend",
-      "fallbackMessage": "Bericht-update",
-      "actorSystem": "Systeem",
-      "actorAgent": "Agent",
-      "actionRun": "Run",
-      "labels": {
-        "actor": "Actor",
-        "agent": "Agent",
-        "workstream": "Stroom",
-        "action": "Actie"
-      }
-    },
-    "headline": "De inbox, de agents en de goedkeuringen — in één systeem",
-    "tagline": "Klantsignalen, agentwerk en menselijke beslissingen stromen door één operationele hub. Verhoog de autonomie in Govern wanneer je er klaar voor bent."
   },
   "data": {
     "group": {
@@ -2137,6 +2061,14 @@
       "label": "Beslissingen",
       "hint": "Alles wat wacht op een ja, nee of goedgekeurd concept"
     },
+    "activity": {
+      "label": "Activiteit",
+      "hint": "Agent-runs, updates en resultaten"
+    },
+    "contacts": {
+      "label": "Contacten",
+      "hint": "Personen en bedrijven uit al je kanalen"
+    },
     "inbox": {
       "all": "Alles",
       "allHint": "Elk klantgesprek, inclusief gesloten",
@@ -2189,6 +2121,8 @@
       "loading": "Agents laden...",
       "empty": "Geen agents beschikbaar voor chat.",
       "runs": "Agent-runs",
+      "activity": "Activiteit",
+      "activityHint": "Werklog van deze agent",
       "settingsAria": "Agents beheren"
     },
     "tags": {
@@ -2723,7 +2657,7 @@
       "accounting": {
         "name": "Boekhouding",
         "description": "Eén boekhoudcontract voor agents: administraties, relaties, facturen, grootboek en openstaande posten over elk gekoppeld pakket.",
-        "capability": "Agents kunnen administraties, relaties, facturen, grootboekregels en openstaande posten ophalen. Schrijven wordt altijd een beslissing die jij goedkeurt.",
+        "capability": "Agents kunnen administraties, relaties, facturen, grootboekregels en openstaande posten ophalen.",
         "setup": [
           "Installeer Boekhouding onder Instellingen > Modules.",
           "Koppel optioneel een platformintegratie die deze module kan gebruiken (KING, Bjorn Lunden of Moneybird).",
@@ -2757,6 +2691,94 @@
           "Deze module is voorbereid maar nog niet koppelbaar.",
           "Als een opslagkoppeling live gaat, vullen reads Kennis en blijven uploads beslissingen."
         ]
+      },
+      "tools": {
+        "accounting": {
+          "list_companies": {
+            "label": "Administraties",
+            "description": "Lijst elke administratie (bedrijfsdossier) op gekoppelde packages."
+          },
+          "get_company": {
+            "label": "Administratiedetail",
+            "description": "Haal één administratie op: naam, valuta en package-metadata."
+          },
+          "search_parties": {
+            "label": "Contacten zoeken",
+            "description": "Zoek klanten en leveranciers op naam, e-mail of KvK-nummer."
+          },
+          "get_party": {
+            "label": "Contactdetail",
+            "description": "Open één contact of leverancier met adressen en betaalgegevens."
+          },
+          "list_documents": {
+            "label": "Facturen en inkoopfacturen",
+            "description": "Lijst verkoop- en inkoopfacturen, optioneel gefilterd op status of relatie."
+          },
+          "get_document": {
+            "label": "Factuurdetail",
+            "description": "Haal één factuur op inclusief regels, totalen en betaalstatus."
+          },
+          "list_accounts": {
+            "label": "Grootboekrekeningen",
+            "description": "Lijst grootboekrekeningen (GL-codes) voor boekingen."
+          },
+          "get_account": {
+            "label": "Rekeningdetail",
+            "description": "Haal één grootboekrekening op met type en saldo wanneer het package dat levert."
+          },
+          "list_ledger": {
+            "label": "Memoriaalregels",
+            "description": "Lijst journaal- of grootboekregels voor een periode of rekening."
+          },
+          "list_outstanding": {
+            "label": "Openstaande posten",
+            "description": "Lijst openstaande debiteuren en crediteuren per relatie of document."
+          },
+          "list_bank_mutations": {
+            "label": "Bankmutaties",
+            "description": "Lijst geïmporteerde banktransacties die nog gematcht of geboekt moeten worden."
+          },
+          "summarize": {
+            "label": "Samenvatting",
+            "description": "Maak een korte financiële snapshot (open posten, recente documenten) voor de agent."
+          },
+          "propose_document": {
+            "label": "Stel factuur voor",
+            "description": "Stel een verkoop- of inkoopdocument op; maakt een beslissing voordat er iets wordt geschreven."
+          },
+          "propose_party": {
+            "label": "Stel contact voor",
+            "description": "Stel een nieuw of bijgewerkt contact voor; toepassen vereist goedkeuring."
+          },
+          "propose_booking": {
+            "label": "Stel boeking voor",
+            "description": "Stel een journaalboeking voor; wordt pas na goedkeuring toegepast."
+          },
+          "propose_match": {
+            "label": "Stel betalingmatch voor",
+            "description": "Stel voor om een bankmutatie te matchen met een open document."
+          },
+          "propose_send": {
+            "label": "Stel verzenden voor",
+            "description": "Stel voor om een factuur vanuit het package te versturen; wacht op goedkeuring."
+          }
+        }
+      },
+      "plannedBadge": "Gepland",
+      "toolNeedsApproval": "Goedkeuring nodig",
+      "toolRead": "Lezen",
+      "connections": {
+        "pickPackage": "Kies een package",
+        "pickPackageHint": "Elke registratie is een aparte login. Je kunt er meer dan één toevoegen voor hetzelfde package.",
+        "noPackages": "Nog geen koppelbare packages voor deze module.",
+        "intro": "Elke registratie is een aparte package-login. Agents gebruiken de standaard tenzij een tool een andere kiest.",
+        "add": "Registratie toevoegen",
+        "empty": "Nog geen registraties. Koppel een package via Overzicht.",
+        "default": "Standaard",
+        "needsCreds": "Credentials nodig",
+        "setDefault": "Als standaard",
+        "rename": "Hernoemen",
+        "renamePrompt": "Registratienaam"
       }
     },
     "marketplace": {
@@ -3553,22 +3575,22 @@
       "openThread": "Brongesprek openen",
       "status": {
         "proposed": "Voorgesteld",
-        "accepted": "Geaccepteerd",
+        "queued": "Geaccepteerd",
         "analyzing": "In analyse",
         "planned": "Gepland",
-        "in_progress": "In uitvoering",
+        "running": "In uitvoering",
         "verifying": "In verificatie",
-        "done": "Klaar",
+        "completed": "Klaar",
         "rejected": "Afgewezen"
       },
       "moveTo": {
         "proposed": "Heropenen",
-        "accepted": "Accepteren",
+        "queued": "Accepteren",
         "analyzing": "Terug naar analyse",
         "planned": "Markeer gepland",
-        "in_progress": "Start uitvoering",
+        "running": "Start uitvoering",
         "verifying": "Klaar voor verificatie",
-        "done": "Markeer klaar",
+        "completed": "Markeer klaar",
         "rejected": "Afwijzen"
       },
       "kind": {
@@ -3993,6 +4015,7 @@
       "integrations": "Integraties",
       "modules": "Modules",
       "govern": "Govern",
+      "reports": "Rapportages",
       "developers": "Voor ontwikkelaars",
       "models": "Providers en modellen",
       "billing": "Facturatie",
@@ -4019,6 +4042,7 @@
       "marketplace": "Marketplace-apps en tools die je agents kunnen gebruiken — zoek op markt",
       "connectedTools": "Tools die agents al mogen gebruiken",
       "govern": "Goedkeuringen en hoeveel agents mogen doen",
+      "reports": "Overzicht, activiteit en verbruik",
       "developers": "API-sleutels en webhooks",
       "models": "Welke AI-modellen je gebruikt"
     }
@@ -4126,19 +4150,6 @@
     "workforce": "Workforce",
     "settings": "Instellingen",
     "portal": "Portaal"
-  },
-  "aiOs": {
-    "group": {
-      "nav": "AI OS"
-    },
-    "links": {
-      "canvas": "Canvas",
-      "orchestra": "Orchestra",
-      "agents": "Agent-bibliotheek",
-      "decisions": "Beslissingen",
-      "docs": "Workspace",
-      "govern": "Govern"
-    }
   },
   "helpCentersPage": {
     "intro": "Klantartikelen voor je website. Interne documenten waar agents van leren staan in Kennis.",

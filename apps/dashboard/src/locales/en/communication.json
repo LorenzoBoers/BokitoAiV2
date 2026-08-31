@@ -206,8 +206,8 @@
     "earlierDraft": "Earlier draft — dismissed",
     "automatedExplainer": "This looks like an automated message, so no reply was drafted.",
     "decisionNeeded": "Decision needed",
-    "accounting": {
-      "title": "Accounting write",
+    "module": {
+      "title": "{{module}} write",
       "kinds": {
         "party": "New accounting contact",
         "booking": "Journal booking",
@@ -217,6 +217,8 @@
       "fields": {
         "company": "Administration",
         "party": "Contact",
+        "name": "Name",
+        "role": "Type",
         "kind": "Type",
         "description": "Description",
         "date": "Date",
@@ -548,6 +550,7 @@
     "assignToMe": "Assign to me",
     "createTask": "Create task",
     "creating": "Creating...",
+    "addToProject": "Add to project",
     "emptyTitle": "No messages in this thread yet.",
     "emptyEmail": "New email will appear after the next mailbox sync.",
     "emptyChat": "Send a message or ask the assistant about this conversation.",
@@ -638,6 +641,18 @@
     "copyExternalId": "Copy external conversation ID",
     "externalIdCopied": "External conversation ID copied",
     "newMessages": "{{count}} new"
+  },
+  "addToProject": {
+    "title": "Add to project",
+    "hint": "Create a queue task linked to this thread.",
+    "loading": "Loading projects...",
+    "loadError": "Could not load projects.",
+    "empty": "No projects yet.",
+    "openProjects": "Open projects",
+    "untitledThread": "Thread follow-up",
+    "taskBody": "From thread: {{subject}}",
+    "success": "Added to the {{name}} queue",
+    "error": "Could not add to the project queue"
   },
   "shortcuts": {
     "title": "Inbox shortcuts",

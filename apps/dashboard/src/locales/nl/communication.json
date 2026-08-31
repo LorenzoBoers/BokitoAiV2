@@ -206,8 +206,8 @@
     "earlierDraft": "Eerder concept — terzijde gelegd",
     "automatedExplainer": "Dit lijkt een automatisch bericht, dus er is geen antwoord opgesteld.",
     "decisionNeeded": "Beslissing nodig",
-    "accounting": {
-      "title": "Boekhoudactie",
+    "module": {
+      "title": "{{module}}-actie",
       "kinds": {
         "party": "Nieuwe boekhoudrelatie",
         "booking": "Journaalpost",
@@ -217,6 +217,8 @@
       "fields": {
         "company": "Administratie",
         "party": "Relatie",
+        "name": "Naam",
+        "role": "Type",
         "kind": "Type",
         "description": "Omschrijving",
         "date": "Datum",
@@ -548,6 +550,7 @@
     "assignToMe": "Aan mij toewijzen",
     "createTask": "Taak aanmaken",
     "creating": "Aanmaken...",
+    "addToProject": "Toevoegen aan project",
     "emptyTitle": "Nog geen berichten in dit gesprek.",
     "emptyEmail": "Nieuwe e-mail verschijnt na de volgende mailbox-sync.",
     "emptyChat": "Stuur een bericht of vraag de assistent over dit gesprek.",
@@ -638,6 +641,18 @@
     "copyExternalId": "Extern gespreks-ID kopiëren",
     "externalIdCopied": "Extern gespreks-ID gekopieerd",
     "newMessages": "{{count}} nieuw"
+  },
+  "addToProject": {
+    "title": "Toevoegen aan project",
+    "hint": "Maak een wachtrijtaak gekoppeld aan dit gesprek.",
+    "loading": "Projecten laden...",
+    "loadError": "Kan projecten niet laden.",
+    "empty": "Nog geen projecten.",
+    "openProjects": "Projecten openen",
+    "untitledThread": "Opvolging van gesprek",
+    "taskBody": "Vanuit gesprek: {{subject}}",
+    "success": "Toegevoegd aan de wachtrij van {{name}}",
+    "error": "Kan niet toevoegen aan de projectwachtrij"
   },
   "shortcuts": {
     "title": "Inbox-sneltoetsen",

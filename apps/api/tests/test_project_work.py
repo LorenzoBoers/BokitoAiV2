@@ -131,15 +131,16 @@ async def test_queue_item_lifecycle_and_audit(client: AsyncClient, session_overr
 
     # Invalid jump is rejected.
     with pytest.raises(Exception):
-        await svc.transition_queue_item(session_override, tenant.id, item.id, "done")
+        await svc.transition_queue_item(session_override, tenant.id, item.id, "completed")
 
-    item = await svc.transition_queue_item(session_override, tenant.id, item.id, "accepted")
-    assert item.status == "accepted"
+    item = await svc.transition_queue_item(session_override, tenant.id, item.id, "queued")
+    assert item.status == "queued"
     assert started == [item.id]
 
-    for status in ("analyzing", "planned", "in_progress", "verifying", "done"):
+    for status in ("analyzing", "planned", "running", "verifying", "completed"):
         item = await svc.transition_queue_item(session_override, tenant.id, item.id, status)
-    assert item.status == "done"
+    assert item.status == "completed"
+    assert item.completed_at is not None
 
     audits = (
         await session_override.execute(
@@ -173,7 +174,7 @@ async def test_autonomous_project_auto_accepts(client: AsyncClient, session_over
         created_by_type="agent",
     )
     refreshed = await svc.get_queue_item(session_override, tenant.id, item.id)
-    assert refreshed.status == "accepted"
+    assert refreshed.status == "queued"
     assert started == [item.id]
 
 

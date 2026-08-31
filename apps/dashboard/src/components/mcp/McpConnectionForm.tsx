@@ -72,23 +72,28 @@ export function McpConnectionForm({
     setSaving(false)
   }, [provider, isBjorn, isKing])
 
-  const canSave = isBjorn || isKing
-    ? true
-    : secret.trim().length > 0 && name.trim().length > 0 && url.trim().length > 0
+  const kingReady = administraties.some(
+    (row) => row.omgevingscode.trim().length > 0 && row.name.trim().length > 0,
+  )
+  const blReady = blClientId.trim().length > 0 && blClientSecret.trim().length > 0
+  const canSave = isKing
+    ? kingReady
+    : isBjorn
+      ? blReady
+      : secret.trim().length > 0 && name.trim().length > 0 && url.trim().length > 0
 
   const handleSave = async () => {
     if (!canSave) return
     setSaving(true)
     setError(null)
     try {
-      const blAuth =
-        isBjorn && (blClientId.trim() || blClientSecret.trim() || blCompanyKey.trim())
-          ? {
-              client_id: blClientId.trim() || undefined,
-              client_secret: blClientSecret.trim() || undefined,
-              user_key: blCompanyKey.trim() || undefined,
-            }
-          : undefined
+      const blAuth = isBjorn
+        ? {
+            client_id: blClientId.trim(),
+            client_secret: blClientSecret.trim(),
+            user_key: blCompanyKey.trim() || undefined,
+          }
+        : undefined
       const kingAuth = isKing
         ? {
             administraties: administraties
@@ -238,7 +243,9 @@ export function McpConnectionForm({
               id="mcp-bl-client-id"
               value={blClientId}
               onChange={(e) => setBlClientId(e.target.value)}
-              placeholder={t('integrations.mcp.servers.bjornCredentialsOptional')}
+              placeholder={t('integrations.mcp.servers.bjornClientIdRequired', {
+                defaultValue: 'Required',
+              })}
             />
           </div>
           <div className="grid gap-2">
@@ -250,7 +257,9 @@ export function McpConnectionForm({
               type="password"
               value={blClientSecret}
               onChange={(e) => setBlClientSecret(e.target.value)}
-              placeholder={t('integrations.mcp.servers.bjornCredentialsOptional')}
+              placeholder={t('integrations.mcp.servers.bjornClientSecretRequired', {
+                defaultValue: 'Required',
+              })}
             />
           </div>
           <div className="grid gap-2">

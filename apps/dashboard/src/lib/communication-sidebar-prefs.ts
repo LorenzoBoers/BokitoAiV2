@@ -1,9 +1,10 @@
 /**
  * Persisted customization for the Communication hub's inner rail.
  *
- * Fixed at the top (never customizable): New chat + Inbox.
- * Fixed at the bottom (anchored): Settings.
- * Middle sections (agents, channels) can be reordered, hidden, and collapsed.
+ * Fixed at the top (never customizable): New chat + All communication.
+ * Pinned at the bottom: Activity, Contacts, and a single Settings link
+ * (the 'settings' section flag only controls the link's visibility).
+ * Middle sections (channels, agents, tags) can be reordered, hidden, collapsed.
  *
  * Note: the former 'assistant' section was merged into 'agents'. Stored prefs
  * that still list 'assistant' are repaired by normalizeSidebarPrefs.
@@ -13,8 +14,8 @@ export type SidebarSection = 'agents' | 'channels' | 'tags' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
 export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
-  'agents',
   'channels',
+  'agents',
   'tags',
 ]
 
@@ -40,7 +41,8 @@ export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   expandedLeaves: [],
 }
 
-const STORAGE_KEY = 'communication-sidebar-prefs'
+// v2: channels-before-agents default order; settings collapsed into one link.
+const STORAGE_KEY = 'communication-sidebar-prefs-v2'
 
 function isSection(value: unknown): value is SidebarSection {
   return typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)

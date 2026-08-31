@@ -305,6 +305,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             session.add(run)
             await session.commit()
 
+            from app.services.task_ledger import settle_run_task
+
+            await settle_run_task(session, run)
+
             from app.services.ops_alerts import alert_run_failure
 
             await alert_run_failure(
@@ -379,6 +383,11 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             run.tokens_input = int(tokens.get("input_tokens") or 0)
             run.tokens_output = int(tokens.get("output_tokens") or 0)
         session.add(run)
+        # Inbound runs that only replied were never promoted; ones that did
+        # real work (module calls, mutations) carry a ledger Task to settle.
+        from app.services.task_ledger import settle_run_task
+
+        await settle_run_task(session, run)
         session.add(
             SignalEvent(
                 signal_id=signal.id,
@@ -451,7 +460,7 @@ async def run_workstream_orchestrated(ctx, tenant_id: str, workstream_id: str, t
             if result.get("completed") or result.get("failed") or result.get("paused"):
                 break
             await session.refresh(task)
-            if task.status in ("completed", "failed", "cancelled", "awaiting_decision"):
+            if task.status in ("completed", "failed", "cancelled", "rejected", "awaiting_human"):
                 break
         return {"task_id": str(task.id), "status": task.status}
 

@@ -139,5 +139,6 @@ def test_platform_watch_tools_registered():
     assert get_spec is not None
     assert set_spec is not None
     assert get_spec.gated is False
-    assert set_spec.gated is False
+    # Mutating tools must go through the policy engine (no governance bypass).
+    assert set_spec.gated is True
     assert set_spec.mutating is True

@@ -17,12 +17,14 @@ export const integrationsRoutes = {
     modulePrefs: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}/prefs`,
     moduleConnectionById: (slug: string, connectionId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/connections/${encodeURIComponent(connectionId)}`,
+    moduleConnectionVerify: (slug: string, connectionId: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/connections/${encodeURIComponent(connectionId)}/verify`,
     moduleSources: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}/sources`,
     moduleSourceById: (slug: string, sourceId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/sources/${encodeURIComponent(sourceId)}`,
     moduleSourceReindex: (slug: string, sourceId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/sources/${encodeURIComponent(sourceId)}/reindex`,
-    accountingCompanies: '/integrations/modules/accounting/companies',
+    moduleCompanies: (moduleSlug: string) => `/integrations/modules/${moduleSlug}/companies`,
     calendars: {
       connections: '/calendars/connections',
       syncAll: '/calendars/sync',

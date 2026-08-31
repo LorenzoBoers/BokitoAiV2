@@ -5,8 +5,8 @@ export type PageCrumb = {
 }
 
 export function extraCrumbsForPath(pathname: string): PageCrumb[] {
-  if (pathname.startsWith('/cockpit/activity')) return [{ labelKey: 'cockpitTabs.activity' }]
   if (pathname.startsWith('/cockpit/usage')) return [{ labelKey: 'cockpitTabs.usage' }]
+  if (pathname.startsWith('/communication/activity')) return [{ labelKey: 'support.activity.label' }]
   if (pathname.startsWith('/contacts/companies/')) return [{ labelKey: 'crumbs.company' }]
   if (/^\/contacts\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.person' }]
   if (/^\/agents\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.agent' }]
@@ -25,15 +25,13 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/ai/assistant') && pathname.includes('/customization')) {
     return [{ labelKey: 'crumbs.widgetLook' }]
   }
-  if (pathname.startsWith('/settings/marketplace')) return [{ labelKey: 'crumbs.marketplace' }]
+  if (pathname.startsWith('/modules/marketplace')) return [{ labelKey: 'crumbs.marketplace' }]
+  if (pathname.startsWith('/modules/tools')) return [{ labelKey: 'crumbs.connectedTools' }]
+  if (pathname.startsWith('/modules/connected')) return [{ labelKey: 'crumbs.connected' }]
   if (pathname.startsWith('/modules/') && pathname !== '/modules') {
     return [{ labelKey: 'crumbs.moduleSetup' }]
   }
-  if (pathname.startsWith('/ai/modules/')) {
-    return [{ labelKey: 'crumbs.moduleWorkspace' }]
-  }
   if (pathname.startsWith('/modules')) return []
-  if (pathname.startsWith('/settings/mcp')) return [{ labelKey: 'crumbs.connectedTools' }]
   if (pathname.startsWith('/learn')) return [{ labelKey: 'crumbs.learn' }]
   if (pathname.startsWith('/docs')) return [{ labelKey: 'crumbs.docs' }]
   return []

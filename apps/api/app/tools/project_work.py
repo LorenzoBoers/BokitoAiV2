@@ -405,8 +405,8 @@ register_tool(
     ToolSpec(
         name="update_queue_item_status",
         description=(
-            "Move a queue item through its lifecycle (proposed -> accepted -> "
-            "analyzing -> planned -> in_progress -> verifying -> done; rejected). "
+            "Move a queue task through its lifecycle (proposed -> queued -> "
+            "analyzing -> planned -> running -> verifying -> completed; rejected). "
             "Include impact_summary when finishing an analysis."
         ),
         category="projects",
@@ -415,8 +415,8 @@ register_tool(
             "properties": {
                 "queue_item_id": {"type": "string"},
                 "status": {"type": "string", "enum": [
-                    "proposed", "accepted", "analyzing", "planned",
-                    "in_progress", "verifying", "done", "rejected",
+                    "proposed", "queued", "analyzing", "planned",
+                    "running", "verifying", "completed", "rejected",
                 ]},
                 "impact_summary": {"type": "string"},
                 "duplicate_of_id": {"type": "string"},

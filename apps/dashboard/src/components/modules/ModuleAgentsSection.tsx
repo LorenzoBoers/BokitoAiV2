@@ -3,16 +3,18 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Loader2, Settings2, Star, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { AgentOptionRow } from '../ui/AgentOptionRow'
+import { AgentSelect } from '../ui/AgentSelect'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
+import type { AgentVisualFields } from '../ui/AgentOptionRow'
 import {
   addModuleAgent,
-  listAccountingCompanies,
+  listModuleCompanies,
   listModuleAgents,
   removeModuleAgent,
   setModuleAgentDefault,
@@ -30,7 +32,7 @@ export function ModuleAgentsSection({
   onChanged,
 }: {
   moduleSlug: string
-  agents: Array<{ id: string; name: string }>
+  agents: AgentVisualFields[]
   onChanged?: () => void
 }) {
   const { t } = useTranslation(['nav', 'common'])
@@ -56,9 +58,8 @@ export function ModuleAgentsSection({
   }, [load])
 
   useEffect(() => {
-    if (moduleSlug !== 'accounting') return
     let cancelled = false
-    void listAccountingCompanies()
+    void listModuleCompanies(moduleSlug)
       .then((data) => {
         if (!cancelled) {
           setCompanies(
@@ -212,9 +213,19 @@ export function ModuleAgentsSection({
                 <span className="flex min-w-0 items-center gap-2">
                   <Link
                     to={`/agents/${row.agent_id}`}
-                    className="truncate text-sm text-text-primary hover:text-accent hover:underline"
+                    className="min-w-0 hover:opacity-90"
                   >
-                    {row.name}
+                    <AgentOptionRow
+                      agent={{
+                        id: row.agent_id,
+                        name: row.name,
+                        avatar_kind: row.avatar_kind,
+                        avatar_icon: row.avatar_icon,
+                        avatar_color: row.avatar_color,
+                        avatar_image_url: row.avatar_image_url,
+                      }}
+                      size={20}
+                    />
                   </Link>
                   {row.is_default ? (
                     <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
@@ -358,22 +369,15 @@ export function ModuleAgentsSection({
         </ul>
       )}
       {available.length > 0 ? (
-        <Select disabled={adding} value="" onValueChange={(value) => void add(value)}>
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue
-              placeholder={t('integrations.modules.agents.addPlaceholder', {
-                defaultValue: 'Assign an agent…',
-              })}
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {available.map((agent) => (
-              <SelectItem key={agent.id} value={agent.id}>
-                {agent.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AgentSelect
+          agents={available}
+          value=""
+          disabled={adding}
+          placeholder={t('integrations.modules.agents.addPlaceholder', {
+            defaultValue: 'Assign an agent…',
+          })}
+          onValueChange={(value) => void add(value)}
+        />
       ) : null}
       {roster.some((row) => row.is_default) ? (
         <Button asChild variant="outline" size="sm" className="mt-1">

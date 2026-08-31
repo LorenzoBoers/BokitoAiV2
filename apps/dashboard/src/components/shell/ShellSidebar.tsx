@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Boxes, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Brain, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
@@ -27,6 +27,7 @@ import ThemeModeToggle from './ThemeModeToggle'
 import { useIntegrationCatalog } from '../../hooks/useIntegrationCatalog'
 import {
   moduleIsOn,
+  moduleNavIcon,
   moduleWorkspacePath,
   type IntegrationModuleRow,
 } from '../../lib/integration-modules'
@@ -181,11 +182,8 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                       const active = activeTab === tab
                       const badge = badgeForTab(tab)
                       const showNew = isNewTab(tab)
-                      // Knowledge carries the violet brain identity, also in the rail.
                       const activeClass =
-                        tab === 'knowledge'
-                          ? 'bg-violet-500/10 font-medium text-violet-500 shadow-[inset_2px_0_0_0_rgb(139,92,246)] dark:text-violet-300'
-                          : 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
+                        'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
                       return (
                         <NavLink
                           key={tab}
@@ -224,6 +222,9 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                         </NavLink>
                       )
                     })}
+                    {group.label === 'AI' ? (
+                      <KnowledgeNavLink collapsed={collapsed} onNavigate={onNavigate} />
+                    ) : null}
                     {group.label === 'AI' && installedModules.length > 0 ? (
                       <InstalledModulesNav
                         modules={installedModules}
@@ -255,6 +256,42 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   )
 }
 
+/** Knowledge nests under the Agents (AI) group — violet brain identity. */
+function KnowledgeNavLink({
+  collapsed,
+  onNavigate,
+}: {
+  collapsed: boolean
+  onNavigate?: () => void
+}) {
+  const { t } = useTranslation('nav')
+  const { pathname } = useLocation()
+  const active =
+    pathname.startsWith('/knowledge') ||
+    pathname.startsWith('/workspace') ||
+    pathname.startsWith('/skills')
+  const label = t('tabs.knowledge.title', { defaultValue: 'Knowledge' })
+  return (
+    <NavLink
+      to="/knowledge"
+      onClick={onNavigate}
+      title={label}
+      aria-label={label}
+      data-tour="nav-knowledge"
+      className={`relative flex items-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
+        collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
+      } ${
+        active
+          ? 'bg-violet-500/10 font-medium text-violet-500 shadow-[inset_2px_0_0_0_rgb(139,92,246)] dark:text-violet-300'
+          : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
+      }`}
+    >
+      <Brain size={15} className="shrink-0" />
+      {!collapsed ? <span className="min-w-0 flex-1 truncate">{label}</span> : null}
+    </NavLink>
+  )
+}
+
 function InstalledModulesNav({
   modules,
   collapsed,
@@ -276,6 +313,7 @@ function InstalledModulesNav({
           const name = t(`integrations.modules.${module.slug}.name`, {
             defaultValue: module.name,
           })
+          const Icon = moduleNavIcon(module.slug)
           return (
             <NavLink
               key={module.slug}
@@ -290,7 +328,7 @@ function InstalledModulesNav({
                   : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
               }`}
             >
-              <Boxes size={15} className="shrink-0" />
+              <Icon size={15} className="shrink-0" />
             </NavLink>
           )
         })}
@@ -309,6 +347,7 @@ function InstalledModulesNav({
         const name = t(`integrations.modules.${module.slug}.name`, {
           defaultValue: module.name,
         })
+        const Icon = moduleNavIcon(module.slug)
         return (
           <NavLink
             key={module.slug}
@@ -323,7 +362,7 @@ function InstalledModulesNav({
                 : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
             }`}
           >
-            <Boxes size={15} className="shrink-0" />
+            <Icon size={15} className="shrink-0" />
             <span className="min-w-0 flex-1 truncate">{name}</span>
           </NavLink>
         )

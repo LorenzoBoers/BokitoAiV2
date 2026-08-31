@@ -34,9 +34,9 @@ async def test_signup_and_tenant_isolation(client: AsyncClient):
     assert signals_a.status_code == 200
 
     # Tenant B cannot see tenant A conversations via wrong token (different tenant_id in JWT)
-    conv_a = await client.post("/api/chat/conversations", json={"title": "Secret"}, headers=headers_a)
+    conv_a = await client.post("/api/signals/conversations", json={"title": "Secret"}, headers=headers_a)
     conv_id = conv_a.json()["id"]
-    detail_b = await client.get(f"/api/chat/conversations/{conv_id}/messages", headers=headers_b)
+    detail_b = await client.get(f"/api/signals/conversations/{conv_id}/messages", headers=headers_b)
     assert detail_b.status_code in (404, 401, 403)
 
 

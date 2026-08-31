@@ -940,7 +940,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       currentUserId != null &&
       Number(message.authorUserId) === Number(currentUserId)) ||
       (Boolean(myEmail) && Boolean(fromEmail) && myEmail === fromEmail) ||
-      (Boolean(myEmail) && Boolean(author?.email) && myEmail === author.email.toLowerCase()))
+      (Boolean(myEmail) && Boolean(author?.email) && myEmail === author?.email?.toLowerCase()))
   const isWorkspaceMember = Boolean(author) || isOwn
   const authorKind: 'external' | 'agent' | 'self' | 'teammate' = isAgentMessage
     ? 'agent'

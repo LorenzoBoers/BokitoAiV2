@@ -41,7 +41,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "parent_agent_id": "VARCHAR",
         "current_activity_summary": "VARCHAR DEFAULT ''",
         "updated_at": "DATETIME",
-        "default_runtime_profile_id": "VARCHAR",
         "kind": "VARCHAR DEFAULT 'company'",
         "owner_user_id": "VARCHAR",
         "chat_access": "VARCHAR DEFAULT 'nobody'",
@@ -77,7 +76,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
     },
     "workstream_steps": {
         "agent_id": "VARCHAR",
-        "runtime_profile_id": "VARCHAR",
         "step_kind": "VARCHAR DEFAULT 'agent'",
         "prompt_template": "VARCHAR DEFAULT ''",
         "handoff_template": "VARCHAR DEFAULT ''",

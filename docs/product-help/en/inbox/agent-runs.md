@@ -1,24 +1,30 @@
 ---
-title: Work agent runs
-intro: Scheduled scans and finished results live here — open approvals sit under Decisions.
-description: Open Agent runs to review scheduled work without mixing it into customer Open. Pending approvals use the Decisions leaf.
-keywords: agent runs, scheduled, results, queue, inbox
+title: Follow agent activity
+intro: Scheduled scans and finished results live under Activity — open approvals sit under Decisions.
+description: Open Activity to review agent work without mixing it into customer Open. Pending approvals use the Decisions leaf.
+keywords: activity, agent runs, scheduled, results, queue, inbox
 sort: 15
 related: communication,decisions,agenda,cockpit
 ---
 
-# Work agent runs
+# Follow agent activity
 
-Agent runs are internal work: a scheduled sweep, a follow-up, a finished result. They stay out of Open so customer mail does not compete with background jobs. Open approvals live under [Decisions](/docs/ai/decisions), not as a fourth Agent-runs chip.
+Activity is the live work log of your AI: one terminal-style feed of everything agents did and are doing, streamed as it happens. It stays out of Open so customer mail does not compete with background jobs. Open approvals live under [Decisions](/docs/ai/decisions).
 
-## Open the runs list
+## Open the Activity terminal
 
-![Agent runs list](/api/docs/assets/agent-runs/runs-list.png)
-*Scheduled work stays out of Open.*
+![Agent activity list](/api/docs/assets/agent-runs/runs-list.png)
+*One live log for the whole AI workforce.*
 
-1. In Communication, open **Agent runs** (from Agents or a deep link). Customer mail stays under **All communication**.
-2. Use the chips **All**, **Updates** and **Results**. **Updates** is in-progress work. **Results** is finished runs.
-3. For items waiting on a yes or no, open the sidebar **Decisions** leaf — the same list Cockpit **Awaiting decision** uses. A paused agent will not finish a wake until you resume it on [Agents](/docs/ai/agents).
+1. In Communication, open **Activity**, pinned at the bottom of the sidebar next to Contacts. Customer mail stays under **All communication**.
+2. Read the log like a terminal: each line shows the time, the agent, the step and its result — green for finished work, red for failures, blue for work in progress. New lines stream in live; **Jump to newest** keeps the view following the tail.
+3. Filter with the agent chips at the top or the search field; **Load older** pages further back in history.
+4. Click a line to open the run conversation behind it. For items waiting on a yes or no, open the purple **Decisions** sub-view under All communication — the same list Reports **Awaiting decision** uses. A paused agent will not finish a wake until you resume it on [Agents](/docs/ai/agents).
+
+## Check one agent's work log
+
+1. In the **Agents** section of the sidebar, expand an agent's folder.
+2. Open its **Activity** sub-view. It opens the same terminal filtered to that agent — your chats with the agent stay in its folder, the work log stays in Activity, never mixed into one list.
 
 ## Open a run and decide
 

@@ -46,6 +46,82 @@ type PillarState = {
   actions: { label: string; to?: string; onClick?: () => void; primary?: boolean; busy?: boolean }[]
   logos?: string[]
   knowledge?: boolean
+  /** Activation pillars form the first AI loop; the rest is post-activation. */
+  phase: 'activation' | 'expand'
+}
+
+function PillarCard({ pillar }: { pillar: PillarState }) {
+  const Icon = pillar.icon
+  return (
+    <li
+      className={`rounded-xl border p-4 shadow-card transition-colors ${
+        pillar.done
+          ? 'border-border/60 bg-bg-elevated/30'
+          : 'border-border/60 bg-bg-surface hover:border-accent/30'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+            pillar.done
+              ? 'bg-status-success/15 text-status-success'
+              : pillar.knowledge
+                ? 'bg-violet-500/10 text-violet-500 dark:text-violet-300'
+                : 'bg-bg-hover/70 text-text-muted'
+          }`}
+        >
+          {pillar.done ? (
+            <Check size={17} />
+          ) : pillar.knowledge ? (
+            <KnowledgeMark size={17} />
+          ) : (
+            <Icon size={17} />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-text-heading">{pillar.title}</h2>
+            {pillar.logos ? <ProviderLogoStrip providers={pillar.logos} /> : null}
+          </div>
+          <p className="mt-0.5 text-[12.5px] text-text-secondary">{pillar.description}</p>
+          <p className="mt-1 text-[11px] text-text-muted">{pillar.detail}</p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {pillar.actions.map((action) =>
+              action.onClick ? (
+                <button
+                  key={action.label}
+                  type="button"
+                  disabled={action.busy}
+                  onClick={action.onClick}
+                  className={
+                    action.primary
+                      ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60'
+                      : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-60'
+                  }
+                >
+                  {action.busy ? <Loader2 size={11} className="animate-spin" /> : null}
+                  {action.label}
+                </button>
+              ) : (
+                <Link
+                  key={(action.to ?? '') + action.label}
+                  to={action.to ?? '/'}
+                  className={
+                    action.primary
+                      ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover'
+                      : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
+                  }
+                >
+                  {action.label}
+                  <ArrowRight size={11} />
+                </Link>
+              ),
+            )}
+          </div>
+        </div>
+      </div>
+    </li>
+  )
 }
 
 function ProviderLogoStrip({ providers }: { providers: string[] }) {
@@ -148,6 +224,7 @@ export default function SetupHubPage() {
     return [
       {
         id: 'communication',
+        phase: 'activation' as const,
         title: t('setupGuidePage.communication.title'),
         description: t('setupGuidePage.communication.description'),
         icon: Mail,
@@ -163,7 +240,7 @@ export default function SetupHubPage() {
         actions: [
           { label: t('setupGuidePage.communication.viewAddress'), to: '/settings/channels', primary: !emailDone },
           { label: t('setupGuidePage.communication.connectMailbox'), to: '/settings/channels' },
-          { label: t('setupGuidePage.communication.browseChannels'), to: '/settings/marketplace?kind=inbox' },
+          { label: t('setupGuidePage.communication.browseChannels'), to: '/modules/marketplace?kind=inbox' },
           { label: t('setupGuidePage.communication.aiReplySettings'), to: '/settings/communication' },
           ...(teamDone
             ? []
@@ -172,6 +249,7 @@ export default function SetupHubPage() {
       },
       {
         id: 'intelligence',
+        phase: 'expand' as const,
         title: t('setupGuidePage.intelligence.title'),
         description: t('setupGuidePage.intelligence.description'),
         icon: MessageSquare,
@@ -208,6 +286,7 @@ export default function SetupHubPage() {
       },
       {
         id: 'automations',
+        phase: 'activation' as const,
         title: t('setupGuidePage.automations.title'),
         description: t('setupGuidePage.automations.description'),
         icon: CalendarClock,
@@ -241,6 +320,7 @@ export default function SetupHubPage() {
       },
       {
         id: 'branding',
+        phase: 'expand' as const,
         title: t('setupGuidePage.branding.title'),
         description: t('setupGuidePage.branding.description'),
         icon: Palette,
@@ -253,6 +333,7 @@ export default function SetupHubPage() {
       },
       {
         id: 'kpis',
+        phase: 'expand' as const,
         title: t('setupGuidePage.kpis.title'),
         description: t('setupGuidePage.kpis.description'),
         icon: BarChart3,
@@ -268,6 +349,7 @@ export default function SetupHubPage() {
       },
       {
         id: 'projects',
+        phase: 'expand' as const,
         title: t('setupGuidePage.projects.title'),
         description: t('setupGuidePage.projects.description'),
         icon: FolderKanban,
@@ -297,6 +379,8 @@ export default function SetupHubPage() {
   ])
 
   const doneCount = pillars.filter((p) => p.done).length
+  const activationPillars = pillars.filter((p) => p.phase === 'activation')
+  const expandPillars = pillars.filter((p) => p.phase === 'expand')
 
   return (
     <PageContent>
@@ -331,86 +415,29 @@ export default function SetupHubPage() {
               </Link>
             </div>
 
+            {/* Activation first: get one AI loop running inside Communication. */}
+            <p className="pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+              {t('setupGuidePage.phaseActivation', { defaultValue: 'First: get one AI loop running' })}
+            </p>
             <ol className="space-y-3">
-              {pillars.map((pillar) => {
-                const Icon = pillar.icon
-                return (
-                  <li
-                    key={pillar.id}
-                    className={`rounded-xl border p-4 shadow-card transition-colors ${
-                      pillar.done
-                        ? 'border-border/60 bg-bg-elevated/30'
-                        : 'border-border/60 bg-bg-surface hover:border-accent/30'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                          pillar.done
-                            ? 'bg-status-success/15 text-status-success'
-                            : pillar.knowledge
-                              ? 'bg-violet-500/10 text-violet-500 dark:text-violet-300'
-                              : 'bg-bg-hover/70 text-text-muted'
-                        }`}
-                      >
-                        {pillar.done ? (
-                          <Check size={17} />
-                        ) : pillar.knowledge ? (
-                          <KnowledgeMark size={17} />
-                        ) : (
-                          <Icon size={17} />
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-sm font-semibold text-text-heading">{pillar.title}</h2>
-                          {pillar.logos ? <ProviderLogoStrip providers={pillar.logos} /> : null}
-                        </div>
-                        <p className="mt-0.5 text-[12.5px] text-text-secondary">{pillar.description}</p>
-                        <p className="mt-1 text-[11px] text-text-muted">{pillar.detail}</p>
-                        <div className="mt-2.5 flex flex-wrap gap-2">
-                          {pillar.actions.map((action) =>
-                            action.onClick ? (
-                              <button
-                                key={action.label}
-                                type="button"
-                                disabled={action.busy}
-                                onClick={action.onClick}
-                                className={
-                                  action.primary
-                                    ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60'
-                                    : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-60'
-                                }
-                              >
-                                {action.busy ? <Loader2 size={11} className="animate-spin" /> : null}
-                                {action.label}
-                              </button>
-                            ) : (
-                              <Link
-                                key={(action.to ?? '') + action.label}
-                                to={action.to ?? '/'}
-                                className={
-                                  action.primary
-                                    ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover'
-                                    : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
-                                }
-                              >
-                                {action.label}
-                                <ArrowRight size={11} />
-                              </Link>
-                            ),
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
+              {activationPillars.map((pillar) => (
+                <PillarCard key={pillar.id} pillar={pillar} />
+              ))}
+            </ol>
+
+            {/* Post-activation: expand once the first loop works. */}
+            <p className="pt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+              {t('setupGuidePage.phaseExpand', { defaultValue: 'Then: expand your workspace' })}
+            </p>
+            <ol className="space-y-3">
+              {expandPillars.map((pillar) => (
+                <PillarCard key={pillar.id} pillar={pillar} />
+              ))}
             </ol>
 
             <p className="text-xs text-text-muted">
               {t('setupGuidePage.advancedHint')}{' '}
-              <Link to="/settings/integrations" className="text-accent hover:underline">
+              <Link to="/modules/connected" className="text-accent hover:underline">
                 {t('setupGuidePage.advancedLink')}
               </Link>
               .

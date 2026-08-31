@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  BarChart3,
   Bot,
+  Brain,
   CalendarDays,
   CircleHelp,
   Clock,
@@ -18,13 +20,14 @@ import {
   Shield,
   User,
   UserPlus,
+  Users,
 } from 'lucide-react'
 import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
-import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
-import { agentChatPath, agentRunsPath, decisionsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
+import { REPORTS_PATH, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
+import { activityTerminalPath, agentChatPath, decisionsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
 import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
@@ -124,7 +127,36 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         href: pathForTab(tab),
         run: () => navigate(pathForTab(tab)),
       })),
-    )
+    ).concat([
+      // Nested destinations that left the rail but stay one keystroke away.
+      {
+        id: 'nav-contacts',
+        label: t('tabs.contacts.title', { defaultValue: 'Contacts' }),
+        hint: t('tabs.contacts.subtitle', { defaultValue: 'People and companies' }),
+        group: t('palette.groupGoTo'),
+        icon: Users,
+        href: '/contacts',
+        run: () => navigate('/contacts'),
+      },
+      {
+        id: 'nav-knowledge',
+        label: t('tabs.knowledge.title', { defaultValue: 'Knowledge' }),
+        hint: t('tabs.knowledge.subtitle', { defaultValue: 'Documents your agents know' }),
+        group: t('palette.groupGoTo'),
+        icon: Brain,
+        href: '/knowledge',
+        run: () => navigate('/knowledge'),
+      },
+      {
+        id: 'nav-reports',
+        label: t('settings.links.reports', { defaultValue: 'Reports' }),
+        hint: t('settings.hints.reports', { defaultValue: 'Overview, activity and usage' }),
+        group: t('palette.groupGoTo'),
+        icon: BarChart3,
+        href: REPORTS_PATH,
+        run: () => navigate(REPORTS_PATH),
+      },
+    ])
     const inboxQueues: PaletteItem[] = (
       [
         { id: 'inbox-all', queue: 'all' as const, labelKey: 'support.inbox.all' },
@@ -174,7 +206,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.agentRuns'),
         group: t('palette.groupInbox'),
         icon: Bot,
-        run: () => navigate(agentRunsPath('all')),
+        run: () => navigate(activityTerminalPath()),
       },
     ])
     const settings: PaletteItem[] = SETTINGS_PALETTE_LINKS.map((link) => ({

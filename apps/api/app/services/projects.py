@@ -10,8 +10,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
+from app.models.orchestration import QUEUE_ITEM_KINDS, AgentTask
 from app.models.project import Project, ProjectAgent
-from app.models.project_work import ProjectDocSection, ProjectQueueItem, ProjectResource
+from app.models.project_work import ProjectDocSection, ProjectResource
 from app.models.orchestra import Workstream
 from app.models.usage import UsageLedger
 
@@ -173,13 +174,14 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
     if projects:
         project_ids = [p.id for p in projects]
         queue_result = await session.execute(
-            select(ProjectQueueItem.project_id, func.count())
+            select(AgentTask.project_id, func.count())
             .where(
-                ProjectQueueItem.tenant_id == tenant_id,
-                ProjectQueueItem.project_id.in_(project_ids),
-                ProjectQueueItem.status.not_in(["done", "rejected"]),
+                AgentTask.tenant_id == tenant_id,
+                AgentTask.project_id.in_(project_ids),
+                AgentTask.kind.in_(QUEUE_ITEM_KINDS),
+                AgentTask.status.not_in(["completed", "rejected", "cancelled", "failed"]),
             )
-            .group_by(ProjectQueueItem.project_id)
+            .group_by(AgentTask.project_id)
         )
         open_queue_by_project = {row[0]: row[1] for row in queue_result.all()}
         section_result = await session.execute(
@@ -289,29 +291,58 @@ async def delete_project(
     for stream in streams.scalars().all():
         stream.project_id = None
         session.add(stream)
-    # Project-owned work: queue items, doc sections, links, resources, docs.
-    from sqlalchemy import delete as sa_delete
+    # Project-owned work: queue tasks, doc sections, links, resources, docs.
+    from sqlalchemy import delete as sa_delete, update as sa_update
 
-    from app.models.project_work import (
-        ProjectDocSection,
-        ProjectQueueItem,
-        QueueItemDocLink,
-    )
+    from app.models.project_work import ProjectDocSection, TaskDocLink
     from app.models.workspace import DocChunk, WorkspaceDoc
 
     section_ids = select(ProjectDocSection.id).where(ProjectDocSection.project_id == project_id)
-    item_ids = select(ProjectQueueItem.id).where(ProjectQueueItem.project_id == project_id)
+    task_ids = select(AgentTask.id).where(AgentTask.project_id == project_id)
     await session.execute(
-        sa_delete(QueueItemDocLink).where(
-            QueueItemDocLink.section_id.in_(section_ids)
-            | QueueItemDocLink.queue_item_id.in_(item_ids)
+        sa_delete(TaskDocLink).where(
+            TaskDocLink.section_id.in_(section_ids)
+            | TaskDocLink.task_id.in_(task_ids)
         )
     )
     await session.execute(
         sa_delete(ProjectDocSection).where(ProjectDocSection.project_id == project_id)
     )
+    # Queue tasks belong to the project and go with it; execution jobs (and
+    # their run history) outlive the project with the reference detached.
+    from app.models.agent import AgentRun
+    from app.models.orchestration import EvalCheckpoint, TaskArtifact
+
+    queue_task_ids = select(AgentTask.id).where(
+        AgentTask.project_id == project_id,
+        AgentTask.kind.in_(QUEUE_ITEM_KINDS),
+    )
     await session.execute(
-        sa_delete(ProjectQueueItem).where(ProjectQueueItem.project_id == project_id)
+        sa_update(AgentRun)
+        .where(AgentRun.task_id.in_(queue_task_ids))
+        .values(task_id=None)
+    )
+    await session.execute(
+        sa_delete(TaskArtifact).where(TaskArtifact.agent_task_id.in_(queue_task_ids))
+    )
+    await session.execute(
+        sa_delete(EvalCheckpoint).where(EvalCheckpoint.agent_task_id.in_(queue_task_ids))
+    )
+    await session.execute(
+        sa_update(AgentTask)
+        .where(AgentTask.duplicate_of_id.in_(queue_task_ids))
+        .values(duplicate_of_id=None)
+    )
+    await session.execute(
+        sa_delete(AgentTask).where(
+            AgentTask.project_id == project_id,
+            AgentTask.kind.in_(QUEUE_ITEM_KINDS),
+        )
+    )
+    await session.execute(
+        sa_update(AgentTask)
+        .where(AgentTask.project_id == project_id)
+        .values(project_id=None)
     )
     await session.execute(
         sa_delete(ProjectResource).where(ProjectResource.project_id == project_id)
@@ -674,7 +705,9 @@ async def unlink_po_agent(
 
 
 def _serialize_project_agent(row: ProjectAgent, agent: Agent | None) -> dict[str, Any]:
-    return {
+    from app.services.agent_avatar import avatar_payload
+
+    payload: dict[str, Any] = {
         "id": str(row.id),
         "agent_id": str(row.agent_id),
         "name": agent.name if agent else "",
@@ -683,6 +716,8 @@ def _serialize_project_agent(row: ProjectAgent, agent: Agent | None) -> dict[str
         "is_default": row.is_default,
         "created_at": _iso(row.created_at),
     }
+    payload.update(avatar_payload(agent))
+    return payload
 
 
 async def list_project_agents(

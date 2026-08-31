@@ -1,77 +1,34 @@
-"""Runtime profile resolution and application to agents."""
+"""Runtime snapshot resolution: the Agent is the single configuration passport.
+
+Model, tools, autonomy, budgets all live on the Agent row. A snapshot is the
+frozen copy of those fields recorded on each run so history stays explainable
+after the agent is reconfigured.
+"""
 
 from __future__ import annotations
 
 import json
 from typing import Any
-from uuid import UUID
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.orchestration import RuntimeProfile
 
 
-def _parse_json(raw: str | None) -> dict[str, Any]:
-    try:
-        data = json.loads(raw or "{}")
-        return data if isinstance(data, dict) else {}
-    except json.JSONDecodeError:
-        return {}
-
-
-async def get_runtime_profile(
-    session: AsyncSession, tenant_id: UUID, profile_id: UUID | None
-) -> RuntimeProfile | None:
-    if not profile_id:
-        return None
-    result = await session.execute(
-        select(RuntimeProfile).where(RuntimeProfile.id == profile_id, RuntimeProfile.tenant_id == tenant_id)
-    )
-    return result.scalar_one_or_none()
-
-
-async def resolve_runtime_snapshot(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    agent: Agent,
-    step_runtime_profile_id: UUID | None = None,
-    task_runtime_profile_id: UUID | None = None,
-) -> dict[str, Any]:
-    """Resolve model/tools/autonomy with override chain: step > task > agent default > agent fields."""
-    profile: RuntimeProfile | None = None
-    for pid in (step_runtime_profile_id, task_runtime_profile_id, agent.default_runtime_profile_id):
-        if pid:
-            profile = await get_runtime_profile(session, tenant_id, pid)
-            if profile:
-                break
-
-    tools_override: list = []
-    if profile and profile.tools_json.strip() not in ("", "[]"):
-        try:
-            tools_override = json.loads(profile.tools_json)
-        except json.JSONDecodeError:
-            tools_override = []
-
-    snapshot = {
+def resolve_runtime_snapshot(agent: Agent) -> dict[str, Any]:
+    """Freeze the agent's runtime fields for one run."""
+    return {
         "agent_id": str(agent.id),
         "agent_name": agent.name,
-        "provider": profile.provider if profile else agent.provider,
-        "model": profile.model if profile else agent.model,
-        "thinking_budget": profile.thinking_budget if profile else agent.thinking_budget,
-        "max_tokens": profile.max_tokens if profile else agent.max_tokens,
-        "max_loops": profile.max_loops if profile else agent.max_loops,
-        "autonomy_level": profile.autonomy_level if profile else agent.autonomy_level,
-        "cost_aware": profile.cost_aware if profile else agent.cost_aware,
-        "max_cost_cents": profile.max_cost_cents if profile else 0,
-        "runtime_profile_id": str(profile.id) if profile else None,
-        "role_tag": profile.role_tag if profile else "executor",
-        "tools_override": tools_override,
+        "provider": agent.provider,
+        "model": agent.model,
+        "thinking_budget": agent.thinking_budget,
+        "max_tokens": agent.max_tokens,
+        "max_loops": agent.max_loops,
+        "autonomy_level": agent.autonomy_level,
+        "cost_aware": agent.cost_aware,
+        "max_cost_cents": agent.max_cost_cents,
+        "tools_override": [],
         "system_prompt_extra": "",
     }
-    return snapshot
 
 
 def apply_snapshot_to_agent(agent: Agent, snapshot: dict[str, Any]) -> Agent:
@@ -94,6 +51,7 @@ def apply_snapshot_to_agent(agent: Agent, snapshot: dict[str, Any]) -> Agent:
         max_loops=int(snapshot.get("max_loops") or agent.max_loops),
         autonomy_level=snapshot.get("autonomy_level") or agent.autonomy_level,
         cost_aware=bool(snapshot.get("cost_aware", agent.cost_aware)),
+        max_cost_cents=int(snapshot.get("max_cost_cents") or agent.max_cost_cents),
         tools_json=tools_json,
         permission_scopes_json=agent.permission_scopes_json,
         is_active=agent.is_active,

@@ -467,6 +467,48 @@ async def _chat_access_payload(session: AsyncSession, tenant_id: UUID, agent) ->
     return {"agent_id": str(agent.id), "mode": agent.chat_access, "members": members}
 
 
+@router.get("/agents/{agent_id}/scopes")
+async def get_agent_scopes(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Per-agent resource allowlists (project | knowledge | channel)."""
+    from app.services.agent_scopes import SCOPE_KINDS, list_agent_scopes
+
+    auth.require_role("owner", "admin")
+    agent = await _company_agent_or_404(session, auth.tenant.id, agent_id)
+    scopes = await list_agent_scopes(session, auth.tenant.id, agent.id)
+    return {"agent_id": str(agent.id), "kinds": list(SCOPE_KINDS), "scopes": scopes}
+
+
+@router.put("/agents/{agent_id}/scopes/{resource_kind}")
+async def put_agent_scope(
+    agent_id: UUID,
+    resource_kind: str,
+    body: dict,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Replace one kind's allowlist. Empty ``entries`` clears the restriction."""
+    from fastapi import HTTPException
+
+    from app.services.agent_scopes import set_agent_scope
+
+    auth.require_role("owner", "admin")
+    agent = await _company_agent_or_404(session, auth.tenant.id, agent_id)
+    entries = body.get("entries") if isinstance(body, dict) else None
+    if entries is not None and not isinstance(entries, list):
+        raise HTTPException(status_code=400, detail="entries must be a list")
+    try:
+        scopes = await set_agent_scope(
+            session, auth.tenant.id, agent.id, resource_kind, entries
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "scopes": scopes}
+
+
 @router.get("/agents/{agent_id}/chat-access")
 async def get_agent_chat_access(
     agent_id: UUID,

@@ -44,6 +44,10 @@ playwright-report/
 apps/api/dev.db
 apps/api/dev-local.db
 apps/api/_reset_check.db
+apps/api/bokito.db
+apps/api/module-verify.db
+apps/api/ui-check.db
+tmp/
 apps/mobile/expo-dev-qr.png
 apps/mobile/emulator-*.png
 apps/mobile/ui-dump.xml

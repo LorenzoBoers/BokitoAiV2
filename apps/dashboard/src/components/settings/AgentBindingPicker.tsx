@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { listAgents } from '../../lib/agents-api'
@@ -10,8 +10,10 @@ import {
 } from '../../lib/channel-bindings-api'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { AgentSelect } from '../ui/AgentSelect'
+import type { AgentVisualFields } from '../ui/AgentOptionRow'
 
-type AgentOption = { id: string; name: string; isLead: boolean }
+type AgentOption = AgentVisualFields & { isLead: boolean }
 
 /**
  * Which agent handles this item (a mailbox, a WhatsApp number, the widget…).
@@ -54,7 +56,15 @@ export default function AgentBindingPicker({
         const [agentRows, bindingRows] = await Promise.all([listAgents(), listChannelBindings()])
         if (cancelled) return
         setAgents(
-          agentRows.map((a) => ({ id: a.id, name: a.name, isLead: Boolean(a.is_lead) })),
+          agentRows.map((a) => ({
+            id: a.id,
+            name: a.name,
+            isLead: Boolean(a.is_lead),
+            avatar_kind: a.avatar_kind,
+            avatar_icon: a.avatar_icon,
+            avatar_color: a.avatar_color,
+            avatar_image_url: a.avatar_image_url,
+          })),
         )
         setMatching(bindingRows.filter(isMatch))
       } catch {
@@ -83,12 +93,11 @@ export default function AgentBindingPicker({
       for (const binding of matching) {
         await deleteChannelBinding(binding.id)
       }
-      if (nextAgentId) {
+      if (nextAgentId && nextAgentId !== '__empty__') {
         const created = await createChannelBinding({
           channel,
           agent_id: nextAgentId,
           channel_account_id: channelAccountId ?? undefined,
-          // Item-scoped bindings outrank channel-wide ones in the resolver.
           priority: channelAccountId ? 20 : 10,
           enabled: true,
         })
@@ -103,32 +112,35 @@ export default function AgentBindingPicker({
     }
   }
 
+  const selectable = useMemo(() => {
+    const base = agents.filter((a) => !a.isLead)
+    if (!current) return base
+    if (base.some((a) => a.id === current.agent_id)) return base
+    const bound = agents.find((a) => a.id === current.agent_id)
+    if (bound) return [...base, bound]
+    return [
+      ...base,
+      {
+        id: current.agent_id,
+        name: t('bindingPicker.unknownAgent'),
+        isLead: false,
+      },
+    ]
+  }, [agents, current, t])
+
   return (
-    <select
+    <AgentSelect
+      agents={selectable}
       value={current?.agent_id ?? ''}
       disabled={!isAdmin || busy || loading}
-      onChange={(e) => void handleChange(e.target.value)}
+      onValueChange={(v) => void handleChange(v)}
+      emptyOption={{ value: '__empty__', label: defaultLabel }}
       aria-label={ariaLabel ?? t('bindingPicker.ariaLabel')}
-      title={t('bindingPicker.hint')}
-      className={
+      triggerClassName={
         className ??
-        'h-8 max-w-[13rem] rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40'
+        'h-8 max-w-[16rem] rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary'
       }
-    >
-      <option value="">{defaultLabel}</option>
-      {agents
-        .filter((a) => !a.isLead)
-        .map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      {/* Keep a bound agent visible even when it is the lead or unknown. */}
-      {current && !agents.some((a) => !a.isLead && a.id === current.agent_id) ? (
-        <option value={current.agent_id}>
-          {agents.find((a) => a.id === current.agent_id)?.name ?? t('bindingPicker.unknownAgent')}
-        </option>
-      ) : null}
-    </select>
+      placeholder={defaultLabel}
+    />
   )
 }

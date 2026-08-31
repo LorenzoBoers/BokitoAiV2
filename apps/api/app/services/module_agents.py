@@ -36,7 +36,9 @@ def parse_company_scope(row: ModuleAgent) -> list[str] | None:
 
 
 def _serialize(row: ModuleAgent, agent: Agent | None) -> dict[str, Any]:
-    return {
+    from app.services.agent_avatar import avatar_payload
+
+    payload: dict[str, Any] = {
         "id": str(row.id),
         "module_slug": row.module_slug,
         "agent_id": str(row.agent_id),
@@ -48,6 +50,8 @@ def _serialize(row: ModuleAgent, agent: Agent | None) -> dict[str, Any]:
         "can_write": bool(row.can_write),
         "created_at": _iso(row.created_at),
     }
+    payload.update(avatar_payload(agent))
+    return payload
 
 
 def _require_module(slug: str) -> None:
@@ -312,13 +316,7 @@ async def writable_module_slugs_for_agent(
 async def remove_module_agent(
     session: AsyncSession, tenant_id: UUID, module_slug: str, agent_id: UUID
 ) -> dict[str, Any]:
-    from app.modules.catalog import (
-        MODULE_BY_SLUG,
-        connected_module_slugs,
-        module_install_state_for,
-        tenant_module_flags,
-        tenant_module_install_states,
-    )
+    from app.modules.catalog import tenant_module_install_states
 
     _require_module(module_slug)
     row = (
@@ -335,15 +333,7 @@ async def remove_module_agent(
 
     count = await module_agent_count(session, tenant_id, module_slug)
     states = await tenant_module_install_states(session, tenant_id)
-    connected = await connected_module_slugs(session, tenant_id)
-    flags = await tenant_module_flags(session, tenant_id)
-    spec = MODULE_BY_SLUG[module_slug]
-    state = module_install_state_for(
-        spec,
-        connected=module_slug in connected,
-        states=states,
-        flags=flags,
-    )
+    state = states.get(module_slug, "not_installed")
     if state == "installed" and count <= 1:
         raise HTTPException(
             status_code=400,

@@ -21,20 +21,8 @@ async def _login(client: AsyncClient) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_runtime_profiles_and_task(client: AsyncClient):
+async def test_agent_task_lifecycle(client: AsyncClient):
     headers = await _login(client)
-
-    prof = await client.post(
-        f"{API}/runtime-profiles",
-        headers=headers,
-        json={"name": "Test Fast", "slug": "test-fast", "role_tag": "planner", "model": "claude-haiku-4-20250514"},
-    )
-    assert prof.status_code == 200
-    profile_id = prof.json()["id"]
-
-    listed = await client.get(f"{API}/runtime-profiles", headers=headers)
-    assert listed.status_code == 200
-    assert any(p["id"] == profile_id for p in listed.json())
 
     agents = await client.get("/api/workforce/agents", headers=headers)
     assert agents.status_code == 200
@@ -49,7 +37,6 @@ async def test_runtime_profiles_and_task(client: AsyncClient):
             "title": "Test orchestration task",
             "description": "Summarize open operational items.",
             "agent_id": agent_id,
-            "default_runtime_profile_id": profile_id,
             "success_criteria_json": json.dumps({"min_length": 5}),
         },
     )
@@ -124,7 +111,7 @@ async def test_workstream_human_gate_pauses_and_resumes(client: AsyncClient):
     run = await client.post(f"{API}/workstreams/{ws_id}/run", headers=headers)
     assert run.status_code == 200
     task = run.json()
-    assert task["status"] == "awaiting_decision"
+    assert task["status"] == "awaiting_human"
     assert task["pause_reason"] == "human_gate"
 
     # Resuming records the gate as passed and finishes the remaining step.

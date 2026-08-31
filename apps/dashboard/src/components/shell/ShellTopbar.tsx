@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { buildControlPlaneUrl } from '../../lib/host-routing'
-import { tabFromPath, titleForTab } from '../../lib/navigation'
+import { REPORTS_PATH, tabFromPath, titleForTab } from '../../lib/navigation'
 import { UserAvatar } from '../ui/UserAvatar'
 import {
   DropdownMenu,
@@ -104,9 +104,9 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/cockpit')}>
+              <DropdownMenuItem onClick={() => navigate(REPORTS_PATH)}>
                 <Building2 size={14} className="mr-2 text-text-muted" />
-                {t('tabs.cockpit.title')}
+                {t('settings.links.reports', { defaultValue: 'Reports' })}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={goToWorkspacesHub}>
                 <Building2 size={14} className="mr-2 text-text-muted" />
@@ -115,7 +115,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <NavLink to="/cockpit" className="shrink-0 font-semibold text-text-heading hover:text-accent">
+          <NavLink to="/" className="shrink-0 font-semibold text-text-heading hover:text-accent">
             Bokito
           </NavLink>
         )}

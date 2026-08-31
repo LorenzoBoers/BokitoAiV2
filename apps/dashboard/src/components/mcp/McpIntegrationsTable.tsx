@@ -114,7 +114,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                 </p>
                 ) : null}
                 <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
-                  <Link to="/settings/marketplace" className="font-medium text-accent hover:underline">
+                  <Link to="/modules/marketplace" className="font-medium text-accent hover:underline">
                     {t('integrations.mcp.servers.openMarketplace')}
                   </Link>
                   <Link to="/agents" className="font-medium text-accent hover:underline">

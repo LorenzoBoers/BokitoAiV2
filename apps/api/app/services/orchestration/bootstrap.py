@@ -1,4 +1,4 @@
-"""Seed tenant orchestration defaults (runtime profiles, demo workstream)."""
+"""Seed tenant orchestration defaults (demo workstream)."""
 
 from __future__ import annotations
 
@@ -9,35 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.orchestration import RuntimeProfile
 from app.models.orchestra import Workstream, WorkstreamStep
-
-
-async def seed_tenant_runtime_profiles(session: AsyncSession, tenant_id: UUID) -> dict[str, RuntimeProfile]:
-    profiles_spec = [
-        ("planner-fast", "Planner (Fast)", "planner", "claude-haiku-4-5", 15),
-        ("executor-standard", "Executor (Standard)", "executor", "bokito-ai-3-1", 25),
-        ("judge-careful", "Judge (Careful)", "judge", "bokito-ai-3-1", 10),
-    ]
-    out: dict[str, RuntimeProfile] = {}
-    for slug, name, role_tag, model, max_loops in profiles_spec:
-        existing = await session.execute(
-            select(RuntimeProfile).where(RuntimeProfile.tenant_id == tenant_id, RuntimeProfile.slug == slug)
-        )
-        row = existing.scalar_one_or_none()
-        if not row:
-            row = RuntimeProfile(
-                tenant_id=tenant_id,
-                name=name,
-                slug=slug,
-                role_tag=role_tag,
-                model=model,
-                max_loops=max_loops,
-            )
-            session.add(row)
-            await session.flush()
-        out[slug] = row
-    return out
 
 
 async def seed_demo_workstream(session: AsyncSession, tenant_id: UUID) -> Workstream | None:
@@ -57,10 +29,6 @@ async def seed_demo_workstream(session: AsyncSession, tenant_id: UUID) -> Workst
             select(Agent).where(Agent.tenant_id == tenant_id, Agent.role == "orchestrator").limit(1)
         )
     ).scalar_one_or_none()
-    profiles = await seed_tenant_runtime_profiles(session, tenant_id)
-
-    if assistant and profiles.get("executor-standard"):
-        assistant.default_runtime_profile_id = profiles["executor-standard"].id
 
     ws = Workstream(
         tenant_id=tenant_id,
@@ -77,7 +45,6 @@ async def seed_demo_workstream(session: AsyncSession, tenant_id: UUID) -> Workst
             workstream_id=ws.id,
             order=0,
             agent_id=assistant.id,
-            runtime_profile_id=profiles.get("planner-fast").id if profiles.get("planner-fast") else None,
             name="Triage",
             step_kind="agent",
             handoff_template="Classify and summarize the operational task.\n\n{{task_description}}",
@@ -93,7 +60,6 @@ async def seed_demo_workstream(session: AsyncSession, tenant_id: UUID) -> Workst
                 workstream_id=ws.id,
                 order=1,
                 agent_id=orchestrator.id,
-                runtime_profile_id=profiles.get("executor-standard").id if profiles.get("executor-standard") else None,
                 name="Plan action",
                 step_kind="agent",
                 handoff_template="Based on triage output, propose concrete next actions.\n\nPrior output:\n{{step_outputs}}",

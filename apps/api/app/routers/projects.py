@@ -328,6 +328,9 @@ class QueueItemCreateBody(BaseModel):
     kind: str = "task"
     body: str = ""
     priority: str = "normal"
+    # Link the queue task to the thread it originated from ("Add to project"
+    # from any conversation); the project is the explicit path parameter.
+    signal_id: UUID | None = None
 
 
 class QueueItemPatchBody(BaseModel):
@@ -373,6 +376,7 @@ async def create_queue_item(
         body=body.body,
         priority=body.priority,
         origin_type="user",
+        signal_id=body.signal_id,
         created_by_type="user",
         created_by_id=str(auth.user.id),
     )
@@ -447,7 +451,7 @@ async def analyze_queue_item(
             session,
             auth.tenant.id,
             item_id,
-            "accepted",
+            "queued",
             actor_type="user",
             actor_id=str(auth.user.id),
         )

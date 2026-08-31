@@ -16,9 +16,9 @@
         "title": "Automations",
         "body": "Schedules and triggers run work in the background, visible on your agenda."
       },
-      "cockpit": {
-        "title": "Cockpit",
-        "body": "KPIs, costs and activity in one view, so you always know what your workspace is doing."
+      "modules": {
+        "title": "Modules",
+        "body": "Business capabilities like accounting: connect a package, assign agents, and the tools follow."
       },
       "control": {
         "title": "You stay in control",
@@ -41,9 +41,9 @@
       "title": "Agenda",
       "body": "Scheduled runs and background automations. Set them up once and work happens while you are away."
     },
-    "cockpit": {
-      "title": "Cockpit",
-      "body": "Your control tower: KPIs, autonomy, costs and everything your workspace has done."
+    "modules": {
+      "title": "Modules",
+      "body": "Turn on business capabilities and connect the packages behind them — one place for every connection."
     },
     "settings": {
       "title": "Settings and setup guide",

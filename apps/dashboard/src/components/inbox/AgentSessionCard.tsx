@@ -4,10 +4,15 @@ import { Link } from 'react-router-dom'
 import ChatMarkdown from './ChatMarkdown'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { closeAgentSession, discardAgentSession, type ThreadSession } from '../../lib/signals-api'
-import { bokitoListMessages, type ChatMessage } from '../../lib/bokito-api'
+import {
+  bokitoListMessages,
+  closeAgentSession,
+  discardAgentSession,
+  type ChatMessage,
+  type ThreadSession,
+} from '../../lib/signals-api'
 import { translateMockAgentBody } from '../../lib/activity-labels'
-import DirectChatPanel from './DirectChatPanel'
+import { AgentChatView } from './AgentChatView'
 import { Button } from '../ui/button'
 import { toast } from 'sonner'
 
@@ -183,7 +188,7 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
           )}
         </div>
         <div className="h-[420px]">
-          <DirectChatPanel
+          <AgentChatView
             conversationId={session.id}
             hideHeader
             onCopyText={onUseAsReply}

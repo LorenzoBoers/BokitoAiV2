@@ -21,4 +21,6 @@ Used when `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/lib/b
 | `logo-higgsfield.svg` | Higgsfield wordmark-style mark (Bokito fallback; dark tile + accent) |
 | `logo-smtp-imap.svg` | Neutral mail icon (Bokito) |
 
-Upload higher-resolution or wordmark variants via integration host branding when guidelines require hosted files instead of these fallbacks.
+| `logo-moneybird.png` | Favicon mark from moneybird.nl (Google favicon CDN) |
+| `logo-exact.png` | Exact apple-touch icon from exact.com |
+| `logo-snelstart.png` | Favicon mark from snelstart.nl |

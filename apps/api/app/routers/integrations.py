@@ -65,6 +65,19 @@ class ModulePrefsBody(BaseModel):
     user_access: dict | None = None
 
 
+class McpInstallBody(BaseModel):
+    provider: str = "custom_mcp"
+    api_key: str = ""
+    display_name: str | None = None
+    mcp_server_id: int | None = None
+    server_url: str | None = None
+    auth_type: str = "api_key"
+    name: str | None = None
+    auth: dict = Field(default_factory=dict)
+    # Non-prod only: install without live provider verification (tests / demos).
+    use_mock: bool = False
+
+
 class ModuleConnectionRenameBody(BaseModel):
     display_name: str
 
@@ -77,17 +90,6 @@ class ModuleSourceCreateBody(BaseModel):
 
 class ModuleSourceDisableBody(BaseModel):
     disabled: bool = True
-
-
-class McpInstallBody(BaseModel):
-    provider: str = "custom_mcp"
-    api_key: str = ""
-    display_name: str | None = None
-    mcp_server_id: int | None = None
-    server_url: str | None = None
-    auth_type: str = "api_key"
-    name: str | None = None
-    auth: dict = Field(default_factory=dict)
 
 
 # --- Platform marketplace ---
@@ -355,6 +357,63 @@ async def patch_module_connection(
     return {"connection": row}
 
 
+@router.post("/modules/{slug}/connections/{connection_id}/verify")
+async def post_module_connection_verify(
+    slug: str,
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    from app.modules.catalog import get_module
+    from app.services.module_connections import verify_module_connection
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
+    try:
+        return await verify_module_connection(
+            session, auth.tenant.id, slug, connection_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/modules/{slug}/connections/{connection_id}")
+async def delete_module_connection(
+    slug: str,
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    from app.modules.catalog import get_module
+    from app.services.module_connections import disconnect_module_connection
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
+    try:
+        result = await disconnect_module_connection(
+            session, auth.tenant.id, slug, connection_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="integration:module_disconnected",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="module_connection",
+        resource_id=connection_id,
+        payload={"module_slug": slug},
+    )
+    return result
+
+
 @router.get("/modules/{slug}/sources")
 async def get_module_sources(
     slug: str,
@@ -464,20 +523,21 @@ async def delete_module_source(
     return {"ok": True}
 
 
-@router.get("/modules/accounting/companies")
-async def get_accounting_companies(
+@router.get("/modules/{module_slug}/companies")
+async def get_module_companies(
+    module_slug: str,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Companies/administrations across all accounting connections.
+    """Companies/administrations across all connections of one module.
 
     Used by the Connected page to show module capacity and to hide the
     company picker when the tenant has exactly one company.
     """
-    from app.modules.accounting.router import call_accounting_verb
+    from app.modules.dispatch import call_module_verb
 
-    await _ensure_module_access(session, auth, "accounting")
-    return await call_accounting_verb(session, auth.tenant.id, "list_companies")
+    await _ensure_module_access(session, auth, module_slug)
+    return await call_module_verb(session, auth.tenant.id, module_slug, "list_companies")
 
 
 @router.get("/connections")
@@ -623,27 +683,19 @@ async def platform_oauth_start(
             return_url, {"oauth_provider": "gmail", "oauth_status": "connected"}
         )
     elif provider == "moneybird":
-        # Dev sandbox: a credential-less connection is served by the accounting
-        # module mocks, so the flow stays demo-able before a Moneybird OAuth
-        # app is registered.
-        from app.services.module_connections import (
-            oauth_connection_id_from_return_url,
-            oauth_create_new_from_return_url,
-        )
-
-        await ensure_oauth_connection(
-            session,
-            auth.tenant.id,
-            "moneybird",
-            connection_id=oauth_connection_id_from_return_url(return_url),
-            create_new=oauth_create_new_from_return_url(return_url),
-        )
+        # Never create a ghost registration on OAuth start. A Moneybird row appears
+        # only after the real OAuth callback stores tokens (or an API-key create).
+        # Without client credentials configured, send the operator back with an error
+        # instead of a fake "connected" placeholder.
         authorize_url = mock_authorize_url(
-            return_url, {"integration": "connected", "provider": "moneybird"}
+            return_url,
+            {
+                "provider": "moneybird",
+                "integration_error": "oauth_not_configured",
+            },
         )
     elif provider in ("google_calendar", "outlook_calendar"):
         from app.services.calendar_sync import sync_connection
-        from app.models.integration import IntegrationConnection
 
         serialized = await ensure_oauth_connection(
             session,
@@ -751,7 +803,7 @@ async def post_mcp_install(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    api_key = body.api_key or (body.auth.get("api_key") if body.auth else "") or "mock-key"
+    api_key = body.api_key or (body.auth.get("api_key") if body.auth else "") or ""
     display_name = body.display_name or body.name
     installed = await install_mcp(
         session,
@@ -763,6 +815,7 @@ async def post_mcp_install(
         auth_type=body.auth_type,
         mcp_server_id=body.mcp_server_id,
         auth=body.auth or None,
+        use_mock=bool(body.use_mock),
     )
     from app.services.audit import record_audit
 
@@ -778,6 +831,8 @@ async def post_mcp_install(
             "provider": body.provider,
             "server_url": body.server_url or "",
             "display_name": display_name or "",
+            "verified": bool(installed.get("verified")),
+            "use_mock": bool(body.use_mock),
         },
     )
     return installed

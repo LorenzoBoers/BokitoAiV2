@@ -1,22 +1,22 @@
 ---
-title: How Cockpit works
+title: How Reports works
 intro: Start here when you want to know whether work is flowing and where attention is needed.
-description: Use Cockpit for the daily scan, then Activity for the event log and Usage for token budget caps and spend.
-keywords: cockpit, dashboard, overview, usage, budget, activity
+description: Use Reports for the daily scan, then Activity for the event log and Usage for token budget caps and spend.
+keywords: reports, cockpit, dashboard, overview, usage, budget, activity
 sort: 50
 related: communication,agent-runs,decisions,agenda
 ---
 
-# How Cockpit works
+# How Reports works
 
-Cockpit is the morning scan. Open it to see open work, waiting decisions and what agents already did, then jump into the thread that needs you.
+Reports is the morning scan. Open it from **Settings → Reports** (or the workspace menu) to see open work, waiting decisions and what agents already did, then jump into the thread that needs you.
 
 ## Scan the day on Overview
 
-![Cockpit Overview](/api/docs/assets/cockpit/overview.png)
+![Reports Overview](/api/docs/assets/cockpit/overview.png)
 *Overview shows open work, decisions and recent runs.*
 
-1. Open **Cockpit**. You land on **Overview**. The subtitle greets you and shows today's date. **Updated** next to **Refresh** is the last successful load.
+1. Open **Settings**, then **Reports**. You land on **Overview**. The subtitle greets you and shows today's date. **Updated** next to **Refresh** is the last successful load.
 2. Read the built-in cards: **Conversations 7d**, **Awaiting decision**, **Handled without you**, **Agent freedom**, **Needs attention**, **Today on the agenda**, **Recent events** and **Recent contacts**. **Agent freedom** shows **You decide**, **Ask first** or **Act first**. Each number has a short hint. Empty time-saved, handled-without-you and AI-usage cards explain when numbers appear. If the hourly scan is off, Overview says **Hourly inbox scan is off**.
 3. Click a card to open Communication, [Agent runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) or [Contacts](/docs/inbox/contacts). On **Needs attention**, choose **Open first** to jump to the oldest waiting thread. The clock on a row parks that conversation until tomorrow 9:00.
 
@@ -30,7 +30,7 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Open work that is waiting on you
 
-![Cockpit attention items](/api/docs/assets/cockpit/awaiting-decision.png)
+![Reports attention items](/api/docs/assets/cockpit/awaiting-decision.png)
 *Awaiting decision jumps to the same list as Agent runs.*
 
 1. Find **Awaiting decision** on Overview.

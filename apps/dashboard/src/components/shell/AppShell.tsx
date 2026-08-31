@@ -45,6 +45,9 @@ function loadNavCollapsed(): boolean {
 
 /** Routes that take over the full content area (no padding container). */
 function isFullBleed(pathname: string): boolean {
+  // Module workspaces are document pages (PageContent + sections); they need
+  // the shell scroller, not a clipped full-bleed pane.
+  if (pathname.startsWith('/ai/modules')) return false
   return (
     pathname.startsWith('/communication') ||
     pathname.startsWith('/knowledge') ||

@@ -53,6 +53,14 @@ Leave **Enabled** on. Disabled items stay on the agenda but never fire.
 
 If the linked agent is paused, the wake waits until you resume that agent.
 
+## Let agents schedule their own follow-ups
+
+Agents can plan work themselves: in any conversation, ask an agent to "check this again on Friday" or "remind the team to review the proposal".
+
+1. The agent uses its schedule tools to create a wake (once, cron, or every N minutes) for itself or a colleague agent, or to plan a task for later — including tasks assigned to a person.
+2. Depending on your [autonomy posture](/docs/govern/autonomy), the schedule is created directly or lands as a decision card in Messages for approval first.
+3. Approved wakes appear on the Agenda like any other schedule; planned tasks wake at their set time. A task assigned to a person surfaces as a notification when it is due.
+
 ## What to do next
 
 Finished runs appear under [Agent runs](/docs/inbox/agent-runs). Longer work that spans days belongs in [Projects](/docs/ai/projects). Connect more apps under [Integrations](/docs/integrations/integrations).

@@ -138,8 +138,21 @@ async def revoke_connection(session: AsyncSession, tenant_id: UUID, connection_i
             IntegrationBinding.tenant_id == tenant_id,
         )
     )
+    mcp_ids: list[UUID] = []
     for binding in bindings.scalars().all():
+        config = _parse_json(binding.config_json)
+        raw_sid = str(config.get("mcp_server_id") or "").strip()
+        if raw_sid:
+            try:
+                mcp_ids.append(UUID(raw_sid))
+            except ValueError:
+                pass
         await session.delete(binding)
+    for sid in mcp_ids:
+        server = await session.get(McpServer, sid)
+        if server is not None and server.tenant_id == tenant_id:
+            server.is_active = False
+            session.add(server)
     await session.commit()
 
 
@@ -170,6 +183,150 @@ async def create_api_key_connection(
     return serialize_connection(conn)
 
 
+def _stamp_verify_meta(
+    payload: dict[str, Any],
+    *,
+    ok: bool,
+    identity: str | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    out = dict(payload)
+    if ok:
+        out["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+        out.pop("verify_error", None)
+        if identity:
+            out["identity"] = identity
+    else:
+        out["verify_error"] = (error or "Verification failed").strip() or "Verification failed"
+    return out
+
+
+async def register_mcp_server(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    name: str,
+    server_url: str,
+    auth: dict[str, Any] | None = None,
+    provider: str = "custom_mcp",
+    credentials: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> tuple[McpServer, IntegrationConnection, IntegrationBinding]:
+    """The single MCP persistence path: server + connection + binding.
+
+    An ``McpServer`` row is transport detail (URL, auth, tool cache); the
+    ``IntegrationConnection`` is the tenant-facing registration. Nothing may
+    create a bare server without its connection. Does not commit.
+    """
+    server = McpServer(
+        tenant_id=tenant_id,
+        name=name,
+        server_url=server_url,
+        auth_json=json.dumps(auth or {}),
+    )
+    session.add(server)
+    await session.flush()
+    meta = {
+        "auth_type": (auth or {}).get("auth_type") or "api_key",
+        "server_url": server_url,
+        "mcp_server_id": str(server.id),
+        **(metadata or {}),
+    }
+    conn = IntegrationConnection(
+        tenant_id=tenant_id,
+        provider=provider,
+        display_name=name,
+        status="active",
+        credentials_json=json.dumps(credentials or {}),
+        metadata_json=json.dumps(meta),
+    )
+    session.add(conn)
+    await session.flush()
+    binding = IntegrationBinding(
+        tenant_id=tenant_id,
+        connection_id=conn.id,
+        binding_type="mcp_server",
+        config_json=json.dumps(
+            {
+                "mcp_server_id": str(server.id),
+                "provider": provider,
+                "server_url": server_url,
+                "auth_type": meta["auth_type"],
+            }
+        ),
+    )
+    session.add(binding)
+    await session.flush()
+    return server, conn, binding
+
+
+async def _require_native_mcp_credentials(
+    provider: str,
+    auth_payload: dict[str, Any],
+    *,
+    use_mock: bool,
+) -> dict[str, Any] | None:
+    """Validate KING / Björn credentials before persist. Returns verify stamp or None for mock."""
+    settings = get_settings()
+    if use_mock:
+        if settings.is_production:
+            raise HTTPException(
+                status_code=400,
+                detail="Mock MCP installs are not allowed in production.",
+            )
+        return None
+
+    if provider == "king_accountancy":
+        from app.services.king_finance import (
+            has_king_credentials,
+            parse_administraties,
+            validate_credentials,
+        )
+
+        if not has_king_credentials(auth_payload):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "KING Accountancy requires a partner key "
+                    "(KING_FINANCE_PARTNER_KEY or auth.partner_key) "
+                    "and at least one administratie with an omgevingscode."
+                ),
+            )
+        check = await validate_credentials(auth_payload)
+        if not check.get("ok") or check.get("note"):
+            raise HTTPException(
+                status_code=400,
+                detail=str(check.get("error") or check.get("note") or "KING verification failed"),
+            )
+        admins = parse_administraties(auth_payload)
+        identity = admins[0]["name"] if admins else None
+        return _stamp_verify_meta(auth_payload, ok=True, identity=identity)
+
+    if provider == "bjorn_lunden_mcp":
+        from app.services.bjorn_lunden import has_bl_credentials, parse_bl_credentials, validate_credentials
+
+        if not has_bl_credentials(auth_payload):
+            raise HTTPException(
+                status_code=400,
+                detail="Björn Lundén requires client_id and client_secret.",
+            )
+        check = await validate_credentials(auth_payload)
+        if not check.get("ok") or check.get("note"):
+            raise HTTPException(
+                status_code=400,
+                detail=str(
+                    check.get("error") or check.get("note") or "Björn Lundén verification failed"
+                ),
+            )
+        creds = parse_bl_credentials(auth_payload)
+        identity = creds.get("user_key") or creds.get("client_id") or None
+        return _stamp_verify_meta(auth_payload, ok=True, identity=identity)
+
+    return auth_payload
+
+
 async def install_mcp(
     session: AsyncSession,
     tenant_id: UUID,
@@ -181,9 +338,12 @@ async def install_mcp(
     auth_type: str = "api_key",
     mcp_server_id: int | None = None,
     auth: dict[str, Any] | None = None,
+    use_mock: bool = False,
 ) -> dict[str, Any]:
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
+    if PROVIDER_BY_SLUG[provider].get("status") == "coming_soon":
+        raise HTTPException(status_code=400, detail="This integration is not available yet.")
     url = server_url or PROVIDER_BY_SLUG[provider].get("mcp_remote_url") or ""
     if not url and provider == "bjorn_lunden_mcp":
         # Björn Lundén runs natively against the BLA REST API — no separate
@@ -210,50 +370,58 @@ async def install_mcp(
             status_code=422,
             detail="Mock MCP servers are not allowed in production. Provide a real server_url.",
         )
-    auth_payload: dict[str, Any] = {"api_key": api_key, "auth_type": auth_type}
+
+    key = (api_key or "").strip()
+    auth_payload: dict[str, Any] = {"auth_type": auth_type}
+    if key:
+        auth_payload["api_key"] = key
     if isinstance(auth, dict):
         # Preserve bearer_token / custom headers alongside the api_key.
         auth_payload.update({k: v for k, v in auth.items() if v is not None})
         auth_payload["auth_type"] = auth.get("auth_type") or auth_type
-    server = McpServer(
-        tenant_id=tenant_id,
-        name=display_name or PROVIDER_BY_SLUG[provider]["name"],
-        server_url=url,
-        auth_json=json.dumps(auth_payload),
-    )
-    session.add(server)
-    await session.flush()
-    meta = {
-        "auth_type": auth_type,
-        "server_url": url,
-        "mcp_server_id": str(server.id),
-    }
+
+    if provider in ("king_accountancy", "bjorn_lunden_mcp"):
+        stamped = await _require_native_mcp_credentials(
+            provider, auth_payload, use_mock=use_mock
+        )
+        if stamped is not None:
+            auth_payload = stamped
+        elif use_mock:
+            auth_payload["mock"] = True
+    elif provider == "custom_mcp" or not url.startswith("native://"):
+        if not key and not use_mock:
+            raise HTTPException(
+                status_code=400,
+                detail="API key or bearer token is required to install this MCP server.",
+            )
+        if use_mock and get_settings().is_production:
+            raise HTTPException(
+                status_code=400,
+                detail="Mock MCP installs are not allowed in production.",
+            )
+        if not key and use_mock:
+            auth_payload["api_key"] = "mock-key"
+            auth_payload["mock"] = True
+
+    meta: dict[str, Any] = {"auth_type": auth_type}
+    if auth_payload.get("last_verified_at"):
+        meta["last_verified_at"] = auth_payload["last_verified_at"]
+    if auth_payload.get("identity"):
+        meta["identity"] = auth_payload["identity"]
+    if auth_payload.get("mock"):
+        meta["mock"] = True
     if mcp_server_id is not None:
         meta["platform_mcp_server_id"] = mcp_server_id
-    conn = IntegrationConnection(
-        tenant_id=tenant_id,
+    server, conn, binding = await register_mcp_server(
+        session,
+        tenant_id,
+        name=display_name or PROVIDER_BY_SLUG[provider]["name"],
+        server_url=url,
+        auth=auth_payload,
         provider=provider,
-        display_name=display_name or server.name,
-        status="active",
-        credentials_json=json.dumps({"api_key": api_key}),
-        metadata_json=json.dumps(meta),
+        credentials={"api_key": key} if key else {},
+        metadata=meta,
     )
-    session.add(conn)
-    await session.flush()
-    binding = IntegrationBinding(
-        tenant_id=tenant_id,
-        connection_id=conn.id,
-        binding_type="mcp_server",
-        config_json=json.dumps(
-            {
-                "mcp_server_id": str(server.id),
-                "provider": provider,
-                "server_url": url,
-                "auth_type": auth_type,
-            }
-        ),
-    )
-    session.add(binding)
     await session.commit()
     await session.refresh(conn)
     await session.refresh(binding)
@@ -270,6 +438,8 @@ async def install_mcp(
         "connection": serialize_connection(conn),
         "binding": {"id": str(binding.id), "config": _parse_json(binding.config_json)},
         "discovery": discovery,
+        "mcp_server_id": str(server.id),
+        "verified": bool(auth_payload.get("last_verified_at")),
     }
 
 

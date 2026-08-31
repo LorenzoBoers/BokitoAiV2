@@ -203,22 +203,74 @@ async def append_workforce_message(
     return message
 
 
-async def ingest_decision_request(
+async def create_decision(
     session: AsyncSession,
     tenant_id: UUID,
-    notification: Notification,
-    decision: DecisionRequest,
     *,
+    title: str,
+    summary: str = "",
+    options: list[dict[str, Any]] | None = None,
     user_id: UUID | None = None,
     agent_id: UUID | None = None,
     signal_id: UUID | None = None,
-) -> SignalMessage:
-    return await append_decision_to_signal(
+    project_id: UUID | None = None,
+    platform_change_id: UUID | None = None,
+    source_type: str = "agent",
+    source_id: str | None = None,
+    notification_payload: dict[str, Any] | None = None,
+    notification_title: str | None = None,
+) -> tuple[DecisionRequest, SignalMessage]:
+    """The single write path for human decisions.
+
+    Creates the DecisionRequest, projects it into the notification bell
+    (respecting mute preferences), lands the card as a message in a Signal
+    thread, and publishes the gateway events. Callers never write Notification
+    rows for decisions themselves.
+    """
+    from app.gateway.publish import publish_notification
+    from app.services.notification_mail import decision_bell_status
+
+    bell_status = await decision_bell_status(session, tenant_id, user_id)
+    notification = Notification(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        kind="decision_request",
+        title=notification_title or title,
+        body=(summary or title)[:500],
+        status=bell_status,
+        payload_json=json.dumps(notification_payload or {}, default=str),
+    )
+    session.add(notification)
+    await session.flush()
+    if bell_status == "unread":
+        await publish_notification(
+            tenant_id,
+            notification_id=notification.id,
+            kind=notification.kind,
+            title=notification.title,
+        )
+    decision = DecisionRequest(
+        tenant_id=tenant_id,
+        notification_id=notification.id,
+        title=title,
+        summary=summary,
+        options_json=json.dumps(options or []),
+        status="awaiting_human",
+        project_id=project_id,
+        platform_change_id=platform_change_id,
+        signal_id=signal_id,
+        source_type=source_type,
+        source_id=source_id,
+    )
+    session.add(decision)
+    await session.flush()
+    message = await append_decision_to_signal(
         session,
         tenant_id,
         decision,
-        user_id=user_id or notification.user_id,
+        user_id=user_id,
         agent_id=agent_id,
-        project_id=decision.project_id,
+        project_id=project_id,
         signal_id=signal_id,
     )
+    return decision, message

@@ -16,9 +16,9 @@
         "title": "Automatiseringen",
         "body": "Schema's en triggers voeren werk op de achtergrond uit, zichtbaar op je agenda."
       },
-      "cockpit": {
-        "title": "Cockpit",
-        "body": "KPI's, kosten en activiteit in een overzicht, zodat je altijd weet wat je workspace doet."
+      "modules": {
+        "title": "Modules",
+        "body": "Bedrijfsfunctionaliteit zoals boekhouding: koppel een pakket, wijs agents toe en de tools volgen."
       },
       "control": {
         "title": "Jij houdt de controle",
@@ -41,9 +41,9 @@
       "title": "Agenda",
       "body": "Geplande runs en achtergrondautomatiseringen. Een keer instellen en het werk gebeurt terwijl jij weg bent."
     },
-    "cockpit": {
-      "title": "Cockpit",
-      "body": "Je controletoren: KPI's, autonomie, kosten en alles wat je workspace heeft gedaan."
+    "modules": {
+      "title": "Modules",
+      "body": "Zet bedrijfsfunctionaliteit aan en koppel de pakketten erachter — één plek voor elke koppeling."
     },
     "settings": {
       "title": "Instellingen en setupgids",

@@ -229,7 +229,7 @@ async def test_bjorn_lunden_install_discovers_accounting_tools(
     install = await client.post(
         "/api/integrations/mcp/install",
         headers=headers,
-        json={"provider": "bjorn_lunden_mcp", "display_name": "Björn Lundén"},
+        json={"provider": "bjorn_lunden_mcp", "display_name": "Björn Lundén", "use_mock": True},
     )
     assert install.status_code == 200
     body = install.json()
@@ -262,9 +262,11 @@ async def test_bjorn_lunden_install_discovers_accounting_tools(
     snapshot = await collect_tenant_snapshot(session_override, tenant.id)
     assert not any("Lund" in m["name"] for m in snapshot["mcp_servers"])
     acc_entry = next(
-        c for c in snapshot["accounting_connections"] if "Lund" in c["name"]
+        c
+        for c in snapshot["module_connections"]["accounting"]
+        if "Lund" in c["name"]
     )
-    assert acc_entry["server_url"].startswith("native://bjorn-lunden")
+    assert acc_entry["vendor"] == "bjorn_lunden"
     prompt = format_tenant_snapshot_prompt(snapshot)
     assert "accounting_list_companies" in prompt
     assert "list_invoices" not in prompt
@@ -296,6 +298,7 @@ async def test_king_accountancy_install_discovers_read_tools(
         json={
             "provider": "king_accountancy",
             "display_name": "KING Accountancy",
+            "use_mock": True,
             "auth": {
                 "administraties": [
                     {"id": "adm-1", "name": "Bakker BV", "omgevingscode": "ENV-1"}

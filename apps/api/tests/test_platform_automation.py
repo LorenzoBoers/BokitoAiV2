@@ -69,7 +69,7 @@ async def test_orchestration_continue_resumes_task(session_override):
         workstream_id=workstream.id,
         current_step_id=gate.id,
         title="Paused workstream",
-        status="awaiting_decision",
+        status="awaiting_human",
         pause_reason="human_gate",
     )
     session_override.add(task)

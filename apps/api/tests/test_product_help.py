@@ -26,6 +26,8 @@ from app.services.surface_map import (
     validate_surface_map,
 )
 
+# Six-tab rail (Communication, Agenda, Projects, Agents, Modules, Settings)
+# plus the nested destinations (Contacts, Knowledge, Reports at /cockpit).
 REQUIRED_RAIL_ROUTES = {
     "/cockpit",
     "/communication/inbox/open",
@@ -34,6 +36,7 @@ REQUIRED_RAIL_ROUTES = {
     "/agents",
     "/projects",
     "/knowledge",
+    "/modules",
     "/settings",
 }
 
@@ -47,7 +50,7 @@ REQUIRED_PAGE_GUIDE_ROUTES = {
     "/knowledge",
     "/settings/govern",
     "/settings/channels",
-    "/settings/integrations",
+    "/modules/connected",
     "/settings/models",
     "/ai/assistant/external/installation",
 }
@@ -63,7 +66,9 @@ REQUIRED_SETTINGS_ROUTES = {
     "/ai/assistant/external/installation",
     "/settings/communication",
     "/settings/help-centers",
-    "/settings/integrations",
+    "/modules/connected",
+    "/modules/marketplace",
+    "/modules/tools",
     "/settings/govern",
     "/settings/developers",
     "/settings/models",

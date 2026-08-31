@@ -13,7 +13,7 @@ import { Bot } from 'lucide-react'
 import { toast } from 'sonner'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
-import DirectChatPanel, { DirectChatEmptyState } from '../components/inbox/DirectChatPanel'
+import { AgentChatView, DirectChatEmptyState } from '../components/inbox/AgentChatView'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
@@ -23,7 +23,7 @@ import {
 } from '../context/InboxCommunicationContext'
 import { usePinnedIds } from '../hooks/usePinnedIds'
 import { useThreads } from '../hooks/useThreads'
-import { bokitoListChatTargets, type ChatTarget } from '../lib/bokito-api'
+import { bokitoListChatTargets, type ChatTarget } from '../lib/signals-api'
 import {
   deleteThread as apiDeleteThread,
   markThreadRead as apiMarkThreadRead,
@@ -71,7 +71,9 @@ export default function DirectCommunication() {
   const leaf = leafFromPath(location.pathname)
   const isAgentScope = leaf?.type === 'agent'
   const agentQueue = leaf?.type === 'agent' ? leaf.queue : undefined
-  const listView = agentQueue ? SUB_QUEUE_TO_VIEW[agentQueue] : 'all_open'
+  // 'activity' is routed to the Communication work-log view, never here.
+  const listView =
+    agentQueue && agentQueue !== 'activity' ? SUB_QUEUE_TO_VIEW[agentQueue] : 'all_open'
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
   const [targetsError, setTargetsError] = useState<string | null>(null)
@@ -409,7 +411,7 @@ export default function DirectCommunication() {
         </SplitPane>
         <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
           {selectedThreadId ? (
-            <DirectChatPanel
+            <AgentChatView
               conversationId={String(selectedThreadId)}
               title={selectedThread?.emailSubject}
               agentName={selectedThread?.agentName ?? activeAgent?.name}

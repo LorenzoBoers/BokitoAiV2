@@ -31,8 +31,41 @@ _CHANNEL_DEFAULTS = {
 _FALLBACK_MODE = "suggest"
 
 
+DEFAULT_CERTAINTY_THRESHOLD = 7
+
+
 def default_ai_mode(channel: str) -> str:
     return _CHANNEL_DEFAULTS.get(channel, _FALLBACK_MODE)
+
+
+def _tenant_settings(tenant: Tenant | None) -> dict:
+    if tenant is None:
+        return {}
+    try:
+        settings_obj = json.loads(tenant.settings_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return settings_obj if isinstance(settings_obj, dict) else {}
+
+
+def inbox_policy(tenant: Tenant | None) -> dict:
+    """Tenant inbox policy from settings (was the inbox_settings table).
+
+    - ``autonomous_reply``: legacy tenant-wide auto-reply switch.
+    - ``certainty_threshold`` (1-10): triage below this certainty never
+      raises thread priority.
+    """
+    raw = _tenant_settings(tenant).get("inbox")
+    data = raw if isinstance(raw, dict) else {}
+    try:
+        threshold = int(data.get("certainty_threshold", DEFAULT_CERTAINTY_THRESHOLD))
+    except (TypeError, ValueError):
+        threshold = DEFAULT_CERTAINTY_THRESHOLD
+    threshold = min(10, max(1, threshold))
+    return {
+        "autonomous_reply": bool(data.get("autonomous_reply")),
+        "certainty_threshold": threshold,
+    }
 
 
 def account_ai_config(account: ChannelAccount | None) -> dict:
@@ -47,14 +80,27 @@ def account_ai_config(account: ChannelAccount | None) -> dict:
 
 
 def tenant_channel_ai_modes(tenant: Tenant | None) -> dict:
-    if tenant is None:
-        return {}
-    try:
-        settings_obj = json.loads(tenant.settings_json or "{}")
-    except json.JSONDecodeError:
-        return {}
-    modes = settings_obj.get("channel_ai_modes")
+    modes = _tenant_settings(tenant).get("channel_ai_modes")
     return modes if isinstance(modes, dict) else {}
+
+
+def _govern_clamp(tenant: Tenant | None, mode: str) -> str:
+    """Channel AI mode is a view over the Govern messaging allowance.
+
+    The allowance is the outer bound so a channel on "auto" can never send
+    while Govern says "ask" (and "deny" switches AI off entirely). One policy
+    engine, surfaced in two places.
+    """
+    if tenant is None or mode == "off":
+        return mode
+    from app.tools.policy import tenant_allowances
+
+    allowance = tenant_allowances(tenant).get("messaging", "ask")
+    if allowance == "deny":
+        return "off"
+    if allowance == "ask" and mode == "auto":
+        return "suggest"
+    return mode
 
 
 def resolve_ai_mode(
@@ -62,16 +108,16 @@ def resolve_ai_mode(
     account: ChannelAccount | None,
     channel: str,
 ) -> str:
-    """Resolve the effective AI mode for a channel (account overrides tenant)."""
+    """Effective AI mode: account overrides tenant, Govern allowance clamps."""
     ai_config = account_ai_config(account)
     mode = ai_config.get("mode")
     if mode in AI_MODES:
-        return mode
+        return _govern_clamp(tenant, mode)
     # Legacy per-mailbox flag written by older AI settings UIs.
     if ai_config.get("suggestions_enabled") is False:
         return "off"
 
     tenant_mode = tenant_channel_ai_modes(tenant).get(channel)
     if tenant_mode in AI_MODES:
-        return tenant_mode
-    return default_ai_mode(channel)
+        return _govern_clamp(tenant, tenant_mode)
+    return _govern_clamp(tenant, default_ai_mode(channel))

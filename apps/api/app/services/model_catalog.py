@@ -130,11 +130,10 @@ async def _refresh_legacy_agent_models(session: AsyncSession) -> None:
     from sqlalchemy import update
 
     from app.models.agent import Agent
-    from app.models.orchestration import RuntimeProfile
 
     changed = False
     for legacy, current in LEGACY_AGENT_MODEL_REFRESH.items():
-        for table in (Agent, RuntimeProfile):
+        for table in (Agent,):
             result = await session.execute(
                 update(table).where(table.model == legacy).values(model=current)
             )

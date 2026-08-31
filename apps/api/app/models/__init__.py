@@ -5,7 +5,6 @@ from app.models.auth_token import AuthToken
 from app.models.oauth_state import OAuthState
 from app.models.channel import ChannelAccount, ChannelBinding, Company, Contact
 from app.models.email_routing import EmailRoutingRule
-from app.models.inbox import InboxSettings
 from app.models.workspace import DocChunk, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
 from app.models.metric import CustomMetric, CustomMetricPoint
@@ -38,22 +37,20 @@ from app.models.usage import PushSubscription, UsageLedger
 from app.models.project import Project, ProjectAgent
 from app.models.project_work import (
     ProjectDocSection,
-    ProjectQueueItem,
     ProjectResource,
-    QueueItemDocLink,
+    TaskDocLink,
 )
 from app.models.orchestration import (
     AgentTask,
     EvalCheckpoint,
-    RuntimeProfile,
     TaskArtifact,
 )
 from app.models.os_graph import OsCanvasEdge, OsCanvasNode
-from app.models.secret import TenantSecret
 from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetting
 from app.models.provider import ProviderConnection, TenantModel
 from app.models.module_source import ModuleSource
-from app.models.module_agent import ModuleAgent
+from app.models.module_agent import AgentScope, ModuleAgent
+from app.models.module_install import ModuleInstall
 from app.models.calendar import CalendarEvent
 
 __all__ = [
@@ -86,16 +83,14 @@ __all__ = [
     "UserPreference",
     "AuditEvent",
     "StaffAccessLog",
-    "InboxSettings",
     "ApiToken",
     "Trigger",
     "Workstream",
     "WorkstreamStep",
     "Project",
     "ProjectAgent",
-    "ProjectQueueItem",
     "ProjectDocSection",
-    "QueueItemDocLink",
+    "TaskDocLink",
     "ProjectResource",
     "UsageLedger",
     "PushSubscription",
@@ -120,17 +115,17 @@ __all__ = [
     "CustomMetricPoint",
     "OperationalOutcome",
     "PlatformChange",
-    "RuntimeProfile",
     "AgentTask",
     "EvalCheckpoint",
     "TaskArtifact",
-    "TenantSecret",
     "ModelCatalog",
     "PlatformSecret",
     "PlatformSetting",
     "ProviderConnection",
     "TenantModel",
     "ModuleSource",
+    "AgentScope",
     "ModuleAgent",
+    "ModuleInstall",
     "CalendarEvent",
 ]

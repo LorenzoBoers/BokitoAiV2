@@ -161,7 +161,7 @@ export default function ChannelBindingsPanel() {
                 <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">
                   {t('channelsPage.bindings.openCommunication')}
                 </Link>
-                <Link to="/settings/marketplace" className="text-xs font-medium text-accent hover:underline">
+                <Link to="/modules/marketplace" className="text-xs font-medium text-accent hover:underline">
                   {t('channelsPage.bindings.openMarketplace')}
                 </Link>
               </div>

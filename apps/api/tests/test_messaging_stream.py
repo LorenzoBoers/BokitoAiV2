@@ -100,7 +100,7 @@ async def test_chat_send_persists_error_reply(client: AsyncClient):
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    conv = await client.post("/api/chat/conversations", json={"title": "Error test"}, headers=headers)
+    conv = await client.post("/api/signals/conversations", json={"title": "Error test"}, headers=headers)
     conv_id = conv.json()["id"]
 
     with patch(
@@ -108,7 +108,7 @@ async def test_chat_send_persists_error_reply(client: AsyncClient):
         new=AsyncMock(side_effect=RuntimeError("LLM down")),
     ):
         msg = await client.post(
-            f"/api/chat/conversations/{conv_id}/messages",
+            f"/api/signals/conversations/{conv_id}/messages",
             json={"content": "Hello"},
             headers=headers,
         )
@@ -118,7 +118,7 @@ async def test_chat_send_persists_error_reply(client: AsyncClient):
     assert body["message"]["role"] == "assistant"
     assert body.get("error") is True
 
-    listed = await client.get(f"/api/chat/conversations/{conv_id}/messages", headers=headers)
+    listed = await client.get(f"/api/signals/conversations/{conv_id}/messages", headers=headers)
     roles = [m["role"] for m in listed.json()]
     assert roles.count("assistant") >= 1
 
@@ -130,7 +130,7 @@ async def test_chat_stream_sse(client: AsyncClient):
     login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
-    conv = await client.post("/api/chat/conversations", json={"title": "Stream test"}, headers=headers)
+    conv = await client.post("/api/signals/conversations", json={"title": "Stream test"}, headers=headers)
     conv_id = conv.json()["id"]
 
     async def fake_stream(self, messages, extra_context="", attachments=None):
@@ -141,7 +141,7 @@ async def test_chat_stream_sse(client: AsyncClient):
     with patch("app.services.agent.loop.AgentLoop.stream_chat", new=fake_stream):
         async with client.stream(
             "POST",
-            f"/api/chat/conversations/{conv_id}/stream",
+            f"/api/signals/conversations/{conv_id}/stream",
             json={"content": "Stream please"},
             headers=headers,
         ) as resp:

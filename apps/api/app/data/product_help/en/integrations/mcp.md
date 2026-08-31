@@ -16,7 +16,7 @@ MCP is how agents call external tools over a standard protocol. In the product t
 ![MCP servers](/api/docs/assets/mcp/servers.png)
 *Add the server URL and credentials.*
 
-1. Open **Settings**, then **Integrations**, then **Connected tools** (the same page as `/settings/mcp`).
+1. Open **Modules** in the rail, then the **Connected tools** tab (the same page as `/modules/tools`).
 2. Choose **Connect a tool**. The dialog is **Add tool server**. Enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**.
 3. **Save connection**. The row appears under **Configured connections**. Filter the list, copy the endpoint, then **Test connection** — success reads **Connected — N tools found**. Disconnect asks for confirmation.
 

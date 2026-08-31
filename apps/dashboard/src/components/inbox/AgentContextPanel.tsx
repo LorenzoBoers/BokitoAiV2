@@ -58,7 +58,15 @@ const STATUS_CLASS: Record<string, string> = {
 }
 
 /** Task statuses worth surfacing inline (still in flight or needs a human). */
-const ACTIVE_TASK_STATUSES = new Set(['running', 'queued', 'paused', 'awaiting_decision'])
+const ACTIVE_TASK_STATUSES = new Set([
+  'running',
+  'queued',
+  'paused',
+  'awaiting_human',
+  'analyzing',
+  'planned',
+  'verifying',
+])
 
 function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!iso) return ''
@@ -277,7 +285,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
               {t('agentContext.govern')}
             </Link>
-            <Link to="/settings/integrations" className="font-medium text-accent hover:underline">
+            <Link to="/modules/connected" className="font-medium text-accent hover:underline">
               {t('agentContext.openIntegrations')}
             </Link>
           </div>
@@ -313,7 +321,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               {mcpRows.map((row) => (
                 <Link
                   key={row.id}
-                  to="/settings/integrations"
+                  to="/modules/connected"
                   className="flex items-center gap-2 rounded-md border border-border/40 bg-bg-elevated/45 px-2 py-1 transition-colors hover:border-accent/40"
                 >
                   <span

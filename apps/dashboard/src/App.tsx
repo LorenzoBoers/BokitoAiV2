@@ -14,7 +14,7 @@ import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-set
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { CardGridSkeleton } from './components/ui/skeleton'
-import { agentChatPath, agentRunsPath, channelPath, decisionsPath, inboxPath, newConversationPath } from './lib/messages-paths'
+import { activityTerminalPath, agentChatPath, agentRunsPath, channelPath, decisionsPath, inboxPath, newConversationPath } from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
 // Public pages
@@ -35,7 +35,7 @@ const CockpitPage = lazy(() => import('./pages/CockpitPage'))
 const ContactsPage = lazy(() => import('./pages/ContactsPage'))
 const Communication = lazy(() => import('./pages/Communication'))
 const DirectCommunication = lazy(() => import('./pages/DirectCommunication'))
-const ActivityPage = lazy(() => import('./pages/ActivityPage'))
+const ActivityTerminalPage = lazy(() => import('./pages/ActivityTerminalPage'))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
@@ -63,7 +63,6 @@ const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected')
 const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
 const ModulesPage = lazy(() => import('./pages/ModulesPage'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
-const ModuleWorkspacePage = lazy(() => import('./pages/ModuleWorkspacePage'))
 const IntegrationsMcp = lazy(() => import('./pages/IntegrationsMcp'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
@@ -136,6 +135,18 @@ function RedirectModulesLegacy() {
   return <Navigate to={`/modules${rest}${location.search}`} replace />
 }
 
+/** Former AI workspace URL → single module page under `/modules/:slug`. */
+function RedirectAiModuleWorkspace() {
+  const { slug = '' } = useParams<{ slug: string }>()
+  const location = useLocation()
+  return (
+    <Navigate
+      to={`/modules/${encodeURIComponent(slug)}${location.search}`}
+      replace
+    />
+  )
+}
+
 /** Legacy personal-assistant / bare chat URLs → New conversation (pick a company agent). */
 function LegacyConversationRedirect() {
   const location = useLocation()
@@ -159,6 +170,12 @@ function LegacyDirectAgentRedirect() {
       replace
     />
   )
+}
+
+/** `/communication/agent/:agentId/activity[...]` → activity terminal filtered to that agent. */
+function LegacyAgentActivityRedirect() {
+  const { agentId } = useParams<{ agentId: string }>()
+  return <Navigate to={activityTerminalPath(agentId ?? null)} replace />
 }
 
 const LEGACY_CUSTOMER_QUEUE_MAP: Record<string, string> = {
@@ -280,8 +297,14 @@ export default function App() {
             {/* Company agent chats */}
             <Route path="/communication/agent/:agentId" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/t/:threadId" element={<DirectCommunication />} />
+            {/* Per-agent activity → global terminal filtered to that agent */}
+            <Route path="/communication/agent/:agentId/activity" element={<LegacyAgentActivityRedirect />} />
+            <Route path="/communication/agent/:agentId/activity/t/:threadId" element={<LegacyAgentActivityRedirect />} />
             <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<DirectCommunication />} />
+
+            {/* Activity — terminal-style live history of all agent work */}
+            <Route path="/communication/activity" element={<ActivityTerminalPage />} />
 
             {/* Decisions — sole exception queue for open DecisionRequests */}
             <Route path="/communication/decisions" element={<Communication />} />
@@ -336,7 +359,7 @@ export default function App() {
 
           {/* Control */}
           <Route path="/cockpit" element={<CockpitPage />} />
-          <Route path="/cockpit/activity" element={<ActivityPage />} />
+          <Route path="/cockpit/activity" element={<Navigate to="/communication/activity" replace />} />
           <Route path="/cockpit/usage" element={<UsagePage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
@@ -356,10 +379,13 @@ export default function App() {
           <Route path="/knowledge" element={<WorkspaceDocs />} />
           <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
 
-          {/* Modules hub (first-class product surface) */}
+          {/* Modules hub (first-class product surface; one Connections story) */}
           <Route path="/modules" element={<ModulesPage />} />
+          <Route path="/modules/connected" element={<IntegrationsConnected />} />
+          <Route path="/modules/marketplace" element={<IntegrationsMarketplace />} />
+          <Route path="/modules/tools" element={<IntegrationsMcp />} />
           <Route path="/modules/:slug" element={<ModuleSetupPage />} />
-          <Route path="/ai/modules/:slug" element={<ModuleWorkspacePage />} />
+          <Route path="/ai/modules/:slug" element={<RedirectAiModuleWorkspace />} />
 
           {/* Settings */}
           <Route element={<SettingsLayout />}>
@@ -376,14 +402,14 @@ export default function App() {
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
             <Route path="/settings/help-centers" element={<HelpCentersSettings />} />
-            <Route path="/settings/integrations" element={<IntegrationsConnected />} />
-            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/settings/marketplace" />} />
-            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
-            <Route path="/settings/integrations/docs" element={<Navigate to="/settings/marketplace" replace />} />
-            <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
+            <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/modules/connected" />} />
+            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
+            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/modules/tools" />} />
+            <Route path="/settings/integrations/docs" element={<Navigate to="/modules/marketplace" replace />} />
+            <Route path="/settings/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
             <Route path="/settings/modules" element={<RedirectModulesLegacy />} />
             <Route path="/settings/modules/:slug" element={<RedirectModulesLegacy />} />
-            <Route path="/settings/mcp" element={<IntegrationsMcp />} />
+            <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/modules/tools" />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />
             <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
@@ -398,7 +424,7 @@ export default function App() {
           {/* Legacy redirects */}
           <Route path="/home" element={<Navigate to="/cockpit" replace />} />
           <Route path="/overview" element={<Navigate to="/cockpit" replace />} />
-          <Route path="/activity" element={<Navigate to="/cockpit/activity" replace />} />
+          <Route path="/activity" element={<Navigate to="/communication/activity" replace />} />
           <Route path="/usage" element={<Navigate to="/cockpit/usage" replace />} />
           <Route path="/skills" element={<Navigate to="/knowledge" replace />} />
           <Route path="/workspace" element={<Navigate to="/knowledge" replace />} />
@@ -413,10 +439,10 @@ export default function App() {
           <Route path="/govern" element={<RedirectPreserveSearch to="/settings/govern" />} />
           <Route path="/automations" element={<Navigate to="/agenda?view=automations" replace />} />
           <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
-          <Route path="/integrations" element={<RedirectPreserveSearch to="/settings/integrations" />} />
-          <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/settings/integrations" />} />
-          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/settings/marketplace" />} />
-          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
+          <Route path="/integrations" element={<RedirectPreserveSearch to="/modules/connected" />} />
+          <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/modules/connected" />} />
+          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
+          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/modules/tools" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
           <Route path="/settings/widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />

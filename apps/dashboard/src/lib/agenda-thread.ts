@@ -32,7 +32,7 @@ export function startedAtIso(startedAt?: number | string | null): string | null 
 }
 
 export function pickClosestThreadBySubject<
-  T extends { id: string; emailSubject?: string | null; lastMessageAt?: string | null },
+  T extends { id: string | number; emailSubject?: string | null; lastMessageAt?: string | null },
 >(threads: T[], subject: string, aroundIso?: string | null): T | null {
   const needle = subjectKey(subject)
   if (!needle || threads.length === 0) return null
@@ -61,7 +61,7 @@ export function agendaOccurrenceHref(
     agent_id?: string | null
     trigger_id?: string | null
   },
-  threads: Array<{ id: string; emailSubject?: string | null; lastMessageAt?: string | null }>,
+  threads: Array<{ id: string | number; emailSubject?: string | null; lastMessageAt?: string | null }>,
   fallbackAgentId: string,
   nowMs: number = Date.now(),
 ): string {
@@ -70,7 +70,7 @@ export function agendaOccurrenceHref(
   const match = !isFuture || item.run_id
     ? pickClosestThreadBySubject(threads, item.name, item.at)
     : null
-  if (match) return agentRunsPath(item.run_id ? 'results' : 'all', match.id)
+  if (match) return agentRunsPath(item.run_id ? 'results' : 'all', String(match.id))
   if (item.run_id && item.agent_id) return agentWorkforceRunUrl(item.agent_id, item.run_id)
   if (item.trigger_id) return `/agenda?trigger=${item.trigger_id}`
   return `/agenda?agent=${fallbackAgentId}`
@@ -79,7 +79,7 @@ export function agendaOccurrenceHref(
 /** Open the matching Agent-runs conversation, or fall back to the raw work log. */
 export function workLogRunsPath(
   run: { task_subject?: string | null; started_at?: number | string | null; status?: string },
-  threads: Array<{ id: string; emailSubject?: string | null; lastMessageAt?: string | null }>,
+  threads: Array<{ id: string | number; emailSubject?: string | null; lastMessageAt?: string | null }>,
   fallback: string,
 ): string {
   const thread = pickClosestThreadBySubject(threads, run.task_subject?.trim() ?? '', startedAtIso(run.started_at))

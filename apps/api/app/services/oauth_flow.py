@@ -172,11 +172,34 @@ async def _store_integration_credentials(
     creds = _token_credentials(tokens)
     conn.credentials_json = json.dumps(creds)
     meta = json.loads(conn.metadata_json or "{}")
+    if not isinstance(meta, dict):
+        meta = {}
     if identity.get("login"):
         meta["github_login"] = identity["login"]
         meta["external_account_id"] = identity["login"]
     if identity.get("email"):
         meta["email"] = identity["email"]
+        meta["identity"] = identity["email"]
+    meta.pop("mock", None)
+    meta.pop("verify_error", None)
+    if provider == "moneybird":
+        from datetime import datetime, timezone
+
+        from app.services.moneybird import list_administrations, validate_credentials
+
+        check = await validate_credentials(creds)
+        if check.get("ok") and not check.get("note"):
+            meta["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+            try:
+                admins = await list_administrations(creds)
+                if admins:
+                    meta["identity"] = str(admins[0].get("name") or admins[0].get("id") or "")
+            except Exception:
+                pass
+        else:
+            meta["verify_error"] = str(
+                check.get("error") or check.get("note") or "Moneybird verification failed"
+            )
     conn.metadata_json = json.dumps(meta)
     conn.status = "active"
     session.add(conn)

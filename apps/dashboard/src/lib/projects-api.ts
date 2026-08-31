@@ -50,6 +50,10 @@ export interface ProjectAgentRow {
   is_active: boolean
   is_default: boolean
   created_at: string | null
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
 }
 
 export async function listProjects(): Promise<ProjectRow[]> {

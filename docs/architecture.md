@@ -114,18 +114,32 @@ Long-running background orchestration uses **segment jobs** (ARQ when Redis avai
 
 | Entity | Role |
 |--------|------|
-| `RuntimeProfile` | Reusable model/tools/autonomy preset (`planner` \| `executor` \| `judge`) |
-| `AgentTask` | Durable task; links to internal `Signal` thread |
-| `WorkstreamStep` | Binds `agent_id` + optional `runtime_profile_id`; handoff between agents |
+| `AgentTask` | **The one Task ledger**: orchestration job, project queue item, or human task (`origin`: manual \| chat \| inbound \| trigger \| queue \| delegation; `assignee_kind`: agent \| human; `scheduled_for` for planned/dormant tasks) |
+| `Agent` | One passport: model/tools/autonomy live on the agent (RuntimeProfile is folded in; presets are data) |
+| `WorkstreamStep` | Binds `agent_id`; handoff between agents |
 | `AgentRun` | Segment execution record with checkpoint + runtime snapshot |
 | `EvalCheckpoint` | Self-eval after segment (`rubric`, `tool_assert`, `llm_judge`) |
 | `TaskArtifact` | Structured outputs per task |
 
-API: `/api/orchestration/*` (tasks, runtime profiles, workstream steps, run events).
+API: `/api/orchestration/*` (tasks, workstream steps, run events).
 
 Workstream runs create an `AgentTask` and advance steps automatically after eval pass. Set `BOKITO_MOCK_EXECUTION=true` for mock LLM steps in tests.
 
 Token usage is written to `UsageLedger` per segment.
+
+### Task ledger (lazy promotion)
+
+Plain chat Q&A stays Run-only. `app/services/task_ledger.py` promotes a run to a Task at its first real-work tool call (mutating/gated tools and all module tools; pure replies excluded) and `settle_run_task` mirrors the run's terminal status back at every finalize site. Non-heartbeat trigger fires always carry a Task. Scheduled Tasks (`scheduled_for`) are woken by the trigger-scheduler tick (`process_due_scheduled_tasks`): agent tasks enqueue a run segment, human tasks flip to `awaiting_human` and notify.
+
+Agents self-schedule through governed tools: `schedule_task` (plan a Task for later, for self, a peer, or a human) and `schedule_wake` (create a Trigger: once / cron / interval). Both are gated + mutating, so posture and allowances apply.
+
+### Module backbone (generic)
+
+`ModuleInstall` anchors per-tenant module state. `call_module_verb(slug, verb, args)` (`app/modules/dispatch.py`) routes to provider packages by convention (`app.modules.{slug}.router`); tools auto-register from `ModuleSpec.tool_cards` as `{slug}_{verb}` (read / propose / apply). Writes need `MODULE_WRITES_ENABLED` (env, comma-separated slugs) + the tenant's `writes_enabled` pref. Accounting is the first provider; banking (GoCardless read-only) proves the backbone needs zero shared-code edits per module.
+
+### Agent resource scopes
+
+`AgentScope` generalizes the module roster pattern: per-agent allowlists per resource kind (`project` \| `knowledge` \| `channel`) with `can_write` per row; no rows = unrestricted. Enforced centrally in `execute_tool` (out-of-scope project calls are denied and audited). Channel AI mode (`suggest|auto|off`) is a **view over the Govern messaging allowance**: `deny` → off, `ask` clamps auto → suggest, `allow` passes the channel mode through — one policy engine.
 
 ## Triggers and routing (scheduler)
 

@@ -123,7 +123,7 @@ async def collect_tenant_snapshot(
             .select_from(AgentTask)
             .where(
                 AgentTask.tenant_id == tenant_id,
-                AgentTask.status.in_(("queued", "running", "paused", "awaiting_decision")),
+                AgentTask.status.in_(("queued", "running", "paused", "awaiting_human", "analyzing", "planned", "verifying")),
             )
         )
     ).scalar_one()
@@ -169,12 +169,10 @@ async def collect_tenant_snapshot(
         )
     ).scalars().all()
     mcp_servers = []
-    accounting_connections: list[dict[str, Any]] = []
     for m in mcp_rows:
-        # Accounting-module connections are surfaced as module capacity, not as
-        # MCP servers with vendor tool names (agents use accounting_* tools).
-        if m.server_url.startswith(("native://king-accountancy", "native://bjorn-lunden")):
-            accounting_connections.append({"name": m.name, "server_url": m.server_url})
+        # Module-package connections (native:// servers) are surfaced as module
+        # capacity below, not as MCP servers with vendor tool names.
+        if m.server_url.startswith("native://"):
             continue
         try:
             cached_tools = json.loads(m.tools_json or "[]")
@@ -188,11 +186,6 @@ async def collect_tenant_snapshot(
         mcp_servers.append(
             {"name": m.name, "server_url": m.server_url, "tools": tool_names[:40]}
         )
-    for c in integrations_rows:
-        if c.provider == "moneybird":
-            accounting_connections.append(
-                {"name": c.display_name or "Moneybird", "server_url": "native://moneybird"}
-            )
 
     recent_runs_count = (
         await session.execute(
@@ -202,23 +195,35 @@ async def collect_tenant_snapshot(
         )
     ).scalar_one()
 
-    from app.modules.catalog import serialize_modules_for_tenant
+    from app.modules.catalog import MODULES, serialize_modules_for_tenant
 
     modules = await serialize_modules_for_tenant(session, tenant_id)
 
-    accounting_scope: dict[str, Any] | None = None
+    # Per-module connection names (cheap, via the module's snapshot hook) and
+    # the agent's roster scope. Modules where the agent is not rostered
+    # contribute nothing: the agent has no capability there at all.
+    module_connections: dict[str, list[dict[str, Any]]] = {}
+    module_scopes: dict[str, dict[str, Any]] = {}
     if agent_id is not None:
         from app.services.module_agents import module_agent_access, parse_company_scope
 
-        access = await module_agent_access(session, tenant_id, agent_id, "accounting")
-        if access is None:
-            # Not rostered: this agent has no accounting capability at all.
-            accounting_connections = []
-        else:
-            accounting_scope = {
+    for module in MODULES:
+        if module.status != "available":
+            continue
+        access = None
+        if agent_id is not None:
+            access = await module_agent_access(
+                session, tenant_id, agent_id, module.slug
+            )
+            if access is None:
+                continue
+            module_scopes[module.slug] = {
                 "company_ids": parse_company_scope(access),
                 "can_write": bool(access.can_write),
             }
+        rows = await _module_snapshot_rows(session, tenant_id, module.slug)
+        if rows:
+            module_connections[module.slug] = rows
 
     return {
         "agents": agents,
@@ -229,11 +234,39 @@ async def collect_tenant_snapshot(
         "open_internal_threads": int(open_internal_threads or 0),
         "integrations": integrations,
         "mcp_servers": mcp_servers,
-        "accounting_connections": accounting_connections,
-        "accounting_scope": accounting_scope,
+        "module_connections": module_connections,
+        "module_scopes": module_scopes,
         "modules": modules,
         "agent_runs_total": int(recent_runs_count or 0),
     }
+
+
+async def _module_snapshot_rows(
+    session: AsyncSession, tenant_id: UUID, slug: str
+) -> list[dict[str, Any]]:
+    """Connection names for one module: hook first, generic rows otherwise."""
+    import importlib
+
+    try:
+        mod = importlib.import_module(f"app.modules.{slug}.connections")
+    except ModuleNotFoundError:
+        mod = None
+    hook = getattr(mod, "snapshot_rows", None) if mod else None
+    if callable(hook):
+        return await hook(session, tenant_id)
+    from app.modules.catalog import active_module_connections
+
+    return [
+        {"name": c.display_name or c.provider, "vendor": c.provider}
+        for c in await active_module_connections(session, tenant_id, slug)
+    ]
+
+
+def _module_has_verb(slug: str, verb: str) -> bool:
+    from app.modules.catalog import MODULE_BY_SLUG
+
+    spec = MODULE_BY_SLUG.get(slug)
+    return spec is not None and any(c.verb == verb for c in spec.tool_cards)
 
 
 def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 2000) -> str:
@@ -287,26 +320,31 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
     connected = [n for n in [*integ, *mcp] if n]
     lines.append("Connected: " + (", ".join(connected[:12]) if connected else "none"))
 
-    accounting = snapshot.get("accounting_connections") or []
-    if accounting:
-        names = ", ".join(str(c.get("name") or "") for c in accounting[:4])
+    module_connections = snapshot.get("module_connections") or {}
+    module_scopes = snapshot.get("module_scopes") or {}
+    for slug, conns in list(module_connections.items())[:6]:
+        if not conns:
+            continue
+        names = ", ".join(str(c.get("name") or "") for c in conns[:4])
         lines.append(
-            f"Accounting: {len(accounting)} connection(s) ({names}) — use the "
-            "accounting_* tools; start with accounting_list_companies."
+            f"{slug.capitalize()}: {len(conns)} connection(s) ({names}) — use the "
+            f"{slug}_* tools; start with {slug}_list_companies."
+            if _module_has_verb(slug, "list_companies")
+            else f"{slug.capitalize()}: {len(conns)} connection(s) ({names}) — use the {slug}_* tools."
         )
-        scope = snapshot.get("accounting_scope")
+        scope = module_scopes.get(slug)
         if isinstance(scope, dict):
             company_ids = scope.get("company_ids")
             if isinstance(company_ids, list) and company_ids:
                 lines.append(
-                    "Your accounting scope is limited to administration id(s): "
+                    f"Your {slug} scope is limited to administration id(s): "
                     + ", ".join(str(c) for c in company_ids[:6])
                     + "."
                 )
             if not scope.get("can_write"):
                 lines.append(
-                    "You have read-only accounting access; you cannot propose "
-                    "or apply accounting writes."
+                    f"You have read-only {slug} access; you cannot propose "
+                    f"or apply {slug} writes."
                 )
 
     modules = snapshot.get("modules") or []
@@ -324,7 +362,11 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
             if status in ("connected",):
                 lines.append(
                     f"- {slug} — connected — use {slug}_* tools"
-                    + ("; start with accounting_list_companies" if slug == "accounting" else "")
+                    + (
+                        f"; start with {slug}_list_companies"
+                        if _module_has_verb(slug, "list_companies")
+                        else ""
+                    )
                     + "."
                 )
             elif status in ("installed", "on"):

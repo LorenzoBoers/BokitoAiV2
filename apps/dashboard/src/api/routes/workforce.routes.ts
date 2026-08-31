@@ -41,6 +41,9 @@ export const workforceRoutes = {
     status: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/status`,
     lead: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/lead`,
     chatAccess: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/chat-access`,
+    scopes: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/scopes`,
+    scopeKind: (agentId: string, kind: string) =>
+      `/agents/${encodeURIComponent(agentId)}/scopes/${encodeURIComponent(kind)}`,
   },
   os: {
     graph: '/os/graph',

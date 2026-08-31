@@ -348,7 +348,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                                   {t(`projects.work.moveTo.${status}`)}
                                 </Button>
                               ))}
-                              {['accepted', 'analyzing', 'planned'].includes(item.status) ? (
+                              {['queued', 'analyzing', 'planned'].includes(item.status) ? (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -365,7 +365,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                                   {t('projects.work.analyze')}
                                 </Button>
                               ) : null}
-                              {['in_progress', 'verifying'].includes(item.status) ? (
+                              {['running', 'verifying'].includes(item.status) ? (
                                 <Button
                                   type="button"
                                   size="sm"

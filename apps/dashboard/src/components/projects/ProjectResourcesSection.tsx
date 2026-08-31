@@ -130,7 +130,7 @@ export function ProjectResourcesSection({
             <Link to="/modules" className="text-xs font-medium text-accent hover:underline">
               {t('projects.work.openModules')}
             </Link>
-            <Link to="/settings/integrations" className="text-xs font-medium text-accent hover:underline">
+            <Link to="/modules/connected" className="text-xs font-medium text-accent hover:underline">
               {t('projects.work.openIntegrations')}
             </Link>
           </div>

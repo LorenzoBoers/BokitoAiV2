@@ -25,7 +25,7 @@ import { agentRoleLabel } from '../lib/agent-role-label'
 import { permissionScopeLabel } from '../lib/permission-scope-label'
 import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
-import { agentChatPath, agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { activityTerminalPath, agentChatPath, agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { agendaOccurrenceHref, workLogRunsPath } from '../lib/agenda-thread'
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
 import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
@@ -391,7 +391,7 @@ export default function AiAgentDetail() {
                 </Link>
               </Button>
               <Button type="button" size="sm" variant="outline" asChild>
-                <Link to={`${agentRunsPath('all')}?agent=${encodeURIComponent(agent.id)}`}>
+                <Link to={activityTerminalPath(agent.id)}>
                   <MessageSquare size={14} className="mr-1.5" aria-hidden />
                   {t('workforce.agents.openThreads')}
                 </Link>

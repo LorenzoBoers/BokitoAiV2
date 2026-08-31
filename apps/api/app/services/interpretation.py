@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.inbox import InboxSettings
+from app.models.auth import Tenant
+from app.services.channel_ai import inbox_policy
 from app.services.signals import apply_triage, get_signal_detail
 
 
@@ -17,11 +17,8 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
     messages = detail.get("messages") or []
     body = messages[-1]["body_text"] if messages else detail.get("subject", "")
 
-    settings_result = await session.execute(
-        select(InboxSettings).where(InboxSettings.tenant_id == tenant_id)
-    )
-    settings_row = settings_result.scalar_one_or_none()
-    threshold = settings_row.certainty_threshold if settings_row else 7
+    tenant = await session.get(Tenant, tenant_id)
+    threshold = inbox_policy(tenant)["certainty_threshold"]
 
     from app.services.agent.llm import get_chat_provider
     from app.services.model_resolution import record_usage, resolve_model_call

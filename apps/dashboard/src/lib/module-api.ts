@@ -16,6 +16,12 @@ export type ModuleConnectionRow = {
   vendor: string
   display_name: string
   ready: boolean
+  status?: 'ready' | 'needs_credentials' | 'unverified' | 'error' | string
+  identity?: string | null
+  last_verified_at?: string | null
+  verify_error?: string | null
+  can_disconnect?: boolean
+  can_verify?: boolean
   is_default: boolean
   default_company_id?: string | null
   companies: ModuleConnectionCompany[]
@@ -83,6 +89,27 @@ export async function renameModuleConnection(
   return apiPatch(integrationsRoutes.platform.moduleConnectionById(slug, connectionId), {
     display_name: displayName,
   })
+}
+
+export async function verifyModuleConnection(
+  slug: string,
+  connectionId: string,
+): Promise<{
+  ok: boolean
+  id: string
+  identity?: string | null
+  last_verified_at?: string | null
+  error?: string | null
+  status?: string
+}> {
+  return apiPost(integrationsRoutes.platform.moduleConnectionVerify(slug, connectionId), {})
+}
+
+export async function disconnectModuleConnection(
+  slug: string,
+  connectionId: string,
+): Promise<{ ok: boolean; id: string; kind?: string } | void> {
+  return apiDelete(integrationsRoutes.platform.moduleConnectionById(slug, connectionId))
 }
 
 export async function listModuleSources(slug: string): Promise<{ sources: ModuleSourceRow[] }> {

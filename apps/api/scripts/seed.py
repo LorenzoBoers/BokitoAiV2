@@ -16,7 +16,6 @@ from app.models.agent import Agent
 from app.models.trigger import Trigger
 from app.models.auth import Membership, Tenant, User
 from app.models.channel import ChannelAccount, Contact
-from app.models.inbox import InboxSettings
 from app.models.integration import McpServer
 from app.models.project import Project
 from app.services.auth import hash_password
@@ -333,11 +332,6 @@ async def _seed_tenant_data(session, tenant):
             )
         )
 
-    if not (
-        await session.execute(select(InboxSettings).where(InboxSettings.tenant_id == tenant.id))
-    ).scalar_one_or_none():
-        session.add(InboxSettings(tenant_id=tenant.id))
-
     if not await get_doc_by_path(session, tenant.id, "company.md"):
         await upsert_doc(
             session,
@@ -353,7 +347,11 @@ async def _seed_tenant_data(session, tenant):
     # mailboxes that were actually connected (OAuth or explicit admin create).
 
     if not (await session.execute(select(McpServer).where(McpServer.tenant_id == tenant.id))).scalar_one_or_none():
-        session.add(McpServer(tenant_id=tenant.id, name="mock-tools", server_url="mock://local", auth_json="{}"))
+        from app.services.integrations_platform import register_mcp_server
+
+        await register_mcp_server(
+            session, tenant.id, name="mock-tools", server_url="mock://local"
+        )
 
     await _seed_signals(session, tenant)
     await _ensure_orchestrator_passport(session, tenant)
@@ -452,39 +450,26 @@ async def _seed_workforce_demo(session, tenant, project, po_agent):
         select(DecisionRequest).where(DecisionRequest.tenant_id == tenant.id).limit(1)
     )
     if not dec_exists.scalar_one_or_none():
-        notification = Notification(
-            tenant_id=tenant.id,
-            kind="decision_request",
-            title="Goedkeuring: inbox routing rule",
-            body="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
-            payload_json=json.dumps({"proposal_type": "routing_rule"}),
-        )
-        session.add(notification)
-        await session.flush()
-        decision = DecisionRequest(
-            tenant_id=tenant.id,
-            notification_id=notification.id,
-            project_id=project.id,
+        from app.services.signal_decisions import create_decision
+
+        await create_decision(
+            session,
+            tenant.id,
             title="Goedkeuring: inbox routing rule",
             summary="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
-            status="awaiting_human",
-            options_json=json.dumps(
-                [
-                    {
-                        "id": "approve",
-                        "label": "Approve",
-                        "action_type": "create_task",
-                        "payload": {"title": "Apply routing rule", "project_id": str(project.id)},
-                    },
-                    {"id": "reject", "label": "Reject", "action_type": "reject"},
-                ]
-            ),
+            options=[
+                {
+                    "id": "approve",
+                    "label": "Approve",
+                    "action_type": "create_task",
+                    "payload": {"title": "Apply routing rule", "project_id": str(project.id)},
+                },
+                {"id": "reject", "label": "Reject", "action_type": "reject"},
+            ],
+            agent_id=po_agent.id,
+            project_id=project.id,
+            notification_payload={"proposal_type": "routing_rule"},
         )
-        session.add(decision)
-        await session.flush()
-        from app.services.signal_decisions import ingest_decision_request
-
-        await ingest_decision_request(session, tenant.id, notification, decision, agent_id=po_agent.id)
 
     run_exists = await session.execute(
         select(AgentRun).where(AgentRun.tenant_id == tenant.id, AgentRun.project_id == project.id).limit(1)

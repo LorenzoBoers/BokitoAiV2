@@ -40,6 +40,14 @@ async def trigger_scheduler_loop() -> None:
                 if count:
                     logger.info("Trigger scheduler fired %s trigger(s)", count)
 
+                from app.services.orchestration.dispatcher import (
+                    process_due_scheduled_tasks,
+                )
+
+                due_tasks = await process_due_scheduled_tasks(session)
+                if due_tasks:
+                    logger.info("Woke %s scheduled task(s)", due_tasks)
+
                 from app.services.signal_threads import (
                     deliver_due_outbound_messages,
                     wake_snoozed_threads,

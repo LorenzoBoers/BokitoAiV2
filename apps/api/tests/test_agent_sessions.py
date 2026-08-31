@@ -55,7 +55,7 @@ async def test_session_lifecycle(client: AsyncClient, session_override: AsyncSes
 
     # The session conversation accepts chat turns (mock LLM in tests).
     r = await client.post(
-        f"/api/chat/conversations/{session_id}/messages",
+        f"/api/signals/conversations/{session_id}/messages",
         headers=headers,
         json={"content": "Wat weet je over deze klant?"},
     )
@@ -209,7 +209,7 @@ async def test_cancel_after_first_turn_checks_out_instead(
         await client.post(f"/api/signals/{thread.id}/sessions", headers=headers, json={})
     ).json()["id"]
     await client.post(
-        f"/api/chat/conversations/{session_id}/messages",
+        f"/api/signals/conversations/{session_id}/messages",
         headers=headers,
         json={"content": "Wat is hier aan de hand?"},
     )
@@ -346,10 +346,10 @@ async def test_session_rejected_on_assistant_thread(
     client: AsyncClient, session_override: AsyncSession
 ):
     headers = await _login(client)
-    targets = (await client.get("/api/chat/targets", headers=headers)).json()["items"]
+    targets = (await client.get("/api/signals/chat/targets", headers=headers)).json()["items"]
     assert targets
     r = await client.post(
-        "/api/chat/conversations",
+        "/api/signals/conversations",
         headers=headers,
         json={"title": "Losse chat", "agent_id": targets[0]["id"]},
     )

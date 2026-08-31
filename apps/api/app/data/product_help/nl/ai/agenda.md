@@ -53,6 +53,14 @@ Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starte
 
 Als de gekoppelde agent gepauzeerd is, wacht de wake tot je die agent hervat.
 
+## Laat agents hun eigen opvolging plannen
+
+Agents kunnen zelf werk plannen: vraag in een gesprek aan een agent om "dit vrijdag opnieuw te checken" of "het team te herinneren aan het voorstel".
+
+1. De agent gebruikt zijn planningstools om een wake te maken (eenmalig, cron, of elke N minuten) voor zichzelf of een collega-agent, of om een taak voor later te plannen — ook taken toegewezen aan een persoon.
+2. Afhankelijk van je [autonomie-houding](/docs/govern/autonomy) wordt de planning direct gemaakt of verschijnt die eerst als beslissingskaart in Berichten ter goedkeuring.
+3. Goedgekeurde wakes verschijnen op de Agenda als elke andere planning; geplande taken worden wakker op het ingestelde moment. Een taak voor een persoon verschijnt als notificatie zodra die actueel is.
+
 ## Wat daarna
 
 Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Langer werk over dagen hoort in [Projects](/docs/ai/projects). Meer apps koppelen via [Integraties](/docs/integrations/integrations).

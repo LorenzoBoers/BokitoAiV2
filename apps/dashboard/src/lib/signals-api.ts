@@ -1,5 +1,5 @@
 import { appRoutes } from '../api/routes/app.routes'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { APP_API_BASE, apiDelete, apiGet, apiPatch, apiPost, buildAuthHeaders } from './api'
 import { normalizeMyFeedback } from './inbox-api'
 import type {
   InboxEvent,
@@ -954,4 +954,218 @@ export async function dismissNoReplySuggestions(
 ): Promise<{ ok: boolean; dismissed: number; closed: number }> {
   const qs = opts?.alsoClose ? '?also_close=true' : ''
   return apiPost(appRoutes.signals.dismissNoReplySuggestions + qs, {}, token)
+}
+
+// ---------------------------------------------------------------------------
+// Assistant conversations (direct chats with company agents; a conversation
+// is a Signal with channel="assistant" served by /signals/conversations)
+// ---------------------------------------------------------------------------
+
+export type Conversation = {
+  id: string
+  title: string
+  channel?: string
+  audience?: string
+  ai_paused?: boolean
+  updated_at: string
+}
+
+/** A conversation row enriched with the agent it targets. */
+export type ConversationWithAgent = Conversation & {
+  agent_id?: string | null
+  agent_name?: string | null
+  /** Company agents only going forward; `personal` may still appear on legacy rows. */
+  agent_kind?: 'company' | 'personal' | null
+}
+
+/** A chat target: a company agent the user is permitted to message. */
+export type ChatTarget = {
+  id: string
+  name: string
+  kind: 'company'
+  role: string
+  runtime_status: string
+  is_default: boolean
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
+}
+
+export type ChatDecisionOption = {
+  id: string
+  label?: string
+  action_type?: string
+  /** Full option payload; structured proposals (accounting, calendar) render from it. */
+  payload?: Record<string, unknown> | null
+  /** Integration provider slug on `setup_integration` options (brand logo + deep-link). */
+  provider?: string | null
+  /** Module slug when the card should open `/modules/:slug`. */
+  module?: string | null
+}
+
+export type ChatDecision = {
+  id: string
+  status: string
+  title?: string | null
+  summary?: string | null
+  options: ChatDecisionOption[]
+  chosen_option_id?: string | null
+  resolved_at?: string | null
+}
+
+export type ChatMessage = {
+  id: string
+  role: string
+  kind?: string
+  content: string
+  created_at?: string
+  decision_request_id?: string | null
+  decision?: ChatDecision | null
+  certainty?: number | null
+  auto_sent?: boolean
+  attachments?: unknown[]
+  usage?: {
+    input_tokens?: number
+    output_tokens?: number
+  }
+  steps?: Array<{
+    step_type?: string
+    stepType?: string
+    name?: string
+    payload?: Record<string, unknown>
+  }>
+  thinking?: {
+    text?: string
+    ms?: number
+    budget?: number
+  }
+}
+
+export async function bokitoListChatTargets(token: string) {
+  return apiGet<{ items: ChatTarget[]; default_agent_id: string | null }>(
+    appRoutes.signals.chatTargets,
+    token,
+  )
+}
+
+export async function bokitoListConversations(token: string, channel?: string) {
+  const params = new URLSearchParams()
+  if (channel) params.set('channel', channel)
+  const path = channel
+    ? appRoutes.signals.conversationsQuery(params)
+    : appRoutes.signals.conversations
+  return apiGet<ConversationWithAgent[]>(path, token)
+}
+
+export async function bokitoCreateConversation(
+  token: string,
+  title = 'New conversation',
+  agentId?: string | null,
+  options?: {
+    /** Ground the conversation in a customer thread (Ask assistant). */
+    contextSignalId?: string
+  },
+) {
+  const body: Record<string, unknown> = { title }
+  if (agentId) body.agent_id = agentId
+  if (options?.contextSignalId) body.context_signal_id = options.contextSignalId
+  return apiPost<{
+    id: string
+    title: string
+    channel: string
+    agent_id?: string
+    agent_name?: string
+    agent_kind?: string
+  }>(appRoutes.signals.conversations, body, token)
+}
+
+export async function bokitoRenameConversation(token: string, conversationId: string, title: string) {
+  return apiPatch<{ id: string; title: string }>(
+    appRoutes.signals.conversation(conversationId),
+    { title },
+    token,
+  )
+}
+
+export async function bokitoDeleteConversation(token: string, conversationId: string) {
+  return apiDelete<{ ok: boolean }>(appRoutes.signals.conversation(conversationId), token)
+}
+
+export async function bokitoListMessages(token: string, conversationId: string) {
+  return apiGet<ChatMessage[]>(appRoutes.signals.conversationMessages(conversationId), token)
+}
+
+export async function bokitoSendMessage(token: string, conversationId: string, content: string) {
+  return apiPost<{ message: ChatMessage }>(
+    appRoutes.signals.conversationMessages(conversationId),
+    { content },
+    token,
+  )
+}
+
+/**
+ * Send a message and stream the assistant reply over SSE.
+ * Calls `onDelta` for each text chunk; optional `onThinking` for reasoning deltas.
+ */
+export async function bokitoStreamMessage(
+  token: string,
+  conversationId: string,
+  content: string,
+  onDelta: (text: string) => void,
+  signal?: AbortSignal,
+  onThinking?: (text: string) => void,
+): Promise<string> {
+  const res = await fetch(
+    `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
+    {
+      method: 'POST',
+      headers: buildAuthHeaders(token),
+      credentials: 'include',
+      body: JSON.stringify({ content }),
+      signal,
+    },
+  )
+  if (!res.ok || !res.body) throw new Error(await res.text())
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let finalText = ''
+  let eventName = ''
+
+  const handleEvent = (name: string, data: string) => {
+    try {
+      const payload = JSON.parse(data) as { text?: string }
+      if (name === 'thinking' && payload.text) {
+        onThinking?.(payload.text)
+      } else if (name === 'delta' && payload.text) {
+        onDelta(payload.text)
+      } else if (name === 'done') {
+        finalText = payload.text ?? finalText
+      }
+    } catch {
+      // skip malformed frames
+    }
+  }
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let idx = buffer.indexOf('\n')
+    while (idx !== -1) {
+      const line = buffer.slice(0, idx).replace(/\r$/, '')
+      buffer = buffer.slice(idx + 1)
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim()
+      } else if (line.startsWith('data:')) {
+        handleEvent(eventName, line.slice(5).trim())
+      } else if (line === '') {
+        eventName = ''
+      }
+      idx = buffer.indexOf('\n')
+    }
+  }
+  return finalText
 }

@@ -101,12 +101,7 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
         step: WorkstreamStep | None = None,
     ) -> dict[str, Any]:
         agent = await self._resolve_agent(session, tenant_id, config, step, instructions)
-        snapshot = await resolve_runtime_snapshot(
-            session,
-            tenant_id,
-            agent=agent,
-            step_runtime_profile_id=step.runtime_profile_id if step else None,
-        )
+        snapshot = resolve_runtime_snapshot(agent)
         runtime_agent = apply_snapshot_to_agent(agent, snapshot)
 
         if runtime_agent.id is None:

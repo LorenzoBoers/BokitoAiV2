@@ -9,7 +9,7 @@ related: mcp,models,channels,govern
 
 # Connect integrations
 
-Integrations are the tools agents may call. Open **Modules** under Settings at `/modules` to install a business capability, finish setup, and manage optional integrations. Installed modules appear under **AI → Modules** (for example Accounting). Open **Settings → Integrations** for Connected, Marketplace and Connected tools.
+Integrations are the tools agents may call. Everything connects in one place: the **Modules** hub in the rail at `/modules`, with four tabs — **Modules** (business capabilities), **Connected** (what is live), **Marketplace** (what you can add) and **Connected tools** (MCP tool servers). Installed modules appear in the rail under **AI** (for example Accounting).
 
 ## See what is connected
 
@@ -31,26 +31,27 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 ## Install a business module
 
 ![Modules hub](/api/docs/assets/integrations/modules-hub.png)
-*Modules catalog under Settings — install, then finish setup.*
+*Modules catalog — install, then finish setup.*
 
-1. Open **Modules** under Settings.
+1. Open **Modules** in the rail.
 2. Choose **Install** on **Accounting** (or another live module). Status becomes **Setup**.
-3. On **Setup** (or Overview), assign **at least one AI agent**. Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
-4. Optionally link a platform integration under **Uses integrations** (KING, Bjorn Lunden, Moneybird). Connecting one moves the module into setup if it was not installed yet; it does not skip agent assignment.
-5. Choose **Continue with assigned agent** to chat through packages, defaults and sources, then **Finish setup**. Status becomes **Installed** and the module appears under **AI → Modules**.
-6. Open the module workspace from the AI menu, or **Manage** for Connections, Sources and Setup.
+3. Open the module page (`/modules/accounting`). Assign **at least one AI agent** (avatar and colour show in the picker). Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
+4. Review **What agents can do**: each tool shows a short description, the path (`accounting_list_companies`, …), and whether it is **Read** or **Needs approval**.
+5. Under **Connections**, choose **Add registration**, pick a live package (KING, Bjorn Lunden, Moneybird), and enter the required credentials. The registration is saved only after the provider accepts them. Planned packages (Exact Online, SnelStart) stay greyed out and cannot be connected yet.
+6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installed** and the module appears under **AI → Modules** (same page URL).
 
 ## Connect an optional accounting integration
 
 ![Module home](/api/docs/assets/integrations/module-home.png)
-*Module home lists integrations the module can use, registrations, sources and AI setup.*
+*Module page lists registrations, sources and AI setup on one surface.*
 
-1. Open **Modules**, then **Accounting**, then **Overview** (or **Connections**).
-2. Pick an integration and finish setup on the platform. You can add more than one registration of the same provider.
-3. On **Connections**, rename registrations, set the **Default** agents should use, and pick a default administration when needed.
-4. Only agents assigned to the module can use the shared accounting toolset. Writes always arrive as a [decision](/docs/ai/decisions) you approve first.
+1. Open **Modules**, then **Accounting** (or open it from **AI → Modules** — same page).
+2. On **Connections** (also on Overview), choose **Add registration** and pick a live package.
+3. Finish setup with real credentials (OAuth for Moneybird, partner key plus administraties for KING, client id/secret for Bjorn Lunden). Empty or random labels alone do not create a working link.
+4. Each row shows status (**Verified**, **Needs credentials**, **Unverified**, or **Error**), optional provider identity, and actions: **Verify**, **Disconnect**, **Rename** (display label only), and **Set default** (only when verified).
+5. Only agents assigned to the module can use the shared accounting toolset. Propose tools land as a [decision](/docs/ai/decisions) you approve first.
 
-The **Banking**, **Investing** and **Documents** modules are prepared but not yet installable.
+**Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; their planned packages appear as disabled rows in the Add registration picker.
 
 ## Control accounting writes and agent access
 

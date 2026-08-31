@@ -1,7 +1,7 @@
 ---
 title: Product tour
 intro: A quick map of the interface — what each area is for and when you use it.
-description: A guided map of Bokito: the sidebar, command palette, Cockpit, Communication, Agenda, Knowledge, Agents and Settings.
+description: A guided map of Bokito: the sidebar, command palette, Communication, Agenda, Projects, Agents, Modules and Settings.
 keywords: tour, interface, navigation, command palette, sidebar
 sort: 40
 related: welcome,cockpit,communication
@@ -9,27 +9,26 @@ related: welcome,cockpit,communication
 
 # Product tour
 
-Bokito has one sidebar. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
+Bokito has one sidebar with six areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
 
 ## Control: the daily loop
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*Cockpit, Communication, Contacts, Agenda and Projects.*
+*Communication, Agenda and Projects.*
 
-- **Cockpit** — what needs me today? See [Cockpit](/docs/getting-started/cockpit).
-- **Communication** — the conversations. See [Communication](/docs/inbox/communication).
-- **Contacts** — who is writing. See [Contacts](/docs/inbox/contacts).
+- **Communication** — the conversations, and the contacts behind them. See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
 - **Agenda** — when agents wake. See [Agenda](/docs/ai/agenda).
 - **Projects** — work that spans days. See [Projects](/docs/ai/projects).
 
 ## AI: the workforce
 
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).
-- **Knowledge** — what they answer from. See [Knowledge](/docs/ai/knowledge).
+- **Knowledge** — nested under the AI group: what agents answer from. See [Knowledge](/docs/ai/knowledge).
+- **Modules** — business capabilities and every connection (Connected, Marketplace, Connected tools). See [Integrations](/docs/integrations/integrations).
 
 ## Settings: the control room
 
-**Email & messages**, **AI reply settings**, **Chat widget**, **Members**, **Providers & models**, **Integrations**, **Setup guide** and **Govern** live here. Owners and admins spend time here; members rarely need it. See the [setup guide](/docs/getting-started/setup-guide).
+**Email & messages**, **AI reply settings**, **Chat widget**, **Members**, **Providers & models**, **Setup guide**, **Govern** and **Reports** (the daily scan, activity log and usage) live here. Owners and admins spend time here; members rarely need it. See the [setup guide](/docs/getting-started/setup-guide) and [Reports](/docs/getting-started/cockpit).
 
 Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
 

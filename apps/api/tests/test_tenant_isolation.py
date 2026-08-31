@@ -191,7 +191,8 @@ async def test_onboarding_status_endpoint(client: AsyncClient):
     assert resp.status_code == 200
     data = resp.json()
     step_ids = [step["id"] for step in data["steps"]]
-    assert step_ids == ["email", "company", "assistant", "watching", "first_decision", "team"]
+    # Communication-first activation order, then profile and team.
+    assert step_ids == ["email", "assistant", "first_decision", "watching", "company", "team"]
     assert data["completed"] is False
     by_id = {step["id"]: step["done"] for step in data["steps"]}
     # Only the hourly check-in is on from day one. A signup has no email channel

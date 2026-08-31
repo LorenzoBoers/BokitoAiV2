@@ -72,6 +72,7 @@
     "moduleSetup": "Module setup",
     "moduleWorkspace": "Module",
     "connectedTools": "Connected tools",
+    "connected": "Connected",
     "myAssistant": "My assistant"
   },
   "pageHeaders": {
@@ -706,6 +707,8 @@
   },
   "setupGuidePage": {
     "checking": "Checking workspace status...",
+    "phaseActivation": "First: get one AI loop running",
+    "phaseExpand": "Then: expand your workspace",
     "pillarsReady": "{{done}} of {{total}} pillars ready",
     "preferTalking": "Prefer talking instead of clicking? The assistant can set everything up with you.",
     "startAssistant": "Start with the assistant",
@@ -923,6 +926,10 @@
   },
   "activityPage": {
     "all": "All",
+    "allAgents": "All agents",
+    "loadOlder": "Load older",
+    "loadingOlder": "Loading older...",
+    "loading": "Loading activity...",
     "headlines": "Headlines",
     "headlinesHint": "Only finished work and decisions — thinking stays hidden",
     "fullLog": "Full log",
@@ -1860,42 +1867,8 @@
     "dark": "Dark",
     "light": "Light"
   },
-  "rail": {
-    "home": "Cockpit",
-    "orchestra": "Orchestra",
-    "support": "Communication",
-    "updates": "AI",
-    "assistent": "Assistant",
-    "integrations": "Integrations",
-    "data": "Data",
-    "workforce": "Agents",
-    "agents": "Agents",
-    "users": "Users",
-    "settings": "Settings",
-    "projects": "Projects",
-    "aiOs": "AI OS",
-    "pkb": "Project",
-    "changeRequest": "Request",
-    "messages": "Communication",
-    "govern": "Govern"
-  },
   "sectionTitle": {
-    "home": "Cockpit",
-    "orchestra": "Orchestra",
-    "users": "Users",
-    "settings": "Settings",
-    "inbox": "Communication",
-    "ai": "AI",
-    "assistent": "Assistant",
-    "integrations": "Integrations",
-    "workforce": "Agents",
-    "agents": "Agents",
-    "data": "Data",
-    "project": "Project",
-    "projects": "Projects",
-    "projectHub": "Project hub",
-    "aiOs": "AI OS",
-    "govern": "Govern"
+    "inbox": "Communication"
   },
   "repoStatus": {
     "notConnected": "Not connected",
@@ -1904,55 +1877,6 @@
     "pending": "Queued",
     "error": "Connection issue",
     "connected": "Connected"
-  },
-  "home": {
-    "title": "Home",
-    "headline": "The inbox, the agents, and the approvals — in one system",
-    "tagline": "Customer signals, agent work, and human decisions flow through one operational hub. Dial autonomy in Govern when you are ready.",
-    "description": "Workspace overview: Communication, recent projects, and combined activity.",
-    "group": {
-      "overview": "Overview"
-    },
-    "quick": {
-      "newProject": "New project",
-      "openInbox": "Open Communication",
-      "integrations": "Integrations",
-      "assistent": "Assistant",
-      "aiOs": "Agents",
-      "govern": "Govern"
-    },
-    "recentProjects": {
-      "title": "Recent projects",
-      "viewAll": "All projects",
-      "empty": "No projects yet."
-    },
-    "inbox": {
-      "title": "Communication",
-      "description": "External and internal threads with inline approvals."
-    },
-    "agentRuns": {
-      "title": "Recent agent runs",
-      "viewAll": "All runs",
-      "empty": "No agent runs yet."
-    },
-    "activity": {
-      "title": "Recent activity",
-      "empty": "No activity yet.",
-      "unknown": "-",
-      "unknownAgent": "Unknown agent",
-      "unknownProject": "Unknown project",
-      "crossProject": "Cross-project",
-      "fallbackMessage": "Message update",
-      "actorSystem": "System",
-      "actorAgent": "Agent",
-      "actionRun": "Run",
-      "labels": {
-        "actor": "Actor",
-        "agent": "Agent",
-        "workstream": "Flow",
-        "action": "Action"
-      }
-    }
   },
   "data": {
     "group": {
@@ -2137,6 +2061,14 @@
       "label": "Decisions",
       "hint": "Everything waiting on a yes, no, or approved draft"
     },
+    "activity": {
+      "label": "Activity",
+      "hint": "Agent runs, updates and results"
+    },
+    "contacts": {
+      "label": "Contacts",
+      "hint": "People and companies across your channels"
+    },
     "inbox": {
       "all": "All",
       "allHint": "Every customer conversation, including closed ones",
@@ -2189,6 +2121,8 @@
       "loading": "Loading agents...",
       "empty": "No agents available for chat.",
       "runs": "Agent runs",
+      "activity": "Activity",
+      "activityHint": "Work log for this agent",
       "settingsAria": "Manage agents"
     },
     "tags": {
@@ -2723,7 +2657,7 @@
       "accounting": {
         "name": "Accounting",
         "description": "One accounting contract for agents: companies, parties, invoices, ledger, and outstanding balances across every connected package.",
-        "capability": "Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances. Writes always become a decision you approve.",
+        "capability": "Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances.",
         "setup": [
           "Install Accounting under Settings > Modules.",
           "Optionally enable a platform integration this module can use (KING, Bjorn Lunden, or Moneybird).",
@@ -2757,6 +2691,94 @@
           "This module is prepared but not connectable yet.",
           "When a storage connector ships, reads feed Knowledge and uploads stay decisions."
         ]
+      },
+      "tools": {
+        "accounting": {
+          "list_companies": {
+            "label": "Administrations",
+            "description": "List every administration (company file) available on connected packages."
+          },
+          "get_company": {
+            "label": "Administration detail",
+            "description": "Fetch one administration by id: name, currency, and package metadata."
+          },
+          "search_parties": {
+            "label": "Search contacts",
+            "description": "Search customers and suppliers by name, email, or chamber-of-commerce id."
+          },
+          "get_party": {
+            "label": "Contact detail",
+            "description": "Open one contact or supplier with addresses and payment details."
+          },
+          "list_documents": {
+            "label": "List invoices and bills",
+            "description": "List sales invoices and purchase bills, optionally filtered by status or party."
+          },
+          "get_document": {
+            "label": "Invoice or bill detail",
+            "description": "Fetch one invoice or bill including lines, totals, and payment state."
+          },
+          "list_accounts": {
+            "label": "Chart of accounts",
+            "description": "List ledger accounts (GL codes) used for booking."
+          },
+          "get_account": {
+            "label": "Account detail",
+            "description": "Fetch one ledger account with type and balance when the package provides it."
+          },
+          "list_ledger": {
+            "label": "Ledger entries",
+            "description": "List journal or ledger lines for a period or account."
+          },
+          "list_outstanding": {
+            "label": "Outstanding balances",
+            "description": "List open receivable and payable amounts per party or document."
+          },
+          "list_bank_mutations": {
+            "label": "Bank mutations",
+            "description": "List imported bank transactions waiting to be matched or booked."
+          },
+          "summarize": {
+            "label": "Summary",
+            "description": "Produce a short financial snapshot (open items, recent documents) for the agent."
+          },
+          "propose_document": {
+            "label": "Propose invoice or bill",
+            "description": "Draft a sales or purchase document; creates a decision before anything is written."
+          },
+          "propose_party": {
+            "label": "Propose contact",
+            "description": "Draft a new or updated customer/supplier; requires human approval to apply."
+          },
+          "propose_booking": {
+            "label": "Propose booking",
+            "description": "Draft a journal booking; applied only after you approve the decision."
+          },
+          "propose_match": {
+            "label": "Propose payment match",
+            "description": "Propose matching a bank mutation to an open document."
+          },
+          "propose_send": {
+            "label": "Propose send invoice",
+            "description": "Propose sending an invoice from the package; waits for your approval."
+          }
+        }
+      },
+      "plannedBadge": "Planned",
+      "toolNeedsApproval": "Needs approval",
+      "toolRead": "Read",
+      "connections": {
+        "pickPackage": "Choose a package",
+        "pickPackageHint": "Each registration is a separate login. You can add more than one for the same package.",
+        "noPackages": "No connectable packages for this module yet.",
+        "intro": "Each registration is a separate package login. Agents use the default unless a tool picks another.",
+        "add": "Add registration",
+        "empty": "No registrations yet. Connect a package from Overview.",
+        "default": "Default",
+        "needsCreds": "Needs credentials",
+        "setDefault": "Set default",
+        "rename": "Rename",
+        "renamePrompt": "Registration name"
       }
     },
     "marketplace": {
@@ -2968,19 +2990,6 @@
         "categorySchema": "Schema",
         "categoryData": "Data"
       }
-    }
-  },
-  "aiOs": {
-    "group": {
-      "nav": "AI OS"
-    },
-    "links": {
-      "canvas": "Canvas",
-      "orchestra": "Orchestra",
-      "agents": "Agent library",
-      "decisions": "Decisions",
-      "docs": "Workspace",
-      "govern": "Govern"
     }
   },
   "workforce": {
@@ -3566,22 +3575,22 @@
       "openThread": "Open source thread",
       "status": {
         "proposed": "Proposed",
-        "accepted": "Accepted",
+        "queued": "Accepted",
         "analyzing": "Analyzing",
         "planned": "Planned",
-        "in_progress": "In progress",
+        "running": "In progress",
         "verifying": "Verifying",
-        "done": "Done",
+        "completed": "Done",
         "rejected": "Rejected"
       },
       "moveTo": {
         "proposed": "Reopen",
-        "accepted": "Accept",
+        "queued": "Accept",
         "analyzing": "Back to analysis",
         "planned": "Mark planned",
-        "in_progress": "Start work",
+        "running": "Start work",
         "verifying": "Ready to verify",
-        "done": "Mark done",
+        "completed": "Mark done",
         "rejected": "Reject"
       },
       "kind": {
@@ -4007,6 +4016,7 @@
       "integrations": "Integrations",
       "modules": "Modules",
       "govern": "Govern",
+      "reports": "Reports",
       "developers": "Developers",
       "models": "Providers & models",
       "billing": "Billing",
@@ -4032,6 +4042,7 @@
       "marketplace": "Browse marketplace apps and tools your agents can use",
       "connectedTools": "Tools connected for agents",
       "govern": "Approvals and how much agents may do",
+      "reports": "Overview, activity and usage",
       "developers": "API keys and webhooks",
       "models": "Which AI models to use"
     }

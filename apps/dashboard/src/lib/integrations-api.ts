@@ -41,6 +41,13 @@ export interface IntegrationProviderRow {
   module?: string | null
 }
 
+export interface ModuleToolCard {
+  verb: string
+  label: string
+  description: string
+  kind: 'read' | 'propose'
+}
+
 export interface IntegrationModuleRow {
   slug: string
   name: string
@@ -48,6 +55,7 @@ export interface IntegrationModuleRow {
   status: 'available' | 'coming_soon'
   provider_slugs: string[]
   planned_provider_slugs: string[]
+  tool_cards?: ModuleToolCard[]
   verbs?: string[]
   propose_verbs?: string[]
   verb_labels?: string[]
@@ -119,8 +127,12 @@ export interface AccountingCompaniesResponse {
   }>
 }
 
-export async function listAccountingCompanies(): Promise<AccountingCompaniesResponse> {
-  return apiGet<AccountingCompaniesResponse>(integrationsRoutes.platform.accountingCompanies)
+export async function listModuleCompanies(
+  moduleSlug = 'accounting',
+): Promise<AccountingCompaniesResponse> {
+  return apiGet<AccountingCompaniesResponse>(
+    integrationsRoutes.platform.moduleCompanies(moduleSlug),
+  )
 }
 
 export interface ConnectionsListResponse {
@@ -173,6 +185,10 @@ export interface ModuleAgentRow {
   /** Without this flag the agent gets read tools only. */
   can_write: boolean
   created_at: string
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
 }
 
 export async function listModuleAgents(slug: string): Promise<ModuleAgentRow[]> {
@@ -259,10 +275,13 @@ export async function installMcpIntegration(input: {
   server_url?: string
   auth_type?: 'api_key' | 'bearer'
   auth?: Record<string, unknown>
+  use_mock?: boolean
 }): Promise<{
   connection: IntegrationConnectionRow
   binding: { id: string; config: unknown }
   discovery?: McpTestResult | null
+  mcp_server_id?: string
+  verified?: boolean
 }> {
   return apiPost(integrationsRoutes.platform.mcpInstall, input)
 }

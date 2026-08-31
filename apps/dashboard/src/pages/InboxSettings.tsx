@@ -522,7 +522,7 @@ export default function InboxSettings() {
           <Link to={WEBSITE_WIDGET_PATH} className="font-medium text-accent hover:underline">
             {t('channelsPage.crossLinks.widget')}
           </Link>
-          <Link to="/settings/marketplace?kind=inbox" className="font-medium text-accent hover:underline">
+          <Link to="/modules/marketplace?kind=inbox" className="font-medium text-accent hover:underline">
             {t('channelsPage.crossLinks.integrations')}
           </Link>
           <Link to="/settings/setup" className="font-medium text-accent hover:underline">

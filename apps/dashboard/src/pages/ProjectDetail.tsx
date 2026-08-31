@@ -30,6 +30,7 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectAgentsSection } from '../components/projects/ProjectAgentsSection'
+import type { AgentVisualFields } from '../components/ui/AgentOptionRow'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { ProjectDocs } from '../components/projects/ProjectDocs'
 import { ProjectOrchestratorSection } from '../components/projects/ProjectOrchestratorSection'
@@ -85,7 +86,7 @@ export default function ProjectDetail() {
   const [workstreams, setWorkstreams] = useState<ProjectWorkstreamRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
-  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([])
+  const [agents, setAgents] = useState<AgentVisualFields[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -125,7 +126,14 @@ export default function ProjectDetail() {
       setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
       setAgents(
         agentsResult.status === 'fulfilled'
-          ? agentsResult.value.map((a) => ({ id: a.id, name: a.name }))
+          ? agentsResult.value.map((a) => ({
+              id: a.id,
+              name: a.name,
+              avatar_kind: a.avatar_kind,
+              avatar_icon: a.avatar_icon,
+              avatar_color: a.avatar_color,
+              avatar_image_url: a.avatar_image_url,
+            }))
           : [],
       )
       setRefreshedAt(new Date())

@@ -4,7 +4,8 @@ export type AgentWorkState = 'working' | 'ready' | 'paused' | 'error'
 
 /** Idle (`standby`) is ready. Only an explicit pause (`sleeping` / inactive) is paused. */
 export function agentWorkState(
-  agent: Pick<RuntimeAgent, 'status' | 'is_active' | 'current_activity_id'>,
+  agent: Pick<RuntimeAgent, 'status' | 'is_active'> &
+    Partial<Pick<RuntimeAgent, 'current_activity_id'>>,
 ): AgentWorkState {
   if (agent.status === 'error') return 'error'
   if (agent.is_active === false || agent.status === 'sleeping') return 'paused'

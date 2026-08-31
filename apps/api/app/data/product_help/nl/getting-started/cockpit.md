@@ -1,22 +1,22 @@
 ---
-title: Zo werkt Cockpit
+title: Zo werkt Rapportages
 intro: Begin hier als je wilt weten of werk doorloopt en waar aandacht nodig is.
-description: Gebruik Cockpit voor de dagelijkse scan, Activiteit voor het eventlog en Verbruik voor tokenbudget en kosten.
-keywords: cockpit, dashboard, overzicht, verbruik, budget, activiteit
+description: Gebruik Rapportages voor de dagelijkse scan, Activiteit voor het eventlog en Verbruik voor tokenbudget en kosten.
+keywords: rapportages, cockpit, dashboard, overzicht, verbruik, budget, activiteit
 sort: 50
 related: communication,agent-runs,decisions,agenda
 ---
 
-# Zo werkt Cockpit
+# Zo werkt Rapportages
 
-Cockpit is de ochtendscan. Open die om open werk, wachtende beslissingen en wat agents al deden te zien, en spring daarna in het gesprek dat jou nodig heeft.
+Rapportages is de ochtendscan. Open die via **Instellingen → Rapportages** (of het workspacemenu) om open werk, wachtende beslissingen en wat agents al deden te zien, en spring daarna in het gesprek dat jou nodig heeft.
 
 ## Scan de dag op Overzicht
 
-![Cockpit Overzicht](/api/docs/assets/cockpit/overview.png)
+![Rapportages Overzicht](/api/docs/assets/cockpit/overview.png)
 *Overzicht toont open werk, beslissingen en recente runs.*
 
-1. Open **Cockpit**. Je landt op **Overzicht**. De ondertitel begroet je en toont de datum van vandaag. **Bijgewerkt** naast **Vernieuwen** is de laatste geslaagde load.
+1. Open **Instellingen**, daarna **Rapportages**. Je landt op **Overzicht**. De ondertitel begroet je en toont de datum van vandaag. **Bijgewerkt** naast **Vernieuwen** is de laatste geslaagde load.
 2. Lees de ingebouwde kaarten: **Gesprekken 7d**, **Wacht op beslissing**, **Afgehandeld zonder jou**, **Vrijheid van agents**, **Vraagt aandacht**, **Vandaag op de agenda**, **Recente gebeurtenissen** en **Recente contacten**. **Vrijheid van agents** toont **Jij beslist**, **Vraagt eerst** of **Doet het zelf**. Elk cijfer heeft een korte hint. Lege tijd-bespaard-, afgehandeld-zonder-jou- en AI-verbruikkaarten leggen uit wanneer cijfers verschijnen. Als de uurlijkse scan uitstaat, zegt Overzicht **Uurlijkse inboxscan staat uit**.
 3. Klik een kaart om Communicatie, [Agent-runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) of [Contacten](/docs/inbox/contacts) te openen. Bij **Vraagt aandacht** kies je **Open de eerste** om naar het oudste wachtende gesprek te springen. De klok op een rij zet dat gesprek tot morgen 9:00 in Uitgesteld.
 
@@ -30,7 +30,7 @@ In een nieuwe workspace kan Overzicht nog setupvoortgang tonen. Rond die af via 
 
 ## Open werk dat op jou wacht
 
-![Cockpit-aandachtspunten](/api/docs/assets/cockpit/awaiting-decision.png)
+![Rapportages-aandachtspunten](/api/docs/assets/cockpit/awaiting-decision.png)
 *Wacht op beslissing springt naar dezelfde lijst als Agent-runs.*
 
 1. Zoek **Wacht op beslissing** op Overzicht.

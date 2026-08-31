@@ -16,13 +16,11 @@ import { listAgents } from '../../lib/agents-api'
 import { agentRunsPath } from '../../lib/messages-paths'
 import { workLogStatusLabel } from '../../lib/status-labels'
 import {
-  createRuntimeProfile,
   createWorkstream,
   createWorkstreamStep,
   deleteWorkstreamStep,
   deleteTrigger,
   listAgentTasks,
-  listRuntimeProfiles,
   listTriggers,
   listWorkstreamSteps,
   listWorkstreams,
@@ -39,7 +37,6 @@ import { formatAppDateTime } from '../../lib/app-locale'
 import { Input } from '../ui/input'
 import { WebhookTriggerPanel } from './WebhookTriggerPanel'
 
-type RuntimeProfileItem = { id: string; name: string; model: string; role_tag: string }
 type AgentOption = { id: string; name: string }
 
 function formatWhen(value: string, language?: string | null) {
@@ -101,7 +98,6 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [workstreams, setWorkstreams] = useState<Workstream[]>([])
   const [tasks, setTasks] = useState<AgentTask[]>([])
-  const [runtimeProfiles, setRuntimeProfiles] = useState<RuntimeProfileItem[]>([])
   const [agents, setAgents] = useState<AgentOption[]>([])
   const [stepsByWs, setStepsByWs] = useState<Record<string, WorkstreamStep[]>>({})
   const [expandedWs, setExpandedWs] = useState<string | null>(null)
@@ -113,10 +109,6 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
   const [newStepKind, setNewStepKind] = useState<'agent' | 'human_gate'>('agent')
   const [addingStep, setAddingStep] = useState(false)
   const [removingStepId, setRemovingStepId] = useState<string | null>(null)
-  const [newProfileName, setNewProfileName] = useState('')
-  const [newProfileModel, setNewProfileModel] = useState('')
-  const [newProfileRole, setNewProfileRole] = useState('executor')
-  const [creatingProfile, setCreatingProfile] = useState(false)
   const [triggerQuery, setTriggerQuery] = useState('')
 
   const loadSteps = useCallback(async (workstreamId: string) => {
@@ -133,18 +125,16 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
     setLoading(true)
     setError(null)
     try {
-      const [triggerRows, wsRows, taskRows, rtProfiles, agentRows] = await Promise.all([
+      const [triggerRows, wsRows, taskRows, agentRows] = await Promise.all([
         listTriggers().catch(() => []),
         listWorkstreams(),
         listAgentTasks().catch(() => []),
-        listRuntimeProfiles().catch(() => []),
         listAgents().catch(() => []),
       ])
       setTriggers(Array.isArray(triggerRows) ? triggerRows : [])
       const wsList = Array.isArray(wsRows) ? wsRows : []
       setWorkstreams(wsList)
       setTasks(Array.isArray(taskRows) ? taskRows : [])
-      setRuntimeProfiles(Array.isArray(rtProfiles) ? rtProfiles : [])
       const agentOpts = (Array.isArray(agentRows) ? agentRows : []).map((a) => ({
         id: a.id,
         name: a.name,
@@ -322,28 +312,6 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
     })
   }, [triggers, triggerQuery])
 
-  const addProfile = () => {
-    if (!newProfileName.trim() || creatingProfile) return
-    void (async () => {
-      setCreatingProfile(true)
-      try {
-        await createRuntimeProfile({
-          name: newProfileName.trim(),
-          role_tag: newProfileRole,
-          ...(newProfileModel.trim() ? { model: newProfileModel.trim() } : {}),
-        })
-        setNewProfileName('')
-        setNewProfileModel('')
-        toast.success(t('agendaPage.profileCreated'))
-        await load()
-      } catch (err) {
-        toast.error(formatApiErrorMessage(err, t('agendaPage.createProfileError')))
-      } finally {
-        setCreatingProfile(false)
-      }
-    })()
-  }
-
   if (loading) return <TableRowsSkeleton rows={6} />
 
   return (
@@ -354,7 +322,6 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
         <TabsList className="flex h-auto flex-wrap">
           <TabsTrigger value="triggers">{t('agendaPage.triggers')}</TabsTrigger>
           <TabsTrigger value="workstreams">{t('agendaPage.workstreams')}</TabsTrigger>
-          <TabsTrigger value="runtime">{t('agendaPage.runtime')}</TabsTrigger>
           <TabsTrigger value="runs">{t('agendaPage.runs')}</TabsTrigger>
         </TabsList>
 
@@ -493,78 +460,6 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
                   </div>
                 ))
                 )
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="runtime" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('agendaPage.runtime')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-border/60">
-                <input
-                  value={newProfileName}
-                  onChange={(e) => setNewProfileName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addProfile()
-                    }
-                  }}
-                  placeholder={t('agendaPage.profileName')}
-                  className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
-                />
-                <input
-                  value={newProfileModel}
-                  onChange={(e) => setNewProfileModel(e.target.value)}
-                  placeholder={t('agendaPage.modelOptional')}
-                  className="h-8 min-w-[10rem] rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
-                />
-                <select
-                  value={newProfileRole}
-                  onChange={(e) => setNewProfileRole(e.target.value)}
-                  className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-sm"
-                >
-                  <option value="executor">{t('agendaPage.executor')}</option>
-                  <option value="orchestrator">{t('agendaPage.orchestrator')}</option>
-                  <option value="evaluator">{t('agendaPage.evaluator')}</option>
-                </select>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={creatingProfile || !newProfileName.trim()}
-                  onClick={addProfile}
-                >
-                  {creatingProfile ? t('agendaPage.creating') : t('agendaPage.addProfile')}
-                </Button>
-              </div>
-              {runtimeProfiles.length === 0 ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-text-muted">
-                    {t('agendaPage.noProfiles')}
-                  </p>
-                  <Button type="button" size="sm" variant="outline" asChild>
-                    <Link to="/agents">{t('agendaPage.openAgents')}</Link>
-                  </Button>
-                </div>
-              ) : (
-                runtimeProfiles.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between gap-3 text-sm border-b border-border py-2 last:border-0"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-medium text-text-heading">{p.name}</span>
-                      <Badge variant="outline" className="text-[10px] capitalize">
-                        {p.role_tag}
-                      </Badge>
-                    </div>
-                    <span className="text-text-muted truncate">{p.model}</span>
-                  </div>
-                ))
               )}
             </CardContent>
           </Card>

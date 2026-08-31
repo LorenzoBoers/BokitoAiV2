@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.agent import AgentRun, RunEvent
-from app.models.orchestration import AgentTask, RuntimeProfile, TaskArtifact
+from app.models.orchestration import AgentTask, TaskArtifact
 from app.models.orchestra import Workstream, WorkstreamStep
 from app.services.orchestration.dispatcher import (
     cancel_agent_task,
@@ -28,21 +28,6 @@ from app.services.orchestration.runner import run_agent_task_segment, start_work
 router = APIRouter(prefix="/orchestration", tags=["orchestration"])
 
 
-class RuntimeProfileCreate(BaseModel):
-    name: str
-    slug: str = ""
-    role_tag: str = "executor"
-    provider: str = "platform"
-    model: str = "bokito-ai-3-1"
-    thinking_budget: int = 0
-    max_tokens: int = 4096
-    max_loops: int = 25
-    tools_json: str = "[]"
-    autonomy_level: str = "approval"
-    cost_aware: bool = False
-    max_cost_cents: int = 0
-
-
 class AgentTaskCreate(BaseModel):
     title: str
     description: str = ""
@@ -50,7 +35,6 @@ class AgentTaskCreate(BaseModel):
     workstream_id: UUID | None = None
     agent_id: UUID | None = None
     signal_id: UUID | None = None
-    default_runtime_profile_id: UUID | None = None
     success_criteria_json: str = "{}"
 
 
@@ -63,52 +47,12 @@ class WorkstreamStepCreate(BaseModel):
     name: str
     order: int = 0
     agent_id: UUID | None = None
-    runtime_profile_id: UUID | None = None
     step_kind: str = "agent"
     prompt_template: str = ""
     handoff_template: str = ""
     success_criteria_json: str = "{}"
     eval_kind: str = "rubric"
     max_retries: int = 2
-
-
-@router.get("/runtime-profiles")
-async def list_runtime_profiles(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    rows = (
-        await session.execute(
-            select(RuntimeProfile).where(RuntimeProfile.tenant_id == auth.tenant.id).order_by(RuntimeProfile.name)
-        )
-    ).scalars().all()
-    return [
-        {
-            "id": str(r.id),
-            "name": r.name,
-            "slug": r.slug,
-            "role_tag": r.role_tag,
-            "model": r.model,
-            "provider": r.provider,
-            "max_loops": r.max_loops,
-            "max_cost_cents": r.max_cost_cents,
-        }
-        for r in rows
-    ]
-
-
-@router.post("/runtime-profiles")
-async def create_runtime_profile(
-    body: RuntimeProfileCreate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    row = RuntimeProfile(tenant_id=auth.tenant.id, **body.model_dump())
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return {"id": str(row.id)}
 
 
 @router.get("/tasks")
@@ -141,7 +85,6 @@ async def create_task(
         workstream_id=body.workstream_id,
         agent_id=body.agent_id,
         signal_id=body.signal_id,
-        default_runtime_profile_id=body.default_runtime_profile_id,
         success_criteria_json=body.success_criteria_json,
         created_by=auth.user.id,
         auto_start=True,
@@ -310,7 +253,6 @@ async def list_workstream_steps(
             "name": s.name,
             "order": s.order,
             "agent_id": str(s.agent_id) if s.agent_id else None,
-            "runtime_profile_id": str(s.runtime_profile_id) if s.runtime_profile_id else None,
             "step_kind": s.step_kind,
             "prompt_template": s.prompt_template,
             "handoff_template": s.handoff_template,

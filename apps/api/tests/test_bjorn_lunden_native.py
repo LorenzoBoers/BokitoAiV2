@@ -68,8 +68,22 @@ async def test_prod_install_defaults_to_native_and_discovers_tools(
     tenant = await _tenant(session_override)
     monkeypatch.setattr(get_settings(), "environment", "prod")
 
+    # Empty credentials are refused in production.
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as missing:
+        await install_mcp(
+            session_override, tenant.id, provider="bjorn_lunden_mcp", api_key=""
+        )
+    assert missing.value.status_code == 400
+
+    monkeypatch.setattr(get_settings(), "environment", "dev")
     installed = await install_mcp(
-        session_override, tenant.id, provider="bjorn_lunden_mcp", api_key=""
+        session_override,
+        tenant.id,
+        provider="bjorn_lunden_mcp",
+        api_key="",
+        use_mock=True,
     )
     assert installed["binding"]["config"]["server_url"] == BL_NATIVE_URL
     discovery = installed["discovery"]

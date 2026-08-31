@@ -8,7 +8,7 @@ import {
   bokitoCreateConversation,
   bokitoListChatTargets,
   type ChatTarget,
-} from '../lib/bokito-api'
+} from '../lib/signals-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath } from '../lib/messages-paths'
@@ -18,6 +18,7 @@ import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
+import { AiAvatar } from '../components/ui/AiAvatar'
 import { useMembers } from '../hooks/useMembers'
 import { useMentionDraft } from '../hooks/useMentionDraft'
 import MentionPopover from '../components/inbox/MentionPopover'
@@ -306,9 +307,15 @@ export default function NewConversationPage() {
                     </span>
                   ) : selected ? (
                     <>
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
-                        <Bot size={11} />
-                      </span>
+                      <AiAvatar
+                        name={selected.name}
+                        seed={selected.id}
+                        size={20}
+                        kind={selected.avatar_kind}
+                        icon={selected.avatar_icon}
+                        color={selected.avatar_color}
+                        imageUrl={selected.avatar_image_url}
+                      />
                       <span className="truncate text-[13px] text-text-primary">{targetLabel(selected)}</span>
                       <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated px-1.5 py-px text-[10px] text-text-muted">
                         {t('newConversation.companyAgent')}
@@ -358,9 +365,15 @@ export default function NewConversationPage() {
                           onClick={() => choose(target)}
                           className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
                         >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
-                            <Bot size={12} />
-                          </span>
+                          <AiAvatar
+                            name={target.name}
+                            seed={target.id}
+                            size={24}
+                            kind={target.avatar_kind}
+                            icon={target.avatar_icon}
+                            color={target.avatar_color}
+                            imageUrl={target.avatar_image_url}
+                          />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[12.5px] text-text-primary">{targetLabel(target)}</span>
                             <span className="block text-[10.5px] text-text-muted">

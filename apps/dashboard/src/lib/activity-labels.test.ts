@@ -8,8 +8,9 @@ import {
   translateDecisionText,
   translateMockAgentBody,
 } from './activity-labels'
+import type { TFunction } from 'i18next'
 
-const t = (key: string, opts?: { subject?: string; action?: string; topic?: string; defaultValue?: string }) => {
+const tImpl = (key: string, opts?: { subject?: string; action?: string; topic?: string; defaultValue?: string }) => {
   const map: Record<string, string> = {
     'decisionCard.knownSubjects.replyToCustomer': 'Antwoord op klantbericht',
     'decisionCard.knownSubjects.dailyPlatformScan': 'Dagelijkse platformscan',
@@ -33,6 +34,8 @@ const t = (key: string, opts?: { subject?: string; action?: string; topic?: stri
   }
   return map[key] ?? opts?.defaultValue ?? ''
 }
+// The runtime shape is all these helpers use; the brand is irrelevant in tests.
+const t = tImpl as unknown as TFunction
 
 describe('activity labels', () => {
   it('translates known decision subjects', () => {

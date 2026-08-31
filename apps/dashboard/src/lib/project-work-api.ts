@@ -7,12 +7,12 @@ export type QueueItemKind = 'feature' | 'bug' | 'task' | 'idea' | 'risk'
 export type QueueItemPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type QueueItemStatus =
   | 'proposed'
-  | 'accepted'
+  | 'queued'
   | 'analyzing'
   | 'planned'
-  | 'in_progress'
+  | 'running'
   | 'verifying'
-  | 'done'
+  | 'completed'
   | 'rejected'
 
 export type DocSectionStatus =
@@ -125,7 +125,14 @@ export async function listQueueItems(
 
 export async function createQueueItem(
   projectId: string,
-  input: { title: string; kind?: QueueItemKind; body?: string; priority?: QueueItemPriority },
+  input: {
+    title: string
+    kind?: QueueItemKind
+    body?: string
+    priority?: QueueItemPriority
+    /** Link the queue task to the signal (thread) it originates from. */
+    signal_id?: string
+  },
 ): Promise<QueueItemRow> {
   return workforcePost<QueueItemRow>(projectsRoutes.queue(projectId), input)
 }

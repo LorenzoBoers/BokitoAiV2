@@ -192,14 +192,15 @@ async def apply_mcp_server_change(
         return {"mcp_server_id": str(mcp.id), "status": change_kind}
 
     name = after.get("name", "MCP server")
-    mcp = McpServer(
-        tenant_id=tenant_id,
+    from app.services.integrations_platform import register_mcp_server
+
+    mcp, _conn, _binding = await register_mcp_server(
+        session,
+        tenant_id,
         name=name,
         server_url=after.get("server_url", ""),
-        auth_json=json.dumps(after.get("auth", {})),
+        auth=after.get("auth", {}),
     )
-    session.add(mcp)
-    await session.flush()
     canvas = await sync_entity_to_canvas(
         session,
         tenant_id,

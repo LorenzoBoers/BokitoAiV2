@@ -10,8 +10,8 @@ describe('setupIntegrationHref', () => {
   })
 
   it('falls back to marketplace for a provider-only suggestion', () => {
-    expect(setupIntegrationHref({ provider: 'github' })).toBe('/settings/marketplace?connect=github')
-    expect(setupIntegrationHref({})).toBe('/settings/marketplace')
+    expect(setupIntegrationHref({ provider: 'github' })).toBe('/modules/marketplace?connect=github')
+    expect(setupIntegrationHref({})).toBe('/modules/marketplace')
   })
 })
 

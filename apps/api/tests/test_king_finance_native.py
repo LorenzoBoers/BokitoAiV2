@@ -124,8 +124,22 @@ async def test_prod_install_defaults_to_native_and_discovers_tools(
     monkeypatch.setattr(get_settings(), "environment", "prod")
     monkeypatch.setattr(get_settings(), "king_finance_partner_key", "")
 
+    # Empty credentials are refused in production; use_mock is also refused.
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as missing:
+        await install_mcp(
+            session_override, tenant.id, provider="king_accountancy", api_key=""
+        )
+    assert missing.value.status_code == 400
+
+    monkeypatch.setattr(get_settings(), "environment", "dev")
     installed = await install_mcp(
-        session_override, tenant.id, provider="king_accountancy", api_key=""
+        session_override,
+        tenant.id,
+        provider="king_accountancy",
+        api_key="",
+        use_mock=True,
     )
     assert installed["binding"]["config"]["server_url"] == KING_NATIVE_URL
     discovery = installed["discovery"]

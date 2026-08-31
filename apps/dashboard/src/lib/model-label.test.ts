@@ -22,7 +22,10 @@ describe('humanizeModelId', () => {
 
 describe('formatAgentModelLine', () => {
   it('hides the platform provider behind a Bokito label', () => {
-    const label = formatAgentModelLine('claude-sonnet-4-20250514', 'platform', ((key, opts) => {
+    const label = formatAgentModelLine('claude-sonnet-4-20250514', 'platform', ((
+      key: string,
+      opts?: { model?: string },
+    ) => {
       if (key === 'agentContext.modelManaged') return `${opts?.model} (Bokito)`
       return key
     }) as never)

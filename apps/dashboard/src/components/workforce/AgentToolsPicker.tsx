@@ -97,7 +97,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
             {t('workforce.agents.openGovern')}
           </Link>
           <Link
-            to="/settings/integrations"
+            to="/modules/connected"
             className="text-[11px] text-accent hover:underline"
           >
             {t('workforce.agents.openIntegrations')}

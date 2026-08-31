@@ -23,6 +23,9 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   stripe: { logoUrl: '/brands/logo-stripe.svg' },
   shopify: { logoUrl: '/brands/logo-shopify.svg' },
   higgsfield: { logoUrl: '/brands/logo-higgsfield.svg' },
+  moneybird: { logoUrl: '/brands/logo-moneybird.png' },
+  exact: { logoUrl: '/brands/logo-exact.png' },
+  snelstart: { logoUrl: '/brands/logo-snelstart.png' },
 }
 
 export function brandAssetUrl(relativePath: string): string {

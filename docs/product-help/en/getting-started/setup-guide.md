@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace setup guide
 
-The quickstart gets you running. This guide gets you configured. Work top to bottom. Open **Settings**, then **Setup guide** for the live checklist; it stays there until the workspace is ready.
+The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Setup guide** for the live checklist; it stays there until the workspace is ready. The guide has two phases: **First: get one AI loop running** (connect a channel, chat with an agent, approve a decision, schedule the check-in) and **Then: expand your workspace** (knowledge, agents, modules, branding, numbers and projects).
 
 ## Workspace basics and branding
 
@@ -38,22 +38,22 @@ The quickstart gets you running. This guide gets you configured. Work top to bot
 1. Add daily documents in [Knowledge](/docs/ai/knowledge). Start with Voice and Memory.
 2. Review the default assistant under [Agents](/docs/ai/agents). **Pause** agents you are not ready to run.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
-4. Optional: open **Projects** from the sixth setup pillar when work should be grouped around a goal. See [Projects](/docs/ai/projects).
-5. Optional: open **Modules** in the left sidebar (or **Settings**, then **Modules**), and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
+4. Optional: open **Projects** when work should be grouped around a goal. See [Projects](/docs/ai/projects).
+5. Optional: open **Modules** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
 
 ## Schedule recurring work
 
-New workspaces start with an hourly **platform check-in**. The assistant wakes, reads the Daily check-in note in Knowledge, and writes in the **Platform check-in** conversation in Messages only when something needs you. You can turn it on from the setup guide, from Cockpit, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Cockpit](/docs/getting-started/cockpit) as the daily entry. Usage caps live on Cockpit **Usage**.
+New workspaces start with an hourly **platform check-in**. The assistant wakes, reads the Daily check-in note in Knowledge, and writes in the **Platform check-in** conversation in Messages only when something needs you. You can turn it on from the setup guide, from Reports, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Reports](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Reports **Usage**.
 
 ## Follow the live checklist
 
-On first login, Communication shows **Continue setup**. The same steps live under **Settings**, then **Setup guide**:
+On first login, Communication shows **Continue setup**. The same steps live under **Settings**, then **Setup guide**, in the activation order:
 
 1. **Connect your channels** — create a Bokito address or connect Gmail/Outlook. See [Channels](/docs/inbox/channels).
-2. **Add company knowledge** — Voice and Memory. See [Knowledge](/docs/ai/knowledge).
-3. **Chat with your assistant** — **New chat** walks the rest of setup. The assistant can turn watching on from that chat.
+2. **Chat with your assistant** — **New chat** walks the rest of setup. The assistant can turn watching on from that chat.
+3. **Resolve your first decision** — **Try the demo** starts a sample thread so you can approve a card.
 4. **Let the assistant watch** — the hourly check-in is on for new workspaces. Existing workspaces can turn it on from the setup guide.
-5. **Resolve your first decision** — **Try the demo** starts a sample thread so you can approve a card.
+5. **Add company knowledge** — Voice and Memory. See [Knowledge](/docs/ai/knowledge).
 6. **Invite your team** — see [Members](/docs/getting-started/members).
 
-**Hide setup** only hides the card. On Cockpit the subtitle then offers **Show setup card**. The checklist on Settings stays until those steps are done. You are ready when mail flows in, drafts are grounded, the team is in, and you know where approvals happen.
+**Hide setup** only hides the card. The checklist on Settings stays until those steps are done. You are ready when mail flows in, drafts are grounded, the team is in, and you know where approvals happen.

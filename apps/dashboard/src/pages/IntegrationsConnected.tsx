@@ -19,7 +19,7 @@ import type { IntegrationKind } from '../lib/integration-kind'
 import { useIntegrationBrand } from '../context/IntegrationBrandContext'
 import { startGithubOAuth } from '../lib/github-api'
 import {
-  listAccountingCompanies,
+  listModuleCompanies,
   revokeIntegrationConnection,
   type AccountingCompanyRow,
 } from '../lib/integrations-api'
@@ -199,7 +199,7 @@ export default function IntegrationsConnected() {
       return
     }
     let cancelled = false
-    void listAccountingCompanies()
+    void listModuleCompanies('accounting')
       .then((res) => {
         if (!cancelled) setAccountingCompanies(res.companies ?? [])
       })
@@ -216,7 +216,7 @@ export default function IntegrationsConnected() {
     t('integrations.kind.inbox').toLowerCase().includes(needle)
 
   async function addGithubAccount() {
-    const returnUrl = `${window.location.origin}/settings/integrations`
+    const returnUrl = `${window.location.origin}/modules/connected`
     const { authorize_url } = await startGithubOAuth(returnUrl)
     window.location.href = authorize_url
   }
@@ -320,7 +320,7 @@ export default function IntegrationsConnected() {
           action={
             <div className="flex flex-col items-center gap-2">
               <Button size="sm" asChild>
-                <Link to="/settings/marketplace">
+                <Link to="/modules/marketplace">
                   {t('integrations.connected.goToMarketplace')}
                 </Link>
               </Button>
@@ -517,11 +517,11 @@ export default function IntegrationsConnected() {
                 <p className="text-xs text-text-secondary">{t('integrations.connected.mcpHint')}</p>
                 <div className="flex gap-2 shrink-0">
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/settings/mcp">{t('integrations.connected.manageMcp')}</Link>
+                    <Link to="/modules/tools">{t('integrations.connected.manageMcp')}</Link>
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => navigate('/settings/mcp?connect=custom_mcp')}
+                    onClick={() => navigate('/modules/tools?connect=custom_mcp')}
                   >
                     {t('integrations.mcp.servers.newConnection')}
                   </Button>

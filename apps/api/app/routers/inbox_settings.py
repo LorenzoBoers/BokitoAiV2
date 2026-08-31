@@ -9,10 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.inbox import InboxSettings
 from app.models.learning import Feedback
 from app.models.notification import UserNotificationPreference
-from app.services.channel_ai import AI_MODES, default_ai_mode, tenant_channel_ai_modes
+from app.services.channel_ai import AI_MODES, default_ai_mode, inbox_policy, tenant_channel_ai_modes
 
 router = APIRouter(tags=["inbox-settings"])
 
@@ -47,19 +46,8 @@ class AiModesUpdate(BaseModel):
 @router.get("/inbox/settings")
 async def get_inbox_settings(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    result = await session.execute(select(InboxSettings).where(InboxSettings.tenant_id == auth.tenant.id))
-    settings_row = result.scalar_one_or_none()
-    if not settings_row:
-        settings_row = InboxSettings(tenant_id=auth.tenant.id)
-        session.add(settings_row)
-        await session.commit()
-        await session.refresh(settings_row)
-    return {
-        "autonomous_reply": settings_row.autonomous_reply,
-        "certainty_threshold": settings_row.certainty_threshold,
-    }
+    return inbox_policy(auth.tenant)
 
 
 @router.put("/inbox/settings")
@@ -69,15 +57,20 @@ async def update_inbox_settings(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    result = await session.execute(select(InboxSettings).where(InboxSettings.tenant_id == auth.tenant.id))
-    row = result.scalar_one_or_none() or InboxSettings(tenant_id=auth.tenant.id)
+    if body.certainty_threshold is not None and not 1 <= body.certainty_threshold <= 10:
+        raise HTTPException(status_code=400, detail="certainty_threshold must be 1-10")
+    tenant = auth.tenant
+    settings = json.loads(tenant.settings_json or "{}")
+    inbox = settings.get("inbox")
+    if not isinstance(inbox, dict):
+        inbox = {}
     if body.autonomous_reply is not None:
-        row.autonomous_reply = body.autonomous_reply
+        inbox["autonomous_reply"] = body.autonomous_reply
     if body.certainty_threshold is not None:
-        if not 1 <= body.certainty_threshold <= 10:
-            raise HTTPException(status_code=400, detail="certainty_threshold must be 1-10")
-        row.certainty_threshold = body.certainty_threshold
-    session.add(row)
+        inbox["certainty_threshold"] = body.certainty_threshold
+    settings["inbox"] = inbox
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
     await session.commit()
     return {"ok": True}
 

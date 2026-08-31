@@ -28,6 +28,8 @@ class Agent(SQLModel, table=True):
     max_tokens: int = 4096
     max_loops: int = 15
     cost_aware: bool = False
+    # Hard cost ceiling per task in cents; 0 = no cap.
+    max_cost_cents: int = 0
     # Passport: allowed tools (enforced). Empty list = all default tools allowed.
     tools_json: str = Field(default="[]")
     # Passport: autonomy level governs how tool actions are gated.
@@ -40,9 +42,6 @@ class Agent(SQLModel, table=True):
     settings_json: str = Field(default="{}")
     runtime_status: str = Field(default="standby")
     parent_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
-    default_runtime_profile_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="runtime_profiles.id"
-    )
     current_activity_summary: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -75,12 +75,25 @@ def test_module_catalog_has_prepared_modules():
     assert modules["accounting"]["tenant_status"] == "not_installed"
     assert "list_companies" in modules["accounting"]["verbs"]
     assert modules["accounting"]["verb_labels"]
+    cards = modules["accounting"]["tool_cards"]
+    assert len(cards) == len(modules["accounting"]["verbs"]) + len(
+        modules["accounting"]["propose_verbs"]
+    )
+    verbs_from_cards = [c["verb"] for c in cards if c["kind"] == "read"]
+    propose_from_cards = [c["verb"] for c in cards if c["kind"] == "propose"]
+    assert verbs_from_cards == modules["accounting"]["verbs"]
+    assert propose_from_cards == modules["accounting"]["propose_verbs"]
+    assert all(c.get("description") for c in cards)
+    assert "decision" not in (modules["accounting"].get("capability_summary") or "").lower()
     assert modules["accounting"]["needs_when"]
-    for slug in ("banking", "investing", "documents"):
+    assert modules["banking"]["status"] == "available"
+    assert modules["banking"]["provider_slugs"] == ["gocardless_bank"]
+    for slug in ("investing", "documents"):
         assert modules[slug]["status"] == "coming_soon"
         assert modules[slug]["tenant_status"] == "coming_soon"
         assert modules[slug]["provider_slugs"] == []
         assert modules[slug]["setup_path"] == f"/modules/{slug}"
+        assert modules[slug]["tool_cards"]
 
 
 def test_provider_module_lookup():
@@ -127,12 +140,14 @@ async def test_no_connection_returns_structured_error(session_override: AsyncSes
 @pytest.mark.asyncio
 async def test_king_connection_discovered_and_mocked(session_override: AsyncSession):
     tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
     await install_mcp(
         session_override,
         tenant.id,
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
     connections = await list_accounting_connections(session_override, tenant.id)
     assert [c.vendor for c in connections] == ["king"]
@@ -147,12 +162,14 @@ async def test_king_connection_discovered_and_mocked(session_override: AsyncSess
 @pytest.mark.asyncio
 async def test_capability_miss_is_unsupported_even_with_mocks(session_override: AsyncSession):
     tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
     await install_mcp(
         session_override,
         tenant.id,
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
     result = await call_accounting_verb(session_override, tenant.id, "list_bank_mutations", {})
     assert result["ok"] is False
@@ -164,6 +181,7 @@ async def test_capability_miss_is_unsupported_even_with_mocks(session_override: 
 @pytest.mark.asyncio
 async def test_moneybird_connection_mocked_reads(session_override: AsyncSession):
     tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
     await _moneybird_connection(session_override, tenant)
     connections = await list_accounting_connections(session_override, tenant.id)
     assert [c.vendor for c in connections] == ["moneybird"]
@@ -179,12 +197,14 @@ async def test_moneybird_connection_mocked_reads(session_override: AsyncSession)
 @pytest.mark.asyncio
 async def test_multiple_connections_require_connection_id(session_override: AsyncSession):
     tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
     await install_mcp(
         session_override,
         tenant.id,
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
     await _moneybird_connection(session_override, tenant)
 
@@ -214,6 +234,7 @@ async def test_multiple_connections_require_connection_id(session_override: Asyn
 @pytest.mark.asyncio
 async def test_summarize_composite(session_override: AsyncSession):
     tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
     await _moneybird_connection(session_override, tenant)
     result = await call_accounting_verb(
         session_override, tenant.id, "summarize", {"company_id": "adm-demo-1"}
@@ -278,6 +299,7 @@ def _mb_transport() -> httpx.MockTransport:
 @pytest.mark.asyncio
 async def test_moneybird_adapter_normalizes_live_responses(session_override: AsyncSession):
     tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
     await _moneybird_connection(session_override, tenant, token="live-token")
 
     moneybird._transport = _mb_transport()
@@ -378,15 +400,16 @@ async def test_apply_blocked_by_platform_switch(session_override: AsyncSession, 
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
-    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", False)
+    monkeypatch.setattr(get_settings(), "module_writes_enabled", "")
 
     result = await call_accounting_verb(
         session_override, tenant.id, "apply_party", {"name": "Nieuwe Debiteur"}
     )
     assert result["ok"] is False
     assert result["code"] == "writes_disabled"
-    assert "ACCOUNTING_WRITES_ENABLED" in result["message"]
+    assert "MODULE_WRITES_ENABLED" in result["message"]
 
 
 @pytest.mark.asyncio
@@ -401,8 +424,9 @@ async def test_apply_blocked_by_tenant_pref(session_override: AsyncSession, monk
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
-    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+    monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
 
     result = await call_accounting_verb(
         session_override, tenant.id, "apply_party", {"name": "Nieuwe Debiteur"}
@@ -425,8 +449,9 @@ async def test_apply_runs_when_both_switches_on(session_override: AsyncSession, 
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
-    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+    monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
     await update_module_prefs(
         session_override, tenant.id, "accounting", writes_enabled=True
     )
@@ -453,8 +478,9 @@ async def test_apply_invalid_payload_rejected(session_override: AsyncSession, mo
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
-    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+    monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
     await update_module_prefs(
         session_override, tenant.id, "accounting", writes_enabled=True
     )
@@ -540,17 +566,19 @@ async def test_snapshot_hides_vendor_tools_for_accounting(session_override: Asyn
     )
 
     tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
     await install_mcp(
         session_override,
         tenant.id,
         provider="king_accountancy",
         api_key="",
         display_name="KING Accountancy",
+        use_mock=True,
     )
     await _moneybird_connection(session_override, tenant)
 
     snapshot = await collect_tenant_snapshot(session_override, tenant.id)
-    assert len(snapshot["accounting_connections"]) == 2
+    assert len(snapshot["module_connections"]["accounting"]) == 2
     assert all(
         not m["server_url"].startswith("native://king-accountancy")
         for m in snapshot["mcp_servers"]
@@ -600,7 +628,7 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
         tenant.id,
         None,
         "recommend_module",
-        {"slug": "banking", "reason": "cash flow"},
+        {"slug": "investing", "reason": "portfolio tracking"},
     )
     assert coming.get("code") == "coming_soon"
     assert "decision_request_id" not in coming
@@ -778,7 +806,7 @@ async def test_read_only_agent_cannot_apply(session_override: AsyncSession, monk
     tenant = await _tenant(session_override)
     await _enable_accounting(session_override, tenant)
     await _moneybird_connection(session_override, tenant)
-    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+    monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
     await update_module_prefs(
         session_override, tenant.id, "accounting", writes_enabled=True
     )

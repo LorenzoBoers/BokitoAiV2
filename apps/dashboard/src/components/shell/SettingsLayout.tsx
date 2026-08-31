@@ -35,23 +35,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
-    labelKey: 'settings.groups.integrations',
-    links: [
-      {
-        labelKey: 'settings.links.integrations',
-        to: '/settings/integrations',
-        match: ['/settings/integrations', '/settings/marketplace', '/settings/mcp'],
-        hintKey: 'settings.hints.integrations',
-      },
-    ],
-  },
-  {
     labelKey: 'settings.groups.govern',
     links: [{ labelKey: 'settings.links.govern', to: '/settings/govern', hintKey: 'settings.hints.govern' }],
   },
   {
     labelKey: 'settings.groups.advanced',
     links: [
+      // Reports (former Cockpit): overview, activity and usage.
+      { labelKey: 'settings.links.reports', to: '/cockpit', match: '/cockpit', hintKey: 'settings.hints.reports' },
       { labelKey: 'settings.links.developers', to: '/settings/developers', hintKey: 'settings.hints.developers' },
       { labelKey: 'settings.links.models', to: '/settings/models', hintKey: 'settings.hints.models' },
     ],
@@ -60,14 +51,20 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
 
 export const SETTINGS_PALETTE_LINKS: SettingsLink[] = [
   ...SETTINGS_GROUPS.flatMap((group) => group.links),
+  // Connections live in the Modules hub; keep them findable from the palette.
+  {
+    labelKey: 'settings.links.integrations',
+    to: '/modules/connected',
+    hintKey: 'settings.hints.integrations',
+  },
   {
     labelKey: 'integrations.links.marketplace',
-    to: '/settings/marketplace',
+    to: '/modules/marketplace',
     hintKey: 'settings.hints.marketplace',
   },
   {
     labelKey: 'integrations.links.mcp',
-    to: '/settings/mcp',
+    to: '/modules/tools',
     hintKey: 'settings.hints.connectedTools',
   },
 ]

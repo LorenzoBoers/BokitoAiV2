@@ -27,7 +27,6 @@ class WorkstreamStep(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     order: int = 0
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
-    runtime_profile_id: Optional[uuid.UUID] = Field(default=None, foreign_key="runtime_profiles.id")
     name: str
     step_kind: str = Field(default="agent")  # agent | eval | human_gate | tool
     prompt_template: str = ""

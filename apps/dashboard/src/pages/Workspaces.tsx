@@ -170,7 +170,7 @@ export default function Workspaces() {
                               title={t('copySlug')}
                               onClick={(event) => {
                                 event.stopPropagation()
-                                void navigator.clipboard.writeText(workspace.slug).then(
+                                void navigator.clipboard.writeText(workspace.slug ?? '').then(
                                   () => toast.success(t('copied')),
                                   () => toast.error(t('cards.create.error')),
                                 )
@@ -179,7 +179,7 @@ export default function Workspaces() {
                                 if (event.key !== 'Enter' && event.key !== ' ') return
                                 event.preventDefault()
                                 event.stopPropagation()
-                                void navigator.clipboard.writeText(workspace.slug)
+                                void navigator.clipboard.writeText(workspace.slug ?? '')
                               }}
                             >
                               <Copy className="h-3 w-3" aria-hidden />

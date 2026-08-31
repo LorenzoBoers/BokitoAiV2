@@ -15,7 +15,7 @@ import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { formatAgentModelLine } from '../lib/model-label'
-import { agentChatPath, agentRunsPath, decisionsPath, inboxPath } from '../lib/messages-paths'
+import { activityTerminalPath, agentChatPath, decisionsPath, inboxPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
@@ -57,7 +57,7 @@ function AgentQuickLinks({
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          navigate(agentRunsPath('all') + `?agent=${encodeURIComponent(agentId)}`)
+          navigate(activityTerminalPath(agentId))
         }}
       >
         <Inbox size={12} className="mr-1" />

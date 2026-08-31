@@ -26,6 +26,12 @@ export function resolveSetupConfig(
   integration: Integration,
   provider?: IntegrationProviderRow | null,
 ): IntegrationSetupConfig {
+  if (integration.status === 'coming_soon' || provider?.status === 'coming_soon') {
+    return {
+      mode: 'oauth2',
+      platformSlug: provider?.slug ?? integrationIdToPlatformSlug(integration.id),
+    }
+  }
   const platformSlug = provider?.slug ?? integrationIdToPlatformSlug(integration.id)
   const entry =
     resolveRegistryEntry(integration.id, platformSlug) ??
