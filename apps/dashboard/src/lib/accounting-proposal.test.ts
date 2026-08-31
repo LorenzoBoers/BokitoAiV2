@@ -10,14 +10,15 @@ describe('accountingProposalFromOptions', () => {
           role: 'customer',
           name: 'Bokito Test BV',
           email: 'test@bokito.ai',
-          company_id: '2635',
+          company_id: '20176e9a-63d6-4f3c-bceb-38d6de083125',
+          company_label: '2635 - Demo CSW',
         },
       },
       { action_type: 'reject' },
     ])
     expect(proposal?.kind).toBe('party')
     expect(proposal?.rows).toEqual([
-      { label: 'company', value: '2635' },
+      { label: 'company', value: '2635 - Demo CSW' },
       { label: 'party', value: 'Bokito Test BV' },
       { label: 'kind', value: 'customer' },
       { label: 'email', value: 'test@bokito.ai' },

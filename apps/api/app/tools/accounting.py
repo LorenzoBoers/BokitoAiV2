@@ -40,11 +40,38 @@ def _read_handler(verb: str):
     return handler
 
 
+async def _company_label(ctx: ToolContext, tool_input: dict[str, Any]) -> str:
+    """Readable administration name for the decision card; empty on any miss."""
+    from app.modules.accounting.router import call_accounting_verb
+
+    company_id = str(tool_input.get("company_id") or "").strip()
+    if not company_id:
+        return ""
+    try:
+        outcome = await call_accounting_verb(
+            ctx.session,
+            ctx.tenant_id,
+            "list_companies",
+            {k: tool_input[k] for k in ("connection_id",) if tool_input.get(k)},
+            agent_id=_agent_id(ctx),
+        )
+    except Exception:
+        return ""
+    for company in outcome.get("companies") or []:
+        if isinstance(company, dict) and str(company.get("id")) == company_id:
+            return str(company.get("name") or "").strip()
+    return ""
+
+
 def _propose_handler(verb: str):
     async def handler(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
         from app.modules.accounting.router import build_proposal
         from app.tools.builtin import _create_decision_request
 
+        if not tool_input.get("company_label"):
+            label = await _company_label(ctx, tool_input)
+            if label:
+                tool_input = {**tool_input, "company_label": label}
         proposal = build_proposal(verb, tool_input)
         if proposal is None:
             return {"error": f"Unknown accounting proposal: {verb}"}

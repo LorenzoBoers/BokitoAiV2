@@ -31,7 +31,7 @@ export function accountingProposalFromOptions(
     const text = String(value).trim()
     if (text) rows.push({ label, value: text })
   }
-  push('company', payload.company_id)
+  push('company', payload.company_label ?? payload.company_id)
   push('party', payload.party_id ?? payload.name)
   // Party proposals carry the party role ("customer" | "supplier") as `role`.
   push('kind', payload.kind ?? payload.role)
