@@ -139,6 +139,7 @@ async def test_explicit_mailbox_choice_rebinds_orphaned_thread(
         channel="email",
         address="second@test.local",
         provider="outlook",
+        credentials_json='{"access_token": "mock-access-token", "mock": true}',
     )
     session_override.add(other)
     await session_override.commit()

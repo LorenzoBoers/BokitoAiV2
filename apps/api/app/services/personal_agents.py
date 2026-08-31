@@ -77,10 +77,10 @@ async def resolve_chat_target(
     *,
     is_admin: bool = False,
 ) -> Agent:
-    """Resolve a company chat target. ``agent_id`` is required.
+    """Resolve a company chat target.
 
-    Raises 409 when the user has no permitted company agents, 400 when
-    ``agent_id`` is missing, 403 when the chosen agent is not permitted.
+    When ``agent_id`` is omitted and the user has exactly one allowed agent
+    (or exactly one lead), that agent is used. Otherwise the client must pick.
     """
     company = await allowed_company_agents(
         session, tenant_id, user.id, is_admin=is_admin
@@ -89,6 +89,11 @@ async def resolve_chat_target(
         raise HTTPException(status_code=409, detail=NO_AGENTS_DETAIL)
 
     if agent_id is None:
+        if len(company) == 1:
+            return company[0]
+        leads = [a for a in company if a.is_lead]
+        if len(leads) == 1:
+            return leads[0]
         raise HTTPException(
             status_code=400,
             detail="Choose which agent to talk to",

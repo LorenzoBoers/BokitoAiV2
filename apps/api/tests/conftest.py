@@ -84,6 +84,7 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             name="Test Assistant",
             role="assistant",
             slug="assistant",
+            chat_access="everyone",
             runtime_status="standby",
             system_prompt="Test assistant",
             is_lead=True,
@@ -95,20 +96,20 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             name="Test Orchestra",
             role="orchestra",
             slug="orchestra",
+            chat_access="nobody",
             runtime_status="standby",
             system_prompt="Test orchestra agent",
         )
     )
-    # Mock mailbox: sendable without OAuth so inbound AI / approve-send tests
-    # exercise the happy path. Real providers without credentials are
-    # action_required (cannot send); dedicated tests cover that path.
-    # The email settings API hides mock accounts from the operator UI.
+    # Sendable Gmail stand-in (mock credentials). Provider must be a real
+    # mailbox slug so the email settings API lists it; `mock` provider is hidden.
     session_override.add(
         ChannelAccount(
             tenant_id=tenant.id,
             channel="email",
             address="support@test.local",
-            provider="mock",
+            provider="gmail",
+            credentials_json='{"access_token": "mock-access-token", "mock": true}',
         )
     )
     from app.services.workspace import upsert_doc
