@@ -122,6 +122,7 @@ async def append_decision_to_signal(
         received_at=datetime.utcnow(),
     )
     session.add(message)
+    await session.flush()
     decision.message_id = message.id
     decision.signal_id = signal.id
     signal.last_message_at = datetime.utcnow()

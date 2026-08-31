@@ -443,7 +443,7 @@ async def _seed_demo_project(session, tenant):
 
 async def _seed_workforce_demo(session, tenant, project, po_agent):
     from app.models.agent import AgentRun
-    from app.models.notification import DecisionRequest, Notification
+    from app.models.notification import DecisionRequest
     from app.services.workforce_runtime import ensure_run_events
 
     dec_exists = await session.execute(
