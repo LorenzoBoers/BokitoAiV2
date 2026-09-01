@@ -47,7 +47,8 @@ import {
 import { parseIntegrationCallback } from '../lib/integrations-oauth'
 import { parseOAuthCallback, describeOAuthCallbackSummary } from '../lib/email-oauth'
 import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
-import { revokeIntegrationConnection, attachModuleConnection } from '../lib/integrations-api'
+import { revokeIntegrationConnection } from '../lib/integrations-api'
+import { attachModuleConnection } from '../lib/module-api'
 import { revokeMcpConnection } from '../lib/mcp-integrations'
 
 function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): ApplicationHubStep {
