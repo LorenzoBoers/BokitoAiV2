@@ -13,18 +13,18 @@ Integrations are partner logins. A **module** is a preset (Accounting) that may 
 
 ## See what is connected
 
-1. Open **Connections**. Moneybird, KING, GitHub and mailboxes all appear here, grouped by kind (**Communication**, **Repository**, **Calendar**, **Apps**, **Tools**).
-2. Choose **Add another registration** for a second login of the same partner. Choose **Use in Accounting** when the partner is allowed on that module and is not attached yet. Slack never shows that action on Accounting.
-3. Choose **Disconnect** when a login should stop (confirm **Remove this connection?**). Inbox-kind apps also appear as [channels](/docs/inbox/channels). Calendar apps open on [Agenda](/docs/ai/agenda). Empty lists offer **Go to Marketplace**.
+1. Open **Connections**. The top only shows missing first steps (**Connect email or chat**, **Connect Agenda**, **Install a module**). Below that, **Connected** is a list by type (**Communication**, **Agenda**, **Apps**, **Tools**, then **Code**) and by program, so two Moneybird logins sit together.
+2. Choose **New connection** on a program for a second login. Choose **Use in Accounting** when the partner is allowed on that module and is not attached yet. Slack never shows that action on Accounting. GitHub stays at the bottom under **Code**.
+3. Choose **Disconnect** when a login should stop (confirm **Remove this connection?**). Mailboxes open **Channels**. Agenda apps open [Agenda](/docs/ai/agenda).
 
 ## Install from the marketplace
 
 ![Integrations marketplace](/api/docs/assets/integrations/marketplace.png)
-*Marketplace is where you install a new app.*
+*Under your existing connections you can add another program.*
 
-1. Open **Discover**. It opens on **Available** (ready to connect), so coming-soon cards stay out of the way. Filter by kind (including **Apps** and **Calendar**), **All statuses** / **Connected** / **Available**, or search. Those filters stay in the URL so you can share them.
-2. Pick an app and finish OAuth or the provider setup. You return here after the account prompt. A login created here stays on **Connections** until you attach it to a module.
-3. Communication apps add queues (email, Slack, WhatsApp). Repository apps attach to a [project](/docs/ai/projects). Calendar apps sync into [Agenda](/docs/ai/agenda). Tool apps land in the **Tools** group on Connections. See [MCP](/docs/integrations/mcp).
+1. Stay on **Connections** and scroll to **Add**, or open **Discover** for the card view. Filter by kind (**Communication**, **Agenda**, **Apps**, **Tools**, **Code**) or search. **Connect** is the first login; if one exists, **New connection** plus the count.
+2. Pick an app and finish OAuth or the provider setup. You return on Connections. A login stays here until you attach it to a module.
+3. Communication apps add queues (email, Slack, WhatsApp). Code apps attach to a [project](/docs/ai/projects). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land in the **Tools** group. See [MCP](/docs/integrations/mcp).
 
 WhatsApp itself is configured on **Email & messages**, not only here. The marketplace card points you there.
 

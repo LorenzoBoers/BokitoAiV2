@@ -2366,12 +2366,13 @@
     "kind": {
       "inbox": "Communicatie",
       "repository": "Code",
-      "calendar": "Kalender",
+      "calendar": "Agenda",
       "app": "Apps",
       "mcp": "Tools"
     },
     "actions": {
       "setupConnection": "Koppelen",
+      "connectAnother": "Nieuwe koppeling",
       "viewInfo": "Informatie over deze integratie",
       "setupInMcp": "Instellen bij Gekoppelde tools",
       "manage": "Beheren",
@@ -2387,10 +2388,10 @@
     "filters": {
       "all": "Alle integraties",
       "inbox": "Communicatie",
-      "repository": "Repository",
-      "calendar": "Kalender",
+      "repository": "Code",
+      "calendar": "Agenda",
       "app": "Apps",
-      "mcp": "Tools voor agents",
+      "mcp": "Tools",
       "connected": "Verbonden",
       "available": "Beschikbaar",
       "statusAll": "Alle statussen"
@@ -2444,7 +2445,9 @@
       "hubSubtitle": "Kies hoe je wilt koppelen ({{count}} opties).",
       "hubSubtitle_one": "Koppel dit pakket.",
       "connectionTypes": "Koppelingstypen",
-      "connectedShort": "Verbonden"
+      "connectedShort": "Verbonden",
+      "alreadyCount": "{{count}} gekoppeld",
+      "alreadyCount_one": "{{count}} gekoppeld"
     },
     "hosts": {
       "github": {
@@ -2602,6 +2605,17 @@
       "helpLink": "Hoe modules werken",
       "plannedEmpty": "Voor deze module staan nog geen koppelingen klaar.",
       "notFound": "Deze module staat niet in de catalogus.",
+      "tabs": {
+        "overview": "Overzicht",
+        "connections": "Koppelingen",
+        "sources": "Bronnen",
+        "setup": "Setup"
+      },
+      "setup": {
+        "assistantPrefill": "Help me {{name}} af te ronden: koppel een pakket als dat nodig is, zet de standaard en indexeer bronnen.",
+        "intro": "Wijs minstens één AI-agent toe. Chat daarna met de standaardagent om pakketten te koppelen, standaarden te zetten en bronnen te indexeren.",
+        "openAssistant": "Ga verder met de toegewezen agent"
+      },
       "workspace": {
         "status": "Status",
         "readyLive": "Klaar met livedata",
@@ -2841,14 +2855,28 @@
     },
     "connected": {
       "addIntegration": "Integratie toevoegen",
-      "searchPlaceholder": "Koppelingen filteren",
+      "searchPlaceholder": "Zoek koppelingen of programma's",
       "noSearchMatches": "Geen koppelingen matchen deze zoekopdracht.",
       "loading": "Verbindingen laden…",
       "loadError": "Kon niet alle verbindingsgegevens laden.",
-      "emptyAllTitle": "Nog geen integraties verbonden",
-      "emptyAllDescription": "Koppel e-mail, een repository of andere tools via de Marketplace.",
-      "goToMarketplace": "Naar Marketplace",
+      "emptyAllTitle": "Nog geen koppelingen",
+      "emptyAllDescription": "Begin met e-mail of chat, of kies hieronder een programma.",
+      "goToMarketplace": "Iets koppelen",
       "setupGuideHint": "Of begin met de setupgids",
+      "nextTitle": "Eerste stappen",
+      "nextChannel": "Koppel e-mail of chat",
+      "nextAgenda": "Koppel Agenda",
+      "nextModule": "Installeer een module",
+      "yourList": "Gekoppeld",
+      "catalogTitle": "Toevoegen",
+      "catalogHint": "Zelfde programma twee keer koppelen kan: bijvoorbeeld twee Moneybird-administraties.",
+      "catalogEmpty": "Niets in deze filter.",
+      "codeHint": "Alleen nodig voor code-projecten.",
+      "mailboxProgram": "{{count}} mailboxen",
+      "mailboxProgram_one": "{{count}} mailbox",
+      "openChannels": "Kanalen",
+      "emptyCalendar": "Nog geen agenda gekoppeld.",
+      "browseCalendar": "Agenda-apps bekijken",
       "openInbox": "Inbox openen",
       "emptyInbox": "Nog geen mailboxen gekoppeld.",
       "browseInbox": "Communicatie bekijken in Marketplace",
@@ -2871,7 +2899,7 @@
     "pageMeta": {
       "connected": {
         "title": "Koppelingen",
-        "description": "Partnerlogins voor deze workspace. Een koppeling kan bestaan zonder module."
+        "description": "Wat je al gekoppeld hebt, gegroepeerd per type en programma. Daaronder kun je iets nieuws koppelen."
       },
       "marketplace": {
         "title": "Ontdekken",

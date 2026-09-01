@@ -260,11 +260,7 @@ export default function ModuleSetupPage() {
     return slugs
   }, [packageItems])
 
-  const setupPrefill = t('integrations.modules.setup.assistantPrefill', {
-    defaultValue:
-      'Help me finish setting up the {{name}} module: turn it on if needed, connect a package, set the default registration, and make sure platform sources are indexed.',
-    name,
-  })
+  const setupPrefill = t('integrations.modules.setup.assistantPrefill', { name })
   const setupAgentId = module?.default_agent_id ?? null
   const setupChatPath = talkToAssistantPath(setupPrefill, setupAgentId)
 

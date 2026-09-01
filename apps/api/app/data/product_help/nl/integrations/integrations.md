@@ -13,18 +13,18 @@ Integraties zijn partnerlogins. Een **module** is een preset (Boekhouding) die a
 
 ## Zie wat gekoppeld is
 
-1. Open **Koppelingen**. Moneybird, KING, GitHub en mailboxen staan hier, gegroepeerd op soort (**Communicatie**, **Code**, **Kalender**, **Apps**, **Tools**).
-2. Kies **Nog een registratie** voor een tweede login van dezelfde partner. Kies **Gebruik in Boekhouding** als die partner op de module staat en nog niet attached is. Slack heeft die actie niet bij Boekhouding.
-3. Kies **Ontkoppelen** wanneer een login moet stoppen (bevestig **Deze koppeling verwijderen?**). Inbox-achtige apps verschijnen ook als [kanalen](/docs/inbox/channels). Kalender-apps openen op [Agenda](/docs/ai/agenda). Lege lijsten bieden **Naar Marketplace**.
+1. Open **Koppelingen**. Bovenin staan alleen ontbrekende eerste stappen (**Koppel e-mail of chat**, **Koppel Agenda**, **Installeer een module**). Daaronder staat **Gekoppeld**: een lijst per type (**Communicatie**, **Agenda**, **Apps**, **Tools**, daarna **Code**) en per programma, zodat twee Moneybird-logins bij elkaar staan.
+2. Kies **Nieuwe koppeling** op een programma voor een tweede login. Kies **Gebruik in Boekhouding** als die partner op de module staat en nog niet attached is. Slack heeft die actie niet bij Boekhouding. GitHub staat onderaan onder **Code**.
+3. Kies **Ontkoppelen** wanneer een login moet stoppen (bevestig **Deze koppeling verwijderen?**). Mailboxen openen **Kanalen**. Agenda-apps openen [Agenda](/docs/ai/agenda).
 
 ## Installeer vanuit de marketplace
 
 ![Integraties-marketplace](/api/docs/assets/integrations/marketplace.png)
-*Marketplace is waar je een nieuwe app installeert.*
+*Onder je bestaande koppelingen kun je een nieuw programma toevoegen.*
 
-1. Open **Ontdekken**. Hij opent op **Beschikbaar** (klaar om te koppelen), zodat coming-soon-kaarten niet in de weg zitten. Filter op soort (inclusief **Apps** en **Kalender**), **Alle statussen** / **Verbonden** / **Beschikbaar**, of zoek. Die filters blijven in de URL zodat je ze kunt delen.
-2. Kies een app en rond OAuth of de providersetup af. Je keert hier terug na de accountprompt. Een login die je hier maakt blijft op **Koppelingen** tot je hem aan een module hangt.
-3. Communicatie-apps voegen wachtrijen toe (e-mail, Slack, WhatsApp). Repository-apps hangen aan een [project](/docs/ai/projects). Kalender-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen in de groep **Tools** op Koppelingen. Zie [MCP](/docs/integrations/mcp).
+1. Blijf op **Koppelingen** en scroll naar **Toevoegen**, of open **Ontdekken** voor de kaartweergave. Filter op soort (**Communicatie**, **Agenda**, **Apps**, **Tools**, **Code**) of zoek. **Koppelen** is de eerste login; staat er al een, dan **Nieuwe koppeling** plus het aantal.
+2. Kies een app en rond OAuth of de providersetup af. Je keert terug op Koppelingen. Een login blijft hier tot je hem aan een module hangt.
+3. Communicatie-apps voegen wachtrijen toe (e-mail, Slack, WhatsApp). Code-apps hangen aan een [project](/docs/ai/projects). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen in de groep **Tools**. Zie [MCP](/docs/integrations/mcp).
 
 WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De marketplacekaart wijst je daarheen.
 

@@ -86,7 +86,10 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
               onOpenDetail()
             }}
           >
-            {t('integrations.application.manage')}
+            {t('integrations.actions.connectAnother')}
+            <span className="ml-1.5 text-[10px] text-text-muted">
+              {t('integrations.application.alreadyCount', { count: connectionCount })}
+            </span>
           </Button>
         ) : (
           <Button

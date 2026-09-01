@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import type { IntegrationKindFilter } from '../../lib/integration-kind-url'
 
-const SEGMENTS: IntegrationKindFilter[] = ['all', 'inbox', 'repository', 'calendar', 'app', 'mcp']
+const SEGMENTS: IntegrationKindFilter[] = ['all', 'inbox', 'calendar', 'app', 'mcp', 'repository']
 
 export type IntegrationKindCounts = Partial<Record<IntegrationKindFilter, number>>
 

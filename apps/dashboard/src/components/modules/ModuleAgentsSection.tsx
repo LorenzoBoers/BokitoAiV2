@@ -384,8 +384,7 @@ export function ModuleAgentsSection({
           <Link
             to={talkToAssistantPath(
               t('integrations.modules.setup.assistantPrefill', {
-                defaultValue:
-                  'Help me finish setting up this module: connect a package if needed, set defaults, and index sources.',
+                name: t(`integrations.modules.${moduleSlug}.name`, { defaultValue: moduleSlug }),
               }),
               roster.find((row) => row.is_default)?.agent_id,
             )}

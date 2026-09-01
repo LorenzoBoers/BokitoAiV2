@@ -1,164 +1,62 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Link2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
-import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
+import { ConnectionsCatalogList } from '../components/integrations/ConnectionsCatalogList'
+import { ConnectionsNextSteps } from '../components/integrations/ConnectionsNextSteps'
 import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
-import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
+import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import {
-  parseKindFilter,
-  kindFilterToParam,
-  marketplacePathWithKind,
-  readLastIntegrationKind,
-  writeLastIntegrationKind,
-  type IntegrationKindFilter,
-} from '../lib/integration-kind-url'
+  ApplicationHubDialog,
+  type ApplicationHubStep,
+} from '../components/integrations/ApplicationHubDialog'
+import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { Input } from '../components/ui/input'
-import type { IntegrationKind } from '../lib/integration-kind'
-import { useIntegrationBrand } from '../context/IntegrationBrandContext'
-import { startGithubOAuth } from '../lib/github-api'
-import {
-  listModuleCompanies,
-  revokeIntegrationConnection,
-  startIntegrationOAuth,
-  type AccountingCompanyRow,
-  type ConnectedSummaryConnection,
-} from '../lib/integrations-api'
-import { MODULE_BY_PROVIDER_SLUG } from '../lib/integration-applications'
-import { attachModuleConnection } from '../lib/module-api'
-import { revokeMcpConnection, type McpIntegrationRow } from '../lib/mcp-integrations'
-import { resolveProviderBrand } from '../lib/integration-brand'
-import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Card } from '../components/ui/card'
-import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
-import { inboxPath } from '../lib/messages-paths'
+import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
+import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
+import { useIntegrationBrand } from '../context/IntegrationBrandContext'
+import {
+  parseKindFilter,
+  kindFilterToParam,
+  readLastIntegrationKind,
+  writeLastIntegrationKind,
+  type IntegrationKindFilter,
+} from '../lib/integration-kind-url'
+import {
+  filterConnectionItems,
+  groupConnectionItems,
+  type ConnectionListItem,
+} from '../lib/connection-list'
+import {
+  resolveApplicationConnectTarget,
+  type IntegrationApplication,
+  type IntegrationOffer,
+} from '../lib/integration-applications'
+import { resolveProviderBrand } from '../lib/integration-brand'
+import { moduleIsOn } from '../lib/integration-modules'
+import {
+  parseHubConnectParam,
+  stripOAuthCallbackParams,
+  type IntegrationHubStep,
+} from '../lib/integration-setup-url'
+import { parseIntegrationCallback } from '../lib/integrations-oauth'
+import { parseOAuthCallback, describeOAuthCallbackSummary } from '../lib/email-oauth'
+import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
+import { revokeIntegrationConnection, attachModuleConnection } from '../lib/integrations-api'
+import { revokeMcpConnection } from '../lib/mcp-integrations'
 
-function KindSection({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">{title}</h2>
-      <Card className="p-4">{children}</Card>
-    </section>
-  )
-}
-
-function SummaryCard({
-  label,
-  count,
-  onClick,
-}: {
-  label: string
-  count: number
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex flex-col items-start rounded-xl border border-border/60 bg-bg-surface px-4 py-3 text-left transition-colors hover:border-border hover:bg-bg-hover/40 shadow-card"
-    >
-      <span className="text-xs text-text-muted">{label}</span>
-      <span className="text-2xl font-semibold text-text-heading tabular-nums mt-1">{count}</span>
-    </button>
-  )
-}
-
-function McpRowList({
-  rows,
-  summaryById,
-  onDisconnect,
-  onAttach,
-  onAddAnother,
-}: {
-  rows: McpIntegrationRow[]
-  summaryById: Record<string, ConnectedSummaryConnection>
-  onDisconnect: (connectionId: string) => Promise<void>
-  onAttach: (row: ConnectedSummaryConnection) => Promise<void>
-  onAddAnother: (provider: string) => Promise<void>
-}) {
-  const { t } = useTranslation('nav')
-  return (
-    <ul className="space-y-2">
-      {rows.map((row) => {
-        const summary = summaryById[row.id]
-        const usedBy = summary?.attached_modules ?? []
-        const canAttach =
-          Boolean(summary?.eligible_module) &&
-          !usedBy.includes(summary?.eligible_module ?? '')
-        return (
-          <li
-            key={row.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <IntegrationHostLogo
-                logoUrl={row.logoUrl}
-                logoDarkUrl={row.logoDarkUrl}
-                initials={row.initials}
-                color={row.brandColor}
-                name={row.providerName}
-                hostSlug={row.hostSlug}
-                size="sm"
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{row.displayName}</p>
-                <p className="text-[11px] text-text-muted truncate">
-                  {usedBy.length > 0
-                    ? usedBy
-                        .map((slug) =>
-                          t(`integrations.modules.${slug}.name`, { defaultValue: slug }),
-                        )
-                        .join(', ')
-                    : row.endpoint}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {canAttach && summary?.eligible_module ? (
-                <Button size="sm" variant="secondary" onClick={() => void onAttach(summary)}>
-                  {t('integrations.connected.useInModule', {
-                    defaultValue: 'Use in {{name}}',
-                    name: t(`integrations.modules.${summary.eligible_module}.name`, {
-                      defaultValue: summary.eligible_module,
-                    }),
-                  })}
-                </Button>
-              ) : null}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void onAddAnother(row.providerSlug)}
-              >
-                {t('integrations.connected.addRegistration', {
-                  defaultValue: 'Add another registration',
-                })}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => void onDisconnect(row.id)}>
-                {t('integrations.actions.disconnect')}
-              </Button>
-            </div>
-          </li>
-        )
-      })}
-    </ul>
-  )
+function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): ApplicationHubStep {
+  if (!offer) return 'app'
+  return step === 'setup' ? 'offer-setup' : 'offer-detail'
 }
 
 export default function IntegrationsConnected() {
   const { t } = useTranslation('nav')
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFromUrl = searchParams.get('kind')
   const kindFilter = kindFromUrl == null ? readLastIntegrationKind() : parseKindFilter(kindFromUrl)
@@ -177,17 +75,23 @@ export default function IntegrationsConnected() {
     counts,
     refresh,
   } = useConnectedIntegrationsSummary()
+  const { applications, modules, refreshCatalog } = useIntegrationCatalog()
 
   const githubBrand = useIntegrationBrand('github')
   const outlookBrand = useIntegrationBrand('outlook')
   const gmailBrand = useIntegrationBrand('gmail')
 
+  const [hubOpen, setHubOpen] = useState(false)
+  const [hubApplication, setHubApplication] = useState<IntegrationApplication | null>(null)
+  const [hubOffer, setHubOffer] = useState<IntegrationOffer | null>(null)
+  const [hubStep, setHubStep] = useState<ApplicationHubStep>('app')
+  const [hubBanner, setHubBanner] = useState<HubBanner>(null)
+
   const setKindFilter = useCallback(
     (next: IntegrationKindFilter) => {
       writeLastIntegrationKind(next)
-      const param = kindFilterToParam(next)
       const params = new URLSearchParams(searchParams)
-      if (param) params.set('kind', param)
+      if (kindFilterToParam(next)) params.set('kind', next)
       else params.delete('kind')
       setSearchParams(params, { replace: true })
     },
@@ -202,628 +106,430 @@ export default function IntegrationsConnected() {
     }
   }, [kindFromUrl, kindFilter, searchParams, setSearchParams])
 
-  const kindCounts = useMemo(
-    () => ({
-      all: counts.all,
-      inbox: counts.inbox,
-      repository: counts.repository,
-      calendar: counts.calendar,
-      app: counts.app,
-      mcp: counts.mcp,
-    }),
-    [counts],
-  )
-
-  const showSection = (kind: IntegrationKind) =>
-    kindFilter === 'all' || kindFilter === kind
-
-  const hasAnyConnection = counts.all > 0
-  const needle = query.trim().toLowerCase()
-  const visibleGithub = useMemo(
-    () => (needle ? github.filter((c) => c.github_login.toLowerCase().includes(needle)) : github),
-    [github, needle],
-  )
-  const visibleMcp = useMemo(
-    () =>
-      needle
-        ? mcpRows.filter((row) =>
-            `${row.displayName} ${row.providerName} ${row.endpoint}`.toLowerCase().includes(needle),
-          )
-        : mcpRows,
-    [mcpRows, needle],
-  )
-  const visibleApps = useMemo(
-    () =>
-      needle
-        ? appConnections.filter((row) =>
-            `${row.display_name} ${row.provider}`.toLowerCase().includes(needle),
-          )
-        : appConnections,
-    [appConnections, needle],
-  )
-  const summaryById = useMemo(
-    () => Object.fromEntries(connections.map((row) => [row.id, row])),
-    [connections],
-  )
-  const accountingMcp = useMemo(
-    () => visibleMcp.filter((row) => MODULE_BY_PROVIDER_SLUG[row.providerSlug] === 'accounting'),
-    [visibleMcp],
-  )
-  const otherMcp = useMemo(
-    () => visibleMcp.filter((row) => MODULE_BY_PROVIDER_SLUG[row.providerSlug] !== 'accounting'),
-    [visibleMcp],
-  )
-
-  const [accountingCompanies, setAccountingCompanies] = useState<AccountingCompanyRow[]>([])
   useEffect(() => {
-    if (accountingMcp.length === 0) {
-      setAccountingCompanies([])
-      return
+    if (window.location.hash === '#catalog') {
+      document.getElementById('catalog')?.scrollIntoView({ block: 'start' })
     }
-    let cancelled = false
-    void listModuleCompanies('accounting')
-      .then((res) => {
-        if (!cancelled) setAccountingCompanies(res.companies ?? [])
+  }, [loading])
+
+  const openApplicationHub = useCallback(
+    (
+      app: IntegrationApplication,
+      step: ApplicationHubStep = 'app',
+      offer: IntegrationOffer | null = null,
+    ) => {
+      setHubApplication(app)
+      setHubOffer(offer)
+      setHubStep(step)
+      setHubOpen(true)
+    },
+    [],
+  )
+
+  const applyCallbackBanner = useCallback(
+    (params: URLSearchParams, connectParam: string | null) => {
+      const integrationCb = parseIntegrationCallback(params)
+      const emailCb = parseOAuthCallback(params)
+
+      if (integrationCb.handled) {
+        const slug = integrationCb.provider ?? 'github'
+        const staticId = SLUG_TO_STATIC_ID[slug] ?? slug
+        const isGithub =
+          slug === 'github' || params.get('github') === 'connected' || staticId === 'github'
+        if (integrationCb.error) {
+          setHubBanner({ type: 'error', message: integrationCb.error })
+        } else if (integrationCb.connected) {
+          setHubBanner({
+            type: 'success',
+            message: isGithub
+              ? t('integrations.hub.setup.successGithub')
+              : t('integrations.hub.setup.successRemoteMcp'),
+          })
+        }
+        const target = resolveApplicationConnectTarget(applications, connectParam ?? staticId)
+        if (target) {
+          openApplicationHub(target.app, target.offer ? 'offer-detail' : 'app', target.offer ?? null)
+        }
+        return true
+      }
+
+      if (emailCb.handled && connectParam) {
+        const target = resolveApplicationConnectTarget(applications, connectParam)
+        if (emailCb.error) {
+          setHubBanner({ type: 'error', message: describeOAuthCallbackSummary(emailCb) })
+        } else if (emailCb.status === 'connected') {
+          setHubBanner({ type: 'success', message: t('integrations.hub.setup.successInbox') })
+        }
+        if (target) {
+          openApplicationHub(target.app, target.offer ? 'offer-detail' : 'app', target.offer ?? null)
+        }
+        return true
+      }
+
+      return false
+    },
+    [applications, openApplicationHub, t],
+  )
+
+  useEffect(() => {
+    if (applications.length === 0) return
+    const params = new URLSearchParams(window.location.search)
+    const { integrationId: connectParam, step } = parseHubConnectParam(params)
+    const hadCallback = applyCallbackBanner(params, connectParam)
+    const cleaned = stripOAuthCallbackParams(params)
+    if (hadCallback || connectParam) {
+      if (!hadCallback && connectParam) {
+        const target = resolveApplicationConnectTarget(applications, connectParam)
+        if (target) {
+          openApplicationHub(target.app, hubStepFromLegacy(step, target.offer), target.offer ?? null)
+        }
+      }
+      if (connectParam) {
+        cleaned.set('connect', connectParam)
+        if (step === 'setup') cleaned.set('step', 'setup')
+      }
+      setSearchParams(cleaned, { replace: true })
+    }
+  }, [applications, applyCallbackBanner, openApplicationHub, setSearchParams])
+
+  const items = useMemo((): ConnectionListItem[] => {
+    const rows: ConnectionListItem[] = []
+
+    if (emailOutlook > 0) {
+      rows.push({
+        id: 'inbox-outlook',
+        kind: 'inbox',
+        programKey: 'microsoft',
+        programName: 'Microsoft 365',
+        title: t('integrations.connected.mailboxProgram', { count: emailOutlook }),
+        subtitle: null,
+        brand: outlookBrand,
+        attachedModules: [],
+        eligibleModule: null,
+        source: 'inbox',
+        connectionId: 'inbox-outlook',
       })
-      .catch(() => {
-        if (!cancelled) setAccountingCompanies([])
+    }
+    if (emailGmail > 0) {
+      rows.push({
+        id: 'inbox-gmail',
+        kind: 'inbox',
+        programKey: 'google',
+        programName: 'Google',
+        title: t('integrations.connected.mailboxProgram', { count: emailGmail }),
+        subtitle: null,
+        brand: gmailBrand,
+        attachedModules: [],
+        eligibleModule: null,
+        source: 'inbox',
+        connectionId: 'inbox-gmail',
       })
-    return () => {
-      cancelled = true
     }
-  }, [accountingMcp.length])
-  const inboxMatches =
-    !needle ||
-    'outlook microsoft 365 gmail google'.includes(needle) ||
-    t('integrations.kind.inbox').toLowerCase().includes(needle)
 
-  async function addGithubAccount() {
-    const returnUrl = `${window.location.origin}/modules/connected`
-    const { authorize_url } = await startGithubOAuth(returnUrl)
-    window.location.href = authorize_url
-  }
+    for (const row of calendarRows) {
+      const brand = resolveProviderBrand(row.provider)
+      rows.push({
+        id: row.id,
+        kind: 'calendar',
+        programKey: row.provider,
+        programName: brand.name,
+        title: row.display_name,
+        subtitle:
+          typeof row.event_count === 'number'
+            ? t('agendaPage.calendar.eventCount', { count: row.event_count })
+            : null,
+        brand,
+        attachedModules: [],
+        eligibleModule: null,
+        source: 'calendar',
+        connectionId: row.id,
+      })
+    }
 
-  const handleDisconnectGithub = async (connectionId: string) => {
-    if (
-      !window.confirm(
-        t('integrations.actions.disconnectConfirm'),
-      )
-    ) {
-      return
+    for (const row of appConnections) {
+      const brand = resolveProviderBrand(row.provider)
+      rows.push({
+        id: row.id,
+        kind: 'app',
+        programKey: row.provider,
+        programName: brand.name,
+        title: row.display_name,
+        subtitle: null,
+        brand,
+        attachedModules: row.attached_modules,
+        eligibleModule: row.eligible_module,
+        source: 'app',
+        connectionId: row.id,
+      })
     }
-    try {
-      await revokeIntegrationConnection(connectionId)
-      toast.success(t('integrations.actions.disconnected'))
-      await refresh()
-    } catch {
-      toast.error(t('integrations.actions.disconnectFailed'))
-    }
-  }
 
-  const handleDisconnectMcp = async (connectionId: string) => {
-    if (
-      !window.confirm(
-        t('integrations.actions.disconnectConfirm'),
-      )
-    ) {
-      return
+    const summaryById = Object.fromEntries(connections.map((row) => [row.id, row]))
+    for (const row of mcpRows) {
+      const summary = summaryById[row.id]
+      rows.push({
+        id: row.id,
+        kind: 'mcp',
+        programKey: row.providerSlug,
+        programName: row.providerName,
+        title: row.displayName,
+        subtitle: row.endpoint,
+        brand: {
+          name: row.providerName,
+          initials: row.initials,
+          color: row.brandColor,
+          logoUrl: row.logoUrl ?? null,
+          logoDarkUrl: row.logoDarkUrl ?? null,
+          hostSlug: row.hostSlug ?? null,
+        },
+        attachedModules: summary?.attached_modules ?? [],
+        eligibleModule: summary?.eligible_module ?? null,
+        source: 'mcp',
+        connectionId: row.id,
+      })
     }
-    try {
-      await revokeMcpConnection(connectionId)
-      toast.success(t('integrations.actions.disconnected'))
-      await refresh()
-    } catch {
-      toast.error(t('integrations.actions.disconnectFailed'))
-    }
-  }
 
-  const handleDisconnectApp = async (connectionId: string) => {
+    for (const row of github) {
+      rows.push({
+        id: row.id,
+        kind: 'repository',
+        programKey: 'github',
+        programName: 'GitHub',
+        title: row.github_login,
+        subtitle: row.display_name ?? null,
+        brand: githubBrand,
+        attachedModules: [],
+        eligibleModule: null,
+        source: 'github',
+        connectionId: row.id,
+      })
+    }
+
+    return rows
+  }, [
+    appConnections,
+    calendarRows,
+    connections,
+    emailGmail,
+    emailOutlook,
+    gmailBrand,
+    github,
+    githubBrand,
+    mcpRows,
+    outlookBrand,
+    t,
+  ])
+
+  const visibleItems = useMemo(() => {
+    const filtered = filterConnectionItems(items, query)
+    return kindFilter === 'all' ? filtered : filtered.filter((row) => row.kind === kindFilter)
+  }, [items, kindFilter, query])
+
+  const groups = useMemo(() => groupConnectionItems(visibleItems), [visibleItems])
+  const hasInstalledModule = modules.some((module) => moduleIsOn(module))
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([refresh(), refreshCatalog()])
+  }, [refresh, refreshCatalog])
+
+  const handleDisconnect = async (item: ConnectionListItem) => {
+    if (item.source === 'inbox' || item.source === 'calendar') return
     if (!window.confirm(t('integrations.actions.disconnectConfirm'))) return
     try {
-      await revokeIntegrationConnection(connectionId)
+      if (item.source === 'mcp') await revokeMcpConnection(item.connectionId)
+      else await revokeIntegrationConnection(item.connectionId)
       toast.success(t('integrations.actions.disconnected'))
-      await refresh()
+      await refreshAll()
     } catch {
       toast.error(t('integrations.actions.disconnectFailed'))
     }
   }
 
-  const handleAttach = async (row: ConnectedSummaryConnection) => {
-    const moduleSlug = row.eligible_module
+  const handleAttach = async (row: ConnectionListItem) => {
+    const moduleSlug = row.eligibleModule
     if (!moduleSlug) return
     try {
-      await attachModuleConnection(moduleSlug, row.id)
+      await attachModuleConnection(moduleSlug, row.connectionId)
       toast.success(
         t('integrations.connected.attached', {
-          defaultValue: 'Added to {{name}}',
           name: t(`integrations.modules.${moduleSlug}.name`, { defaultValue: moduleSlug }),
         }),
       )
-      await refresh()
+      await refreshAll()
     } catch {
-      toast.error(
-        t('integrations.connected.attachFailed', {
-          defaultValue: 'Could not add this registration to the module.',
-        }),
-      )
+      toast.error(t('integrations.connected.attachFailed'))
     }
   }
 
-  const handleAddAnother = async (provider: string) => {
-    const returnUrl = `${window.location.origin}/modules/connected?connect=${encodeURIComponent(provider)}&bokito_create_new=1`
-    try {
-      const { authorize_url } = await startIntegrationOAuth(provider, returnUrl)
-      window.location.href = authorize_url
-    } catch {
-      navigate(`/modules/marketplace?connect=${encodeURIComponent(provider)}`)
+  const openProgram = (programKey: string) => {
+    const target = resolveApplicationConnectTarget(applications, programKey)
+    if (target) {
+      openApplicationHub(target.app, target.offer ? 'offer-setup' : 'app', target.offer ?? null)
     }
   }
 
   return (
-    <PageContent width="xl" className="space-y-6">
+    <PageContent width="xl" className="space-y-8">
       <PageGuideBanner page="integrations" />
       <IntegrationsTabs />
       <p className="max-w-2xl text-sm text-text-secondary">
         {t('integrations.pageMeta.connected.description')}
       </p>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <IntegrationKindNav value={kindFilter} onChange={setKindFilter} counts={kindCounts} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('integrations.connected.searchPlaceholder')}
-            className="h-8 w-52 text-sm"
-          />
-        <Button size="sm" className="shrink-0 gap-1.5" asChild>
-          <Link to={marketplacePathWithKind(kindFilter)}>
-            <Plus size={14} />
-            {t('integrations.connected.addIntegration')}
-          </Link>
-        </Button>
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <IntegrationKindNav value={kindFilter} onChange={setKindFilter} />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('integrations.connected.searchPlaceholder')}
+          className="h-8 w-full sm:w-64 text-sm"
+        />
       </div>
 
-      {loadError ? (
-        <p className="text-xs text-text-muted">{loadError}</p>
-      ) : null}
+      {loadError ? <p className="text-xs text-text-muted">{t(loadError)}</p> : null}
 
-      {kindFilter === 'all' && !loading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <SummaryCard
-            label={t('integrations.kind.inbox')}
-            count={counts.inbox}
-            onClick={() => setKindFilter('inbox')}
-          />
-          <SummaryCard
-            label={t('integrations.kind.repository')}
-            count={counts.repository}
-            onClick={() => setKindFilter('repository')}
-          />
-          <SummaryCard
-            label={t('integrations.kind.calendar')}
-            count={counts.calendar}
-            onClick={() => setKindFilter('calendar')}
-          />
-          <SummaryCard
-            label={t('integrations.kind.app', { defaultValue: 'Apps' })}
-            count={counts.app}
-            onClick={() => setKindFilter('app')}
-          />
-          <SummaryCard
-            label={t('integrations.kind.mcp')}
-            count={counts.mcp}
-            onClick={() => setKindFilter('mcp')}
-          />
-        </div>
-      ) : null}
+      <ConnectionsNextSteps
+        needsChannel={counts.inbox === 0}
+        needsAgenda={counts.calendar === 0}
+        needsModule={!hasInstalledModule}
+      />
 
-      {loading ? (
-        <CardGridSkeleton />
-      ) : !hasAnyConnection && kindFilter === 'all' ? (
-        <EmptyState
-          icon={Link2}
-          title={t('integrations.connected.emptyAllTitle')}
-          description={t('integrations.connected.emptyAllDescription')}
-          action={
-            <div className="flex flex-col items-center gap-2">
-              <Button size="sm" asChild>
-                <Link to="/modules/marketplace">
-                  {t('integrations.connected.goToMarketplace')}
-                </Link>
-              </Button>
-              <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
-                {t('integrations.connected.setupGuideHint')}
-              </Link>
-            </div>
-          }
-        />
-      ) : (
-        <div className="space-y-8">
-          {needle &&
-          visibleGithub.length === 0 &&
-          visibleMcp.length === 0 &&
-          visibleApps.length === 0 &&
-          !inboxMatches ? (
-            <p className="text-sm text-text-muted">{t('integrations.connected.noSearchMatches')}</p>
-          ) : null}
-
-          {showSection('inbox') && inboxMatches ? (
-            <KindSection title={t('integrations.kind.inbox')}>
-              {emailOutlook === 0 && emailGmail === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-xs text-text-muted">{t('integrations.connected.emptyInbox')}</p>
-                  <Button size="sm" variant="secondary" asChild>
-                    <Link to={marketplacePathWithKind('inbox')}>
-                      {t('integrations.connected.browseInbox')}
-                    </Link>
-                  </Button>
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          {t('integrations.connected.yourList')}
+        </h2>
+        {loading ? (
+          <CardGridSkeleton />
+        ) : groups.length === 0 ? (
+          <p className="text-sm text-text-muted">
+            {query.trim()
+              ? t('integrations.connected.noSearchMatches')
+              : t('integrations.connected.emptyAllDescription')}
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {groups.map((group) => (
+              <div key={group.kind} className="space-y-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-text-heading">
+                    {t(`integrations.kind.${group.kind}`)}
+                  </h3>
+                  {group.kind === 'repository' ? (
+                    <p className="text-[11px] text-text-muted">{t('integrations.connected.codeHint')}</p>
+                  ) : null}
                 </div>
-              ) : (
-                <>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <IntegrationHostLogo
-                          logoUrl={outlookBrand.logoUrl}
-                          logoDarkUrl={outlookBrand.logoDarkUrl}
-                          initials={outlookBrand.initials}
-                          color={outlookBrand.color}
-                          name="Microsoft 365"
-                          size="sm"
-                        />
-                        <span>Microsoft 365 / Outlook</span>
-                      </div>
-                      <Badge variant={emailOutlook > 0 ? 'success' : 'neutral'}>
-                        {emailOutlook > 0
-                          ? t('integrations.connections.mailboxCount', { count: emailOutlook })
-                          : t('integrations.connections.notConnected')}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <IntegrationHostLogo
-                          logoUrl={gmailBrand.logoUrl}
-                          logoDarkUrl={gmailBrand.logoDarkUrl}
-                          initials={gmailBrand.initials}
-                          color={gmailBrand.color}
-                          name="Google Workspace"
-                          size="sm"
-                        />
-                        <span>Google Workspace / Gmail</span>
-                      </div>
-                      <Badge variant={emailGmail > 0 ? 'success' : 'neutral'}>
-                        {emailGmail > 0
-                          ? t('integrations.connections.mailboxCount', { count: emailGmail })
-                          : t('integrations.connections.notConnected')}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" asChild>
-                      <Link to="/settings/channels">{t('integrations.connections.manageInbox')}</Link>
-                    </Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={inboxPath('open')}>{t('integrations.connected.openInbox')}</Link>
-                    </Button>
-                  </div>
-                </>
-              )}
-            </KindSection>
-          ) : null}
-
-          {showSection('repository') ? (
-            <KindSection title={t('integrations.kind.repository')}>
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5">
-                  <IntegrationHostLogo
-                    logoUrl={githubBrand.logoUrl}
-                    logoDarkUrl={githubBrand.logoDarkUrl}
-                    initials={githubBrand.initials}
-                    color={githubBrand.color}
-                    name="GitHub"
-                    size="sm"
-                  />
-                  <span className="text-sm font-medium text-text-heading">GitHub</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" asChild>
-                    <Link to="/agents">{t('integrations.connected.openAgents')}</Link>
-                  </Button>
-                  <Button size="sm" onClick={() => void addGithubAccount()}>
-                    {github.length === 0
-                      ? t('integrations.actions.setupConnection')
-                      : t('integrations.actions.addAccount')}
-                  </Button>
-                </div>
-              </div>
-              {github.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-xs text-text-muted">{t('integrations.connections.noGithub')}</p>
-                  <Button size="sm" variant="secondary" asChild>
-                    <Link to={marketplacePathWithKind('repository')}>
-                      {t('integrations.connected.browseRepository')}
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {visibleGithub.map((c) => (
-                    <li
-                      key={c.id}
-                      className="flex items-center justify-between rounded-lg border border-border/40 px-3 py-2"
-                    >
-                      <span className="text-sm">{c.github_login}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void handleDisconnectGithub(c.id)}
-                      >
-                        {t('integrations.actions.disconnect')}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </KindSection>
-          ) : null}
-
-          {showSection('calendar') ? (
-            <KindSection title={t('integrations.kind.calendar')}>
-              {calendarRows.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-xs text-text-muted">
-                    {t('integrations.connected.emptyCalendar', {
-                      defaultValue: 'No calendar connected yet. Sync Google or Outlook into Agenda.',
-                    })}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" asChild>
-                      <Link to={marketplacePathWithKind('calendar')}>
-                        {t('integrations.connected.browseCalendar', {
-                          defaultValue: 'Browse calendars',
-                        })}
-                      </Link>
-                    </Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to="/agenda">{t('agendaPage.openAgenda')}</Link>
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <ul className="space-y-2">
-                    {calendarRows.map((row) => (
-                      <li
-                        key={row.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{row.display_name}</p>
-                          <p className="text-[11px] text-text-muted truncate">
-                            {row.provider}
-                            {typeof row.event_count === 'number'
-                              ? ` · ${t('agendaPage.calendar.eventCount', { count: row.event_count })}`
-                              : ''}
-                          </p>
-                        </div>
-                        <Button size="sm" variant="ghost" asChild>
-                          <Link to="/agenda">{t('integrations.actions.manage')}</Link>
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4">
-                    <Button size="sm" variant="secondary" asChild>
-                      <Link to="/agenda">{t('agendaPage.openAgenda')}</Link>
-                    </Button>
-                  </div>
-                </>
-              )}
-            </KindSection>
-          ) : null}
-
-          {showSection('app') ? (
-            <KindSection title={t('integrations.kind.app', { defaultValue: 'Apps' })}>
-              {visibleApps.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-xs text-text-muted">
-                    {t('integrations.connected.emptyApps', {
-                      defaultValue: 'No app registrations yet. Connect a partner from Marketplace.',
-                    })}
-                  </p>
-                  <Button size="sm" variant="secondary" asChild>
-                    <Link to={marketplacePathWithKind('app')}>
-                      {t('integrations.connected.browseApps', {
-                        defaultValue: 'Browse apps',
-                      })}
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {visibleApps.map((row) => {
-                    const brand = resolveProviderBrand(row.provider)
-                    const usedBy = row.attached_modules
-                    const canAttach =
-                      Boolean(row.eligible_module) &&
-                      !usedBy.includes(row.eligible_module ?? '')
-                    return (
-                      <li
-                        key={row.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
-                      >
-                        <div className="flex min-w-0 items-center gap-2.5">
+                <div className="space-y-4">
+                  {group.programs.map((program) => (
+                    <div key={program.programKey} className="rounded-xl border border-border/60 bg-bg-surface">
+                      <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           <IntegrationHostLogo
-                            logoUrl={brand.logoUrl}
-                            logoDarkUrl={brand.logoDarkUrl}
-                            initials={brand.initials}
-                            color={brand.color}
-                            name={brand.name}
-                            hostSlug={brand.hostSlug}
+                            logoUrl={program.brand.logoUrl}
+                            logoDarkUrl={program.brand.logoDarkUrl}
+                            initials={program.brand.initials}
+                            color={program.brand.color}
+                            name={program.programName}
+                            hostSlug={program.brand.hostSlug}
                             size="sm"
                           />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{row.display_name}</p>
-                            <p className="text-[11px] text-text-muted truncate">
-                              {brand.name}
-                              {usedBy.length > 0
-                                ? ` · ${usedBy
-                                    .map((slug) =>
-                                      t(`integrations.modules.${slug}.name`, { defaultValue: slug }),
-                                    )
-                                    .join(', ')}`
-                                : ''}
-                            </p>
-                          </div>
+                          <p className="text-sm font-medium truncate">{program.programName}</p>
+                          <span className="text-[11px] tabular-nums text-text-muted">
+                            {t('integrations.application.alreadyCount', { count: program.items.length })}
+                          </span>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {canAttach && row.eligible_module ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => void handleAttach(row)}
+                        {program.kind !== 'inbox' && program.kind !== 'calendar' ? (
+                          <Button size="sm" variant="ghost" onClick={() => openProgram(program.programKey)}>
+                            {t('integrations.actions.connectAnother')}
+                          </Button>
+                        ) : null}
+                      </div>
+                      <ul>
+                        {program.items.map((row) => {
+                          const canAttach =
+                            Boolean(row.eligibleModule) &&
+                            !row.attachedModules.includes(row.eligibleModule ?? '')
+                          return (
+                            <li
+                              key={row.id}
+                              className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-border/30 first:border-t-0"
                             >
-                              {t('integrations.connected.useInModule', {
-                                defaultValue: 'Use in {{name}}',
-                                name: t(`integrations.modules.${row.eligible_module}.name`, {
-                                  defaultValue: row.eligible_module,
-                                }),
-                              })}
-                            </Button>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void handleAddAnother(row.provider)}
-                          >
-                            {t('integrations.connected.addRegistration', {
-                              defaultValue: 'Add another registration',
-                            })}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void handleDisconnectApp(row.id)}
-                          >
-                            {t('integrations.actions.disconnect')}
-                          </Button>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </KindSection>
-          ) : null}
-
-          {showSection('mcp') ? (
-            <KindSection title={t('integrations.kind.mcp')}>
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <p className="text-xs text-text-secondary">{t('integrations.connected.mcpHint')}</p>
-                <div className="flex gap-2 shrink-0">
-                  <Button size="sm" variant="secondary" asChild>
-                    <Link to={marketplacePathWithKind('mcp')}>{t('integrations.connected.manageMcp')}</Link>
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => navigate('/modules/marketplace?connect=custom_mcp')}
-                  >
-                    {t('integrations.mcp.servers.newConnection')}
-                  </Button>
+                              <div className="min-w-0">
+                                <p className="text-sm text-text-heading truncate">{row.title}</p>
+                                <p className="text-[11px] text-text-muted truncate">
+                                  {row.attachedModules.length > 0
+                                    ? row.attachedModules
+                                        .map((slug) =>
+                                          t(`integrations.modules.${slug}.name`, { defaultValue: slug }),
+                                        )
+                                        .join(', ')
+                                    : row.subtitle}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {row.source === 'inbox' ? (
+                                  <Button size="sm" variant="outline" asChild>
+                                    <Link to="/settings/channels">{t('integrations.connected.openChannels')}</Link>
+                                  </Button>
+                                ) : null}
+                                {row.source === 'calendar' ? (
+                                  <Button size="sm" variant="outline" asChild>
+                                    <Link to="/agenda">{t('integrations.actions.manage')}</Link>
+                                  </Button>
+                                ) : null}
+                                {canAttach && row.eligibleModule ? (
+                                  <Button size="sm" variant="secondary" onClick={() => void handleAttach(row)}>
+                                    {t('integrations.connected.useInModule', {
+                                      name: t(`integrations.modules.${row.eligibleModule}.name`, {
+                                        defaultValue: row.eligibleModule,
+                                      }),
+                                    })}
+                                  </Button>
+                                ) : null}
+                                {row.source !== 'inbox' && row.source !== 'calendar' ? (
+                                  <Button size="sm" variant="ghost" onClick={() => void handleDisconnect(row)}>
+                                    {t('integrations.actions.disconnect')}
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  ))}
                 </div>
               </div>
-              {mcpRows.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-xs text-text-muted">{t('integrations.mcp.servers.empty')}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" asChild>
-                      <Link to={marketplacePathWithKind('mcp')}>
-                        {t('integrations.connected.browseMcp')}
-                      </Link>
-                    </Button>
-                    <Button size="sm" variant="ghost" asChild>
-                      <Link to="/settings/govern?tab=policy">
-                        {t('integrations.connected.openGovern')}
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {accountingMcp.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          to="/modules/accounting"
-                          className="text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-accent"
-                        >
-                          {t('integrations.modules.accounting.name')}
-                        </Link>
-                        <Badge variant="neutral">
-                          {t('integrations.modules.moduleBadge', { defaultValue: 'Module' })}
-                        </Badge>
-                      </div>
-                      <McpRowList
-                        rows={accountingMcp}
-                        summaryById={summaryById}
-                        onDisconnect={handleDisconnectMcp}
-                        onAttach={handleAttach}
-                        onAddAnother={handleAddAnother}
-                      />
-                      {accountingCompanies.length > 1 ? (
-                        <div className="rounded-lg border border-border/40 px-3 py-2">
-                          <p className="text-[11px] font-medium text-text-muted">
-                            {t('integrations.modules.companies', {
-                              defaultValue: 'Administrations ({{count}})',
-                              count: accountingCompanies.length,
-                            })}
-                          </p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {accountingCompanies.map((c) => (
-                              <span
-                                key={`${c.connection_id ?? ''}-${c.id}`}
-                                className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-text-secondary"
-                                title={c.vendor ?? undefined}
-                              >
-                                {c.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : accountingCompanies.length === 1 ? (
-                        <p className="px-1 text-[11px] text-text-muted">
-                          {t('integrations.modules.singleCompany', {
-                            defaultValue: 'Administration: {{name}}',
-                            name: accountingCompanies[0].name,
-                          })}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {otherMcp.length > 0 ? (
-                    <div className="space-y-2">
-                      {accountingMcp.length > 0 ? (
-                        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                          {t('integrations.modules.sectionOther')}
-                        </p>
-                      ) : null}
-                      <McpRowList
-                        rows={otherMcp}
-                        summaryById={summaryById}
-                        onDisconnect={handleDisconnectMcp}
-                        onAttach={handleAttach}
-                        onAddAnother={handleAddAnother}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </KindSection>
-          ) : null}
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section id="catalog" className="space-y-3">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            {t('integrations.connected.catalogTitle')}
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+            {t('integrations.connected.catalogHint')}
+          </p>
         </div>
-      )}
+        <ConnectionsCatalogList
+          applications={applications}
+          kindFilter={kindFilter}
+          query={query}
+          onOpen={(app) => openApplicationHub(app)}
+        />
+      </section>
+
+      <ApplicationHubDialog
+        open={hubOpen}
+        onOpenChange={setHubOpen}
+        application={hubApplication}
+        initialStep={hubStep}
+        initialOfferId={hubOffer?.integration.id ?? null}
+        banner={hubBanner}
+        onViewConnected={() => setHubOpen(false)}
+        onSaved={() => void refreshAll()}
+      />
     </PageContent>
   )
 }

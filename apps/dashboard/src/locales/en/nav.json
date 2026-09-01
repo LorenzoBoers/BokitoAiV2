@@ -2365,13 +2365,14 @@
     },
     "kind": {
       "inbox": "Communication",
-      "repository": "Repository",
-      "calendar": "Calendar",
+      "repository": "Code",
+      "calendar": "Agenda",
       "app": "Apps",
       "mcp": "Tools"
     },
     "actions": {
       "setupConnection": "Connect",
+      "connectAnother": "New connection",
       "viewInfo": "About this integration",
       "setupInMcp": "Set up in Connected tools",
       "manage": "Manage",
@@ -2387,10 +2388,10 @@
     "filters": {
       "all": "All integrations",
       "inbox": "Communication",
-      "repository": "Repository",
-      "calendar": "Calendar",
+      "repository": "Code",
+      "calendar": "Agenda",
       "app": "Apps",
-      "mcp": "Tools for agents",
+      "mcp": "Tools",
       "connected": "Connected",
       "available": "Available",
       "statusAll": "All statuses"
@@ -2444,7 +2445,9 @@
       "hubSubtitle": "Choose how you want to connect ({{count}} options).",
       "hubSubtitle_one": "Connect this package.",
       "connectionTypes": "Connection types",
-      "connectedShort": "Connected"
+      "connectedShort": "Connected",
+      "alreadyCount": "{{count}} connected",
+      "alreadyCount_one": "{{count}} connected"
     },
     "hosts": {
       "github": {
@@ -2602,6 +2605,17 @@
       "helpLink": "How modules work",
       "plannedEmpty": "Integrations for this module are not listed yet.",
       "notFound": "This module is not in the catalog.",
+      "tabs": {
+        "overview": "Overview",
+        "connections": "Connections",
+        "sources": "Sources",
+        "setup": "Setup"
+      },
+      "setup": {
+        "assistantPrefill": "Help me finish setting up {{name}}: connect a package if needed, set the default, and index sources.",
+        "intro": "Assign at least one AI agent, then chat with the default agent to connect packages, set defaults, and index sources.",
+        "openAssistant": "Continue with the assigned agent"
+      },
       "workspace": {
         "status": "Status",
         "readyLive": "Ready with live data",
@@ -2845,10 +2859,24 @@
       "noSearchMatches": "No connections match this search.",
       "loading": "Loading connections…",
       "loadError": "Could not load all connection data.",
-      "emptyAllTitle": "No integrations connected yet",
-      "emptyAllDescription": "Connect email, a repository, or other tools from the Marketplace.",
-      "goToMarketplace": "Go to Marketplace",
+      "emptyAllTitle": "No connections yet",
+      "emptyAllDescription": "Start with email or chat, or pick a program below.",
+      "goToMarketplace": "Connect something",
       "setupGuideHint": "Or start with the setup guide",
+      "nextTitle": "First steps",
+      "nextChannel": "Connect email or chat",
+      "nextAgenda": "Connect Agenda",
+      "nextModule": "Install a module",
+      "yourList": "Connected",
+      "catalogTitle": "Add",
+      "catalogHint": "You can connect the same program twice — for example two Moneybird administrations.",
+      "catalogEmpty": "Nothing matches this filter.",
+      "codeHint": "Only needed for code projects.",
+      "mailboxProgram": "{{count}} mailboxes",
+      "mailboxProgram_one": "{{count}} mailbox",
+      "openChannels": "Channels",
+      "emptyCalendar": "No agenda connected yet.",
+      "browseCalendar": "Browse agenda apps",
       "openInbox": "Open inbox",
       "emptyInbox": "No mailboxes connected yet.",
       "browseInbox": "Browse Communication in Marketplace",
@@ -2871,7 +2899,7 @@
     "pageMeta": {
       "connected": {
         "title": "Connections",
-        "description": "Partner logins for this workspace. A connection can live without a module."
+        "description": "What you already connected, grouped by type and program. Add more below."
       },
       "marketplace": {
         "title": "Discover",
