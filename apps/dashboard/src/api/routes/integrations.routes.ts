@@ -17,8 +17,15 @@ export const integrationsRoutes = {
     modulePrefs: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}/prefs`,
     moduleConnectionById: (slug: string, connectionId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/connections/${encodeURIComponent(connectionId)}`,
+    moduleConnectionAttach: (slug: string, connectionId: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/connections/${encodeURIComponent(connectionId)}/attach`,
+    moduleConnectionDetach: (slug: string, connectionId: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/connections/${encodeURIComponent(connectionId)}/detach`,
+    moduleEligibleConnections: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/eligible-connections`,
     moduleConnectionVerify: (slug: string, connectionId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/connections/${encodeURIComponent(connectionId)}/verify`,
+    connectedSummary: '/integrations/connected-summary',
     moduleSources: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}/sources`,
     moduleSourceById: (slug: string, sourceId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/sources/${encodeURIComponent(sourceId)}`,

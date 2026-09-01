@@ -4,19 +4,18 @@ import { useTranslation } from 'react-i18next'
 import { Bot, CalendarDays, Inbox, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { formatAgentModelLine } from '../lib/model-label'
-import { activityTerminalPath, agentChatPath, decisionsPath, inboxPath } from '../lib/messages-paths'
-import { talkToAssistantPath } from '../lib/talk-to-assistant'
+import { activityTerminalPath, agentChatPath, decisionsPath } from '../lib/messages-paths'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { filterLibraryAgents, sortAgentsForLibrary } from '../lib/workforce-nav-agents'
@@ -83,7 +82,6 @@ function AgentQuickLinks({
 const STATUS_CLASS: Record<ReturnType<typeof agentWorkState>, string> = {
   working: 'text-status-success',
   ready: 'text-text-muted',
-  paused: 'text-text-muted',
   error: 'text-status-error',
 }
 
@@ -130,18 +128,14 @@ function AgentLibraryCard({
             <div className="flex items-start justify-between gap-2">
               <p className="truncate font-medium text-text-heading">{agent.name}</p>
               {agent.is_lead ? (
-                <Badge
-                  variant="accent"
-                  className="shrink-0 text-[10px]"
+                <span
+                  className="shrink-0 text-[10px] font-medium text-text-muted"
                   title={t('workforce.agents.leadHint')}
                 >
                   {t('workforce.agents.leadBadgeShort')}
-                </Badge>
+                </span>
               ) : null}
             </div>
-            {agent.is_lead ? (
-              <p className="mt-1 text-[11px] leading-snug text-text-muted">{t('workforce.agents.leadHint')}</p>
-            ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className={cn('text-xs font-medium', STATUS_CLASS[agentWorkState(agent)])}>
                 {t(agentStatusI18nKey(agentWorkState(agent)))}
@@ -218,13 +212,12 @@ export default function AiAgents() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'working' | 'paused' | 'lead'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'working' | 'default'>('all')
   const visibleAgents = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return agents.filter((agent) => {
-      if (statusFilter === 'lead' && !agent.is_lead) return false
+      if (statusFilter === 'default' && !agent.is_lead) return false
       if (statusFilter === 'working' && agentWorkState(agent) !== 'working') return false
-      if (statusFilter === 'paused' && agentWorkState(agent) !== 'paused') return false
       if (!needle) return true
       const hay = [agent.name, agent.role_name, agent.role_slug, agent.current_activity_summary]
         .filter(Boolean)
@@ -267,10 +260,10 @@ export default function AiAgents() {
       icon={Bot}
       title={t('workforce.agents.askAdmin')}
       description={t('workforce.agents.askAdminHint')}
-      action={
-        <Button size="sm" asChild>
-          <Link to={inboxPath('open')}>{t('workforce.agents.openCommunication')}</Link>
-        </Button>
+      footer={
+        <Link to="/docs/ai/agents" className="text-xs font-medium text-accent hover:underline">
+          {t('pageGuides.learnMore')}
+        </Link>
       }
     />
   )
@@ -284,11 +277,6 @@ export default function AiAgents() {
           <p className="text-sm text-text-muted mt-1">{t('workforce.agents.listDescription')}</p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin ? (
-            <Button type="button" size="sm" variant="ghost" asChild>
-              <Link to="/projects">{t('workforce.agents.projectsLink')}</Link>
-            </Button>
-          ) : null}
           <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
             {t('workforce.agents.refresh')}
@@ -315,7 +303,7 @@ export default function AiAgents() {
               className="h-9 w-full rounded-lg border border-border/60 bg-bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
             />
           </div>
-          {(['all', 'working', 'paused', 'lead'] as const).map((id) => (
+          {(['all', 'working', 'default'] as const).map((id) => (
             <button
               key={id}
               type="button"
@@ -332,16 +320,7 @@ export default function AiAgents() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-border/60 bg-bg-elevated/40 px-4 py-3">
-        <p className="text-sm font-medium text-text-heading">{t('workforce.agents.routingTitle')}</p>
-        <p className="mt-0.5 text-xs text-text-muted">{t('workforce.agents.routingBody')}</p>
-        <Link
-          to={talkToAssistantPath(t('workforce.agents.routingAskPrefill'))}
-          className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
-        >
-          {t('workforce.agents.routingAsk')}
-        </Link>
-      </div>
+      <p className="text-xs text-text-muted">{t('workforce.agents.routingBody')}</p>
 
       {loading ? (
         <CardGridSkeleton />
@@ -363,26 +342,15 @@ export default function AiAgents() {
             title={t('workforce.agents.empty')}
             description={t('workforce.agents.emptyHint')}
             action={
-              <div className="flex flex-col items-center gap-2">
-                <Button size="sm" onClick={() => setShowNewAgent(true)}>
-                  <Plus className="mr-1 h-4 w-4" aria-hidden />
-                  {t('workforce.agents.newAgent')}
-                </Button>
-                <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
-                  <Link to="/settings/setup" className="font-medium text-accent hover:underline">
-                    {t('settings.links.setupGuide')}
-                  </Link>
-                  <Link to="/agenda" className="font-medium text-accent hover:underline">
-                    {t('workforce.agents.openFullAgenda')}
-                  </Link>
-                  <Link to="/knowledge" className="font-medium text-accent hover:underline">
-                    {t('tabs.knowledge.title')}
-                  </Link>
-                  <Link to="/communication/new" className="font-medium text-accent hover:underline">
-                    {t('support.newChat')}
-                  </Link>
-                </div>
-              </div>
+              <Button size="sm" onClick={() => setShowNewAgent(true)}>
+                <Plus className="mr-1 h-4 w-4" aria-hidden />
+                {t('workforce.agents.newAgent')}
+              </Button>
+            }
+            footer={
+              <Link to="/docs/ai/agents" className="text-xs font-medium text-accent hover:underline">
+                {t('pageGuides.learnMore')}
+              </Link>
             }
           />
         ) : (
@@ -420,6 +388,18 @@ export default function AiAgents() {
         open={showNewAgent}
         onOpenChange={setShowNewAgent}
         onCreated={(agentId) => navigate(`/agents/${agentId}`)}
+      />
+
+      <PageRelatedLinks
+        links={[
+          ...(isAdmin
+            ? [
+                { to: '/projects', label: t('workforce.agents.projectsLink') },
+                { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
+              ]
+            : []),
+          { to: '/docs/ai/agents', label: t('pageGuides.learnMore') },
+        ]}
       />
     </PageContent>
   )

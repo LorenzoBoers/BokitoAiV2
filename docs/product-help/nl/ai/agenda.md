@@ -51,7 +51,7 @@ Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starte
 2. **Pauzeer**, bewerk, of **Nu uitvoeren**.
 3. Heartbeats checken workspace-docs op een timer. On-demand chatruns horen in Activiteit, niet hier.
 
-Als de gekoppelde agent gepauzeerd is, wacht de wake tot je die agent hervat.
+Als de gekoppelde agent is gearchiveerd, faalt de wake tot je een andere agent kiest.
 
 ## Laat agents hun eigen opvolging plannen
 

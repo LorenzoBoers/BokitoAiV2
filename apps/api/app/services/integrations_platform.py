@@ -120,6 +120,64 @@ async def list_connections(
     return [serialize_connection(c) for c in result.scalars().all()]
 
 
+def _kind_for_provider(provider: str) -> str:
+    row = PROVIDER_BY_SLUG.get(provider) or {}
+    caps = row.get("capabilities") or {}
+    if provider in ("outlook", "gmail") or caps.get("inbox_sync"):
+        return "inbox"
+    if provider in ("github", "gitlab") or caps.get("repo_index"):
+        return "repository"
+    if "calendar" in provider or caps.get("calendar"):
+        return "calendar"
+    if caps.get("mcp_tools") or caps.get("remote_mcp"):
+        return "mcp"
+    return "app"
+
+
+async def list_connected_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    """All partner registrations for the workspace Connections page."""
+    from app.modules.catalog import module_for_provider
+    from app.services.module_attach import attached_modules_by_connection
+
+    rows = await list_connections(session, tenant_id)
+    attached = await attached_modules_by_connection(session, tenant_id)
+    items: list[dict[str, Any]] = []
+    counts = {"all": 0, "inbox": 0, "repository": 0, "calendar": 0, "mcp": 0, "app": 0}
+    for row in rows:
+        if row.get("status") != "active":
+            continue
+        provider = ""
+        for slug, spec in PROVIDER_BY_SLUG.items():
+            if spec.get("id") == row.get("provider_id") or slug == row.get("provider_id"):
+                provider = slug
+                break
+        if not provider:
+            provider = str(row.get("provider_id") or "")
+        kind = _kind_for_provider(provider)
+        modules = attached.get(str(row["id"]), [])
+        items.append(
+            {
+                **row,
+                "provider": provider,
+                "kind": kind,
+                "attached_modules": modules,
+                "eligible_module": module_for_provider(provider),
+            }
+        )
+        counts["all"] += 1
+        counts[kind] = counts.get(kind, 0) + 1
+
+    email = await connection_counts(session, tenant_id)
+    counts["inbox"] += int(email.get("email_outlook") or 0) + int(email.get("email_gmail") or 0)
+    counts["all"] += int(email.get("email_outlook") or 0) + int(email.get("email_gmail") or 0)
+    return {
+        "connections": items,
+        "email_outlook": email.get("email_outlook") or 0,
+        "email_gmail": email.get("email_gmail") or 0,
+        "counts": counts,
+    }
+
+
 async def revoke_connection(session: AsyncSession, tenant_id: UUID, connection_id: UUID) -> None:
     result = await session.execute(
         select(IntegrationConnection).where(
@@ -339,6 +397,7 @@ async def install_mcp(
     mcp_server_id: int | None = None,
     auth: dict[str, Any] | None = None,
     use_mock: bool = False,
+    module_slug: str | None = None,
 ) -> dict[str, Any]:
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
@@ -422,6 +481,9 @@ async def install_mcp(
         credentials={"api_key": key} if key else {},
         metadata=meta,
     )
+    from app.services.module_attach import maybe_auto_attach_for_module
+
+    await maybe_auto_attach_for_module(session, tenant_id, conn, module_slug)
     await session.commit()
     await session.refresh(conn)
     await session.refresh(binding)

@@ -1,12 +1,10 @@
-export type IntegrationKind = 'inbox' | 'repository' | 'mcp' | 'calendar'
+export type IntegrationKind = 'inbox' | 'repository' | 'mcp' | 'calendar' | 'app'
+
+const APP_SLUGS = new Set(['moneybird', 'exact_online', 'snelstart', 'gocardless_bank'])
 
 const MCP_SLUGS = new Set([
   'king_accountancy',
   'bjorn_lunden_mcp',
-  // Accounting-module connections surface in the agent-tools lane.
-  'moneybird',
-  'exact_online',
-  'snelstart',
   'custom_mcp',
   'notion_mcp',
   'linear_mcp',
@@ -45,7 +43,8 @@ export function resolveIntegrationKind(
 ): IntegrationKind {
   const slug = normalizeSlug(slugOrId)
   if (capabilities?.calendar) return 'calendar'
-  if (capabilities?.mcp_tools || capabilities?.remote_mcp || capabilities?.accounting) return 'mcp'
+  if (capabilities?.mcp_tools || capabilities?.remote_mcp) return 'mcp'
+  if (capabilities?.accounting || APP_SLUGS.has(slug)) return 'app'
   if (capabilities?.inbox_sync) return 'inbox'
   if (capabilities?.repo_index) return 'repository'
   if (CALENDAR_SLUGS.has(slug) || slug.includes('calendar')) return 'calendar'
@@ -53,7 +52,7 @@ export function resolveIntegrationKind(
   if (REPOSITORY_SLUGS.has(slug)) return 'repository'
   if (INBOX_SLUGS.has(slug)) return 'inbox'
   if (slug.includes('github') || slug.includes('gitlab')) return 'repository'
-  return 'inbox'
+  return 'app'
 }
 
 export function getManagePath(kind: IntegrationKind): string {
@@ -65,6 +64,8 @@ export function getManagePath(kind: IntegrationKind): string {
     case 'calendar':
       return '/agenda'
     case 'mcp':
-      return '/modules/tools'
+      return '/modules/connected?kind=mcp'
+    case 'app':
+      return '/modules/connected?kind=app'
   }
 }

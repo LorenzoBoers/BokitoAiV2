@@ -47,6 +47,7 @@ export type InstallMcpConnectionInput = {
   auth_type?: McpAuthType
   auth?: Record<string, unknown>
   use_mock?: boolean
+  module_slug?: string
 }
 
 function isMcpProvider(provider: IntegrationProviderRow): boolean {
@@ -202,6 +203,7 @@ export async function installMcpConnection(input: InstallMcpConnectionInput): Pr
     server_url: input.server_url,
     auth_type: input.auth_type,
     use_mock: input.use_mock,
+    module_slug: input.module_slug,
     ...(auth ? { auth } : {}),
     ...(mcpServerId != null ? { mcp_server_id: mcpServerId } : {}),
   })

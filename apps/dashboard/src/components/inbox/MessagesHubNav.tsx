@@ -579,7 +579,7 @@ export default function MessagesHubNav() {
                       'nav-row nav-sub-row flex items-center gap-2 rounded-lg border px-3 py-1 text-[12px] font-medium',
                       activeLeaf?.type === 'decisions'
                         ? 'border-ai/35 bg-ai/12 text-ai-ink'
-                        : 'border-transparent text-ai-ink/80 hover:border-ai/30 hover:bg-ai/10 hover:text-ai-ink',
+                        : 'border-transparent text-ai-ink hover:border-ai/30 hover:bg-ai/10',
                     )
                   }
                 >

@@ -159,8 +159,8 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
       const result = await runTrigger(triggerId)
       if (result.status === 'no_agent') {
         toast.error(t('agendaPage.noTarget'))
-      } else if (result.status === 'agent_paused') {
-        toast.error(t('agendaPage.agentPaused'))
+      } else if (result.status === 'agent_archived') {
+        toast.error(t('agendaPage.agentArchived'))
       } else {
         toast.success(t('agendaPage.triggerFired', { status: result.status || 'ok' }))
       }

@@ -94,7 +94,7 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
   {
     staticId: 'moneybird',
     platformSlug: 'moneybird',
-    kind: 'mcp',
+    kind: 'app',
     setupMode: 'oauth2',
     oauthStrategy: 'platform',
     connectionCountSource: 'platform',
@@ -102,7 +102,7 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
   {
     staticId: 'exact_online',
     platformSlug: 'exact_online',
-    kind: 'mcp',
+    kind: 'app',
     setupMode: 'oauth2',
     oauthStrategy: 'platform',
     connectionCountSource: 'platform',
@@ -110,7 +110,7 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
   {
     staticId: 'snelstart',
     platformSlug: 'snelstart',
-    kind: 'mcp',
+    kind: 'app',
     // Coming soon — do not route into custom MCP / API-key install.
     setupMode: 'oauth2',
     oauthStrategy: 'platform',

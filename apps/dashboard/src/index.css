@@ -97,8 +97,8 @@
     --color-accent-dark: 9 107 99;
     --color-accent-fg: 255 255 255;
     --color-accent-ink: 11 128 118;
-    --color-ai: 124 58 237;
-    --color-ai-ink: 91 33 182;
+    --color-ai: 109 40 217;
+    --color-ai-ink: 76 29 149;
     --color-ai-fg: 255 255 255;
     --shadow-btn:
       0 1px 0 rgba(255, 255, 255, 0.9) inset,
@@ -253,11 +253,11 @@
   .pulse-dot::after {
     content: '';
     position: absolute;
-    inset: -3px;
+    inset: -2px;
     border-radius: inherit;
     background: inherit;
-    opacity: 0.4;
-    animation: pulse-ring 1.8s ease-out infinite;
+    opacity: 0.28;
+    animation: pulse-ring 2.4s ease-out infinite;
   }
 
   /* List rows: left accent ink on hover or [data-active]. */
@@ -335,7 +335,7 @@
       box-shadow: 0 0 0 0 rgb(var(--color-ai) / 0);
     }
     50% {
-      box-shadow: 0 0 12px 1px rgb(var(--color-ai) / 0.32);
+      box-shadow: 0 0 10px 1px rgb(var(--color-ai) / 0.22);
     }
   }
 
@@ -634,10 +634,10 @@
 @keyframes pulse-ring {
   0% {
     transform: scale(1);
-    opacity: 0.42;
+    opacity: 0.28;
   }
   100% {
-    transform: scale(2.15);
+    transform: scale(1.65);
     opacity: 0;
   }
 }

@@ -75,11 +75,13 @@ def serialize_runtime_agent(
     org_id = str(tenant_numeric_id(agent.tenant_id))
     slug = agent.slug or _slugify(agent.name)
     rslug = role_slug(agent)
-    status = agent.runtime_status or ("active" if agent.is_active else "sleeping")
-    if status not in ("standby", "active", "sleeping", "error"):
+    # Runtime only: standby (idle), active (working), error. Operator "pause"
+    # is gone — inactive company agents are a data bug until archive/migrate.
+    status = agent.runtime_status or "standby"
+    if status in ("sleeping", "paused", "inactive"):
         status = "standby"
-    if agent.is_active is False and status in ("standby", "active"):
-        status = "sleeping"
+    if status not in ("standby", "active", "error"):
+        status = "standby"
     summary = agent.current_activity_summary or ""
     session_id = None
     activity_id = None
@@ -219,7 +221,11 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
 async def update_agent_runtime_status(
     session: AsyncSession, tenant_id: UUID, agent_id: UUID, status: str
 ) -> dict[str, Any]:
-    if status not in ("standby", "active", "sleeping", "error"):
+    """Update run-time status only (idle / working / error).
+
+    Operators no longer pause or wake agents. Hide an agent with archive.
+    """
+    if status not in ("standby", "active", "error"):
         raise HTTPException(status_code=400, detail="Invalid status")
     result = await session.execute(
         select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
@@ -228,9 +234,7 @@ async def update_agent_runtime_status(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     agent.runtime_status = status
-    # standby = idle/ready; sleeping = operator paused. Runs still flip
-    # runtime_status to active/standby without changing is_active.
-    agent.is_active = status in ("active", "standby")
+    # is_active is owned by archive (and legacy personal retire), not by runtime.
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()

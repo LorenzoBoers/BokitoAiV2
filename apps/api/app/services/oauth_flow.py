@@ -203,6 +203,9 @@ async def _store_integration_credentials(
     conn.metadata_json = json.dumps(meta)
     conn.status = "active"
     session.add(conn)
+    from app.services.module_attach import maybe_auto_attach_from_return_url
+
+    await maybe_auto_attach_from_return_url(session, tenant_id, conn, return_url)
     await session.commit()
     if provider in oauth_providers.CALENDAR_PROVIDERS:
         try:

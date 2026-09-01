@@ -21,10 +21,14 @@ import { startGithubOAuth } from '../lib/github-api'
 import {
   listModuleCompanies,
   revokeIntegrationConnection,
+  startIntegrationOAuth,
   type AccountingCompanyRow,
+  type ConnectedSummaryConnection,
 } from '../lib/integrations-api'
 import { MODULE_BY_PROVIDER_SLUG } from '../lib/integration-applications'
+import { attachModuleConnection } from '../lib/module-api'
 import { revokeMcpConnection, type McpIntegrationRow } from '../lib/mcp-integrations'
+import { resolveProviderBrand } from '../lib/integration-brand'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -73,39 +77,81 @@ function SummaryCard({
 
 function McpRowList({
   rows,
+  summaryById,
   onDisconnect,
+  onAttach,
+  onAddAnother,
 }: {
   rows: McpIntegrationRow[]
+  summaryById: Record<string, ConnectedSummaryConnection>
   onDisconnect: (connectionId: string) => Promise<void>
+  onAttach: (row: ConnectedSummaryConnection) => Promise<void>
+  onAddAnother: (provider: string) => Promise<void>
 }) {
   const { t } = useTranslation('nav')
   return (
     <ul className="space-y-2">
-      {rows.map((row) => (
-        <li
-          key={row.id}
-          className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <IntegrationHostLogo
-              logoUrl={row.logoUrl}
-              logoDarkUrl={row.logoDarkUrl}
-              initials={row.initials}
-              color={row.brandColor}
-              name={row.providerName}
-              hostSlug={row.hostSlug}
-              size="sm"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{row.displayName}</p>
-              <p className="text-[11px] text-text-muted truncate">{row.endpoint}</p>
+      {rows.map((row) => {
+        const summary = summaryById[row.id]
+        const usedBy = summary?.attached_modules ?? []
+        const canAttach =
+          Boolean(summary?.eligible_module) &&
+          !usedBy.includes(summary?.eligible_module ?? '')
+        return (
+          <li
+            key={row.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <IntegrationHostLogo
+                logoUrl={row.logoUrl}
+                logoDarkUrl={row.logoDarkUrl}
+                initials={row.initials}
+                color={row.brandColor}
+                name={row.providerName}
+                hostSlug={row.hostSlug}
+                size="sm"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{row.displayName}</p>
+                <p className="text-[11px] text-text-muted truncate">
+                  {usedBy.length > 0
+                    ? usedBy
+                        .map((slug) =>
+                          t(`integrations.modules.${slug}.name`, { defaultValue: slug }),
+                        )
+                        .join(', ')
+                    : row.endpoint}
+                </p>
+              </div>
             </div>
-          </div>
-          <Button size="sm" variant="ghost" onClick={() => void onDisconnect(row.id)}>
-            {t('integrations.actions.disconnect')}
-          </Button>
-        </li>
-      ))}
+            <div className="flex flex-wrap gap-2">
+              {canAttach && summary?.eligible_module ? (
+                <Button size="sm" variant="secondary" onClick={() => void onAttach(summary)}>
+                  {t('integrations.connected.useInModule', {
+                    defaultValue: 'Use in {{name}}',
+                    name: t(`integrations.modules.${summary.eligible_module}.name`, {
+                      defaultValue: summary.eligible_module,
+                    }),
+                  })}
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void onAddAnother(row.providerSlug)}
+              >
+                {t('integrations.connected.addRegistration', {
+                  defaultValue: 'Add another registration',
+                })}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => void onDisconnect(row.id)}>
+                {t('integrations.actions.disconnect')}
+              </Button>
+            </div>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -126,6 +172,8 @@ export default function IntegrationsConnected() {
     emailGmail,
     mcpRows,
     calendarRows,
+    connections,
+    appConnections,
     counts,
     refresh,
   } = useConnectedIntegrationsSummary()
@@ -160,6 +208,7 @@ export default function IntegrationsConnected() {
       inbox: counts.inbox,
       repository: counts.repository,
       calendar: counts.calendar,
+      app: counts.app,
       mcp: counts.mcp,
     }),
     [counts],
@@ -182,6 +231,19 @@ export default function IntegrationsConnected() {
           )
         : mcpRows,
     [mcpRows, needle],
+  )
+  const visibleApps = useMemo(
+    () =>
+      needle
+        ? appConnections.filter((row) =>
+            `${row.display_name} ${row.provider}`.toLowerCase().includes(needle),
+          )
+        : appConnections,
+    [appConnections, needle],
+  )
+  const summaryById = useMemo(
+    () => Object.fromEntries(connections.map((row) => [row.id, row])),
+    [connections],
   )
   const accountingMcp = useMemo(
     () => visibleMcp.filter((row) => MODULE_BY_PROVIDER_SLUG[row.providerSlug] === 'accounting'),
@@ -255,6 +317,48 @@ export default function IntegrationsConnected() {
     }
   }
 
+  const handleDisconnectApp = async (connectionId: string) => {
+    if (!window.confirm(t('integrations.actions.disconnectConfirm'))) return
+    try {
+      await revokeIntegrationConnection(connectionId)
+      toast.success(t('integrations.actions.disconnected'))
+      await refresh()
+    } catch {
+      toast.error(t('integrations.actions.disconnectFailed'))
+    }
+  }
+
+  const handleAttach = async (row: ConnectedSummaryConnection) => {
+    const moduleSlug = row.eligible_module
+    if (!moduleSlug) return
+    try {
+      await attachModuleConnection(moduleSlug, row.id)
+      toast.success(
+        t('integrations.connected.attached', {
+          defaultValue: 'Added to {{name}}',
+          name: t(`integrations.modules.${moduleSlug}.name`, { defaultValue: moduleSlug }),
+        }),
+      )
+      await refresh()
+    } catch {
+      toast.error(
+        t('integrations.connected.attachFailed', {
+          defaultValue: 'Could not add this registration to the module.',
+        }),
+      )
+    }
+  }
+
+  const handleAddAnother = async (provider: string) => {
+    const returnUrl = `${window.location.origin}/modules/connected?connect=${encodeURIComponent(provider)}&bokito_create_new=1`
+    try {
+      const { authorize_url } = await startIntegrationOAuth(provider, returnUrl)
+      window.location.href = authorize_url
+    } catch {
+      navigate(`/modules/marketplace?connect=${encodeURIComponent(provider)}`)
+    }
+  }
+
   return (
     <PageContent width="xl" className="space-y-6">
       <PageGuideBanner page="integrations" />
@@ -286,7 +390,7 @@ export default function IntegrationsConnected() {
       ) : null}
 
       {kindFilter === 'all' && !loading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryCard
             label={t('integrations.kind.inbox')}
             count={counts.inbox}
@@ -301,6 +405,11 @@ export default function IntegrationsConnected() {
             label={t('integrations.kind.calendar')}
             count={counts.calendar}
             onClick={() => setKindFilter('calendar')}
+          />
+          <SummaryCard
+            label={t('integrations.kind.app', { defaultValue: 'Apps' })}
+            count={counts.app}
+            onClick={() => setKindFilter('app')}
           />
           <SummaryCard
             label={t('integrations.kind.mcp')}
@@ -332,7 +441,11 @@ export default function IntegrationsConnected() {
         />
       ) : (
         <div className="space-y-8">
-          {needle && visibleGithub.length === 0 && visibleMcp.length === 0 && !inboxMatches ? (
+          {needle &&
+          visibleGithub.length === 0 &&
+          visibleMcp.length === 0 &&
+          visibleApps.length === 0 &&
+          !inboxMatches ? (
             <p className="text-sm text-text-muted">{t('integrations.connected.noSearchMatches')}</p>
           ) : null}
 
@@ -511,17 +624,111 @@ export default function IntegrationsConnected() {
             </KindSection>
           ) : null}
 
+          {showSection('app') ? (
+            <KindSection title={t('integrations.kind.app', { defaultValue: 'Apps' })}>
+              {visibleApps.length === 0 ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-text-muted">
+                    {t('integrations.connected.emptyApps', {
+                      defaultValue: 'No app registrations yet. Connect a partner from Marketplace.',
+                    })}
+                  </p>
+                  <Button size="sm" variant="secondary" asChild>
+                    <Link to={marketplacePathWithKind('app')}>
+                      {t('integrations.connected.browseApps', {
+                        defaultValue: 'Browse apps',
+                      })}
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {visibleApps.map((row) => {
+                    const brand = resolveProviderBrand(row.provider)
+                    const usedBy = row.attached_modules
+                    const canAttach =
+                      Boolean(row.eligible_module) &&
+                      !usedBy.includes(row.eligible_module ?? '')
+                    return (
+                      <li
+                        key={row.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <IntegrationHostLogo
+                            logoUrl={brand.logoUrl}
+                            logoDarkUrl={brand.logoDarkUrl}
+                            initials={brand.initials}
+                            color={brand.color}
+                            name={brand.name}
+                            hostSlug={brand.hostSlug}
+                            size="sm"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{row.display_name}</p>
+                            <p className="text-[11px] text-text-muted truncate">
+                              {brand.name}
+                              {usedBy.length > 0
+                                ? ` · ${usedBy
+                                    .map((slug) =>
+                                      t(`integrations.modules.${slug}.name`, { defaultValue: slug }),
+                                    )
+                                    .join(', ')}`
+                                : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {canAttach && row.eligible_module ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => void handleAttach(row)}
+                            >
+                              {t('integrations.connected.useInModule', {
+                                defaultValue: 'Use in {{name}}',
+                                name: t(`integrations.modules.${row.eligible_module}.name`, {
+                                  defaultValue: row.eligible_module,
+                                }),
+                              })}
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void handleAddAnother(row.provider)}
+                          >
+                            {t('integrations.connected.addRegistration', {
+                              defaultValue: 'Add another registration',
+                            })}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void handleDisconnectApp(row.id)}
+                          >
+                            {t('integrations.actions.disconnect')}
+                          </Button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </KindSection>
+          ) : null}
+
           {showSection('mcp') ? (
             <KindSection title={t('integrations.kind.mcp')}>
               <div className="flex items-center justify-between gap-3 mb-3">
                 <p className="text-xs text-text-secondary">{t('integrations.connected.mcpHint')}</p>
                 <div className="flex gap-2 shrink-0">
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/modules/tools">{t('integrations.connected.manageMcp')}</Link>
+                    <Link to={marketplacePathWithKind('mcp')}>{t('integrations.connected.manageMcp')}</Link>
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => navigate('/modules/tools?connect=custom_mcp')}
+                    onClick={() => navigate('/modules/marketplace?connect=custom_mcp')}
                   >
                     {t('integrations.mcp.servers.newConnection')}
                   </Button>
@@ -558,7 +765,13 @@ export default function IntegrationsConnected() {
                           {t('integrations.modules.moduleBadge', { defaultValue: 'Module' })}
                         </Badge>
                       </div>
-                      <McpRowList rows={accountingMcp} onDisconnect={handleDisconnectMcp} />
+                      <McpRowList
+                        rows={accountingMcp}
+                        summaryById={summaryById}
+                        onDisconnect={handleDisconnectMcp}
+                        onAttach={handleAttach}
+                        onAddAnother={handleAddAnother}
+                      />
                       {accountingCompanies.length > 1 ? (
                         <div className="rounded-lg border border-border/40 px-3 py-2">
                           <p className="text-[11px] font-medium text-text-muted">
@@ -596,7 +809,13 @@ export default function IntegrationsConnected() {
                           {t('integrations.modules.sectionOther')}
                         </p>
                       ) : null}
-                      <McpRowList rows={otherMcp} onDisconnect={handleDisconnectMcp} />
+                      <McpRowList
+                        rows={otherMcp}
+                        summaryById={summaryById}
+                        onDisconnect={handleDisconnectMcp}
+                        onAttach={handleAttach}
+                        onAddAnother={handleAddAnother}
+                      />
                     </div>
                   ) : null}
                 </div>

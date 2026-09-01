@@ -10,6 +10,7 @@ import { LoadingBlock } from '../components/ui/loading-block'
 import { Label } from '../components/ui/label'
 import PageContent from '../components/layout/PageContent'
 import { PageIntro } from '../components/layout/PageIntro'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import {
   Select,
   SelectContent,
@@ -336,30 +337,6 @@ export default function AiCommunicationSettings() {
           })}
         </p>
       ) : null}
-
-      <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
-        <p>{t('ai.communication.crossLinks.body')}</p>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-          <Link to="/settings/channels" className="font-medium text-accent hover:underline">
-            {t('ai.communication.crossLinks.channels')}
-          </Link>
-          <Link to={WEBSITE_WIDGET_CUSTOMIZE_PATH} className="font-medium text-accent hover:underline">
-            {t('ai.communication.crossLinks.widget')}
-          </Link>
-          <Link to={WEBSITE_WIDGET_PATH} className="font-medium text-accent hover:underline">
-            {t('ai.communication.crossLinks.installWidget')}
-          </Link>
-          <Link to="/agents" className="font-medium text-accent hover:underline">
-            {t('ai.communication.crossLinks.agents')}
-          </Link>
-          <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
-            {t('ai.communication.crossLinks.govern')}
-          </Link>
-          <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
-            {t('ai.communication.crossLinks.communication')}
-          </Link>
-        </div>
-      </div>
 
       <section className="space-y-4">
         <div>
@@ -697,6 +674,16 @@ export default function AiCommunicationSettings() {
         </div>
         <ChannelBindingsPanel />
       </section>
+
+      <PageRelatedLinks
+        links={[
+          { to: '/settings/channels', label: t('ai.communication.crossLinks.channels') },
+          { to: WEBSITE_WIDGET_CUSTOMIZE_PATH, label: t('ai.communication.crossLinks.widget') },
+          { to: '/agents', label: t('ai.communication.crossLinks.agents') },
+          { to: '/settings/govern?tab=policy', label: t('ai.communication.crossLinks.govern') },
+          { to: '/docs/inbox/inbox-ai', label: t('pageGuides.learnMore') },
+        ]}
+      />
     </PageContent>
   )
 }

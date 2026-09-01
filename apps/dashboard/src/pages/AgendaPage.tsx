@@ -690,23 +690,14 @@ export default function AgendaPage() {
           <p className="mt-1 text-sm text-text-muted">
             {t('agendaPage.emptyBody')}
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-4 flex flex-col items-center gap-3">
             <Button type="button" size="sm" onClick={() => openCreate()}>
               <Plus className="mr-1.5 h-4 w-4" aria-hidden />
               {t('agendaPage.createRun')}
             </Button>
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link to="/agents">{t('agendaPage.openAgents')}</Link>
-            </Button>
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link to={inboxPath('open')}>{t('agendaPage.openCommunication')}</Link>
-            </Button>
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link to="/knowledge">{t('agendaPage.openKnowledge')}</Link>
-            </Button>
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link to="/settings/setup">{t('agendaPage.openSetup')}</Link>
-            </Button>
+            <Link to="/docs/ai/agenda" className="text-xs font-medium text-accent hover:underline">
+              {t('pageGuides.learnMore')}
+            </Link>
           </div>
         </div>
       ) : (

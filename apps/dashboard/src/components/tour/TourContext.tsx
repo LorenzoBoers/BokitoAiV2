@@ -270,7 +270,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                       violet
-                        ? 'bg-violet-500/12 text-violet-500 dark:text-violet-300'
+                        ? 'bg-ai/10 text-ai-ink'
                         : 'bg-accent/10 text-accent'
                     }`}
                   >

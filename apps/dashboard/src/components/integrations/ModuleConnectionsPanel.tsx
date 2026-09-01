@@ -14,11 +14,15 @@ import {
 import { BrandMark } from './BrandMark'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import {
+  attachModuleConnection,
+  detachModuleConnection,
   disconnectModuleConnection,
+  listEligibleConnections,
   listModuleConnections,
   renameModuleConnection,
   setModulePrefs,
   verifyModuleConnection,
+  type EligibleModuleConnection,
   type ModuleConnectionRow,
 } from '../../lib/module-api'
 import { hostSlugForProvider, resolveProviderBrand } from '../../lib/integration-brand'
@@ -86,6 +90,7 @@ export function ModuleConnectionsPanel({
 }) {
   const { t } = useTranslation(['nav', 'common'])
   const [rows, setRows] = useState<ModuleConnectionRow[]>([])
+  const [eligible, setEligible] = useState<EligibleModuleConnection[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [renameRow, setRenameRow] = useState<ModuleConnectionRow | null>(null)
@@ -94,8 +99,12 @@ export function ModuleConnectionsPanel({
   const refresh = useCallback(async () => {
     try {
       setError(null)
-      const data = await listModuleConnections(slug)
+      const [data, eligibleData] = await Promise.all([
+        listModuleConnections(slug),
+        listEligibleConnections(slug).catch(() => ({ connections: [] })),
+      ])
       setRows(data.connections ?? [])
+      setEligible(eligibleData.connections ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -193,6 +202,36 @@ export function ModuleConnectionsPanel({
     }
   }
 
+  const detach = async (row: ModuleConnectionRow) => {
+    const confirmed = window.confirm(
+      t('integrations.modules.connections.detachConfirm', {
+        defaultValue: 'Remove this registration from the module? It stays on Connections.',
+      }),
+    )
+    if (!confirmed) return
+    setBusyId(row.id)
+    try {
+      await detachModuleConnection(slug, row.id)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const attachExisting = async (row: EligibleModuleConnection) => {
+    setBusyId(row.id)
+    try {
+      await attachModuleConnection(slug, row.id)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const title: ReactNode = (
     <span className="inline-flex flex-wrap items-center gap-2.5">
       <span>
@@ -212,23 +251,57 @@ export function ModuleConnectionsPanel({
           <p className={`text-sm text-text-secondary ${showTitle ? 'mt-1' : ''}`}>
             {t('integrations.modules.connections.intro', {
               defaultValue:
-                'Each registration is a separate package login. Agents use the default unless a tool picks another.',
+                'Only attached registrations. Agents use the default unless a tool picks another.',
             })}
           </p>
         </div>
         <Button type="button" size="sm" onClick={onAddPackage} className="gap-1.5">
           <Plus size={14} aria-hidden />
           {t('integrations.modules.connections.add', {
-            defaultValue: 'Add registration',
+            defaultValue: 'New registration',
           })}
         </Button>
       </div>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {eligible.length > 0 ? (
+        <div className="rounded-lg border border-border/50 bg-bg-muted/30 px-4 py-3">
+          <p className="text-xs font-medium text-text-heading">
+            {t('integrations.modules.connections.useExisting', {
+              defaultValue: 'Use an existing connection',
+            })}
+          </p>
+          <p className="mt-1 text-xs text-text-muted">
+            {t('integrations.modules.connections.useExistingHint', {
+              defaultValue:
+                'These registrations are already on Connections and are allowed on this module.',
+            })}
+          </p>
+          <ul className="mt-2 space-y-2">
+            {eligible.map((row) => (
+              <li key={row.id} className="flex items-center justify-between gap-3">
+                <span className="truncate text-sm text-text-secondary">{row.display_name}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busyId === row.id}
+                  onClick={() => void attachExisting(row)}
+                >
+                  {t('integrations.modules.connections.useThis', {
+                    defaultValue: 'Use this connection',
+                  })}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-text-muted">
-          {t('integrations.modules.connections.empty', {
-            defaultValue: 'No registrations yet. Choose Add registration to pick a package.',
-          })}
+            {t('integrations.modules.connections.empty', {
+              defaultValue:
+                'No attached registrations yet. Use an existing connection or add a new registration.',
+            })}
         </p>
       ) : (
         <ul className="space-y-3">
@@ -358,6 +431,17 @@ export function ModuleConnectionsPanel({
                     >
                       {t('integrations.modules.connections.rename', {
                         defaultValue: 'Rename',
+                      })}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={busyId === row.id}
+                      onClick={() => void detach(row)}
+                    >
+                      {t('integrations.modules.connections.detach', {
+                        defaultValue: 'Remove from module',
                       })}
                     </Button>
                     {row.can_disconnect !== false ? (

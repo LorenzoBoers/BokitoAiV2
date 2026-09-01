@@ -7,7 +7,10 @@ interface EmptyStateProps {
   icon?: ComponentType<LucideProps>
   title: ReactNode
   description?: ReactNode
+  /** Primary CTA — usually one button. */
   action?: ReactNode
+  /** Optional secondary line (e.g. a single docs link). */
+  footer?: ReactNode
   /** Tighten or loosen the vertical padding. Default mirrors Integrations Connected. */
   size?: 'sm' | 'md' | 'lg'
   className?: string
@@ -20,14 +23,14 @@ const PAD: Record<NonNullable<EmptyStateProps['size']>, string> = {
 }
 
 /**
- * Unified empty UX. Wraps content in `Card` and centers the message.
- * Matches the established Integrations Connected baseline.
+ * Unified empty UX. One primary action, optional footer link — keep it calm.
  */
 export function EmptyState({
   icon: Icon,
   title,
   description,
   action,
+  footer,
   size = 'md',
   className,
 }: EmptyStateProps) {
@@ -42,7 +45,8 @@ export function EmptyState({
       {description ? (
         <p className="mx-auto mt-2 max-w-md text-xs text-text-secondary">{description}</p>
       ) : null}
-      {action ? <div className="mt-6 flex justify-center">{action}</div> : null}
+      {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+      {footer ? <div className="mt-3 flex justify-center">{footer}</div> : null}
     </Card>
   )
 }

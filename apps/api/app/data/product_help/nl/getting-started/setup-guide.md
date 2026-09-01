@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace-setupgids
 
-De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen** en daarna **Setupgids** voor de live checklist; die blijft staan tot de workspace klaar is. De gids heeft twee fasen: **Eerst: één AI-lus werkend krijgen** (kanaal koppelen, met een agent chatten, een beslissing goedkeuren, de check-in plannen) en **Daarna: je workspace uitbreiden** (kennis, agents, modules, branding, cijfers en projecten).
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen** en daarna **Setupgids** voor de live checklist. De gids volgt dezelfde vier onboardingstappen als de eerste-keer-kaart, daarna een rustige lijst **Later** (branding, team, modules, projecten, cijfers, Govern).
 
 ## Workspace-basics en branding
 
@@ -36,7 +36,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 ## Laad kennis en agents
 
 1. Voeg dagelijkse documenten toe in [Kennis](/docs/ai/knowledge). Begin met Stem en Geheugen.
-2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). **Pauzeer** agents die je nog niet wilt laten draaien.
+2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). Archiveer agents die je niet wilt houden; beperk chattoegang als ze niet in Communicatie mogen staan.
 3. Zet de houding onder [Autonomie](/docs/govern/autonomy). Begin voorzichtig.
 4. Optioneel: open **Projecten** wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/projects).
 5. Optioneel: open **Modules** in de zijbalk en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
@@ -47,13 +47,13 @@ Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent 
 
 ## Volg de live checklist
 
-Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde stappen staan onder **Instellingen** en daarna **Setupgids**, in activatievolgorde:
+Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde vier stappen staan onder **Instellingen** en daarna **Setupgids**:
 
-1. **Koppel je kanalen** — maak een Bokito-adres aan of koppel Gmail/Outlook. Zie [Kanalen](/docs/inbox/channels).
-2. **Chat met je assistent** — **Nieuwe chat** loopt de rest van de setup. De assistent kan waken vanuit dat gesprek aanzetten.
-3. **Los je eerste beslissing op** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
-4. **Laat de assistent waken** — de uurlijkse check-in staat aan voor nieuwe workspaces. Bestaande workspaces zetten die aan vanuit de setupgids.
-5. **Voeg bedrijfskennis toe** — Stem en Geheugen. Zie [Kennis](/docs/ai/knowledge).
-6. **Nodig je team uit** — zie [Leden](/docs/getting-started/members).
+1. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **E-mail en berichten**, niet via de module-marketplace. Zie [Kanalen](/docs/inbox/channels).
+2. **Praat met de assistent** — een kort gesprek vult de bedrijfskennis. Zie [Kennis](/docs/ai/knowledge).
+3. **Keur één beslissing goed** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
+4. **Zet check-in aan** — de uurlijkse check-in staat aan voor nieuwe workspaces. Bestaande workspaces zetten die aan vanuit de setupgids.
 
-**Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, concepten onderbouwd zijn, het team erin zit, en je weet waar goedkeuringen gebeuren.
+**Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Modules](/docs/integrations/integrations), projecten, cijfers op de Cockpit, en [Govern](/docs/govern/govern).
+
+**Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die vier stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, één beslissing duidelijk is, en de assistent waakt.

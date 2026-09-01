@@ -29,7 +29,6 @@ export const workforceRoutes = {
     statusQuery: (params: URLSearchParams) => withQuery('/workforce/status', params),
     forceWake: '/workforce/force-wake',
     forceRescan: '/workforce/force-rescan',
-    pause: '/workforce/pause',
     triggerAgent: '/workforce/trigger-agent',
     completeActivity: '/workforce/complete-activity',
     maintenanceRun: '/workforce/maintenance-run',

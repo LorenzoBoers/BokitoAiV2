@@ -20,7 +20,7 @@ describe('extra crumbs', () => {
     expect(extraCrumbsForPath('/modules/marketplace')).toEqual([{ labelKey: 'crumbs.marketplace' }])
     expect(extraCrumbsForPath('/modules')).toEqual([])
     expect(extraCrumbsForPath('/modules/accounting')).toEqual([{ labelKey: 'crumbs.moduleSetup' }])
-    expect(extraCrumbsForPath('/modules/tools')).toEqual([{ labelKey: 'crumbs.connectedTools' }])
+    expect(extraCrumbsForPath('/modules/tools')).toEqual([{ labelKey: 'crumbs.connected' }])
     expect(extraCrumbsForPath('/modules/connected')).toEqual([{ labelKey: 'crumbs.connected' }])
     expect(extraCrumbsForPath('/settings/assistant')).toEqual([])
     expect(extraCrumbsForPath('/learn/channels')).toEqual([{ labelKey: 'crumbs.learn' }])

@@ -93,6 +93,10 @@ async def list_accounting_connections(
     directly on ``IntegrationConnection`` (OAuth tokens / personal token).
     """
     from app.models.integration import IntegrationConnection, McpServer
+    from app.services.module_attach import attached_connection_ids, attached_mcp_server_ids
+
+    attached_ics = await attached_connection_ids(session, tenant_id, "accounting")
+    attached_servers = await attached_mcp_server_ids(session, tenant_id, "accounting")
 
     connections: list[AccountingConnection] = []
 
@@ -108,6 +112,8 @@ async def list_accounting_connections(
         .all()
     )
     for server in servers:
+        if str(server.id) not in attached_servers:
+            continue
         auth = _parse_json(server.auth_json)
         if server.server_url.startswith("native://king-accountancy"):
             from app.services.king_finance import has_king_credentials
@@ -151,6 +157,8 @@ async def list_accounting_connections(
         .all()
     )
     for conn in integration_rows:
+        if str(conn.id) not in attached_ics:
+            continue
         from app.services.moneybird import has_moneybird_credentials
 
         credentials = _parse_json(conn.credentials_json)

@@ -17,6 +17,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -251,13 +252,6 @@ function ProjectCard({
               {t('projects.page.assignLead')}
             </Link>
           ) : null}
-          <Link
-            to="/knowledge"
-            onClick={(event) => event.stopPropagation()}
-            className="text-[11px] font-medium text-accent hover:underline"
-          >
-            {t('projects.page.openKnowledge')}
-          </Link>
         </div>
       </div>
     </Card>
@@ -430,26 +424,17 @@ export default function ProjectsPage() {
           title={t('projects.page.emptyTitle')}
           description={t('projects.page.emptyBody')}
           action={
-            <div className="flex flex-wrap justify-center gap-2">
-              {isAdmin ? (
-                <Button size="sm" onClick={() => setCreateOpen(true)}>
-                  <Plus className="mr-1 h-4 w-4" aria-hidden />
-                  {t('projects.page.new')}
-                </Button>
-              ) : null}
-              <Button size="sm" variant="outline" asChild>
-                <Link to="/agents">{t('projects.page.openAgents')}</Link>
+            isAdmin ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" aria-hidden />
+                {t('projects.page.new')}
               </Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link to="/knowledge">{t('projects.page.openKnowledge')}</Link>
-              </Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link to={inboxPath('open')}>{t('projects.page.openCommunication')}</Link>
-              </Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link to="/settings/setup">{t('projects.page.openSetup')}</Link>
-              </Button>
-            </div>
+            ) : undefined
+          }
+          footer={
+            <Link to="/docs/ai/projects" className="text-xs font-medium text-accent hover:underline">
+              {t('pageGuides.learnMore')}
+            </Link>
           }
         />
       ) : visibleProjects.length === 0 ? (
@@ -560,6 +545,14 @@ export default function ProjectsPage() {
           onConfirm={confirmDelete}
         />
       ) : null}
+
+      <PageRelatedLinks
+        links={[
+          { to: '/agents', label: t('projects.page.openAgents') },
+          { to: '/knowledge', label: t('projects.page.openKnowledge') },
+          { to: '/docs/ai/projects', label: t('pageGuides.learnMore') },
+        ]}
+      />
     </PageContent>
   )
 }

@@ -63,7 +63,6 @@ const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected')
 const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
 const ModulesPage = lazy(() => import('./pages/ModulesPage'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
-const IntegrationsMcp = lazy(() => import('./pages/IntegrationsMcp'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
 
@@ -388,7 +387,7 @@ export default function App() {
           <Route path="/modules" element={<ModulesPage />} />
           <Route path="/modules/connected" element={<IntegrationsConnected />} />
           <Route path="/modules/marketplace" element={<IntegrationsMarketplace />} />
-          <Route path="/modules/tools" element={<IntegrationsMcp />} />
+          <Route path="/modules/tools" element={<RedirectPreserveSearch to="/modules/connected" />} />
           <Route path="/modules/:slug" element={<ModuleSetupPage />} />
           <Route path="/ai/modules/:slug" element={<RedirectAiModuleWorkspace />} />
 
@@ -409,12 +408,12 @@ export default function App() {
             <Route path="/settings/help-centers" element={<HelpCentersSettings />} />
             <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/modules/connected" />} />
             <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
-            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/modules/tools" />} />
+            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />
             <Route path="/settings/integrations/docs" element={<Navigate to="/modules/marketplace" replace />} />
             <Route path="/settings/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
             <Route path="/settings/modules" element={<RedirectModulesLegacy />} />
             <Route path="/settings/modules/:slug" element={<RedirectModulesLegacy />} />
-            <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/modules/tools" />} />
+            <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />
             <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
@@ -446,7 +445,7 @@ export default function App() {
           <Route path="/integrations" element={<RedirectPreserveSearch to="/modules/connected" />} />
           <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/modules/connected" />} />
           <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
-          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/modules/tools" />} />
+          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
           <Route path="/settings/widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />

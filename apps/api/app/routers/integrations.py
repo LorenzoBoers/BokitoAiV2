@@ -76,6 +76,8 @@ class McpInstallBody(BaseModel):
     auth: dict = Field(default_factory=dict)
     # Non-prod only: install without live provider verification (tests / demos).
     use_mock: bool = False
+    # When set, attach the new registration to this module (must allow the provider).
+    module_slug: str | None = None
 
 
 class ModuleConnectionRenameBody(BaseModel):
@@ -276,6 +278,64 @@ async def delete_module_agent(
     return await module_agents_svc.remove_module_agent(
         session, auth.tenant.id, slug, agent_id
     )
+
+
+@router.get("/connected-summary")
+async def get_connected_summary(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.integrations_platform import list_connected_summary
+
+    return await list_connected_summary(session, auth.tenant.id)
+
+
+@router.get("/modules/{slug}/eligible-connections")
+async def get_module_eligible_connections(
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_attach import list_eligible_connections
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
+    return {"connections": await list_eligible_connections(session, auth.tenant.id, slug)}
+
+
+@router.post("/modules/{slug}/connections/{connection_id}/attach")
+async def post_module_connection_attach(
+    slug: str,
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    from app.modules.catalog import get_module
+    from app.services.module_attach import attach_connection_to_module
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    binding = await attach_connection_to_module(session, auth.tenant.id, connection_id, slug)
+    return {"ok": True, "id": str(binding.connection_id), "module_slug": slug}
+
+
+@router.post("/modules/{slug}/connections/{connection_id}/detach")
+async def post_module_connection_detach(
+    slug: str,
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    from app.modules.catalog import get_module
+    from app.services.module_attach import detach_connection_from_module
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    return await detach_connection_from_module(session, auth.tenant.id, connection_id, slug)
 
 
 @router.get("/modules/{slug}/connections")
@@ -816,6 +876,7 @@ async def post_mcp_install(
         mcp_server_id=body.mcp_server_id,
         auth=body.auth or None,
         use_mock=bool(body.use_mock),
+        module_slug=body.module_slug,
     )
     from app.services.audit import record_audit
 

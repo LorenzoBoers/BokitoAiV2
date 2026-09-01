@@ -260,11 +260,8 @@ export default function NewConversationPage() {
                 <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
                   {t('newConversation.openAgents')}
                 </Link>
-                <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
-                  {t('newConversation.openSetup')}
-                </Link>
-                <Link to="/knowledge" className="text-[12px] font-medium text-accent hover:underline">
-                  {t('newConversation.openKnowledge')}
+                <Link to="/docs/ai/agents" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('pageGuides.learnMore', { ns: 'nav' })}
                 </Link>
               </div>
             </div>
@@ -347,11 +344,8 @@ export default function NewConversationPage() {
                           <Link to="/agents" className="inline-block text-[11px] font-medium text-accent hover:underline">
                             {t('newConversation.openAgents')}
                           </Link>
-                          <Link to="/knowledge" className="inline-block text-[11px] font-medium text-accent hover:underline">
-                            {t('newConversation.openKnowledge')}
-                          </Link>
-                          <Link to="/settings/setup" className="inline-block text-[11px] font-medium text-accent hover:underline">
-                            {t('newConversation.openSetup')}
+                          <Link to="/docs/ai/agents" className="inline-block text-[11px] font-medium text-accent hover:underline">
+                            {t('pageGuides.learnMore', { ns: 'nav' })}
                           </Link>
                         </div>
                       ) : null}

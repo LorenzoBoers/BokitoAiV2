@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '../ui/select'
 import { installMcpConnection, type McpAuthType } from '../../lib/mcp-integrations'
+import { moduleSlugFromPathname } from '../../lib/integration-setup-url'
 
 export type McpConnectPreset = 'custom_mcp' | 'bjorn_lunden_mcp' | 'king_accountancy'
 
@@ -111,6 +112,7 @@ export function McpConnectionForm({
         display_name: name.trim() || undefined,
         server_url: url.trim() || undefined,
         auth_type: authType,
+        module_slug: moduleSlugFromPathname(window.location.pathname) ?? undefined,
         ...(blAuth ? { auth: blAuth } : {}),
         ...(kingAuth ? { auth: kingAuth } : {}),
       })

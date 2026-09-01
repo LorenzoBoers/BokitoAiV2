@@ -27,7 +27,7 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
     return [{ labelKey: 'crumbs.widgetLook' }]
   }
   if (pathname.startsWith('/modules/marketplace')) return [{ labelKey: 'crumbs.marketplace' }]
-  if (pathname.startsWith('/modules/tools')) return [{ labelKey: 'crumbs.connectedTools' }]
+  if (pathname.startsWith('/modules/tools')) return [{ labelKey: 'crumbs.connected' }]
   if (pathname.startsWith('/modules/connected')) return [{ labelKey: 'crumbs.connected' }]
   if (pathname.startsWith('/modules/') && pathname !== '/modules') {
     return [{ labelKey: 'crumbs.moduleSetup' }]

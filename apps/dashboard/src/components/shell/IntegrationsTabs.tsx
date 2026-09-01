@@ -3,14 +3,12 @@ import { useTranslation } from 'react-i18next'
 
 const TABS = [
   { labelKey: 'tabs.modules.title', defaultLabel: 'Modules', to: '/modules', end: true },
-  { labelKey: 'integrations.pageMeta.connected.title', defaultLabel: 'Connected', to: '/modules/connected' },
+  { labelKey: 'integrations.pageMeta.connected.title', defaultLabel: 'Connections', to: '/modules/connected' },
   { labelKey: 'integrations.pageMeta.marketplace.title', defaultLabel: 'Marketplace', to: '/modules/marketplace' },
-  { labelKey: 'integrations.pageMeta.mcp.title', defaultLabel: 'Connected tools', to: '/modules/tools' },
 ] as const
 
 /**
- * Inner tab strip for the Modules hub: one Connections story. Capabilities
- * (modules), what is connected, what can be connected, and MCP tool servers.
+ * Inner tab strip for the Modules hub: presets, partner logins, and discover.
  */
 export default function IntegrationsTabs() {
   const { t } = useTranslation('nav')

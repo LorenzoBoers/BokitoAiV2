@@ -126,6 +126,7 @@ class ModuleSpec:
         connected: bool = False,
         enabled: bool = False,
         install_state: InstallState | None = None,
+        attached_connection_count: int = 0,
     ) -> dict[str, Any]:
         live = connected if self.status == "available" else False
         state: InstallState = install_state or (
@@ -148,6 +149,7 @@ class ModuleSpec:
             "capability_summary": self.capability_summary,
             "setup_path": self.setup_path,
             "workspace_path": self.workspace_path,
+            "attached_connection_count": attached_connection_count,
             "enabled": is_installed,
             "connected": live,
             "install_state": state,
@@ -568,12 +570,16 @@ def filter_tools_for_modules(
 async def active_module_connections(
     session: AsyncSession, tenant_id: UUID, module_slug: str
 ) -> list[Any]:
-    """Active IntegrationConnection rows that belong to one module."""
+    """Active IntegrationConnection rows attached to one module."""
     from app.models.integration import IntegrationConnection
+    from app.services.module_attach import attached_connection_ids, provider_allowed_for_module
 
     spec = MODULE_BY_SLUG.get(module_slug)
     provider_slugs = list(spec.provider_slugs) if spec else []
     if not provider_slugs:
+        return []
+    attached = await attached_connection_ids(session, tenant_id, module_slug)
+    if not attached:
         return []
     result = await session.execute(
         select(IntegrationConnection).where(
@@ -582,7 +588,11 @@ async def active_module_connections(
             IntegrationConnection.status == "active",
         )
     )
-    return list(result.scalars().all())
+    return [
+        conn
+        for conn in result.scalars().all()
+        if str(conn.id) in attached and provider_allowed_for_module(conn.provider, module_slug)
+    ]
 
 
 async def connected_module_slugs(session: AsyncSession, tenant_id: UUID) -> set[str]:
@@ -727,10 +737,17 @@ async def serialize_modules_for_tenant(
     from app.services.module_agents import module_roster_summaries
 
     roster = await module_roster_summaries(session, tenant_id)
+    from app.services.module_attach import attached_modules_by_connection
+
+    attach_counts: dict[str, int] = {}
+    for slugs in (await attached_modules_by_connection(session, tenant_id)).values():
+        for slug in slugs:
+            attach_counts[slug] = attach_counts.get(slug, 0) + 1
     for row in rows:
         summary = roster.get(row["slug"]) or {}
         row["assigned_agent_count"] = int(summary.get("assigned_agent_count") or 0)
         row["default_agent_id"] = summary.get("default_agent_id")
+        row["attached_connection_count"] = attach_counts.get(row["slug"], 0)
     return rows
 
 
@@ -853,16 +870,21 @@ async def complete_module_setup(
     actor_id: Any = None,
 ) -> dict[str, Any]:
     """Mark setup done → installed (tools + AI nav). Requires ≥1 assigned agent."""
-    from app.services.module_agents import module_agent_count
+    from app.services.module_agents import add_module_agent, module_agent_count
 
     states = await tenant_module_install_states(session, tenant_id)
     current = states.get(slug, "not_installed")
     if current == "not_installed":
         raise ValueError("Install the module before finishing setup")
     if await module_agent_count(session, tenant_id, slug) < 1:
-        raise ValueError(
-            "Assign at least one AI agent to this module before finishing setup"
-        )
+        from app.services.lead_agent import get_lead_agent
+
+        lead = await get_lead_agent(session, tenant_id)
+        if lead is None:
+            raise ValueError(
+                "Assign at least one AI agent to this module before finishing setup"
+            )
+        await add_module_agent(session, tenant_id, slug, lead.id, is_default=True)
     return await _write_module_row(
         session,
         tenant_id,

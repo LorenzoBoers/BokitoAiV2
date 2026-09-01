@@ -112,6 +112,33 @@ export async function disconnectModuleConnection(
   return apiDelete(integrationsRoutes.platform.moduleConnectionById(slug, connectionId))
 }
 
+export type EligibleModuleConnection = {
+  id: string
+  provider: string
+  display_name: string
+  status: string
+}
+
+export async function listEligibleConnections(
+  slug: string,
+): Promise<{ connections: EligibleModuleConnection[] }> {
+  return apiGet(integrationsRoutes.platform.moduleEligibleConnections(slug))
+}
+
+export async function attachModuleConnection(
+  slug: string,
+  connectionId: string,
+): Promise<{ ok: boolean; id: string; module_slug: string }> {
+  return apiPost(integrationsRoutes.platform.moduleConnectionAttach(slug, connectionId), {})
+}
+
+export async function detachModuleConnection(
+  slug: string,
+  connectionId: string,
+): Promise<{ ok: boolean; id: string; detached?: boolean }> {
+  return apiPost(integrationsRoutes.platform.moduleConnectionDetach(slug, connectionId), {})
+}
+
 export async function listModuleSources(slug: string): Promise<{ sources: ModuleSourceRow[] }> {
   return apiGet(integrationsRoutes.platform.moduleSources(slug))
 }

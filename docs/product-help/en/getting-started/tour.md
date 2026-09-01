@@ -24,7 +24,7 @@ Bokito has one sidebar with six areas. Each item answers a different question. U
 
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).
 - **Knowledge** — nested under the AI group: what agents answer from. See [Knowledge](/docs/ai/knowledge).
-- **Modules** — business capabilities and every connection (Connected, Marketplace, Connected tools). See [Integrations](/docs/integrations/integrations).
+- **Modules** — business capabilities and every connection (Connections, Discover). See [Integrations](/docs/integrations/integrations).
 
 ## Settings: the control room
 

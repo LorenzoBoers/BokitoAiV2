@@ -1115,7 +1115,7 @@ export default function ContactsPage() {
                 : t('contactsPage.noCompaniesHint')}
             </p>
             {search.trim() ? null : (
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-4 flex flex-col items-center gap-3">
                 <button
                   type="button"
                   disabled={backfilling}
@@ -1124,17 +1124,8 @@ export default function ContactsPage() {
                 >
                   {backfilling ? t('contactsPage.linking') : t('contactsPage.linkContacts')}
                 </button>
-                <Link
-                  to="/contacts"
-                  className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                >
-                  {t('contactsPage.openPeople')}
-                </Link>
-                <Link
-                  to={inboxPath('open')}
-                  className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                >
-                  {t('contactsPage.openCommunication')}
+                <Link to="/docs/inbox/contacts" className="text-xs font-medium text-accent hover:underline">
+                  {t('pageGuides.learnMore')}
                 </Link>
               </div>
             )}
@@ -1203,38 +1194,25 @@ export default function ContactsPage() {
               {t('contactsPage.clearFiltersAction')}
             </button>
           ) : (
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <div className="mt-4 flex flex-col items-center gap-3">
               <Link
                 to="/settings/channels"
                 className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
               >
                 {t('contactsPage.connectEmail')}
               </Link>
-              <Link
-                to="/ai/assistant/external/installation"
-                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-              >
-                {t('contactsPage.installWidget')}
-              </Link>
-              <Link
-                to={inboxPath('open')}
-                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-              >
-                {t('contactsPage.openCommunication')}
-              </Link>
-              <Link
-                to="/settings/setup"
-                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-              >
-                {t('contactsPage.openSetup')}
-              </Link>
-              <button
-                type="button"
-                onClick={() => setCreateOpen(true)}
-                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-              >
-                {t('contactsPage.addManually')}
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="font-medium text-accent hover:underline"
+                >
+                  {t('contactsPage.addManually')}
+                </button>
+                <Link to="/docs/inbox/contacts" className="font-medium text-accent hover:underline">
+                  {t('pageGuides.learnMore')}
+                </Link>
+              </div>
             </div>
           )}
         </div>

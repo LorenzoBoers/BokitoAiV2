@@ -7,10 +7,15 @@ import type { IntegrationSetupConfig } from '../../../lib/integration-setup'
 import { resolveRegistryEntry } from '../../../lib/integrations/registry'
 import { startProviderOAuth } from '../../../lib/integration-oauth-flow'
 import { Button } from '../../ui/button'
+import { formatApiErrorMessage } from '../../ui/ApiErrorBanner'
 
 type Props = {
   integration: Integration
   config: IntegrationSetupConfig
+}
+
+function isOAuthNotConfiguredError(message: string): boolean {
+  return /not configured|oauth_not_configured|HTTP 503/i.test(message)
 }
 
 export function IntegrationOAuthSetupPanel({ integration, config }: Props) {
@@ -37,8 +42,14 @@ export function IntegrationOAuthSetupPanel({ integration, config }: Props) {
     } catch (e) {
       if (e instanceof Error && e.message === 'LOGIN_REQUIRED') {
         setError(t('integrations.hub.setup.oauthLoginRequired'))
+      } else if (e instanceof Error && isOAuthNotConfiguredError(e.message)) {
+        setError(
+          t('integrations.hub.setup.oauthNotConfigured', {
+            name: integration.name,
+          }),
+        )
       } else {
-        setError(e instanceof Error ? e.message : t('integrations.hub.setup.error'))
+        setError(formatApiErrorMessage(e, t('integrations.hub.setup.error')))
       }
     } finally {
       setLoading(false)

@@ -60,4 +60,4 @@ Als een mailbox nog setup of herkoppeling nodig heeft (dezelfde staten die **Ver
 
 ## Wat nu
 
-Laad [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Koppel een mailbox onder [Kanalen](/docs/inbox/channels) als de uitzonderingslijst leeg is. Gebruik **Wie antwoordt** op dezelfde pagina alleen wanneer een kanaal de lead-agent moet overslaan — dat is routing, geen AI-modus.
+Laad [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Koppel een mailbox onder [Kanalen](/docs/inbox/channels) als de uitzonderingslijst leeg is. Gebruik **Wie antwoordt** op dezelfde pagina alleen wanneer een kanaal de standaardagent moet overslaan — dat is routing, geen AI-modus.

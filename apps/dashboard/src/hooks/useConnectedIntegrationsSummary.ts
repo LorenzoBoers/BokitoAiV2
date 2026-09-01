@@ -3,7 +3,9 @@ import type { IntegrationKind } from '../lib/integration-kind'
 import { resolveIntegrationKind } from '../lib/integration-kind'
 import {
   connectionCountForProvider,
+  fetchConnectedSummary,
   listIntegrationProviders,
+  type ConnectedSummaryConnection,
   type ProvidersListResponse,
 } from '../lib/integrations-api'
 import { listGithubConnections, type GithubConnectionRow } from '../lib/github-api'
@@ -14,6 +16,8 @@ import {
 } from '../lib/calendars-api'
 import { withTimeout } from '../lib/promise-timeout'
 
+export type { ConnectedSummaryConnection }
+
 export type ConnectedIntegrationsSummary = {
   loading: boolean
   loadError: string | null
@@ -22,16 +26,19 @@ export type ConnectedIntegrationsSummary = {
   emailGmail: number
   mcpRows: McpIntegrationRow[]
   calendarRows: CalendarConnection[]
+  connections: ConnectedSummaryConnection[]
+  appConnections: ConnectedSummaryConnection[]
   counts: {
     all: number
     inbox: number
     repository: number
     calendar: number
     mcp: number
+    app: number
   }
 }
 
-const EMPTY_COUNTS = { all: 0, inbox: 0, repository: 0, calendar: 0, mcp: 0 }
+const EMPTY_COUNTS = { all: 0, inbox: 0, repository: 0, calendar: 0, mcp: 0, app: 0 }
 const FETCH_TIMEOUT_MS = 15_000
 const MCP_ROWS_TIMEOUT_MS = 20_000
 
@@ -45,6 +52,8 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
   const [emailGmail, setEmailGmail] = useState(0)
   const [mcpRows, setMcpRows] = useState<McpIntegrationRow[]>([])
   const [calendarRows, setCalendarRows] = useState<CalendarConnection[]>([])
+  const [connections, setConnections] = useState<ConnectedSummaryConnection[]>([])
+  const [appConnections, setAppConnections] = useState<ConnectedSummaryConnection[]>([])
   const [counts, setCounts] = useState(EMPTY_COUNTS)
 
   const refresh = useCallback(async () => {
@@ -56,11 +65,13 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
     let gmail = 0
     let mcp: McpIntegrationRow[] = []
     let calendars: CalendarConnection[] = []
+    let summaryConnections: ConnectedSummaryConnection[] = []
+    let apps: ConnectedSummaryConnection[] = []
 
     try {
-      const [ghResult, providersResult, calendarResult] = await Promise.all([
+      const [ghResult, summaryResult, calendarResult] = await Promise.all([
         withTimeout(listGithubConnections(), FETCH_TIMEOUT_MS, [] as GithubConnectionRow[]),
-        withTimeout(listIntegrationProviders(), FETCH_TIMEOUT_MS, null),
+        withTimeout(fetchConnectedSummary(), FETCH_TIMEOUT_MS, null),
         withTimeout(listCalendarConnections(), FETCH_TIMEOUT_MS, [] as CalendarConnection[]),
       ])
 
@@ -69,21 +80,31 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
       calendars = calendarResult
       setCalendarRows(calendars)
 
-      const providersList: ProvidersListResponse | null = providersResult
-      if (providersList) {
-        outlook = providersList.connection_counts?.email_outlook ?? 0
-        gmail = providersList.connection_counts?.email_gmail ?? 0
+      if (summaryResult) {
+        outlook = Number(summaryResult.email_outlook ?? 0)
+        gmail = Number(summaryResult.email_gmail ?? 0)
+        summaryConnections = summaryResult.connections ?? []
+        apps = summaryConnections.filter((row) => row.kind === 'app')
         setEmailOutlook(outlook)
         setEmailGmail(gmail)
+        setConnections(summaryConnections)
+        setAppConnections(apps)
       } else {
-        setEmailOutlook(0)
-        setEmailGmail(0)
+        const providersList = await withTimeout(
+          listIntegrationProviders(),
+          FETCH_TIMEOUT_MS,
+          null,
+        )
+        outlook = providersList?.connection_counts?.email_outlook ?? 0
+        gmail = providersList?.connection_counts?.email_gmail ?? 0
+        setEmailOutlook(outlook)
+        setEmailGmail(gmail)
+        setConnections([])
+        setAppConnections([])
       }
 
       mcp = await withTimeout(
-        listMcpIntegrationRows(
-          providersList ? { providersList } : undefined,
-        ),
+        listMcpIntegrationRows(),
         MCP_ROWS_TIMEOUT_MS,
         [] as McpIntegrationRow[],
       )
@@ -95,19 +116,23 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
       setEmailGmail(0)
       setMcpRows([])
       setCalendarRows([])
+      setConnections([])
+      setAppConnections([])
       setLoadError('integrations.connected.loadError')
       gh = []
       outlook = 0
       gmail = 0
       mcp = []
       calendars = []
+      apps = []
     } finally {
       setCounts({
-        all: gh.length + outlook + gmail + mcp.length + calendars.length,
+        all: gh.length + outlook + gmail + mcp.length + calendars.length + apps.length,
         inbox: outlook + gmail,
         repository: gh.length,
         calendar: calendars.length,
         mcp: mcp.length,
+        app: apps.length,
       })
       setLoading(false)
     }
@@ -125,6 +150,8 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
     emailGmail,
     mcpRows,
     calendarRows,
+    connections,
+    appConnections,
     counts,
     refresh,
   }
@@ -136,7 +163,13 @@ export function countConnectedProvidersByKind(
   connection_counts: ProvidersListResponse['connection_counts'],
   githubLen: number,
 ): Record<IntegrationKind, number> {
-  const out: Record<IntegrationKind, number> = { inbox: 0, repository: 0, mcp: 0, calendar: 0 }
+  const out: Record<IntegrationKind, number> = {
+    inbox: 0,
+    repository: 0,
+    mcp: 0,
+    calendar: 0,
+    app: 0,
+  }
   if (githubLen > 0) out.repository += githubLen
   if (connection_counts.email_outlook > 0) out.inbox += connection_counts.email_outlook
   if (connection_counts.email_gmail > 0) out.inbox += connection_counts.email_gmail

@@ -80,8 +80,8 @@ export interface RuntimeAgent {
   role_name?: string | null
   role_slug?: string | null
   parent_agent_id: string | null
-  status: 'standby' | 'active' | 'sleeping' | 'error'
-  /** False when the operator paused the agent; idle ready agents stay true. */
+  status: 'standby' | 'active' | 'error' | 'sleeping'
+  /** False only when the agent is archived (or a retired personal row). */
   is_active?: boolean
   model?: string
   provider?: string
@@ -245,24 +245,6 @@ export async function forceRescanWorkforce(token: string | undefined, pipelineId
     body: JSON.stringify(pipelineId ? { pipeline_id: pipelineId } : {}),
   })
   return readResponse<{ ok: boolean; fired: number }>(res)
-}
-
-export async function pauseWorkforce(token?: string): Promise<{ ok: boolean }> {
-  const agents = await getAgents(token).catch(() => [])
-  const manager = agents.find(
-    (agent) => agent.role_slug === 'orchestrator' || agent.role_slug === 'manager',
-  )
-  if (manager) {
-    const updated = await updateAgentStatus(token, manager.id, 'standby')
-    return { ok: updated.ok }
-  }
-  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.pause}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: buildHeaders(token),
-    body: JSON.stringify({}),
-  })
-  return readResponse<{ ok: boolean }>(res)
 }
 
 export async function triggerAgent(

@@ -4,6 +4,7 @@ import { parseKindFilter, parseStatusFilter } from './integration-kind-url'
 describe('parseKindFilter', () => {
   it('accepts known kinds and defaults to all', () => {
     expect(parseKindFilter('mcp')).toBe('mcp')
+    expect(parseKindFilter('app')).toBe('app')
     expect(parseKindFilter('nope')).toBe('all')
   })
 })

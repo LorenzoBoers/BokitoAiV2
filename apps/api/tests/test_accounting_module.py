@@ -61,6 +61,9 @@ async def _moneybird_connection(
     session.add(conn)
     await session.commit()
     await session.refresh(conn)
+    from app.services.module_attach import attach_connection_to_module
+
+    await attach_connection_to_module(session, tenant.id, conn.id, "accounting")
     return conn
 
 
@@ -148,6 +151,7 @@ async def test_king_connection_discovered_and_mocked(session_override: AsyncSess
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     connections = await list_accounting_connections(session_override, tenant.id)
     assert [c.vendor for c in connections] == ["king"]
@@ -170,6 +174,7 @@ async def test_capability_miss_is_unsupported_even_with_mocks(session_override: 
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     result = await call_accounting_verb(session_override, tenant.id, "list_bank_mutations", {})
     assert result["ok"] is False
@@ -205,6 +210,7 @@ async def test_multiple_connections_require_connection_id(session_override: Asyn
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     await _moneybird_connection(session_override, tenant)
 
@@ -401,6 +407,7 @@ async def test_apply_blocked_by_platform_switch(session_override: AsyncSession, 
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     monkeypatch.setattr(get_settings(), "module_writes_enabled", "")
 
@@ -425,6 +432,7 @@ async def test_apply_blocked_by_tenant_pref(session_override: AsyncSession, monk
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
 
@@ -450,6 +458,7 @@ async def test_apply_runs_when_both_switches_on(session_override: AsyncSession, 
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
     await update_module_prefs(
@@ -479,6 +488,7 @@ async def test_apply_invalid_payload_rejected(session_override: AsyncSession, mo
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
     await update_module_prefs(
@@ -574,6 +584,7 @@ async def test_snapshot_hides_vendor_tools_for_accounting(session_override: Asyn
         api_key="",
         display_name="KING Accountancy",
         use_mock=True,
+        module_slug="accounting",
     )
     await _moneybird_connection(session_override, tenant)
 

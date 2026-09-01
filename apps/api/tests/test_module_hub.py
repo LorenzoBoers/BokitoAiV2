@@ -59,6 +59,9 @@ async def test_module_prefs_and_connections(client: AsyncClient, session_overrid
     session_override.add(conn)
     await session_override.commit()
     await session_override.refresh(conn)
+    from app.services.module_attach import attach_connection_to_module
+
+    await attach_connection_to_module(session_override, tenant.id, conn.id, "accounting")
 
     listed = await client.get(
         f"{API}/integrations/modules/accounting/connections", headers=headers

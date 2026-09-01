@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { Archive, CalendarDays, Copy, Crown, MessageSquare, MoreHorizontal, Network, Pause, Pencil, Play, Settings, ShieldCheck } from 'lucide-react'
+import { Archive, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
@@ -25,12 +26,12 @@ import { agentRoleLabel } from '../lib/agent-role-label'
 import { permissionScopeLabel } from '../lib/permission-scope-label'
 import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
-import { activityTerminalPath, agentChatPath, agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { activityTerminalPath, agentChatPath } from '../lib/messages-paths'
 import { agendaOccurrenceHref, workLogRunsPath } from '../lib/agenda-thread'
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
 import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
-import { archiveAgent, setLeadAgent, updateAgentStatus } from '../lib/workforce-api'
+import { archiveAgent, setLeadAgent } from '../lib/workforce-api'
 import { listAgentPassports, updateAgentPassport } from '../lib/govern-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
@@ -42,12 +43,11 @@ const AGENTS_DEFAULT_PATH = '/agents'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { cn } from '../lib/utils'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
-import { agentPauseToggleStatus, agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
+import { agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
 
 const STATUS_CLASS: Record<ReturnType<typeof agentWorkState>, string> = {
   working: 'text-status-success',
   ready: 'text-text-muted',
-  paused: 'text-text-muted',
   error: 'text-status-error',
 }
 
@@ -79,7 +79,6 @@ export default function AiAgentDetail() {
   const [visualEditing, setVisualEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [statusBusy, setStatusBusy] = useState(false)
   const [archiveBusy, setArchiveBusy] = useState(false)
   const [leadBusy, setLeadBusy] = useState(false)
   const [autonomyBusy, setAutonomyBusy] = useState(false)
@@ -192,21 +191,6 @@ export default function AiAgentDetail() {
     return projects.find((project) => project.po_agent_id === agent.id) ?? null
   }, [agent, projects])
 
-  const handleToggleStatus = useCallback(async () => {
-    if (!agent || statusBusy) return
-    setStatusBusy(true)
-    setActionError(null)
-    try {
-      const next = agentPauseToggleStatus(agent)
-      const result = await updateAgentStatus(undefined, agent.id, next)
-      setAgent(result.agent)
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t('workforce.agents.statusUpdateError'))
-    } finally {
-      setStatusBusy(false)
-    }
-  }, [agent, statusBusy, t])
-
   const handleArchive = useCallback(async () => {
     if (!agent || archiveBusy) return
     setArchiveBusy(true)
@@ -309,15 +293,6 @@ export default function AiAgentDetail() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
-                    {agent.is_lead ? (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent"
-                        title={t('workforce.agents.leadHint')}
-                      >
-                        <Crown size={11} aria-hidden />
-                        {t('workforce.agents.leadBadge')}
-                      </span>
-                    ) : null}
                     {isAdmin && agent.kind !== 'personal' ? (
                       <Button
                         type="button"
@@ -345,7 +320,22 @@ export default function AiAgentDetail() {
                   </div>
                   <p className="mt-0.5 text-sm text-text-muted">
                     {agentRoleLabel(agent.role_name || agent.role_slug, t)}
+                    {agent.is_lead ? (
+                      <span className="text-text-muted"> · {t('workforce.agents.leadBadge')}</span>
+                    ) : null}
                   </p>
+                  {agent.is_lead ? (
+                    <p className="mt-1 text-[11px] text-text-muted">{t('workforce.agents.isDefaultHint')}</p>
+                  ) : isAdmin && agent.kind !== 'personal' ? (
+                    <button
+                      type="button"
+                      disabled={leadBusy}
+                      onClick={() => void handleMakeLead()}
+                      className="mt-1 text-[11px] font-medium text-text-muted hover:text-accent hover:underline disabled:opacity-50"
+                    >
+                      {t('workforce.agents.setAsDefault')}
+                    </button>
+                  ) : null}
                 </div>
               </div>
               <span
@@ -358,24 +348,16 @@ export default function AiAgentDetail() {
               <p className="mt-2 text-sm text-text-secondary">{agent.current_activity_summary}</p>
             ) : null}
             {isOrchestratorAgent(agent) && linkedProject ? (
-              <div className="mt-3 rounded-lg border border-border/60 bg-bg-input/35 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                  {t('workforce.agents.types.orchestrator')}
-                </p>
-                <Link
-                  to={`/projects/${linkedProject.id}`}
-                  className="mt-1 block text-sm font-medium text-text-heading hover:underline"
-                >
-                  {linkedProject.name}
+              <p className="mt-2 text-sm text-text-muted">
+                <Link to={`/projects/${linkedProject.id}`} className="font-medium text-accent hover:underline">
+                  {t('workforce.agents.projectLink', { name: linkedProject.name })}
                 </Link>
-              </div>
-            ) : null}
-            {!isAdmin ? (
-              <p className="mt-3 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
-                {t('workforce.agents.readonlyBanner')}
               </p>
             ) : null}
-            <div className="mt-3 flex flex-wrap gap-2">
+            {!isAdmin ? (
+              <p className="mt-3 text-xs text-text-muted">{t('workforce.agents.readonlyBanner')}</p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {agent.kind !== 'personal' ? (
                 <Button type="button" size="sm" variant="outline" asChild>
                   <Link to={agentChatPath(agent.id)}>
@@ -384,100 +366,37 @@ export default function AiAgentDetail() {
                   </Link>
                 </Button>
               ) : null}
-              <Button type="button" size="sm" variant="outline" asChild>
-                <Link to={`/agenda?agent=${agent.id}`}>
-                  <CalendarDays size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.openAgenda')}
-                </Link>
-              </Button>
-              <Button type="button" size="sm" variant="outline" asChild>
-                <Link to={activityTerminalPath(agent.id)}>
-                  <MessageSquare size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.openThreads')}
-                </Link>
-              </Button>
+              <Link
+                to={`/agenda?agent=${agent.id}`}
+                className="text-xs font-medium text-text-muted hover:text-accent hover:underline"
+              >
+                {t('workforce.agents.openAgenda')}
+              </Link>
+              <Link
+                to={activityTerminalPath(agent.id)}
+                className="text-xs font-medium text-text-muted hover:text-accent hover:underline"
+              >
+                {t('workforce.agents.openThreads')}
+              </Link>
               {isAdmin ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={statusBusy}
-                  onClick={() => void handleToggleStatus()}
-                >
-                  {agentWorkState(agent) === 'paused' ? (
-                    <Play size={14} className="mr-1.5" aria-hidden />
-                  ) : (
-                    <Pause size={14} className="mr-1.5" aria-hidden />
-                  )}
-                  {agentWorkState(agent) === 'paused'
-                    ? t('workforce.agents.wake')
-                    : t('workforce.agents.pause')}
-                </Button>
-              ) : null}
-              {isAdmin && agent.kind !== 'personal' && !agent.is_lead ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={leadBusy}
-                  onClick={() => void handleMakeLead()}
-                >
-                  <Crown size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.makeLead')}
-                </Button>
-              ) : null}
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <Button type="button" size="sm" variant="ghost" aria-label={t('workforce.agents.moreActions')}>
-                    <MoreHorizontal size={14} className="mr-1.5" aria-hidden />
-                    {t('workforce.agents.moreActions')}
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    align="end"
-                    sideOffset={4}
-                    className="z-50 min-w-[200px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
-                  >
-                    <DropdownMenu.Item asChild>
-                      <Link
-                        to="/knowledge"
-                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                        title={t('workforce.agents.knowledgeHint')}
-                      >
-                        <Network size={14} />
-                        {t('workforce.agents.openKnowledge')}
-                      </Link>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item asChild>
-                      <Link
-                        to="/settings/communication"
-                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                      >
-                        <Settings size={14} />
-                        {t('workforce.agents.openInboxAi')}
-                      </Link>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item asChild>
-                      <Link
-                        to="/settings/setup"
-                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                      >
-                        {t('workforce.agents.openSetup')}
-                      </Link>
-                    </DropdownMenu.Item>
-                    {(agent.role_slug === 'orchestrator' || agent.role_slug === 'po' || agent.role_slug === 'orchestra') ? (
-                      <DropdownMenu.Item asChild>
-                        <Link
-                          to="/settings/govern?tab=policy"
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                        >
-                          <ShieldCheck size={14} />
-                          {t('workforce.agents.openGovern')}
-                        </Link>
-                      </DropdownMenu.Item>
-                    ) : null}
-                    {isAdmin ? (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto h-8 px-2 text-text-muted"
+                      aria-label={t('workforce.agents.moreActions')}
+                    >
+                      <MoreHorizontal size={16} aria-hidden />
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      align="end"
+                      sideOffset={4}
+                      className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
+                    >
                       <DropdownMenu.Item
                         className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
                         onSelect={() => setDuplicateOpen(true)}
@@ -485,47 +404,40 @@ export default function AiAgentDetail() {
                         <Copy size={14} />
                         {t('workforce.agents.duplicate')}
                       </DropdownMenu.Item>
-                    ) : null}
-                    {isAdmin && !agent.is_lead ? (
-                      <>
-                        <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                        <DropdownMenu.Item
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                          onSelect={() => setArchiveConfirmOpen(true)}
-                        >
-                          <Archive size={14} />
-                          {t('workforce.agents.archive')}
-                        </DropdownMenu.Item>
-                      </>
-                    ) : null}
-                    {isAdmin && agent.is_lead ? (
-                      <>
-                        <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                        <DropdownMenu.Item
-                          disabled
-                          className="flex cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-muted outline-none"
-                        >
-                          {t('workforce.agents.leadArchiveBlocked')}
-                        </DropdownMenu.Item>
-                      </>
-                    ) : null}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
+                      {!agent.is_lead ? (
+                        <>
+                          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                          <DropdownMenu.Item
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                            onSelect={() => setArchiveConfirmOpen(true)}
+                          >
+                            <Archive size={14} />
+                            {t('workforce.agents.archive')}
+                          </DropdownMenu.Item>
+                        </>
+                      ) : (
+                        <>
+                          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                          <DropdownMenu.Item
+                            disabled
+                            className="flex cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-muted outline-none"
+                          >
+                            {t('workforce.agents.leadArchiveBlocked')}
+                          </DropdownMenu.Item>
+                        </>
+                      )}
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              ) : null}
             </div>
             {archiveConfirmOpen ? (
               <div className="mt-3 rounded-lg border border-status-error/30 bg-status-error/5 px-3 py-2">
                 <p className="text-sm text-text-heading">{t('workforce.agents.archiveConfirm')}</p>
-                <p className="mt-1 text-xs text-text-muted">{t('workforce.agents.archiveSuggestPause')}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button type="button" size="sm" variant="ghost" onClick={() => setArchiveConfirmOpen(false)}>
                     {t('workforce.agents.archiveCancel')}
                   </Button>
-                  {agentWorkState(agent) !== 'paused' ? (
-                    <Button type="button" size="sm" variant="outline" onClick={() => void handleToggleStatus()}>
-                      {t('workforce.agents.pause')}
-                    </Button>
-                  ) : null}
                   <Button
                     type="button"
                     size="sm"
@@ -838,19 +750,15 @@ export default function AiAgentDetail() {
                 title={t('workforce.runs.empty')}
                 description={t('workforce.agents.runsEmptyHint')}
                 action={
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {agent.kind !== 'personal' ? (
-                      <Button size="sm" asChild>
-                        <Link to={agentChatPath(agent.id)}>{t('workforce.agents.chatWith')}</Link>
-                      </Button>
-                    ) : null}
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={agentRunsPath('all')}>{t('workforce.agents.openCommunication')}</Link>
+                  agent.kind !== 'personal' ? (
+                    <Button size="sm" asChild>
+                      <Link to={agentChatPath(agent.id)}>{t('workforce.agents.chatWith')}</Link>
                     </Button>
-                    <Button size="sm" variant="outline" asChild>
+                  ) : (
+                    <Button size="sm" asChild>
                       <Link to={`/agenda?agent=${agent.id}`}>{t('agendaPage.openAgenda')}</Link>
                     </Button>
-                  </div>
+                  )
                 }
               />
             ) : (
@@ -862,6 +770,15 @@ export default function AiAgentDetail() {
               />
             )}
           </div>
+
+          <PageRelatedLinks
+            links={[
+              { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
+              { to: '/knowledge', label: t('workforce.agents.relatedKnowledge') },
+              { to: '/settings/govern?tab=policy', label: t('workforce.agents.relatedGovern') },
+              { to: '/docs/ai/agents', label: t('pageGuides.learnMore') },
+            ]}
+          />
         </>
       )}
     </PageContent>

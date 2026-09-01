@@ -487,20 +487,9 @@ export default function WorkspaceDocs() {
                 <p className="text-xs text-text-muted">
                   {t('knowledgePage.emptyHint')}
                 </p>
-                <div className="flex flex-col gap-1">
-                  <Link to="/agents" className="text-[11px] font-medium text-accent hover:underline">
-                    {t('knowledgePage.openAgents')}
-                  </Link>
-                  <Link to="/settings/setup" className="text-[11px] font-medium text-accent hover:underline">
-                    {t('knowledgePage.openSetup')}
-                  </Link>
-                  <Link to="/communication/new" className="text-[11px] font-medium text-accent hover:underline">
-                    {t('knowledgePage.talkAssistant')}
-                  </Link>
-                  <Link to="/settings/help-centers" className="text-[11px] font-medium text-accent hover:underline">
-                    {t('knowledgePage.openHelpCenter')}
-                  </Link>
-                </div>
+                <Link to="/docs/ai/knowledge" className="text-[11px] font-medium text-accent hover:underline">
+                  {t('pageGuides.learnMore')}
+                </Link>
               </div>
             ) : (
               KIND_ORDER.map((kind) => {
@@ -522,7 +511,7 @@ export default function WorkspaceDocs() {
                         className={cn(
                           'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary',
                           active?.id === doc.id &&
-                            'bg-violet-500/10 font-medium text-violet-500 dark:text-violet-300',
+                            'bg-ai/10 font-medium text-ai-ink',
                         )}
                         onClick={() => navigate(`/knowledge/${doc.id}`)}
                       >
@@ -584,30 +573,12 @@ export default function WorkspaceDocs() {
                     <FilePlus className="mr-1.5 h-3.5 w-3.5" />
                     {t('knowledgePage.createFirst')}
                   </Button>
-                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
-                    <Link to="/settings/setup" className="font-medium text-accent hover:underline">
-                      {t('knowledgePage.openSetup')}
-                    </Link>
-                    <Link to="/agents" className="font-medium text-accent hover:underline">
-                      {t('knowledgePage.openAgents')}
-                    </Link>
-                    <Link to="/communication/new" className="font-medium text-accent hover:underline">
-                      {t('knowledgePage.talkAssistant')}
-                    </Link>
-                  </div>
+                  <Link to="/docs/ai/knowledge" className="text-xs font-medium text-accent hover:underline">
+                    {t('pageGuides.learnMore')}
+                  </Link>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-text-muted">{t('knowledgePage.selectHint')}</p>
-                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
-                    <Link to="/settings/setup" className="font-medium text-accent hover:underline">
-                      {t('knowledgePage.openSetup')}
-                    </Link>
-                    <Link to="/agents" className="font-medium text-accent hover:underline">
-                      {t('knowledgePage.openAgents')}
-                    </Link>
-                  </div>
-                </div>
+                <p className="text-xs text-text-muted">{t('knowledgePage.selectHint')}</p>
               )}
             </div>
           ) : (

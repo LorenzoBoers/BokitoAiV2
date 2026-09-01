@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace setup guide
 
-The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Setup guide** for the live checklist; it stays there until the workspace is ready. The guide has two phases: **First: get one AI loop running** (connect a channel, chat with an agent, approve a decision, schedule the check-in) and **Then: expand your workspace** (knowledge, agents, modules, branding, numbers and projects).
+The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Setup guide** for the live checklist. The guide follows the same four onboarding steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, numbers, Govern).
 
 ## Workspace basics and branding
 
@@ -36,7 +36,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 ## Load knowledge and agents
 
 1. Add daily documents in [Knowledge](/docs/ai/knowledge). Start with Voice and Memory.
-2. Review the default assistant under [Agents](/docs/ai/agents). **Pause** agents you are not ready to run.
+2. Review the default assistant under [Agents](/docs/ai/agents). Archive agents you do not want to keep; tighten chat access if they should not appear in Communication.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
 4. Optional: open **Projects** when work should be grouped around a goal. See [Projects](/docs/ai/projects).
 5. Optional: open **Modules** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
@@ -47,13 +47,13 @@ New workspaces start with an hourly **platform check-in**. The assistant wakes, 
 
 ## Follow the live checklist
 
-On first login, Communication shows **Continue setup**. The same steps live under **Settings**, then **Setup guide**, in the activation order:
+On first login, Communication shows **Continue setup**. The same four steps live under **Settings**, then **Setup guide**:
 
-1. **Connect your channels** — create a Bokito address or connect Gmail/Outlook. See [Channels](/docs/inbox/channels).
-2. **Chat with your assistant** — **New chat** walks the rest of setup. The assistant can turn watching on from that chat.
-3. **Resolve your first decision** — **Try the demo** starts a sample thread so you can approve a card.
-4. **Let the assistant watch** — the hourly check-in is on for new workspaces. Existing workspaces can turn it on from the setup guide.
-5. **Add company knowledge** — Voice and Memory. See [Knowledge](/docs/ai/knowledge).
-6. **Invite your team** — see [Members](/docs/getting-started/members).
+1. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Email & messages**, not the module marketplace. See [Channels](/docs/inbox/channels).
+2. **Talk with the assistant** — a short chat fills company knowledge. See [Knowledge](/docs/ai/knowledge).
+3. **Approve one decision** — **Try the demo** starts a sample thread so you can approve a card.
+4. **Turn on check-in** — the hourly check-in is on for new workspaces. Existing workspaces can turn it on from the setup guide.
 
-**Hide setup** only hides the card. The checklist on Settings stays until those steps are done. You are ready when mail flows in, drafts are grounded, the team is in, and you know where approvals happen.
+**Later** (no numbers): branding, invite the team, add a field of work on [Modules](/docs/integrations/integrations), projects, numbers on Cockpit, and [Govern](/docs/govern/govern).
+
+**Hide setup** only hides the card. The checklist on Settings stays until those four steps are done. You are ready when mail flows in, one decision is understood, and the assistant is watching.

@@ -702,18 +702,6 @@ async def force_rescan(
     return {"ok": True, "fired": fired}
 
 
-@router.post("/workforce/pause")
-async def pause_workforce(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    agents = await svc.list_runtime_agents(session, auth.tenant.id)
-    manager = next((a for a in agents if a.get("role_slug") in ("manager", "orchestrator")), None)
-    if manager:
-        await svc.update_agent_runtime_status(session, auth.tenant.id, UUID(manager["id"]), "standby")
-    return {"ok": True}
-
-
 @router.post("/workforce/trigger-agent")
 async def post_trigger_agent(
     body: TriggerAgentBody,

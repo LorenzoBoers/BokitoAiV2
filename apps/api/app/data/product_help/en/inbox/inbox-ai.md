@@ -60,4 +60,4 @@ If a mailbox still needs setup or reconnect (the same states that disable **Send
 
 ## What to do next
 
-Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Connect a mailbox under [Channels](/docs/inbox/channels) if the exceptions list is empty. Use **Who answers** on the same page only when a channel should skip the lead agent — that is routing, not AI mode.
+Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Connect a mailbox under [Channels](/docs/inbox/channels) if the exceptions list is empty. Use **Who answers** on the same page only when a channel should skip the default agent — that is routing, not AI mode.

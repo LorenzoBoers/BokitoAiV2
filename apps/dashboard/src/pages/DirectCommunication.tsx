@@ -55,7 +55,7 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
  * customer threads: nav target, thread list, chat detail + context panel.
  */
 export default function DirectCommunication() {
-  const { t } = useTranslation('communication')
+  const { t } = useTranslation(['communication', 'nav'])
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -353,18 +353,15 @@ export default function DirectCommunication() {
         <Bot size={28} className="text-text-muted" />
         <p className="mt-3 text-sm font-medium text-text-primary">{t('newConversation.noAgentsAvailable')}</p>
         <p className="mt-1 text-sm text-text-muted">{t('newConversation.noAgentsAvailableForUser')}</p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <Link
-            to="/communication/new"
-            className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-          >
-            {t('directChat.newChat')}
-          </Link>
+        <div className="mt-4 flex flex-col items-center gap-3">
           <Link
             to="/agents"
-            className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-semibold text-text-heading hover:bg-bg-hover"
+            className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
           >
             {t('newConversation.openAgents')}
+          </Link>
+          <Link to="/docs/ai/agents" className="text-xs font-medium text-accent hover:underline">
+            {t('pageGuides.learnMore', { ns: 'nav' })}
           </Link>
         </div>
       </div>

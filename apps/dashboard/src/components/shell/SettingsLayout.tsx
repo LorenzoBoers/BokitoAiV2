@@ -64,7 +64,7 @@ export const SETTINGS_PALETTE_LINKS: SettingsLink[] = [
   },
   {
     labelKey: 'integrations.links.mcp',
-    to: '/modules/tools',
+    to: '/modules/connected',
     hintKey: 'settings.hints.connectedTools',
   },
 ]

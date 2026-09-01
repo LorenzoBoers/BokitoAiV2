@@ -14,10 +14,10 @@ Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis mo
 ## Maak of open een project
 
 ![Projectenlijst](/api/docs/assets/projects/project.png)
-*Elke kaart toont de lead-agent, open queue-items en het budget.*
+*Elke kaart toont de projectagent, open queue-items en het budget.*
 
 1. Open **Projecten**. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
-2. Lees de kaart: lead-agent, open queue-items, documentatiegezondheid, repo-status, resterend budget. Zoek op naam of lead als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
+2. Lees de kaart: projectagent, open queue-items, documentatiegezondheid, repo-status, resterend budget. Zoek op naam of agent als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
 3. Open die. Je landt op het tabblad **Queue**. Het tabblad **Instellingen** bevat de kaart **Wie dit uitvoert**; gebruik **Lead wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
 
 ## Werk de implementatie-queue af

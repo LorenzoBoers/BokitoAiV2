@@ -10,6 +10,7 @@ import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { PageIntro } from '../components/layout/PageIntro'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import SignatureEditor from '../components/inbox/SignatureEditor'
@@ -510,27 +511,6 @@ export default function InboxSettings() {
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
-        <p>{t('channelsPage.crossLinks.body')}</p>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-          <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
-            {t('channelsPage.crossLinks.communication')}
-          </Link>
-          <Link to="/settings/communication" className="font-medium text-accent hover:underline">
-            {t('channelsPage.crossLinks.inboxAi')}
-          </Link>
-          <Link to={WEBSITE_WIDGET_PATH} className="font-medium text-accent hover:underline">
-            {t('channelsPage.crossLinks.widget')}
-          </Link>
-          <Link to="/modules/marketplace?kind=inbox" className="font-medium text-accent hover:underline">
-            {t('channelsPage.crossLinks.integrations')}
-          </Link>
-          <Link to="/settings/setup" className="font-medium text-accent hover:underline">
-            {t('channelsPage.crossLinks.setup')}
-          </Link>
-        </div>
-      </div>
-
       {pageAlert?.kind === 'oauth_success' ? (
         <OauthRedirectAlert variant="success" onDismiss={() => setPageAlert(null)}>
           {pageAlert.message}
@@ -767,6 +747,17 @@ export default function InboxSettings() {
           onSaveRules={(rules) => void handleSaveRoutingRules(rules)}
         />
       ) : null}
+
+      <PageRelatedLinks
+        className="mt-2"
+        links={[
+          { to: inboxPath('open'), label: t('channelsPage.crossLinks.communication') },
+          { to: '/settings/communication', label: t('channelsPage.crossLinks.inboxAi') },
+          { to: WEBSITE_WIDGET_PATH, label: t('channelsPage.crossLinks.widget') },
+          { to: '/modules/marketplace?kind=inbox', label: t('channelsPage.crossLinks.integrations') },
+          { to: '/docs/inbox/channels', label: t('pageGuides.learnMore') },
+        ]}
+      />
     </PageContent>
   )
 }

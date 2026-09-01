@@ -674,7 +674,7 @@ export function AgentChatView({
 }
 
 export function DirectChatEmptyState({ agentLabel }: { agentLabel: string }) {
-  const { t } = useTranslation('communication')
+  const { t } = useTranslation(['communication', 'nav'])
   const navigate = useNavigate()
   return (
     <div className="hidden h-full min-h-0 flex-1 flex-col items-center justify-center px-6 text-center md:flex">
@@ -696,11 +696,8 @@ export function DirectChatEmptyState({ agentLabel }: { agentLabel: string }) {
         <Link to="/agents" className="font-medium text-accent hover:underline">
           {t('directChat.openAgents')}
         </Link>
-        <Link to="/knowledge" className="font-medium text-accent hover:underline">
-          {t('directChat.openKnowledge')}
-        </Link>
-        <Link to="/settings/setup" className="font-medium text-accent hover:underline">
-          {t('directChat.openSetup')}
+        <Link to="/docs/ai/agents" className="font-medium text-accent hover:underline">
+          {t('pageGuides.learnMore', { ns: 'nav' })}
         </Link>
       </div>
     </div>

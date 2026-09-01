@@ -284,6 +284,7 @@ integrations:
     - apps/api/app/modules/**
     - apps/api/app/services/module_sources.py
     - apps/api/app/services/module_connections.py
+    - apps/api/app/services/module_attach.py
     - apps/api/app/services/module_agents.py
     - apps/dashboard/src/components/modules/**
   screenshots:

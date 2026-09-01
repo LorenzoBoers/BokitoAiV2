@@ -24,7 +24,7 @@ Bokito heeft één zijbalk met zes gebieden. Elk item beantwoordt een andere vra
 
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
 - **Kennis** — genest onder de AI-groep: waaruit agents antwoorden. Zie [Kennis](/docs/ai/knowledge).
-- **Modules** — bedrijfsfuncties en elke koppeling (Verbonden, Marketplace, Gekoppelde tools). Zie [Integraties](/docs/integrations/integrations).
+- **Modules** — bedrijfsfuncties en elke koppeling (Koppelingen, Ontdekken). Zie [Integraties](/docs/integrations/integrations).
 
 ## Instellingen: de controleruimte
 

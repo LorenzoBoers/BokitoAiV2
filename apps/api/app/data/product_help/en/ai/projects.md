@@ -14,10 +14,10 @@ A project is work that spans days. Open **Projects** when a goal should have a h
 ## Create or open a project
 
 ![Projects list](/api/docs/assets/projects/project.png)
-*Each card shows the lead agent, open queue items, and budget.*
+*Each card shows the project agent, open queue items, and budget.*
 
 1. Open **Projects**. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
-2. Read the card: lead agent, open queue items, documentation health, repo status, remaining budget. Search by name or lead when the list grows. If nothing matches, **Clear search** shows every project again.
+2. Read the card: project agent, open queue items, documentation health, repo status, remaining budget. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
 3. Open it. You land on the **Queue** tab. The **Settings** tab holds the **Who runs this** card; use **Change lead** to pick another agent or create one. Members can read a project; they cannot delete it or edit the name.
 
 ## Work the implementation queue

@@ -282,7 +282,7 @@ function KnowledgeNavLink({
         collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
       } ${
         active
-          ? 'bg-violet-500/10 font-medium text-violet-500 shadow-[inset_2px_0_0_0_rgb(139,92,246)] dark:text-violet-300'
+          ? 'bg-ai/10 font-medium text-ai-ink shadow-[inset_2px_0_0_0_rgb(var(--color-ai))]'
           : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
       }`}
     >

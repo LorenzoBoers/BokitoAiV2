@@ -68,6 +68,7 @@ export interface IntegrationModuleRow {
   connected?: boolean
   install_state?: 'not_installed' | 'setup' | 'installed'
   assigned_agent_count?: number
+  attached_connection_count?: number
   default_agent_id?: string | null
   /** False when this member is outside the module's user_access selection. */
   user_accessible?: boolean
@@ -137,6 +138,33 @@ export async function listModuleCompanies(
 
 export interface ConnectionsListResponse {
   connections: IntegrationConnectionRow[]
+}
+
+export type ConnectedSummaryKind = 'inbox' | 'repository' | 'calendar' | 'mcp' | 'app'
+
+export type ConnectedSummaryConnection = IntegrationConnectionRow & {
+  provider: string
+  kind: ConnectedSummaryKind
+  attached_modules: string[]
+  eligible_module: string | null
+}
+
+export type ConnectedSummaryResponse = {
+  connections: ConnectedSummaryConnection[]
+  email_outlook: number
+  email_gmail: number
+  counts: {
+    all: number
+    inbox: number
+    repository: number
+    calendar: number
+    mcp: number
+    app: number
+  }
+}
+
+export async function fetchConnectedSummary(): Promise<ConnectedSummaryResponse> {
+  return apiGet<ConnectedSummaryResponse>(integrationsRoutes.platform.connectedSummary)
 }
 
 export interface McpBindingsResponse {
@@ -276,6 +304,7 @@ export async function installMcpIntegration(input: {
   auth_type?: 'api_key' | 'bearer'
   auth?: Record<string, unknown>
   use_mock?: boolean
+  module_slug?: string
 }): Promise<{
   connection: IntegrationConnectionRow
   binding: { id: string; config: unknown }

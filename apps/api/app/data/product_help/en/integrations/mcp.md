@@ -1,7 +1,7 @@
 ---
 title: Connect MCP servers
 intro: Give agents extra tools by connecting external MCP servers.
-description: Connect MCP servers under Integrations, Connected tools, then keep risky tools on Ask first in Govern.
+description: Connect MCP servers from Discover; they appear in the Tools group on Connections. Keep risky tools on Ask first in Govern.
 keywords: mcp, model context protocol, connected tools, integrations
 sort: 20
 related: integrations,agents,mcp-endpoint
@@ -9,16 +9,16 @@ related: integrations,agents,mcp-endpoint
 
 # Connect MCP servers
 
-MCP is how agents call external tools over a standard protocol. In the product this page is **Connected tools**.
+MCP is how agents call external tools over a standard protocol. Those logins live in the **Tools** group on **Connections**.
 
 ## Add a server
 
 ![MCP servers](/api/docs/assets/mcp/servers.png)
 *Add the server URL and credentials.*
 
-1. Open **Modules** in the rail, then the **Connected tools** tab (the same page as `/modules/tools`).
-2. Choose **Connect a tool**. The dialog is **Add tool server**. Enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**.
-3. **Save connection**. The row appears under **Configured connections**. Filter the list, copy the endpoint, then **Test connection** — success reads **Connected — N tools found**. Disconnect asks for confirmation.
+1. Open **Modules** in the rail, then **Discover**, and filter **Tools**. Choose **Custom tool** (or Notion, Linear, and other marketplace apps).
+2. Finish setup: for a custom server enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**.
+3. **Save connection**. The row appears under **Connections** in the **Tools** group. Choose **Disconnect** to remove it.
 
 Marketplace apps such as Notion or Linear also land here after browser sign-in. A misconfigured server often fails at call time, not at connect time.
 

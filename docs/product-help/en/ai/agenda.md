@@ -51,7 +51,7 @@ Leave **Enabled** on. Disabled items stay on the agenda but never fire.
 2. **Pause**, edit, or **Run now**.
 3. Heartbeats check workspace docs on a timer. On-demand chat runs belong in Activity, not here.
 
-If the linked agent is paused, the wake waits until you resume that agent.
+If the linked agent is archived, the wake fails until you pick another agent.
 
 ## Let agents schedule their own follow-ups
 

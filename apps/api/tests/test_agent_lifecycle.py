@@ -187,6 +187,11 @@ async def test_agent_status_toggle(client: AsyncClient):
     )
     assert r.status_code == 400
 
+    r = await client.patch(
+        f"/api/workforce/agents/{agent_id}/status", headers=owner, json={"status": "sleeping"}
+    )
+    assert r.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # Passport

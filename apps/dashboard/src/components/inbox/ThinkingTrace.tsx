@@ -54,7 +54,7 @@ function StatusLine({
       <span
         className={cn(
           'min-w-0 truncate text-[13.5px] font-medium',
-          current ? 'thinking-shimmer-text agent-live-ink' : 'text-ai-ink/55',
+          current ? 'thinking-shimmer-text agent-live-ink' : 'text-ai-ink/70',
         )}
       >
         {text}

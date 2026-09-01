@@ -58,7 +58,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 1. Open the row menu of a mailbox, then **Signature**. Outbound mail from that mailbox appends it. After send, Communication shows that same signature in the thread bubble (what the customer received).
 2. Open **Routing**. The page is **Routing rules**. Choose **Add rule**. Rules run top to bottom; the first match wins. Drag to reorder.
 3. Set **Condition type** to **Sender domain**, **Subject contains** or **Mailbox**, then **Assign to** a person (or **Do not assign**) and optional **Labels**. Turn **Rule is active** on.
-4. Use the **Agent** column on the row to send a channel's new conversations to a specific agent. Without a route the **lead agent** handles new threads. Set one email channel as **Primary** if you have several.
+4. Use the **Agent** column on the row to send a channel's new conversations to a specific agent. Without a route the **default agent** handles new threads. Set one email channel as **Primary** if you have several.
 
 ## Connect WhatsApp or Slack
 
