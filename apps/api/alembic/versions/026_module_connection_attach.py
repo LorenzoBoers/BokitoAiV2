@@ -10,6 +10,7 @@ seeing Moneybird / KING / Björn under Accounting.
 
 import json
 import uuid
+from datetime import datetime
 
 import sqlalchemy as sa
 from alembic import op
@@ -43,6 +44,7 @@ def upgrade() -> None:
         sa.column("connection_id", sa.Uuid()),
         sa.column("binding_type", sa.String()),
         sa.column("config_json", sa.Text()),
+        sa.column("created_at", sa.DateTime()),
     )
     existing = conn.execute(
         sa.select(bindings.c.connection_id, bindings.c.config_json).where(
@@ -79,6 +81,7 @@ def upgrade() -> None:
                 "connection_id": connection_id,
                 "binding_type": "module",
                 "config_json": json.dumps({"module_slug": slug}),
+                "created_at": datetime.utcnow(),
             }
         )
     if inserts:
