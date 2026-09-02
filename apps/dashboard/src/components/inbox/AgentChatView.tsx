@@ -520,6 +520,7 @@ export function AgentChatView({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {hideHeader ? null : (
+      <>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/40 px-4">
         {onBack ? (
           <button
@@ -585,6 +586,10 @@ export function AgentChatView({
           </>
         )}
       </div>
+      <p className="shrink-0 border-b border-border/30 px-4 py-1 text-[10px] leading-snug text-text-muted">
+        {t('directChat.aiDisclosure')}
+      </p>
+      </>
       )}
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
@@ -684,6 +689,9 @@ export function DirectChatEmptyState({ agentLabel }: { agentLabel: string }) {
       <h2 className="mt-5 text-[17px] font-semibold text-text-heading">{agentLabel}</h2>
       <p className="mt-1.5 max-w-[360px] text-[13px] text-text-muted">
         {t('directChat.emptyPick')}
+      </p>
+      <p className="mt-2 max-w-[360px] text-[11px] text-text-muted">
+        {t('directChat.aiDisclosure')}
       </p>
       <button
         type="button"

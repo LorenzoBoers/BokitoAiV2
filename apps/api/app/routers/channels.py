@@ -127,17 +127,46 @@ async def create_account(
     auth.require_role("owner", "admin")
     if body.channel not in CHANNEL_ACCOUNT_CHANNELS:
         raise HTTPException(status_code=400, detail=f"Invalid channel: {body.channel}")
-    inbound_secret = secrets.token_urlsafe(24)
-    settings: dict = {"require_pairing": body.require_pairing, "inbound_secret": inbound_secret}
+
+    credentials = dict(body.credentials or {})
+    address = body.address
+    display_name = body.display_name
+    settings: dict = {"require_pairing": body.require_pairing, "inbound_secret": secrets.token_urlsafe(24)}
     if body.notify_channel_id.strip():
         settings["notify_channel_id"] = body.notify_channel_id.strip()
+
+    if body.channel == "email" and body.provider == "smtp_imap":
+        from app.services.smtp_imap import SmtpImapError, normalize_credentials
+
+        form_email = str(
+            (body.credentials or {}).get("email") or body.address or ""
+        ).strip()
+        try:
+            # Store without verified_at; POST .../verify stamps it after live check.
+            credentials = normalize_credentials(
+                {**credentials, "email": form_email or credentials.get("username")}
+            )
+            credentials["verified_at"] = ""
+        except SmtpImapError as exc:
+            raise HTTPException(status_code=400, detail=exc.message) from exc
+        address = form_email if form_email and "@" in form_email else credentials["username"]
+        if not display_name:
+            display_name = address
+        settings["sync_folders"] = [
+            {"id": "inbox", "display_name": "Inbox", "is_selected": True},
+        ]
+        settings["sync_cursors"] = {}
+
+    inbound_secret = settings["inbound_secret"]
+    from app.services.crypto import encrypt_credentials_blob
+
     account = ChannelAccount(
         tenant_id=auth.tenant.id,
         channel=body.channel,
         provider=body.provider,
-        address=body.address,
-        display_name=body.display_name,
-        credentials_json=json.dumps(body.credentials or {}),
+        address=address,
+        display_name=display_name,
+        credentials_json=encrypt_credentials_blob(credentials),
         settings_json=json.dumps(settings),
     )
     session.add(account)
@@ -155,6 +184,35 @@ async def create_account(
     # Revealed once so the caller can configure the provider webhook.
     data["inbound_secret"] = inbound_secret
     return data
+
+
+@router.post("/accounts/{account_id}/verify")
+async def verify_account(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Live-verify SMTP/IMAP credentials and stamp verified_at on success."""
+    auth.require_role("owner", "admin")
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    if account.provider != "smtp_imap":
+        raise HTTPException(
+            status_code=400,
+            detail="Only SMTP/IMAP mailboxes support verify.",
+        )
+    from app.services.crypto import get_connection_credentials, set_connection_credentials
+    from app.services.smtp_imap import SmtpImapError, verify_mailbox
+
+    creds = get_connection_credentials(account)
+    try:
+        verified = await verify_mailbox(creds)
+    except SmtpImapError as exc:
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+    set_connection_credentials(account, verified)
+    session.add(account)
+    await session.commit()
+    await session.refresh(account)
+    return {**_serialize_account(account), "verified": True}
 
 
 @router.delete("/accounts/{account_id}")

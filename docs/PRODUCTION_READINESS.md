@@ -50,6 +50,9 @@ Settings > Channels. Until set, SSO start returns 503 (no silent mock in prod).
 - Used for: invites, password reset, email verification, and per-user
   notification emails (assignment / mention / decision categories, opt-in per
   user under Settings > Notifications).
+- **Tenant SMTP/IMAP mailboxes** (`provider=smtp_imap`) are separate: workers
+  need outbound TCP to customer IMAP/SMTP hosts (993 / 587 / 465). See
+  `docs/DEPLOY.md` (Mailbox SMTP/IMAP egress).
 
 ## 4. Web push (optional)
 
@@ -63,6 +66,7 @@ Settings > Channels. Until set, SSO start returns 503 (no silent mock in prod).
 
 - `LLM_MODE` is not `live` or `BOKITO_MOCK_EXECUTION` is truthy.
 - JWT secret/database URL are dev defaults.
+- `CREDENTIALS_FERNET_KEY` is empty (OAuth/integration credential encryption).
 
 Runtime guards: mock MCP servers are refused (install, test, tool calls),
 GitHub mock repo/branch fallbacks are disabled, mock OAuth endpoints return

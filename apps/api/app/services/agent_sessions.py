@@ -9,7 +9,7 @@ host thread's timeline as a collapsed, expandable block.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.auth import User
+from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.signal_threads import _iso
 
@@ -30,14 +31,30 @@ READ_ONLY_TOOLS = frozenset(
 
 SUMMARY_MAX_CHARS = 400
 
+# Checkout options the agent (or the idle nudge) can put on the card.
+# `end_only` and `continue` are always present so the operator can never be
+# cornered into applying something to leave the session.
+CHECKOUT_KINDS = ("end_only", "continue", "apply_actions")
+CHECKOUT_ACTION_TYPE = "session_checkout"
+DEFAULT_CHECKOUT_LABELS = {
+    "end_only": "End session",
+    "continue": "Keep going",
+    "apply_actions": "Apply and end",
+}
+
+
+def _load_outcome(signal: Signal) -> dict[str, Any]:
+    try:
+        outcome = json.loads(signal.session_outcome_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return outcome if isinstance(outcome, dict) else {}
+
 
 def serialize_session(
     signal: Signal, agent: Agent | None, *, message_count: int | None = None
 ) -> dict[str, Any]:
-    try:
-        outcome = json.loads(signal.session_outcome_json or "{}")
-    except json.JSONDecodeError:
-        outcome = {}
+    outcome = _load_outcome(signal)
     return {
         "id": str(signal.id),
         "thread_id": str(signal.context_signal_id) if signal.context_signal_id else None,
@@ -49,6 +66,7 @@ def serialize_session(
         "closed_at": _iso(signal.session_closed_at) if signal.session_closed_at else None,
         "summary": outcome.get("summary") or "",
         "actions": outcome.get("actions") or [],
+        "checkout_decision_id": outcome.get("checkout_decision_id"),
         "message_count": (
             message_count if message_count is not None else outcome.get("message_count") or 0
         ),
@@ -124,20 +142,31 @@ async def start_session(
     thread_id: UUID,
     agent: Agent,
 ) -> dict[str, Any]:
-    """Open a session; reuses the caller's existing active session on the thread."""
+    """Open a session; reuses the caller's existing active session on the thread.
+
+    One meta per thread: any other operator's session still open on this
+    conversation checks out first, so the timeline never carries two live
+    sessions competing over the same customer.
+    """
     thread = await _load_host_thread(session, tenant_id, thread_id)
 
-    existing = (
-        await session.execute(
-            select(Signal).where(
-                Signal.tenant_id == tenant_id,
-                Signal.context_signal_id == thread_id,
-                Signal.channel == "assistant",
-                Signal.session_state == "active",
-                Signal.owner_user_id == user.id,
+    active = list(
+        (
+            await session.execute(
+                select(Signal).where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.context_signal_id == thread_id,
+                    Signal.channel == "assistant",
+                    Signal.session_state == "active",
+                )
             )
-        )
-    ).scalars().first()
+        ).scalars().all()
+    )
+    existing = next((s for s in active if s.owner_user_id == user.id), None)
+    for other in active:
+        if existing is not None and other.id == existing.id:
+            continue
+        await close_session(session, tenant_id, user.id, thread_id, other.id)
     if existing is not None:
         return serialize_session(existing, agent if existing.agent_id == agent.id else None)
 
@@ -357,11 +386,17 @@ async def _load_session(
 async def close_session(
     session: AsyncSession,
     tenant_id: UUID,
-    user_id: UUID,
+    user_id: UUID | None,
     thread_id: UUID,
     session_id: UUID,
+    *,
+    summary: str | None = None,
 ) -> dict[str, Any]:
-    """Checkout: freeze the session and write its outcome to the host thread."""
+    """Checkout: freeze the session and write its outcome to the host thread.
+
+    `summary` overrides the derived one — the agent's own checkout wording
+    beats the raw tail of its last message.
+    """
     conversation = await _load_session(session, tenant_id, thread_id, session_id)
 
     agent = None
@@ -394,11 +429,11 @@ async def close_session(
         (m.body_text for m in reversed(chat_messages) if m.kind == "agent_message" and m.body_text),
         "",
     )
-    summary = last_agent_text.strip()[:SUMMARY_MAX_CHARS]
+    resolved_summary = (summary or last_agent_text).strip()[:SUMMARY_MAX_CHARS]
     actions = _extract_actions(messages)
 
     outcome = {
-        "summary": summary,
+        "summary": resolved_summary,
         "actions": actions,
         "message_count": len(chat_messages),
     }
@@ -412,11 +447,373 @@ async def close_session(
             signal_id=thread_id,
             tenant_id=tenant_id,
             event_type="agent_session_closed",
-            actor_type="user",
-            actor_id=str(user_id),
+            actor_type="user" if user_id else "system",
+            actor_id=str(user_id or ""),
             payload_json=json.dumps({"session_id": str(conversation.id), **outcome}),
         )
     )
     await session.commit()
     await session.refresh(conversation)
     return serialize_session(conversation, agent)
+
+
+# ── checkout proposal ────────────────────────────────────────────
+
+
+async def resolve_active_session(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    *,
+    agent_id: UUID | None = None,
+) -> Signal | None:
+    """The active session a tool call belongs to, from either end of the pair.
+
+    Tools inside a session act on the host thread, so the signal a tool sees
+    is normally the host; the session is the assistant conversation pointing
+    at it. Accept both so the lookup works from the loop and from tests.
+    """
+    signal = (
+        await session.execute(
+            select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if signal is None:
+        return None
+    if signal.channel == "assistant" and signal.session_state == "active":
+        return signal
+
+    candidates = list(
+        (
+            await session.execute(
+                select(Signal)
+                .where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.context_signal_id == signal.id,
+                    Signal.channel == "assistant",
+                    Signal.session_state == "active",
+                )
+                .order_by(Signal.created_at.desc())
+            )
+        ).scalars().all()
+    )
+    if not candidates:
+        return None
+    if agent_id:
+        owned = next((c for c in candidates if c.agent_id == agent_id), None)
+        if owned is not None:
+            return owned
+    return candidates[0]
+
+
+def _checkout_option(
+    option_id: str, label: str, kind: str, *, session_id: UUID, thread_id: UUID
+) -> dict[str, Any]:
+    return {
+        "id": option_id,
+        "label": label,
+        "action_type": CHECKOUT_ACTION_TYPE,
+        "payload": {
+            "session_checkout": True,
+            "kind": kind,
+            "session_id": str(session_id),
+            "thread_id": str(thread_id),
+        },
+    }
+
+
+def _checkout_options(
+    raw: Any, *, session_id: UUID, thread_id: UUID
+) -> list[dict[str, Any]]:
+    """Normalize agent-supplied options and guarantee end / continue exist."""
+    from app.services.agent.style import strip_emoji
+
+    options: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    seen_kinds: set[str] = set()
+    for item in raw or []:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("kind") or "").strip()
+        if kind not in CHECKOUT_KINDS:
+            continue
+        option_id = str(item.get("id") or kind).strip() or kind
+        if option_id in seen_ids:
+            continue
+        label = strip_emoji(str(item.get("label") or "")).strip()
+        seen_ids.add(option_id)
+        seen_kinds.add(kind)
+        options.append(
+            _checkout_option(
+                option_id,
+                label or DEFAULT_CHECKOUT_LABELS[kind],
+                kind,
+                session_id=session_id,
+                thread_id=thread_id,
+            )
+        )
+    for kind in ("end_only", "continue"):
+        if kind in seen_kinds:
+            continue
+        option_id = kind if kind not in seen_ids else f"session_{kind}"
+        seen_ids.add(option_id)
+        options.append(
+            _checkout_option(
+                option_id,
+                DEFAULT_CHECKOUT_LABELS[kind],
+                kind,
+                session_id=session_id,
+                thread_id=thread_id,
+            )
+        )
+    return options
+
+
+async def _supersede_checkout(
+    session: AsyncSession, tenant_id: UUID, decision_id: str | None
+) -> None:
+    """A newer checkout replaces the pending one instead of stacking cards."""
+    if not decision_id:
+        return
+    try:
+        stale_id = UUID(str(decision_id))
+    except ValueError:
+        return
+    stale = (
+        await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.id == stale_id,
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.status == "awaiting_human",
+            )
+        )
+    ).scalar_one_or_none()
+    if stale is None:
+        return
+    stale.status = "deferred"
+    stale.resolved_at = datetime.utcnow()
+    stale.chosen_option_id = "superseded"
+    session.add(stale)
+    if stale.notification_id:
+        notification = (
+            await session.execute(
+                select(Notification).where(Notification.id == stale.notification_id)
+            )
+        ).scalar_one_or_none()
+        if notification and notification.status == "unread":
+            notification.status = "read"
+            session.add(notification)
+
+
+async def propose_checkout(
+    session: AsyncSession,
+    tenant_id: UUID,
+    conversation: Signal,
+    *,
+    summary: str,
+    options: Any = None,
+    user_id: UUID | None = None,
+    origin: str = "agent",
+) -> dict[str, Any]:
+    """Offer the operator a checkout on the host thread; keep the session open.
+
+    The session only ends once the operator picks: the card is a proposal,
+    not the checkout itself, so an agent can never close a meta unilaterally.
+    """
+    from app.services.signal_decisions import create_decision
+
+    if conversation.session_state != "active":
+        return {"error": "Session is not active"}
+    thread_id = conversation.context_signal_id or conversation.id
+
+    agent = None
+    if conversation.agent_id:
+        agent = (
+            await session.execute(
+                select(Agent).where(
+                    Agent.id == conversation.agent_id, Agent.tenant_id == tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+
+    outcome = _load_outcome(conversation)
+    await _supersede_checkout(session, tenant_id, outcome.get("checkout_decision_id"))
+
+    decision, _ = await create_decision(
+        session,
+        tenant_id,
+        title=f"Session checkout: {agent.name}" if agent else "Session checkout",
+        summary=summary,
+        options=_checkout_options(options, session_id=conversation.id, thread_id=thread_id),
+        user_id=conversation.owner_user_id or user_id,
+        agent_id=conversation.agent_id,
+        signal_id=thread_id,
+        source_type="agent_session",
+        source_id=str(conversation.id),
+        notification_payload={
+            "session_checkout": True,
+            "session_id": str(conversation.id),
+            "thread_id": str(thread_id),
+            "origin": origin,
+        },
+    )
+
+    outcome.update({"checkout_decision_id": str(decision.id), "checkout_summary": summary})
+    if origin == "idle":
+        outcome["idle_nudge_at"] = _iso(datetime.utcnow())
+    conversation.session_outcome_json = json.dumps(outcome)
+    conversation.updated_at = datetime.utcnow()
+    session.add(conversation)
+    await session.commit()
+    return {
+        "ok": True,
+        "decision_request_id": str(decision.id),
+        "session_id": str(conversation.id),
+        "thread_id": str(thread_id),
+        "status": "awaiting_human",
+        "note": (
+            "The checkout is waiting on the conversation. The teammate ends or "
+            "continues the session from that card; nothing closed yet."
+        ),
+    }
+
+
+async def apply_checkout_choice(
+    session: AsyncSession,
+    tenant_id: UUID,
+    payload: dict[str, Any],
+    *,
+    user_id: UUID | None = None,
+) -> dict[str, Any]:
+    """Execute a resolved checkout option: end the session, or keep it open."""
+    kind = str(payload.get("kind") or "end_only")
+    raw_session_id = payload.get("session_id")
+    if not raw_session_id:
+        return {"ok": False, "error": "session_id missing"}
+    try:
+        session_id = UUID(str(raw_session_id))
+    except ValueError:
+        return {"ok": False, "error": "session_id invalid"}
+
+    conversation = (
+        await session.execute(
+            select(Signal).where(
+                Signal.id == session_id,
+                Signal.tenant_id == tenant_id,
+                Signal.channel == "assistant",
+                Signal.session_state.is_not(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if conversation is None:
+        return {"ok": False, "error": "Session not found"}
+
+    outcome = _load_outcome(conversation)
+    if kind == "continue":
+        # Back to work: drop the pending checkout so the agent (or the idle
+        # nudge) may offer a fresh one later.
+        outcome.pop("checkout_decision_id", None)
+        outcome.pop("checkout_summary", None)
+        outcome.pop("idle_nudge_at", None)
+        conversation.session_outcome_json = json.dumps(outcome)
+        conversation.updated_at = datetime.utcnow()
+        session.add(conversation)
+        return {"ok": True, "state": "active", "session_id": str(conversation.id)}
+
+    if conversation.session_state == "closed":
+        return {"ok": True, "state": "closed", "session_id": str(conversation.id)}
+
+    thread_id = conversation.context_signal_id or conversation.id
+    closed = await close_session(
+        session,
+        tenant_id,
+        user_id,
+        thread_id,
+        conversation.id,
+        summary=str(outcome.get("checkout_summary") or "") or None,
+    )
+    return {"ok": True, "state": closed.get("state"), "session_id": str(conversation.id)}
+
+
+async def _idle_summary(session: AsyncSession, conversation: Signal) -> str:
+    last_agent_text = (
+        await session.execute(
+            select(SignalMessage.body_text)
+            .where(
+                SignalMessage.signal_id == conversation.id,
+                SignalMessage.kind == "agent_message",
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(1)
+        )
+    ).scalar()
+    tail = (last_agent_text or "").strip()[:SUMMARY_MAX_CHARS]
+    opening = "This session has been idle for a while."
+    return f"{opening} Last from the agent: {tail}" if tail else opening
+
+
+async def nudge_idle_sessions(
+    session: AsyncSession,
+    *,
+    idle_seconds: int | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Offer a checkout on sessions the operator walked away from.
+
+    One nudge per session (`idle_nudge_at`): an unanswered card is not a
+    reason to keep asking, and a resolved "keep going" clears the marker.
+    """
+    from app.config import get_settings
+
+    idle = int(
+        idle_seconds if idle_seconds is not None else get_settings().session_idle_seconds
+    )
+    if idle <= 0:
+        return {"checked": 0, "nudged": 0}
+    cutoff = datetime.utcnow() - timedelta(seconds=idle)
+
+    candidates = list(
+        (
+            await session.execute(
+                select(Signal)
+                .where(
+                    Signal.channel == "assistant",
+                    Signal.source == "agent_session",
+                    Signal.session_state == "active",
+                    Signal.context_signal_id.is_not(None),
+                    Signal.updated_at <= cutoff,
+                )
+                .order_by(Signal.updated_at)
+                .limit(500)
+            )
+        ).scalars().all()
+    )
+
+    nudged = 0
+    for conversation in candidates:
+        if nudged >= limit:
+            break
+        outcome = _load_outcome(conversation)
+        if outcome.get("idle_nudge_at") or outcome.get("checkout_decision_id"):
+            continue
+        last_user_at = (
+            await session.execute(
+                select(func.max(SignalMessage.created_at)).where(
+                    SignalMessage.signal_id == conversation.id,
+                    SignalMessage.kind == "user_message",
+                )
+            )
+        ).scalar()
+        # A session without a single turn is a cancel, not a checkout.
+        if last_user_at is None or last_user_at > cutoff:
+            continue
+        result = await propose_checkout(
+            session,
+            conversation.tenant_id,
+            conversation,
+            summary=await _idle_summary(session, conversation),
+            origin="idle",
+        )
+        if result.get("ok"):
+            nudged += 1
+    return {"checked": len(candidates), "nudged": nudged}

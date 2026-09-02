@@ -15,7 +15,7 @@ import {
 import { getContactThreads } from '../../lib/contacts-api'
 import { MessageTimelineItem, EventClusterTimelineItem, formatHourMinute } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
-import ReplyComposer from './ReplyComposer'
+import ReplyComposer, { type ComposerMode } from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
 import { Button } from '../ui/button'
 import { InboxThreadSkeleton } from '../ui/skeleton'
@@ -41,15 +41,20 @@ import { useSignalStream } from '../../hooks/useSignalStream'
 import ThinkingTrace from './ThinkingTrace'
 import AgentSessionCard from './AgentSessionCard'
 import { AgentChatView } from './AgentChatView'
-import { draftThreadReply, resolveThreadDecision } from '../../lib/inbox-api'
+import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
-  invokeSignalAgent,
+  bokitoListMessages,
+  bokitoStreamMessage,
+  closeAgentSession,
+  discardAgentSession,
   listThreadAgentCandidates,
   startAgentSession,
+  type ChatMessage,
   type ThreadAgentCandidate,
 } from '../../lib/signals-api'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
-import { stripMentionMarkup, tokenizeMentions, type MentionItem } from '../../lib/mentions'
+import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
+import { AiMark } from '../ai/AiMark'
 import { createAgentTask } from '../../lib/orchestration-api'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { createQueueItem } from '../../lib/project-work-api'
@@ -162,104 +167,30 @@ const HEADER_ICON =
   'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
 
 /**
- * "Draft with AI" with an optional guidance field: click opens a small
- * popover where the operator can steer the draft (tone, decisions, facts).
+ * The agent that owns this conversation, as a chip next to the composer tabs.
+ * Clicking it opens the internal meta conversation with that agent: it starts
+ * a session when none runs yet, and otherwise just focuses the agent tab.
+ * When several agents are relevant and the thread has no owner, the chip
+ * becomes a picker ordered by relevance.
  */
-function DraftWithAiButton({
-  drafting,
-  disabled,
-  disabledReason,
-  onDraft,
-}: {
-  drafting: boolean
-  disabled: boolean
-  disabledReason?: string
-  onDraft: (instruction: string) => void
-}) {
-  const { t } = useTranslation('communication')
-  const [open, setOpen] = useState(false)
-  const [instruction, setInstruction] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDocMouseDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
-  }, [open])
-
-  const submit = () => {
-    setOpen(false)
-    onDraft(instruction.trim())
-    setInstruction('')
-  }
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={drafting || disabled}
-        title={disabled && disabledReason ? disabledReason : undefined}
-        onClick={() => setOpen((v) => !v)}
-        className="gap-1.5 border-ai/25 bg-ai/10 text-ai-ink shadow-[var(--shadow-btn)] hover:bg-ai/15"
-      >
-        {drafting ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-        {drafting ? t('composer.drafting') : t('composer.draftWithAi')}
-      </Button>
-      {open ? (
-        <div className="absolute bottom-full right-0 z-30 mb-1.5 w-80 rounded-xl border border-border/60 bg-bg-surface p-3 shadow-overlay">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-            {t('composer.guidanceTitle')}
-          </p>
-          <textarea
-            value={instruction}
-            onChange={(e) => setInstruction(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                submit()
-              }
-              if (e.key === 'Escape') setOpen(false)
-            }}
-            autoFocus
-            rows={2}
-            placeholder={t('composer.guidancePlaceholder')}
-            className="mb-2 w-full resize-none rounded-lg border border-border/60 bg-bg-input px-2.5 py-1.5 text-[12.5px] text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
-          />
-          <div className="flex justify-end gap-1.5">
-            <Button size="sm" variant="ghost" onClick={() => setOpen(false)} className="h-7 px-2 text-[11.5px]">
-              {t('composer.cancel')}
-            </Button>
-            <Button size="sm" variant="ai" onClick={submit} className="h-7 gap-1 px-2.5 text-[11.5px]">
-              <Sparkles size={11} />
-              {t('composer.draftReply')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-/**
- * "Bring an agent in" launcher: the agent joins the thread as an inline
- * session where it can research, propose a reply, or take the conversation
- * over. One click named after the agent when only one is relevant; a
- * dropdown ordered by relevance when several are.
- */
-function AgentSessionLauncher({
+function OwnerAgentChip({
   threadId,
+  threadAgentId,
+  threadAgentName,
+  activeAgentName,
+  hasActiveSession,
   disabled,
-  onStarted,
+  onStart,
+  onFocusAgentMode,
 }: {
   threadId: string
+  threadAgentId?: string | null
+  threadAgentName?: string | null
+  activeAgentName?: string | null
+  hasActiveSession: boolean
   disabled: boolean
-  onStarted: () => void
+  onStart: (agentId: string | null) => Promise<void>
+  onFocusAgentMode: () => void
 }) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -274,59 +205,62 @@ function AgentSessionLauncher({
         if (!cancelled) setCandidates(rows)
       })
       .catch(() => {
-        // Launcher falls back to the most relevant agent on the backend.
+        // Falls back to the thread owner, or to the backend's own pick.
       })
     return () => {
       cancelled = true
     }
   }, [token, threadId])
 
-  const start = async (agentId: string | null) => {
-    if (!token || starting) return
+  const name =
+    activeAgentName || threadAgentName || candidates[0]?.name || t('listItem.agent')
+  const showPicker = !hasActiveSession && !threadAgentId && candidates.length > 1
+
+  const activate = async (agentId: string | null) => {
+    if (hasActiveSession) {
+      onFocusAgentMode()
+      return
+    }
+    if (starting) return
     setStarting(true)
     try {
-      await startAgentSession(token, threadId, agentId)
-      onStarted()
-    } catch {
-      toast.error(t('agentSession.startError'))
+      await onStart(agentId)
     } finally {
       setStarting(false)
     }
   }
 
-  const single = candidates.length === 1 ? candidates[0] : null
-  const label = single
-    ? t('agentSession.launcherNamed', { name: single.name })
-    : t('agentSession.launcher')
-
-  const trigger = (
-    <Button
-      size="sm"
-      variant="ghost"
+  const chip = (
+    <button
+      type="button"
       disabled={disabled || starting}
-      title={t('agentSession.launcherHint')}
-      className="gap-1.5 text-ai-ink"
-      onClick={candidates.length <= 1 ? () => void start(single?.id ?? null) : undefined}
+      title={t('composer.ownerChipHint', { name })}
+      onClick={
+        showPicker
+          ? undefined
+          : () => void activate(threadAgentId ?? candidates[0]?.id ?? null)
+      }
+      className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] font-medium text-ai-ink transition-colors hover:bg-ai/15 disabled:opacity-40"
     >
-      {starting ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-      {label}
-    </Button>
+      {starting ? <RefreshCw size={11} className="animate-spin" /> : <AiMark size={11} />}
+      <span className="max-w-[8rem] truncate">{name}</span>
+    </button>
   )
 
-  if (candidates.length <= 1) return trigger
+  if (!showPicker) return chip
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>{chip}</DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-          {t('agentSession.pickAgent')}
+          {t('composer.ownerChipPick')}
         </p>
         {candidates.map((candidate) => (
           <DropdownMenuItem
             key={candidate.id}
             className="gap-2 text-xs"
-            onSelect={() => void start(candidate.id)}
+            onSelect={() => void activate(candidate.id)}
           >
             <Bot size={12} className="text-text-muted" />
             <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
@@ -677,8 +611,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     /** Sender identity chosen on the suggestion card (user | agent). */
     sendAs?: 'user' | 'agent'
   } | null>(null)
-  const [drafting, setDrafting] = useState(false)
-  const [draftError, setDraftError] = useState<string | null>(null)
+  // Composer surface the operator is on. Sticky on `agent` while a meta
+  // session runs, so the next keystroke goes to the agent, not the customer.
+  const [composerMode, setComposerMode] = useState<ComposerMode>('reply')
+  // Transcript of the running meta session, owned here so a send in the
+  // composer and the inline session card stay in sync.
+  const [sessionMessages, setSessionMessages] = useState<ChatMessage[] | null>(null)
 
   // Active agents are @-mentionable in notes; a mention invokes the agent on
   // this thread and its answer lands as an internal note.
@@ -1018,7 +956,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   useEffect(() => {
     setComposerDraft(null)
-    setDraftError(null)
+    setComposerMode('reply')
   }, [threadId])
 
   const myMemberId = useMemo(() => {
@@ -1108,24 +1046,106 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [detail, creatingTask, t, navigate])
 
-  const handleDraftWithAi = useCallback(async (instruction = '') => {
-    if (!token || !detail || drafting) return
-    setDrafting(true)
-    setDraftError(null)
-    try {
-      const draft = await draftThreadReply(token, detail.thread.id, instruction)
-      if (draft) {
-        setComposerDraft({ body: draft, key: `ai-draft-${Date.now()}` })
-      } else {
-        setDraftError(t('actions.draftEmpty'))
+  const threadIdString = detail ? String(detail.thread.id) : null
+
+  const activeSession = useMemo(
+    () => (detail?.sessions ?? []).find((s) => s.state === 'active') ?? null,
+    [detail?.sessions],
+  )
+  const activeSessionId = activeSession?.id ?? null
+
+  // A running meta session owns the composer: the operator types to the agent
+  // until they explicitly switch back to Reply or Internal.
+  useEffect(() => {
+    if (activeSessionId) setComposerMode('agent')
+  }, [activeSessionId])
+
+  const loadSessionMessages = useCallback(
+    async (sessionId: string | null) => {
+      if (!token || !sessionId) {
+        setSessionMessages(null)
+        return
       }
-    } catch (err) {
-      const raw = formatApiErrorMessage(err, '')
-      setDraftError(/no active agent/i.test(raw) ? t('actions.draftNoAgent') : raw || t('actions.draftError'))
-    } finally {
-      setDrafting(false)
-    }
-  }, [token, detail, drafting, t])
+      try {
+        const rows = await bokitoListMessages(token, sessionId)
+        setSessionMessages(rows.filter((m) => m.role === 'user' || m.role === 'assistant'))
+      } catch {
+        setSessionMessages(null)
+      }
+    },
+    [token],
+  )
+
+  useEffect(() => {
+    void loadSessionMessages(activeSessionId)
+  }, [loadSessionMessages, activeSessionId])
+
+  const startSessionWith = useCallback(
+    async (agentId: string | null) => {
+      if (!token || !threadIdString) return
+      try {
+        await startAgentSession(token, threadIdString, agentId)
+        setComposerMode('agent')
+        onRefresh()
+        window.setTimeout(() => pinToBottom('smooth'), 400)
+      } catch {
+        toast.error(t('agentSession.startError'))
+      }
+    },
+    [token, threadIdString, onRefresh, pinToBottom, t],
+  )
+
+  // An @agent mention promotes the composer into that agent's meta session.
+  // Mentioning a different agent hands the meta conversation over: the running
+  // one is closed (or discarded when it has no turns yet) first.
+  const handleMentionInserted = useCallback(
+    async (item: MentionItem) => {
+      if (item.type === 'user') {
+        setComposerMode((prev) => (prev === 'reply' ? 'note' : prev))
+        return
+      }
+      if (item.type !== 'agent' || !token || !threadIdString) return
+      if (activeSession && activeSession.agentId && activeSession.agentId === item.id) {
+        setComposerMode('agent')
+        return
+      }
+      if (activeSession) {
+        try {
+          if (activeSession.messageCount > 0) {
+            await closeAgentSession(token, threadIdString, activeSession.id)
+          } else {
+            await discardAgentSession(token, threadIdString, activeSession.id)
+          }
+          toast.info(t('agentSession.switchedAgent', { name: item.name }))
+        } catch {
+          toast.error(t('agentSession.closeError'))
+          return
+        }
+      }
+      await startSessionWith(item.id)
+    },
+    [token, threadIdString, activeSession, startSessionWith, t],
+  )
+
+  const handleAgentMessage = useCallback(
+    async (bodyText: string) => {
+      if (!token || !threadIdString) return
+      const text = stripMentionMarkup(bodyText).trim()
+      if (!text) return
+      // Typing on the agent tab is enough to open the meta conversation.
+      let sessionId = activeSessionId
+      if (!sessionId) {
+        const started = await startAgentSession(token, threadIdString, detail?.thread.agentId ?? null)
+        sessionId = started?.id ?? null
+        if (!sessionId) return
+      }
+      await bokitoStreamMessage(token, sessionId, text, () => {})
+      await loadSessionMessages(sessionId)
+      onRefresh()
+      window.setTimeout(() => pinToBottom('smooth'), 120)
+    },
+    [token, threadIdString, activeSessionId, detail?.thread.agentId, loadSessionMessages, onRefresh, pinToBottom],
+  )
 
   const agentIdsAtStreamStartRef = useRef<Set<string>>(new Set())
   const wasStreamingRef = useRef(false)
@@ -1194,6 +1214,17 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       }
       const format = composerSurface?.includeSignature ? 'email' : 'plain'
       await onReply(bodyText, action, format, attachments, snoozeMinutes, extras)
+      // The customer answer is the outcome of the meta conversation, so the
+      // session checks out with it instead of lingering open.
+      if (token && threadIdString && activeSession) {
+        try {
+          await closeAgentSession(token, threadIdString, activeSession.id)
+          setComposerMode('reply')
+          onRefresh()
+        } catch {
+          // The reply is out; a stuck session is not worth failing the send.
+        }
+      }
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
     [
@@ -1205,38 +1236,20 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       detail,
       onDecisionResolved,
       onPatch,
+      threadIdString,
+      activeSession,
+      onRefresh,
     ],
   )
 
+  // Plain internal note. @agent mentions no longer invoke an agent here: the
+  // agent composer mode owns that conversation.
   const handleNote = useCallback(
     async (bodyText: string, attachments?: MessageAttachment[]) => {
       await onNote(bodyText, attachments)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
-      // @agent mentions in the note invoke those agents on this thread.
-      if (!token || !detail) return
-      const mentionedAgentIds = tokenizeMentions(bodyText)
-        .filter((t) => t.kind === 'mention' && t.targetType === 'agent')
-        .map((t) => (t.kind === 'mention' ? t.id : ''))
-      const uniqueIds = [...new Set(mentionedAgentIds.filter(Boolean))]
-      if (uniqueIds.length === 0) return
-      const instruction = stripMentionMarkup(bodyText)
-      for (const agentId of uniqueIds) {
-        const agentName = agents.find((a) => String(a.id) === agentId)?.name ?? t('listItem.assistant')
-        toast.info(t('threadChrome.agentWorking', { name: agentName }))
-        try {
-          await invokeSignalAgent(token, String(detail.thread.id), {
-            agentId,
-            instruction,
-            output: 'note',
-          })
-          onRefresh()
-          window.setTimeout(() => scrollToBottom('smooth'), 120)
-        } catch {
-          toast.error(t('threadChrome.agentFailed', { name: agentName }))
-        }
-      }
     },
-    [onNote, scrollToBottom, token, detail, agents, onRefresh, t],
+    [onNote, scrollToBottom],
   )
 
   const detailMatchesRoute =
@@ -1319,7 +1332,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     )
   }
 
-  const hasActiveSession = (detail.sessions ?? []).some((s) => s.state === 'active')
+  const hasActiveSession = activeSession != null
   // What the header's name slot shows; the " · email" suffix is skipped when
   // this already is the email address (no name known), to avoid "x@y · x@y".
   const contactDisplayName =
@@ -1845,6 +1858,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     <AgentSessionCard
                       session={item.session}
                       threadId={String(thread.id)}
+                      liveMessages={
+                        item.session.id === activeSessionId
+                          ? (sessionMessages ?? undefined)
+                          : undefined
+                      }
                       onChanged={onRefresh}
                       onUseAsReply={(text) => {
                         setComposerDraft({ body: text, key: `session-${Date.now()}` })
@@ -1924,6 +1942,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           surface={composerSurface}
           onReply={handleReply}
           onNote={handleNote}
+          onAgentMessage={handleAgentMessage}
+          mode={composerMode}
+          onModeChange={setComposerMode}
+          agentModeName={activeSession?.agentName ?? thread.agentName ?? null}
+          onMentionInserted={(item) => void handleMentionInserted(item)}
           saving={saving}
           lastInboundText={lastInboundText}
           replyDisabledNotice={
@@ -1970,45 +1993,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 {t('threadChrome.askAssistant')}
               </Button>
             ) : !isInternalThread(thread) ? (
-              <div className="flex items-center gap-2">
-                {draftError ? (
-                  <span className="text-[11px] text-status-error">
-                    {draftError}{' '}
-                    {/agent/i.test(draftError) ? (
-                      <Link to="/agents" className="font-medium text-accent hover:underline">
-                        {t('actions.openAgents')}
-                      </Link>
-                    ) : null}
-                  </span>
-                ) : null}
-                {!hasActiveSession ? (
-                  <AgentSessionLauncher
-                    threadId={String(thread.id)}
-                    disabled={saving}
-                    onStarted={() => {
-                      onRefresh()
-                      window.setTimeout(() => pinToBottom('smooth'), 400)
-                    }}
-                  />
-                ) : null}
-                <DraftWithAiButton
-                  drafting={drafting}
-                  disabled={
-                    saving ||
-                    thread.status === 'closed' ||
-                    thread.status === 'spam' ||
-                    mailboxDisconnected
-                  }
-                  disabledReason={
-                    mailboxDisconnected
-                      ? t('composer.draftNeedsMailbox')
-                      : thread.status === 'closed' || thread.status === 'spam'
-                        ? t('composer.draftUnavailable')
-                        : undefined
-                  }
-                  onDraft={(instruction) => void handleDraftWithAi(instruction)}
-                />
-              </div>
+              <OwnerAgentChip
+                threadId={String(thread.id)}
+                threadAgentId={thread.agentId}
+                threadAgentName={thread.agentName}
+                activeAgentName={activeSession?.agentName ?? null}
+                hasActiveSession={hasActiveSession}
+                disabled={saving}
+                onStart={startSessionWith}
+                onFocusAgentMode={() => setComposerMode('agent')}
+              />
             ) : null
           }
         />

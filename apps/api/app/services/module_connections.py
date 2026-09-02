@@ -90,7 +90,8 @@ async def _generic_rows(
         meta = _parse_json(conn.metadata_json)
         from app.services.moneybird import has_moneybird_credentials
 
-        creds = _parse_json(conn.credentials_json)
+        from app.services.crypto import get_connection_credentials
+        creds = get_connection_credentials(conn)
         has_creds = bool(creds) and (
             has_moneybird_credentials(creds)
             if conn.provider == "moneybird"
@@ -359,7 +360,9 @@ async def verify_module_connection(
         raise HTTPException(status_code=404, detail="Connection not found")
 
     meta = _parse_json(conn.metadata_json)
-    creds = _parse_json(conn.credentials_json)
+    from app.services.crypto import get_connection_credentials
+
+    creds = get_connection_credentials(conn)
     ok = False
     identity = str(meta.get("identity") or meta.get("email") or "").strip() or None
     error: str | None = None

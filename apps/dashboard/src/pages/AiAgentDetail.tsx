@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { Archive, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, ShieldCheck } from 'lucide-react'
+import { Archive, CalendarDays, Copy, Loader2, MessageSquare, MoreHorizontal, Pencil, ShieldCheck } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
@@ -16,6 +16,7 @@ import { AgentSignatureCard } from '../components/workforce/AgentSignatureCard'
 import { AgentVisualCard } from '../components/workforce/AgentVisualCard'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import { Input } from '../components/ui/input'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
@@ -31,6 +32,7 @@ import { agendaOccurrenceHref, workLogRunsPath } from '../lib/agenda-thread'
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
 import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
+import { bokitoUpdateAgent } from '../lib/bokito-api'
 import { archiveAgent, setLeadAgent } from '../lib/workforce-api'
 import { listAgentPassports, updateAgentPassport } from '../lib/govern-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
@@ -76,7 +78,10 @@ export default function AiAgentDetail() {
   const [openConversations, setOpenConversations] = useState<InboxThread[]>([])
   const [openConversationsTotal, setOpenConversationsTotal] = useState(0)
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
-  const [visualEditing, setVisualEditing] = useState(false)
+  const [nameEditing, setNameEditing] = useState(false)
+  const [draftName, setDraftName] = useState('')
+  const [nameBusy, setNameBusy] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [archiveBusy, setArchiveBusy] = useState(false)
@@ -165,6 +170,13 @@ export default function AiAgentDetail() {
   }, [load])
 
   useEffect(() => {
+    if (!nameEditing && agent) {
+      setDraftName(agent.name)
+      setNameError(null)
+    }
+  }, [agent, nameEditing])
+
+  useEffect(() => {
     if (loading || typeof window === 'undefined') return
     if (window.location.hash !== '#conversations') return
     const el = document.getElementById('conversations')
@@ -204,6 +216,26 @@ export default function AiAgentDetail() {
       setArchiveConfirmOpen(false)
     }
   }, [agent, archiveBusy, navigate, t])
+
+  const handleSaveName = useCallback(async () => {
+    if (!agent || !token || nameBusy) return
+    const trimmed = draftName.trim()
+    if (!trimmed) {
+      setNameError(t('workforce.agents.nameRequired'))
+      return
+    }
+    setNameBusy(true)
+    setNameError(null)
+    try {
+      await bokitoUpdateAgent(token, agent.id, { name: trimmed })
+      setAgent((prev) => (prev ? { ...prev, name: trimmed } : prev))
+      setNameEditing(false)
+    } catch (e) {
+      setNameError(e instanceof Error ? e.message : t('workforce.agents.instructionsSaveError'))
+    } finally {
+      setNameBusy(false)
+    }
+  }, [agent, draftName, nameBusy, t, token])
 
   const handleMakeLead = useCallback(async () => {
     if (!agent || leadBusy) return
@@ -291,33 +323,54 @@ export default function AiAgentDetail() {
                   imageUrl={agent.avatar_image_url}
                 />
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
-                    {isAdmin && agent.kind !== 'personal' ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-text-muted hover:text-text-heading"
-                        title={t('workforce.agents.visualEdit')}
-                        aria-label={t('workforce.agents.visualEdit')}
-                        aria-expanded={visualEditing}
-                        onClick={() => {
-                          setVisualEditing((open) => !open)
-                          if (!visualEditing) {
-                            requestAnimationFrame(() => {
-                              document.getElementById('agent-visual')?.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'nearest',
-                              })
-                            })
-                          }
-                        }}
-                      >
-                        <Pencil size={14} aria-hidden />
-                      </Button>
-                    ) : null}
-                  </div>
+                  {nameEditing ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                          value={draftName}
+                          onChange={(e) => setDraftName(e.target.value)}
+                          className="h-8 max-w-xs"
+                          aria-label={t('workforce.agents.instructionsName')}
+                          disabled={nameBusy}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void handleSaveName()
+                            if (e.key === 'Escape') setNameEditing(false)
+                          }}
+                        />
+                        <Button type="button" size="sm" onClick={() => void handleSaveName()} disabled={nameBusy}>
+                          {nameBusy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
+                          {t('common:actions.save')}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setNameEditing(false)}
+                          disabled={nameBusy}
+                        >
+                          {t('common:actions.cancel')}
+                        </Button>
+                      </div>
+                      {nameError ? <p className="text-[12px] text-status-error">{nameError}</p> : null}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
+                      {isAdmin && agent.kind !== 'personal' ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-text-muted hover:text-text-heading"
+                          title={t('workforce.agents.renameAgent')}
+                          aria-label={t('workforce.agents.renameAgent')}
+                          onClick={() => setNameEditing(true)}
+                        >
+                          <Pencil size={14} aria-hidden />
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
                   <p className="mt-0.5 text-sm text-text-muted">
                     {agentRoleLabel(agent.role_name || agent.role_slug, t)}
                     {agent.is_lead ? (
@@ -474,9 +527,6 @@ export default function AiAgentDetail() {
               avatarColor={agent.avatar_color}
               avatarImageUrl={agent.avatar_image_url}
               canEdit={isAdmin}
-              hideChrome
-              editing={visualEditing}
-              onEditingChange={setVisualEditing}
               onChanged={() => void load()}
             />
           ) : null}

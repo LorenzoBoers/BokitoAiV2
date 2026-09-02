@@ -14,6 +14,11 @@ from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDERS, PROVIDER_BY_SLUG, provider_id
 from app.services.mcp_auth import mcp_auth_headers as _mcp_auth_headers
+from app.services.crypto import (
+    encrypt_credentials_blob,
+    get_connection_credentials,
+    set_connection_credentials,
+)
 
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
@@ -78,16 +83,20 @@ async def connection_counts(session: AsyncSession, tenant_id: UUID) -> dict[str,
     )
     outlook = 0
     gmail = 0
+    smtp_imap = 0
     for provider, count in email_result.all():
         if provider == "outlook":
             outlook = int(count)
         elif provider in ("gmail", "mock"):
             gmail += int(count)
+        elif provider == "smtp_imap":
+            smtp_imap = int(count)
 
     return {
         "by_provider_id": by_provider,
         "email_outlook": outlook,
         "email_gmail": gmail,
+        "email_smtp_imap": smtp_imap,
     }
 
 
@@ -168,12 +177,18 @@ async def list_connected_summary(session: AsyncSession, tenant_id: UUID) -> dict
         counts[kind] = counts.get(kind, 0) + 1
 
     email = await connection_counts(session, tenant_id)
-    counts["inbox"] += int(email.get("email_outlook") or 0) + int(email.get("email_gmail") or 0)
-    counts["all"] += int(email.get("email_outlook") or 0) + int(email.get("email_gmail") or 0)
+    mailbox_n = (
+        int(email.get("email_outlook") or 0)
+        + int(email.get("email_gmail") or 0)
+        + int(email.get("email_smtp_imap") or 0)
+    )
+    counts["inbox"] += mailbox_n
+    counts["all"] += mailbox_n
     return {
         "connections": items,
         "email_outlook": email.get("email_outlook") or 0,
         "email_gmail": email.get("email_gmail") or 0,
+        "email_smtp_imap": email.get("email_smtp_imap") or 0,
         "counts": counts,
     }
 
@@ -229,7 +244,7 @@ async def create_api_key_connection(
         provider=provider,
         display_name=display_name or PROVIDER_BY_SLUG[provider]["name"],
         status="active",
-        credentials_json=json.dumps({"api_key": api_key}),
+        credentials_json=encrypt_credentials_blob({"api_key": api_key}),
         metadata_json=json.dumps({"auth_type": "api_key"}),
     )
     session.add(conn)
@@ -297,7 +312,7 @@ async def register_mcp_server(
         provider=provider,
         display_name=name,
         status="active",
-        credentials_json=json.dumps(credentials or {}),
+        credentials_json=encrypt_credentials_blob(credentials or {}),
         metadata_json=json.dumps(meta),
     )
     session.add(conn)
@@ -814,7 +829,7 @@ async def get_provider_access_token(
         conn = result.scalar_one_or_none()
     if not conn:
         return None
-    creds = _parse_json(conn.credentials_json)
+    creds = get_connection_credentials(conn)
     token = creds.get("access_token")
     return token if isinstance(token, str) and token else None
 
@@ -853,14 +868,11 @@ def _seed_mock_creds_if_missing(account: ChannelAccount) -> None:
     """
     if get_settings().is_production:
         return
-    try:
-        creds = json.loads(account.credentials_json or "{}")
-    except (json.JSONDecodeError, TypeError):
-        creds = {}
+    creds = get_connection_credentials(account)
     if isinstance(creds, dict) and creds.get("access_token"):
         return
-    account.credentials_json = json.dumps(
-        {"access_token": "mock-access-token", "mock": True}
+    set_connection_credentials(
+        account, {"access_token": "mock-access-token", "mock": True}
     )
 
 

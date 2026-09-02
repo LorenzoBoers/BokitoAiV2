@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { BookmarkPlus, ChevronDown, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Quote, Send, StickyNote } from 'lucide-react'
+import { BookmarkPlus, ChevronDown, Clock, MessageSquareText, Paperclip, Quote, Send, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ComposerCard } from '../ui/ComposerCard'
+import { ChannelGlyph } from '../ui/ChannelGlyph'
+import { AiMark } from '../ai/AiMark'
 import { useMembers } from '../../hooks/useMembers'
 import {
   DropdownMenu,
@@ -21,6 +23,7 @@ import type { MessageAttachment } from '../../lib/inbox-api'
 import {
   activeMentionQuery,
   filterMentionItems,
+  stripMentionMarkup,
   type MentionItem,
   type MentionQuery,
 } from '../../lib/mentions'
@@ -33,6 +36,9 @@ import MentionPopover from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
 import MessageAttachments from './MessageAttachments'
 
+/** Composer mode: customer reply, team internal, or sticky agent meta. */
+export type ComposerMode = 'reply' | 'note' | 'agent'
+
 type Props = {
   surface: ComposerSurface
   onReply: (
@@ -43,6 +49,8 @@ type Props = {
     extras?: { cc?: string; bcc?: string },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
+  /** Send into the active agent meta session (no customer delivery). */
+  onAgentMessage?: (bodyText: string) => Promise<void>
   saving: boolean
   disabled?: boolean
   extraActions?: ReactNode
@@ -53,6 +61,11 @@ type Props = {
   mentionExtras?: MentionItem[]
   /** Called when a mention is inserted (e.g. to invoke an agent on send). */
   onMentionInserted?: (item: MentionItem) => void
+  /** Controlled mode from the thread (agent sticky while session active). */
+  mode?: ComposerMode
+  onModeChange?: (mode: ComposerMode) => void
+  /** Active meta agent label for the agent tab. */
+  agentModeName?: string | null
   /** Stable id (thread id) to persist unsent drafts across thread switches. */
   persistKey?: string | null
   /** When set, outbound replies are blocked (e.g. mailbox disconnected) and
@@ -63,12 +76,6 @@ type Props = {
   suggestedCc?: string | null
   /** Last inbound customer text; Quote inserts it as a cited block. */
   lastInboundText?: string | null
-}
-
-function tabIcon(surface: ComposerSurface, tab: ComposerTab) {
-  if (tab === 'note') return StickyNote
-  if (surface.channel === 'email') return Mail
-  return MessageCircle
 }
 
 const draftStorageKey = (persistKey: string) => `inbox.draft.${persistKey}`
@@ -96,6 +103,7 @@ export default function ReplyComposer({
   surface,
   onReply,
   onNote,
+  onAgentMessage,
   saving,
   disabled,
   extraActions,
@@ -103,6 +111,9 @@ export default function ReplyComposer({
   draftKey,
   mentionExtras,
   onMentionInserted,
+  mode: modeProp,
+  onModeChange,
+  agentModeName,
   persistKey,
   replyDisabledNotice,
   suggestedCc,
@@ -111,7 +122,19 @@ export default function ReplyComposer({
   const { t } = useTranslation('communication')
   const navigate = useNavigate()
   const { token } = useAuth()
-  const [tab, setTab] = useState<ComposerTab>(surface.defaultTab)
+  const [uncontrolledTab, setUncontrolledTab] = useState<ComposerTab>(surface.defaultTab)
+  const mode: ComposerMode =
+    modeProp ?? (uncontrolledTab === 'note' ? 'note' : 'reply')
+  const setMode = (next: ComposerMode) => {
+    if (next === 'reply' && mode !== 'reply') {
+      // Structured mentions become plain @Name when returning to customer reply.
+      setBody((prev) => stripMentionMarkup(prev))
+    }
+    onModeChange?.(next)
+    if (modeProp === undefined) {
+      setUncontrolledTab(next === 'reply' ? 'reply' : 'note')
+    }
+  }
   // `body` keeps the raw mention markup (storage/API format); the textarea
   // shows `displayBody` where mentions read as `@Name` pills.
   const [body, setBody] = useState('')
@@ -166,6 +189,9 @@ export default function ReplyComposer({
     pendingCaretRef.current = applied.displayCaret
     setMentionQuery(null)
     setMentionIndex(0)
+    // Selecting a mention is intentional: switch toward Intern (parent may
+    // promote agent mentions further into agent mode).
+    if (mode === 'reply') setMode(item.type === 'agent' ? 'agent' : 'note')
     onMentionInserted?.(item)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
@@ -181,8 +207,10 @@ export default function ReplyComposer({
   const replyBlocked = replyDisabledNotice != null
 
   useEffect(() => {
-    // With replies blocked (e.g. mailbox disconnected) land on Note instead.
-    setTab(replyBlocked && surface.tabs.includes('note') ? 'note' : surface.defaultTab)
+    // With replies blocked (e.g. mailbox disconnected) land on Intern instead.
+    if (modeProp === undefined) {
+      setUncontrolledTab(replyBlocked && surface.tabs.includes('note') ? 'note' : surface.defaultTab)
+    }
     const stored = parseComposerDraft(readStoredDraft(persistKey))
     setBody(stored.body)
     setCc(stored.cc)
@@ -190,7 +218,7 @@ export default function ReplyComposer({
     setCcBccOpen(Boolean(stored.cc || stored.bcc))
     setDraftRestored(Boolean(stored.body || stored.cc || stored.bcc))
     setAttachments([])
-  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, replyBlocked, surface.tabs])
+  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, replyBlocked, surface.tabs, modeProp])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {
@@ -243,33 +271,43 @@ export default function ReplyComposer({
 
   useEffect(() => {
     if (draftBody != null && draftBody !== '') {
-      setTab('reply')
+      setMode('reply')
       setBody(draftBody)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- draftKey drives re-apply
   }, [draftKey, draftBody])
 
   const showReplyTab = surface.tabs.includes('reply')
   const showNoteTab = surface.tabs.includes('note')
+  const showAgentTab = Boolean(agentModeName) || mode === 'agent'
   const showCustomerActions =
     showReplyTab && surface.channel !== 'internal' && surface.channel !== 'assistant'
+  const isNote = mode === 'note'
+  const isAgent = mode === 'agent'
+  const isReply = mode === 'reply'
 
   const handleSubmit = async (
     action: 'send' | 'send_and_close' | 'send_and_pending',
     snoozeMinutes?: number,
   ) => {
-    if (tab !== 'note' && replyBlocked) return
+    if (isReply && replyBlocked) return
     const text = body.trim()
     if (!text && attachments.length === 0) return
     const payload = attachments.length ? attachments : undefined
     try {
-      if (tab === 'note') {
+      if (isAgent) {
+        if (!onAgentMessage) return
+        await onAgentMessage(text)
+      } else if (isNote) {
         await onNote(text, payload)
       } else {
+        // Customer reply: never treat structured mentions as agent invokes.
+        const replyText = stripMentionMarkup(text)
         const extras =
           surface.channel === 'email' && (cc.trim() || bcc.trim())
             ? { cc: cc.trim() || undefined, bcc: bcc.trim() || undefined }
             : undefined
-        await onReply(text, action, payload, snoozeMinutes, extras)
+        await onReply(replyText, action, payload, snoozeMinutes, extras)
       }
       setBody('')
       setAttachments([])
@@ -279,7 +317,12 @@ export default function ReplyComposer({
       setDraftRestored(false)
       writeStoredDraft(persistKey, '')
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, tab === 'note' ? t('composer.saveNoteError') : t('composer.sendError')))
+      toast.error(
+        formatApiErrorMessage(
+          err,
+          isNote || isAgent ? t('composer.saveNoteError') : t('composer.sendError'),
+        ),
+      )
     }
   }
 
@@ -325,8 +368,8 @@ export default function ReplyComposer({
       }
     }
     // Email replies are consequential (real customer mail): plain Enter adds a
-    // newline and Cmd/Ctrl+Enter sends. Chat and notes keep Enter-to-send.
-    const enterSends = !(surface.channel === 'email' && tab === 'reply')
+    // newline and Cmd/Ctrl+Enter sends. Chat, intern, and agent keep Enter-to-send.
+    const enterSends = !(surface.channel === 'email' && isReply)
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
       void handleSubmit('send')
@@ -338,9 +381,11 @@ export default function ReplyComposer({
     }
   }
 
-  const ReplyIcon = tabIcon(surface, 'reply')
-  const isNote = tab === 'note'
-  const replyLabel = t(`composer.channel.${surface.channel}`, { defaultValue: surface.replyLabel })
+  const channelLabel = t(`composer.channel.${surface.channel}`, { defaultValue: surface.replyLabel })
+  const replyTooltip = t('composer.channelTooltip', {
+    channel: channelLabel,
+    detail: surface.recipientValue ? ` · ${surface.recipientValue}` : '',
+  })
   const recipientLabel = t(
     surface.recipientLabel === 'To'
       ? 'composer.recipient.to'
@@ -363,22 +408,22 @@ export default function ReplyComposer({
           {showReplyTab ? (
             <button
               type="button"
-              onClick={() => setTab('reply')}
-              title={t('composer.tabHintReply')}
+              onClick={() => setMode('reply')}
+              title={replyTooltip}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                !isNote
+                isReply
                   ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
                   : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
               }`}
             >
-              <ReplyIcon size={11} />
-              {replyLabel}
+              <ChannelGlyph channel={surface.channel} size={12} />
+              {t('composer.tabReply')}
             </button>
           ) : null}
           {showNoteTab ? (
             <button
               type="button"
-              onClick={() => setTab('note')}
+              onClick={() => setMode('note')}
               title={t('composer.tabHintNote')}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 isNote
@@ -390,6 +435,21 @@ export default function ReplyComposer({
               {t('composer.tabNote')}
             </button>
           ) : null}
+          {showAgentTab ? (
+            <button
+              type="button"
+              onClick={() => setMode('agent')}
+              title={t('composer.tabHintAgent')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                isAgent
+                  ? 'border border-ai/30 bg-ai/10 font-semibold text-ai-ink'
+                  : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink'
+              }`}
+            >
+              <AiMark size={11} />
+              {t('composer.tabAgent', { name: agentModeName || t('agentSession.title') })}
+            </button>
+          ) : null}
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
 
@@ -399,7 +459,7 @@ export default function ReplyComposer({
           </div>
         ) : null}
 
-        {!isNote && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
+        {!isNote && !isAgent && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
           <div
             className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]"
             title={surface.includeSignature ? t('composer.withSignature') : undefined}
@@ -501,11 +561,11 @@ export default function ReplyComposer({
           </div>
         ) : null}
 
-        {!isNote && replyBlocked ? null : (
+        {!isNote && !isAgent && replyBlocked ? null : (
         <ComposerCard
           ref={textareaRef}
           id="inbox-reply-composer"
-          mode={isNote ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
+          mode={isNote || isAgent ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
           value={displayBody}
           onChange={(e) => {
             const el = e.currentTarget
@@ -528,17 +588,23 @@ export default function ReplyComposer({
           highlighter={<MentionHighlight raw={body} />}
           disabled={disabled || saving}
           placeholder={
-            isNote
-              ? t('composer.notePlaceholder')
-              : t(surface.replyPlaceholderKey, {
-                  ...surface.replyPlaceholderParams,
-                  defaultValue: surface.replyPlaceholder,
+            isAgent
+              ? t('composer.agentPlaceholder', {
+                  name: agentModeName || t('agentSession.title'),
                 })
+              : isNote
+                ? t('composer.notePlaceholder')
+                : t(surface.replyPlaceholderKey, {
+                    ...surface.replyPlaceholderParams,
+                    defaultValue: surface.replyPlaceholder,
+                  })
           }
           className={
-            isNote
-              ? 'border-border/70 border-l-[3px] border-l-border bg-bg-elevated/40'
-              : 'border-border/60 bg-bg-surface'
+            isAgent
+              ? 'border-ai/30 border-l-[3px] border-l-ai/50 bg-ai/[0.06]'
+              : isNote
+                ? 'border-border/70 border-l-[3px] border-l-border bg-bg-elevated/40'
+                : 'border-border/60 bg-bg-surface'
           }
           overlay={
             mentionOpen ? (
@@ -558,7 +624,7 @@ export default function ReplyComposer({
             className="hidden"
             onChange={(e) => void onPickFiles(e.target.files)}
           />
-          {!isNote ? (
+          {!isNote && !isAgent ? (
             <DropdownMenu onOpenChange={(open) => open && void loadSavedReplies()}>
               <DropdownMenuTrigger asChild>
                 <button
@@ -625,24 +691,28 @@ export default function ReplyComposer({
               disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
               onClick={() => void handleSubmit('send')}
               title={
-                isNote
-                  ? t('composer.addNoteTitle')
-                  : surface.channel === 'email'
-                    ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
-                    : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
+                isAgent
+                  ? t('composer.sendAgent', { name: agentModeName || t('agentSession.title') })
+                  : isNote
+                    ? t('composer.sendIntern')
+                    : surface.channel === 'email'
+                      ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
+                      : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
               }
               className={`flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40 ${
-                isNote
-                  ? 'bg-bg-elevated text-text-primary ring-1 ring-border/70 hover:bg-bg-hover'
-                  : 'bg-accent text-accent-fg hover:bg-accent-hover'
-              } ${!isNote && showCustomerActions ? 'rounded-none' : 'rounded-xl'}`}
+                isAgent
+                  ? 'bg-ai text-ai-fg hover:opacity-90'
+                  : isNote
+                    ? 'bg-bg-elevated text-text-primary ring-1 ring-border/70 hover:bg-bg-hover'
+                    : 'bg-accent text-accent-fg hover:bg-accent-hover'
+              } ${isReply && showCustomerActions ? 'rounded-none' : 'rounded-xl'}`}
             >
-              {isNote ? <StickyNote size={13} /> : <Send size={13} />}
-              {!isNote && surface.channel === 'email' ? (
+              {isAgent ? <AiMark size={13} /> : isNote ? <StickyNote size={13} /> : <Send size={13} />}
+              {isReply && surface.channel === 'email' ? (
                 <span className="text-[10px] font-medium opacity-90">{t('composer.sendShortcut')}</span>
               ) : null}
             </button>
-            {!isNote && showCustomerActions ? (
+            {isReply && showCustomerActions ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

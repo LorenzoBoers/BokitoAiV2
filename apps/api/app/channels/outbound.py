@@ -98,7 +98,7 @@ async def _workspace_email_account(
     )
     if primary:
         return primary
-    for preferred in ("gmail", "outlook", "bokito", "mock"):
+    for preferred in ("gmail", "outlook", "smtp_imap", "bokito", "mock"):
         match = next((a for a in candidates if a.provider == preferred), None)
         if match:
             return match

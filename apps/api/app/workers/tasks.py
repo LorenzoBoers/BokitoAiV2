@@ -482,7 +482,7 @@ async def sync_email_mailboxes_job(ctx):
             select(ChannelAccount).where(
                 ChannelAccount.channel == "email",
                 ChannelAccount.is_enabled.is_(True),
-                ChannelAccount.provider.in_(("gmail", "outlook")),
+                ChannelAccount.provider.in_(("gmail", "outlook", "smtp_imap")),
             )
         )
         accounts = list(result.scalars().all())
@@ -593,6 +593,35 @@ async def sync_calendar_connections_job(ctx):
         return {"connections": synced, "errors": errors}
 
 
+async def nudge_idle_agent_sessions_job(ctx):
+    """Offer a checkout on inline agent sessions the operator walked away from."""
+    from app.services.agent_sessions import nudge_idle_sessions
+
+    async with async_session_factory() as session:
+        return await nudge_idle_sessions(session)
+
+
+async def purge_retention_job(ctx):
+    """Daily: purge SignalMessage / CalendarEvent past tenant retention TTLs."""
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.services.privacy import purge_expired_for_tenant
+
+    async with async_session_factory() as session:
+        tenants = (await session.execute(select(Tenant))).scalars().all()
+        totals = {"messages_deleted": 0, "calendar_deleted": 0, "tenants": 0}
+        for tenant in tenants:
+            try:
+                out = await purge_expired_for_tenant(session, tenant)
+                totals["messages_deleted"] += out.get("messages_deleted", 0)
+                totals["calendar_deleted"] += out.get("calendar_deleted", 0)
+                totals["tenants"] += 1
+            except Exception:
+                continue
+        return totals
+
+
 class WorkerSettings:
     # Triggers + learning are scheduled by the in-process API scheduler
     # (app.services.trigger_scheduler); the worker only handles queued jobs
@@ -604,10 +633,12 @@ class WorkerSettings:
         run_workstream_orchestrated,
         sync_email_mailboxes_job,
         sync_calendar_connections_job,
+        purge_retention_job,
         deliver_webhook_job,
         index_project_repo_job,
         index_module_source_job,
         reindex_module_sources_job,
+        nudge_idle_agent_sessions_job,
     ]
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
@@ -615,9 +646,11 @@ class WorkerSettings:
     cron_jobs = [
         cron(sync_email_mailboxes_job, second=0),
         cron(sync_calendar_connections_job, minute={0, 15, 30, 45}),
+        cron(purge_retention_job, hour=4, minute=20),
         cron(send_tenant_digests_job, hour=6, minute=0),
         cron(snapshot_platform_metrics_job, hour=5, minute=30),
         cron(reindex_module_sources_job, weekday=0, hour=3, minute=15),
+        cron(nudge_idle_agent_sessions_job, second=30),
     ]
 
 

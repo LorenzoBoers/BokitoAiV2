@@ -1,7 +1,7 @@
 ---
 title: Zo werken Agents
 intro: De bibliotheek van AI-werkers. Communicatie is waar ze praten; deze pagina is waar je ze aanneemt en brief.
-description: Brief bedrijfsagents, zet chattoegang, archiveer ze, voeg een handtekening toe en stel de visuele identiteit in.
+description: Brief bedrijfsagents, zet chattoegang, archiveer ze, voeg een handtekening toe en stel initialen of icoon in.
 keywords: agents, ai-workforce, archiveren, chattoegang, handtekening, avatar, icoon, standaardagent
 sort: 10
 related: govern,knowledge,communication,agenda
@@ -48,13 +48,13 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 3. Vul een platte-teksthandtekening in. Regelafbrekingen blijven staan. Wanneer de agent namens zichzelf mailt, voegt Bokito altijd een korte regel “Beantwoord door een AI-agent · Powered by Bokito AI” toe met een link naar [bokito.ai](https://bokito.ai).
 4. Sla op. Goedkeuringen voor deze agent gebruiken die standaard tot je op de kaart een andere Send as kiest.
 
-## Stel icoon, kleur of foto in
+## Stel initialen of icoon in
 
 1. Open een bedrijfsagent.
 2. Op de kaart **Visuele identiteit** kies **Bewerken**.
-3. Kies **Initialen**, **Icoon** (met kleur) of **Afbeelding** (upload een foto), en sla op.
+3. Kies **Initialen** of **Icoon**, en sla op. Agents gebruiken altijd het platform-AI-violet — er is geen eigen kleur- of fotokiezer.
 
-Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Berichten, de e-mailhandtekening van de standaardagent (foto indien gezet) en de webchat-headerbubble van de antwoordingende agent.
+Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Berichten en de webchat-headerbubble van de antwoordingende agent.
 
 ## Plan de agent
 

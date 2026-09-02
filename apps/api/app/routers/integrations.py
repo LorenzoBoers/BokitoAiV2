@@ -773,15 +773,14 @@ async def platform_oauth_start(
             except ValueError:
                 conn = None
             if conn is not None:
-                import json as _json
+                from app.services.crypto import get_connection_credentials, set_connection_credentials
 
-                creds = {}
                 try:
-                    creds = _json.loads(conn.credentials_json or "{}")
+                    creds = get_connection_credentials(conn)
                 except Exception:
                     creds = {}
                 if not creds.get("access_token"):
-                    conn.credentials_json = _json.dumps({"mock": True})
+                    set_connection_credentials(conn, {"mock": True})
                     session.add(conn)
                     await session.commit()
                     await session.refresh(conn)

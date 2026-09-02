@@ -61,12 +61,9 @@ def normalize_inbound(payload: dict[str, Any], account: ChannelAccount) -> Inbou
 
 
 def _credentials(account: ChannelAccount) -> dict[str, Any]:
-    try:
-        data = json.loads(account.credentials_json or "{}")
-        return data if isinstance(data, dict) else {}
-    except json.JSONDecodeError:
-        return {}
+    from app.services.crypto import get_connection_credentials
 
+    return get_connection_credentials(account)
 
 def _parse_address_list(raw: str | None) -> list[str]:
     if not raw:
@@ -291,7 +288,9 @@ async def _refresh_access_token(
     creds["access_token"] = access
     if tokens.get("refresh_token"):
         creds["refresh_token"] = tokens["refresh_token"]
-    account.credentials_json = json.dumps(creds)
+    from app.services.crypto import set_connection_credentials
+
+    set_connection_credentials(account, creds)
     if session is not None:
         session.add(account)
         await session.commit()
@@ -409,6 +408,24 @@ async def send_via_provider(
             "resend send failed status=%s body=%s", res.status_code, res.text[:300]
         )
         return f"failed:{res.status_code}", final_html
+
+    if account.provider == "smtp_imap":
+        from app.services.smtp_imap import send_smtp
+
+        status = await send_smtp(
+            account,
+            to_address=to_address,
+            subject=subject,
+            body_text=body_text,
+            body_html=final_html,
+            cc=cc,
+            bcc=bcc,
+            in_reply_to=in_reply_to,
+            references=references,
+            attachments=attachment_payloads,
+            from_display_name=from_display_name,
+        )
+        return status, final_html
 
     creds = _credentials(account)
     token = creds.get("access_token")

@@ -93,6 +93,14 @@ async def resolve_decision(
                     override_name = mcp_key
             await set_tool_override(session, tenant_id, override_name, "allow")
 
+        if payload.get("session_checkout"):
+            # Inline agent session checkout: end the session, or send it back
+            # to work. The card is the only place a session can be closed
+            # from the agent side.
+            from app.services.agent_sessions import apply_checkout_choice
+
+            await apply_checkout_choice(session, tenant_id, payload, user_id=user_id)
+
         if action_type == "enable_module":
             slug = str(payload.get("module") or "").strip()
             if slug:
@@ -208,6 +216,7 @@ async def resolve_decision(
             "add_module_source",
             "accept_platform_change",
             "orchestration_continue",
+            "session_checkout",
         ):
             from app.tools import execute_tool
             from app.tools.registry import get_tool_spec

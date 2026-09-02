@@ -109,6 +109,12 @@ def resolve_ai_mode(
     channel: str,
 ) -> str:
     """Effective AI mode: account overrides tenant, Govern allowance clamps."""
+    from app.services.privacy import tenant_allows_llm_message_bodies
+
+    if tenant is not None and not tenant_allows_llm_message_bodies(tenant):
+        # Privacy setting: do not send message bodies to LLM providers.
+        return "off"
+
     ai_config = account_ai_config(account)
     mode = ai_config.get("mode")
     if mode in AI_MODES:

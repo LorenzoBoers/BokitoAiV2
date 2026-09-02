@@ -183,6 +183,12 @@ def default_tenant_settings() -> dict:
         "require_2fa": False,
         "allow_platform_support": True,
     }
+    base["privacy"] = {
+        "retention_messages_days": 365,
+        "retention_calendar_days": 365,
+        "retention_audit_days": 730,
+        "llm_may_use_message_bodies": True,
+    }
     return base
 
 

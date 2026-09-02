@@ -316,19 +316,27 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
     if signal.context_signal_id:
         transcript = await context_thread_transcript(session, signal.context_signal_id)
         if transcript:
+            intro = (
+                "[Context] The teammate brought you into this customer "
+                "conversation. Use it to ground your answers, and act on it "
+                "when that helps: look things up, propose the next reply with "
+                "suggest_thread_reply (the teammate approves it), or continue "
+                "with the contact yourself via take_over_conversation. Offer "
+                "a draft when a reply is clearly what they need. Your own "
+                "messages here stay internal.\n"
+            )
+            if signal.session_state == "active":
+                # The session ends through a decision card, never by the agent
+                # declaring itself done in prose.
+                intro += (
+                    "This is an inline session on that conversation. When the "
+                    "work is done, call propose_session_checkout with a short "
+                    "summary of what you did and what you recommend; the "
+                    "teammate ends the session or tells you to keep going. Do "
+                    "not ask them to close it in plain text.\n"
+                )
             remaining = [
-                {
-                    "role": "user",
-                    "content": (
-                        "[Context] The teammate brought you into this customer "
-                        "conversation. Use it to ground your answers, and act on it "
-                        "when that helps: look things up, propose the next reply with "
-                        "suggest_thread_reply (the teammate approves it), or continue "
-                        "with the contact yourself via take_over_conversation. Offer "
-                        "a draft when a reply is clearly what they need. Your own "
-                        "messages here stay internal.\n" + transcript
-                    ),
-                },
+                {"role": "user", "content": intro + transcript},
                 {"role": "assistant", "content": "Got it, I have the thread context."},
                 *remaining,
             ]

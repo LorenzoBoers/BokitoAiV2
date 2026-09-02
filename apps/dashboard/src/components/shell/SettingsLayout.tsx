@@ -36,7 +36,10 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   },
   {
     labelKey: 'settings.groups.govern',
-    links: [{ labelKey: 'settings.links.govern', to: '/settings/govern', hintKey: 'settings.hints.govern' }],
+    links: [
+      { labelKey: 'settings.links.govern', to: '/settings/govern', hintKey: 'settings.hints.govern' },
+      { labelKey: 'settings.links.trust', to: '/settings/trust', hintKey: 'settings.hints.trust' },
+    ],
   },
   {
     labelKey: 'settings.groups.advanced',

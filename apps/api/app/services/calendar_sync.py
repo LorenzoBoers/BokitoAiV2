@@ -83,7 +83,9 @@ def _parse_graph_dt(value: dict[str, Any] | None, *, all_day: bool) -> datetime:
 
 
 async def _access_token(session: AsyncSession, conn: IntegrationConnection) -> str | None:
-    creds = _parse_json(conn.credentials_json)
+    from app.services.crypto import get_connection_credentials, set_connection_credentials
+
+    creds = get_connection_credentials(conn)
     if creds.get("mock"):
         return None
     token = str(creds.get("access_token") or "").strip()
@@ -104,7 +106,7 @@ async def _access_token(session: AsyncSession, conn: IntegrationConnection) -> s
                 expires_in = refreshed.get("expires_in")
                 if expires_in:
                     creds["expires_at"] = datetime.utcnow().timestamp() + int(expires_in)
-                conn.credentials_json = json.dumps(creds)
+                set_connection_credentials(conn, creds)
                 session.add(conn)
                 await session.commit()
                 token = str(creds["access_token"])
@@ -384,7 +386,8 @@ async def sync_connection(
     if conn.status != "active":
         return {"connection_id": str(conn.id), "synced": 0, "status": "inactive"}
 
-    creds = _parse_json(conn.credentials_json)
+    from app.services.crypto import get_connection_credentials
+    creds = get_connection_credentials(conn)
     if creds.get("mock") or not creds.get("access_token"):
         return await _seed_mock_events(session, conn)
 
@@ -520,7 +523,8 @@ async def create_external_event(
     conn = await session.get(IntegrationConnection, connection_id)
     if conn is None or conn.tenant_id != tenant_id or conn.provider not in CALENDAR_PROVIDERS:
         raise ValueError("Calendar connection not found")
-    creds = _parse_json(conn.credentials_json)
+    from app.services.crypto import get_connection_credentials
+    creds = get_connection_credentials(conn)
     if creds.get("mock") or not creds.get("access_token"):
         # Local-only demo write.
         row = CalendarEvent(
@@ -633,7 +637,8 @@ async def update_external_event(
     conn = await session.get(IntegrationConnection, row.connection_id)
     if conn is None:
         raise ValueError("Calendar connection not found")
-    creds = _parse_json(conn.credentials_json)
+    from app.services.crypto import get_connection_credentials
+    creds = get_connection_credentials(conn)
     mock_or_local = bool(creds.get("mock")) or (row.external_id or "").startswith(
         ("mock-", "local-")
     )
@@ -718,7 +723,8 @@ async def delete_external_event(
         await session.delete(row)
         await session.commit()
         return
-    creds = _parse_json(conn.credentials_json)
+    from app.services.crypto import get_connection_credentials
+    creds = get_connection_credentials(conn)
     token = None if creds.get("mock") else await _access_token(session, conn)
     if token and row.external_id and not row.external_id.startswith(("mock-", "local-")):
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}

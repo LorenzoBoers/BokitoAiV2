@@ -71,7 +71,10 @@ export const AGENT_AVATAR_ICONS: Record<AgentAvatarIconKey, LucideIcon> = {
   lightbulb: Lightbulb,
 }
 
-/** Hex swatches mirrored from the API allow-list. */
+/** Platform AI tint — agents share violet identity; no per-agent color picker. */
+export const DEFAULT_AGENT_AVATAR_COLOR = '#7c3aed'
+
+/** Hex swatches mirrored from the API allow-list (legacy stored values still render). */
 export const AGENT_AVATAR_COLORS = [
   '#4652f2',
   '#7c3aed',

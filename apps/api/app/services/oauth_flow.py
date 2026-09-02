@@ -118,7 +118,9 @@ async def _store_email_credentials(
 ) -> None:
     account = await ensure_email_account(session, tenant_id, provider, email)
     creds = _token_credentials(tokens)
-    account.credentials_json = json.dumps(creds)
+    from app.services.crypto import set_connection_credentials
+
+    set_connection_credentials(account, creds)
     account.is_enabled = True
     session.add(account)
     await session.commit()
@@ -170,7 +172,9 @@ async def _store_integration_credentials(
         )
         conn = result.scalar_one()
     creds = _token_credentials(tokens)
-    conn.credentials_json = json.dumps(creds)
+    from app.services.crypto import set_connection_credentials
+
+    set_connection_credentials(conn, creds)
     meta = json.loads(conn.metadata_json or "{}")
     if not isinstance(meta, dict):
         meta = {}

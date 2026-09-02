@@ -344,6 +344,44 @@ async def _suggest_thread_reply(ctx: ToolContext, tool_input: dict[str, Any]) ->
     }
 
 
+async def _propose_session_checkout(
+    ctx: ToolContext, tool_input: dict[str, Any]
+) -> dict[str, Any]:
+    """Offer to wrap up the inline session you are working in.
+
+    The card lands on the host conversation so the whole team sees how the
+    session ended. Ending is the operator's call: this tool only proposes.
+    """
+    from app.services.agent.style import strip_emoji
+    from app.services.agent_sessions import propose_checkout, resolve_active_session
+
+    signal_id = _target_signal_id(ctx, tool_input)
+    if not signal_id:
+        return {"error": "signal_id required"}
+
+    conversation = await resolve_active_session(
+        ctx.session,
+        ctx.tenant_id,
+        signal_id,
+        agent_id=ctx.agent.id if ctx.agent else None,
+    )
+    if conversation is None:
+        return {"error": "No active agent session on this conversation"}
+
+    summary = strip_emoji(str(tool_input.get("summary") or "")).strip()
+    if not summary:
+        return {"error": "summary required"}
+
+    return await propose_checkout(
+        ctx.session,
+        ctx.tenant_id,
+        conversation,
+        summary=summary,
+        options=tool_input.get("options"),
+        user_id=ctx.user_id,
+    )
+
+
 async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Continue the customer conversation yourself: become its handling agent.
 
@@ -1145,6 +1183,53 @@ register_tool(
         },
         handler=_suggest_thread_reply,
         # Proposing to a human is the safe path; it never waits on approval.
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="propose_session_checkout",
+        description=(
+            "Wrap up the inline session you were brought into: propose a checkout "
+            "on the conversation with a short summary of what you did and what "
+            "you recommend. The teammate ends the session or tells you to keep "
+            "going. Call this when the work is done instead of asking in chat. "
+            "Options are optional; use kind=apply_actions to label the concrete "
+            "actions you already performed. End and continue are always offered."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "summary": {
+                    "type": "string",
+                    "description": (
+                        "One short paragraph: what you did and what is left. "
+                        "It becomes the session outcome on the thread."
+                    ),
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "label": {"type": "string"},
+                            "kind": {
+                                "type": "string",
+                                "enum": ["end_only", "continue", "apply_actions"],
+                            },
+                        },
+                        "required": ["label", "kind"],
+                    },
+                },
+            },
+            "required": ["summary"],
+        },
+        handler=_propose_session_checkout,
+        # Proposing a checkout is a human gate by construction.
         gated=False,
     )
 )

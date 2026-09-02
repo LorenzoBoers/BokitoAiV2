@@ -1,8 +1,8 @@
 ---
 title: Connect channels
 intro: Bring customer mail and other inboxes into Communication.
-description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, WhatsApp or Slack, and read each channel's state and checks.
-keywords: channels, gmail, outlook, mailbox, bokito address, relay, channel state, routing, signature
+description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP, WhatsApp or Slack, and read each channel's state and checks.
+keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
@@ -21,7 +21,16 @@ Channels are how customers reach the workspace. Open **Settings**, then **Email 
 3. Pick **Email**, **WhatsApp Business**, **Slack workspace**, or **Website chat**. **Email** opens a second step with **Gmail**, **Outlook**, **SMTP / IMAP** and **Bokito address**.
 4. Finish the form for that choice. The new row appears in the **Channels** list.
 
-SMTP / IMAP is not available yet. Use a Bokito address and forward your mail to it.
+## Connect SMTP / IMAP
+
+Use this when your provider has no Gmail or Outlook OAuth card (for example Hostinger, cPanel, or a custom domain mailbox).
+
+1. Choose **Add channel**, then **Email**, then **SMTP / IMAP**.
+2. Under **Prepare**, enable IMAP in the mailbox settings and prefer an app password when the provider offers one. Typical ports are IMAP **993** with SSL and SMTP **587** with STARTTLS (or **465** with SSL).
+3. Under **Enter details**, fill **Email address**, **Username** (defaults to the email), **Password**, **IMAP host** / port / SSL, and **SMTP host** / port / security. Turn on **Same host for IMAP and SMTP** when both share one hostname.
+4. Choose **Connect and verify**. Bokito logs in to IMAP and SMTP; on success the row appears in **Channels** and Inbox mail syncs into Communication. Replies send through SMTP from this address.
+
+If verify fails with a network error, outbound ports 993, 587 or 465 may be blocked on the server that runs the API or workers.
 
 ## Create a Bokito address
 

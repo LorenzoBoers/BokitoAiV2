@@ -148,6 +148,7 @@ export const appRoutes = {
     list: '/channels/accounts',
     byId: (id: string) => `/channels/accounts/${id}`,
     visibility: (id: string) => `/channels/accounts/${id}/visibility`,
+    verify: (id: string) => `/channels/accounts/${id}/verify`,
     whatsappSetup: '/channels/whatsapp/setup',
   },
   channels: {
@@ -171,6 +172,11 @@ export const appRoutes = {
   },
   agenda: {
     occurrencesQuery: (params: URLSearchParams) => withQuery('/agenda', params),
+  },
+  privacy: {
+    settings: '/privacy/settings',
+    export: '/privacy/export',
+    eraseSubject: '/privacy/erase-subject',
   },
   notifications: {
     list: '/notifications',

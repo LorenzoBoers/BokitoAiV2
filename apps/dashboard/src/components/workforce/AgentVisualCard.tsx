@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ImagePlus, Loader2, Pencil } from 'lucide-react'
+import { Loader2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card } from '../ui/card'
 import { Button } from '../ui/button'
@@ -8,11 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { AiAvatar } from '../ui/AiAvatar'
 import { useAuth } from '../../context/AuthContext'
 import { bokitoUpdateAgent } from '../../lib/bokito-api'
-import { uploadAttachment } from '../../lib/uploads-api'
 import {
-  AGENT_AVATAR_COLORS,
   AGENT_AVATAR_ICON_KEYS,
   AGENT_AVATAR_ICONS,
+  DEFAULT_AGENT_AVATAR_COLOR,
   type AgentAvatarKind,
 } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
@@ -35,11 +34,17 @@ type Props = {
 
 function normalizeKind(value: string | null | undefined): AgentAvatarKind {
   const kind = (value ?? '').trim().toLowerCase()
-  if (kind === 'icon' || kind === 'image') return kind
+  // Image remains readable if already set, but the editor only offers initials/icon.
+  if (kind === 'icon') return 'icon'
+  if (kind === 'image') return 'image'
   return 'initials'
 }
 
-/** Visual identity card: initials, Lucide icon + color, or uploaded photo. */
+function editorKind(value: string | null | undefined): 'initials' | 'icon' {
+  return normalizeKind(value) === 'icon' ? 'icon' : 'initials'
+}
+
+/** Visual identity: name initials or optional Lucide icon (platform AI tint, no color picker). */
 export function AgentVisualCard({
   agentId,
   agentName,
@@ -56,41 +61,29 @@ export function AgentVisualCard({
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation()
   const { token } = useAuth()
-  const fileRef = useRef<HTMLInputElement>(null)
   const [uncontrolledEditing, setUncontrolledEditing] = useState(false)
   const editing = editingProp ?? uncontrolledEditing
   const setEditing = (next: boolean) => {
     onEditingChange?.(next)
     if (editingProp === undefined) setUncontrolledEditing(next)
   }
-  const [kind, setKind] = useState<AgentAvatarKind>(normalizeKind(avatarKind))
+  const [kind, setKind] = useState<'initials' | 'icon'>(editorKind(avatarKind))
   const [icon, setIcon] = useState(avatarIcon ?? 'bot')
-  const [color, setColor] = useState(avatarColor ?? AGENT_AVATAR_COLORS[0])
-  const [imageUrl, setImageUrl] = useState(avatarImageUrl ?? '')
   const [busy, setBusy] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!editing) {
-      setKind(normalizeKind(avatarKind))
+      setKind(editorKind(avatarKind))
       setIcon(avatarIcon ?? 'bot')
-      setColor(avatarColor ?? AGENT_AVATAR_COLORS[0])
-      setImageUrl(avatarImageUrl ?? '')
       setError(null)
     }
-  }, [avatarKind, avatarIcon, avatarColor, avatarImageUrl, editing])
-
-  const previewColor = color
+  }, [avatarKind, avatarIcon, editing])
 
   if (hideChrome && !editing) return null
 
   const save = async () => {
     if (!token || busy) return
-    if (kind === 'image' && !imageUrl.trim()) {
-      setError(t('workforce.agents.visualImageRequired'))
-      return
-    }
     if (kind === 'icon' && !icon) {
       setError(t('workforce.agents.visualIconRequired'))
       return
@@ -101,8 +94,8 @@ export function AgentVisualCard({
       await bokitoUpdateAgent(token, agentId, {
         avatar_kind: kind,
         avatar_icon: kind === 'icon' ? icon : null,
-        avatar_color: color,
-        avatar_image_url: kind === 'image' ? imageUrl.trim() : null,
+        avatar_color: DEFAULT_AGENT_AVATAR_COLOR,
+        avatar_image_url: null,
       })
       toast.success(t('workforce.agents.visualSaved'))
       setEditing(false)
@@ -114,21 +107,8 @@ export function AgentVisualCard({
     }
   }
 
-  const onPickImage = async (file: File | null) => {
-    if (!file || !token) return
-    setUploading(true)
-    setError(null)
-    try {
-      const uploaded = await uploadAttachment(token, file)
-      setImageUrl(uploaded.url)
-      setKind('image')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('workforce.agents.visualUploadError'))
-    } finally {
-      setUploading(false)
-      if (fileRef.current) fileRef.current.value = ''
-    }
-  }
+  const previewKind = editing ? kind : avatarKind
+  const displayKind = normalizeKind(previewKind)
 
   return (
     <Card className="px-4 py-3" id="agent-visual">
@@ -163,17 +143,17 @@ export function AgentVisualCard({
           size={48}
           kind={editing ? kind : avatarKind}
           icon={editing ? (kind === 'icon' ? icon : null) : avatarIcon}
-          color={editing ? previewColor : avatarColor}
-          imageUrl={editing ? (kind === 'image' ? imageUrl : null) : avatarImageUrl}
+          color={DEFAULT_AGENT_AVATAR_COLOR}
+          imageUrl={editing ? null : avatarImageUrl}
         />
         <p className="text-sm text-text-secondary">
-          {t(`workforce.agents.visualKind.${normalizeKind(editing ? kind : avatarKind)}`)}
+          {t(`workforce.agents.visualKind.${displayKind === 'image' ? 'image' : displayKind}`)}
         </p>
       </div>
 
       {editing ? (
         <div className="mt-3 space-y-3">
-          <Tabs value={kind} onValueChange={(v) => setKind(normalizeKind(v))}>
+          <Tabs value={kind} onValueChange={(v) => setKind(v === 'icon' ? 'icon' : 'initials')}>
             <TabsList className="h-9 w-full sm:w-auto">
               <TabsTrigger value="initials" className="flex-1 text-xs sm:flex-none">
                 {t('workforce.agents.visualKind.initials')}
@@ -181,38 +161,10 @@ export function AgentVisualCard({
               <TabsTrigger value="icon" className="flex-1 text-xs sm:flex-none">
                 {t('workforce.agents.visualKind.icon')}
               </TabsTrigger>
-              <TabsTrigger value="image" className="flex-1 text-xs sm:flex-none">
-                {t('workforce.agents.visualKind.image')}
-              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="initials" className="mt-3 space-y-3">
+            <TabsContent value="initials" className="mt-3">
               <p className="text-sm text-text-muted">{t('workforce.agents.visualInitialsHint')}</p>
-              <div>
-                <p className="mb-2 text-xs font-medium text-text-secondary">
-                  {t('workforce.agents.visualPickColor')}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {AGENT_AVATAR_COLORS.map((hex) => {
-                    const selected = color.toLowerCase() === hex
-                    return (
-                      <button
-                        key={hex}
-                        type="button"
-                        title={hex}
-                        aria-label={hex}
-                        aria-pressed={selected}
-                        onClick={() => setColor(hex)}
-                        className={cn(
-                          'h-7 w-7 rounded-full border-2 transition-transform',
-                          selected ? 'scale-110 border-text-heading' : 'border-transparent',
-                        )}
-                        style={{ backgroundColor: hex }}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
             </TabsContent>
 
             <TabsContent value="icon" className="mt-3 space-y-3">
@@ -235,100 +187,12 @@ export function AgentVisualCard({
                         className={cn(
                           'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors',
                           selected
-                            ? 'border-accent bg-accent/10 text-accent'
-                            : 'border-border/60 bg-bg-input/40 text-text-secondary hover:border-accent/40 hover:text-text-heading',
+                            ? 'border-ai/40 bg-ai/10 text-ai-ink'
+                            : 'border-border/60 bg-bg-input/40 text-text-secondary hover:border-ai/30 hover:text-text-heading',
                         )}
                       >
                         <Icon size={16} aria-hidden />
                       </button>
-                    )
-                  })}
-                </div>
-              </div>
-              <div>
-                <p className="mb-2 text-xs font-medium text-text-secondary">
-                  {t('workforce.agents.visualPickColor')}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {AGENT_AVATAR_COLORS.map((hex) => {
-                    const selected = color.toLowerCase() === hex
-                    return (
-                      <button
-                        key={hex}
-                        type="button"
-                        title={hex}
-                        aria-label={hex}
-                        aria-pressed={selected}
-                        onClick={() => setColor(hex)}
-                        className={cn(
-                          'h-7 w-7 rounded-full border-2 transition-transform',
-                          selected ? 'scale-110 border-text-heading' : 'border-transparent',
-                        )}
-                        style={{ backgroundColor: hex }}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="image" className="mt-3 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => void onPickImage(e.target.files?.[0] ?? null)}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={uploading || !token}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  {uploading ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <ImagePlus size={14} className="mr-1.5" aria-hidden />
-                  )}
-                  {t('workforce.agents.visualUpload')}
-                </Button>
-                {imageUrl ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setImageUrl('')}
-                    disabled={uploading}
-                  >
-                    {t('workforce.agents.visualClearImage')}
-                  </Button>
-                ) : null}
-              </div>
-              <p className="text-sm text-text-muted">{t('workforce.agents.visualImageHint')}</p>
-              <div>
-                <p className="mb-2 text-xs font-medium text-text-secondary">
-                  {t('workforce.agents.visualPickColor')}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {AGENT_AVATAR_COLORS.map((hex) => {
-                    const selected = color.toLowerCase() === hex
-                    return (
-                      <button
-                        key={hex}
-                        type="button"
-                        title={hex}
-                        aria-label={hex}
-                        aria-pressed={selected}
-                        onClick={() => setColor(hex)}
-                        className={cn(
-                          'h-7 w-7 rounded-full border-2 transition-transform',
-                          selected ? 'scale-110 border-text-heading' : 'border-transparent',
-                        )}
-                        style={{ backgroundColor: hex }}
-                      />
                     )
                   })}
                 </div>
@@ -338,7 +202,7 @@ export function AgentVisualCard({
 
           {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
           <div className="flex items-center gap-2">
-            <Button type="button" size="sm" onClick={() => void save()} disabled={busy || uploading}>
+            <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>
               {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
               {tc('actions.save')}
             </Button>
@@ -347,7 +211,7 @@ export function AgentVisualCard({
               size="sm"
               variant="ghost"
               onClick={() => setEditing(false)}
-              disabled={busy || uploading}
+              disabled={busy}
             >
               {tc('actions.cancel')}
             </Button>

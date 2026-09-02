@@ -91,7 +91,8 @@ async def call_verb(
             "a default under Modules > Banking.",
         )
 
-    creds = _parse_json(conn.credentials_json)
+    from app.services.crypto import get_connection_credentials
+    creds = get_connection_credentials(conn)
     if not gocardless.has_gocardless_credentials(creds):
         if get_settings().is_production:
             return module_error(

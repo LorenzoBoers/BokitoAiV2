@@ -1,7 +1,7 @@
 ---
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
-description: Brief company agents, set chat access, archive them, add a signature, and set visual identity.
+description: Brief company agents, set chat access, archive them, add a signature, and set initials or icon.
 keywords: agents, ai workforce, archive, chat access, signature, avatar, icon, default agent
 sort: 10
 related: govern,knowledge,communication,agenda
@@ -49,13 +49,13 @@ New chats in Communication require a **company agent**. If none are available fo
 4. Save. Approvals for this agent use that default until you pick another Send as on the card.
 
 
-## Set icon, color or photo
+## Set initials or icon
 
 1. Open a company agent.
 2. On the **Visual identity** card, choose **Edit**.
-3. Pick **Initials**, **Icon** (with a color), or **Image** (upload a photo), then save.
+3. Pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker.
 
-The same look shows on the Agents library, agent detail, Messages, the default agent email signature (photo when set), and the webchat header bubble for the answering agent.
+The same look shows on the Agents library, agent detail, Messages, and the webchat header bubble for the answering agent.
 
 ## Schedule the agent
 

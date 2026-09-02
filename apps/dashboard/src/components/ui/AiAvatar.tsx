@@ -1,5 +1,9 @@
-import { getAvatarColor, getInitials } from '../../lib/avatar'
-import { resolveAgentAvatarIcon, type AgentAvatarKind } from '../../lib/agent-avatar'
+import { getInitials } from '../../lib/avatar'
+import {
+  DEFAULT_AGENT_AVATAR_COLOR,
+  resolveAgentAvatarIcon,
+  type AgentAvatarKind,
+} from '../../lib/agent-avatar'
 
 interface AiAvatarProps {
   name?: string | null
@@ -47,7 +51,7 @@ function resolveKind(
  */
 export function AiAvatar({
   name,
-  seed,
+  seed: _seed,
   size = 32,
   className = '',
   kind,
@@ -57,8 +61,8 @@ export function AiAvatar({
 }: AiAvatarProps) {
   const displayName = name?.trim() || 'Agent'
   const initials = getInitials(displayName)
-  const { bg: seeded } = getAvatarColor(seed ?? displayName)
-  const accent = (color?.trim() || seeded).toLowerCase()
+  // Prefer explicit color, else platform AI violet (not per-name seed hues).
+  const accent = (color?.trim() || DEFAULT_AGENT_AVATAR_COLOR).toLowerCase()
   const resolved = resolveKind(kind, icon, imageUrl)
   const Icon = resolved === 'icon' ? resolveAgentAvatarIcon(icon) : null
   const fontSize = Math.round(size * 0.36)

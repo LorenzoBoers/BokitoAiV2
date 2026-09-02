@@ -1,18 +1,20 @@
-"""Inbound email sync for connected Gmail / Outlook mailboxes.
+"""Inbound email sync for connected Gmail / Outlook / SMTP-IMAP mailboxes.
 
-Polls the provider API for recent inbox messages using the OAuth access token
-stored on the `ChannelAccount`, normalizes each into the shared `InboundMessage`
-shape and runs it through `ingest_inbound` (which dedupes on provider message id,
-threads by conversation id, and enqueues agent processing for approved contacts).
+Polls the provider API (or IMAP for smtp_imap) for recent inbox messages,
+normalizes each into the shared `InboundMessage` shape and runs it through
+`ingest_inbound` (which dedupes on provider message id, threads by conversation
+id, and enqueues agent processing for approved contacts).
 
 Incremental sync:
 - Gmail: `ChannelAccount.sync_cursor` stores `historyId`; uses users.history.list
   when present, falling back to a full inbox list when the cursor is empty or stale.
 - Outlook: `sync_cursor` stores a Graph inbox deltaLink; falls back to a full
   inbox fetch when empty or invalid.
+- SMTP/IMAP: UID cursor under `settings_json.sync_cursors.inbox` (INBOX only).
 
-Token refresh is handled inline: a 401 triggers a refresh-token exchange and a
-single retry. Accounts with no access token (mock/dev mailboxes) are skipped.
+Token refresh is handled inline for OAuth: a 401 triggers a refresh-token
+exchange and a single retry. Accounts with no access token (mock/dev mailboxes)
+are skipped; smtp_imap requires verified credentials instead.
 """
 
 from __future__ import annotations
@@ -249,12 +251,9 @@ async def _record_sync_error(
 
 
 def _credentials(account: ChannelAccount) -> dict[str, Any]:
-    try:
-        data = json.loads(account.credentials_json or "{}")
-        return data if isinstance(data, dict) else {}
-    except json.JSONDecodeError:
-        return {}
+    from app.services.crypto import get_connection_credentials
 
+    return get_connection_credentials(account)
 
 # RFC headers that mark automated / bulk mail; captured at sync time so the
 # inbound classifier can suppress reply suggestions for notification email.
@@ -722,7 +721,42 @@ async def _fetch_messages(
         if not folder:
             return None
         return await _fetch_graph(token, cursor, folder, since)
+    if account.provider == "smtp_imap":
+        # V1: INBOX only (UID cursor). Other folder ids are skipped.
+        if folder_id != "inbox":
+            return None
+        from app.services.smtp_imap import SmtpImapError, fetch_inbox_since
+
+        try:
+            return await fetch_inbox_since(account, cursor, since=since)
+        except SmtpImapError:
+            raise
     return None
+
+
+async def _hydrate_smtp_imap_attachments(
+    tenant_id: UUID, item: dict[str, Any]
+) -> None:
+    """Persist inline MIME attachment bytes already present on the sync item."""
+    raw_attachments = item.get("attachments") or []
+    if not raw_attachments:
+        return
+    hydrated: list[dict[str, Any]] = []
+    for att in raw_attachments:
+        data = att.get("data")
+        if not data or not isinstance(data, (bytes, bytearray)):
+            continue
+        if len(data) > MAX_ATTACHMENT_BYTES:
+            continue
+        stored = await _store_attachment(
+            tenant_id,
+            filename=str(att.get("filename") or "file"),
+            mime=str(att.get("mime") or "application/octet-stream"),
+            data=bytes(data),
+        )
+        if stored:
+            hydrated.append(stored)
+    item["attachments"] = hydrated
 
 
 async def _store_attachment(
@@ -844,6 +878,15 @@ async def _hydrate_attachments(
     provider metadata with served attachment dicts ({name, mime, size, url})."""
     if not items:
         return
+    if account.provider == "smtp_imap":
+        for item in items:
+            try:
+                await _hydrate_smtp_imap_attachments(account.tenant_id, item)
+            except Exception:
+                logger.exception(
+                    "attachment hydration failed for message %s", item.get("message_id")
+                )
+        return
     async with httpx.AsyncClient(timeout=30.0) as client:
         for item in items:
             try:
@@ -890,7 +933,9 @@ async def _refresh_if_possible(session: AsyncSession, account: ChannelAccount) -
     creds["access_token"] = access
     if tokens.get("refresh_token"):
         creds["refresh_token"] = tokens["refresh_token"]
-    account.credentials_json = json.dumps(creds)
+    from app.services.crypto import set_connection_credentials
+
+    set_connection_credentials(account, creds)
     session.add(account)
     await session.commit()
     return access
@@ -967,15 +1012,24 @@ async def _ingest_items(
 
 async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[str, Any]:
     """Poll each selected folder of one mailbox and ingest new messages."""
-    if account.provider not in ("gmail", "outlook") or not account.is_enabled:
+    if account.provider not in ("gmail", "outlook", "smtp_imap") or not account.is_enabled:
         return {"account_id": str(account.id), "synced": 0, "status": "skipped"}
     creds = _credentials(account)
-    token = creds.get("access_token")
-    if not token:
-        return {"account_id": str(account.id), "synced": 0, "status": "no_credentials"}
-    if creds.get("mock"):
-        # Dev mailbox connected via the mock OAuth flow: nothing to poll.
-        return {"account_id": str(account.id), "synced": 0, "status": "mock_skipped"}
+    token = ""
+    if account.provider == "smtp_imap":
+        from app.services.smtp_imap import is_connected
+
+        if not (creds.get("username") and creds.get("password")):
+            return {"account_id": str(account.id), "synced": 0, "status": "no_credentials"}
+        if not is_connected(creds):
+            return {"account_id": str(account.id), "synced": 0, "status": "not_verified"}
+    else:
+        token = creds.get("access_token") or ""
+        if not token:
+            return {"account_id": str(account.id), "synced": 0, "status": "no_credentials"}
+        if creds.get("mock"):
+            # Dev mailbox connected via the mock OAuth flow: nothing to poll.
+            return {"account_id": str(account.id), "synced": 0, "status": "mock_skipped"}
 
     settings = json.loads(account.settings_json or "{}")
     if not isinstance(settings, dict):
@@ -985,6 +1039,8 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     settings = ensure_ai_live_since(settings)
     account.settings_json = json.dumps(settings)
     folders = [f["id"] for f in account_sync_folders(settings) if f.get("is_selected")]
+    if account.provider == "smtp_imap":
+        folders = [f for f in folders if f == "inbox"] or ["inbox"]
     cursors: dict[str, str] = (
         dict(settings.get("sync_cursors"))
         if isinstance(settings.get("sync_cursors"), dict)
@@ -999,33 +1055,68 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
         cursor = _folder_cursor(settings, account, folder_id)
         try:
             fetch = await _fetch_messages(account, token, folder_id, cursor, since)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 401:
-                token = await _refresh_if_possible(session, account)
-                if not token:
+        except Exception as fetch_exc:
+            from app.services.smtp_imap import SmtpImapError
+
+            if isinstance(fetch_exc, SmtpImapError):
+                kind = (
+                    "auth_expired"
+                    if fetch_exc.code == "auth_failed"
+                    else (
+                        "network_unreachable"
+                        if fetch_exc.code == "network_unreachable"
+                        else "error"
+                    )
+                )
+                await _record_sync_error(session, account, fetch_exc.message, kind=kind)
+                return {
+                    "account_id": str(account.id),
+                    "synced": 0,
+                    "status": fetch_exc.code,
+                }
+            if isinstance(fetch_exc, httpx.HTTPStatusError):
+                if fetch_exc.response.status_code == 401:
+                    token = await _refresh_if_possible(session, account)
+                    if not token:
+                        await _record_sync_error(
+                            session,
+                            account,
+                            "Authentication expired. Reconnect this mailbox.",
+                            kind="auth_expired",
+                        )
+                        return {
+                            "account_id": str(account.id),
+                            "synced": 0,
+                            "status": "auth_expired",
+                        }
+                    try:
+                        fetch = await _fetch_messages(
+                            account, token, folder_id, cursor, since
+                        )
+                    except Exception as retry_exc:  # noqa: BLE001 — surfaced in sync status
+                        logger.exception(
+                            "mailbox sync retry failed for account=%s", account.id
+                        )
+                        await _record_sync_error(
+                            session, account, f"Sync failed: {retry_exc}"
+                        )
+                        return {
+                            "account_id": str(account.id),
+                            "synced": 0,
+                            "status": "error",
+                        }
+                else:
+                    logger.exception("mailbox sync failed for account=%s", account.id)
                     await _record_sync_error(
                         session,
                         account,
-                        "Authentication expired. Reconnect this mailbox.",
-                        kind="auth_expired",
+                        f"Provider error ({fetch_exc.response.status_code}).",
                     )
-                    return {"account_id": str(account.id), "synced": 0, "status": "auth_expired"}
-                try:
-                    fetch = await _fetch_messages(account, token, folder_id, cursor, since)
-                except Exception as retry_exc:  # noqa: BLE001 — surfaced in sync status
-                    logger.exception("mailbox sync retry failed for account=%s", account.id)
-                    await _record_sync_error(session, account, f"Sync failed: {retry_exc}")
                     return {"account_id": str(account.id), "synced": 0, "status": "error"}
             else:
                 logger.exception("mailbox sync failed for account=%s", account.id)
-                await _record_sync_error(
-                    session, account, f"Provider error ({exc.response.status_code})."
-                )
+                await _record_sync_error(session, account, f"Sync failed: {fetch_exc}")
                 return {"account_id": str(account.id), "synced": 0, "status": "error"}
-        except Exception as exc:  # noqa: BLE001 — surfaced in sync status
-            logger.exception("mailbox sync failed for account=%s", account.id)
-            await _record_sync_error(session, account, f"Sync failed: {exc}")
-            return {"account_id": str(account.id), "synced": 0, "status": "error"}
 
         if fetch is None:
             # Folder not supported by this provider (e.g. Gmail archive).
@@ -1078,13 +1169,13 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
 
 
 async def sync_tenant(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
-    """Sync every connected Gmail/Outlook mailbox for a tenant."""
+    """Sync every connected Gmail/Outlook/SMTP-IMAP mailbox for a tenant."""
     result = await session.execute(
         select(ChannelAccount).where(
             ChannelAccount.tenant_id == tenant_id,
             ChannelAccount.channel == "email",
             ChannelAccount.is_enabled.is_(True),
-            ChannelAccount.provider.in_(("gmail", "outlook")),
+            ChannelAccount.provider.in_(("gmail", "outlook", "smtp_imap")),
         )
     )
     accounts = result.scalars().all()

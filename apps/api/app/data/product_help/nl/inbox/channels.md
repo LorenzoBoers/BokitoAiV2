@@ -1,8 +1,8 @@
 ---
 title: Kanalen koppelen
 intro: Breng klantmail en andere inboxen naar Communicatie.
-description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, WhatsApp of Slack, en lees de status en controles per kanaal.
-keywords: kanalen, gmail, outlook, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening
+description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP, WhatsApp of Slack, en lees de status en controles per kanaal.
+keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
@@ -21,7 +21,16 @@ Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna 
 3. Kies **E-mail**, **WhatsApp Business**, **Slack-workspace** of **Websitechat**. **E-mail** opent een tweede stap met **Gmail**, **Outlook**, **SMTP / IMAP** en **Bokito-adres**.
 4. Rond het formulier voor die keuze af. De nieuwe rij verschijnt in de lijst **Kanalen**.
 
-SMTP / IMAP is nog niet beschikbaar. Gebruik een Bokito-adres en stuur je mail ernaartoe.
+## Koppel SMTP / IMAP
+
+Gebruik dit als je provider geen Gmail- of Outlook-OAuth-kaart heeft (bijvoorbeeld Hostinger, cPanel of een eigen domeinmailbox).
+
+1. Kies **Kanaal toevoegen**, daarna **E-mail** en dan **SMTP / IMAP**.
+2. Onder **Voorbereiden**: zet IMAP aan in de mailboxinstellingen en gebruik liever een app-wachtwoord. Typische poorten: IMAP **993** met SSL en SMTP **587** met STARTTLS (of **465** met SSL).
+3. Onder **Gegevens invullen**: vul **E-mailadres**, **Gebruikersnaam** (standaard het e-mailadres), **Wachtwoord**, **IMAP-host** / poort / SSL en **SMTP-host** / poort / beveiliging in. Zet **Zelfde host voor IMAP en SMTP** aan als beide dezelfde hostname delen.
+4. Kies **Koppelen en controleren**. Bokito logt in op IMAP en SMTP; bij succes verschijnt de rij in **Kanalen** en synchroniseert Inbox-mail naar Communicatie. Antwoorden gaan via SMTP vanaf dit adres.
+
+Faalt de controle met een netwerkfout, dan zijn uitgaande poorten 993, 587 of 465 mogelijk geblokkeerd op de server die de API of workers draait.
 
 ## Maak een Bokito-adres aan
 

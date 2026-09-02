@@ -145,6 +145,65 @@ export async function getWhatsAppSetup(token: string): Promise<WhatsAppSetupInfo
   }
 }
 
+export type SmtpImapCredentials = {
+  email: string
+  username: string
+  password: string
+  imapHost: string
+  imapPort: number
+  imapSsl: boolean
+  smtpHost: string
+  smtpPort: number
+  smtpSsl: boolean
+  smtpStarttls: boolean
+  displayName?: string
+}
+
+export async function createSmtpImapAccount(
+  token: string,
+  payload: SmtpImapCredentials,
+): Promise<ChannelAccountRow> {
+  const raw = await apiPost<Record<string, unknown>>(
+    appRoutes.channelAccounts.list,
+    {
+      channel: 'email',
+      provider: 'smtp_imap',
+      address: payload.email,
+      display_name: payload.displayName?.trim() || payload.email,
+      credentials: {
+        email: payload.email,
+        username: payload.username,
+        password: payload.password,
+        imap_host: payload.imapHost,
+        imap_port: payload.imapPort,
+        imap_ssl: payload.imapSsl,
+        smtp_host: payload.smtpHost,
+        smtp_port: payload.smtpPort,
+        smtp_ssl: payload.smtpSsl,
+        smtp_starttls: payload.smtpStarttls,
+      },
+    },
+    token,
+  )
+  const normalized = normalizeAccount(raw)
+  if (!normalized) throw new Error('Unexpected response while connecting SMTP/IMAP.')
+  return normalized
+}
+
+export async function verifySmtpImapAccount(
+  token: string,
+  accountId: string,
+): Promise<ChannelAccountRow> {
+  const raw = await apiPost<Record<string, unknown>>(
+    appRoutes.channelAccounts.verify(accountId),
+    {},
+    token,
+  )
+  const normalized = normalizeAccount(raw)
+  if (!normalized) throw new Error('Unexpected response while verifying SMTP/IMAP.')
+  return normalized
+}
+
 export async function deleteChannelAccount(token: string, accountId: string): Promise<void> {
   await apiDelete(appRoutes.channelAccounts.byId(accountId), token)
 }

@@ -9,6 +9,7 @@ import ProviderLogo from '../email/ProviderLogo'
 import { BrandMark } from '../integrations/BrandMark'
 import WhatsAppConnectForm from './WhatsAppConnectForm'
 import SlackConnectForm from './SlackConnectForm'
+import SmtpImapConnectForm from './SmtpImapConnectForm'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
@@ -23,7 +24,7 @@ import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { cn } from '../../lib/utils'
 import type { Provider } from '../../lib/email-oauth'
 
-type Choice = 'menu' | 'email' | 'relay' | 'whatsapp' | 'slack'
+type Choice = 'menu' | 'email' | 'relay' | 'whatsapp' | 'slack' | 'smtp_imap'
 
 const EMAIL_LOGOS = ['outlook', 'gmail', 'smtp_imap'] as const
 
@@ -250,7 +251,7 @@ export default function AddChannelDialog({
   }, [createdAddress, t])
 
   const goBack = () => {
-    setChoice(choice === 'relay' ? 'email' : 'menu')
+    setChoice(choice === 'relay' || choice === 'smtp_imap' ? 'email' : 'menu')
     setConnectError(null)
   }
 
@@ -259,22 +260,26 @@ export default function AddChannelDialog({
       ? t('channelsPage.option.email')
       : choice === 'relay'
         ? t('channelsPage.option.relay')
-        : choice === 'whatsapp'
-          ? t('channelsPage.option.whatsapp')
-          : choice === 'slack'
-            ? t('channelsPage.option.slack')
-            : t('channelsPage.addChannel')
+        : choice === 'smtp_imap'
+          ? t('channelsPage.email.imap')
+          : choice === 'whatsapp'
+            ? t('channelsPage.option.whatsapp')
+            : choice === 'slack'
+              ? t('channelsPage.option.slack')
+              : t('channelsPage.addChannel')
 
   const description =
     choice === 'email'
       ? t('channelsPage.email.pickDescription')
       : choice === 'relay'
         ? t('channelsPage.option.relayHint')
-        : choice === 'whatsapp'
-          ? t('whatsappCard.dialogDescription')
-          : choice === 'slack'
-            ? t('slackCard.dialogDescription')
-            : t('channelsPage.addChannelDescription')
+        : choice === 'smtp_imap'
+          ? t('channelsPage.email.smtp.dialogDescription')
+          : choice === 'whatsapp'
+            ? t('whatsappCard.dialogDescription')
+            : choice === 'slack'
+              ? t('slackCard.dialogDescription')
+              : t('channelsPage.addChannelDescription')
 
   const relaysLeft = relayOptions ? relayOptions.maxRelays - relayOptions.used : null
   const preview = relayOptions
@@ -381,11 +386,11 @@ export default function AddChannelDialog({
                     />
                   ))}
                   <ProviderCard
-                    disabled
+                    onClick={() => setChoice('smtp_imap')}
+                    disabled={connectBusy !== null}
                     icon={<ProviderLogo provider="smtp_imap" className="h-5 w-5 object-contain" />}
                     title={t('channelsPage.email.imap')}
                     hint={t('channelsPage.email.imapShort')}
-                    badge={t('comingSoon')}
                   />
                   <ProviderCard
                     onClick={() => setChoice('relay')}
@@ -470,6 +475,9 @@ export default function AddChannelDialog({
 
             {choice === 'whatsapp' ? <WhatsAppConnectForm onConnected={onChannelAdded} /> : null}
             {choice === 'slack' ? <SlackConnectForm onConnected={onChannelAdded} /> : null}
+            {choice === 'smtp_imap' ? (
+              <SmtpImapConnectForm onConnected={onChannelAdded} />
+            ) : null}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

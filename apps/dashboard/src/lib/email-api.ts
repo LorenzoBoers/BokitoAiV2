@@ -12,7 +12,7 @@ export type EmailConnection = {
   id: number
   /** ChannelAccount UUID backing this mailbox (used for agent bindings). */
   uuid: string | null
-  provider: Extract<Provider, 'outlook' | 'gmail' | 'bokito'>
+  provider: Extract<Provider, 'outlook' | 'gmail' | 'bokito' | 'smtp_imap'>
   mailboxEmail: string
   displayName: string
   status: ConnectionStatus
@@ -146,7 +146,7 @@ function normalizeConnection(row: unknown): EmailConnection | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
   const provider = asString(raw.provider).toLowerCase()
-  if (provider !== 'outlook' && provider !== 'gmail' && provider !== 'bokito') return null
+  if (provider !== 'outlook' && provider !== 'gmail' && provider !== 'bokito' && provider !== 'smtp_imap') return null
   const id = asNumber(raw.id ?? raw.connection_pk, NaN)
   if (!Number.isFinite(id)) return null
   const statusValue = asString(raw.status).toLowerCase()

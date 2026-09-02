@@ -38,6 +38,7 @@ from app.routers import (
     metrics,
     models,
     notifications,
+    privacy,
     projects,
     public_api,
     push,
@@ -164,6 +165,7 @@ app.include_router(me.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(integrations.router, prefix=api_prefix)
 app.include_router(calendars.router, prefix=api_prefix)
+app.include_router(privacy.router, prefix=api_prefix)
 app.include_router(github_integrations.router, prefix=api_prefix)
 app.include_router(email.router, prefix=api_prefix)
 app.include_router(inbound.router, prefix=api_prefix)

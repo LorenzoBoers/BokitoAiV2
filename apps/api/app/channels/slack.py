@@ -23,7 +23,8 @@ SLACK_POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
 
 def _credentials(account: ChannelAccount) -> dict[str, Any]:
     try:
-        data = json.loads(account.credentials_json or "{}")
+        from app.services.crypto import get_connection_credentials
+        data = get_connection_credentials(account)
         return data if isinstance(data, dict) else {}
     except json.JSONDecodeError:
         return {}

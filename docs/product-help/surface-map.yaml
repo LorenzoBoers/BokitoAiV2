@@ -127,10 +127,12 @@ channels:
     - apps/dashboard/src/components/inbox/ChannelStateBadge.tsx
     - apps/dashboard/src/components/inbox/WhatsAppConnectForm.tsx
     - apps/dashboard/src/components/inbox/SlackConnectForm.tsx
+    - apps/dashboard/src/components/inbox/SmtpImapConnectForm.tsx
     - apps/dashboard/src/components/inbox/FoldersAndTagsManager.tsx
     - apps/api/app/services/channel_registry.py
     - apps/api/app/services/signal_tags.py
     - apps/api/app/services/email_relay.py
+    - apps/api/app/services/smtp_imap.py
     - apps/api/app/routers/channels.py
   screenshots:
     - mailbox-status
@@ -246,6 +248,17 @@ govern:
   screenshots:
     - drafts
     - posture
+
+privacy-security:
+  section: govern
+  routes:
+    - /settings/trust
+  code_globs:
+    - apps/dashboard/src/pages/TrustPrivacyPage.tsx
+    - apps/dashboard/src/lib/privacy-api.ts
+    - apps/api/app/routers/privacy.py
+    - apps/api/app/services/privacy.py
+  screenshots: []
 
 autonomy:
   section: govern

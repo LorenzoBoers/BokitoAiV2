@@ -161,7 +161,8 @@ async def list_accounting_connections(
             continue
         from app.services.moneybird import has_moneybird_credentials
 
-        credentials = _parse_json(conn.credentials_json)
+        from app.services.crypto import get_connection_credentials
+        credentials = get_connection_credentials(conn)
         connections.append(
             AccountingConnection(
                 id=str(conn.id),

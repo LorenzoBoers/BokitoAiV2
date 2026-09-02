@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "dev-jwt-secret-change-in-production"
     jwt_algorithm: str = "HS256"
+    # Dedicated Fernet key (url-safe base64 32-byte) or any secret string for
+    # OAuth/integration credentials_json. Empty = derive from jwt_secret (dev).
+    credentials_fernet_key: str = ""
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 30
     refresh_cookie_name: str = "bokito_refresh_token"
@@ -103,6 +106,10 @@ class Settings(BaseSettings):
     worker_inbound_secret: str = "dev-worker-secret"
     use_signal_inbox: bool = True
 
+    # Inline agent sessions: idle time (seconds, no operator turn) after which
+    # the server offers a checkout card on the host thread. 0 disables it.
+    session_idle_seconds: int = 300
+
     # File storage: local (dev) or s3 (R2 prod)
     storage_backend: str = "local"  # local | s3
     storage_local_path: str = "data/uploads"
@@ -164,6 +171,11 @@ def validate_production_settings(settings: "Settings") -> list[str]:
     if settings.jwt_secret in DEV_JWT_SECRETS or len(settings.jwt_secret) < 32:
         errors.append(
             "JWT_SECRET must be a strong, non-default value (>=32 chars) in production."
+        )
+    if not (settings.credentials_fernet_key or "").strip():
+        errors.append(
+            "CREDENTIALS_FERNET_KEY must be set in production "
+            "(dedicated secret for OAuth/integration credential encryption)."
         )
     if settings.llm_mode == "live" and not settings.anthropic_api_key:
         errors.append("ANTHROPIC_API_KEY is required when LLM_MODE=live.")

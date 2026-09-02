@@ -27,6 +27,7 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'))
 const HelpCenter = lazy(() => import('./pages/HelpCenter'))
 const DocsPage = lazy(() => import('./pages/DocsPage'))
 const DocsApiReference = lazy(() => import('./pages/DocsApiReference'))
+const PublicTrustPage = lazy(() => import('./pages/PublicTrustPage'))
 // Chat (default surface)
 const NewConversationPage = lazy(() => import('./pages/NewConversationPage'))
 
@@ -53,6 +54,7 @@ const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
 const WorkspaceSettings = lazy(() => import('./pages/WorkspaceSettings'))
+const TrustPrivacyPage = lazy(() => import('./pages/TrustPrivacyPage'))
 const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const MemberManagement = lazy(() => import('./pages/MemberManagement'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
@@ -273,6 +275,7 @@ export default function App() {
       <Route path="/docs/api" element={<DocsApiReference />} />
       <Route path="/docs/:section/:slug" element={<DocsPage />} />
       <Route path="/docs/:slug" element={<DocsPage />} />
+      <Route path="/trust" element={<PublicTrustPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<HomeRoute />} />
@@ -416,6 +419,7 @@ export default function App() {
             <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />
+            <Route path="/settings/trust" element={<TrustPrivacyPage />} />
             <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/projects" element={<Navigate to="/projects" replace />} />

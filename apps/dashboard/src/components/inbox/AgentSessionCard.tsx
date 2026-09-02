@@ -12,8 +12,9 @@ import {
   type ThreadSession,
 } from '../../lib/signals-api'
 import { translateMockAgentBody } from '../../lib/activity-labels'
-import { AgentChatView } from './AgentChatView'
 import { Button } from '../ui/button'
+import { AiMark, AI_CARD_CLASS } from '../ai/AiMark'
+import { cn } from '../../lib/utils'
 import { toast } from 'sonner'
 
 type Props = {
@@ -23,6 +24,8 @@ type Props = {
   onChanged: () => void
   /** Put an agent answer into the reply composer. */
   onUseAsReply?: (text: string) => void
+  /** Live messages already merged by the parent (active session). */
+  liveMessages?: ChatMessage[]
 }
 
 function formatTime(iso: string): string {
@@ -38,13 +41,52 @@ function actionLabel(action: ThreadSession['actions'][number]): string {
   return action.tool
 }
 
-function ReadOnlyTranscript({ sessionId }: { sessionId: string }) {
+function MetaBubble({ message, agentName }: { message: ChatMessage; agentName?: string | null }) {
+  const { t } = useTranslation('communication')
+  const isUser = message.role === 'user'
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[82%] rounded-xl rounded-tr-sm bg-accent/12 px-3 py-1.5 text-[13px] leading-relaxed text-text-primary">
+          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-start gap-2">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
+        <Bot size={12} />
+      </span>
+      <div className={cn('max-w-[82%] rounded-xl rounded-tl-sm px-3 py-1.5 text-[13px] leading-relaxed text-text-primary', AI_CARD_CLASS)}>
+        <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-ai-ink">
+          {agentName || t('agentSession.title')}
+        </p>
+        <ChatMarkdown content={translateMockAgentBody(message.content, t)} />
+      </div>
+    </div>
+  )
+}
+
+function SessionTranscript({
+  sessionId,
+  agentName,
+  messages: controlled,
+}: {
+  sessionId: string
+  agentName?: string | null
+  messages?: ChatMessage[]
+}) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
-  const [messages, setMessages] = useState<ChatMessage[] | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[] | null>(controlled ?? null)
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    if (controlled) {
+      setMessages(controlled)
+      return
+    }
     if (!token) return
     let cancelled = false
     bokitoListMessages(token, sessionId)
@@ -57,59 +99,47 @@ function ReadOnlyTranscript({ sessionId }: { sessionId: string }) {
     return () => {
       cancelled = true
     }
-  }, [token, sessionId])
+  }, [token, sessionId, controlled])
 
   if (error) {
-    return <p className="px-3 py-2 text-[12px] text-status-error">{t('agentSession.transcriptError')}</p>
+    return <p className="px-1 py-2 text-[12px] text-status-error">{t('agentSession.transcriptError')}</p>
   }
   if (messages === null) {
     return (
-      <div className="flex justify-center py-4 text-text-muted">
+      <div className="flex justify-center py-3 text-text-muted">
         <Loader2 size={14} className="animate-spin" />
       </div>
     )
   }
+  if (messages.length === 0) {
+    return (
+      <p className="px-1 py-2 text-[12px] text-text-muted">{t('agentSession.emptyTranscript')}</p>
+    )
+  }
   return (
-    <div className="max-h-[320px] space-y-2.5 overflow-y-auto px-3 py-2.5">
-      {messages.map((m) =>
-        m.role === 'user' ? (
-          <div key={m.id} className="flex justify-end">
-            <div className="max-w-[82%] rounded-xl rounded-tr-sm bg-accent/12 px-3 py-1.5 text-[12.5px] leading-relaxed text-text-primary">
-              <p className="whitespace-pre-wrap break-words">{m.content}</p>
-            </div>
-          </div>
-        ) : (
-          <div key={m.id} className="flex items-start gap-2">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
-              <Bot size={11} />
-            </span>
-            <div className="max-w-[82%] rounded-xl rounded-tl-sm border border-ai/20 bg-ai/[0.06] px-3 py-1.5 text-[12.5px] leading-relaxed text-text-primary">
-              <ChatMarkdown content={translateMockAgentBody(m.content, t)} />
-            </div>
-          </div>
-        ),
-      )}
+    <div className="space-y-2.5 px-1 py-1">
+      {messages.map((m) => (
+        <MetaBubble key={m.id} message={m} agentName={agentName} />
+      ))}
     </div>
   )
 }
 
 /**
- * Inline agent session block in the thread timeline.
- *
- * Active: a live chat with the chosen agent, grounded in the host thread,
- * with an explicit "End session" checkout. Closed: a collapsed summary row
- * (what was concluded + which actions ran) that expands to the full
- * transcript for review.
+ * Inline agent meta segment in the host timeline.
+ * Active: same-width bubbles (no nested scroll). Closed: one summary row.
  */
-export default function AgentSessionCard({ session, threadId, onChanged, onUseAsReply }: Props) {
+export default function AgentSessionCard({
+  session,
+  threadId,
+  onChanged,
+  liveMessages,
+}: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [closing, setClosing] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  // A session becomes history at its first turn. Before that it is still a
-  // choice the operator can undo, so it cancels instead of checking out.
-  const [sentTurn, setSentTurn] = useState(false)
-  const started = session.messageCount > 0 || sentTurn
+  const started = session.messageCount > 0 || (liveMessages?.length ?? 0) > 0
 
   const endSession = async () => {
     if (!token || closing) return
@@ -140,86 +170,81 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
 
   if (session.state === 'active') {
     return (
-      <div className="overflow-hidden rounded-xl border border-ai/30 bg-bg-surface shadow-card">
-        <div className="flex items-center gap-2 border-b border-ai/20 bg-ai/6 px-3 py-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/30 bg-ai/10 text-ai-ink">
-            <Bot size={13} />
+      <div className="relative my-2 rounded-xl border border-ai/20 bg-ai/[0.04] px-2 py-2">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-full bg-ai/45"
+        />
+        <div className="mb-2 flex flex-wrap items-center gap-2 pl-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] font-medium text-ai-ink">
+            <AiMark size={11} />
+            {t('agentSession.segmentActive', {
+              name: session.agentName ?? t('agentSession.title'),
+            })}
           </span>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-[12.5px] font-medium text-text-primary">
-              {session.agentName ?? t('agentSession.title')}
-              <span className="ml-2 rounded-full bg-ai/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ai-ink">
-                {t('agentSession.activeBadge')}
-              </span>
-            </p>
-            <p className="truncate text-[10.5px] text-text-muted">{t('agentSession.internalHint')}</p>
+          <span className="text-[10.5px] text-text-muted">{t('agentSession.internalHint')}</span>
+          <div className="ml-auto flex items-center gap-1">
+            {session.agentId ? (
+              <Link
+                to={`/agents/${session.agentId}`}
+                className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
+              >
+                <ExternalLink size={11} />
+                {t('agentSession.openAgent')}
+              </Link>
+            ) : null}
+            {started ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={closing}
+                onClick={() => void endSession()}
+                className="h-7 gap-1.5 px-2.5 text-[11.5px]"
+              >
+                {closing ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                {closing ? t('agentSession.ending') : t('agentSession.endSession')}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={closing}
+                onClick={() => void cancelSession()}
+                className="h-7 gap-1.5 px-2.5 text-[11.5px] text-text-muted"
+              >
+                {closing ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+                {t('agentSession.cancel')}
+              </Button>
+            )}
           </div>
-          {session.agentId ? (
-            <Link
-              to={`/agents/${session.agentId}`}
-              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
-            >
-              <ExternalLink size={11} />
-              {t('agentSession.openAgent')}
-            </Link>
-          ) : null}
-          {started ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={closing}
-              onClick={() => void endSession()}
-              className="h-7 gap-1.5 px-2.5 text-[11.5px]"
-            >
-              {closing ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
-              {closing ? t('agentSession.ending') : t('agentSession.endSession')}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={closing}
-              onClick={() => void cancelSession()}
-              className="h-7 gap-1.5 px-2.5 text-[11.5px] text-text-muted"
-            >
-              {closing ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
-              {t('agentSession.cancel')}
-            </Button>
-          )}
         </div>
-        <div className="h-[420px]">
-          <AgentChatView
-            conversationId={session.id}
-            hideHeader
-            onCopyText={onUseAsReply}
-            copyLabel={t('agentSession.useAsReply')}
-            composerPlaceholder={t('agentSession.composerPlaceholder')}
-            onSent={() => setSentTurn(true)}
-            onRefreshThreads={onChanged}
-          />
-        </div>
+        <SessionTranscript
+          sessionId={session.id}
+          agentName={session.agentName}
+          messages={liveMessages}
+        />
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-elevated">
+    <div className="my-2 overflow-hidden rounded-xl border border-ai/20 bg-ai/[0.03]">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-bg-hover/40"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-ai/[0.06]"
       >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-text-muted">
-          <Bot size={13} />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
+          <AiMark size={12} />
         </span>
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-[12.5px] font-medium text-text-primary">
-            {session.agentName ?? t('agentSession.title')}
+            {t('agentSession.segmentClosed', {
+              name: session.agentName ?? t('agentSession.title'),
+            })}
             <span className="ml-2 text-[10.5px] font-normal text-text-muted">
-              {session.closedAt
-                ? t('agentSession.closedAt', { time: formatTime(session.closedAt) })
-                : null}
+              {session.closedAt ? t('agentSession.closedAt', { time: formatTime(session.closedAt) }) : null}
             </span>
           </p>
           <p className="truncate text-[11px] text-text-muted">
@@ -237,19 +262,19 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
       </button>
 
       {session.summary && !expanded ? (
-        <p className="line-clamp-2 border-t border-border/40 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
+        <p className="line-clamp-2 border-t border-ai/15 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
           {translateMockAgentBody(session.summary, t)}
         </p>
       ) : null}
 
       {expanded ? (
-        <div className="border-t border-border/40">
+        <div className="border-t border-ai/15">
           {session.summary ? (
-            <p className="whitespace-pre-wrap break-words border-b border-border/40 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
+            <p className="whitespace-pre-wrap break-words border-b border-ai/15 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
               {translateMockAgentBody(session.summary, t)}
             </p>
           ) : null}
-          <div className="border-b border-border/40 px-3 py-2">
+          <div className="border-b border-ai/15 px-3 py-2">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
               {t('agentSession.actionsTitle')}
             </p>
@@ -271,7 +296,9 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
               </ul>
             )}
           </div>
-          <ReadOnlyTranscript sessionId={session.id} />
+          <div className="px-2 py-2">
+            <SessionTranscript sessionId={session.id} agentName={session.agentName} />
+          </div>
         </div>
       ) : null}
     </div>

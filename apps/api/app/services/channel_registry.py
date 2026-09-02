@@ -129,6 +129,10 @@ class ChannelContext:
 
     @property
     def has_token(self) -> bool:
+        if self.account.provider == "smtp_imap":
+            from app.services.smtp_imap import is_connected
+
+            return is_connected(self.credentials)
         return bool(self.credentials.get("access_token"))
 
     @property
@@ -176,10 +180,15 @@ def _resolve_email_relay(ctx: ChannelContext) -> ChannelFacts:
 
 
 def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
-    """Connected Gmail/Outlook mailbox: receives, sends, and polls folders."""
+    """Connected Gmail/Outlook/SMTP-IMAP mailbox: receives, sends, and polls folders."""
     from app.services.email_sync import account_sync_folders
 
     selected = [f for f in account_sync_folders(ctx.settings) if f.get("is_selected")]
+    # SMTP/IMAP V1 only syncs INBOX — surface that clearly in checks.
+    if ctx.account.provider == "smtp_imap":
+        selected = [f for f in selected if str(f.get("id")) == "inbox"] or [
+            {"id": "inbox", "display_name": "Inbox", "is_selected": True}
+        ]
     last_sync = _parse_dt(ctx.settings.get("last_sync_at"))
     try:
         error_count = int(ctx.settings.get("sync_error_count") or 0)
@@ -188,13 +197,23 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
 
     # The `mock` provider is the dev stand-in used when OAuth env is missing;
     # its adapter delivers without credentials, so it counts as connected.
+    # smtp_imap is connected when username+password+verified_at are present.
     connected = ctx.has_token or ctx.account.provider == "mock"
+
+    last_error_lower = ctx.last_error.lower()
+    network_fail = "network" in last_error_lower or "unreachable" in last_error_lower
 
     checks = [
         _check(
             "credentials",
             "ok" if connected else "fail",
             action="reconnect",
+            detail=(
+                "Could not reach the mail server. Check host, port, and firewall."
+                if network_fail and connected
+                else ""
+            ),
+            fail_state="action_required" if network_fail else "action_required",
         ),
         _check(
             "folders",
@@ -216,10 +235,10 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
         checks.append(
             _check(
                 "sync_errors",
-                "fail" if error_count >= SYNC_ERROR_LIMIT else "warn",
+                "fail" if error_count >= SYNC_ERROR_LIMIT or network_fail else "warn",
                 detail=ctx.last_error,
-                action="sync_now",
-                fail_state="error",
+                action="sync_now" if not network_fail else "reconnect",
+                fail_state="action_required" if network_fail else "error",
             )
         )
     else:
@@ -357,13 +376,14 @@ def resolve_channel(
     """One uniform row for any channel kind: state, capabilities, checks, actions."""
     from app.services.channel_ai import resolve_ai_mode
     from app.services.channel_visibility import account_visibility
+    from app.services.crypto import get_connection_credentials
     from app.services.email_sync import account_sync_window_days
 
     settings = _loads(account.settings_json)
     ctx = ChannelContext(
         account=account,
         settings=settings,
-        credentials=_loads(account.credentials_json),
+        credentials=get_connection_credentials(account),
         tenant=tenant,
         last_event_at=last_event_at,
         now=now or datetime.utcnow(),

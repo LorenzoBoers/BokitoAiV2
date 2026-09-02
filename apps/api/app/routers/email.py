@@ -68,10 +68,17 @@ def _sync_window_days(settings: dict[str, Any]) -> int:
 
 def _has_access_token(account: ChannelAccount) -> bool:
     try:
-        creds = json.loads(account.credentials_json or "{}")
+        from app.services.crypto import get_connection_credentials
+        creds = get_connection_credentials(account)
     except (json.JSONDecodeError, TypeError):
         return False
-    return bool(isinstance(creds, dict) and creds.get("access_token"))
+    if not isinstance(creds, dict):
+        return False
+    if account.provider == "smtp_imap":
+        from app.services.smtp_imap import is_connected
+
+        return is_connected(creds)
+    return bool(creds.get("access_token"))
 
 
 def _connection_status(account: ChannelAccount) -> str:
@@ -136,7 +143,7 @@ async def _list_email_accounts(session: AsyncSession, tenant_id: UUID) -> list[C
     return [
         a
         for a in result.scalars().all()
-        if a.provider in ("gmail", "outlook", "bokito")
+        if a.provider in ("gmail", "outlook", "bokito", "smtp_imap")
     ]
 
 

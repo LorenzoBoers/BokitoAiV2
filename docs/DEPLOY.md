@@ -102,6 +102,21 @@ docker compose -p bokito --env-file .env.prod \
   -f docker-compose.deploy.yml -f docker-compose.vps.yml up -d
 ```
 
+## Security: credentials encryption
+
+Set a dedicated Fernet key for OAuth/integration `credentials_json` (required in production):
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# → CREDENTIALS_FERNET_KEY=...
+```
+
+Do not reuse `JWT_SECRET`. After deploy, run `python apps/api/scripts/dev/migrate_encrypt_credentials.py` once to encrypt any plaintext legacy rows. Rotation: `docs/legal/KEY-ROTATION.md`.
+
+## Mailbox SMTP/IMAP egress
+
+Tenant mailboxes with provider `smtp_imap` open outbound IMAP (usually **993**) and SMTP (**587** STARTTLS or **465** SSL) from the **API and ARQ worker** containers to customer mail hosts. Hostinger (and similar) VPS firewalls must allow that egress, or verify/sync/send fail with a clear network error in Channels. Platform transactional mail (`SMTP_HOST` / Resend) is separate and unchanged.
+
 ## Security: rotate leaked V1 secrets
 
 The removed V1 scripts (`vps-redeploy.py`, `vps-finish-deploy.py`, `vps-update-env.py`) contained hardcoded worker-plane credentials. **Rotate these on the VPS** even though the scripts are deleted (git history may still contain them):

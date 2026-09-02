@@ -587,6 +587,7 @@ const WIDGET_CSS = `
 .bk-header-info{flex:1;min-width:0;}
 .bk-header-name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bk-header-status{font-size:12px;opacity:.88;display:flex;align-items:center;gap:6px;margin-top:2px;}
+.bk-header-ai-disclosure{font-size:10px;opacity:.75;margin-top:3px;line-height:1.3;}
 .bk-header-status::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
 .bk-icon-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;transition:background var(--bk-transition);}
@@ -942,6 +943,7 @@ const WIDGET_CHROME = {
     csatComment: 'Anything we could do better? (optional)',
     csatSend: 'Send',
     poweredBy: 'Powered by',
+    aiDisclosure: 'You are chatting with AI. A teammate can take over when needed.',
     aiError: 'The AI could not generate a reply. Try again.',
     transcribing: 'Transcribing…',
     deleteConfirm: 'Remove this conversation from your list?',
@@ -1021,6 +1023,7 @@ const WIDGET_CHROME = {
     csatComment: 'Wat kunnen we beter doen? (optioneel)',
     csatSend: 'Versturen',
     poweredBy: 'Mogelijk gemaakt door',
+    aiDisclosure: 'Je chat met AI. Een medewerker kan overnemen wanneer nodig.',
     aiError: 'De AI kon geen antwoord genereren. Probeer het opnieuw.',
     transcribing: 'Transcriberen…',
     deleteConfirm: 'Dit gesprek uit je lijst verwijderen?',
@@ -1624,6 +1627,8 @@ class BokitoChatWidget extends HTMLElement {
     });
     const poweredLabel = root.querySelector('.bk-window-powered span');
     if (poweredLabel) poweredLabel.textContent = this.#chrome('poweredBy');
+    const disclosure = root.querySelector('.bk-header-ai-disclosure');
+    if (disclosure) disclosure.textContent = this.#chrome('aiDisclosure');
     if (this.#thinkingLabel && this.#thinkingEl?.style.display === 'none') {
       this.#thinkingLabel.textContent = this.#chrome('working');
     }
@@ -1666,6 +1671,7 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-header-info">
             <div class="bk-header-name"></div>
             <div class="bk-header-status">Online</div>
+            <div class="bk-header-ai-disclosure"></div>
           </div>
           <div class="bk-header-actions">
             <div class="bk-chat-actions">

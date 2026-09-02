@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AuditEvent
 from app.models.learning import EvalScore, Feedback
 from app.models.notification import DecisionRequest
+from app.services.privacy import scrub_pii_text
 
 
 async def submit_feedback(
@@ -380,7 +381,11 @@ async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool
     from app.models.platform_change import PlatformChange
 
     samples = [
-        {"subject_type": f.subject_type, "subject_id": f.subject_id, "comment": (f.comment or "")[:300]}
+        {
+            "subject_type": f.subject_type,
+            "subject_id": f.subject_id,
+            "comment": scrub_pii_text((f.comment or "")[:300]),
+        }
         for f in negatives[:10]
     ]
     # Concrete diff the approval will apply: a persona.md addition built from
