@@ -16,15 +16,15 @@ from app.dependencies import AuthContext, get_current_auth
 from app.services import custom_db as svc
 
 
-def _require_staff(auth: Annotated[AuthContext, Depends(get_current_auth)]) -> AuthContext:
-    if not auth.is_staff:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff only")
+def _require_workspace_admin(auth: Annotated[AuthContext, Depends(get_current_auth)]) -> AuthContext:
+    if auth.role not in ("owner", "admin") and not auth.is_staff:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return auth
 
 
 router = APIRouter(
     tags=["custom-db"],
-    dependencies=[Depends(_require_staff)],
+    dependencies=[Depends(_require_workspace_admin)],
 )
 
 

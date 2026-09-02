@@ -65,7 +65,6 @@ REQUIRED_SETTINGS_ROUTES = {
     "/settings/channels",
     "/ai/assistant/external/installation",
     "/settings/communication",
-    "/settings/help-centers",
     "/modules/connected",
     "/modules/marketplace",
     "/modules/tools",
@@ -164,7 +163,6 @@ def test_resolve_dir_finds_sectioned_articles():
         "agent-runs",
         "inbox-ai",
         "members",
-        "help-centers",
     }
     article = get_article("channels", "nl")
     assert article is not None

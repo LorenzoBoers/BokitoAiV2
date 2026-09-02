@@ -860,14 +860,13 @@ async def list_github_connections(session: AsyncSession, tenant_id: UUID) -> lis
 
 
 def _seed_mock_creds_if_missing(account: ChannelAccount) -> None:
-    """Give a Dev mailbox placeholder credentials so it reads as connected.
+    """Give a Dev/mock OAuth mailbox placeholder credentials so it reads as connected.
 
     Never overwrites real tokens and never runs in production. Sync and send
     recognize the ``mock`` flag and short-circuit instead of calling provider APIs.
+    Called from the local OAuth mock path for gmail/outlook (not only provider=mock).
     """
     if get_settings().is_production:
-        return
-    if account.provider != "mock":
         return
     creds = get_connection_credentials(account)
     if isinstance(creds, dict) and creds.get("access_token"):
@@ -882,8 +881,9 @@ def _seed_mock_creds_if_missing(account: ChannelAccount) -> None:
             settings = {}
     except (json.JSONDecodeError, TypeError):
         settings = {}
-    settings["dev_mailbox"] = True
-    settings["label"] = settings.get("label") or "Dev mailbox"
+    if account.provider == "mock":
+        settings["dev_mailbox"] = True
+        settings["label"] = settings.get("label") or "Dev mailbox"
     account.settings_json = json.dumps(settings)
 
 

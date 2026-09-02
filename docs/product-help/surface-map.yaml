@@ -171,9 +171,6 @@ widget:
   screenshots:
     - installation
 
-help-centers:
-  docs: none
-
 agents:
   section: ai
   routes:
