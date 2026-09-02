@@ -12,7 +12,6 @@ written by the OAuth connect flow.
 from __future__ import annotations
 
 import base64
-import json
 import logging
 from email.message import EmailMessage
 from typing import Any
