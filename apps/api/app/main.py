@@ -85,6 +85,12 @@ async def lifespan(app: FastAPI):
                 await scheduler_task
             except asyncio.CancelledError:
                 pass
+        try:
+            from app.workers.tasks import close_arq_pool
+
+            await close_arq_pool()
+        except Exception:
+            pass
         await event_bus.stop()
 
 

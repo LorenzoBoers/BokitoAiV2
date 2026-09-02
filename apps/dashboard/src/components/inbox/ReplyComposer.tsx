@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { BookmarkPlus, ChevronDown, Clock, MessageSquareText, Paperclip, Quote, Send, StickyNote } from 'lucide-react'
+import { BookmarkPlus, ChevronDown, Clock, MessageSquareText, Paperclip, Quote, Send, Square, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -51,6 +51,10 @@ type Props = {
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   /** Send into the active agent meta session (no customer delivery). */
   onAgentMessage?: (bodyText: string) => Promise<void>
+  /** Abort the in-flight agent stream (Stop). */
+  onStopAgent?: () => void
+  /** True while an agent reply is streaming — blocks Send/Enter. */
+  agentStreaming?: boolean
   saving: boolean
   disabled?: boolean
   extraActions?: ReactNode
@@ -104,6 +108,8 @@ export default function ReplyComposer({
   onReply,
   onNote,
   onAgentMessage,
+  onStopAgent,
+  agentStreaming = false,
   saving,
   disabled,
   extraActions,
@@ -270,12 +276,14 @@ export default function ReplyComposer({
   }
 
   useEffect(() => {
+    // Never steal focus from an in-flight agent chat when a draft arrives.
+    if (agentStreaming) return
     if (draftBody != null && draftBody !== '') {
       setMode('reply')
       setBody(draftBody)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- draftKey drives re-apply
-  }, [draftKey, draftBody])
+  }, [draftKey, draftBody, agentStreaming])
 
   const showReplyTab = surface.tabs.includes('reply')
   const showNoteTab = surface.tabs.includes('note')
@@ -285,19 +293,27 @@ export default function ReplyComposer({
   const isNote = mode === 'note'
   const isAgent = mode === 'agent'
   const isReply = mode === 'reply'
+  const busy = saving || agentStreaming
 
   const handleSubmit = async (
     action: 'send' | 'send_and_close' | 'send_and_pending',
     snoozeMinutes?: number,
   ) => {
     if (isReply && replyBlocked) return
+    if (isAgent && agentStreaming) return
     const text = body.trim()
     if (!text && attachments.length === 0) return
     const payload = attachments.length ? attachments : undefined
     try {
       if (isAgent) {
         if (!onAgentMessage) return
+        // Clear immediately so Enter cannot triple-submit the same body.
+        setBody('')
+        setAttachments([])
+        setDraftRestored(false)
+        writeStoredDraft(persistKey, '')
         await onAgentMessage(text)
+        return
       } else if (isNote) {
         await onNote(text, payload)
       } else {
@@ -372,12 +388,12 @@ export default function ReplyComposer({
     const enterSends = !(surface.channel === 'email' && isReply)
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
-      void handleSubmit('send')
+      if (!busy) void handleSubmit('send')
       return
     }
     if (e.key === 'Enter' && !e.shiftKey && enterSends) {
       e.preventDefault()
-      void handleSubmit('send')
+      if (!busy) void handleSubmit('send')
     }
   }
 
@@ -586,7 +602,7 @@ export default function ReplyComposer({
           }}
           onBlur={() => setMentionQuery(null)}
           highlighter={<MentionHighlight raw={body} />}
-          disabled={disabled || saving}
+          disabled={disabled || busy}
           placeholder={
             isAgent
               ? t('composer.agentPlaceholder', {
@@ -686,9 +702,21 @@ export default function ReplyComposer({
             <Paperclip size={14} />
           </button>
           <div className="flex h-8 shrink-0 overflow-hidden rounded-xl">
+            {isAgent && agentStreaming ? (
+              <button
+                type="button"
+                onClick={() => onStopAgent?.()}
+                title={t('directChat.stop', { defaultValue: 'Stop' })}
+                className="flex h-8 items-center justify-center gap-1.5 rounded-xl bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover/80"
+              >
+                <Square size={13} />
+                <span className="text-[11px] font-medium">{t('directChat.stop', { defaultValue: 'Stop' })}</span>
+              </button>
+            ) : (
+              <>
             <button
               type="button"
-              disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
+              disabled={(!body.trim() && attachments.length === 0) || busy || disabled || uploading}
               onClick={() => void handleSubmit('send')}
               title={
                 isAgent
@@ -717,7 +745,7 @@ export default function ReplyComposer({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
+                    disabled={(!body.trim() && attachments.length === 0) || busy || disabled || uploading}
                     title={t('composer.sendMore')}
                     aria-label={t('composer.sendMore')}
                     className="flex h-8 w-6 items-center justify-center border-l border-accent-fg/20 bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
@@ -750,6 +778,8 @@ export default function ReplyComposer({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
+              </>
+            )}
           </div>
         </ComposerCard>
         )}

@@ -1,9 +1,12 @@
-"""Custom database router (dashboard APP_API_BASE contract)."""
+"""Custom database router (dashboard APP_API_BASE contract).
+
+Staff-gated: not a tenant product surface.
+"""
 
 import json
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +15,17 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.services import custom_db as svc
 
-router = APIRouter(tags=["custom-db"])
+
+def _require_staff(auth: Annotated[AuthContext, Depends(get_current_auth)]) -> AuthContext:
+    if not auth.is_staff:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff only")
+    return auth
+
+
+router = APIRouter(
+    tags=["custom-db"],
+    dependencies=[Depends(_require_staff)],
+)
 
 
 class TableCreate(BaseModel):

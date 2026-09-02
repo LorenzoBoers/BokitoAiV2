@@ -8,6 +8,7 @@ import { agentChatPath } from '../../lib/messages-paths'
 import { onGatewayEvent } from '../../lib/gateway'
 import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
+  bokitoCancelConversation,
   bokitoDeleteConversation,
   bokitoListMessages,
   bokitoRenameConversation,
@@ -480,6 +481,9 @@ export function AgentChatView({
 
   const stopStreaming = () => {
     abortRef.current?.abort()
+    if (token && conversationId) {
+      void bokitoCancelConversation(token, conversationId).catch(() => {})
+    }
   }
 
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

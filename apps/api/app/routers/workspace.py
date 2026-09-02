@@ -23,6 +23,8 @@ class DocCreateBody(BaseModel):
     content: str = ""
     kind: str | None = None
     title: str | None = None
+    project_id: UUID | None = None
+    agent_id: UUID | None = None
 
 
 class DocUpdateBody(BaseModel):
@@ -30,6 +32,8 @@ class DocUpdateBody(BaseModel):
     kind: str | None = None
     title: str | None = None
     is_pinned: bool | None = None
+    project_id: UUID | None = None
+    agent_id: UUID | None = None
 
 
 class SearchBody(BaseModel):
@@ -43,9 +47,25 @@ async def list_workspace_docs(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     kind: str | None = Query(None),
+    project_id: UUID | None = Query(None),
+    agent_id: UUID | None = Query(None),
+    scope: str | None = Query(None, description="Pass 'all' to include every scope"),
+    limit: int = Query(50, ge=1, le=100),
 ):
-    docs = await svc.list_docs(session, auth.tenant.id, kind=kind)
-    return {"docs": [svc.serialize_doc(d, include_content=False) for d in docs]}
+    docs = await svc.list_docs(
+        session,
+        auth.tenant.id,
+        kind=kind,
+        project_id=project_id,
+        agent_id=agent_id,
+        scope=scope,
+        limit=limit,
+    )
+    payloads = [svc.serialize_doc(d, include_content=False) for d in docs]
+    linked = await _linked_requests_for_docs(session, auth.tenant.id, [d.id for d in docs])
+    for payload, doc in zip(payloads, docs, strict=True):
+        payload["linked_requests"] = linked.get(doc.id, [])
+    return {"docs": payloads}
 
 
 @router.post("/docs")
@@ -54,17 +74,31 @@ async def create_workspace_doc(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    kind = body.kind
+    if body.project_id and not kind:
+        kind = "project_doc"
     doc = await svc.upsert_doc(
         session,
         auth.tenant.id,
         path=body.path,
         content=body.content,
-        kind=body.kind,
+        kind=kind,
         title=body.title,
+        project_id=body.project_id,
+        agent_id=body.agent_id,
         created_by_type="user",
         created_by_id=str(auth.user.id),
     )
-    return svc.serialize_doc(doc)
+    data = svc.serialize_doc(doc)
+    linked = await _linked_requests_for_docs(session, auth.tenant.id, [doc.id])
+    data["linked_requests"] = linked.get(doc.id, [])
+    return data
+
+
+async def _linked_requests_for_docs(session: AsyncSession, tenant_id: UUID, doc_ids: list[UUID]):
+    from app.services.project_work import active_requests_for_docs
+
+    return await active_requests_for_docs(session, tenant_id, doc_ids)
 
 
 def _upload_doc_path(filename: str) -> str:
@@ -132,7 +166,10 @@ async def get_workspace_doc(
     doc = await svc.get_doc(session, auth.tenant.id, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Doc not found")
-    return svc.serialize_doc(doc)
+    data = svc.serialize_doc(doc)
+    linked = await _linked_requests_for_docs(session, auth.tenant.id, [doc.id])
+    data["linked_requests"] = linked.get(doc.id, [])
+    return data
 
 
 @router.patch("/docs/{doc_id}")
@@ -147,7 +184,13 @@ async def update_workspace_doc(
         raise HTTPException(status_code=404, detail="Doc not found")
     if body.is_pinned is not None:
         doc.is_pinned = body.is_pinned
-    if body.content is not None or body.kind or body.title:
+    if (
+        body.content is not None
+        or body.kind
+        or body.title
+        or body.project_id is not None
+        or body.agent_id is not None
+    ):
         doc = await svc.upsert_doc(
             session,
             auth.tenant.id,
@@ -155,13 +198,18 @@ async def update_workspace_doc(
             content=body.content if body.content is not None else doc.content,
             kind=body.kind,
             title=body.title,
+            project_id=body.project_id if body.project_id is not None else doc.project_id,
+            agent_id=body.agent_id if body.agent_id is not None else doc.agent_id,
             created_by_type="user",
             created_by_id=str(auth.user.id),
         )
     else:
         await session.commit()
         await session.refresh(doc)
-    return svc.serialize_doc(doc)
+    data = svc.serialize_doc(doc)
+    linked = await _linked_requests_for_docs(session, auth.tenant.id, [doc.id])
+    data["linked_requests"] = linked.get(doc.id, [])
+    return data
 
 
 class DocPublishBody(BaseModel):

@@ -10,12 +10,16 @@
     "loadingWorkspaces": "Loading workspaces..."
   },
   "tabs": {
+    "overview": {
+      "title": "Overview",
+      "subtitle": "Daily scan, attention and usage"
+    },
     "cockpit": {
-      "title": "Cockpit",
-      "subtitle": "Overview, activity and usage"
+      "title": "Overview",
+      "subtitle": "Daily scan, attention and usage"
     },
     "communication": {
-      "title": "Communication",
+      "title": "Messages",
       "subtitle": "Chats, customer and agent threads"
     },
     "contacts": {
@@ -161,7 +165,7 @@
     "relatedTitle": "Related next steps",
     "relatedBody": "Jump to the settings or pages that usually follow this topic.",
     "related": {
-      "communication": "Communication",
+      "communication": "Messages",
       "agents": "Agents",
       "setup": "Setup guide",
       "channels": "Channel settings",
@@ -1131,7 +1135,7 @@
     "openSetup": "Open setup guide",
     "loopTitle": "How Bokito fits together",
     "loopHint": "Communication, agents, the check-in and approvals are one loop. Start here, then open the rest when you need it.",
-    "loopMessages": "Communication",
+    "loopMessages": "Messages",
     "loopMessagesHint": "Customer and team conversations land here — including check-in findings.",
     "loopAgents": "Agents",
     "loopAgentsHint": "They draft replies and do scheduled work.",
@@ -1675,6 +1679,7 @@
     "pushTitle": "Push notifications on this device",
     "pushBody": "Get a system notification for new messages and pending decisions, even when Bokito is closed. Applies to this browser only; decision pushes follow your in-app preference above.",
     "pushUnsupported": "This browser does not support push notifications.",
+    "pushNotConfigured": "Push is not enabled on this server. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in the API environment (see docs/PRODUCTION_READINESS.md).",
     "pushAria": "Push notifications on this device",
     "pushFailed": "Could not update push notifications.",
     "channelsTitle": "Channels",
@@ -1869,7 +1874,7 @@
     "groupThreads": "Threads",
     "groupContacts": "Contacts",
     "groupSettings": "Settings",
-    "groupInbox": "Inbox queues",
+    "groupInbox": "Messages queues",
     "inboxOpenHint": "J/K to move, ? for shortcuts",
     "decisionsHint": "Open approvals across all channels",
     "needsReply": "Needs reply",
@@ -1932,7 +1937,7 @@
     "languageNl": "Nederlands",
     "languageEn": "English",
     "emailMessages": "Email & messages",
-    "inboxAi": "Inbox AI",
+    "inboxAi": "Messages AI",
     "signOut": "Sign out"
   },
   "theme": {
@@ -2050,7 +2055,7 @@
       "overview": "Overview",
       "docs": "Workspace",
       "projects": "Projects",
-      "communication": "Communication",
+      "communication": "Messages",
       "decisions": "Decisions"
     },
     "quick": {
@@ -3358,7 +3363,7 @@
         "submit": "Create agent",
         "roles": {
           "assistant": "Assistant",
-          "communication": "Communication",
+          "communication": "Messages",
           "builder": "Builder",
           "orchestra": "Lead"
         },
@@ -3694,6 +3699,13 @@
       "impactSummary": "Impact analysis",
       "linkedSections": "{{count}} sections",
       "linkedSections_one": "{{count}} section",
+      "linkedDocs": "{{count}} docs",
+      "linkedDocs_one": "{{count}} doc",
+      "linkDoc": "Link document",
+      "linkDocPlaceholder": "Link a knowledge document",
+      "orgDocPrefix": "Org: {{title}}",
+      "docLinked": "Document linked",
+      "docLinkError": "Could not link the document.",
       "openThread": "Open source thread",
       "status": {
         "proposed": "Proposed",
@@ -3759,8 +3771,9 @@
       "docsLoadError": "Could not load the project documentation.",
       "docsEmpty": "No project documentation yet.",
       "docsEmptyTitle": "No documentation yet",
-      "docsEmptyBody": "Project docs describe what this project does. Sections carry a status from open to verified, and queue items link to the sections they touch.",
+      "docsEmptyBody": "Project docs live in Knowledge under this project. Linked queue requests appear on each document; request status stays on the queue.",
       "openKnowledge": "Open Knowledge",
+      "openInKnowledge": "Open in Knowledge hub",
       "openAgents": "Open Agents",
       "newDoc": "New document",
       "docPathPlaceholder": "e.g. overview",
@@ -3815,7 +3828,7 @@
       "po": "Lead",
       "knowledge": "Workspace",
       "orchestration": "Who runs this",
-      "communication": "Communication",
+      "communication": "Messages",
       "workforce": "Agent runs",
       "usage": "Token usage",
       "notifications": "Notifications",
@@ -3875,7 +3888,7 @@
       }
     },
     "communication": {
-      "title": "Communication",
+      "title": "Messages",
       "description": "Updates and decisions between you and the agents working on this project.",
       "hubLink": "Open hub communication",
       "filter": {
@@ -4112,7 +4125,7 @@
       "personal": "Personal",
       "products": "Products",
       "workspace": "Workspace",
-      "communication": "Communication",
+      "communication": "Messages",
       "integrations": "Integrations",
       "govern": "Govern",
       "advanced": "Advanced",
@@ -4139,7 +4152,7 @@
       "modules": "Modules",
       "govern": "Govern",
       "trust": "Trust & privacy",
-      "reports": "Reports",
+      "reports": "Overview",
       "developers": "Developers",
       "models": "Providers & models",
       "billing": "Billing",
@@ -4166,7 +4179,7 @@
       "connectedTools": "Tools connected for agents",
       "govern": "Approvals and how much agents may do",
       "trust": "Retention, data subject requests, and AI data use",
-      "reports": "Overview, activity and usage",
+      "reports": "Daily scan, attention and usage",
       "developers": "API keys and webhooks",
       "models": "Which AI models to use"
     }
@@ -4230,8 +4243,8 @@
       "description": "Configure personal and team notification defaults."
     },
     "support": {
-      "title": "Communication",
-      "description": "Configure Communication behavior and channels."
+      "title": "Messages",
+      "description": "Configure Messages behavior and channels."
     },
     "messenger": {
       "title": "Assistant",
@@ -4394,6 +4407,7 @@
       "skill": "How-to notes agents follow for specific jobs.",
       "heartbeat": "What the daily check-in looks for.",
       "doc": "Reference documents and customer articles.",
+      "project_doc": "Documentation scoped to a project.",
       "daily_log": "Running notes agents write after a day of work."
     },
     "clearSearch": "Clear search",
@@ -4444,12 +4458,21 @@
     "refreshedAt": "Updated {{time}}",
     "filterAll": "All kinds",
     "viewHelp": "View on help center: {{path}}",
+    "scopeOrganization": "Organization",
+    "scopeProjects": "Projects",
+    "scopeAgents": "Agents",
+    "pickProject": "Select a project",
+    "pickAgent": "Select an agent",
+    "linkedRequests": "Linked requests",
+    "editorWrite": "Write",
+    "editorMarkdown": "Markdown",
     "kinds": {
       "persona": "Voice",
       "memory": "Memory",
       "skill": "Skills",
       "heartbeat": "Check-ins",
       "doc": "Docs",
+      "project_doc": "Project docs",
       "daily_log": "Daily notes"
     },
     "paths": {

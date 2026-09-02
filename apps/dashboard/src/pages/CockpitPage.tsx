@@ -439,7 +439,7 @@ export default function CockpitPage() {
     <PageContent width="xl">
       {!onboardingVisible ? <PageGuideBanner page="cockpit" className="mb-4" /> : null}
       <ContentHeader
-        title={t('settings.links.reports', { defaultValue: 'Reports' })}
+        title={t('tabs.overview.title', { defaultValue: 'Overview' })}
         subtitle={`${t(greetingKey, { name: greetingName })} · ${formatAppDate(new Date(), i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })}`}
         meta={
           <>

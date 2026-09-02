@@ -128,8 +128,3 @@ export function describeOAuthCallbackSummary(result: OAuthCallbackResult): strin
   return `Failed to connect ${who}.`
 }
 
-/** @deprecated Use `describeOAuthCallbackSummary` and show `result.detail` in the UI. */
-export function describeOAuthCallbackError(result: OAuthCallbackResult): string {
-  return describeOAuthCallbackSummary(result)
-}
-

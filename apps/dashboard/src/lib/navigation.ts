@@ -1,9 +1,8 @@
 /**
  * Navigation model for the control shell.
  *
- * Rail: Communication, Agenda, Projects, Agents, Modules, Settings (6).
- * Cockpit is demoted to a Reports view under Settings; Contacts nests under
- * Communication; Knowledge nests under the Agents (AI) group.
+ * Rail: Overview, Messages, Agenda, Projects, Agents, Modules, Settings.
+ * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
  */
 
 import {
@@ -11,12 +10,14 @@ import {
   Boxes,
   CalendarDays,
   FolderKanban,
+  LayoutDashboard,
   MessageSquare,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
 
 export type Tab =
+  | 'overview'
   | 'communication'
   | 'agenda'
   | 'agents'
@@ -25,12 +26,13 @@ export type Tab =
   | 'settings'
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Control', tabs: ['communication', 'agenda', 'projects'] },
+  { label: 'Control', tabs: ['overview', 'communication', 'agenda', 'projects'] },
   { label: 'AI', tabs: ['agents'] },
   { label: 'Settings', tabs: ['modules', 'settings'] },
 ]
 
 export const TAB_PATHS: Record<Tab, string> = {
+  overview: '/cockpit',
   communication: '/communication/inbox/open',
   agenda: '/agenda',
   agents: '/agents',
@@ -42,10 +44,14 @@ export const TAB_PATHS: Record<Tab, string> = {
 /** Scheduled flows and recurring wakes — not the week calendar. */
 export const AGENDA_AUTOMATIONS_PATH = '/agenda?view=automations' as const
 
-/** Reports (former Cockpit): overview, activity and usage, linked from Settings. */
-export const REPORTS_PATH = '/cockpit' as const
+/** Overview (former Cockpit / Reports): daily scan, activity and usage. */
+export const OVERVIEW_PATH = '/cockpit' as const
+
+/** @deprecated Use OVERVIEW_PATH — kept for older imports. */
+export const REPORTS_PATH = OVERVIEW_PATH
 
 const TAB_ICONS: Record<Tab, LucideIcon> = {
+  overview: LayoutDashboard,
   communication: MessageSquare,
   agenda: CalendarDays,
   agents: Bot,
@@ -55,7 +61,8 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
 }
 
 const TAB_TITLES: Record<Tab, string> = {
-  communication: 'Communication',
+  overview: 'Overview',
+  communication: 'Messages',
   agenda: 'Agenda',
   agents: 'Agents',
   projects: 'Projects',
@@ -64,6 +71,7 @@ const TAB_TITLES: Record<Tab, string> = {
 }
 
 const TAB_SUBTITLES: Record<Tab, string> = {
+  overview: 'Daily scan, attention and usage',
   communication: 'Chats, customer and agent threads',
   agenda: 'Scheduled wakes, tasks and events',
   agents: 'People and agents you can chat with',
@@ -118,9 +126,16 @@ export function markTabSeen(tab: Tab): void {
 
 /** Resolve the active tab from a pathname (longest-prefix match). */
 export function tabFromPath(pathname: string): Tab | null {
+  if (
+    pathname.startsWith('/cockpit') ||
+    pathname.startsWith('/overview') ||
+    pathname === '/home' ||
+    pathname.startsWith('/usage')
+  )
+    return 'overview'
   if (pathname === '/' || pathname.startsWith('/communication') || pathname.startsWith('/inbox'))
     return 'communication'
-  // Contacts nest under Communication.
+  // Contacts nest under Messages.
   if (pathname.startsWith('/contacts')) return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/agents')) return 'agents'
@@ -135,14 +150,8 @@ export function tabFromPath(pathname: string): Tab | null {
   if (pathname.startsWith('/modules')) return 'modules'
   // Installed module workspaces live under AI, not Settings.
   if (pathname.startsWith('/ai/modules')) return null
-  // Reports (former Cockpit) is reached from Settings.
-  if (
-    pathname.startsWith('/cockpit') ||
-    pathname.startsWith('/overview') ||
-    pathname.startsWith('/activity') ||
-    pathname.startsWith('/usage')
-  )
-    return 'settings'
+  // Activity terminal is shared; highlight Messages when opened from hub.
+  if (pathname.startsWith('/activity')) return 'communication'
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
   return null
 }

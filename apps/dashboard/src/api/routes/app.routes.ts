@@ -76,6 +76,8 @@ export const appRoutes = {
       `/signals/conversations/${encodeURIComponent(conversationId)}/messages`,
     conversationStream: (conversationId: string) =>
       `/signals/conversations/${encodeURIComponent(conversationId)}/stream`,
+    conversationCancel: (conversationId: string) =>
+      `/signals/conversations/${encodeURIComponent(conversationId)}/cancel`,
     thread: (threadId: string) => `/signals/${threadId}`,
     threadDelete: (threadId: string) => `/signals/${threadId}`,
     threadMarkRead: (threadId: string) => `/signals/${threadId}/mark-read`,
@@ -187,5 +189,11 @@ export const appRoutes = {
     subscribe: '/push/subscribe',
     unsubscribe: '/push/unsubscribe',
     vapidPublicKey: '/push/vapid-public-key',
+  },
+  cockpit: {
+    summary: '/cockpit/summary',
+    activity: (params: URLSearchParams) => withQuery('/cockpit/activity', params),
+    usage: (days: number) => withQuery('/cockpit/usage', new URLSearchParams({ days: String(days) })),
+    budget: '/cockpit/budget',
   },
 } as const

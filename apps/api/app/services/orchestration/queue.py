@@ -5,9 +5,6 @@ from __future__ import annotations
 import logging
 import os
 
-from arq import create_pool
-from arq.connections import RedisSettings
-
 from app.config import get_settings
 from app.services.runtime_health import record_redis_enqueue_failure
 
@@ -19,7 +16,9 @@ async def enqueue_agent_task_segment(tenant_id: str, task_id: str) -> bool:
     if os.environ.get("BOKITO_MOCK_EXECUTION", "").lower() in ("1", "true", "yes"):
         return False
     try:
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        from app.workers.tasks import _get_arq_pool
+
+        redis = await _get_arq_pool()
         await redis.enqueue_job("run_agent_task_segment_job", tenant_id, task_id)
         return True
     except Exception as exc:  # noqa: BLE001 — caller falls back to inline execution
@@ -32,7 +31,9 @@ async def enqueue_workstream_run(tenant_id: str, workstream_id: str, trigger_typ
     if os.environ.get("BOKITO_MOCK_EXECUTION", "").lower() in ("1", "true", "yes"):
         return False
     try:
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        from app.workers.tasks import _get_arq_pool
+
+        redis = await _get_arq_pool()
         await redis.enqueue_job("run_workstream_orchestrated", tenant_id, workstream_id, trigger_type)
         return True
     except Exception as exc:  # noqa: BLE001 — caller falls back to inline execution

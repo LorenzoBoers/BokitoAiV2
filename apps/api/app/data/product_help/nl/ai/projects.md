@@ -23,8 +23,8 @@ Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis mo
 ## Werk de implementatie-queue af
 
 1. Kies op het tabblad **Queue** voor **Aan queue toevoegen**. Geef het verzoek een titel, kies een soort (**Feature**, **Bug**, **Taak**, **Idee**, **Risico**) en een prioriteit, en kies **Toevoegen**.
-2. Items zijn gegroepeerd op status: **Voorgesteld**, **Geaccepteerd**, **In analyse**, **Gepland**, **In uitvoering**, **In verificatie**, **Klaar**, **Afgewezen**. Open een item om de context, impactanalyse en gekoppelde documentatiesecties te lezen.
-3. Kies **Accepteren** op een voorgesteld item. De projectagent analyseert het tegen de documentatie, koppelt de secties die het raakt en schrijft een impactsamenvatting. Gebruik **Analyseer** om dat opnieuw te draaien.
+2. Items zijn gegroepeerd op status: **Voorgesteld**, **Geaccepteerd**, **In analyse**, **Gepland**, **In uitvoering**, **In verificatie**, **Klaar**, **Afgewezen**. Open een item om de context, impactanalyse en gekoppelde kennisdocumenten te lezen.
+3. Kies **Accepteren** op een voorgesteld item. De projectagent analyseert het tegen de documentatie, koppelt de documenten die het raakt en schrijft een impactsamenvatting. Gebruik **Analyseer** om dat opnieuw te draaien. Op een open item kun je ook **Document koppelen** kiezen om een project- of organisatiekennispagina te hangen.
 4. Als het werk klaar is, kies je **Klaar voor verificatie** en daarna **Verifieer**. De agent toetst de documentatie aan de realiteit voordat het item naar **Klaar** gaat.
 
 Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je terugbrengt naar het exacte gesprek in [Communicatie](/docs/inbox/communication).
@@ -36,12 +36,12 @@ Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je ter
 3. Kies **Aan queue toevoegen** om te accepteren, of **Afwijzen**. Kies **Altijd toestaan** als de agent items mag toevoegen zonder te vragen.
 4. Zet **Autonome modus** aan op het tabblad **Instellingen** van het project om de acceptatiestap over te slaan: gespreksitems worden automatisch geaccepteerd en de analyse start direct.
 
-## Houd slimme documentatie bij
+## Houd projectdocumentatie bij
 
-1. Open het tabblad **Documentatie**. Kies **Nieuw document**, geef het een naam en schrijf markdown. Elke `##`-kop wordt een gevolgde sectie.
-2. Elke sectie draagt een status: **Open**, **Gepland**, **In uitvoering**, **Geïmplementeerd**, **Geverifieerd** of **Vervallen**. De gekleurde rail naast elke sectie toont de status in één oogopslag.
-3. Open een sectie om te zien welke queue-items haar raken — huidig en historisch. Klik op de statusbadge om die handmatig te wijzigen.
-4. Agents gebruiken deze statussen bij het beantwoorden van klanten, zodat ze geen features beloven die nog open staan.
+1. Open het tabblad **Documentatie** (een contextuele weergave van dezelfde docs als Kennis, gefilterd op dit project). Kies **Nieuw document**, geef het een naam en schrijf in **Schrijven** of **Markdown**. Inhoud wordt altijd als markdown opgeslagen.
+2. Actieve gekoppelde queue-aanvragen tonen chips op het document. De status blijft op het queue-item.
+3. Sectiestatussen onder elke `##`-kop blijven beschikbaar wanneer je **Secties** uitklapt; ze zijn secundair ten opzichte van documentkoppelingen.
+4. Kies **Openen in Kennishub** om hetzelfde document onder Kennis → Projecten te bewerken.
 
 ## Koppel resources
 
@@ -57,4 +57,4 @@ Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je ter
 
 ## Wat nu
 
-Hang een planning op de [Agenda](/docs/ai/agenda). Zet workspacebrede kennis in [Kennis](/docs/ai/knowledge); projectdocumentatie leeft op het project zelf.
+Hang een planning op de [Agenda](/docs/ai/agenda). Bekijk dezelfde projectdocs onder [Kennis](/docs/ai/knowledge) met het filter Projecten; workspacebrede kennis blijft onder Kennis → Organisatie.

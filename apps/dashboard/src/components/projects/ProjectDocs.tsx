@@ -4,11 +4,12 @@ import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, FileText, Loader2, Pencil, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import MarkdownView from '../docs/MarkdownView'
+import { KnowledgeMarkdownEditor } from '../knowledge/KnowledgeMarkdownEditor'
+import { LinkedRequestsChips } from '../knowledge/LinkedRequestsChips'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
-import { Textarea } from '../ui/textarea'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../ui/skeleton'
 import { cn } from '../../lib/utils'
@@ -296,6 +297,12 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
         {docs.length === 0 && !canEdit ? (
           <p className="px-1 text-sm text-text-muted">{t('projects.work.docsEmpty')}</p>
         ) : null}
+        <Link
+          to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
+          className="mt-2 block px-1 text-[11px] font-medium text-accent hover:underline"
+        >
+          {t('projects.work.openInKnowledge')}
+        </Link>
       </div>
 
       <div className="min-w-0 space-y-3">
@@ -304,7 +311,10 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
             <p className="text-sm font-medium text-text-heading">{t('projects.work.docsEmptyTitle')}</p>
             <p className="mt-1 text-sm text-text-muted">{t('projects.work.docsEmptyBody')}</p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-              <Link to="/knowledge" className="text-xs font-medium text-accent hover:underline">
+              <Link
+                to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
+                className="text-xs font-medium text-accent hover:underline"
+              >
                 {t('projects.work.openKnowledge')}
               </Link>
               <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
@@ -314,12 +324,18 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
           </Card>
         ) : (
           <>
-            {selected.sections.length > 0 ? (
+            {(selected.linked_requests?.length ?? 0) > 0 ? (
               <Card className="p-3">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                <LinkedRequestsChips requests={selected.linked_requests ?? []} />
+              </Card>
+            ) : null}
+
+            {selected.sections.length > 0 ? (
+              <details className="rounded-lg border border-border/50 bg-bg-surface/40 p-3">
+                <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
                   {t('projects.work.sections')}
-                </p>
-                <ul className="space-y-1.5">
+                </summary>
+                <ul className="mt-2 space-y-1.5">
                   {selected.sections
                     .filter((section) => section.status !== 'deprecated')
                     .map((section) => (
@@ -331,7 +347,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                       />
                     ))}
                 </ul>
-              </Card>
+              </details>
             ) : null}
 
             <Card className="p-4">
@@ -357,10 +373,11 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                 ) : null}
               </div>
               {editing ? (
-                <Textarea
+                <KnowledgeMarkdownEditor
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  className="min-h-96 font-mono text-sm"
+                  onChange={setDraft}
+                  writeLabel={t('knowledgePage.editorWrite')}
+                  markdownLabel={t('knowledgePage.editorMarkdown')}
                 />
               ) : (
                 <MarkdownView content={selected.content ?? ''} />

@@ -652,7 +652,18 @@ async def create_po_agent(
         name=name or f"{project.name} Orchestrator",
         role="orchestrator",
         slug="orchestrator",
-        system_prompt=f"You are the orchestrator for project {project.name}. Plan work, route agents, and keep project knowledge current.",
+        system_prompt=(
+            f"You are the orchestrator for project {project.name}. "
+            "Plan work, route agents, and keep project knowledge current.\n\n"
+            "Knowledge architecture and maintenance:\n"
+            "- Keep documentation logically structured; prefer editing existing docs "
+            "over proliferating files. Split or create a document only when a stable "
+            "new concept emerges.\n"
+            "- On each queue request: run impact analysis, link affected docs with "
+            "link_queue_item_to_doc (doc_id), update those docs with write_doc, then "
+            "verify the docs match reality before marking work complete.\n"
+            "- Use list_project_docs / list_docs / read_doc to discover scoped docs."
+        ),
     )
     session.add(agent)
     await session.flush()

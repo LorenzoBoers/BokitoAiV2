@@ -44,7 +44,6 @@ import { AgentChatView } from './AgentChatView'
 import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
   bokitoListMessages,
-  bokitoStreamMessage,
   closeAgentSession,
   discardAgentSession,
   listThreadAgentCandidates,
@@ -52,6 +51,10 @@ import {
   type ChatMessage,
   type ThreadAgentCandidate,
 } from '../../lib/signals-api'
+import {
+  mergeSessionLiveMessages,
+  useAgentSessionChat,
+} from '../../lib/use-agent-session-chat'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { AiMark } from '../ai/AiMark'
@@ -617,6 +620,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // Transcript of the running meta session, owned here so a send in the
   // composer and the inline session card stay in sync.
   const [sessionMessages, setSessionMessages] = useState<ChatMessage[] | null>(null)
+  const {
+    stream: sessionStream,
+    agentStreaming,
+    send: sendAgentSessionMessage,
+    stop: stopAgentSessionStream,
+  } = useAgentSessionChat(token)
+  const agentStreamingRef = useRef(false)
+  agentStreamingRef.current = agentStreaming
+  const applyComposerDraft = useCallback(
+    (draft: NonNullable<typeof composerDraft>) => {
+      // Do not yank the Agent tab mid-stream when a suggestion card appears.
+      if (agentStreamingRef.current) return
+      setComposerDraft(draft)
+    },
+    [],
+  )
 
   // Active agents are @-mentionable in notes; a mention invokes the agent on
   // this thread and its answer lands as an internal note.
@@ -1129,23 +1148,51 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   const handleAgentMessage = useCallback(
     async (bodyText: string) => {
-      if (!token || !threadIdString) return
+      if (!token || !threadIdString || agentStreaming) return
       const text = stripMentionMarkup(bodyText).trim()
       if (!text) return
-      // Typing on the agent tab is enough to open the meta conversation.
       let sessionId = activeSessionId
       if (!sessionId) {
         const started = await startAgentSession(token, threadIdString, detail?.thread.agentId ?? null)
         sessionId = started?.id ?? null
         if (!sessionId) return
+        onRefresh()
       }
-      await bokitoStreamMessage(token, sessionId, text, () => {})
-      await loadSessionMessages(sessionId)
-      onRefresh()
-      window.setTimeout(() => pinToBottom('smooth'), 120)
+      try {
+        await sendAgentSessionMessage(sessionId, text, {
+          onFinished: async () => {
+            await loadSessionMessages(sessionId)
+            onRefresh()
+            window.setTimeout(() => pinToBottom('smooth'), 120)
+          },
+        })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : ''
+        if (msg === 'agent_busy') {
+          toast.error(t('agentSession.busyError', { defaultValue: 'The agent is still replying. Wait or press Stop.' }))
+        } else {
+          toast.error(t('agentSession.sendError', { defaultValue: 'Could not send to the agent.' }))
+        }
+        await loadSessionMessages(sessionId)
+      }
     },
-    [token, threadIdString, activeSessionId, detail?.thread.agentId, loadSessionMessages, onRefresh, pinToBottom],
+    [
+      token,
+      threadIdString,
+      activeSessionId,
+      detail?.thread.agentId,
+      agentStreaming,
+      sendAgentSessionMessage,
+      loadSessionMessages,
+      onRefresh,
+      pinToBottom,
+      t,
+    ],
   )
+
+  const handleStopAgent = useCallback(() => {
+    void stopAgentSessionStream()
+  }, [stopAgentSessionStream])
 
   const agentIdsAtStreamStartRef = useRef<Set<string>>(new Set())
   const wasStreamingRef = useRef(false)
@@ -1860,12 +1907,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                       threadId={String(thread.id)}
                       liveMessages={
                         item.session.id === activeSessionId
-                          ? (sessionMessages ?? undefined)
+                          ? mergeSessionLiveMessages(sessionMessages, sessionStream)
                           : undefined
                       }
+                      streaming={item.session.id === activeSessionId && agentStreaming}
                       onChanged={onRefresh}
                       onUseAsReply={(text) => {
-                        setComposerDraft({ body: text, key: `session-${Date.now()}` })
+                        applyComposerDraft({ body: text, key: `session-${Date.now()}` })
                         toast.success(t('agentSession.replyCopied'))
                       }}
                     />
@@ -1879,7 +1927,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                         agentId={thread.agentId}
                         onResolved={onDecisionResolved}
                         onEditDraft={(draft) => {
-                          setComposerDraft({
+                          applyComposerDraft({
                             body: draft.body,
                             subject: draft.subject,
                             key: `${draft.decisionMessageId}-${Date.now()}`,
@@ -1943,11 +1991,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onReply={handleReply}
           onNote={handleNote}
           onAgentMessage={handleAgentMessage}
+          onStopAgent={handleStopAgent}
+          agentStreaming={agentStreaming}
           mode={composerMode}
           onModeChange={setComposerMode}
           agentModeName={activeSession?.agentName ?? thread.agentName ?? null}
           onMentionInserted={(item) => void handleMentionInserted(item)}
-          saving={saving}
+          saving={saving || agentStreaming}
           lastInboundText={lastInboundText}
           replyDisabledNotice={
             mailboxDisconnected ? (

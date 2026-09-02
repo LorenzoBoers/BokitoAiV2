@@ -10,12 +10,16 @@
     "loadingWorkspaces": "Workspaces laden..."
   },
   "tabs": {
+    "overview": {
+      "title": "Overview",
+      "subtitle": "Dagelijkse scan, aandacht en verbruik"
+    },
     "cockpit": {
-      "title": "Cockpit",
-      "subtitle": "Overzicht, activiteit en verbruik"
+      "title": "Overview",
+      "subtitle": "Dagelijkse scan, aandacht en verbruik"
     },
     "communication": {
-      "title": "Communicatie",
+      "title": "Berichten",
       "subtitle": "Chats, klant- en agentgesprekken"
     },
     "contacts": {
@@ -161,7 +165,7 @@
     "relatedTitle": "Gerelateerde vervolgstappen",
     "relatedBody": "Ga naar de instellingen of pagina's die meestal bij dit onderwerp horen.",
     "related": {
-      "communication": "Communicatie",
+      "communication": "Berichten",
       "agents": "Agents",
       "setup": "Setupgids",
       "channels": "Kanaalinstellingen",
@@ -1131,7 +1135,7 @@
     "openSetup": "Setupgids openen",
     "loopTitle": "Hoe Bokito samenhangt",
     "loopHint": "Communicatie, agents, de check-in en goedkeuringen zijn een loop. Begin hier, open de rest als je het nodig hebt.",
-    "loopMessages": "Communicatie",
+    "loopMessages": "Berichten",
     "loopMessagesHint": "Klant- en teamgesprekken komen hier binnen — inclusief check-in-bevindingen.",
     "loopAgents": "Agents",
     "loopAgentsHint": "Zij maken conceptantwoorden en doen gepland werk.",
@@ -1675,6 +1679,7 @@
     "pushTitle": "Pushnotificaties op dit apparaat",
     "pushBody": "Krijg een systeemmelding voor nieuwe berichten en openstaande beslissingen, ook als Bokito gesloten is. Geldt alleen voor deze browser; beslissings-pushes volgen je in-app voorkeur hierboven.",
     "pushUnsupported": "Deze browser ondersteunt geen pushnotificaties.",
+    "pushNotConfigured": "Push staat niet aan op deze server. Zet VAPID_PUBLIC_KEY en VAPID_PRIVATE_KEY in de API-omgeving (zie docs/PRODUCTION_READINESS.md).",
     "pushAria": "Pushnotificaties op dit apparaat",
     "pushFailed": "Pushnotificaties konden niet worden bijgewerkt.",
     "channelsTitle": "Kanalen",
@@ -1869,7 +1874,7 @@
     "groupThreads": "Gesprekken",
     "groupContacts": "Contacten",
     "groupSettings": "Instellingen",
-    "groupInbox": "Inbox-wachtrijen",
+    "groupInbox": "Berichten-wachtrijen",
     "inboxOpenHint": "J/K om te bewegen, ? voor sneltoetsen",
     "decisionsHint": "Open goedkeuringen over alle kanalen",
     "needsReply": "Jij aan zet",
@@ -2050,7 +2055,7 @@
       "overview": "Overzicht",
       "docs": "Workspace",
       "projects": "Projecten",
-      "communication": "Communicatie",
+      "communication": "Berichten",
       "decisions": "Beslissingen"
     },
     "quick": {
@@ -3358,7 +3363,7 @@
         "submit": "Agent aanmaken",
         "roles": {
           "assistant": "Assistent",
-          "communication": "Communicatie",
+          "communication": "Berichten",
           "builder": "Bouwer",
           "orchestra": "Lead"
         },
@@ -3694,6 +3699,13 @@
       "impactSummary": "Impactanalyse",
       "linkedSections": "{{count}} secties",
       "linkedSections_one": "{{count}} sectie",
+      "linkedDocs": "{{count}} documenten",
+      "linkedDocs_one": "{{count}} document",
+      "linkDoc": "Document koppelen",
+      "linkDocPlaceholder": "Koppel een kennisdocument",
+      "orgDocPrefix": "Org: {{title}}",
+      "docLinked": "Document gekoppeld",
+      "docLinkError": "Kon het document niet koppelen.",
       "openThread": "Brongesprek openen",
       "status": {
         "proposed": "Voorgesteld",
@@ -3759,8 +3771,9 @@
       "docsLoadError": "Kon de projectdocumentatie niet laden.",
       "docsEmpty": "Nog geen projectdocumentatie.",
       "docsEmptyTitle": "Nog geen documentatie",
-      "docsEmptyBody": "Projectdocumentatie beschrijft wat dit project doet. Secties dragen een status van open tot geverifieerd, en queue-items koppelen aan de secties die ze raken.",
+      "docsEmptyBody": "Projectdocumenten staan in Kennis onder dit project. Gekoppelde queue-aanvragen verschijnen op elk document; de status blijft op de queue.",
       "openKnowledge": "Kennis openen",
+      "openInKnowledge": "Openen in Kennishub",
       "openAgents": "Agents openen",
       "newDoc": "Nieuw document",
       "docPathPlaceholder": "bijv. overzicht",
@@ -3815,7 +3828,7 @@
       "po": "Lead",
       "knowledge": "Workspace",
       "orchestration": "Wie dit uitvoert",
-      "communication": "Communicatie",
+      "communication": "Berichten",
       "workforce": "Agent-runs",
       "usage": "Tokenverbruik",
       "notifications": "Notificaties",
@@ -4112,7 +4125,7 @@
       "personal": "Persoonlijk",
       "products": "Producten",
       "workspace": "Organisatie",
-      "communication": "Communicatie",
+      "communication": "Berichten",
       "integrations": "Integraties",
       "govern": "Govern",
       "advanced": "Geavanceerd",
@@ -4138,7 +4151,7 @@
       "modules": "Modules",
       "govern": "Govern",
       "trust": "Vertrouwen en privacy",
-      "reports": "Rapportages",
+      "reports": "Overview",
       "developers": "Voor ontwikkelaars",
       "models": "Providers en modellen",
       "billing": "Facturatie",
@@ -4166,7 +4179,7 @@
       "connectedTools": "Tools die agents al mogen gebruiken",
       "govern": "Goedkeuringen en hoeveel agents mogen doen",
       "trust": "Bewaartermijnen, inzageverzoeken en AI-datagebruik",
-      "reports": "Overzicht, activiteit en verbruik",
+      "reports": "Dagelijkse scan, aandacht en verbruik",
       "developers": "API-sleutels en webhooks",
       "models": "Welke AI-modellen je gebruikt"
     }
@@ -4230,8 +4243,8 @@
       "description": "Configureer persoonlijke en teamnotificaties."
     },
     "support": {
-      "title": "Communicatie",
-      "description": "Configureer communicatiegedrag en kanalen."
+      "title": "Berichten",
+      "description": "Configureer berichten-gedrag en kanalen."
     },
     "messenger": {
       "title": "Assistent",
@@ -4394,6 +4407,7 @@
       "skill": "Handleidingen die agents volgen voor specifieke taken.",
       "heartbeat": "Waar de dagelijkse check-in naar kijkt.",
       "doc": "Naslagdocumenten en klantartikelen.",
+      "project_doc": "Documentatie die bij een project hoort.",
       "daily_log": "Lopende notities die agents na een werkdag schrijven."
     },
     "clearSearch": "Zoekopdracht wissen",
@@ -4444,12 +4458,21 @@
     "refreshedAt": "Bijgewerkt {{time}}",
     "filterAll": "Alle soorten",
     "viewHelp": "Bekijk op helpcentrum: {{path}}",
+    "scopeOrganization": "Organisatie",
+    "scopeProjects": "Projecten",
+    "scopeAgents": "Agents",
+    "pickProject": "Selecteer een project",
+    "pickAgent": "Selecteer een agent",
+    "linkedRequests": "Gekoppelde aanvragen",
+    "editorWrite": "Schrijven",
+    "editorMarkdown": "Markdown",
     "kinds": {
       "persona": "Stem",
       "memory": "Geheugen",
       "skill": "Skills",
       "heartbeat": "Check-ins",
       "doc": "Docs",
+      "project_doc": "Projectdocs",
       "daily_log": "Dagnotities"
     },
     "paths": {

@@ -1,24 +1,24 @@
 ---
-title: How Communication works
+title: How Messages works
 intro: The hub for every conversation — customers and agents in one place.
-description: Work customer email, chat and internal threads from Communication, including compose, notes, snooze and saved replies.
+description: Work customer email, chat and internal threads from Messages, including compose, notes, snooze and saved replies.
 keywords: inbox, messages, threads, email, chat, compose, snooze, saved replies
 sort: 10
 related: agent-runs,channels,inbox-ai,contacts,decisions
 ---
 
-# How Communication works
+# How Messages works
 
-Communication is where the day happens. Customer mail, website chat and internal agent threads share one hub. Open it when something needs a reply or a decision. While an agent works, the thread shows live purple status lines — a bubble appears only when the agent writes a reply or asks for a decision.
+Messages is where the day happens. Customer mail, website chat and internal agent threads share one hub. Open it when something needs a reply or a decision. While an agent works, the thread shows live purple status lines — a bubble appears only when the agent writes a reply or asks for a decision.
 
 ## Work the Open queue
 
 Open is customer work that still needs you.
 
-![Open queue in Communication](/api/docs/assets/communication/open-queue.png)
+![Open queue in Messages](/api/docs/assets/communication/open-queue.png)
 *Open lists customer work that still needs you.*
 
-1. Open **Communication**. At the top, **All communication** is a folder like the rest of the sidebar: click it to expand **Open**, **Mine**, **Unassigned** and **Closed** (plus **Snoozed**, **Spam**, and the purple **Decisions** sub-view — the same list Reports **Awaiting decision** uses). **Activity**, **Contacts** and **Settings** sit pinned at the bottom — Activity and Contacts open their own pages (not the thread list). The first expand opens the default sub-view from **Settings** → **Email & messages** (Folders and tags) — usually **Open**, or **Mine** if you set that. **Outbound** is mail you started.
+1. Open **Messages**. At the top, **All communication** is a folder like the rest of the sidebar: click it to expand **Open**, **Mine**, **Unassigned** and **Closed** (plus **Snoozed**, **Spam**, and the purple **Decisions** sub-view — the same list Overview **Awaiting decision** uses). **Activity**, **Contacts** and **Settings** sit pinned at the bottom — Activity and Contacts open their own pages (not the thread list). The first expand opens the default sub-view from **Settings** → **Email & messages** (Folders and tags) — usually **Open**, or **Mine** if you set that. **Outbound** is mail you started.
 2. Switch to **Mine** for threads assigned to you, or **Unassigned** for work with no owner yet.
 3. Scan the list. Each row shows the last real message, prefixed with **You:** when you sent it. A follow-up from the same website visitor stays in that Open thread. Use the search field at the top of the list, then open **Filters** for **Needs reply**, **Unread** or **Pinned** — they apply on top of Open, Mine or any other queue, and Bokito remembers the choice in the URL as `?filter=`. Switching filters keeps the conversation you have open. **1**–**4** switch those quick filters; **5** opens **Decisions**. A **Needs decision** badge marks threads with an open approval card. In the same **Filters** menu, narrow further by assignee, priority or channel. Click a tag chip on a row to open that tag's folder. Press **?** for inbox shortcuts: **J**/**K** move, **]**/**[** jump unread, **E** closes (Undo in the toast), **H** snoozes one hour, **Shift+H** picks a time, **X** selects, **Shift-click** selects a range, **Cmd+A** selects loaded rows, **U** marks unread, **Shift+U** marks all loaded read when nothing is selected, **A** assigns to you, **Shift+A** opens the assignee list, **P** pins, **R** focuses the reply, **C** composes, **N** starts a new chat, **L** copies the link, **#** copies the thread id, **/** searches, **Esc** returns to the list (it does not leave the thread while a menu is open). Assistant chats use the same move, pin, unread, reply and search keys.
 4. The **Channels** section lists only channels you have configured: each mailbox or Bokito address, **Website chat** when the widget channel is on, and WhatsApp or Slack after you connect them. When nothing is connected yet, **Add a channel** sits at the top of that list. Every channel is a folder with the same sub-views: **Open**, **Mine**, **Unassigned** and **Closed** — and each folder lists only threads from that channel (Website chat never mixes in mailbox mail). Sub-views stay hidden until you click the channel — that expands the list and opens the default sub-view; click again to collapse. Only one folder stays expanded at a time. Change the default (globally or per channel) under **Settings**, then **Email & messages** (Folders and tags). A **Tags** section and the **Agents** section (company agents you may chat with) use the same folder pattern. Tag a conversation from its detail pane: **Add tag** searches your tag list, shows what each tag is for, and creates the tag when the name is new. A tagged conversation appears under Tags across every channel, and a thread with several tags shows up under each of them. Hover the **Tags** section and use the gear to manage tags and pin the ones you always want as folders. AI triage can add tags too, but only ones that already exist in your list.
@@ -58,8 +58,8 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 Pull an agent in when you want to think out loud, look something up, or hand the conversation over.
 
 1. Click the purple agent chip in the composer (named after the thread owner, or open a short list of candidates), or type `@` and select an agent. That starts an internal meta conversation — the customer never sees it.
-2. Meta turns appear as normal chat bubbles in a light violet band in the same timeline (not a nested scroll panel). The composer stays on the agent tab until you end the session or send a customer Reply.
-3. Ask for a reply and the agent proposes one as a suggested-reply card. Ask it to continue with the contact and it can take the conversation over. Tagging a teammate mid-meta notifies them; the message still goes to the agent.
+2. Type on the agent tab and press Enter. Your message appears immediately; the agent streams a reply in the same violet band. While it replies, Send becomes **Stop** and Enter does nothing, so you cannot fire three identical sends. The composer stays on the agent tab until you end the session or send a customer Reply.
+3. Ask for a reply and the agent proposes one as a suggested-reply card. Ask it to continue with the contact and it can take the conversation over. Tagging a teammate mid-meta notifies them; the message still goes to the agent. Suggestion cards do not switch the composer to Reply while a stream is still running.
 4. When work is done — or after a few minutes of silence — the agent (or the system) offers a checkout card: end the session, continue, or apply follow-ups. Approving **End session** collapses the segment to a summary you can expand later. Sending a customer Reply ends the meta session without running checkout actions.
 5. Changed your mind before you typed anything? **Cancel** removes the session. Once you have exchanged a message, use the checkout or **End session**.
 

@@ -1,24 +1,24 @@
 ---
-title: How Reports works
+title: How Overview works
 intro: Start here when you want to know whether work is flowing and where attention is needed.
-description: Use Reports for the daily scan, then Activity for the event log and Usage for token budget caps and spend.
-keywords: reports, cockpit, dashboard, overview, usage, budget, activity
+description: Use Overview for the daily scan, then Activity for the event log and Usage for token budget caps and spend.
+keywords: overview, reports, cockpit, dashboard, usage, budget, activity
 sort: 50
 related: communication,agent-runs,decisions,agenda
 ---
 
-# How Reports works
+# How Overview works
 
-Reports is the morning scan. Open it from **Settings → Reports** (or the workspace menu) to see open work, waiting decisions and what agents already did, then jump into the thread that needs you.
+Overview is the morning scan. Open it from the **Control** rail (above Messages) to see open work, waiting decisions and what agents already did, then jump into the thread that needs you. Under **Settings → Profile** you can set Overview as your start page after sign-in; Messages remains the default.
 
 ## Scan the day on Overview
 
-![Reports Overview](/api/docs/assets/cockpit/overview.png)
+![Overview](/api/docs/assets/cockpit/overview.png)
 *Overview shows open work, decisions and recent runs.*
 
-1. Open **Settings**, then **Reports**. You land on **Overview**. The subtitle greets you and shows today's date. **Updated** next to **Refresh** is the last successful load.
+1. Open **Overview** in the left rail. You land on the scan. The subtitle greets you and shows today's date. **Updated** next to **Refresh** is the last successful load.
 2. Read the built-in cards: **Conversations 7d**, **Awaiting decision**, **Handled without you**, **Agent freedom**, **Needs attention**, **Today on the agenda**, **Recent events** and **Recent contacts**. **Agent freedom** shows **You decide**, **Ask first** or **Act first**. Each number has a short hint. Empty time-saved, handled-without-you and AI-usage cards explain when numbers appear. If the hourly scan is off, Overview says **Hourly inbox scan is off**.
-3. Click a card to open Communication, [Agent runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) or [Contacts](/docs/inbox/contacts). On **Needs attention**, choose **Open first** to jump to the oldest waiting thread. The clock on a row parks that conversation until tomorrow 9:00.
+3. Click a card to open Messages, [Agent runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) or [Contacts](/docs/inbox/contacts). On **Needs attention**, choose **Open first** to jump to the oldest waiting thread. The clock on a row parks that conversation until tomorrow 9:00.
 
 On a new workspace, Overview may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).
 
@@ -30,7 +30,7 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Open work that is waiting on you
 
-![Reports attention items](/api/docs/assets/cockpit/awaiting-decision.png)
+![Overview attention items](/api/docs/assets/cockpit/awaiting-decision.png)
 *Awaiting decision jumps to the same list as Agent runs.*
 
 1. Find **Awaiting decision** on Overview.
@@ -39,18 +39,12 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Read Activity
 
-1. Open the **Activity** tab. This is the workspace event log (what people and agents did), not the Agent runs queue.
-2. Stay on **Headlines** to hide thinking and search noise, or switch to **Full log**. Filter with **Agents**, **People**, or **Filter events...**. Those filters stay in the URL. The list groups rows under **Today**, **Yesterday** and **Earlier**. Leave **Jump to newest** on to stay at the latest row.
-3. Click a row that belongs to agent work to open the matching Agent runs thread.
+1. Stay on Overview and open **Recent events**, or open the **Activity** leaf from Messages when you need the full stream.
+2. Scan outcomes, not every thinking step.
+3. Jump into a thread or agent when a row needs follow-up.
 
-## Set Usage and budget
+## Check Usage
 
-1. Open **Usage**. Switch **7 days** / **30 days** / **90 days** for the breakdowns, or **Export CSV**. The **Budget (platform keys)** card shows **Tokens today** and **Billable spend this month**, plus breakdowns by model, agent and user. Empty ratings say **No customer ratings yet** with **Install website chat**.
-2. Owners and admins choose **Edit caps**. Set a **Daily token cap** and a **Monthly spend cap (USD)**, or leave both empty (confirm) to remove the limits.
-3. Alerts fire at 80% and 100%. When the budget is exhausted, AI calls on Bokito platform keys pause until you raise the cap or the period resets. Models on your own keys keep working and show no Bokito charge.
-
-Autonomous runs group under Agents / system. Chats you start are attributed to you.
-
-## What to do next
-
-Customer mail lives in [Communication](/docs/inbox/communication). Recurring wakes live on the [Agenda](/docs/ai/agenda).
+1. Open the **Usage** tab on Overview.
+2. Review tokens and spend for the month.
+3. Set caps under the same Usage view when you need a hard stop.

@@ -31,7 +31,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { labelKey: 'settings.links.emailMessages', to: '/settings/channels', hintKey: 'settings.hints.emailMessages' },
       { labelKey: 'settings.links.chatWidget', to: WEBSITE_WIDGET_PATH, match: '/ai/assistant', hintKey: 'settings.hints.chatWidget' },
       { labelKey: 'settings.links.inboxAi', to: '/settings/communication', match: '/settings/communication', hintKey: 'settings.hints.inboxAi' },
-      { labelKey: 'settings.links.helpCenters', to: '/settings/help-centers', hintKey: 'settings.hints.helpCenters' },
     ],
   },
   {
@@ -44,8 +43,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     labelKey: 'settings.groups.advanced',
     links: [
-      // Reports (former Cockpit): overview, activity and usage.
-      { labelKey: 'settings.links.reports', to: '/cockpit', match: '/cockpit', hintKey: 'settings.hints.reports' },
       { labelKey: 'settings.links.developers', to: '/settings/developers', hintKey: 'settings.hints.developers' },
       { labelKey: 'settings.links.models', to: '/settings/models', hintKey: 'settings.hints.models' },
     ],

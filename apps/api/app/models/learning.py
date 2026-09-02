@@ -32,30 +32,44 @@ class Feedback(SQLModel, table=True):
 
 
 class InboxRule(SQLModel, table=True):
-    """Learned or manual per-sender automation for inbound threads.
+    """Learned or manual automation for inbound threads.
 
     Lifecycle: rows start as ``suggested`` (candidates that count consistent
     operator choices), become ``active`` through explicit confirmation (or
     auto-promotion under the autonomous posture), and can be ``paused`` from
     the rules UI without losing their history.
+
+    Routing rules (assign/tag by mailbox, sender domain, or subject) use
+    ``action=route`` and ``source=routing`` — one Rules model for Signals.
     """
 
     __tablename__ = "inbox_rules"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    match_type: str = Field(default="sender", index=True)  # sender | domain | list_id
+    # sender | domain | list_id | sender_domain | subject_contains | mailbox
+    match_type: str = Field(default="sender", index=True)
     match_value: str = Field(default="", index=True)  # normalized (lowercase)
     label: str = ""  # human-readable, e.g. "PrepMyMeal newsletter"
-    action: str = "auto_close"  # auto_close | auto_task | mute_ai
+    # auto_close | auto_task | mute_ai | route
+    action: str = "auto_close"
     status: str = Field(default="suggested", index=True)  # suggested | active | paused
-    source: str = "learned"  # learned | manual
+    source: str = "learned"  # learned | manual | routing
     # Consistent operator choices observed while `suggested` (promotion counter).
     observations: int = 0
     # Threads the active rule actually handled.
     hit_count: int = 0
     last_hit_at: Optional[datetime] = None
     created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    # Routing fields (source=routing / action=route)
+    channel_account_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="channel_accounts.id", index=True
+    )
+    priority: int = 100
+    assign_to_user_id: Optional[int] = None
+    labels_json: str = Field(default="[]")
+    # Link back to legacy email_routing_rules row during dual-write migration.
+    legacy_routing_rule_id: Optional[uuid.UUID] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

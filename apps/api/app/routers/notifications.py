@@ -2,7 +2,7 @@ import json
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ async def list_notifications(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     status_filter: str | None = None,
+    limit: int = Query(50, ge=1, le=100),
 ):
     # Personal feed: rows addressed to this user plus tenant-wide broadcasts
     # (user_id is NULL). Other members' mentions/assignments stay private.
@@ -34,7 +35,13 @@ async def list_notifications(
     )
     if status_filter:
         query = query.where(Notification.status == status_filter)
-    result = await session.execute(query.order_by(Notification.created_at.desc()))
+    # Unread first, then newest — keeps the feed useful under the hard cap.
+    result = await session.execute(
+        query.order_by(
+            (Notification.status != "unread").asc(),
+            Notification.created_at.desc(),
+        ).limit(limit)
+    )
     return [
         {
             "id": str(n.id),
@@ -94,11 +101,22 @@ async def list_decisions(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     status: str = "awaiting_human",
+    limit: int = Query(50, ge=1, le=100),
 ):
+    """Thin wrapper over DecisionRequest for mobile.
+
+    Prefer Messages hub filter ``needs_decision`` / inline thread cards.
+    Only returns decisions attached to a signal (inline-in-thread model).
+    """
     result = await session.execute(
         select(DecisionRequest)
-        .where(DecisionRequest.tenant_id == auth.tenant.id, DecisionRequest.status == status)
+        .where(
+            DecisionRequest.tenant_id == auth.tenant.id,
+            DecisionRequest.status == status,
+            DecisionRequest.signal_id.isnot(None),
+        )
         .order_by(DecisionRequest.created_at.desc())
+        .limit(limit)
     )
     return [
         {

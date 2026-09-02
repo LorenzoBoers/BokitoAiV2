@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import Index
 from sqlmodel import Field, SQLModel
 
 SIGNAL_CHANNELS = (
@@ -119,6 +120,9 @@ class Signal(SQLModel, table=True):
 
 class SignalMessage(SQLModel, table=True):
     __tablename__ = "signal_messages"
+    __table_args__ = (
+        Index("ix_signal_messages_tenant_external", "tenant_id", "external_id"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     signal_id: uuid.UUID = Field(foreign_key="signals.id", index=True)

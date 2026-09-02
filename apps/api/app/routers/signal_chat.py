@@ -256,6 +256,7 @@ async def send_message(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    await _ensure_session_idle(session, auth.tenant.id, conversation_id)
     await append_signal_chat_message(
         session,
         signal,
@@ -281,6 +282,8 @@ async def send_message(
         tool_signal_id=signal.context_signal_id,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
+    from app.services.agent.run_cancel import clear_cancel, is_run_cancelled
+
     try:
         reply_text, tokens = await loop.run_chat(history, attachments=body.attachments)
     except Exception as exc:
@@ -298,6 +301,8 @@ async def send_message(
         )
         await session.commit()
         await session.refresh(assistant_msg)
+        if run:
+            clear_cancel(run.id)
         return {
             "message": {
                 "id": str(assistant_msg.id),
@@ -308,6 +313,33 @@ async def send_message(
             "error": True,
             **llm_meta,
         }
+
+    cancelled = await is_run_cancelled(session, run.id if run else None)
+    if cancelled:
+        await _finalize_run(session, run, status="cancelled", tokens=tokens)
+        if reply_text.strip():
+            assistant_msg = await append_signal_chat_message(
+                session,
+                signal,
+                role="assistant",
+                content=reply_text,
+                author_agent_id=agent.id if agent else None,
+                metadata={
+                    "cancelled": True,
+                    "usage": tokens,
+                    "steps": list(loop.trace_steps),
+                    **llm_meta,
+                },
+            )
+            await session.commit()
+            await session.refresh(assistant_msg)
+            payload = serialize_chat_message(assistant_msg)
+        else:
+            await session.commit()
+            payload = {"role": "assistant", "content": ""}
+        if run:
+            clear_cancel(run.id)
+        return {"message": payload, "usage": tokens, "cancelled": True, **llm_meta}
 
     assistant_msg = await append_signal_chat_message(
         session,
@@ -327,6 +359,8 @@ async def send_message(
     await _finalize_run(session, run, status="completed", tokens=tokens)
     await session.commit()
     await session.refresh(assistant_msg)
+    if run:
+        clear_cancel(run.id)
     return {
         "message": serialize_chat_message(assistant_msg),
         "usage": tokens,
@@ -342,6 +376,7 @@ async def stream_message(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    await _ensure_session_idle(session, auth.tenant.id, conversation_id)
     await append_signal_chat_message(
         session,
         signal,
@@ -367,9 +402,15 @@ async def stream_message(
         tool_signal_id=signal.context_signal_id,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
+    from app.services.agent.run_cancel import clear_cancel
 
     async def event_generator():
         full_text = ""
+        if run:
+            yield {
+                "event": "start",
+                "data": json.dumps({"run_id": str(run.id)}),
+            }
         try:
             async for event in loop.stream_chat(history, attachments=body.attachments):
                 if event["type"] == "thinking":
@@ -382,32 +423,61 @@ async def stream_message(
                     yield {"event": "delta", "data": json.dumps({"text": event["text"]})}
                 elif event["type"] == "done":
                     final = event.get("text", full_text)
+                    cancelled = bool(event.get("cancelled"))
                     thinking_meta = loop.thinking_payload()
-                    await append_signal_chat_message(
-                        session,
-                        signal,
-                        role="assistant",
-                        content=final,
-                        author_agent_id=agent.id if agent else None,
-                        metadata={
-                            "usage": event.get("usage", {}),
-                            "steps": event.get("steps") or list(loop.trace_steps),
-                            **({"thinking": thinking_meta} if thinking_meta else {}),
-                            **llm_meta,
-                        },
-                    )
-                    if signal.subject == "New conversation":
+                    # Skip empty cancelled replies; keep partial text if any streamed.
+                    if final.strip():
+                        await append_signal_chat_message(
+                            session,
+                            signal,
+                            role="assistant",
+                            content=final,
+                            author_agent_id=agent.id if agent else None,
+                            metadata={
+                                "usage": event.get("usage", {}),
+                                "steps": event.get("steps") or list(loop.trace_steps),
+                                **({"thinking": thinking_meta} if thinking_meta else {}),
+                                **({"cancelled": True} if cancelled else {}),
+                                **llm_meta,
+                            },
+                        )
+                    elif not cancelled:
+                        await append_signal_chat_message(
+                            session,
+                            signal,
+                            role="assistant",
+                            content=final or "Done.",
+                            author_agent_id=agent.id if agent else None,
+                            metadata={
+                                "usage": event.get("usage", {}),
+                                "steps": event.get("steps") or list(loop.trace_steps),
+                                **({"thinking": thinking_meta} if thinking_meta else {}),
+                                **llm_meta,
+                            },
+                        )
+                    if signal.subject == "New conversation" and not cancelled:
                         signal.subject = body.content[:60]
-                    await _finalize_run(session, run, status="completed", tokens=event.get("usage") or {})
+                    await _finalize_run(
+                        session,
+                        run,
+                        status="cancelled" if cancelled else "completed",
+                        tokens=event.get("usage") or {},
+                    )
                     await session.commit()
+                    if run:
+                        clear_cancel(run.id)
                     done_payload: dict = {
                         "text": final,
                         "usage": event.get("usage", {}),
                         "steps": event.get("steps") or list(loop.trace_steps),
                         **llm_meta,
                     }
+                    if cancelled:
+                        done_payload["cancelled"] = True
                     if thinking_meta:
                         done_payload["thinking"] = thinking_meta
+                    if run:
+                        done_payload["run_id"] = str(run.id)
                     yield {
                         "event": "done",
                         "data": json.dumps(done_payload),
@@ -425,12 +495,63 @@ async def stream_message(
                 metadata={"error": True, **llm_meta},
             )
             await session.commit()
+            if run:
+                clear_cancel(run.id)
             yield {
                 "event": "done",
                 "data": json.dumps({"text": error_text, "error": True, **llm_meta}),
             }
 
     return EventSourceResponse(event_generator())
+
+
+@router.post("/conversations/{conversation_id}/cancel")
+async def cancel_conversation_run(
+    conversation_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Stop the in-flight chat AgentRun for this conversation (cooperative cancel)."""
+    await _get_thread(session, conversation_id, auth.tenant.id)
+    run = await _running_chat_run(session, auth.tenant.id, conversation_id)
+    if run is None:
+        return {"ok": True, "cancelled": False}
+    from app.services.agent.run_cancel import request_cancel
+
+    request_cancel(run.id)
+    run.status = "cancelled"
+    run.completed_at = datetime.utcnow()
+    session.add(run)
+    await session.commit()
+    return {"ok": True, "cancelled": True, "run_id": str(run.id)}
+
+
+async def _running_chat_run(
+    session: AsyncSession, tenant_id: UUID, conversation_id: UUID
+) -> AgentRun | None:
+    result = await session.execute(
+        select(AgentRun)
+        .where(
+            AgentRun.tenant_id == tenant_id,
+            AgentRun.trigger_type == "chat",
+            AgentRun.trigger_id == str(conversation_id),
+            AgentRun.status == "running",
+        )
+        .order_by(AgentRun.started_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _ensure_session_idle(
+    session: AsyncSession, tenant_id: UUID, conversation_id: UUID
+) -> None:
+    busy = await _running_chat_run(session, tenant_id, conversation_id)
+    if busy is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="agent_busy",
+        )
 
 
 async def _get_thread(session: AsyncSession, conversation_id: UUID, tenant_id: UUID) -> Signal:
@@ -481,6 +602,7 @@ async def _agent_run(session, auth, signal: Signal, content: str):
             tenant_id=auth.tenant.id,
             agent_id=agent.id,
             trigger_type="chat",
+            trigger_id=str(signal.id),
             subject=f"Chat: {content[:80]}",
         )
         session.add(run)

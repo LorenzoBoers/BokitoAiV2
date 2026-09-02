@@ -470,8 +470,71 @@ async def run_agent_task_segment_job(ctx, tenant_id: str, task_id: str):
         return await run_agent_task_segment(session, UUID(tenant_id), UUID(task_id))
 
 
+_EMAIL_SYNC_FRESH_SECONDS = 45
+
+
+def _mailbox_sync_is_fresh(settings_json: str | None) -> bool:
+    """Skip enqueue when last_sync_at is within the freshness window."""
+    if not settings_json:
+        return False
+    try:
+        data = json.loads(settings_json)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(data, dict):
+        return False
+    raw = data.get("last_sync_at")
+    if not raw or not isinstance(raw, str):
+        return False
+    try:
+        # Accept both naive UTC and offset-aware ISO strings.
+        stamp = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if stamp.tzinfo is not None:
+            stamp = stamp.replace(tzinfo=None)
+    except ValueError:
+        return False
+    age = (datetime.utcnow() - stamp).total_seconds()
+    return age < _EMAIL_SYNC_FRESH_SECONDS
+
+
 async def sync_email_mailboxes_job(ctx):
-    """Poll all enabled Outlook/Gmail mailboxes and ingest new messages."""
+    """Dispatcher: enqueue one sync job per enabled mailbox (skip if freshly synced)."""
+    if os.environ.get("EMAIL_SYNC_ENABLED", "true").lower() in ("0", "false", "no", "off"):
+        return {"skipped": True, "reason": "disabled"}
+
+    redis = ctx.get("redis")
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(ChannelAccount.id, ChannelAccount.settings_json).where(
+                ChannelAccount.channel == "email",
+                ChannelAccount.is_enabled.is_(True),
+                ChannelAccount.provider.in_(("gmail", "outlook", "smtp_imap")),
+            )
+        )
+        rows = list(result.all())
+
+    enqueued = 0
+    skipped_fresh = 0
+    for account_id, settings_json in rows:
+        if _mailbox_sync_is_fresh(settings_json):
+            skipped_fresh += 1
+            continue
+        if redis is not None:
+            await redis.enqueue_job("sync_email_account_job", str(account_id))
+            enqueued += 1
+        else:
+            # Cron context without redis (tests): run inline.
+            await sync_email_account_job(ctx, str(account_id))
+            enqueued += 1
+    return {
+        "accounts": len(rows),
+        "enqueued": enqueued,
+        "skipped_fresh": skipped_fresh,
+    }
+
+
+async def sync_email_account_job(ctx, account_id: str):
+    """Poll one Gmail/Outlook/SMTP mailbox and ingest new messages."""
     from app.services.email_sync import sync_account
 
     if os.environ.get("EMAIL_SYNC_ENABLED", "true").lower() in ("0", "false", "no", "off"):
@@ -479,27 +542,27 @@ async def sync_email_mailboxes_job(ctx):
 
     async with async_session_factory() as session:
         result = await session.execute(
-            select(ChannelAccount).where(
-                ChannelAccount.channel == "email",
-                ChannelAccount.is_enabled.is_(True),
-                ChannelAccount.provider.in_(("gmail", "outlook", "smtp_imap")),
-            )
+            select(ChannelAccount).where(ChannelAccount.id == UUID(account_id))
         )
-        accounts = list(result.scalars().all())
-        synced = []
-        for account in accounts:
-            try:
-                info = await sync_account(session, account)
-                synced.append(info)
-            except Exception as exc:  # noqa: BLE001 — isolate per-account failures
-                synced.append(
-                    {
-                        "account_id": str(account.id),
-                        "synced": 0,
-                        "status": f"error:{exc}",
-                    }
-                )
-        return {"accounts": len(accounts), "results": synced}
+        account = result.scalar_one_or_none()
+        if not account:
+            return {"account_id": account_id, "synced": 0, "status": "missing"}
+        if (
+            account.channel != "email"
+            or not account.is_enabled
+            or account.provider not in ("gmail", "outlook", "smtp_imap")
+        ):
+            return {"account_id": account_id, "synced": 0, "status": "skipped"}
+        if _mailbox_sync_is_fresh(account.settings_json):
+            return {"account_id": account_id, "synced": 0, "status": "fresh"}
+        try:
+            return await sync_account(session, account)
+        except Exception as exc:  # noqa: BLE001 — isolate per-account failures
+            return {
+                "account_id": account_id,
+                "synced": 0,
+                "status": f"error:{exc}",
+            }
 
 
 async def send_tenant_digests_job(ctx):
@@ -632,6 +695,7 @@ class WorkerSettings:
         run_agent_task_segment_job,
         run_workstream_orchestrated,
         sync_email_mailboxes_job,
+        sync_email_account_job,
         sync_calendar_connections_job,
         purge_retention_job,
         deliver_webhook_job,
@@ -654,9 +718,27 @@ class WorkerSettings:
     ]
 
 
+_arq_pool = None
+
+
+async def _get_arq_pool():
+    """Reuse one ARQ Redis pool across enqueue helpers (API process lifespan)."""
+    global _arq_pool
+    if _arq_pool is None:
+        _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    return _arq_pool
+
+
+async def close_arq_pool() -> None:
+    global _arq_pool
+    if _arq_pool is not None:
+        await _arq_pool.close()
+        _arq_pool = None
+
+
 async def enqueue_signal_processing(tenant_id: str, signal_id: str):
     try:
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        redis = await _get_arq_pool()
         await redis.enqueue_job("process_inbound_signal", tenant_id, signal_id)
     except Exception as exc:  # noqa: BLE001
         # Worker unavailable (local dev without Redis): fall back to in-process
@@ -687,7 +769,7 @@ async def enqueue_signal_processing(tenant_id: str, signal_id: str):
 
 async def enqueue_repo_index(tenant_id: str, project_id: str):
     try:
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        redis = await _get_arq_pool()
         await redis.enqueue_job("index_project_repo_job", tenant_id, project_id)
     except Exception as exc:  # noqa: BLE001
         # No Redis (local dev): index in-process so the flow still works.
@@ -715,7 +797,7 @@ async def enqueue_repo_index(tenant_id: str, project_id: str):
 
 async def enqueue_webhook_delivery(delivery_id: str):
     try:
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        redis = await _get_arq_pool()
         await redis.enqueue_job("deliver_webhook_job", delivery_id)
     except Exception as exc:  # noqa: BLE001
         # No Redis (local dev): deliver in-process so webhooks still fire.
@@ -743,7 +825,7 @@ async def enqueue_webhook_delivery(delivery_id: str):
 
 async def enqueue_module_source_index(source_id: str):
     try:
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        redis = await _get_arq_pool()
         await redis.enqueue_job("index_module_source_job", source_id)
     except Exception as exc:  # noqa: BLE001
         import asyncio

@@ -7,7 +7,7 @@ const STATIC_HOST_SLUG: Record<string, string> = {
   'microsoft-365': 'microsoft',
   'google-workspace': 'google',
   'google-calendar': 'google',
-  'outlook-calendar': 'microsoft',
+  'outlook-calendar': 'outlook',
   king_accountancy: 'king',
   bjorn_lunden_mcp: 'bjorn_lunden',
   moneybird: 'moneybird',

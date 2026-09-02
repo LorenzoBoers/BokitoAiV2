@@ -3,13 +3,8 @@
 from uuid import UUID
 
 
-
 async def enqueue_coding_task(tenant_id: UUID, subject: str, repo_path: str = "/work") -> None:
-    from arq import create_pool
-    from arq.connections import RedisSettings
+    from app.workers.tasks import _get_arq_pool
 
-    from app.config import get_settings
-
-    settings = get_settings()
-    redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    redis = await _get_arq_pool()
     await redis.enqueue_job("coding_agent_run", str(tenant_id), subject, repo_path)

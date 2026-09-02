@@ -462,7 +462,10 @@
     "replyCopied": "Antwoord in de composer gezet",
     "openAgent": "Agent openen",
     "actionsCount": "{{count}} acties",
-    "switchedAgent": "Metagesprek gewisseld naar {{name}}"
+    "switchedAgent": "Metagesprek gewisseld naar {{name}}",
+    "busyError": "De agent is nog bezig. Wacht of druk op Stop.",
+    "sendError": "Kon niet naar de agent sturen.",
+    "thinking": "Denkt na…"
   },
   "onboarding": {
     "title": "Maak je workspace klaar",

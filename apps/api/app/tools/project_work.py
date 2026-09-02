@@ -199,23 +199,59 @@ async def _update_queue_item_status(ctx: ToolContext, tool_input: dict[str, Any]
 
 
 async def _link_queue_item_to_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.project_work import link_item_to_section
+    from app.services.project_work import link_item_to_doc, link_item_to_section
 
     try:
         item_id = UUID(str(tool_input.get("queue_item_id") or ""))
-        section_id = UUID(str(tool_input.get("section_id") or ""))
     except ValueError:
-        return {"error": "queue_item_id and section_id must be valid ids"}
+        return {"error": "queue_item_id must be a valid id"}
+    relation = str(tool_input.get("relation") or "touches")
+    actor_type = "agent" if ctx.agent else "user"
+    actor_id = str(ctx.agent.id) if ctx.agent else str(ctx.user_id or "")
+    raw_doc = str(tool_input.get("doc_id") or "").strip()
+    raw_section = str(tool_input.get("section_id") or "").strip()
+    if raw_doc:
+        try:
+            doc_id = UUID(raw_doc)
+        except ValueError:
+            return {"error": "doc_id must be a valid id"}
+        link = await link_item_to_doc(
+            ctx.session,
+            ctx.tenant_id,
+            item_id,
+            doc_id,
+            relation=relation,
+            created_by_type=actor_type,
+            created_by_id=actor_id,
+        )
+        return {
+            "link_id": str(link.id),
+            "doc_id": str(link.doc_id) if link.doc_id else None,
+            "relation": link.relation,
+            "status": "linked",
+        }
+    if not raw_section:
+        return {"error": "doc_id (preferred) or section_id is required"}
+    try:
+        section_id = UUID(raw_section)
+    except ValueError:
+        return {"error": "section_id must be a valid id"}
     link = await link_item_to_section(
         ctx.session,
         ctx.tenant_id,
         item_id,
         section_id,
-        relation=str(tool_input.get("relation") or "touches"),
-        created_by_type="agent" if ctx.agent else "user",
-        created_by_id=str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
+        relation=relation,
+        created_by_type=actor_type,
+        created_by_id=actor_id,
     )
-    return {"link_id": str(link.id), "relation": link.relation, "status": "linked"}
+    return {
+        "link_id": str(link.id),
+        "doc_id": str(link.doc_id) if link.doc_id else None,
+        "section_id": str(link.section_id) if link.section_id else None,
+        "relation": link.relation,
+        "status": "linked",
+    }
 
 
 async def _set_doc_section_status(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -241,12 +277,17 @@ async def _list_project_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> di
     project = await _resolve_project(ctx, tool_input)
     if project is None:
         return {"error": "No project found. Pass project_id (id or slug)."}
-    from app.services.project_work import links_for_sections, sections_for_project
+    from app.services.project_work import (
+        active_requests_for_docs,
+        links_for_sections,
+        sections_for_project,
+    )
     from app.services.workspace import list_docs
 
     docs = await list_docs(ctx.session, ctx.tenant_id, project_id=project.id)
     sections = await sections_for_project(ctx.session, ctx.tenant_id, project.id)
     links = await links_for_sections(ctx.session, ctx.tenant_id, [s.id for s in sections])
+    linked = await active_requests_for_docs(ctx.session, ctx.tenant_id, [d.id for d in docs])
     by_doc: dict[Any, list[Any]] = {}
     for section in sections:
         by_doc.setdefault(section.doc_id, []).append(section)
@@ -257,6 +298,7 @@ async def _list_project_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> di
                 "doc_id": str(doc.id),
                 "path": doc.path,
                 "title": doc.title,
+                "linked_requests": linked.get(doc.id, []),
                 "sections": [
                     {
                         "section_id": str(s.id),
@@ -431,18 +473,29 @@ register_tool(
     ToolSpec(
         name="link_queue_item_to_doc",
         description=(
-            "Link a queue item to a project doc section it implements, modifies, "
-            "touches, or documents. Get section ids from list_project_docs."
+            "Link a queue item to a knowledge document it implements, modifies, "
+            "touches, or documents. Prefer doc_id (document-level). section_id is "
+            "legacy only. Get doc ids from list_project_docs or list_docs."
         ),
         category="projects",
         input_schema={
             "type": "object",
             "properties": {
                 "queue_item_id": {"type": "string"},
-                "section_id": {"type": "string"},
-                "relation": {"type": "string", "enum": ["implements", "modifies", "touches", "documents"]},
+                "doc_id": {
+                    "type": "string",
+                    "description": "Workspace doc id (preferred document-level link).",
+                },
+                "section_id": {
+                    "type": "string",
+                    "description": "Legacy section id; prefer doc_id.",
+                },
+                "relation": {
+                    "type": "string",
+                    "enum": ["implements", "modifies", "touches", "documents"],
+                },
             },
-            "required": ["queue_item_id", "section_id"],
+            "required": ["queue_item_id"],
         },
         handler=_link_queue_item_to_doc,
     )

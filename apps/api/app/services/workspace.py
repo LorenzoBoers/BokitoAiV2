@@ -239,6 +239,7 @@ def serialize_doc(doc: WorkspaceDoc, *, include_content: bool = True) -> dict[st
         "path": doc.path,
         "kind": doc.kind,
         "project_id": str(doc.project_id) if doc.project_id else None,
+        "agent_id": str(doc.agent_id) if getattr(doc, "agent_id", None) else None,
         "title": doc.title,
         "frontmatter": frontmatter,
         "is_pinned": doc.is_pinned,
@@ -295,16 +296,31 @@ async def list_docs(
     *,
     kind: str | None = None,
     project_id: UUID | None = None,
+    agent_id: UUID | None = None,
+    scope: str | None = None,
+    limit: int | None = None,
 ) -> list[WorkspaceDoc]:
-    """Tenant knowledge by default; pass project_id to list one project's docs."""
+    """List knowledge docs with optional scope filters.
+
+    Defaults to organization knowledge (`project_id` and `agent_id` null).
+    Pass `project_id` / `agent_id` to list that scope. Pass `scope="all"` to
+    skip the org-only default (still filtered by any explicit ids).
+    """
     stmt = select(WorkspaceDoc).where(WorkspaceDoc.tenant_id == tenant_id)
     if project_id is not None:
         stmt = stmt.where(WorkspaceDoc.project_id == project_id)
-    else:
+    elif agent_id is not None:
+        stmt = stmt.where(WorkspaceDoc.agent_id == agent_id)
         stmt = stmt.where(WorkspaceDoc.project_id.is_(None))
+    elif scope != "all":
+        # Organization hub default: not project-scoped and not agent-personal.
+        stmt = stmt.where(WorkspaceDoc.project_id.is_(None))
+        stmt = stmt.where(WorkspaceDoc.agent_id.is_(None))
     if kind:
         stmt = stmt.where(WorkspaceDoc.kind == kind)
     stmt = stmt.order_by(WorkspaceDoc.sort_order, WorkspaceDoc.path)
+    if limit is not None:
+        stmt = stmt.limit(max(1, min(int(limit), 100)))
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -342,6 +358,8 @@ async def reindex_doc(session: AsyncSession, doc: WorkspaceDoc) -> int:
             status = section_status.get(heading)
             if status:
                 metadata["section_status"] = status
+        if getattr(doc, "agent_id", None):
+            metadata["agent_id"] = str(doc.agent_id)
         session.add(
             DocChunk(
                 tenant_id=doc.tenant_id,
@@ -368,6 +386,7 @@ async def upsert_doc(
     kind: str | None = None,
     title: str | None = None,
     project_id: UUID | None = None,
+    agent_id: UUID | None = None,
     created_by_type: str = "user",
     created_by_id: str = "",
     commit: bool = True,
@@ -388,6 +407,10 @@ async def upsert_doc(
         if kind:
             doc.kind = kind
         doc.title = title or _title_from(norm, meta, body)
+        if project_id is not None:
+            doc.project_id = project_id
+        if agent_id is not None:
+            doc.agent_id = agent_id
         doc.updated_at = datetime.utcnow()
     else:
         inferred_kind = kind or ("project_doc" if project_id else _infer_kind(norm))
@@ -397,6 +420,7 @@ async def upsert_doc(
         doc = WorkspaceDoc(
             tenant_id=tenant_id,
             project_id=project_id,
+            agent_id=agent_id,
             path=norm,
             kind=inferred_kind,
             title=title or _title_from(norm, meta, body),

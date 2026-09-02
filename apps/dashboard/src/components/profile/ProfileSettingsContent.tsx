@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
+import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
@@ -12,6 +12,12 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import SignatureEditor from '../inbox/SignatureEditor'
 import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
+import {
+  fetchDefaultLanding,
+  persistDefaultLanding,
+  readCachedDefaultLanding,
+  type DefaultLanding,
+} from '../../lib/landing-preference'
 
 // ── inline editable field ────────────────────────────────────────────────────
 
@@ -250,6 +256,18 @@ export function ProfileSettingsContent() {
   const { t, i18n } = useTranslation(['profile', 'common'])
   const { user, token, logout, patchLocalUser, refreshUser } = useAuth()
   const { mode, setMode } = useTheme()
+  const [defaultLanding, setDefaultLanding] = useState<DefaultLanding>(() => readCachedDefaultLanding())
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void fetchDefaultLanding(token).then((landing) => {
+      if (!cancelled) setDefaultLanding(landing)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
@@ -581,6 +599,35 @@ export function ProfileSettingsContent() {
               }`}
             >
               {lang === 'nl' ? t('profile:language.dutch') : t('profile:language.english')}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      {/* ── Start page ── */}
+      <Section title={t('profile:landing.title')} description={t('profile:landing.description')}>
+        <div className="flex gap-2">
+          {([
+            { id: 'communication' as const, label: t('profile:landing.communication') },
+            { id: 'overview' as const, label: t('profile:landing.overview') },
+          ]).map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => {
+                setDefaultLanding(option.id)
+                if (!token) return
+                void persistDefaultLanding(token, option.id).catch(() => {
+                  toast.error(t('profile:landing.saveError'))
+                })
+              }}
+              className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                defaultLanding === option.id
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border/60 text-text-secondary hover:border-border hover:text-text-primary'
+              }`}
+            >
+              {option.label}
             </button>
           ))}
         </div>

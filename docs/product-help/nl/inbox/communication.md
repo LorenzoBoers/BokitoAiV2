@@ -1,24 +1,24 @@
 ---
-title: Zo werkt Communicatie
+title: Zo werken Berichten
 intro: De hub voor elk gesprek — klanten en agents op één plek.
-description: Werk klantmail, chat en interne gesprekken af in Communicatie, inclusief opstellen, notities, uitstellen en sjablonen.
+description: Werk klantmail, chat en interne gesprekken af in Berichten, inclusief opstellen, notities, uitstellen en sjablonen.
 keywords: inbox, messages, gesprekken, email, chat, opstellen, uitstellen, sjablonen
 sort: 10
 related: agent-runs,channels,inbox-ai,contacts,decisions
 ---
 
-# Zo werkt Communicatie
+# Zo werken Berichten
 
-Communicatie is waar de dag gebeurt. Klantmail, websitechat en interne agentgesprekken delen één hub. Open die wanneer iets een antwoord of een beslissing nodig heeft. Terwijl een agent werkt, toont het gesprek losse paarse statusregels — een wolk verschijnt pas wanneer de agent iets schrijft of een beslissing voorlegt.
+Berichten is waar de dag gebeurt. Klantmail, websitechat en interne agentgesprekken delen één hub. Open die wanneer iets een antwoord of een beslissing nodig heeft. Terwijl een agent werkt, toont het gesprek losse paarse statusregels — een wolk verschijnt pas wanneer de agent iets schrijft of een beslissing voorlegt.
 
 ## Werk de wachtrij Open af
 
 Open is klantwerk dat nog jou nodig heeft.
 
-![Wachtrij Open in Communicatie](/api/docs/assets/communication/open-queue.png)
+![Wachtrij Open in Berichten](/api/docs/assets/communication/open-queue.png)
 *Open toont klantwerk dat nog jou nodig heeft.*
 
-1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map, net als de rest van de zijbalk: klik om **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld**, **Spam** en de paarse sub-weergave **Beslissingen** — dezelfde lijst als Rapportages **Wacht op beslissing**). **Activiteit**, **Contacten** en **Instellingen** staan vastgezet onderin — Activiteit en Contacten openen hun eigen pagina (niet de threadlijst). De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **E-mail en berichten** (Mappen en tags) — meestal **Open**, of **Van mij** als je dat zo hebt gezet. **Uitgaand** is mail die jij startte.
+1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map, net als de rest van de zijbalk: klik om **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld**, **Spam** en de paarse sub-weergave **Beslissingen** — dezelfde lijst als Overview **Wacht op beslissing**). **Activiteit**, **Contacten** en **Instellingen** staan vastgezet onderin — Activiteit en Contacten openen hun eigen pagina (niet de threadlijst). De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **E-mail en berichten** (Mappen en tags) — meestal **Open**, of **Van mij** als je dat zo hebt gezet. **Uitgaand** is mail die jij startte.
 2. Wissel naar **Van mij** voor gesprekken die aan jou zijn toegewezen, of **Niet toegewezen** voor werk zonder eigenaar.
 3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde. Een vervolgbericht van dezelfde websitebezoeker blijft in dat Open-gesprek. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Open, Van mij of een andere wachtrij, en Bokito onthoudt de keuze in de URL als `?filter=`. Wisselen van filter houdt het gesprek dat je open hebt. **1**–**4** wisselt die snelfilters; **5** opent **Beslissingen**. Een badge **Wacht op beslissing** markeert gesprekken met een open keuzekaart. In hetzelfde **Filters**-menu verfijn je verder op toegewezene, prioriteit of kanaal. Klik een tag-chip op een rij om de map van die tag te openen. Druk **?** voor sneltoetsen: **J**/**K** bewegen, **]**/**[** springt ongelezen, **E** sluit (Ongedaan maken in de toast), **H** stelt een uur uit, **Shift+H** kiest een tijd, **X** selecteert, **Shift-klik** selecteert een bereik, **Cmd+A** selecteert geladen rijen, **U** markeert ongelezen, **Shift+U** markeert gelezen, **A** wijst aan jou toe, **Shift+A** opent de toewijzer, **P** zet vast, **R** focust het antwoord, **C** stelt op, **N** start een nieuwe chat, **L** kopieert de link, **#** kopieert het gespreks-ID, **/** zoekt, **Esc** gaat terug naar de lijst (niet terwijl een menu openstaat). Assistentchats gebruiken dezelfde toetsen voor bewegen, vastzetten, ongelezen, antwoord en zoeken.
 4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp of Slack nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per kanaal) onder **Instellingen**, dan **E-mail en berichten** (Mappen en tags). De secties **Tags** en **Agents** (bedrijfsagents waarmee je mag chatten) werken hetzelfde. Tag een gesprek vanuit het detailpaneel: **Tag toevoegen** zoekt in je taglijst, laat zien waarvoor elke tag is, en maakt de tag aan als de naam nieuw is. Een getagd gesprek verschijnt onder Tags over alle kanalen heen, en een gesprek met meerdere tags komt onder elke tag terug. Beweeg over de sectie **Tags** en gebruik het tandwiel om tags te beheren en de tags die je altijd als map wilt vast te zetten. AI-triage kan ook tags toevoegen, maar alleen tags die al in je lijst bestaan.
@@ -58,8 +58,8 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 Haal een agent erbij als je wilt sparren, iets wilt laten opzoeken of het gesprek wilt overdragen.
 
 1. Klik de paarse agent-chip in de composer (genoemd naar de thread-owner, of open een korte kandidatenlijst), of typ `@` en selecteer een agent. Dat start een intern metagesprek — de klant ziet het niet.
-2. Meta-berichten verschijnen als gewone chatbubbels in een lichtpaarse band in dezelfde tijdlijn (geen genest scrollpaneel). De composer blijft op het agent-tabblad tot je de sessie afrondt of een klant-Beantwoorden stuurt.
-3. Vraag om een antwoord en de agent stelt een conceptkaart voor. Vraag verder te gaan met het contact en de agent kan het gesprek overnemen. Een teammate taggen mid-meta stuurt een melding; het bericht gaat nog steeds naar de agent.
+2. Typ op het agent-tabblad en druk Enter. Je bericht verschijnt meteen; de agent streamt een antwoord in dezelfde lichtpaarse band. Tijdens het antwoorden wordt Versturen **Stop**, en Enter doet niets — zo stuur je niet per ongeluk drie keer hetzelfde. De composer blijft op het agent-tabblad tot je de sessie afrondt of een klant-Beantwoorden stuurt.
+3. Vraag om een antwoord en de agent stelt een conceptkaart voor. Vraag verder te gaan met het contact en de agent kan het gesprek overnemen. Een teammate taggen mid-meta stuurt een melding; het bericht gaat nog steeds naar de agent. Conceptkaarten zetten de composer niet om naar Beantwoorden zolang er nog een stream loopt.
 4. Als het werk klaar is — of na een paar minuten stilte — biedt de agent (of het systeem) een afrondingskaart: sessie beëindigen, doorgaan, of opvolging. **Sessie afronden** klapt het segment in tot een samenvatting die je later kunt uitklappen. Een klant-Beantwoorden beëindigt de meta zonder checkout-acties.
 5. Toch niet nodig, nog voor je iets typte? **Annuleren** haalt de sessie weg. Zodra er een bericht is gewisseld, gebruik de afrondingskaart of **Sessie afronden**.
 

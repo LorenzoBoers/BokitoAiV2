@@ -344,6 +344,19 @@ export default function InboxSettings() {
 
   const handleRouting = useCallback(
     async (row: ChannelRow) => {
+      // Canonical routing lives in Inbox automations (Signals InboxRule).
+      // Legacy per-mailbox RoutingRulesManager remains available via hash deep-link
+      // only while dual-write still mirrors EmailRoutingRule → InboxRule.
+      const el = document.getElementById('inbox-automations')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        toast.message(
+          t('channelsPage.routingUseAutomations', {
+            defaultValue: 'Use Automations below to route messages. Per-mailbox rules still sync there.',
+          }),
+        )
+        return
+      }
       if (!token) return
       const target = mailboxTarget(row)
       if (!target) {
@@ -596,7 +609,9 @@ export default function InboxSettings() {
         </SettingsSection>
       </div>
 
-      <AutomationRulesManager />
+      <div id="inbox-automations">
+        <AutomationRulesManager />
+      </div>
 
       <FoldersAndTagsManager />
 

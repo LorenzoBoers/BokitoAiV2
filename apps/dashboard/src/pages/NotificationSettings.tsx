@@ -23,6 +23,7 @@ import {
   disableWebPush,
   enableWebPush,
   getCurrentPushSubscription,
+  isWebPushServerConfigured,
   isWebPushSupported,
 } from '../lib/web-push'
 
@@ -92,12 +93,17 @@ export default function NotificationSettings() {
   // Browser push (web push via the service worker). Reflects the actual
   // browser subscription state rather than a stored preference.
   const pushSupported = isWebPushSupported()
+  const [pushServerConfigured, setPushServerConfigured] = useState<boolean | null>(null)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
   const [pushError, setPushError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!pushSupported) return
+    if (!pushSupported) {
+      setPushServerConfigured(false)
+      return
+    }
+    void isWebPushServerConfigured().then(setPushServerConfigured)
     void getCurrentPushSubscription().then((sub) => setPushEnabled(sub != null))
   }, [pushSupported])
 
@@ -261,13 +267,23 @@ export default function NotificationSettings() {
               {t('notificationsPage.pushTitle')}
             </p>
             <p className="text-xs text-text-secondary">
-              {pushSupported ? t('notificationsPage.pushBody') : t('notificationsPage.pushUnsupported')}
+              {!pushSupported
+                ? t('notificationsPage.pushUnsupported')
+                : pushServerConfigured === false
+                  ? t('notificationsPage.pushNotConfigured')
+                  : t('notificationsPage.pushBody')}
             </p>
             {pushError ? <p className="text-xs text-status-error">{pushError}</p> : null}
           </div>
           <Switch
             checked={pushEnabled}
-            disabled={!pushSupported || pushBusy || !token}
+            disabled={
+              !pushSupported ||
+              pushBusy ||
+              !token ||
+              pushServerConfigured === false ||
+              pushServerConfigured === null
+            }
             onCheckedChange={(checked) => void togglePush(checked)}
             aria-label={t('notificationsPage.pushAria')}
           />

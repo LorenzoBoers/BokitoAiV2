@@ -43,7 +43,31 @@ async def _search_product_help(ctx: ToolContext, tool_input: dict[str, Any]) -> 
 async def _list_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.workspace import list_docs, serialize_doc
 
-    docs = await list_docs(ctx.session, ctx.tenant_id, kind=tool_input.get("kind"))
+    project_id = None
+    agent_id = None
+    raw_project = str(tool_input.get("project_id") or "").strip()
+    raw_agent = str(tool_input.get("agent_id") or "").strip()
+    if raw_project:
+        try:
+            project_id = UUID(raw_project)
+        except ValueError:
+            return {"error": "project_id must be a valid id"}
+    elif ctx.project_id:
+        project_id = ctx.project_id
+    if raw_agent:
+        try:
+            agent_id = UUID(raw_agent)
+        except ValueError:
+            return {"error": "agent_id must be a valid id"}
+    scope = tool_input.get("scope")
+    docs = await list_docs(
+        ctx.session,
+        ctx.tenant_id,
+        kind=tool_input.get("kind"),
+        project_id=project_id,
+        agent_id=agent_id,
+        scope=str(scope) if scope else None,
+    )
     return {"docs": [serialize_doc(d, include_content=False) for d in docs]}
 
 
@@ -103,12 +127,15 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
     project_id = str(tool_input.get("project_id") or "").strip() or (
         str(ctx.project_id) if ctx.project_id else None
     )
+    agent_id = str(tool_input.get("agent_id") or "").strip() or None
     existing = await get_doc_by_path(ctx.session, ctx.tenant_id, path)
     before = None
     if existing:
         before = {"path": existing.path, "content": existing.content, "kind": existing.kind}
         if existing.project_id:
             project_id = str(existing.project_id)
+        if getattr(existing, "agent_id", None):
+            agent_id = str(existing.agent_id)
     return await _platform_change(
         ctx,
         resource_type="workspace_doc",
@@ -120,6 +147,7 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
             "mode": mode if existing else "replace",
             "kind": tool_input.get("kind"),
             "project_id": project_id,
+            "agent_id": agent_id,
         },
         before=before,
         tool_name="write_doc",
@@ -1081,11 +1109,23 @@ register_tool(
 register_tool(
     ToolSpec(
         name="list_docs",
-        description="List workspace docs (path, kind, title). Filter by kind: doc, memory, persona, skill, daily_log, heartbeat.",
+        description=(
+            "List workspace docs (path, kind, title, project_id, agent_id). "
+            "Default is organization knowledge. Pass project_id, agent_id, or "
+            "scope=all to include other scopes."
+        ),
         category="workspace",
         input_schema={
             "type": "object",
-            "properties": {"kind": {"type": "string"}},
+            "properties": {
+                "kind": {"type": "string"},
+                "project_id": {"type": "string"},
+                "agent_id": {"type": "string"},
+                "scope": {
+                    "type": "string",
+                    "description": "Pass 'all' to list every scope (still filtered by ids).",
+                },
+            },
         },
         handler=_list_docs,
         mutating=False,
@@ -1115,7 +1155,8 @@ register_tool(
         description=(
             "Create or update a workspace markdown doc. mode=append adds to the end; "
             "mode=replace overwrites. In a project-scoped run new docs become project "
-            "documentation automatically; pass project_id to override."
+            "documentation automatically; pass project_id or agent_id to scope the doc. "
+            "Prefer editing existing docs over creating many new files."
         ),
         category="workspace",
         input_schema={
@@ -1125,7 +1166,14 @@ register_tool(
                 "content": {"type": "string"},
                 "mode": {"type": "string", "enum": ["append", "replace"]},
                 "kind": {"type": "string"},
-                "project_id": {"type": "string", "description": "Scope the doc to a project (smart documentation)."},
+                "project_id": {
+                    "type": "string",
+                    "description": "Scope the doc to a project (smart documentation).",
+                },
+                "agent_id": {
+                    "type": "string",
+                    "description": "Scope the doc to an agent (personal notes / memory).",
+                },
             },
             "required": ["path", "content"],
         },

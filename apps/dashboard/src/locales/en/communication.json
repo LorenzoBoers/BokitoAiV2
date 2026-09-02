@@ -462,7 +462,10 @@
     "replyCopied": "Answer copied to the reply composer",
     "openAgent": "Open agent",
     "actionsCount": "{{count}} actions",
-    "switchedAgent": "Meta conversation switched to {{name}}"
+    "switchedAgent": "Meta conversation switched to {{name}}",
+    "busyError": "The agent is still replying. Wait or press Stop.",
+    "sendError": "Could not send to the agent.",
+    "thinking": "Thinking…"
   },
   "onboarding": {
     "title": "Get your workspace ready",

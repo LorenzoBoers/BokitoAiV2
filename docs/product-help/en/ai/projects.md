@@ -23,8 +23,8 @@ A project is work that spans days. Open **Projects** when a goal should have a h
 ## Work the implementation queue
 
 1. On the **Queue** tab, choose **Add to queue**. Give the request a title, pick a kind (**Feature**, **Bug**, **Task**, **Idea**, **Risk**) and a priority, then choose **Add**.
-2. Items are grouped by status: **Proposed**, **Accepted**, **Analyzing**, **Planned**, **In progress**, **Verifying**, **Done**, **Rejected**. Open an item to read its context, impact analysis, and linked documentation sections.
-3. Choose **Accept** on a proposed item. The project agent analyzes it against the documentation, links the sections it touches, and writes an impact summary. Use **Analyze** to run that again.
+2. Items are grouped by status: **Proposed**, **Accepted**, **Analyzing**, **Planned**, **In progress**, **Verifying**, **Done**, **Rejected**. Open an item to read its context, impact analysis, and linked knowledge documents.
+3. Choose **Accept** on a proposed item. The project agent analyzes it against the documentation, links the documents it touches, and writes an impact summary. Use **Analyze** to run that again. You can also **Link document** on an open item to attach a project or organization knowledge page.
 4. When the work is done, choose **Ready to verify** and then **Verify**. The agent checks the documentation against reality before the item moves to **Done**.
 
 Items born from a conversation show **Open source thread**, which takes you back to the exact conversation in [Communication](/docs/inbox/communication).
@@ -36,12 +36,12 @@ Items born from a conversation show **Open source thread**, which takes you back
 3. Choose **Add to queue** to accept, or **Dismiss**. Choose **Always allow** if the agent may add items without asking.
 4. Turn on **Autonomous mode** in the project's **Settings** tab to skip the accept step: conversation items are accepted automatically and analysis starts right away.
 
-## Track smart documentation
+## Track project documentation
 
-1. Open the **Documentation** tab. Choose **New document**, give it a name, and write markdown. Every `##` heading becomes a tracked section.
-2. Each section carries a status: **Open**, **Planned**, **In progress**, **Implemented**, **Verified**, or **Deprecated**. The colored rail next to each section shows the status at a glance.
-3. Open a section to see which queue items touch it — current and historical. Click the status badge to change it by hand.
-4. Agents use these statuses when answering customers, so they do not promise features that are still open.
+1. Open the **Documentation** tab (a contextual view of the same docs as Knowledge filtered to this project). Choose **New document**, give it a name, and write in **Write** or **Markdown**. Content always saves as markdown.
+2. Active linked queue requests show as chips on the document. Request status stays on the queue item.
+3. Section statuses under each `##` heading remain available when you expand **Sections**; they are secondary to document-level links.
+4. Choose **Open in Knowledge hub** to edit the same document under Knowledge → Projects.
 
 ## Link resources
 
@@ -57,4 +57,4 @@ Items born from a conversation show **Open source thread**, which takes you back
 
 ## What to do next
 
-Attach a schedule on the [Agenda](/docs/ai/agenda). Put tenant-wide knowledge in [Knowledge](/docs/ai/knowledge); project documentation lives on the project itself.
+Attach a schedule on the [Agenda](/docs/ai/agenda). Browse the same project docs under [Knowledge](/docs/ai/knowledge) with the Projects filter; organization-wide knowledge stays on Knowledge → Organization.

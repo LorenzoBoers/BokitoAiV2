@@ -26,6 +26,8 @@ type Props = {
   onUseAsReply?: (text: string) => void
   /** Live messages already merged by the parent (active session). */
   liveMessages?: ChatMessage[]
+  /** True while the operator's message is streaming a reply. */
+  streaming?: boolean
 }
 
 function formatTime(iso: string): string {
@@ -41,7 +43,15 @@ function actionLabel(action: ThreadSession['actions'][number]): string {
   return action.tool
 }
 
-function MetaBubble({ message, agentName }: { message: ChatMessage; agentName?: string | null }) {
+function MetaBubble({
+  message,
+  agentName,
+  onUseAsReply,
+}: {
+  message: ChatMessage
+  agentName?: string | null
+  onUseAsReply?: (text: string) => void
+}) {
   const { t } = useTranslation('communication')
   const isUser = message.role === 'user'
   if (isUser) {
@@ -63,6 +73,15 @@ function MetaBubble({ message, agentName }: { message: ChatMessage; agentName?: 
           {agentName || t('agentSession.title')}
         </p>
         <ChatMarkdown content={translateMockAgentBody(message.content, t)} />
+        {onUseAsReply && message.content.trim() && message.id !== 'local-stream' ? (
+          <button
+            type="button"
+            onClick={() => onUseAsReply(message.content)}
+            className="mt-1.5 text-[11px] font-medium text-ai-ink/80 hover:text-ai-ink"
+          >
+            {t('agentSession.useAsReply')}
+          </button>
+        ) : null}
       </div>
     </div>
   )
@@ -72,10 +91,14 @@ function SessionTranscript({
   sessionId,
   agentName,
   messages: controlled,
+  onUseAsReply,
+  streaming,
 }: {
   sessionId: string
   agentName?: string | null
   messages?: ChatMessage[]
+  onUseAsReply?: (text: string) => void
+  streaming?: boolean
 }) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -111,7 +134,7 @@ function SessionTranscript({
       </div>
     )
   }
-  if (messages.length === 0) {
+  if (messages.length === 0 && !streaming) {
     return (
       <p className="px-1 py-2 text-[12px] text-text-muted">{t('agentSession.emptyTranscript')}</p>
     )
@@ -119,8 +142,19 @@ function SessionTranscript({
   return (
     <div className="space-y-2.5 px-1 py-1">
       {messages.map((m) => (
-        <MetaBubble key={m.id} message={m} agentName={agentName} />
+        <MetaBubble
+          key={m.id}
+          message={m}
+          agentName={agentName}
+          onUseAsReply={onUseAsReply}
+        />
       ))}
+      {streaming && !messages.some((m) => m.id === 'local-stream') ? (
+        <div className="flex items-center gap-2 px-1 py-1 text-[12px] text-text-muted">
+          <Loader2 size={12} className="animate-spin text-ai" />
+          {t('agentSession.thinking', { defaultValue: 'Thinking…' })}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -133,7 +167,9 @@ export default function AgentSessionCard({
   session,
   threadId,
   onChanged,
+  onUseAsReply,
   liveMessages,
+  streaming,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -222,6 +258,8 @@ export default function AgentSessionCard({
           sessionId={session.id}
           agentName={session.agentName}
           messages={liveMessages}
+          onUseAsReply={onUseAsReply}
+          streaming={streaming}
         />
       </div>
     )

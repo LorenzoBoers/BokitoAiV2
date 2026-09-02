@@ -6,7 +6,7 @@ import json
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,12 +71,14 @@ async def _get_endpoint(
 async def list_webhooks(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(50, ge=1, le=100),
 ):
     auth.require_role("owner", "admin")
     result = await session.execute(
         select(WebhookEndpoint)
         .where(WebhookEndpoint.tenant_id == auth.tenant.id)
         .order_by(WebhookEndpoint.created_at.desc())
+        .limit(limit)
     )
     return {
         "items": [serialize_endpoint(e, include_secret=True) for e in result.scalars().all()],

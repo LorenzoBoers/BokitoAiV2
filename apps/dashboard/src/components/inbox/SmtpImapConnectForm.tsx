@@ -1,7 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { useAuth } from '../../context/AuthContext'
@@ -13,6 +12,7 @@ import {
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboxPath } from '../../lib/messages-paths'
 import { cn } from '../../lib/utils'
+import ConnectStepRail from './ConnectStepRail'
 
 /**
  * Connect any mailbox via IMAP (receive) + SMTP (send). Three-step guide:
@@ -111,7 +111,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
 
   return (
     <div className="space-y-4">
-      <StepRail
+      <ConnectStepRail
         steps={[
           t('channelsPage.email.smtp.step1Title'),
           t('channelsPage.email.smtp.step2Title'),
@@ -119,6 +119,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
         ]}
         active={activeStep}
         done={connected ? [1, 2] : []}
+        ariaLabel="SMTP IMAP setup"
       />
 
       {!connected ? (
@@ -318,64 +319,6 @@ function Field({
       {children}
       <span className="text-[11px] leading-snug text-text-muted">{hint}</span>
     </label>
-  )
-}
-
-function StepRail({
-  steps,
-  active,
-  done,
-}: {
-  steps: string[]
-  active: number
-  done: number[]
-}) {
-  return (
-    <ol className="flex items-stretch gap-1.5" aria-label="SMTP IMAP setup">
-      {steps.map((label, index) => {
-        const number = index + 1
-        const isDone = done.includes(number)
-        const isActive = active === number
-        const isOpen = number <= active
-        return (
-          <li
-            key={label}
-            className={cn(
-              'flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-2',
-              isActive
-                ? 'border-accent/40 bg-accent/10'
-                : isDone || isOpen
-                  ? 'border-border/50 bg-bg-elevated/40'
-                  : 'border-border/40 bg-transparent opacity-55',
-            )}
-          >
-            <span
-              className={cn(
-                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
-                isActive
-                  ? 'bg-accent text-white'
-                  : isDone
-                    ? 'bg-accent/20 text-accent'
-                    : isOpen
-                      ? 'bg-bg-hover text-text-secondary'
-                      : 'bg-bg-hover text-text-muted',
-              )}
-              aria-hidden
-            >
-              {isDone && !isActive ? <Check size={11} strokeWidth={2.5} /> : number}
-            </span>
-            <span
-              className={cn(
-                'min-w-0 truncate text-[11px] font-medium leading-tight',
-                isActive || isOpen ? 'text-text-heading' : 'text-text-secondary',
-              )}
-            >
-              {label}
-            </span>
-          </li>
-        )
-      })}
-    </ol>
   )
 }
 

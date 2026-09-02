@@ -35,6 +35,11 @@ def _prod_settings(**overrides) -> Settings:
         bokito_mock_execution=False,
         # Dedicated Fernet key required in production (not JWT-derived).
         credentials_fernet_key="dev-test-credentials-fernet-key-32b",
+        redis_url="redis://redis.internal:6379/0",
+        public_api_url="https://api.bokito.ai",
+        public_app_url="https://app.bokito.ai",
+        debug=False,
+        storage_backend="local",
     )
     base.update(overrides)
     return Settings(**base)

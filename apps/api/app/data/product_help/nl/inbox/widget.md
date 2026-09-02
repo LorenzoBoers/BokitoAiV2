@@ -4,7 +4,7 @@ intro: Zet Bokito-chat op je site zodat bezoekers in Communicatie landen naast e
 description: Installeer de Bokito-chatwidget, zet Uiterlijk en Stem en uren, en toon hulp-artikelen naast chat.
 keywords: widget, websitechat, livechat, installeren, uiterlijk, openingstijden
 sort: 40
-related: channels,communication,help-centers,widget-embed
+related: channels,communication,widget-embed
 ---
 
 # De websitewidget installeren
@@ -36,7 +36,7 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 
 ## Toon je hulp-artikelen
 
-1. Publiceer Kennis-docs van het soort **Docs** naar je [helpcentrum](/docs/inbox/help-centers).
+1. Publiceer Kennis-docs van het soort **Docs** vanuit [Kennis](/docs/ai/knowledge) met **Publiceren**.
 2. Open op Chatwidget **Uiterlijk**. Onder **Wat bezoekers zien** zet je de module **Help** aan.
 3. Bezoekers zien dan jouw artikelen naast chat. De openbare site `/help/{workspace}` is van jou, niet de Bokito-producthulp.
 

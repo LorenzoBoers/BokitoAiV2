@@ -7,6 +7,7 @@ API and worker both talk to the same object store.
 
 from __future__ import annotations
 
+import asyncio
 import mimetypes
 import uuid
 from abc import ABC, abstractmethod
@@ -78,11 +79,30 @@ class LocalStorageBackend(StorageBackend):
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
 
-    async def store(self, *, data: bytes, filename: str, mime: str, tenant_id: str) -> StoredFile:
-        file_id, safe_name, key = _safe_key(tenant_id, filename)
+    def _store_sync(self, data: bytes, key: str) -> None:
         path = self.root / key
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
+
+    def _delete_sync(self, storage_key: str) -> None:
+        path = self.root / storage_key
+        if path.exists():
+            path.unlink()
+
+    def _fetch_sync(self, storage_key: str) -> FetchedFile | None:
+        path = (self.root / storage_key).resolve()
+        root = self.root.resolve()
+        if not str(path).startswith(str(root)) or not path.is_file():
+            return None
+        mime = guess_mime(path.name, None)
+        try:
+            return FetchedFile(data=path.read_bytes(), mime=mime)
+        except OSError:
+            return None
+
+    async def store(self, *, data: bytes, filename: str, mime: str, tenant_id: str) -> StoredFile:
+        file_id, safe_name, key = _safe_key(tenant_id, filename)
+        await asyncio.to_thread(self._store_sync, data, key)
         return StoredFile(
             id=file_id,
             name=safe_name,
@@ -93,20 +113,10 @@ class LocalStorageBackend(StorageBackend):
         )
 
     async def delete(self, storage_key: str) -> None:
-        path = self.root / storage_key
-        if path.exists():
-            path.unlink()
+        await asyncio.to_thread(self._delete_sync, storage_key)
 
     async def fetch(self, storage_key: str) -> FetchedFile | None:
-        path = (self.root / storage_key).resolve()
-        root = self.root.resolve()
-        if not str(path).startswith(str(root)) or not path.is_file():
-            return None
-        mime = guess_mime(path.name, None)
-        try:
-            return FetchedFile(data=path.read_bytes(), mime=mime)
-        except OSError:
-            return None
+        return await asyncio.to_thread(self._fetch_sync, storage_key)
 
 
 class S3StorageBackend(StorageBackend):
@@ -141,15 +151,32 @@ class S3StorageBackend(StorageBackend):
             )
         return self._client
 
-    async def store(self, *, data: bytes, filename: str, mime: str, tenant_id: str) -> StoredFile:
-        file_id, safe_name, key = _safe_key(tenant_id, filename)
-        content_type = mime or "application/octet-stream"
+    def _store_sync(self, data: bytes, key: str, content_type: str) -> None:
         self._s3().put_object(
             Bucket=self.bucket,
             Key=key,
             Body=data,
             ContentType=content_type,
         )
+
+    def _delete_sync(self, storage_key: str) -> None:
+        self._s3().delete_object(Bucket=self.bucket, Key=storage_key)
+
+    def _fetch_sync(self, storage_key: str) -> FetchedFile | None:
+        from botocore.exceptions import ClientError
+
+        try:
+            obj = self._s3().get_object(Bucket=self.bucket, Key=storage_key)
+        except ClientError:
+            return None
+        body = obj["Body"].read()
+        mime = str(obj.get("ContentType") or guess_mime(storage_key, None))
+        return FetchedFile(data=body, mime=mime)
+
+    async def store(self, *, data: bytes, filename: str, mime: str, tenant_id: str) -> StoredFile:
+        file_id, safe_name, key = _safe_key(tenant_id, filename)
+        content_type = mime or "application/octet-stream"
+        await asyncio.to_thread(self._store_sync, data, key, content_type)
         return StoredFile(
             id=file_id,
             name=safe_name,
@@ -160,18 +187,10 @@ class S3StorageBackend(StorageBackend):
         )
 
     async def delete(self, storage_key: str) -> None:
-        self._s3().delete_object(Bucket=self.bucket, Key=storage_key)
+        await asyncio.to_thread(self._delete_sync, storage_key)
 
     async def fetch(self, storage_key: str) -> FetchedFile | None:
-        from botocore.exceptions import ClientError
-
-        try:
-            obj = self._s3().get_object(Bucket=self.bucket, Key=storage_key)
-        except ClientError:
-            return None
-        body = obj["Body"].read()
-        mime = str(obj.get("ContentType") or guess_mime(storage_key, None))
-        return FetchedFile(data=body, mime=mime)
+        return await asyncio.to_thread(self._fetch_sync, storage_key)
 
 
 def get_storage_backend() -> StorageBackend:
@@ -229,7 +248,9 @@ async def fetch_attachment_bytes(url: str) -> bytes | None:
             local = _local_file_for_url(url)
             if local is not None:
                 try:
-                    return local.read_bytes() if local.is_file() else None
+                    return await asyncio.to_thread(
+                        lambda: local.read_bytes() if local.is_file() else None
+                    )
                 except OSError:
                     return None
     if url.startswith("/"):

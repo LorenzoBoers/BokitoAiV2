@@ -43,7 +43,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 
 ## Schedule recurring work
 
-New workspaces start with an hourly **platform check-in**. The assistant wakes, reads the Daily check-in note in Knowledge, and writes in the **Platform check-in** conversation in Messages only when something needs you. You can turn it on from the setup guide, from Reports, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Reports](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Reports **Usage**.
+New workspaces start with an hourly **platform check-in**. The assistant wakes, reads the Daily check-in note in Knowledge, and writes in the **Platform check-in** conversation in Messages only when something needs you. You can turn it on from the setup guide, from Overview, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Overview](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Overview **Usage**.
 
 ## Follow the live checklist
 

@@ -6,11 +6,9 @@
  * `send_push_to_user` (thread messages + decisions).
  */
 
-import {
-  bokitoGetVapidPublicKey,
-  bokitoSubscribePush,
-  bokitoUnsubscribePush,
-} from './bokito-api'
+import { appRoutes } from '../api/routes'
+import { APP_API_BASE } from './api.config'
+import { bokitoGetVapidPublicKey, bokitoSubscribePush, bokitoUnsubscribePush } from './bokito-api'
 
 export function isWebPushSupported(): boolean {
   return (
@@ -37,6 +35,18 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const output = new Uint8Array(raw.length)
   for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i)
   return output
+}
+
+/** Whether the API exposes a VAPID public key (push enabled server-side). */
+export async function isWebPushServerConfigured(): Promise<boolean> {
+  try {
+    const res = await fetch(`${APP_API_BASE}${appRoutes.push.vapidPublicKey}`, {
+      credentials: 'include',
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 /** Current browser subscription, if any (does not prompt). */

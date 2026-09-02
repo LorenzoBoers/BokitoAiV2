@@ -43,7 +43,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 
 ## Plan terugkerend werk
 
-Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in het gesprek **Platform check-in** in Berichten wanneer iets jou nodig heeft. Je zet die aan vanuit de setupgids, Rapportages, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Rapportages](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Rapportages **Verbruik**.
+Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in het gesprek **Platform check-in** in Berichten wanneer iets jou nodig heeft. Je zet die aan vanuit de setupgids, Overview, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Overview](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Overview **Verbruik**.
 
 ## Volg de live checklist
 

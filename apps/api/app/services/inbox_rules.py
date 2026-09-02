@@ -28,7 +28,7 @@ from app.services.audit import record_audit
 # Consistent operator choices required before a suggested rule may activate.
 PROMOTION_THRESHOLD = 3
 
-RULE_ACTIONS = ("auto_close", "auto_task", "mute_ai")
+RULE_ACTIONS = ("auto_close", "auto_task", "mute_ai", "route")
 
 # Decision-card option id -> learned rule action. "keep_open" is deliberately
 # absent: keeping a thread open is the default behavior, not an automation.
@@ -38,6 +38,7 @@ ACTION_LABELS = {
     "auto_close": "Auto-close",
     "auto_task": "Create task",
     "mute_ai": "Skip AI",
+    "route": "Assign / tag",
 }
 
 _LIST_ID_RE = re.compile(r"<([^>]+)>")
@@ -79,6 +80,10 @@ def sender_keys(from_address: str, headers: dict | None = None) -> list[tuple[st
 
 
 def serialize_rule(rule: InboxRule) -> dict[str, Any]:
+    try:
+        labels = json.loads(rule.labels_json or "[]")
+    except (json.JSONDecodeError, TypeError):
+        labels = []
     return {
         "id": str(rule.id),
         "match_type": rule.match_type,
@@ -92,6 +97,10 @@ def serialize_rule(rule: InboxRule) -> dict[str, Any]:
         "promotion_threshold": PROMOTION_THRESHOLD,
         "hit_count": rule.hit_count,
         "last_hit_at": rule.last_hit_at.isoformat() if rule.last_hit_at else None,
+        "channel_account_id": str(rule.channel_account_id) if rule.channel_account_id else None,
+        "priority": rule.priority,
+        "assign_to_user_id": rule.assign_to_user_id,
+        "labels": labels if isinstance(labels, list) else [],
         "created_at": rule.created_at.isoformat(),
         "updated_at": rule.updated_at.isoformat(),
     }
@@ -127,6 +136,7 @@ async def find_matching_rule(
                 InboxRule.match_type == match_type,
                 InboxRule.match_value == match_value,
                 InboxRule.status == "active",
+                InboxRule.action != "route",
             )
         )
         rule = result.scalars().first()

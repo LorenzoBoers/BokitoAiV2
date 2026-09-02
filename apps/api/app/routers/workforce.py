@@ -13,7 +13,6 @@ from app.services import workforce_runtime as svc
 from app.services.os_graph import (
     build_canvas_graph,
     build_project_graph,
-    build_workspace_graph,
     create_canvas_edge,
     create_canvas_node,
     delete_canvas_edge,
@@ -120,14 +119,6 @@ async def os_workspace_graph(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await build_canvas_graph(session, auth.tenant.id)
-
-
-@router.get("/os/graph/legacy")
-async def os_workspace_graph_legacy(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await build_workspace_graph(session, auth.tenant.id)
 
 
 @router.post("/os/nodes")

@@ -208,6 +208,32 @@ def validate_production_settings(settings: "Settings") -> list[str]:
         errors.append(
             "META_APP_SECRET and WHATSAPP_VERIFY_TOKEN must both be set (or both empty)."
         )
+    redis = (settings.redis_url or "").lower()
+    if "localhost" in redis or "127.0.0.1" in redis:
+        errors.append("REDIS_URL must not point at localhost in production.")
+    if settings.storage_backend == "s3":
+        missing_s3 = [
+            name
+            for name, val in (
+                ("STORAGE_S3_BUCKET", settings.storage_s3_bucket),
+                ("STORAGE_S3_ACCESS_KEY", settings.storage_s3_access_key),
+                ("STORAGE_S3_SECRET_KEY", settings.storage_s3_secret_key),
+                ("STORAGE_S3_ENDPOINT", settings.storage_s3_endpoint),
+            )
+            if not (val or "").strip()
+        ]
+        if missing_s3:
+            errors.append(
+                "S3 storage is incomplete; set " + ", ".join(missing_s3) + " in production."
+            )
+    public_api = (settings.public_api_url or "").lower()
+    public_app = (settings.public_app_url or "").lower()
+    if "localhost" in public_api or "127.0.0.1" in public_api:
+        errors.append("PUBLIC_API_URL must not use localhost in production.")
+    if "localhost" in public_app or "127.0.0.1" in public_app:
+        errors.append("PUBLIC_APP_URL must not use localhost in production.")
+    if settings.debug:
+        errors.append("DEBUG must be False in production.")
     return errors
 
 
@@ -224,6 +250,29 @@ def production_config_warnings(settings: "Settings") -> list[str]:
     return warnings
 
 
+def _ensure_dev_vapid_keys(settings: Settings) -> Settings:
+    """Generate ephemeral VAPID keys in dev when unset so web push works locally."""
+    if settings.is_production or settings.vapid_public_key.strip():
+        return settings
+    try:
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+        from py_vapid import Vapid
+        from py_vapid.utils import b64urlencode
+
+        vapid = Vapid()
+        vapid.generate_keys()
+        raw = vapid.public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+        public_key = b64urlencode(raw)
+        private_key = vapid.private_pem()
+        if isinstance(private_key, bytes):
+            private_key = private_key.decode("utf-8")
+        return settings.model_copy(
+            update={"vapid_public_key": public_key, "vapid_private_key": private_key}
+        )
+    except Exception:
+        return settings
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return _ensure_dev_vapid_keys(Settings())

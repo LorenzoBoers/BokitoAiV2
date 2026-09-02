@@ -28,11 +28,12 @@ export type ResourceStatus = 'linked' | 'connected' | 'syncing' | 'error' | 'dis
 
 export interface QueueItemLink {
   id: string
-  section_id: string
-  doc_id: string
-  anchor: string
-  heading: string
-  section_status: DocSectionStatus
+  section_id: string | null
+  doc_id: string | null
+  doc_title?: string | null
+  anchor: string | null
+  heading: string | null
+  section_status: DocSectionStatus | null
   relation: string
   created_by_type: string
   created_at: string | null
@@ -84,6 +85,15 @@ export interface DocSectionRow {
   items?: DocSectionItemRef[]
 }
 
+export interface LinkedRequestRef {
+  id: string
+  title: string
+  status: QueueItemStatus
+  kind: QueueItemKind
+  project_id: string | null
+  relation?: string
+}
+
 export interface ProjectDocRow {
   id: string
   path: string
@@ -93,6 +103,7 @@ export interface ProjectDocRow {
   content?: string
   updated_at: string
   sections: DocSectionRow[]
+  linked_requests?: LinkedRequestRef[]
 }
 
 export interface ProjectResourceRow {
@@ -178,6 +189,18 @@ export async function saveProjectDoc(
   input: { path: string; content: string; title?: string },
 ): Promise<ProjectDocRow> {
   return workforcePost<ProjectDocRow>(projectsRoutes.docs(projectId), input)
+}
+
+export async function linkQueueItemToDoc(
+  projectId: string,
+  docId: string,
+  queueItemId: string,
+  relation: string = 'touches',
+): Promise<{ id: string; doc_id: string | null; relation: string }> {
+  return workforcePost(projectsRoutes.docLinks(projectId, docId), {
+    queue_item_id: queueItemId,
+    relation,
+  })
 }
 
 export async function setSectionStatus(

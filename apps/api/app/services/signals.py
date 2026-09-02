@@ -96,9 +96,48 @@ async def apply_email_routing(
     signal: Signal,
 ) -> None:
     """Apply active routing rules for the signal's mailbox: merge labels and
-    resolve an assignee. Highest-priority matching rule wins for assignment."""
+    resolve an assignee. Highest-priority matching rule wins for assignment.
+
+    Canonical store is InboxRule (action=route). Falls back to legacy
+    EmailRoutingRule rows that have not been mirrored yet.
+    """
     if signal.channel != "email" or not signal.channel_account_id:
         return
+    from app.models.learning import InboxRule
+
+    result = await session.execute(
+        select(InboxRule)
+        .where(
+            InboxRule.tenant_id == tenant_id,
+            InboxRule.action == "route",
+            InboxRule.status == "active",
+            InboxRule.channel_account_id == signal.channel_account_id,
+        )
+        .order_by(InboxRule.priority)
+    )
+    inbox_rules = list(result.scalars().all())
+    if inbox_rules:
+        labels: list[str] = []
+        assign_numeric: int | None = None
+        for rule in inbox_rules:
+            if not _inbox_route_matches(
+                rule, contact_email=signal.contact_email, subject=signal.subject
+            ):
+                continue
+            try:
+                rule_labels = json.loads(rule.labels_json or "[]")
+            except (json.JSONDecodeError, TypeError):
+                rule_labels = []
+            for label in rule_labels:
+                if isinstance(label, str) and label not in labels:
+                    labels.append(label)
+            if assign_numeric is None and rule.assign_to_user_id is not None:
+                assign_numeric = rule.assign_to_user_id
+        await _apply_routing_effects(
+            session, tenant_id, signal, labels=labels, assign_numeric=assign_numeric
+        )
+        return
+
     result = await session.execute(
         select(EmailRoutingRule)
         .where(
@@ -111,8 +150,8 @@ async def apply_email_routing(
     rules = list(result.scalars().all())
     if not rules:
         return
-    labels: list[str] = []
-    assign_numeric: int | None = None
+    labels = []
+    assign_numeric = None
     for rule in rules:
         if not _rule_matches(rule, contact_email=signal.contact_email, subject=signal.subject):
             continue
@@ -125,6 +164,35 @@ async def apply_email_routing(
                 labels.append(label)
         if assign_numeric is None and rule.assign_to_user_id is not None:
             assign_numeric = rule.assign_to_user_id
+    await _apply_routing_effects(
+        session, tenant_id, signal, labels=labels, assign_numeric=assign_numeric
+    )
+
+
+def _inbox_route_matches(rule: Any, *, contact_email: str, subject: str) -> bool:
+    value = (rule.match_value or "").strip().lower()
+    condition = rule.match_type
+    if condition == "mailbox":
+        return True
+    if condition in ("sender_domain", "domain"):
+        email = (contact_email or "").strip().lower()
+        domain = email.split("@", 1)[1] if "@" in email else ""
+        return bool(value) and domain == value
+    if condition == "subject_contains":
+        return bool(value) and value in (subject or "").lower()
+    if condition == "sender":
+        return bool(value) and (contact_email or "").strip().lower() == value
+    return False
+
+
+async def _apply_routing_effects(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    *,
+    labels: list[str],
+    assign_numeric: int | None,
+) -> None:
     if labels:
         from app.services import signal_tags as tag_svc
 
@@ -137,7 +205,6 @@ async def apply_email_routing(
             if label not in merged:
                 merged.append(label)
         signal.tags_json = json.dumps(merged)
-        # Routing-rule labels are operator intent: they belong in the vocabulary.
         await tag_svc.ensure_tags(session, tenant_id, merged)
     if assign_numeric is not None and signal.assigned_user_id is None:
         member_result = await session.execute(

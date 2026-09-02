@@ -37,6 +37,13 @@
     "english": "English",
     "saveError": "Language changed for this session, but could not be saved to your account."
   },
+  "landing": {
+    "title": "Start page",
+    "description": "Choose where Bokito opens after you sign in. Messages is the default.",
+    "communication": "Messages",
+    "overview": "Overview",
+    "saveError": "Could not save your start page."
+  },
   "theme": {
     "title": "Appearance",
     "description": "Select a theme to personalize your dashboard's appearance.",

@@ -325,8 +325,9 @@ async def _links_for_items(
     if not item_ids:
         return {}
     result = await session.execute(
-        select(TaskDocLink, ProjectDocSection)
-        .join(ProjectDocSection, ProjectDocSection.id == TaskDocLink.section_id)
+        select(TaskDocLink, ProjectDocSection, WorkspaceDoc)
+        .outerjoin(ProjectDocSection, ProjectDocSection.id == TaskDocLink.section_id)
+        .outerjoin(WorkspaceDoc, WorkspaceDoc.id == TaskDocLink.doc_id)
         .where(
             TaskDocLink.tenant_id == tenant_id,
             TaskDocLink.task_id.in_(item_ids),
@@ -334,21 +335,139 @@ async def _links_for_items(
         .order_by(TaskDocLink.created_at)
     )
     out: dict[UUID, list[dict[str, Any]]] = {}
-    for link, section in result.all():
+    for link, section, doc in result.all():
+        doc_id = link.doc_id or (section.doc_id if section else None)
         out.setdefault(link.task_id, []).append(
             {
                 "id": str(link.id),
-                "section_id": str(section.id),
-                "doc_id": str(section.doc_id),
-                "anchor": section.anchor,
-                "heading": section.heading,
-                "section_status": section.status,
+                "section_id": str(section.id) if section else None,
+                "doc_id": str(doc_id) if doc_id else None,
+                "doc_title": (doc.title if doc else None)
+                or (section.heading if section else None),
+                "anchor": section.anchor if section else None,
+                "heading": section.heading if section else None,
+                "section_status": section.status if section else None,
                 "relation": link.relation,
                 "created_by_type": link.created_by_type,
                 "created_at": _iso(link.created_at),
             }
         )
     return out
+
+
+ACTIVE_LINKED_REQUEST_STATUSES = frozenset(
+    {
+        "proposed",
+        "queued",
+        "analyzing",
+        "planned",
+        "running",
+        "verifying",
+        "paused",
+        "awaiting_human",
+    }
+)
+
+
+async def active_requests_for_docs(
+    session: AsyncSession, tenant_id: UUID, doc_ids: list[UUID]
+) -> dict[UUID, list[dict[str, Any]]]:
+    """doc_id -> active linked queue requests (status lives on the task only)."""
+    if not doc_ids:
+        return {}
+    result = await session.execute(
+        select(TaskDocLink, AgentTask)
+        .join(AgentTask, AgentTask.id == TaskDocLink.task_id)
+        .where(
+            TaskDocLink.tenant_id == tenant_id,
+            TaskDocLink.doc_id.in_(doc_ids),
+            AgentTask.status.in_(tuple(ACTIVE_LINKED_REQUEST_STATUSES)),
+        )
+        .order_by(TaskDocLink.created_at.desc())
+    )
+    out: dict[UUID, list[dict[str, Any]]] = {}
+    seen: dict[UUID, set[UUID]] = {}
+    for link, item in result.all():
+        if link.doc_id is None:
+            continue
+        seen.setdefault(link.doc_id, set())
+        if item.id in seen[link.doc_id]:
+            continue
+        seen[link.doc_id].add(item.id)
+        out.setdefault(link.doc_id, []).append(
+            {
+                "id": str(item.id),
+                "title": item.title,
+                "status": item.status,
+                "kind": item.kind,
+                "project_id": str(item.project_id) if item.project_id else None,
+                "relation": link.relation,
+            }
+        )
+    return out
+
+
+async def link_item_to_doc(
+    session: AsyncSession,
+    tenant_id: UUID,
+    item_id: UUID,
+    doc_id: UUID,
+    *,
+    relation: str = "touches",
+    created_by_type: str = "agent",
+    created_by_id: str = "",
+    commit: bool = True,
+) -> TaskDocLink:
+    """Document-level queue ↔ knowledge link (preferred over section links)."""
+    if relation not in QUEUE_LINK_RELATIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid link relation: {relation}")
+    item = await get_queue_item(session, tenant_id, item_id)
+    doc = (
+        await session.execute(
+            select(WorkspaceDoc).where(
+                WorkspaceDoc.id == doc_id, WorkspaceDoc.tenant_id == tenant_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if doc.project_id and item.project_id and doc.project_id != item.project_id:
+        raise HTTPException(status_code=400, detail="Document belongs to another project")
+    existing = (
+        await session.execute(
+            select(TaskDocLink).where(
+                TaskDocLink.task_id == item_id,
+                TaskDocLink.doc_id == doc_id,
+                TaskDocLink.section_id.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        existing.relation = relation
+        session.add(existing)
+        if commit:
+            await session.commit()
+            await session.refresh(existing)
+        return existing
+    link = TaskDocLink(
+        tenant_id=tenant_id,
+        task_id=item_id,
+        doc_id=doc_id,
+        section_id=None,
+        relation=relation,
+        created_by_type=created_by_type,
+        created_by_id=created_by_id,
+    )
+    session.add(link)
+    if commit:
+        await session.commit()
+        await session.refresh(link)
+    else:
+        await session.flush()
+    return link
+
+
+# ── queue items ──────────────────────────────────────────────────
 
 
 async def list_queue_items(
@@ -633,6 +752,8 @@ async def link_item_to_section(
     ).scalar_one_or_none()
     if existing:
         existing.relation = relation
+        if existing.doc_id is None:
+            existing.doc_id = section.doc_id
         session.add(existing)
         if commit:
             await session.commit()
@@ -641,6 +762,7 @@ async def link_item_to_section(
     link = TaskDocLink(
         tenant_id=tenant_id,
         task_id=item_id,
+        doc_id=section.doc_id,
         section_id=section_id,
         relation=relation,
         created_by_type=created_by_type,
@@ -944,16 +1066,20 @@ async def _project_work_context(
 
 ANALYSIS_INSTRUCTIONS = (
     "You are analyzing a project queue task against the project documentation.\n"
-    "1. Read the queue task and the documentation sections below.\n"
-    "2. Decide which sections this request touches or modifies. Use "
-    "link_queue_item_to_doc for each (relation: implements | modifies | touches).\n"
-    "3. If the documentation needs a new or changed section to describe this "
-    "request, update the project doc with write_doc (add a `## heading` per "
-    "capability and a short acceptance checklist), then link the new section.\n"
-    "4. Set touched sections to 'planned' with set_doc_section_status.\n"
+    "Capability: Knowledge architecture and maintenance — keep documents logically "
+    "structured; split or create a document only when a stable new concept emerges; "
+    "prefer editing existing docs over proliferating files.\n"
+    "1. Read the queue task and the documentation below.\n"
+    "2. Impact analysis: decide which documents this request touches or modifies. "
+    "Use link_queue_item_to_doc with doc_id for each "
+    "(relation: implements | modifies | touches | documents).\n"
+    "3. If documentation must change, update those docs with write_doc "
+    "(keep structure clear; new `##` headings only when needed).\n"
+    "4. Optionally set touched section statuses with set_doc_section_status.\n"
     "5. If this duplicates an existing queue task, say so and mark it via "
     "update_queue_item_status with status 'rejected' and mention the duplicate.\n"
-    "6. Finish with update_queue_item_status to 'planned' and include a concise "
+    "6. Before finishing, verify the linked docs match the intended reality of "
+    "this request, then update_queue_item_status to 'planned' with a concise "
     "impact summary of what this touches and why."
 )
 

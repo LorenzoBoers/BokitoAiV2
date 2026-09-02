@@ -129,6 +129,11 @@ class ChannelContext:
 
     @property
     def has_token(self) -> bool:
+        from app.services.crypto import credentials_ready_from_settings
+
+        flagged = credentials_ready_from_settings(self.settings)
+        if flagged is not None:
+            return flagged
         if self.account.provider == "smtp_imap":
             from app.services.smtp_imap import is_connected
 
@@ -195,8 +200,8 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
     except (TypeError, ValueError):
         error_count = 0
 
-    # The `mock` provider is the dev stand-in used when OAuth env is missing;
-    # its adapter delivers without credentials, so it counts as connected.
+    # The `mock` provider is the explicit Dev mailbox stand-in when OAuth env is
+    # missing (dev only). Production refuses mock seed; UI hides mock rows.
     # smtp_imap is connected when username+password+verified_at are present.
     connected = ctx.has_token or ctx.account.provider == "mock"
 
@@ -376,14 +381,17 @@ def resolve_channel(
     """One uniform row for any channel kind: state, capabilities, checks, actions."""
     from app.services.channel_ai import resolve_ai_mode
     from app.services.channel_visibility import account_visibility
-    from app.services.crypto import get_connection_credentials
+    from app.services.crypto import credentials_ready_from_settings, get_connection_credentials
     from app.services.email_sync import account_sync_window_days
 
     settings = _loads(account.settings_json)
+    # Skip decrypt on list paths when settings already stamp connected readiness.
+    ready = credentials_ready_from_settings(settings)
+    credentials = {} if ready is not None else get_connection_credentials(account)
     ctx = ChannelContext(
         account=account,
         settings=settings,
-        credentials=get_connection_credentials(account),
+        credentials=credentials,
         tenant=tenant,
         last_event_at=last_event_at,
         now=now or datetime.utcnow(),

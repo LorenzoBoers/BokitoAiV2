@@ -479,9 +479,6 @@ export default function CompanyConfig() {
             <Link to={inboxPath('open')} className="text-[12px] font-medium text-accent hover:underline">
               {t('brandingPage.openCommunication')}
             </Link>
-            <Link to="/settings/help-centers" className="text-[12px] font-medium text-accent hover:underline">
-              {t('brandingPage.openHelpCenters')}
-            </Link>
             <Link to="/ai/assistant/external/installation" className="text-[12px] font-medium text-accent hover:underline">
               {t('brandingPage.openInstall')}
             </Link>

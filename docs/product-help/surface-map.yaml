@@ -66,11 +66,15 @@ cockpit:
     - /cockpit
     - /cockpit/activity
     - /cockpit/usage
+    - /overview
   code_globs:
     - apps/dashboard/src/pages/CockpitPage.tsx
     - apps/dashboard/src/pages/ActivityPage.tsx
     - apps/dashboard/src/pages/UsagePage.tsx
     - apps/dashboard/src/components/cockpit/**
+    - apps/dashboard/src/lib/navigation.ts
+    - apps/dashboard/src/lib/landing-preference.ts
+    - apps/dashboard/src/components/profile/ProfileSettingsContent.tsx
   screenshots:
     - awaiting-decision
     - overview
@@ -168,15 +172,7 @@ widget:
     - installation
 
 help-centers:
-  section: inbox
-  routes:
-    - /settings/help-centers
-    - /help
-  code_globs:
-    - apps/dashboard/src/pages/HelpCentersSettings.tsx
-    - apps/dashboard/src/pages/HelpCenter.tsx
-  screenshots:
-    - publish
+  docs: none
 
 agents:
   section: ai

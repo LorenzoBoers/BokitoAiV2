@@ -35,6 +35,8 @@ export const projectsRoutes = {
   queueItemVerify: (projectId: string, itemId: string) =>
     `/projects/${encodeURIComponent(projectId)}/queue/${encodeURIComponent(itemId)}/verify`,
   docs: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/docs`,
+  docLinks: (projectId: string, docId: string) =>
+    `/projects/${encodeURIComponent(projectId)}/docs/${encodeURIComponent(docId)}/links`,
   docSection: (projectId: string, docId: string, sectionId: string) =>
     `/projects/${encodeURIComponent(projectId)}/docs/${encodeURIComponent(docId)}/sections/${encodeURIComponent(sectionId)}`,
   docSectionLinks: (projectId: string, docId: string, sectionId: string) =>

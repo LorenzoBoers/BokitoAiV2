@@ -106,7 +106,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate(REPORTS_PATH)}>
                 <Building2 size={14} className="mr-2 text-text-muted" />
-                {t('settings.links.reports', { defaultValue: 'Reports' })}
+                {t('tabs.overview.title', { defaultValue: 'Overview' })}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={goToWorkspacesHub}>
                 <Building2 size={14} className="mr-2 text-text-muted" />

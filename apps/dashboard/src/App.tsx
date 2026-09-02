@@ -12,6 +12,7 @@ import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
 import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-settings-path'
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
+import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { CardGridSkeleton } from './components/ui/skeleton'
 import { activityTerminalPath, agentChatPath, agentRunsPath, channelPath, decisionsPath, inboxPath, newConversationPath } from './lib/messages-paths'
@@ -34,8 +35,10 @@ const NewConversationPage = lazy(() => import('./pages/NewConversationPage'))
 // Control
 const CockpitPage = lazy(() => import('./pages/CockpitPage'))
 const ContactsPage = lazy(() => import('./pages/ContactsPage'))
-const Communication = lazy(() => import('./pages/Communication'))
-const DirectCommunication = lazy(() => import('./pages/DirectCommunication'))
+const Communication = lazy(() => import('./pages/MessagesHub').then((m) => ({ default: m.MessagesHub })))
+const DirectCommunication = lazy(() =>
+  import('./pages/MessagesHub').then((m) => ({ default: m.MessagesDirectHub })),
+)
 const ActivityTerminalPage = lazy(() => import('./pages/ActivityTerminalPage'))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
@@ -59,7 +62,6 @@ const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const MemberManagement = lazy(() => import('./pages/MemberManagement'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
-const HelpCentersSettings = lazy(() => import('./pages/HelpCentersSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected'))
 const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
@@ -90,24 +92,25 @@ function HomeRoute() {
   const { workspaceLoading, workspaces, currentWorkspace } = useWorkspace()
   const { user } = useAuth()
   const tenantSubdomain = resolveTenantSubdomainFromHost()
+  const landing = pathForDefaultLanding()
 
   if (workspaceLoading) {
     return <div className="py-6 text-sm text-text-muted">{t('app.loadingWorkspaces')}</div>
   }
 
   if (tenantSubdomain) {
-    return <Navigate to={lastInboxPath()} replace />
+    return <Navigate to={landing} replace />
   }
 
   // Daily login should resume work, not the workspace picker.
   // Switch workspaces from the user menu → Workspaces (`/workspaces`).
   if (currentWorkspace) {
-    return <Navigate to={lastInboxPath()} replace />
+    return <Navigate to={landing} replace />
   }
 
   const activeMemberships = (user?.memberships ?? []).filter((m) => m.status === 'active')
   if (activeMemberships.length === 1 && workspaces.length <= 1) {
-    return <Navigate to={lastInboxPath()} replace />
+    return <Navigate to={landing} replace />
   }
 
   return (
@@ -260,6 +263,7 @@ export default function App() {
   const { token } = useAuth()
   useOnboardingLanguageFromUrl()
   useLanguagePreferenceSync(token)
+  useDefaultLandingSync(token)
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
@@ -408,7 +412,7 @@ export default function App() {
             <Route path="/settings/teams" element={<Navigate to="/settings/members" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
-            <Route path="/settings/help-centers" element={<HelpCentersSettings />} />
+            <Route path="/settings/help-centers" element={<Navigate to="/knowledge" replace />} />
             <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/modules/connected" />} />
             <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
             <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />

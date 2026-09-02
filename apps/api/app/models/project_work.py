@@ -63,7 +63,11 @@ class ProjectDocSection(SQLModel, table=True):
 
 
 class TaskDocLink(SQLModel, table=True):
-    """Queue task <-> doc section link; history stays after tasks complete."""
+    """Queue task <-> knowledge document (and optionally a section).
+
+    Prefer document-level links (`doc_id`). Section links remain for legacy
+    analysis rows; `section_id` is nullable for new document-only links.
+    """
 
     __tablename__ = "task_doc_links"
     __table_args__ = (
@@ -73,7 +77,10 @@ class TaskDocLink(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     task_id: uuid.UUID = Field(foreign_key="agent_tasks.id", index=True)
-    section_id: uuid.UUID = Field(foreign_key="project_doc_sections.id", index=True)
+    doc_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workspace_docs.id", index=True)
+    section_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="project_doc_sections.id", index=True
+    )
     relation: str = Field(default="touches")
     created_by_type: str = Field(default="agent")
     created_by_id: str = ""

@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { ChannelBadge } from '../../src/components/ChannelGlyph'
 import EmptyState from '../../src/components/EmptyState'
 import { LiveBanner, StatusBanner } from '../../src/components/StatusBanner'
@@ -38,12 +38,21 @@ export default function InboxScreen() {
   const { t, locale } = useCopy()
   const { colors } = useTheme()
   const styles = useThemedStyles(inboxStyles)
-  const [view, setView] = useState<InboxViewId>('all_open')
+  const params = useLocalSearchParams<{ view?: string }>()
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
   const [channel, setChannel] = useState('')
   const [folder, setFolder] = useState('external')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [view, setView] = useState<InboxViewId>(() =>
+    coerceInboxView('external', String(params.view || 'all_open')),
+  )
+
+  useEffect(() => {
+    if (params.view) {
+      setView(coerceInboxView(folder, String(params.view)))
+    }
+  }, [params.view, folder])
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchDraft.trim()), 300)

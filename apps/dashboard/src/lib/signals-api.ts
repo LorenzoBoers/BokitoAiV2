@@ -1107,6 +1107,7 @@ export async function bokitoSendMessage(token: string, conversationId: string, c
 /**
  * Send a message and stream the assistant reply over SSE.
  * Calls `onDelta` for each text chunk; optional `onThinking` for reasoning deltas.
+ * Throws with message `agent_busy` when another run is already in flight (409).
  */
 export async function bokitoStreamMessage(
   token: string,
@@ -1126,6 +1127,9 @@ export async function bokitoStreamMessage(
       signal,
     },
   )
+  if (res.status === 409) {
+    throw new Error('agent_busy')
+  }
   if (!res.ok || !res.body) throw new Error(await res.text())
 
   const reader = res.body.getReader()
@@ -1168,4 +1172,16 @@ export async function bokitoStreamMessage(
     }
   }
   return finalText
+}
+
+/** Cooperative cancel for the in-flight chat run on a conversation. */
+export async function bokitoCancelConversation(
+  token: string,
+  conversationId: string,
+): Promise<void> {
+  await fetch(`${APP_API_BASE}${appRoutes.signals.conversationCancel(conversationId)}`, {
+    method: 'POST',
+    headers: buildAuthHeaders(token),
+    credentials: 'include',
+  })
 }

@@ -89,6 +89,18 @@ async def execute_tool(
         )
         return {"error": f"Tool '{tool_name}' denied by policy", "status": "denied", "reason": reason}
 
+    if run_id is not None:
+        from app.services.agent.run_cancel import is_run_cancelled
+
+        if await is_run_cancelled(session, run_id):
+            await record_audit(
+                session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+                agent_id=agent_id, run_id=run_id, outcome="cancelled",
+                summary=f"Skipped '{tool_name}' because the run was cancelled",
+                payload=tool_input,
+            )
+            return {"error": "Run cancelled", "status": "cancelled"}
+
     ctx = ToolContext(
         session=session,
         tenant_id=tenant_id,

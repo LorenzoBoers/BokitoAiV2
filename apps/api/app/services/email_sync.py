@@ -514,11 +514,25 @@ async def _gmail_get_message(client: httpx.AsyncClient, token: str, mid: str) ->
     return _parse_gmail_message(detail.json())
 
 
+async def _gmail_hydrate_bodies(token: str, message_ids: list[str]) -> list[dict[str, Any]]:
+    """Fetch full Gmail payloads only for the given (already-deduped) ids."""
+    if not message_ids:
+        return []
+    out: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for mid in message_ids:
+            try:
+                out.append(await _gmail_get_message(client, token, mid))
+            except httpx.HTTPStatusError:
+                continue
+    return out
+
+
 async def _fetch_gmail_full(
     token: str, label_id: str, since: datetime | None = None
 ) -> tuple[list[dict[str, Any]], str]:
-    """Full folder list + current historyId as the new cursor."""
-    out: list[dict[str, Any]] = []
+    """List folder message ids + historyId; bodies are hydrated after batch dedupe."""
+    ids: list[str] = []
     params: dict[str, str] = {"maxResults": str(MAX_FETCH), "labelIds": label_id}
     if since is not None:
         # Gmail search: `after:` accepts epoch seconds.
@@ -532,23 +546,23 @@ async def _fetch_gmail_full(
         listing.raise_for_status()
         for ref in listing.json().get("messages", []) or []:
             mid = ref.get("id")
-            if not mid:
-                continue
-            out.append(await _gmail_get_message(client, token, mid))
+            if mid:
+                ids.append(mid)
         profile = await client.get(
             GMAIL_PROFILE_URL,
             headers={"Authorization": f"Bearer {token}"},
         )
         profile.raise_for_status()
         history_id = str(profile.json().get("historyId") or "")
-    return out, history_id
+    # Stubs: message_id only — sync_account hydrates bodies for new ids.
+    return [{"message_id": mid, "_gmail_stub": True} for mid in ids], history_id
 
 
 async def _fetch_gmail_history(
     token: str, start_history_id: str, label_id: str
 ) -> tuple[list[dict[str, Any]], str] | None:
     """Incremental Gmail sync via history.list. Returns None to force full fallback."""
-    out: list[dict[str, Any]] = []
+    ids: list[str] = []
     seen: set[str] = set()
     newest_history = start_history_id
     async with httpx.AsyncClient(timeout=20.0) as client:
@@ -578,14 +592,11 @@ async def _fetch_gmail_history(
                     if not mid or mid in seen:
                         continue
                     seen.add(mid)
-                    try:
-                        out.append(await _gmail_get_message(client, token, mid))
-                    except httpx.HTTPStatusError:
-                        continue
+                    ids.append(mid)
             page_token = data.get("nextPageToken")
             if not page_token:
                 break
-    return out, newest_history
+    return [{"message_id": mid, "_gmail_stub": True} for mid in ids], newest_history
 
 
 async def _fetch_gmail(
@@ -903,17 +914,26 @@ async def _hydrate_attachments(
 async def _already_ingested(
     session: AsyncSession, tenant_id: UUID, external_id: str
 ) -> bool:
+    existing = await _already_ingested_batch(session, tenant_id, [external_id])
+    return external_id in existing
+
+
+async def _already_ingested_batch(
+    session: AsyncSession, tenant_id: UUID, external_ids: list[str]
+) -> set[str]:
+    """Return the subset of external_ids that already exist for this tenant."""
+    ids = [eid for eid in external_ids if eid]
+    if not ids:
+        return set()
     from app.models.signal import SignalMessage
 
     result = await session.execute(
-        select(SignalMessage.id)
-        .where(
+        select(SignalMessage.external_id).where(
             SignalMessage.tenant_id == tenant_id,
-            SignalMessage.external_id == external_id,
+            SignalMessage.external_id.in_(ids),
         )
-        .limit(1)
     )
-    return result.scalar_one_or_none() is not None
+    return {row[0] for row in result.all() if row[0]}
 
 
 async def _refresh_if_possible(session: AsyncSession, account: ChannelAccount) -> str | None:
@@ -1126,21 +1146,37 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
 
         # Initial backfill: enforce the window client-side too — not every
         # provider path honors the server-side filter (e.g. Gmail history).
+        # Gmail id-stubs have no received_at yet; filter again after hydrate.
         if not cursor and since is not None:
             messages = [
                 m
                 for m in messages
-                if not isinstance(m.get("received_at"), datetime) or m["received_at"] >= since
+                if m.get("_gmail_stub")
+                or not isinstance(m.get("received_at"), datetime)
+                or m["received_at"] >= since
             ]
 
         # Skip messages already ingested (dedupe happens in ingest_inbound too,
         # but checking here avoids re-downloading attachments on full re-fetches).
-        new_items: list[dict[str, Any]] = []
-        for item in messages:
-            external_id = item.get("message_id", "")
-            if external_id and await _already_ingested(session, account.tenant_id, external_id):
-                continue
-            new_items.append(item)
+        candidate_ids = [str(item.get("message_id") or "") for item in messages]
+        already = await _already_ingested_batch(session, account.tenant_id, candidate_ids)
+        new_items = [
+            item
+            for item in messages
+            if (eid := str(item.get("message_id") or "")) and eid not in already
+        ]
+        # Gmail list/history returns id-only stubs; hydrate bodies only for new ids.
+        if account.provider == "gmail" and new_items and any(i.get("_gmail_stub") for i in new_items):
+            hydrated = await _gmail_hydrate_bodies(
+                token, [str(i.get("message_id") or "") for i in new_items]
+            )
+            new_items = hydrated
+            if not cursor and since is not None:
+                new_items = [
+                    m
+                    for m in new_items
+                    if not isinstance(m.get("received_at"), datetime) or m["received_at"] >= since
+                ]
         await _hydrate_attachments(account, token, new_items)
         ingested += await _ingest_items(session, account, new_items, folder_id)
         if new_cursor:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from functools import lru_cache
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -15,12 +16,14 @@ from app.config import get_settings
 _CRED_PREFIX = "enc:v1:"
 
 
+@lru_cache(maxsize=1)
 def _jwt_derived_fernet() -> Fernet:
     settings = get_settings()
     key = hashlib.sha256(settings.jwt_secret.encode()).digest()
     return Fernet(base64.urlsafe_b64encode(key))
 
 
+@lru_cache(maxsize=1)
 def _credentials_fernet() -> Fernet:
     """Prefer dedicated CREDENTIALS_FERNET_KEY; fall back to JWT-derived key."""
     settings = get_settings()
@@ -93,5 +96,56 @@ def get_connection_credentials(conn: Any) -> dict[str, Any]:
 
 
 def set_connection_credentials(conn: Any, payload: dict[str, Any]) -> None:
-    """Write encrypted credentials onto a connection-like model."""
+    """Write encrypted credentials onto a connection-like model.
+
+    Also stamps non-secret readiness flags on settings_json when present so
+    list serializers can avoid decrypting just to know “connected.”
+    """
     conn.credentials_json = encrypt_credentials_blob(payload)
+    stamp_credentials_ready(conn, payload)
+
+
+def stamp_credentials_ready(conn: Any, payload: dict[str, Any] | None = None) -> None:
+    """Persist connected/verified_at into settings_json without secrets.
+
+    No-op for models without ``settings_json`` (e.g. IntegrationConnection).
+    """
+    if not hasattr(conn, "settings_json"):
+        return
+    settings_raw = getattr(conn, "settings_json", None)
+    try:
+        settings = json.loads(settings_raw or "{}")
+        if not isinstance(settings, dict):
+            settings = {}
+    except (json.JSONDecodeError, TypeError):
+        settings = {}
+
+    creds = payload if isinstance(payload, dict) else get_connection_credentials(conn)
+    provider = getattr(conn, "provider", "") or ""
+    if provider == "smtp_imap":
+        from app.services.smtp_imap import is_connected
+
+        ready = is_connected(creds)
+        if ready and not settings.get("verified_at"):
+            from datetime import datetime
+
+            settings["verified_at"] = datetime.utcnow().isoformat()
+    else:
+        ready = bool(creds.get("access_token") or creds.get("mock"))
+    settings["connected"] = ready
+    if ready and not settings.get("credentials_ready_at"):
+        from datetime import datetime
+
+        settings["credentials_ready_at"] = datetime.utcnow().isoformat()
+    if not ready:
+        settings.pop("credentials_ready_at", None)
+    conn.settings_json = json.dumps(settings)
+
+
+def credentials_ready_from_settings(settings: dict[str, Any] | None) -> bool | None:
+    """Return True/False when settings has an explicit connected flag; else None."""
+    if not isinstance(settings, dict):
+        return None
+    if "connected" not in settings:
+        return None
+    return bool(settings.get("connected"))

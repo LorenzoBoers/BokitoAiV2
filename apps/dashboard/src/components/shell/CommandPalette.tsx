@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  BarChart3,
   Bot,
   Brain,
   CalendarDays,
@@ -26,7 +25,7 @@ import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
-import { REPORTS_PATH, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
+import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
 import { activityTerminalPath, agentChatPath, decisionsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
 import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
@@ -146,15 +145,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         icon: Brain,
         href: '/knowledge',
         run: () => navigate('/knowledge'),
-      },
-      {
-        id: 'nav-reports',
-        label: t('settings.links.reports', { defaultValue: 'Reports' }),
-        hint: t('settings.hints.reports', { defaultValue: 'Overview, activity and usage' }),
-        group: t('palette.groupGoTo'),
-        icon: BarChart3,
-        href: REPORTS_PATH,
-        run: () => navigate(REPORTS_PATH),
       },
     ])
     const inboxQueues: PaletteItem[] = (

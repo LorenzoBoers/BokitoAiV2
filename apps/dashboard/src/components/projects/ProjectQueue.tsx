@@ -24,14 +24,18 @@ import { inboxPath } from '../../lib/messages-paths'
 import {
   analyzeQueueItem,
   createQueueItem,
+  linkQueueItemToDoc,
+  listProjectDocs,
   listQueueItems,
   patchQueueItem,
   verifyQueueItem,
+  type ProjectDocRow,
   type QueueItemKind,
   type QueueItemPriority,
   type QueueItemRow,
   type QueueItemStatus,
 } from '../../lib/project-work-api'
+import { listWorkspaceDocs, type WorkspaceDocRow } from '../../lib/workspace-api'
 import {
   QUEUE_KIND_VARIANT,
   QUEUE_STATUS_ORDER,
@@ -57,11 +61,24 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
   const [newBody, setNewBody] = useState('')
   const [creating, setCreating] = useState(false)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [projectDocs, setProjectDocs] = useState<ProjectDocRow[]>([])
+  const [orgDocs, setOrgDocs] = useState<WorkspaceDocRow[]>([])
+  const [linkDocId, setLinkDocId] = useState('')
 
   const load = useCallback(async () => {
     setError(null)
     try {
-      setItems(await listQueueItems(projectId))
+      const [queue, docs] = await Promise.all([
+        listQueueItems(projectId),
+        listProjectDocs(projectId),
+      ])
+      setItems(queue)
+      setProjectDocs(docs)
+      try {
+        setOrgDocs(await listWorkspaceDocs())
+      } catch {
+        setOrgDocs([])
+      }
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.work.queueLoadError')))
     } finally {
@@ -143,6 +160,21 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
       void load()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('projects.work.verifyError')))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const linkDoc = async (item: QueueItemRow) => {
+    if (!linkDocId) return
+    setBusyId(item.id)
+    try {
+      await linkQueueItemToDoc(projectId, linkDocId, item.id)
+      setLinkDocId('')
+      toast.success(t('projects.work.docLinked'))
+      void load()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('projects.work.docLinkError')))
     } finally {
       setBusyId(null)
     }
@@ -280,7 +312,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                         ) : null}
                         {item.links.length > 0 ? (
                           <span className="shrink-0 text-[11px] text-text-muted">
-                            {t('projects.work.linkedSections', { count: item.links.length })}
+                            {t('projects.work.linkedDocs', { count: item.links.length })}
                           </span>
                         ) : null}
                       </button>
@@ -305,13 +337,54 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                               {item.links.map((link) => (
                                 <Badge
                                   key={link.id}
-                                  variant={SECTION_STATUS_VARIANT[link.section_status]}
+                                  variant={
+                                    link.section_status
+                                      ? SECTION_STATUS_VARIANT[link.section_status]
+                                      : 'neutral'
+                                  }
                                   className="px-2 py-0.5 text-[11px] font-normal"
-                                  title={t(`projects.work.sectionStatus.${link.section_status}`)}
+                                  title={
+                                    link.section_status
+                                      ? t(`projects.work.sectionStatus.${link.section_status}`)
+                                      : undefined
+                                  }
                                 >
-                                  {link.heading || link.anchor}
+                                  {link.doc_title || link.heading || link.anchor || link.doc_id}
                                 </Badge>
                               ))}
+                            </div>
+                          ) : null}
+                          {canEdit ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <select
+                                className="h-8 min-w-48 flex-1 rounded-md border border-border/60 bg-bg-surface px-2 text-xs"
+                                value={linkDocId}
+                                onChange={(e) => setLinkDocId(e.target.value)}
+                              >
+                                <option value="">{t('projects.work.linkDocPlaceholder')}</option>
+                                {projectDocs.map((doc) => (
+                                  <option key={doc.id} value={doc.id}>
+                                    {doc.title || doc.path}
+                                  </option>
+                                ))}
+                                {orgDocs.map((doc) => (
+                                  <option key={doc.id} value={doc.id}>
+                                    {t('projects.work.orgDocPrefix', {
+                                      title: doc.title || doc.path,
+                                    })}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8"
+                                disabled={!linkDocId || busyId === item.id}
+                                onClick={() => void linkDoc(item)}
+                              >
+                                {t('projects.work.linkDoc')}
+                              </Button>
                             </div>
                           ) : null}
                           <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">

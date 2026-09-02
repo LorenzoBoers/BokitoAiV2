@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, Link2, RefreshCw } from 'lucide-react'
+import { CalendarDays, RefreshCw } from 'lucide-react'
 import { Button } from '../ui/button'
+import { BrandMark } from '../integrations/BrandMark'
 import { getRegistryEntryByPlatformSlug } from '../../lib/integrations/registry'
 import { startProviderOAuth } from '../../lib/integration-oauth-flow'
 import {
@@ -83,7 +84,7 @@ export function CalendarConnectBar({
               disabled={busy != null}
               onClick={() => void connect('google_calendar')}
             >
-              <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              <BrandMark slug="google-calendar" size={14} className="mr-1.5" />
               {t('agendaPage.calendar.connectGoogle')}
             </Button>
             <Button
@@ -93,7 +94,7 @@ export function CalendarConnectBar({
               disabled={busy != null}
               onClick={() => void connect('outlook_calendar')}
             >
-              <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              <BrandMark slug="outlook-calendar" size={14} className="mr-1.5" />
               {t('agendaPage.calendar.connectOutlook')}
             </Button>
             <Button type="button" size="sm" variant="ghost" asChild>

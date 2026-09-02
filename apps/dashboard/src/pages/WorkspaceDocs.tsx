@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Copy,
@@ -19,8 +19,9 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { Textarea } from '../components/ui/textarea'
 import MarkdownView from '../components/docs/MarkdownView'
+import { KnowledgeMarkdownEditor } from '../components/knowledge/KnowledgeMarkdownEditor'
+import { LinkedRequestsChips } from '../components/knowledge/LinkedRequestsChips'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { KnowledgeMark, KnowledgeTile, LearnedChip } from '../components/knowledge/KnowledgeMark'
 import { useAuth } from '../context/AuthContext'
@@ -37,6 +38,9 @@ import {
   type WorkspaceDocRow,
   type WorkspaceSearchHit,
 } from '../lib/workspace-api'
+import { listProjects, type ProjectRow } from '../lib/projects-api'
+import { listAgents } from '../lib/agents-api'
+import type { RuntimeAgent } from '../lib/workforce-api'
 import { agentRunsPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { titleToDocPath } from '../lib/workspace-doc-path'
@@ -44,7 +48,17 @@ import { cn } from '../lib/utils'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { formatAppTime } from '../lib/app-locale'
 
-const KIND_ORDER: WorkspaceDocKind[] = ['persona', 'memory', 'skill', 'heartbeat', 'doc', 'daily_log']
+const KIND_ORDER: WorkspaceDocKind[] = [
+  'persona',
+  'memory',
+  'skill',
+  'heartbeat',
+  'doc',
+  'project_doc',
+  'daily_log',
+]
+
+type KnowledgeScope = 'organization' | 'project' | 'agent'
 
 /** Kinds that agents write and maintain themselves (auto-learning surface). */
 const AI_MAINTAINED_KINDS = new Set<WorkspaceDocKind>(['memory', 'heartbeat', 'daily_log'])
@@ -85,10 +99,12 @@ function stripDuplicateTitle(content: string, titles: string[]): string {
 export default function WorkspaceDocs() {
   const { t, i18n } = useTranslation('nav')
   const { docId } = useParams<{ docId?: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const kindLabel = (kind: WorkspaceDocKind) => t(`knowledgePage.kinds.${kind}`)
+  const kindLabel = (kind: WorkspaceDocKind) =>
+    t(`knowledgePage.kinds.${kind}`, { defaultValue: kind })
   const docTitle = (doc: WorkspaceDocRow) => {
     const known = t(`knowledgePage.paths.${doc.path}`, { defaultValue: '' })
     return known || doc.title || doc.path
@@ -109,15 +125,60 @@ export default function WorkspaceDocs() {
   const [dragOver, setDragOver] = useState(false)
   const [kindFilter, setKindFilter] = useState<WorkspaceDocKind | 'all'>('all')
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
+  const [scope, setScope] = useState<KnowledgeScope>(() => {
+    const raw = searchParams.get('scope')
+    if (raw === 'project' || raw === 'agent') return raw
+    return 'organization'
+  })
+  const [scopeProjectId, setScopeProjectId] = useState(searchParams.get('project') ?? '')
+  const [scopeAgentId, setScopeAgentId] = useState(searchParams.get('agent') ?? '')
+  const [projects, setProjects] = useState<ProjectRow[]>([])
+  const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const knowledgeDirty = Boolean(editing && active && draft !== (active.content ?? ''))
   useUnsavedChangesGuard(knowledgeDirty && !saving, t('knowledgePage.unsavedLeave'))
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [projectRows, agentRows] = await Promise.all([listProjects(), listAgents()])
+        setProjects(projectRows)
+        setAgents(agentRows)
+      } catch {
+        // Pickers stay empty; org scope still works.
+      }
+    })()
+  }, [])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    if (scope === 'organization') {
+      next.delete('scope')
+      next.delete('project')
+      next.delete('agent')
+    } else {
+      next.set('scope', scope)
+      if (scope === 'project' && scopeProjectId) next.set('project', scopeProjectId)
+      else next.delete('project')
+      if (scope === 'agent' && scopeAgentId) next.set('agent', scopeAgentId)
+      else next.delete('agent')
+    }
+    setSearchParams(next, { replace: true })
+    // Intentionally omit searchParams to avoid feedback loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, scopeProjectId, scopeAgentId, setSearchParams])
 
   const refresh = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const rows = await listWorkspaceDocs()
+      const rows = await listWorkspaceDocs(
+        scope === 'project' && scopeProjectId
+          ? { project_id: scopeProjectId }
+          : scope === 'agent' && scopeAgentId
+            ? { agent_id: scopeAgentId }
+            : undefined,
+      )
       setDocs(rows)
       setRefreshedAt(new Date())
     } catch (err) {
@@ -125,7 +186,7 @@ export default function WorkspaceDocs() {
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [scope, scopeProjectId, scopeAgentId, t])
 
   useEffect(() => {
     void refresh()
@@ -224,8 +285,29 @@ export default function WorkspaceDocs() {
     const title = newTitle.trim()
     const path = titleToDocPath(title) || titleToDocPath('note')
     if (!title) return
+    if (scope === 'project' && !scopeProjectId) {
+      toast.error(t('knowledgePage.pickProject'))
+      return
+    }
+    if (scope === 'agent' && !scopeAgentId) {
+      toast.error(t('knowledgePage.pickAgent'))
+      return
+    }
     try {
-      const doc = await createWorkspaceDoc({ path, content: `# ${title}\n` })
+      const projectSlug = projects.find((p) => p.id === scopeProjectId)?.slug
+      const scopedPath =
+        scope === 'project' && projectSlug
+          ? `projects/${projectSlug}/${path}`
+          : scope === 'agent'
+            ? `agents/${scopeAgentId.slice(0, 8)}/${path}`
+            : path
+      const doc = await createWorkspaceDoc({
+        path: scopedPath,
+        content: `# ${title}\n`,
+        kind: scope === 'project' ? 'project_doc' : 'doc',
+        project_id: scope === 'project' ? scopeProjectId : undefined,
+        agent_id: scope === 'agent' ? scopeAgentId : undefined,
+      })
       setCreating(false)
       setNewTitle('')
       setError(null)
@@ -237,7 +319,7 @@ export default function WorkspaceDocs() {
       setError(message)
       toast.error(message)
     }
-  }, [navigate, newTitle, refresh, t])
+  }, [navigate, newTitle, projects, refresh, scope, scopeAgentId, scopeProjectId, t])
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -387,6 +469,57 @@ export default function WorkspaceDocs() {
                   {t('knowledgePage.add')}
                 </Button>
               </div>
+            ) : null}
+            <div className="flex flex-wrap gap-1">
+              {(
+                [
+                  ['organization', t('knowledgePage.scopeOrganization')],
+                  ['project', t('knowledgePage.scopeProjects')],
+                  ['agent', t('knowledgePage.scopeAgents')],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setScope(key)}
+                  className={cn(
+                    'rounded-full border px-2 py-0.5 text-[10px]',
+                    scope === key
+                      ? 'border-accent/40 bg-accent/10 text-accent'
+                      : 'border-border/60 text-text-muted hover:text-text-secondary',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {scope === 'project' ? (
+              <select
+                className="h-8 w-full rounded-md border border-border/60 bg-bg-surface px-2 text-xs text-text-primary"
+                value={scopeProjectId}
+                onChange={(e) => setScopeProjectId(e.target.value)}
+              >
+                <option value="">{t('knowledgePage.pickProject')}</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            {scope === 'agent' ? (
+              <select
+                className="h-8 w-full rounded-md border border-border/60 bg-bg-surface px-2 text-xs text-text-primary"
+                value={scopeAgentId}
+                onChange={(e) => setScopeAgentId(e.target.value)}
+              >
+                <option value="">{t('knowledgePage.pickAgent')}</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
             ) : null}
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
@@ -722,12 +855,19 @@ export default function WorkspaceDocs() {
                   ))}
                 </div>
               ) : null}
+              {!editing && (active.linked_requests?.length ?? 0) > 0 ? (
+                <LinkedRequestsChips
+                  requests={active.linked_requests ?? []}
+                  className="mb-5"
+                />
+              ) : null}
               {editing ? (
-                <Textarea
+                <KnowledgeMarkdownEditor
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  className="min-h-[60vh] font-mono text-sm leading-6"
-                  spellCheck={false}
+                  onChange={setDraft}
+                  minHeightClassName="min-h-[60vh]"
+                  writeLabel={t('knowledgePage.editorWrite')}
+                  markdownLabel={t('knowledgePage.editorMarkdown')}
                 />
               ) : (
                 <MarkdownView content={displayContent} />

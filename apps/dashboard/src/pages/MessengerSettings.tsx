@@ -981,12 +981,6 @@ function MessengerSettingsContent({
                       {t('messengerPage.openCommunication')}
                     </Link>
                     <Link
-                      to="/settings/help-centers"
-                      className="text-[12px] font-medium text-accent hover:underline"
-                    >
-                      {t('messengerPage.openHelpCenters')}
-                    </Link>
-                    <Link
                       to="/settings/setup"
                       className="text-[12px] font-medium text-accent hover:underline"
                     >

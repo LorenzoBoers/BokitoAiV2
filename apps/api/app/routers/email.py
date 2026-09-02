@@ -67,6 +67,12 @@ def _sync_window_days(settings: dict[str, Any]) -> int:
 
 
 def _has_access_token(account: ChannelAccount) -> bool:
+    settings = _load_settings(account)
+    from app.services.crypto import credentials_ready_from_settings
+
+    flagged = credentials_ready_from_settings(settings)
+    if flagged is not None:
+        return flagged
     try:
         from app.services.crypto import get_connection_credentials
         creds = get_connection_credentials(account)
@@ -722,6 +728,25 @@ async def create_routing_rule(
         is_active=body.is_active,
     )
     session.add(rule)
+    await session.flush()
+    # Dual-write into the canonical Signals rules model (InboxRule action=route).
+    from app.models.learning import InboxRule
+
+    session.add(
+        InboxRule(
+            tenant_id=auth.tenant.id,
+            match_type=body.condition_type,
+            match_value=body.condition_value.strip().lower(),
+            action="route",
+            status="active" if body.is_active else "paused",
+            source="routing",
+            channel_account_id=account.id,
+            priority=body.priority,
+            assign_to_user_id=body.assign_to_user_id,
+            labels_json=json.dumps(body.labels or []),
+            legacy_routing_rule_id=rule.id,
+        )
+    )
     await session.commit()
     await session.refresh(rule)
     return _serialize_rule(rule, body.mailbox_id)
@@ -753,6 +778,21 @@ async def update_routing_rule(
         rule.is_active = body.is_active
     rule.updated_at = datetime.utcnow()
     session.add(rule)
+    from app.models.learning import InboxRule
+
+    mirror = await session.execute(
+        select(InboxRule).where(InboxRule.legacy_routing_rule_id == rule.id)
+    )
+    inbox_rule = mirror.scalar_one_or_none()
+    if inbox_rule:
+        inbox_rule.priority = rule.priority
+        inbox_rule.match_type = rule.condition_type
+        inbox_rule.match_value = (rule.condition_value or "").strip().lower()
+        inbox_rule.assign_to_user_id = rule.assign_to_user_id
+        inbox_rule.labels_json = rule.labels_json
+        inbox_rule.status = "active" if rule.is_active else "paused"
+        inbox_rule.updated_at = datetime.utcnow()
+        session.add(inbox_rule)
     await session.commit()
     await session.refresh(rule)
     return _serialize_rule(rule, user_numeric_id(rule.channel_account_id))
@@ -767,6 +807,12 @@ async def delete_routing_rule(
     rule = await _get_rule_by_numeric(session, auth.tenant.id, rule_id)
     if not rule:
         raise HTTPException(status_code=404, detail="Routing rule not found")
+    from app.models.learning import InboxRule
+    from sqlalchemy import delete as sa_delete
+
+    await session.execute(
+        sa_delete(InboxRule).where(InboxRule.legacy_routing_rule_id == rule.id)
+    )
     await session.delete(rule)
     await session.commit()
     return {"ok": True}
@@ -780,7 +826,7 @@ async def sync_all_mailboxes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Poll all connected mailboxes for this tenant and ingest new messages."""
+    """Shim: poll tenant mailboxes. Prefer ``POST /api/channels/accounts/{id}/sync``."""
     from app.services.email_sync import sync_tenant
 
     results = await sync_tenant(session, auth.tenant.id)

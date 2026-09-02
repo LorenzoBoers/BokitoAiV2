@@ -37,6 +37,13 @@
     "english": "Engels",
     "saveError": "Taal is voor deze sessie gewijzigd, maar kon niet op je account worden opgeslagen."
   },
+  "landing": {
+    "title": "Startpagina",
+    "description": "Kies waar Bokito opent na het inloggen. Berichten is de standaard.",
+    "communication": "Berichten",
+    "overview": "Overview",
+    "saveError": "Startpagina opslaan is niet gelukt."
+  },
   "theme": {
     "title": "Weergave",
     "description": "Selecteer een thema om het uiterlijk van je dashboard te personaliseren.",

@@ -539,6 +539,12 @@ class AgentLoop:
             first_tool=tool_name,
         )
 
+    async def _is_cancelled(self) -> bool:
+        from app.services.agent.run_cancel import is_run_cancelled
+
+        run_id = self.run.id if self.run else None
+        return await is_run_cancelled(self.session, run_id)
+
     async def _execute_tool_loop(
         self,
         llm_messages: list[dict[str, Any]],
@@ -548,6 +554,17 @@ class AgentLoop:
         tool_results = []
         for tool_use in response_content:
             if tool_use.get("type") != "tool_use":
+                continue
+            if await self._is_cancelled():
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_use["id"],
+                        "content": json.dumps(
+                            {"error": "Run cancelled", "status": "cancelled"}
+                        ),
+                    }
+                )
                 continue
             await self._maybe_promote_to_task(tool_use["name"])
             await self._log_event("tool_call", tool_use["name"], tool_use.get("input"))
@@ -597,6 +614,8 @@ class AgentLoop:
         started = time.monotonic()
 
         for loop_idx in range(self.max_loops):
+            if await self._is_cancelled():
+                break
             await self._log_event("think", f"Loop {loop_idx + 1}")
             await self._publish_agent_step("think", name=f"Loop {loop_idx + 1}")
             response = await self.llm.chat(
@@ -621,12 +640,17 @@ class AgentLoop:
             if not tool_uses or response.get("stop_reason") == "end_turn":
                 break
 
+            if await self._is_cancelled():
+                break
+
             llm_messages.append({"role": "assistant", "content": response["content"]})
             tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
             llm_messages.append({"role": "user", "content": tool_results})
 
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
+        if await self._is_cancelled():
+            return final_text or "", tokens
         return final_text or "Done.", tokens
 
     async def stream_chat(
@@ -642,7 +666,11 @@ class AgentLoop:
         max_tokens = self._resolve_max_tokens()
         started = time.monotonic()
 
+        cancelled = False
         for loop_idx in range(self.max_loops):
+            if await self._is_cancelled():
+                cancelled = True
+                break
             await self._log_event("think", f"Loop {loop_idx + 1}")
             await self._publish_agent_step("think", name=f"Loop {loop_idx + 1}", stream_id=stream_id)
 
@@ -656,6 +684,9 @@ class AgentLoop:
                 thinking_budget=self.thinking_budget,
                 max_tokens=max_tokens,
             ):
+                if await self._is_cancelled():
+                    cancelled = True
+                    break
                 if event["type"] == "thinking":
                     delta = event.get("text", "")
                     if delta:
@@ -679,12 +710,19 @@ class AgentLoop:
                             if block.get("type") == "thinking" and block.get("thinking"):
                                 self.thinking_text += str(block["thinking"])
 
+            if cancelled:
+                break
+
             tool_uses = [b for b in response_content if b.get("type") == "tool_use"]
             text_blocks = [b["text"] for b in response_content if b.get("type") == "text"]
             if text_blocks and not final_text:
                 final_text = "\n".join(text_blocks)
 
             if not tool_uses or stop_reason == "end_turn":
+                break
+
+            if await self._is_cancelled():
+                cancelled = True
                 break
 
             llm_messages.append({"role": "assistant", "content": response_content})
@@ -694,6 +732,15 @@ class AgentLoop:
 
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
+        if cancelled or await self._is_cancelled():
+            yield {
+                "type": "done",
+                "text": final_text,
+                "usage": tokens,
+                "steps": list(self.trace_steps),
+                "cancelled": True,
+            }
+            return
         text = final_text or "Done."
         yield {
             "type": "done",

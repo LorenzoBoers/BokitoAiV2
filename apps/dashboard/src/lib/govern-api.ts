@@ -1,4 +1,6 @@
 import { requireAccessToken } from './api'
+import { APP_API_BASE } from './api.config'
+import { governRoutes } from '../api/routes'
 
 export type PlatformChangeRow = {
   id: string
@@ -87,7 +89,8 @@ export type ApiTokenRow = {
 
 async function governFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = requireAccessToken()
-  const res = await fetch(path, {
+  const url = path.startsWith('/api') ? path : `${APP_API_BASE}${path}`
+  const res = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -101,33 +104,33 @@ async function governFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listGovernChanges(status = 'pending_review') {
-  return governFetch<{ items: PlatformChangeRow[] }>(`/api/govern/changes?status=${encodeURIComponent(status)}`)
+  return governFetch<{ items: PlatformChangeRow[] }>(governRoutes.changes({ status }))
 }
 
 export async function acceptGovernChange(changeId: string) {
-  return governFetch<PlatformChangeRow>(`/api/govern/changes/${encodeURIComponent(changeId)}/accept`, {
+  return governFetch<PlatformChangeRow>(governRoutes.changeAccept(changeId), {
     method: 'POST',
   })
 }
 
 export async function rejectGovernChange(changeId: string) {
-  return governFetch<PlatformChangeRow>(`/api/govern/changes/${encodeURIComponent(changeId)}/reject`, {
+  return governFetch<PlatformChangeRow>(governRoutes.changeReject(changeId), {
     method: 'POST',
   })
 }
 
 export async function rollbackGovernChange(changeId: string) {
-  return governFetch<PlatformChangeRow>(`/api/govern/changes/${encodeURIComponent(changeId)}/rollback`, {
+  return governFetch<PlatformChangeRow>(governRoutes.changeRollback(changeId), {
     method: 'POST',
   })
 }
 
 export async function listGovernAudit(limit = 50) {
-  return governFetch<{ items: AuditEventRow[] }>(`/api/govern/audit?limit=${limit}`)
+  return governFetch<{ items: AuditEventRow[] }>(governRoutes.audit(limit))
 }
 
 export async function listAgentPassports() {
-  return governFetch<{ items: Array<Record<string, unknown>> }>('/api/govern/passports')
+  return governFetch<{ items: Array<Record<string, unknown>> }>(governRoutes.passports)
 }
 
 export async function updateAgentPassport(
@@ -135,63 +138,63 @@ export async function updateAgentPassport(
   patch: { autonomy_level?: string; allowed_tools?: string[]; permission_scopes?: string[] },
 ) {
   return governFetch<{ ok: boolean; passport: Record<string, unknown> }>(
-    `/api/govern/passports/${encodeURIComponent(agentId)}`,
+    governRoutes.passport(agentId),
     { method: 'PATCH', body: JSON.stringify(patch) },
   )
 }
 
 export async function getAllowances() {
-  return governFetch<AllowancesResponse>('/api/govern/allowances')
+  return governFetch<AllowancesResponse>(governRoutes.allowances)
 }
 
 export async function updateAllowances(allowances: Record<string, AllowanceMode>) {
-  return governFetch<AllowanceState>('/api/govern/allowances', {
+  return governFetch<AllowanceState>(governRoutes.allowances, {
     method: 'PUT',
     body: JSON.stringify({ allowances }),
   })
 }
 
 export async function setToolOverride(toolName: string, mode: AllowanceMode | null) {
-  return governFetch<AllowanceState>('/api/govern/tool-overrides', {
+  return governFetch<AllowanceState>(governRoutes.toolOverrides, {
     method: 'PUT',
     body: JSON.stringify({ tool_name: toolName, mode }),
   })
 }
 
 export async function getPosture() {
-  return governFetch<AllowanceState>('/api/govern/posture')
+  return governFetch<AllowanceState>(governRoutes.posture)
 }
 
 export async function setPosture(posture: AutonomyPostureId) {
-  return governFetch<AllowanceState>('/api/govern/posture', {
+  return governFetch<AllowanceState>(governRoutes.posture, {
     method: 'PUT',
     body: JSON.stringify({ posture }),
   })
 }
 
 export async function listApiTokens() {
-  return governFetch<{ items: ApiTokenRow[] }>('/api/govern/tokens')
+  return governFetch<{ items: ApiTokenRow[] }>(governRoutes.tokens)
 }
 
 export async function createApiToken(name: string, scopes: string[] = []) {
-  return governFetch<ApiTokenRow>('/api/govern/tokens', {
+  return governFetch<ApiTokenRow>(governRoutes.tokens, {
     method: 'POST',
     body: JSON.stringify({ name, scopes }),
   })
 }
 
 export async function revokeApiToken(tokenId: string) {
-  return governFetch<ApiTokenRow>(`/api/govern/tokens/${encodeURIComponent(tokenId)}`, {
+  return governFetch<ApiTokenRow>(governRoutes.token(tokenId), {
     method: 'DELETE',
   })
 }
 
 export async function getGovernChange(changeId: string) {
-  return governFetch<PlatformChangeRow>(`/api/govern/changes/${encodeURIComponent(changeId)}`)
+  return governFetch<PlatformChangeRow>(governRoutes.change(changeId))
 }
 
 export async function listAcceptedChanges(limit = 20) {
   return governFetch<{ items: PlatformChangeRow[] }>(
-    `/api/govern/changes?status=accepted&limit=${limit}`,
+    governRoutes.changes({ status: 'accepted', limit }),
   )
 }

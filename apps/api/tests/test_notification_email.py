@@ -176,6 +176,11 @@ async def test_mention_email_sent_when_enabled(client: AsyncClient, sent_mails):
 
 
 @pytest.mark.asyncio
-async def test_vapid_endpoint_503_when_unconfigured(client: AsyncClient):
+async def test_vapid_endpoint_503_when_unconfigured(client: AsyncClient, monkeypatch):
+    from app.config import Settings
+    from app.routers import push as push_router
+
+    empty = Settings(vapid_public_key="", vapid_private_key="")
+    monkeypatch.setattr(push_router, "settings", empty)
     r = await client.get("/api/push/vapid-public-key")
     assert r.status_code == 503

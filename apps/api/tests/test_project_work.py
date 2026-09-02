@@ -283,3 +283,107 @@ async def test_project_queue_api_and_resources(client: AsyncClient, session_over
     assert docs.status_code == 200
     payload = docs.json()["docs"]
     assert payload and payload[0]["sections"][0]["status"] == "open"
+
+
+@pytest.mark.asyncio
+async def test_document_level_queue_link_and_shared_doc(client: AsyncClient, session_override):
+    """Same WorkspaceDoc via project + workspace APIs; document-level TaskDocLink."""
+    tenant = await _tenant(session_override)
+    project = await _project(session_override, tenant.id, "hub-docs")
+    headers = await _login(client)
+
+    created = await client.post(
+        f"{API}/{project.id}/docs",
+        headers=headers,
+        json={
+            "path": "overview",
+            "content": "# Overview\n\n## Scope\n\nShared knowledge.\n",
+            "title": "Overview",
+        },
+    )
+    assert created.status_code == 200
+    doc = created.json()
+    doc_id = doc["id"]
+    assert doc["project_id"] == str(project.id)
+    assert "linked_requests" in doc
+
+    via_workspace = await client.get(f"/api/workspace/docs/{doc_id}", headers=headers)
+    assert via_workspace.status_code == 200
+    assert via_workspace.json()["content"].startswith("# Overview")
+    assert via_workspace.json()["project_id"] == str(project.id)
+
+    listed_project = await client.get(
+        "/api/workspace/docs",
+        headers=headers,
+        params={"project_id": str(project.id)},
+    )
+    assert listed_project.status_code == 200
+    assert any(d["id"] == doc_id for d in listed_project.json()["docs"])
+
+    org_only = await client.get("/api/workspace/docs", headers=headers)
+    assert org_only.status_code == 200
+    assert all(d["id"] != doc_id for d in org_only.json()["docs"])
+
+    queue = await client.post(
+        f"{API}/{project.id}/queue",
+        headers=headers,
+        json={"title": "Clarify scope", "kind": "task", "body": "Update overview."},
+    )
+    assert queue.status_code == 200
+    item_id = queue.json()["id"]
+
+    link = await client.post(
+        f"{API}/{project.id}/docs/{doc_id}/links",
+        headers=headers,
+        json={"queue_item_id": item_id, "relation": "modifies"},
+    )
+    assert link.status_code == 200
+    assert link.json()["doc_id"] == doc_id
+
+    refreshed = await client.get(f"/api/workspace/docs/{doc_id}", headers=headers)
+    assert refreshed.status_code == 200
+    requests = refreshed.json().get("linked_requests") or []
+    assert any(r["id"] == item_id for r in requests)
+
+    project_docs = await client.get(f"{API}/{project.id}/docs", headers=headers)
+    assert project_docs.status_code == 200
+    match = next(d for d in project_docs.json()["docs"] if d["id"] == doc_id)
+    assert any(r["id"] == item_id for r in match.get("linked_requests") or [])
+
+
+@pytest.mark.asyncio
+async def test_agent_scoped_workspace_doc(client: AsyncClient, session_override):
+    from app.models.agent import Agent
+
+    tenant = await _tenant(session_override)
+    headers = await _login(client)
+    agent = Agent(tenant_id=tenant.id, name="Scoped Agent", role="assistant")
+    session_override.add(agent)
+    await session_override.commit()
+    await session_override.refresh(agent)
+
+    created = await client.post(
+        "/api/workspace/docs",
+        headers=headers,
+        json={
+            "path": f"agents/{str(agent.id)[:8]}/notes.md",
+            "content": "# Agent notes\n\nPersonal scratch.\n",
+            "kind": "doc",
+            "agent_id": str(agent.id),
+        },
+    )
+    assert created.status_code == 200
+    doc = created.json()
+    assert doc["agent_id"] == str(agent.id)
+    assert doc["project_id"] is None
+
+    listed = await client.get(
+        "/api/workspace/docs",
+        headers=headers,
+        params={"agent_id": str(agent.id)},
+    )
+    assert listed.status_code == 200
+    assert any(d["id"] == doc["id"] for d in listed.json()["docs"])
+
+    org = await client.get("/api/workspace/docs", headers=headers)
+    assert all(d["id"] != doc["id"] for d in org.json()["docs"])

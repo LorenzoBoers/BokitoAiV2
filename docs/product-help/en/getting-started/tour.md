@@ -9,14 +9,15 @@ related: welcome,cockpit,communication
 
 # Product tour
 
-Bokito has one sidebar with six areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
+Bokito has one sidebar with seven areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
 
 ## Control: the daily loop
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*Communication, Agenda and Projects.*
+*Overview, Messages, Agenda and Projects.*
 
-- **Communication** — the conversations, and the contacts behind them. See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
+- **Overview** — the morning scan of open work, decisions and usage. See [Overview](/docs/getting-started/cockpit). You can set Overview as your start page under Profile; Messages is the default.
+- **Messages** — the conversations, and the contacts behind them. See [Messages](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
 - **Agenda** — when agents wake. See [Agenda](/docs/ai/agenda).
 - **Projects** — work that spans days. See [Projects](/docs/ai/projects).
 
@@ -28,9 +29,9 @@ Bokito has one sidebar with six areas. Each item answers a different question. U
 
 ## Settings: the control room
 
-**Email & messages**, **AI reply settings**, **Chat widget**, **Members**, **Providers & models**, **Setup guide**, **Govern** and **Reports** (the daily scan, activity log and usage) live here. Owners and admins spend time here; members rarely need it. See the [setup guide](/docs/getting-started/setup-guide) and [Reports](/docs/getting-started/cockpit).
+**Email & messages**, **AI reply settings**, **Chat widget**, **Members**, **Providers & models**, **Setup guide** and **Govern** live here. Owners and admins spend time here; members rarely need it. See the [setup guide](/docs/getting-started/setup-guide). **Overview** lives in Control, not Settings — see [Overview](/docs/getting-started/cockpit).
 
-Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
+Personal screens — **Profile** (including start page: Messages or Overview) and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
 
 ## Use the command palette
 

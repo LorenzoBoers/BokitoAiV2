@@ -9,14 +9,15 @@ related: welcome,cockpit,communication
 
 # Producttour
 
-Bokito heeft één zijbalk met zes gebieden. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
+Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
 
-## Control: de dagelijkse loop
+## Besturing: de dagelijkse loop
 
 ![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
-*Communicatie, Agenda en Projecten.*
+*Overview, Berichten, Agenda en Projecten.*
 
-- **Communicatie** — de gesprekken, en de contacten erachter. Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
+- **Overview** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Overview](/docs/getting-started/cockpit). Onder Profiel kun je Overview als startpagina zetten; Berichten is de standaard.
+- **Berichten** — de gesprekken, en de contacten erachter. Zie [Berichten](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
 - **Agenda** — wanneer agents wakker worden. Zie [Agenda](/docs/ai/agenda).
 - **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/projects).
 
@@ -28,9 +29,9 @@ Bokito heeft één zijbalk met zes gebieden. Elk item beantwoordt een andere vra
 
 ## Instellingen: de controleruimte
 
-**E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen**, **Setupgids**, **Govern** en **Rapportages** (de dagelijkse scan, het activiteitenlog en verbruik) staan hier. Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide) en [Rapportages](/docs/getting-started/cockpit).
+**E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen**, **Setupgids** en **Govern** staan hier. Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat onder Besturing, niet onder Instellingen — zie [Overview](/docs/getting-started/cockpit).
 
-Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
+Persoonlijke schermen — **Profiel** (inclusief startpagina: Berichten of Overview) en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
 
 ## Gebruik het commandopalet
 

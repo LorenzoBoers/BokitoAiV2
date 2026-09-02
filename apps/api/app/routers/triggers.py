@@ -82,11 +82,12 @@ async def list_triggers(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     kind: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=100),
 ):
     stmt = select(Trigger).where(Trigger.tenant_id == auth.tenant.id)
     if kind:
         stmt = stmt.where(Trigger.kind == kind)
-    stmt = stmt.order_by(Trigger.created_at)
+    stmt = stmt.order_by(Trigger.created_at).limit(limit)
     result = await session.execute(stmt)
     return {"triggers": [svc.serialize_trigger(t) for t in result.scalars().all()]}
 

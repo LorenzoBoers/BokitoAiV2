@@ -4,7 +4,7 @@ intro: Put Bokito chat on your site so visitors land in Communication next to em
 description: Install the Bokito chat widget, set Look and Voice and hours, and show help articles next to chat.
 keywords: widget, website chat, livechat, install, appearance, office hours
 sort: 40
-related: channels,communication,help-centers,widget-embed
+related: channels,communication,widget-embed
 ---
 
 # Install the website widget
@@ -36,7 +36,7 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 
 ## Show your help articles
 
-1. Publish Knowledge docs of kind **Docs** to your [help center](/docs/inbox/help-centers).
+1. Publish Knowledge docs of kind **Docs** from [Knowledge](/docs/ai/knowledge) with **Publish**.
 2. On Chat widget, open **Look**. Under **What visitors see**, turn on the **Help** module.
 3. Visitors then see your articles next to chat. The public `/help/{workspace}` site is yours, not Bokito product help.
 

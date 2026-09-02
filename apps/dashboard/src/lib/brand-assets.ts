@@ -7,6 +7,7 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   bokito: { logoUrl: '/bokito-logo.svg' },
   github: { logoUrl: '/brands/logo-github.svg' },
   microsoft: { logoUrl: '/brands/logo-microsoft.svg' },
+  outlook: { logoUrl: '/brands/logo-outlook.svg' },
   google: { logoUrl: '/brands/logo-gmail.svg' },
   smtp: { logoUrl: '/brands/logo-smtp-imap.svg' },
   bjorn_lunden: { logoUrl: '/brands/logo-bjorn-lunden.svg' },

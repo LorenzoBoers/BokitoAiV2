@@ -31,12 +31,20 @@ class PreferencesPatch(BaseModel):
     #   "sidebar_tags": ["billing", "vip"],
     # }
     inbox_folders: dict | None = None
+    # Post-login / home landing: communication (default) or overview (/cockpit).
+    default_landing: str | None = None
 
 
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
 INBOX_SUB_QUEUES = ("open", "mine", "unassigned", "closed")
+DEFAULT_LANDINGS = ("communication", "overview")
 MAX_SIDEBAR_TAGS = 40
 MAX_SIDEBAR_TAG_LEN = 40
+
+
+def _default_landing_state(stored: dict) -> str:
+    raw = stored.get("default_landing")
+    return raw if raw in DEFAULT_LANDINGS else "communication"
 
 
 def _tour_state(stored: dict) -> dict:
@@ -103,6 +111,7 @@ async def get_my_preferences(
         "ui_language": lang,
         "tour": _tour_state(stored),
         "inbox_folders": _inbox_folders_state(stored),
+        "default_landing": _default_landing_state(stored),
     }
 
 
@@ -156,6 +165,13 @@ async def patch_my_preferences(
             "channel_defaults": cleaned_defaults,
             "sidebar_tags": _clean_sidebar_tags(merged.get("sidebar_tags")),
         }
+    if body.default_landing is not None:
+        if body.default_landing not in DEFAULT_LANDINGS:
+            raise HTTPException(
+                status_code=400,
+                detail="default_landing must be communication or overview",
+            )
+        stored["default_landing"] = body.default_landing
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
 
@@ -188,6 +204,7 @@ async def patch_my_preferences(
         "ui_language": stored_lang if stored_lang in ("en", "nl") else platform_default_ui_language(),
         "tour": _tour_state(stored),
         "inbox_folders": _inbox_folders_state(stored),
+        "default_landing": _default_landing_state(stored),
         "default_chat_agent_id": default_chat_agent_id,
     }
 

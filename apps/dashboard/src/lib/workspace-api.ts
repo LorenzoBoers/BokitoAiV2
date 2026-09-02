@@ -1,13 +1,31 @@
-import { workspaceRoutes } from '../api/routes'
-import { APP_API_BASE } from './api.config'
 import { apiDelete, apiGet, apiPatch, apiPost, requireAccessToken } from './api'
+import { APP_API_BASE } from './api.config'
+import { workspaceRoutes, type WorkspaceDocsQuery } from '../api/routes'
 
-export type WorkspaceDocKind = 'doc' | 'memory' | 'persona' | 'skill' | 'daily_log' | 'heartbeat'
+export type WorkspaceDocKind =
+  | 'doc'
+  | 'memory'
+  | 'persona'
+  | 'skill'
+  | 'daily_log'
+  | 'heartbeat'
+  | 'project_doc'
+
+export interface LinkedRequestRef {
+  id: string
+  title: string
+  status: string
+  kind: string
+  project_id: string | null
+  relation?: string
+}
 
 export interface WorkspaceDocRow {
   id: string
   path: string
   kind: WorkspaceDocKind
+  project_id?: string | null
+  agent_id?: string | null
   title: string
   frontmatter: Record<string, string>
   is_pinned: boolean
@@ -16,6 +34,7 @@ export interface WorkspaceDocRow {
   created_at: string
   updated_at: string
   content?: string
+  linked_requests?: LinkedRequestRef[]
 }
 
 export interface WorkspaceSearchHit {
@@ -27,8 +46,10 @@ export interface WorkspaceSearchHit {
   score: number
 }
 
-export async function listWorkspaceDocs(kind?: string): Promise<WorkspaceDocRow[]> {
-  const res = await apiGet<{ docs: WorkspaceDocRow[] }>(workspaceRoutes.docs(kind))
+export async function listWorkspaceDocs(
+  params?: WorkspaceDocsQuery | string,
+): Promise<WorkspaceDocRow[]> {
+  const res = await apiGet<{ docs: WorkspaceDocRow[] }>(workspaceRoutes.docs(params))
   return res.docs
 }
 
@@ -41,13 +62,22 @@ export async function createWorkspaceDoc(input: {
   content?: string
   kind?: WorkspaceDocKind
   title?: string
+  project_id?: string
+  agent_id?: string
 }): Promise<WorkspaceDocRow> {
   return apiPost<WorkspaceDocRow>(workspaceRoutes.docs(), input)
 }
 
 export async function updateWorkspaceDoc(
   docId: string,
-  patch: { content?: string; kind?: WorkspaceDocKind; title?: string; is_pinned?: boolean },
+  patch: {
+    content?: string
+    kind?: WorkspaceDocKind
+    title?: string
+    is_pinned?: boolean
+    project_id?: string | null
+    agent_id?: string | null
+  },
 ): Promise<WorkspaceDocRow> {
   return apiPatch<WorkspaceDocRow>(workspaceRoutes.doc(docId), patch)
 }

@@ -504,7 +504,7 @@ async def list_project_docs(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Project documentation with per-section statuses and linked queue items."""
+    """Project documentation with linked requests and optional section statuses."""
     from app.services.workspace import list_docs, serialize_doc
 
     await svc.get_project_row(session, auth.tenant.id, project_id)
@@ -516,10 +516,12 @@ async def list_project_docs(
         payload = work.serialize_section(section)
         payload["items"] = links.get(section.id, [])
         by_doc.setdefault(section.doc_id, []).append(payload)
+    linked = await work.active_requests_for_docs(session, auth.tenant.id, [d.id for d in docs])
     out = []
     for doc in docs:
         data = serialize_doc(doc)
         data["sections"] = by_doc.get(doc.id, [])
+        data["linked_requests"] = linked.get(doc.id, [])
         out.append(data)
     return {"docs": out}
 
@@ -552,6 +554,8 @@ async def create_project_doc(
     data = serialize_doc(doc)
     sections = await work.list_doc_sections(session, auth.tenant.id, doc.id)
     data["sections"] = [work.serialize_section(s) for s in sections]
+    linked = await work.active_requests_for_docs(session, auth.tenant.id, [doc.id])
+    data["linked_requests"] = linked.get(doc.id, [])
     return data
 
 
@@ -577,6 +581,32 @@ async def patch_doc_section(
     return work.serialize_section(section)
 
 
+@router.post("/{project_id}/docs/{doc_id}/links")
+async def link_doc_item(
+    project_id: UUID,
+    doc_id: UUID,
+    body: LinkBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Link a queue item to a knowledge document (document-level)."""
+    await svc.get_project_row(session, auth.tenant.id, project_id)
+    link = await work.link_item_to_doc(
+        session,
+        auth.tenant.id,
+        UUID(body.queue_item_id),
+        doc_id,
+        relation=body.relation,
+        created_by_type="user",
+        created_by_id=str(auth.user.id),
+    )
+    return {
+        "id": str(link.id),
+        "doc_id": str(link.doc_id) if link.doc_id else None,
+        "relation": link.relation,
+    }
+
+
 @router.post("/{project_id}/docs/{doc_id}/sections/{section_id}/links")
 async def link_section_item(
     project_id: UUID,
@@ -586,7 +616,7 @@ async def link_section_item(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Link a queue item to a doc section."""
+    """Link a queue item to a doc section (legacy)."""
     link = await work.link_item_to_section(
         session,
         auth.tenant.id,
@@ -596,7 +626,11 @@ async def link_section_item(
         created_by_type="user",
         created_by_id=str(auth.user.id),
     )
-    return {"id": str(link.id), "relation": link.relation}
+    return {
+        "id": str(link.id),
+        "doc_id": str(link.doc_id) if link.doc_id else None,
+        "relation": link.relation,
+    }
 
 
 # ── project resources (repo / drive / notion / vibecode slots) ───────
