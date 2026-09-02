@@ -229,7 +229,12 @@ async def test_bjorn_lunden_install_discovers_accounting_tools(
     install = await client.post(
         "/api/integrations/mcp/install",
         headers=headers,
-        json={"provider": "bjorn_lunden_mcp", "display_name": "Björn Lundén", "use_mock": True},
+        json={
+            "provider": "bjorn_lunden_mcp",
+            "display_name": "Björn Lundén",
+            "use_mock": True,
+            "module_slug": "accounting",
+        },
     )
     assert install.status_code == 200
     body = install.json()

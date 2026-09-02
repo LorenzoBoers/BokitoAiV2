@@ -40,6 +40,8 @@ async def _enable_banking(session: AsyncSession, tenant: Tenant):
 
 
 async def _bank_connection(session: AsyncSession, tenant: Tenant) -> IntegrationConnection:
+    from app.services.module_attach import attach_connection_to_module
+
     conn = IntegrationConnection(
         tenant_id=tenant.id,
         provider="gocardless_bank",
@@ -50,6 +52,7 @@ async def _bank_connection(session: AsyncSession, tenant: Tenant) -> Integration
     session.add(conn)
     await session.commit()
     await session.refresh(conn)
+    await attach_connection_to_module(session, tenant.id, conn.id, "banking")
     return conn
 
 

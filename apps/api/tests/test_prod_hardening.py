@@ -33,6 +33,8 @@ def _prod_settings(**overrides) -> Settings:
         cors_origins="https://app.bokito.ai",
         worker_inbound_secret="strong-worker-secret-123",
         bokito_mock_execution=False,
+        # Dedicated Fernet key required in production (not JWT-derived).
+        credentials_fernet_key="dev-test-credentials-fernet-key-32b",
     )
     base.update(overrides)
     return Settings(**base)
