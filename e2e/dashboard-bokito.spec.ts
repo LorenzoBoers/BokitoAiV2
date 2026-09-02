@@ -86,7 +86,9 @@ test.describe('Dashboard', () => {
   test('decisions queue lists seeded thread', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/communication/decisions')
-    await expect(page.getByText(/inbox routing rule|Goedkeuring/).first()).toBeVisible({ timeout: 60000 })
+    await expect(
+      page.getByText(/inbox routing rule|Inbox-doorstuurregel|Goedkeuring|Approval/i).first(),
+    ).toBeVisible({ timeout: 60000 })
   })
 
   test('inbox all queue lists seeded external thread', async ({ page }) => {
