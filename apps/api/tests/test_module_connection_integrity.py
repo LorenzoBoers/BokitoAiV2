@@ -11,7 +11,6 @@ from app.config import get_settings
 from app.models.auth import Tenant
 from app.models.integration import McpServer
 from app.services.integrations_platform import install_mcp
-from app.services.king_finance import KING_NATIVE_URL
 from app.services.module_connections import (
     disconnect_module_connection,
     list_module_connections,
