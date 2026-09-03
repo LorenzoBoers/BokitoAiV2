@@ -52,7 +52,10 @@ async def test_king_mock_install_hidden_until_credentials(session_override: Asyn
         display_name="KING Mock",
         use_mock=True,
     )
-    assert installed["binding"]["config"]["server_url"] == KING_NATIVE_URL
+    from app.services.partner_mcp import is_partner_mcp_url, partner_mcp_url
+
+    assert is_partner_mcp_url(installed["binding"]["config"]["server_url"]) == "king"
+    assert installed["binding"]["config"]["server_url"] == partner_mcp_url("king")
     assert installed.get("verified") is False
 
     listing = await list_module_connections(session_override, tenant.id, "accounting")

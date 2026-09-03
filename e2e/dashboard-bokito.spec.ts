@@ -148,7 +148,7 @@ test.describe('Dashboard', () => {
   test('integrations settings section loads', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/integrations/connected')
-    await expect(page).toHaveURL(/\/modules\/connected/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/connections/, { timeout: 20000 })
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 20000 })
   })
 })
