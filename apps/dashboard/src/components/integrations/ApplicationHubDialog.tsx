@@ -10,7 +10,9 @@ import {
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { IntegrationSetupPanel } from './IntegrationSetupPanel'
 import { IntegrationDetailPanel } from './IntegrationDetailPanel'
-import type { HubBanner } from './IntegrationHubDialog'
+import { ModuleUsageNote } from './ModuleUsageNote'
+import { modulesForApplication } from '../../lib/module-applications'
+import type { IntegrationModuleRow } from '../../lib/integrations-api'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,8 @@ import { Badge } from '../ui/badge'
 
 export type ApplicationHubStep = 'app' | 'offer-detail' | 'offer-setup'
 
+export type HubBanner = { type: 'success' | 'error'; message: string } | null
+
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -30,6 +34,8 @@ type Props = {
   initialStep?: ApplicationHubStep
   initialOfferId?: string | null
   banner?: HubBanner
+  /** Catalog modules, so the dialog can name what agents do with this login. */
+  modules?: IntegrationModuleRow[]
   onViewConnected: (offer: IntegrationOffer) => void
   onSaved: () => void
 }
@@ -45,6 +51,7 @@ export function ApplicationHubDialog({
   initialStep = 'app',
   initialOfferId = null,
   banner = null,
+  modules = [],
   onViewConnected,
   onSaved,
 }: Props) {
@@ -66,6 +73,7 @@ export function ApplicationHubDialog({
 
   if (!application) return null
 
+  const usableModules = modulesForApplication(modules, application)
   const localized = localizeApplication(application, t)
   const title =
     step === 'offer-setup'
@@ -132,6 +140,7 @@ export function ApplicationHubDialog({
               </p>
             ) : null}
             <p className="text-sm text-text-secondary leading-relaxed">{localized.description}</p>
+            <ModuleUsageNote modules={usableModules} />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
               {t('integrations.application.connectionTypes')}
             </p>
@@ -194,7 +203,9 @@ export function ApplicationHubDialog({
                 ? () => setStep('offer-setup')
                 : undefined
             }
-          />
+          >
+            <ModuleUsageNote modules={usableModules} />
+          </IntegrationDetailPanel>
         ) : null}
 
         {step === 'offer-setup' && activeOffer ? (

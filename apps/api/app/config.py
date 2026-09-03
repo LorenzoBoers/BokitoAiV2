@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     def module_writes_allowed(self, slug: str) -> bool:
         slugs = {s.strip().lower() for s in self.module_writes_enabled.split(",") if s.strip()}
         return slug.lower() in slugs
+
+    # Channel kinds parked from the product surface, comma-separated. Parked
+    # channels keep their adapter, webhooks and existing rows, but cannot be
+    # connected and are hidden from the dashboard. Clear the value to bring a
+    # channel back.
+    parked_channels: str = "slack"
+
+    def parked_channel_set(self) -> set[str]:
+        return {s.strip().lower() for s in self.parked_channels.split(",") if s.strip()}
+
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     # Raw provider fallback when a call bypasses the catalog; must be a real

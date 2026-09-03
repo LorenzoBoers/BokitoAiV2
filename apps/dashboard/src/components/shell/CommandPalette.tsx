@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Bot,
-  Brain,
   CalendarDays,
   CircleHelp,
   Clock,
@@ -136,15 +135,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         icon: Users,
         href: '/contacts',
         run: () => navigate('/contacts'),
-      },
-      {
-        id: 'nav-knowledge',
-        label: t('tabs.knowledge.title', { defaultValue: 'Knowledge' }),
-        hint: t('tabs.knowledge.subtitle', { defaultValue: 'Documents your agents know' }),
-        group: t('palette.groupGoTo'),
-        icon: Brain,
-        href: '/knowledge',
-        run: () => navigate('/knowledge'),
       },
     ])
     const inboxQueues: PaletteItem[] = (
@@ -305,7 +295,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.openHelp'),
         group: t('palette.groupActions'),
         icon: CircleHelp,
-        run: () => navigate('/learn'),
+        run: () => navigate('/settings/help'),
       },
       {
         id: 'action-open-agenda',

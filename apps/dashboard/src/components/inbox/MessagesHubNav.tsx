@@ -19,6 +19,7 @@ import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useSignalTags } from '../../hooks/useSignalTags'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
+import { isChannelParked } from '../../lib/channel-surface'
 import { bokitoListChatTargets, mergeSidebarTagRows, type ChatTarget } from '../../lib/signals-api'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue } from '../../lib/nav-badge-counts'
@@ -230,7 +231,8 @@ function useConnectedChannelFolders(t: TFn): { folders: ChannelFolder[]; loading
   const folders = useMemo(() => {
     const enabledAccounts = accounts.filter((a) => a.isEnabled)
     const hasWidget = enabledAccounts.some((a) => a.channel === 'widget')
-    const hasSlack = enabledAccounts.some((a) => a.channel === 'slack')
+    const hasSlack =
+      !isChannelParked('slack') && enabledAccounts.some((a) => a.channel === 'slack')
     const hasWhatsApp = enabledAccounts.some((a) => a.channel === 'whatsapp')
 
     // Only list channels that are actually connected — empty stubs clutter the rail.

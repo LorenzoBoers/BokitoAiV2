@@ -14,24 +14,30 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 ## Besturing: de dagelijkse loop
 
 ![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
-*Overview, Berichten, Agenda en Projecten.*
+*Overview, Communicatie, Agenda en Projecten.*
 
-- **Overview** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Overview](/docs/getting-started/cockpit). Onder Profiel kun je Overview als startpagina zetten; Berichten is de standaard.
-- **Berichten** — de gesprekken, en de contacten erachter. Zie [Berichten](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
+- **Overview** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Overview](/docs/getting-started/cockpit). Onder Profiel kun je Overview als startpagina zetten; Communicatie is de standaard.
+- **Communicatie** — de gesprekken, en de contacten erachter. Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
 - **Agenda** — wanneer agents wakker worden. Zie [Agenda](/docs/ai/agenda).
 - **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/projects).
 
 ## AI: de workforce
 
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
-- **Kennis** — genest onder de AI-groep: waaruit agents antwoorden. Zie [Kennis](/docs/ai/knowledge).
-- **Modules** — bedrijfsfuncties en elke koppeling (Koppelingen, Ontdekken). Zie [Integraties](/docs/integrations/integrations).
+- **Kennis** — documenten, skills en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
 
-## Instellingen: de controleruimte
+## Modules: geïnstalleerde werkplekken
 
-**E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen**, **Setupgids** en **Govern** staan hier. Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat onder Besturing, niet onder Instellingen — zie [Overview](/docs/getting-started/cockpit).
+Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) verschijnen hier als eigen rail-items. Zie [Integraties](/docs/integrations/integrations).
 
-Persoonlijke schermen — **Profiel** (inclusief startpagina: Berichten of Overview) en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
+## Organisatie: koppelingen en controleruimte
+
+- **Koppelingen** — geïnstalleerde modules, partnerlogins, custom MCP en marketplace. Zie [Integraties](/docs/integrations/integrations).
+- **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support.
+
+Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat onder Besturing, niet onder Organisatie — zie [Overview](/docs/getting-started/cockpit).
+
+Persoonlijke schermen — **Profiel** (inclusief startpagina: Communicatie of Overview) en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
 
 ## Gebruik het commandopalet
 
@@ -44,7 +50,7 @@ Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen
 
 ## Twee andere snelkoppelingen
 
-Het hulpmenu in de topbalk opent deze artikelen vanaf elke pagina. De openbare site is `/docs` (geen login). In-app **Hulp** is `/learn`.
+Het accountmenu biedt **Profiel**, **Instellingen**, **Workspaces** en **Hulp**. **Hulp** (`/settings/help`) linkt naar de setupgids, producttour, `/docs`, `/docs/api` en support (e-mail of praat met de assistent). De openbare site is `/docs` (geen login). In-app Learn blijft op `/learn` voor paginabanners.
 
 ## Wat nu
 

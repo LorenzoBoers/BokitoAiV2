@@ -93,8 +93,17 @@ def channel_kind(account: ChannelAccount) -> str:
     return account.channel
 
 
+def is_parked_channel(channel: str) -> bool:
+    """Channel kinds parked from the product surface (PARKED_CHANNELS env)."""
+    from app.config import get_settings
+
+    return (channel or "").strip().lower() in get_settings().parked_channel_set()
+
+
 def is_configurable_channel(account: ChannelAccount) -> bool:
     if account.channel in HIDDEN_CHANNELS:
+        return False
+    if is_parked_channel(account.channel):
         return False
     if account.channel == "email" and account.provider in HIDDEN_EMAIL_PROVIDERS:
         return False

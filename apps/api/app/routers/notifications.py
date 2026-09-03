@@ -11,6 +11,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.notification import DecisionRequest, Notification
 from app.services.notifications import resolve_decision
+from app.services.signal_decisions import decision_provenance
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -127,6 +128,8 @@ async def list_decisions(
             "options": json.loads(d.options_json or "[]"),
             "source_type": d.source_type,
             "signal_id": str(d.signal_id) if d.signal_id else None,
+            "message_id": str(d.message_id) if d.message_id else None,
+            "source": decision_provenance(d),
             "created_at": d.created_at.isoformat(),
         }
         for d in result.scalars().all()

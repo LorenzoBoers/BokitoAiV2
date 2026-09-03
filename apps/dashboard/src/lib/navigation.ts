@@ -1,17 +1,19 @@
 /**
  * Navigation model for the control shell.
  *
- * Rail: Overview, Messages, Agenda, Projects, Agents, Modules, Settings.
+ * Rail: Overview, Communication, Agenda, Projects, Agents, Knowledge,
+ * installed module workspaces, Connections, Settings.
  * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
  */
 
 import {
   Bot,
-  Boxes,
+  Brain,
   CalendarDays,
   FolderKanban,
   LayoutDashboard,
   MessageSquare,
+  Plug,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -21,13 +23,14 @@ export type Tab =
   | 'communication'
   | 'agenda'
   | 'agents'
+  | 'knowledge'
   | 'projects'
   | 'modules'
   | 'settings'
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
   { label: 'Control', tabs: ['overview', 'communication', 'agenda', 'projects'] },
-  { label: 'AI', tabs: ['agents'] },
+  { label: 'AI', tabs: ['agents', 'knowledge'] },
   { label: 'Settings', tabs: ['modules', 'settings'] },
 ]
 
@@ -36,8 +39,9 @@ export const TAB_PATHS: Record<Tab, string> = {
   communication: '/communication/inbox/open',
   agenda: '/agenda',
   agents: '/agents',
+  knowledge: '/knowledge',
   projects: '/projects',
-  modules: '/modules',
+  modules: '/connections',
   settings: '/settings',
 }
 
@@ -55,18 +59,20 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   communication: MessageSquare,
   agenda: CalendarDays,
   agents: Bot,
+  knowledge: Brain,
   projects: FolderKanban,
-  modules: Boxes,
+  modules: Plug,
   settings: Settings,
 }
 
 const TAB_TITLES: Record<Tab, string> = {
   overview: 'Overview',
-  communication: 'Messages',
+  communication: 'Communication',
   agenda: 'Agenda',
   agents: 'Agents',
+  knowledge: 'Knowledge',
   projects: 'Projects',
-  modules: 'Modules',
+  modules: 'Connections',
   settings: 'Settings',
 }
 
@@ -75,8 +81,9 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   communication: 'Chats, customer and agent threads',
   agenda: 'Scheduled wakes, tasks and events',
   agents: 'People and agents you can chat with',
+  knowledge: 'Docs, skills and memory',
   projects: 'Shared goals for agents and threads',
-  modules: 'Business capabilities, packages and sources',
+  modules: 'Installed modules, partner logins and tools',
   settings: 'Workspace configuration',
 }
 
@@ -135,22 +142,24 @@ export function tabFromPath(pathname: string): Tab | null {
     return 'overview'
   if (pathname === '/' || pathname.startsWith('/communication') || pathname.startsWith('/inbox'))
     return 'communication'
-  // Contacts nest under Messages.
+  // Contacts nest under Communication.
   if (pathname.startsWith('/contacts')) return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/agents')) return 'agents'
   if (pathname.startsWith('/projects')) return 'projects'
-  // Knowledge nests under the Agents (AI) group.
   if (
     pathname.startsWith('/knowledge') ||
     pathname.startsWith('/workspace') ||
     pathname.startsWith('/skills')
   )
-    return 'agents'
-  if (pathname.startsWith('/modules')) return 'modules'
-  // Installed module workspaces live under AI, not Settings.
+    return 'knowledge'
+  // Hub routes highlight Connections; installed module workspaces use their own rail item.
+  if (pathname === '/connections' || pathname.startsWith('/connections/marketplace'))
+    return 'modules'
+  if (pathname.startsWith('/connections/')) return null
+  // Installed module workspaces live under the Modules group, not Settings.
   if (pathname.startsWith('/ai/modules')) return null
-  // Activity terminal is shared; highlight Messages when opened from hub.
+  // Activity terminal is shared; highlight Communication when opened from hub.
   if (pathname.startsWith('/activity')) return 'communication'
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
   return null

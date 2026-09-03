@@ -1000,7 +1000,7 @@ export type ChatDecisionOption = {
   payload?: Record<string, unknown> | null
   /** Integration provider slug on `setup_integration` options (brand logo + deep-link). */
   provider?: string | null
-  /** Module slug when the card should open `/modules/:slug`. */
+  /** Module slug when the card should open `/connections/:slug`. */
   module?: string | null
 }
 

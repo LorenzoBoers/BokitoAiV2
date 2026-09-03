@@ -929,6 +929,9 @@ def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
             "logo_url": auth.tenant.logo_url,
         },
         "memberships": memberships,
+        # Channel kinds parked platform-wide; the dashboard hides their connect
+        # and filter surfaces instead of shipping its own copy of the list.
+        "parked_channels": sorted(get_settings().parked_channel_set()),
         "user": _user_dict(auth.user, auth.tenant, auth.role, is_staff=auth.is_staff),
     }
 

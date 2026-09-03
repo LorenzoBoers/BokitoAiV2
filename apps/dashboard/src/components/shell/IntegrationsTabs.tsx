@@ -2,20 +2,28 @@ import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 const TABS = [
-  { labelKey: 'tabs.modules.title', defaultLabel: 'Modules', to: '/modules', end: true },
-  { labelKey: 'integrations.pageMeta.connected.title', defaultLabel: 'Connections', to: '/modules/connected' },
-  { labelKey: 'integrations.pageMeta.marketplace.title', defaultLabel: 'Marketplace', to: '/modules/marketplace' },
+  {
+    labelKey: 'tabs.modules.title',
+    defaultLabel: 'Connections',
+    to: '/connections',
+    end: true,
+  },
+  {
+    labelKey: 'integrations.pageMeta.marketplace.title',
+    defaultLabel: 'Marketplace',
+    to: '/connections/marketplace',
+  },
 ] as const
 
 /**
- * Inner tab strip for the Modules hub: presets, partner logins, and discover.
+ * Inner tab strip for the Connections hub: workspace inventory and discover.
  */
 export default function IntegrationsTabs() {
   const { t } = useTranslation('nav')
   return (
     <nav
       className="mb-4 flex items-center gap-1 border-b border-border/60"
-      aria-label={t('integrations.tabsAria', { defaultValue: 'Integrations sections' })}
+      aria-label={t('integrations.tabsAria', { defaultValue: 'Connections sections' })}
     >
       {TABS.map((tab) => (
         <NavLink

@@ -6,6 +6,7 @@ import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useSignalTags } from '../../hooks/useSignalTags'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
+import { isChannelParked } from '../../lib/channel-surface'
 import { folderScopeKey, normalizeSidebarTag } from '../../lib/inbox-folder-prefs'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { isSubQueue, SUB_QUEUES, type HubLeaf, type SubQueue } from '../../lib/messages-paths'
@@ -87,7 +88,7 @@ export default function FoldersAndTagsManager() {
           },
         ]
       : []),
-    ...(enabledAccounts.some((a) => a.channel === 'slack')
+    ...(!isChannelParked('slack') && enabledAccounts.some((a) => a.channel === 'slack')
       ? [
           {
             leaf: { type: 'channel', channelKey: 'slack' } as HubLeaf,

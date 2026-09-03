@@ -5,12 +5,18 @@ import {
   resolveModuleToolCards,
   type IntegrationModuleRow,
 } from '../../lib/integration-modules'
+import type { AttachedMcpToolServer } from '../../lib/integrations-api'
 import { cn } from '../../lib/utils'
 
 type Props = {
   module: Pick<
     IntegrationModuleRow,
-    'slug' | 'tool_cards' | 'verbs' | 'propose_verbs' | 'verb_labels'
+    | 'slug'
+    | 'tool_cards'
+    | 'verbs'
+    | 'propose_verbs'
+    | 'verb_labels'
+    | 'attached_mcp_tools'
   >
   /** Compact list for dropdowns; full cards for overview. */
   compact?: boolean
@@ -21,7 +27,11 @@ type Props = {
 export function ModuleToolsetPanel({ module, compact = false, className }: Props) {
   const { t } = useTranslation('nav')
   const cards = resolveModuleToolCards(module)
-  if (cards.length === 0) return null
+  const attached = (module.attached_mcp_tools ?? []).filter(
+    (row): row is AttachedMcpToolServer => Boolean(row?.server_id),
+  )
+
+  if (cards.length === 0 && attached.length === 0) return null
 
   const reads = cards.filter((c) => c.kind === 'read')
   const proposes = cards.filter((c) => c.kind === 'propose')
@@ -94,6 +104,54 @@ export function ModuleToolsetPanel({ module, compact = false, className }: Props
           <ul className={cn(compact ? 'space-y-1.5' : 'grid gap-2 sm:grid-cols-2')}>
             {proposes.map(renderCard)}
           </ul>
+        </div>
+      ) : null}
+      {!compact && attached.length > 0 ? (
+        <div>
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+            {t('integrations.modules.attachedMcpToolsTitle', {
+              defaultValue: 'Tools from connected MCP servers',
+            })}
+          </p>
+          <div className="space-y-3">
+            {attached.map((server) => (
+              <div
+                key={server.server_id}
+                className="rounded-lg border border-border/50 bg-bg-muted/10 px-3 py-2.5"
+              >
+                <p className="text-sm font-medium text-text-heading">{server.server_name}</p>
+                <p className="mt-0.5 text-[11px] text-text-muted">
+                  {server.provider}
+                  {server.tools_synced_at
+                    ? ` · ${t('integrations.modules.toolsSynced', {
+                        defaultValue: 'Synced',
+                      })}`
+                    : ''}
+                </p>
+                {server.tools.length === 0 ? (
+                  <p className="mt-2 text-xs text-text-muted">
+                    {t('integrations.modules.attachedMcpToolsEmpty', {
+                      defaultValue: 'No tools discovered on this server yet.',
+                    })}
+                  </p>
+                ) : (
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {server.tools.map((tool) => (
+                      <li key={`${server.server_id}-${tool.name}`}>
+                        <Badge
+                          variant="neutral"
+                          className="font-mono text-[10px] font-normal"
+                          title={tool.description || tool.name}
+                        >
+                          {tool.name}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

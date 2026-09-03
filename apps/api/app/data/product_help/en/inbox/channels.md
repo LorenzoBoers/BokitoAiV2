@@ -1,7 +1,7 @@
 ---
 title: Connect channels
 intro: Bring customer mail and other inboxes into Communication.
-description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP, WhatsApp or Slack, and read each channel's state and checks.
+description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, and read each channel's state and checks.
 keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature
 sort: 20
 related: communication,inbox-ai,widget,integrations
@@ -9,7 +9,7 @@ related: communication,inbox-ai,widget,integrations
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Email & messages**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row in the **Channels** list with the same state, capabilities and checks. A new workspace starts with the website chat only, so add an email channel before you expect mail.
+Channels are how customers reach the workspace. Open **Settings**, then **Email & messages**. Every channel — mailbox, Bokito address, website chat, WhatsApp — is one row in the **Channels** list with the same state, capabilities and checks. A new workspace starts with the website chat only, so add an email channel before you expect mail.
 
 ## Add a channel
 
@@ -18,7 +18,7 @@ Channels are how customers reach the workspace. Open **Settings**, then **Email 
 
 1. Open **Settings**, then **Email & messages**.
 2. Choose **Add channel**.
-3. Pick **Email**, **WhatsApp Business**, **Slack workspace**, or **Website chat**. **Email** opens a second step with **Gmail**, **Outlook**, **SMTP / IMAP** and **Bokito address**.
+3. Pick **Email**, **WhatsApp Business**, or **Website chat**. **Email** opens a second step with **Gmail**, **Outlook**, **SMTP / IMAP** and **Bokito address**.
 4. Finish the form for that choice. The new row appears in the **Channels** list.
 
 ## Connect SMTP / IMAP
@@ -69,13 +69,12 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 3. Set **Condition type** to **Sender domain**, **Subject contains** or **Mailbox**, then **Assign to** a person (or **Do not assign**) and optional **Labels**. Turn **Rule is active** on.
 4. Use the **Agent** column on the row to send a channel's new conversations to a specific agent. Without a route the **default agent** handles new threads. Set one email channel as **Primary** if you have several.
 
-## Connect WhatsApp or Slack
+## Connect WhatsApp
 
-1. Choose **Add channel**, then **WhatsApp Business** or **Slack workspace**. Marketplace cards for these apps also send you here.
+1. Choose **Add channel**, then **WhatsApp Business**. Marketplace cards for the app also send you here.
 2. WhatsApp is a guided setup: **Prepare in Meta** (app, number, Phone number ID, permanent System User token), then **Paste in Bokito** (display name, Phone number ID, optional WABA ID, access token) and **Connect number**. The Phone number ID is a long number from Meta → WhatsApp → API Setup — not your phone number.
 3. After connecting, Bokito shows **Webhook URL** and **Verify token**. Paste those in Meta under WhatsApp → Configuration, subscribe to **messages**, and send a test message. Temporary Meta tokens expire after 24 hours.
-4. For Slack, enter **Bot token** and **Signing secret**, then **Connect workspace**. Copy **Events URL** and **Interactivity URL** into your Slack app. Decision cards can arrive there with **Approve** and **Deny**.
-5. Website chat is the [Chat widget](/docs/inbox/widget); its row opens the widget settings. After you connect, these channels appear in the Communication sidebar.
+4. Website chat is the [Chat widget](/docs/inbox/widget); its row opens the widget settings. After you connect, these channels appear in the Communication sidebar.
 
 ## Save replies the team can reuse
 

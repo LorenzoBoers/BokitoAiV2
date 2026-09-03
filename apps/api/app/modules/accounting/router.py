@@ -115,7 +115,9 @@ async def list_accounting_connections(
         if str(server.id) not in attached_servers:
             continue
         auth = _parse_json(server.auth_json)
-        if server.server_url.startswith("native://king-accountancy"):
+        from app.services.partner_mcp import is_king_mcp_url
+
+        if is_king_mcp_url(server.server_url):
             from app.services.king_finance import has_king_credentials
 
             connections.append(
@@ -130,6 +132,7 @@ async def list_accounting_connections(
         elif server.server_url.startswith("native://bjorn-lunden") or (
             server.server_url.startswith("native://")
             and not server.server_url.startswith("native://moneybird")
+            and not server.server_url.startswith("native://king-accountancy")
         ):
             from app.services.bjorn_lunden import has_bl_credentials
 
@@ -243,7 +246,7 @@ async def call_accounting_verb(
     if not await module_is_on(session, tenant_id, "accounting"):
         return module_error(
             "module_off",
-            "Accounting is off. Turn it on at /modules/accounting "
+            "Accounting is off. Turn it on at /connections/accounting "
             "before agents use accounting tools.",
         )
 
@@ -270,7 +273,7 @@ async def call_accounting_verb(
     if not connections:
         return module_error(
             "no_connection",
-            "No accounting package is connected. Open /modules/accounting "
+            "No accounting package is connected. Open /connections/accounting "
             "and connect KING Accountancy, Bjorn Lunden, or Moneybird.",
         )
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { agendaOccurrenceHref, pickClosestThreadBySubject, workLogRunsPath } from './agenda-thread'
+import {
+  agendaOccurrenceHref,
+  pickClosestThreadBySubject,
+  triggerThreadPath,
+  workLogRunsPath,
+} from './agenda-thread'
 
 describe('pickClosestThreadBySubject', () => {
   it('picks the same-titled thread nearest the occurrence time', () => {
@@ -81,6 +86,38 @@ describe('pickClosestThreadBySubject', () => {
         Date.parse('2026-08-26T10:00:00Z'),
       ),
     ).toBe('/communication/runs/all/t/near')
+  })
+
+  it('sends a check-in to the agent channel and other triggers to Agent runs', () => {
+    expect(
+      triggerThreadPath({
+        kind: 'heartbeat',
+        signal_id: 'chan-1',
+        agent_id: 'agent-1',
+        status: 'reported',
+      }),
+    ).toBe('/communication/agent/agent-1/t/chan-1')
+    expect(
+      triggerThreadPath({ kind: 'interval', signal_id: 'thread-1', status: 'completed' }),
+    ).toBe('/communication/runs/results/t/thread-1')
+    expect(triggerThreadPath({ kind: 'heartbeat', signal_id: null })).toBeNull()
+  })
+
+  it('prefers the trigger own thread over a subject match', () => {
+    expect(
+      agendaOccurrenceHref(
+        {
+          name: 'Check-in: Assistant',
+          at: '2026-08-24T14:56:00Z',
+          kind: 'heartbeat',
+          signal_id: 'chan-1',
+          agent_id: 'agent-1',
+        },
+        [{ id: 'near', emailSubject: 'Check-in: Assistant', lastMessageAt: '2026-08-24T14:56:00Z' }],
+        'agent-1',
+        Date.parse('2026-08-26T10:00:00Z'),
+      ),
+    ).toBe('/communication/agent/agent-1/t/chan-1')
   })
 
   it('opens the matching Agent-runs conversation for a completed work log', () => {

@@ -740,11 +740,17 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
             # small tolerance for rows created before timestamps were aligned.
             company_done = (doc.updated_at - doc.created_at).total_seconds() > 1
 
+    # A conversation a person started: the seeded agent channel has no owner,
+    # so it never marks this step done on its own.
     assistant_done = bool(
         (
             await session.execute(
                 select(Signal.id)
-                .where(Signal.tenant_id == tenant_id, Signal.channel == "assistant")
+                .where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.channel == "assistant",
+                    Signal.owner_user_id.is_not(None),
+                )
                 .limit(1)
             )
         ).first()

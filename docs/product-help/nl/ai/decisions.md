@@ -1,8 +1,8 @@
 ---
 title: Beslissingen goedkeuren en afwijzen
 intro: Agents vragen in het gesprek om jouw oordeel. Elke open goedkeuring deelt één Beslissingen-blad.
-description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via Beslissingen, Cockpit of Slack als dat is gekoppeld.
-keywords: beslissingen, goedkeuringen, decision requests, slack, human in the loop
+description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via Beslissingen, Cockpit of een notificatie.
+keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop
 sort: 20
 related: communication,agent-runs,autonomy,govern
 ---
@@ -28,11 +28,12 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) vult Beslissingen 
 2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Taak aanmaken** of **Open houden**. Conceptantwoord-kaarten van [Inbox AI](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
 3. Onder agentberichten markeren kleine iconen **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent — hover voor het label. Escaleren pauzeert AI op het gesprek en wijst jou toe.
 
-## Antwoorden vanuit Slack
+## Antwoorden vanuit een notificatie
 
-1. Koppel Slack onder **Instellingen**, dan **E-mail en berichten**. Zie [Kanalen](/docs/inbox/channels). Keuzekaarten kunnen daar aankomen met **Goedkeuren** en **Weigeren**.
-2. Gebruik die knoppen als je niet in Bokito zit. Het gesprek in Communicatie werkt hetzelfde bij.
-3. Inbox AI-voorstellen hebben nog een menselijke verzending nodig tenzij autonomie meer toestaat.
+1. Kies de beslissing in het belmenu, of open de pushmelding op je telefoon. Beide openen het gesprek en springen direct naar de wachtende kaart.
+2. Lees de bronregel op de kaart: die noemt waar de vraag vandaan komt — een projectwachtrij-item, een agentrun of een voorgestelde workspacewijziging — en linkt ernaartoe.
+3. Antwoord in het gesprek. Inbox AI-voorstellen hebben nog een menselijke verzending nodig tenzij autonomie meer toestaat.
+4. Zet notificaties per gebeurtenis aan of uit onder **Instellingen**, dan **Notificaties**.
 
 ## Wanneer agents vragen
 

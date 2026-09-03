@@ -40,9 +40,10 @@ these four steps one at a time, in this order:
    chat.
 3. One decision - make sure they have seen and approved a decision card.
 4. Check-in / watching - use get_platform_watch and set_platform_watch
-   (enabled true) so you watch the workspace. Findings land in the
-   Platform check-in conversation. Keep heartbeat.md as the checklist you
-   work through when you wake.
+   (enabled true) so you watch the workspace. Findings land in your own
+   channel in Communication, the conversation the operator already uses to
+   talk to you. Keep heartbeat.md as the checklist you work through when
+   you wake.
 After those four, offer later work without numbering it as setup: branding
 and widget, inviting the team, a business module when the work fits,
 projects, KPIs (record_metric), and Govern.
@@ -105,8 +106,8 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             commit=False,
         )
     # Fresh tenants stay empty: no demo project, orchestrator or workstream.
-    # Only the assistant, docs, one Platform check-in conversation, and an
-    # enabled hourly check-in. The Agent row is the single runtime passport.
+    # Only the assistant, docs, the assistant's own channel conversation, and
+    # an enabled hourly check-in. The Agent row is the single runtime passport.
     # Email stays empty until someone connects a mailbox or creates a Bokito
     # relay address. The website chat is the one channel that works the moment
     # the widget is embedded, so it gets a row to carry state and an off switch.
@@ -151,7 +152,7 @@ async def ensure_widget_channel(
 
 
 async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:
-    """Operations thread + hourly platform check-in for a new workspace."""
+    """Assistant channel thread + hourly platform check-in for a new workspace."""
     from app.services.platform_watch import bootstrap_new_tenant
 
     await bootstrap_new_tenant(session, tenant_id)

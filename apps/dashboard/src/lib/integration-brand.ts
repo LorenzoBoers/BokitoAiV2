@@ -10,15 +10,19 @@ export type ResolvedIntegrationBrand = {
   hostSlug: string | null
 }
 
-/** Maps provider or catalog id to integration_hosts.slug for fallbacks. */
-export const PROVIDER_TO_HOST_SLUG: Record<string, string> = {
+import { BRAND_ASSETS, BRAND_ASSET_PATHS, brandAssetUrl } from './brand-assets'
+import {
+  REMOTE_MCP_HOSTS,
+  REMOTE_MCP_PROVIDERS,
+  logoUrlForHost,
+} from './mcp-remote-providers'
+
+export { brandAssetUrl, BRAND_ASSET_PATHS as HOST_STATIC_LOGO_FALLBACK }
+
+const CORE_PROVIDER_TO_HOST_SLUG: Record<string, string> = {
   github: 'github',
-  github_mcp: 'github',
-  'github-mcp': 'github',
   outlook: 'microsoft',
   'microsoft-365': 'microsoft',
-  microsoft_graph_mcp: 'microsoft',
-  'microsoft-graph-mcp': 'microsoft',
   gmail: 'google',
   'google-workspace': 'google',
   google_calendar: 'google',
@@ -32,33 +36,21 @@ export const PROVIDER_TO_HOST_SLUG: Record<string, string> = {
   snelstart: 'snelstart',
   custom_mcp: 'custom',
   smtp_imap: 'smtp',
-  notion_mcp: 'notion',
-  notion: 'notion',
-  linear_mcp: 'linear',
-  linear: 'linear',
-  atlassian_mcp: 'atlassian',
-  atlassian: 'atlassian',
-  slack_mcp: 'slack',
-  slack: 'slack',
-  asana_mcp: 'asana',
-  asana: 'asana',
-  clickup_mcp: 'clickup',
-  clickup: 'clickup',
-  sentry_mcp: 'sentry',
-  sentry: 'sentry',
-  stripe_mcp: 'stripe',
-  stripe: 'stripe',
   shopify_mcp: 'shopify',
   shopify: 'shopify',
-  higgsfield_mcp: 'higgsfield',
-  higgsfield: 'higgsfield',
+  gocardless_bank: 'gocardless',
+  whatsapp: 'whatsapp',
 }
 
-import { BRAND_ASSETS, BRAND_ASSET_PATHS, brandAssetUrl } from './brand-assets'
+export const PROVIDER_TO_HOST_SLUG: Record<string, string> = {
+  ...CORE_PROVIDER_TO_HOST_SLUG,
+  ...Object.fromEntries(REMOTE_MCP_PROVIDERS.flatMap((p) => [
+    [p.slug, p.hostSlug],
+    [p.staticId, p.hostSlug],
+  ])),
+}
 
-export { brandAssetUrl, BRAND_ASSET_PATHS as HOST_STATIC_LOGO_FALLBACK }
-
-export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: string; name: string }> = {
+const CORE_HOST_META: Record<string, { initials: string; color: string; name: string }> = {
   bokito: { initials: 'BK', color: '#7c3aed', name: 'Bokito' },
   github: { initials: 'GH', color: '#24292f', name: 'GitHub' },
   microsoft: { initials: 'MS', color: '#0078d4', name: 'Microsoft' },
@@ -69,19 +61,18 @@ export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: s
   moneybird: { initials: 'MB', color: '#0e5b99', name: 'Moneybird' },
   exact: { initials: 'EX', color: '#e2001a', name: 'Exact Online' },
   snelstart: { initials: 'SS', color: '#f39200', name: 'SnelStart' },
+  gocardless: { initials: 'GC', color: '#f1f252', name: 'GoCardless' },
   custom: { initials: 'MC', color: '#475569', name: 'Custom MCP' },
   smtp: { initials: 'SM', color: '#64748b', name: 'SMTP / IMAP' },
-  notion: { initials: 'NO', color: '#000000', name: 'Notion' },
-  linear: { initials: 'LN', color: '#5e6ad2', name: 'Linear' },
-  atlassian: { initials: 'AT', color: '#0052cc', name: 'Atlassian' },
-  slack: { initials: 'SL', color: '#4a154b', name: 'Slack' },
-  whatsapp: { initials: 'WA', color: '#25d366', name: 'WhatsApp' },
-  asana: { initials: 'AS', color: '#f06a6a', name: 'Asana' },
-  clickup: { initials: 'CU', color: '#7b68ee', name: 'ClickUp' },
-  sentry: { initials: 'SE', color: '#362d59', name: 'Sentry' },
-  stripe: { initials: 'ST', color: '#635bff', name: 'Stripe' },
   shopify: { initials: 'SH', color: '#96bf48', name: 'Shopify' },
-  higgsfield: { initials: 'HF', color: '#111111', name: 'Higgsfield' },
+  whatsapp: { initials: 'WA', color: '#25d366', name: 'WhatsApp' },
+}
+
+export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: string; name: string }> = {
+  ...CORE_HOST_META,
+  ...Object.fromEntries(
+    REMOTE_MCP_HOSTS.map((h) => [h.slug, { initials: h.initials, color: h.brand_color, name: h.name }]),
+  ),
 }
 
 function imageUrlFromUnknown(value: unknown): string | null {
@@ -114,8 +105,9 @@ export function resolveHostBrand(
 ): ResolvedIntegrationBrand {
   const staticMeta = HOST_STATIC_BRAND_META[hostSlug]
   const staticLogo = BRAND_ASSETS[hostSlug]
+  const catalogLogo = logoUrlForHost(hostSlug)
 
-  const logoUrl = apiImageUrlOrNull(apiHost?.logo_url) ?? staticLogo?.logoUrl ?? null
+  const logoUrl = apiImageUrlOrNull(apiHost?.logo_url) ?? staticLogo?.logoUrl ?? catalogLogo ?? null
 
   const logoDarkUrl =
     apiImageUrlOrNull(apiHost?.logo_dark_url) ?? staticLogo?.logoDarkUrl ?? null

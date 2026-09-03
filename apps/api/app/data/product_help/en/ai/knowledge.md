@@ -14,11 +14,10 @@ Knowledge is what agents read on every run. Open **Knowledge** to manage organiz
 ## Pick a scope
 
 ![Knowledge page](/api/docs/assets/knowledge/add-doc.png)
-*Filter by Organization, Projects, or Agents, then add the documents agents should answer from.*
+*Filter by workspace, project, or agent name — each chip is a real entity.*
 
 1. Open **Knowledge**.
-2. Choose **Organization** (default), **Projects**, or **Agents**.
-3. For Projects or Agents, pick the project or agent in the dropdown. Creating a document in that scope stores it on the same `WorkspaceDoc` table Project Documentation uses.
+2. Click your **workspace name** (default), a **project name**, or an **agent name** in the chip row. Creating a document in that scope stores it on the same `WorkspaceDoc` table Project Documentation uses.
 
 Organization still groups kinds:
 
@@ -55,4 +54,4 @@ Active queue requests linked to a document show as subtle chips under the title.
 
 ## What to do next
 
-Keep project-specific docs on the [Projects](/docs/ai/projects) Documentation tab — they appear under Knowledge when you filter that project. Point agents at Skills and Memory so replies stay grounded.
+Keep project-specific docs on the [Projects](/docs/ai/projects) Documentation tab — they appear under Knowledge when you click that project name. Point agents at Skills and Memory so replies stay grounded.

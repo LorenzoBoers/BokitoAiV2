@@ -1,7 +1,7 @@
 ---
 title: Kanalen koppelen
 intro: Breng klantmail en andere inboxen naar Communicatie.
-description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP, WhatsApp of Slack, en lees de status en controles per kanaal.
+description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP of WhatsApp, en lees de status en controles per kanaal.
 keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening
 sort: 20
 related: communication,inbox-ai,widget,integrations
@@ -9,7 +9,7 @@ related: communication,inbox-ai,widget,integrations
 
 # Kanalen koppelen
 
-Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **E-mail en berichten**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij in de lijst **Kanalen** met dezelfde status, mogelijkheden en controles. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
+Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **E-mail en berichten**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp — is één rij in de lijst **Kanalen** met dezelfde status, mogelijkheden en controles. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
 
 ## Voeg een kanaal toe
 
@@ -18,7 +18,7 @@ Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna 
 
 1. Open **Instellingen** en daarna **E-mail en berichten**.
 2. Kies **Kanaal toevoegen**.
-3. Kies **E-mail**, **WhatsApp Business**, **Slack-workspace** of **Websitechat**. **E-mail** opent een tweede stap met **Gmail**, **Outlook**, **SMTP / IMAP** en **Bokito-adres**.
+3. Kies **E-mail**, **WhatsApp Business** of **Websitechat**. **E-mail** opent een tweede stap met **Gmail**, **Outlook**, **SMTP / IMAP** en **Bokito-adres**.
 4. Rond het formulier voor die keuze af. De nieuwe rij verschijnt in de lijst **Kanalen**.
 
 ## Koppel SMTP / IMAP
@@ -69,13 +69,12 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 3. Zet **Type voorwaarde** op **Afzenderdomein**, **Onderwerp bevat** of **Mailbox**, daarna **Toewijzen aan** een persoon (of **Niet toewijzen**) en optioneel **Labels**. Zet **Regel is actief** aan.
 4. Gebruik de kolom **Agent** op de rij om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder route behandelt de **standaardagent** nieuwe gesprekken. Maak één e-mailkanaal **Primair** als je er meerdere hebt.
 
-## Koppel WhatsApp of Slack
+## Koppel WhatsApp
 
-1. Kies **Kanaal toevoegen** en daarna **WhatsApp Business** of **Slack-workspace**. Marketplacekaarten voor deze apps sturen je hier ook heen.
+1. Kies **Kanaal toevoegen** en daarna **WhatsApp Business**. Marketplacekaarten voor deze app sturen je hier ook heen.
 2. WhatsApp is een stapsgewijze setup: **Voorbereiden in Meta** (app, nummer, Phone number ID, permanent System User-token), daarna **Plakken in Bokito** (weergavenaam, Telefoonnummer-ID, optioneel WABA-ID, toegangstoken) en **Nummer koppelen**. De Phone number ID is een lang getal uit Meta → WhatsApp → API Setup — niet je telefoonnummer.
 3. Na het koppelen toont Bokito **Webhook-URL** en **Verify token**. Plak die in Meta onder WhatsApp → Configuration, abonneer op **messages**, en stuur een testbericht. Tijdelijke Meta-tokens verlopen na 24 uur.
-4. Voor Slack vul je **Bot-token** en **Signing secret** in en kies je **Workspace koppelen**. Kopieer **Events-URL** en **Interactivity-URL** naar je Slack-app. Keuzekaarten kunnen daar binnenkomen met **Goedkeuren** en **Weigeren**.
-5. Websitechat is de [Chatwidget](/docs/inbox/widget); die rij opent de widgetinstellingen. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
+4. Websitechat is de [Chatwidget](/docs/inbox/widget); die rij opent de widgetinstellingen. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
 
 ## Bewaar antwoorden die het team hergebruikt
 

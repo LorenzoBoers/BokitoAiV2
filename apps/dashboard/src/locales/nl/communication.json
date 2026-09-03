@@ -215,6 +215,13 @@
     "earlierDraft": "Eerder concept — terzijde gelegd",
     "automatedExplainer": "Dit lijkt een automatisch bericht, dus er is geen antwoord opgesteld.",
     "decisionNeeded": "Beslissing nodig",
+    "source": {
+      "prefix": "Vanuit",
+      "agent_task": "queue-item",
+      "project": "project",
+      "agent_run": "agentrun",
+      "platform_change": "platformwijziging"
+    },
     "module": {
       "title": "{{module}}-actie",
       "kinds": {

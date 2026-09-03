@@ -12,7 +12,7 @@ export function moduleSetupPath(
   step?: IntegrationHubStep,
   tab?: 'overview' | 'connections' | 'sources' | 'setup' | null,
 ): string {
-  const base = `/modules/${encodeURIComponent(slug)}`
+  const base = `/connections/${encodeURIComponent(slug)}`
   const params = new URLSearchParams()
   if (tab && tab !== 'overview') params.set('tab', tab)
   const packageSlug = connect?.trim()
@@ -35,15 +35,17 @@ export function setupIntegrationHref(input: {
   const moduleSlug = input.module?.trim()
   const provider = input.provider?.trim()
   if (moduleSlug) return moduleSetupPath(moduleSlug, provider, provider ? 'setup' : undefined)
-  if (provider) return `/modules/marketplace?connect=${encodeURIComponent(provider)}`
-  return '/modules/marketplace'
+  if (provider) return `/connections/marketplace?connect=${encodeURIComponent(provider)}`
+  return '/connections/marketplace'
 }
 
 const RESERVED_MODULE_PATHS = new Set(['connected', 'marketplace', 'tools'])
+// `modules` is the hub's former root; OAuth returns minted there still arrive.
+const MODULE_PATH_ROOTS = new Set(['connections', 'modules'])
 
 export function moduleSlugFromPathname(pathname: string): string | null {
   const parts = pathname.split('/').filter(Boolean)
-  if (parts[0] === 'modules' && parts[1] && !RESERVED_MODULE_PATHS.has(parts[1])) {
+  if (MODULE_PATH_ROOTS.has(parts[0]) && parts[1] && !RESERVED_MODULE_PATHS.has(parts[1])) {
     return parts[1]
   }
   return null
@@ -55,9 +57,9 @@ export function buildIntegrationSetupReturnUrl(integrationId: string): string {
     step: 'detail',
   })
   const path = window.location.pathname
-  const base = path.startsWith('/modules/') ? path : '/modules/marketplace'
+  const base = path.startsWith('/connections/') ? path : '/connections/marketplace'
   // A second OAuth login from any Modules-hub page should not reuse the first.
-  if (path.startsWith('/modules/')) {
+  if (path.startsWith('/connections/')) {
     params.set('bokito_create_new', '1')
   }
   const moduleSlug = moduleSlugFromPathname(path)

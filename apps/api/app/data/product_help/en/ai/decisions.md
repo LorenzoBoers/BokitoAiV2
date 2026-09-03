@@ -1,8 +1,8 @@
 ---
 title: Approve and decline decisions
 intro: Agents ask inside the thread when a step needs your judgment. Every open approval shares one Decisions leaf.
-description: Approve, edit or decline decision cards in the thread, from the Decisions queue, Cockpit, or Slack when it is connected.
-keywords: decisions, approvals, decision requests, slack, human in the loop
+description: Approve, edit or decline decision cards in the thread, from the Decisions queue, Cockpit, or a notification.
+keywords: decisions, approvals, decision requests, notifications, human in the loop
 sort: 20
 related: communication,agent-runs,autonomy,govern
 ---
@@ -28,11 +28,12 @@ Automated mail (receipts, newsletters, no-reply senders) does not fill Decisions
 2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Create task** or **Keep open**. Suggested-reply cards from [Inbox AI](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
 3. Under agent messages, small icons mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent — hover an icon to see its label. Escalate pauses AI on the thread and assigns you.
 
-## Answer from Slack
+## Answer from a notification
 
-1. Connect Slack under **Settings**, then **Email & messages**. See [Channels](/docs/inbox/channels). Decision cards can arrive there with **Approve** and **Deny**.
-2. Use those buttons when you are not in Bokito. The thread in Communication updates the same way.
-3. Inbox AI suggestions still need a human send unless autonomy allows more.
+1. Choose the decision in the bell menu, or open the push notification on your phone. Both open the thread and jump straight to the waiting card.
+2. Read the card's source line: it names where the request came from — a project queue item, an agent run, or a proposed workspace change — and links to it.
+3. Answer in the thread. Inbox AI suggestions still need a human send unless autonomy allows more.
+4. Turn notifications per event on or off under **Settings**, then **Notifications**.
 
 ## When agents ask
 

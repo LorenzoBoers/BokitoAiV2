@@ -29,7 +29,13 @@ export function pathForNotification(input: {
   const signalId = notificationSignalId(payload)
 
   if (kind === 'decision_request') {
-    return signalId ? decisionsPath(signalId) : decisionsPath()
+    if (!signalId) return decisionsPath()
+    // `?message=` scrolls straight to the card instead of the thread top,
+    // which matters most on mobile where a thread can be long.
+    const messageId = stringField(payload, 'message_id')
+    return messageId
+      ? `${decisionsPath(signalId)}?message=${encodeURIComponent(messageId)}`
+      : decisionsPath(signalId)
   }
 
   if (signalId) {

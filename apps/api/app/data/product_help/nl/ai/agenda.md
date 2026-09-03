@@ -37,7 +37,7 @@ Agents met kalendertools kunnen aankomende afspraken tonen (met vaste ids) en ni
    - **Event** — een herinnering op de agenda. Geen agent-run.
    - **Terugkerend schema** — **Cron-expressie (UTC)** (bijvoorbeeld ochtenden op weekdagen).
    - **Herhalend** — **Elke (minuten)**.
-   - **Check-in** — een heartbeat. De gezaaide **Platform check-in** is hoe de assistent de workspace bewaakt. Die meldt zich alleen wanneer iets aandacht nodig heeft, in één gesprek in Berichten.
+   - **Check-in** — een heartbeat. De gezaaide check-in is hoe de assistent de workspace bewaakt. Die meldt zich alleen wanneer iets aandacht nodig heeft, in het eigen kanaal van die assistent in Communicatie.
    - **Inkomende trigger** — een extern systeem POSTet JSON naar de **Hook-URL**. Na opslaan kopieer je **Inkomend geheim (eenmalig zichtbaar)**. Stuur het als header `X-Bokito-Secret` of `?secret=`. Gebruik later **Testping** en **Geheim vernieuwen**. Inkomende hooks zijn beperkt tot 60 POSTs per minuut.
 
 Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starten nooit.

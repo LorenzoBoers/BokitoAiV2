@@ -44,7 +44,7 @@ async def call_verb(
     if not await module_is_on(session, tenant_id, "banking"):
         return module_error(
             "module_off",
-            "Banking is off. Turn it on at /modules/banking before agents "
+            "Banking is off. Turn it on at /connections/banking before agents "
             "use banking tools.",
         )
 
@@ -70,7 +70,7 @@ async def call_verb(
     if not connections:
         return module_error(
             "no_connection",
-            "No bank connection is registered. Open /modules/banking and "
+            "No bank connection is registered. Open /connections/banking and "
             "connect a PSD2 provider.",
         )
 

@@ -159,9 +159,13 @@ async def notify_decision(
     body = (decision.title or decision.summary or "A decision needs your attention")[:200]
     resolved_signal_id = signal_id or decision.signal_id
     payload = {
-        "kind": "decision",
+        # `decision_request` matches the notification kind the dashboard router
+        # and the service worker both switch on.
+        "kind": "decision_request",
         "decision_id": str(decision.id),
         "signal_id": str(resolved_signal_id) if resolved_signal_id else "",
+        # Deep-link target: the card itself, not the top of the thread.
+        "message_id": str(decision.message_id) if decision.message_id else "",
     }
 
     recipients: list[UUID] = []

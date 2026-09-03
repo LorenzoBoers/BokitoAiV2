@@ -17,7 +17,7 @@ How to add or extend integrations in the dashboard marketplace (`/integrations/m
 ```mermaid
 flowchart TB
   subgraph ui [Dashboard]
-    MP[IntegrationsMarketplace]
+    MP[ConnectionsMarketplace]
     Hub[IntegrationHubDialog]
     Reg[integrations/registry.ts]
     MP --> Hub
@@ -103,26 +103,24 @@ Vendor-hosted MCP servers (Notion, Linear, Slack, etc.) use OAuth 2.1 + PKCE. To
 - [ ] Env: `RUNTIME_INTERNAL_URL`, `WORKER_INBOUND_SECRET`, `MCP_OAUTH_CALLBACK_URL`, `{PREFIX}_CLIENT_ID`, `_CLIENT_SECRET`, `_REDIRECT_URI`
 - [ ] Set provider `status: available` only when OAuth app is registered at vendor
 
-### 2. Frontend
+### 2. Shared catalog (preferred)
 
-- [ ] Entry in `apps/dashboard/src/lib/mcp-remote-providers.ts` and `integrations/registry.ts` (`setupMode: remote_mcp_oauth`, `oauthStrategy: mcp_remote`)
-- [ ] Card in `integrations-data.ts` + `PLATFORM_PROVIDER_SLUGS`
-- [ ] Route: `integrationsRoutes.platform.mcpOAuthStart` in `integrations.routes.ts`
-- [ ] `startMcpRemoteOAuth` in `integrations-api.ts`; `mcp_remote` branch in `integration-oauth-flow.ts`
+Add one host (if new) and one provider row to **`apps/api/app/data/mcp_remote_catalog.json`**.
 
-### 3. Runtime
+- Host: `slug`, `name`, `brand_color`, `initials`, optional `simpleicons` (CDN logo), optional `logo_domain` (favicon fallback), `description`
+- Provider: `slug`, `static_id`, `host_slug`, `auth_type`, `mcp_remote_url`, `status`
+- Set `status: available` only when `auth_type` is `mcp_remote_oauth` and `mcp_remote_url` is a real public MCP URL
+- Otherwise leave `mcp_remote_url` empty and `status: coming_soon`
+- Optional `{PROVIDER_SLUG}_OAUTH_CLIENT_ID` / `_SECRET` when the vendor does not support dynamic client registration
 
-- [ ] `MCP_OAUTH_CALLBACK_URL` matches public callback URL
-- [ ] Internal routes: `POST /internal/mcp/oauth/start`, `/exchange`, `/refresh` (Bearer `WORKER_INBOUND_SECRET`)
+Dashboard hosts, marketplace cards, registry entries, and FastAPI `PROVIDERS` are generated from that file. No per-provider edits in `mcp-remote-providers.ts` or `integrations_catalog.py`.
 
-### 4. Verify
+### 3. Verify
 
-- [ ] Marketplace setup opens OAuth panel (not API key form)
-- [ ] OAuth round-trip: `?integration=connected&provider=<slug>`
-- [ ] `GET /integrations/mcp/bindings` shows `remote_oauth` config
-- [ ] `POST /integrations/worker/mcp-credentials` returns access token for agents
-
-Adding provider #11: seed + env + `mcp-remote-providers.ts` only (no new FastAPI `if provider ==` branches).
+- [ ] Marketplace card shows the logo (local `public/brands` or Simple Icons CDN)
+- [ ] Available presets open remote MCP OAuth (`mcp_remote`)
+- [ ] Coming-soon presets stay non-connectable
+- [ ] OAuth round-trip: `?integration=connected&provider=<slug>` when marked available
 
 ---
 

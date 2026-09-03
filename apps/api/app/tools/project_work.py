@@ -107,6 +107,8 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
                 "title": f"Add to queue of {project.name}?",
                 "summary": f"{kind}: {title}" + (f" — {body[:200]}" if body else ""),
                 "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
+                # Provenance for the card: the queue this item would join.
+                "project_id": str(project.id),
                 "options": [
                     {
                         "id": "approve",

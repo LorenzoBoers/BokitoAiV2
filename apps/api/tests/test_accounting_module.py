@@ -73,7 +73,7 @@ async def _moneybird_connection(
 def test_module_catalog_has_prepared_modules():
     modules = {m["slug"]: m for m in serialize_modules()}
     assert modules["accounting"]["status"] == "available"
-    assert modules["accounting"]["setup_path"] == "/modules/accounting"
+    assert modules["accounting"]["setup_path"] == "/connections/accounting"
     assert modules["accounting"]["enabled"] is False
     assert modules["accounting"]["tenant_status"] == "not_installed"
     assert "list_companies" in modules["accounting"]["verbs"]
@@ -95,7 +95,7 @@ def test_module_catalog_has_prepared_modules():
         assert modules[slug]["status"] == "coming_soon"
         assert modules[slug]["tenant_status"] == "coming_soon"
         assert modules[slug]["provider_slugs"] == []
-        assert modules[slug]["setup_path"] == f"/modules/{slug}"
+        assert modules[slug]["setup_path"] == f"/connections/{slug}"
         assert modules[slug]["tool_cards"]
 
 
@@ -558,7 +558,7 @@ async def test_module_skill_injected_only_with_connection(session_override: Asyn
     playbook = await active_module_skill_prompt(session_override, tenant.id)
     assert "on, no package" in playbook
     assert "recommend_module" in playbook
-    assert "/modules/accounting" in playbook
+    assert "/connections/accounting" in playbook
     assert "accounting_list_companies" not in playbook
 
     await _moneybird_connection(session_override, tenant)
@@ -592,6 +592,7 @@ async def test_snapshot_hides_vendor_tools_for_accounting(session_override: Asyn
     assert len(snapshot["module_connections"]["accounting"]) == 2
     assert all(
         not m["server_url"].startswith("native://king-accountancy")
+        and "/api/mcp/partners/king" not in m["server_url"]
         for m in snapshot["mcp_servers"]
     )
 
@@ -617,7 +618,7 @@ async def test_snapshot_lists_unconnected_modules(session_override: AsyncSession
     prompt = format_tenant_snapshot_prompt(snapshot)
     assert "Modules:" in prompt
     assert "accounting — not installed" in prompt
-    assert "/modules/accounting" in prompt
+    assert "/connections/accounting" in prompt
     assert "prepared, not connectable" in prompt
 
 
@@ -630,7 +631,7 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     slugs = {row["slug"] for row in listed["modules"]}
     assert slugs == {"accounting", "banking", "investing", "documents"}
     accounting = next(row for row in listed["modules"] if row["slug"] == "accounting")
-    assert accounting["setup_path"] == "/modules/accounting"
+    assert accounting["setup_path"] == "/connections/accounting"
     assert accounting["tenant_status"] == "not_installed"
     assert accounting["enabled"] is False
 

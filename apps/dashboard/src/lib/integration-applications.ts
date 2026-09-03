@@ -3,6 +3,7 @@ import type { IntegrationProviderRow } from './integrations-api'
 import { hostSlugForProvider, resolveProviderBrand, type ResolvedIntegrationBrand } from './integration-brand'
 import { resolveIntegrationKind, type IntegrationKind } from './integration-kind'
 import { getRegistryEntryByStaticId, type ProviderRegistryEntry } from './integrations/registry'
+import { REMOTE_MCP_HOSTS, REMOTE_MCP_PROVIDERS } from './mcp-remote-providers'
 
 /** One connectable product under an application (maps to `integration_providers`). */
 export type IntegrationOffer = {
@@ -31,7 +32,7 @@ export type IntegrationApplication = {
   module: string | null
 }
 
-const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
+const CORE_HOST_DISPLAY: Record<string, { name: string; description: string }> = {
   github: {
     name: 'GitHub',
     description: 'Repositories for code indexing and optional GitHub tools for agents.',
@@ -43,30 +44,6 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
   google: {
     name: 'Google',
     description: 'Gmail mailboxes for inbox and email in Bokito.',
-  },
-  notion: {
-    name: 'Notion',
-    description: 'Workspace pages and knowledge via sign-in.',
-  },
-  linear: {
-    name: 'Linear',
-    description: 'Issues, projects, and comments via sign-in.',
-  },
-  atlassian: {
-    name: 'Atlassian',
-    description: 'Jira, Confluence, and Compass via Atlassian.',
-  },
-  slack: {
-    name: 'Slack',
-    description: 'Channels and messages via Slack.',
-  },
-  asana: { name: 'Asana', description: 'Tasks and projects in Asana.' },
-  clickup: { name: 'ClickUp', description: 'ClickUp workspaces and tasks.' },
-  sentry: { name: 'Sentry', description: 'Issues and debugging context from Sentry.' },
-  stripe: { name: 'Stripe', description: 'Billing data and actions from Stripe.' },
-  shopify: {
-    name: 'Shopify',
-    description: 'Storefront and admin data for e-commerce agents (per-store OAuth).',
   },
   king: {
     name: 'KING Accountancy',
@@ -82,19 +59,23 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
   },
   exact: {
     name: 'Exact Online',
-    description: 'Full accounting via the Exact Online REST API.',
+    description: 'Full accounting via the Exact Online REST API or hosted MCP partner.',
   },
   snelstart: {
     name: 'SnelStart',
     description: 'Relations, invoices and general ledger via the SnelStart B2B API.',
   },
+  gocardless: {
+    name: 'GoCardless',
+    description: 'Read-only PSD2 bank account data via GoCardless Bank Account Data.',
+  },
   custom: {
     name: 'Custom tool',
     description: 'Any external tool by URL with API key or bearer token.',
   },
-  higgsfield: {
-    name: 'Higgsfield',
-    description: 'AI image and video generation via Higgsfield.',
+  shopify: {
+    name: 'Shopify',
+    description: 'Storefront and admin data for e-commerce agents (per-store OAuth).',
   },
   whatsapp: {
     name: 'WhatsApp',
@@ -102,22 +83,46 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
   },
 }
 
-/** Provider slug -> module slug, for rows that only carry a provider slug. */
-export const MODULE_BY_PROVIDER_SLUG: Record<string, string> = {
+const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
+  ...CORE_HOST_DISPLAY,
+  ...Object.fromEntries(
+    REMOTE_MCP_HOSTS.map((h) => [
+      h.slug,
+      { name: h.name, description: h.description || h.name },
+    ]),
+  ),
+}
+
+const CORE_MODULE_BY_PROVIDER: Record<string, string> = {
   king_accountancy: 'accounting',
   bjorn_lunden_mcp: 'accounting',
   moneybird: 'accounting',
   exact_online: 'accounting',
   snelstart: 'accounting',
+  gocardless_bank: 'banking',
 }
 
-/** Static fallback when the API provider row does not carry a module field. */
-const MODULE_BY_HOST: Record<string, string> = {
+export const MODULE_BY_PROVIDER_SLUG: Record<string, string> = {
+  ...CORE_MODULE_BY_PROVIDER,
+  ...Object.fromEntries(
+    REMOTE_MCP_PROVIDERS.filter((p) => p.module).map((p) => [p.slug, p.module as string]),
+  ),
+}
+
+const CORE_MODULE_BY_HOST: Record<string, string> = {
   king: 'accounting',
   bjorn_lunden: 'accounting',
   moneybird: 'accounting',
   exact: 'accounting',
   snelstart: 'accounting',
+  gocardless: 'banking',
+}
+
+const MODULE_BY_HOST: Record<string, string> = {
+  ...CORE_MODULE_BY_HOST,
+  ...Object.fromEntries(
+    REMOTE_MCP_PROVIDERS.filter((p) => p.module).map((p) => [p.hostSlug, p.module as string]),
+  ),
 }
 
 export function moduleForApplication(hostSlug: string, offers: IntegrationOffer[]): string | null {

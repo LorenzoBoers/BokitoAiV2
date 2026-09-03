@@ -6,8 +6,8 @@ import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import {
   ApplicationHubDialog,
   type ApplicationHubStep,
+  type HubBanner,
 } from '../components/integrations/ApplicationHubDialog'
-import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { ModuleConnectionsPanel } from '../components/integrations/ModuleConnectionsPanel'
 import { ModuleSourcesPanel } from '../components/integrations/ModuleSourcesPanel'
 import { ModuleOverview } from '../components/modules/ModuleOverview'
@@ -288,7 +288,7 @@ export default function ModuleSetupPage() {
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <Link
-            to="/modules"
+            to="/connections"
             className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
           >
             <ArrowLeft size={12} />
@@ -364,10 +364,10 @@ export default function ModuleSetupPage() {
             })}
             action={
               <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
-                <Link to="/modules" className="font-medium text-accent hover:underline">
+                <Link to="/connections" className="font-medium text-accent hover:underline">
                   {t('integrations.modules.openCatalog', { defaultValue: 'Open Modules' })}
                 </Link>
-                <Link to="/modules/marketplace" className="font-medium text-accent hover:underline">
+                <Link to="/connections/marketplace" className="font-medium text-accent hover:underline">
                   {t('integrations.modules.openMarketplace', { defaultValue: 'Open Marketplace' })}
                 </Link>
               </div>

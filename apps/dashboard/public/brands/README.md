@@ -2,6 +2,10 @@
 
 Used when `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/lib/brand-assets.ts`.
 
+Hosts from `apps/api/app/data/mcp_remote_catalog.json` that are not listed below resolve logos via:
+1. Simple Icons CDN when `simpleicons` is set and the slug exists
+2. Otherwise Google favicon for `logo_domain` on the host row
+
 ## Sources (official or vendor-published marks)
 
 | File | Source |

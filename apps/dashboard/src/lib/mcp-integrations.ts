@@ -80,7 +80,12 @@ function endpointForRow(
     return url ?? ''
   }
   if (provider.slug === 'king_accountancy') {
-    return 'KING Accountancy'
+    return (
+      (connection.metadata?.server_url as string | undefined) ??
+      (bindingConfig?.server_url as string | undefined) ??
+      provider.mcp_remote_url ??
+      'KING Accountancy'
+    )
   }
   if (provider.slug === 'bjorn_lunden_mcp') {
     return 'Bjorn Lunden MCP'

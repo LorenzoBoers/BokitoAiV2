@@ -64,7 +64,7 @@ export function ProjectRepoSection({
         <div className="space-y-2">
           <p className="text-sm text-text-muted">{t('project.settings.repo.connectGithubFirst')}</p>
           <Button type="button" size="sm" variant="outline" asChild>
-            <Link to={`/modules/connected?return=${encodeURIComponent(`/projects/${project.id}`)}`}>
+            <Link to={`/connections/connected?return=${encodeURIComponent(`/projects/${project.id}`)}`}>
               {t('project.settings.repo.openIntegrations')}
             </Link>
           </Button>

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CalendarDays, Mail, Puzzle } from 'lucide-react'
-import { connectedPathWithKind } from '../../lib/integration-kind-url'
+import { marketplacePathWithKind } from '../../lib/integration-kind-url'
 
 type Props = {
   needsChannel: boolean
@@ -25,7 +25,7 @@ export function ConnectionsNextSteps({ needsChannel, needsAgenda, needsModule }:
     needsAgenda
       ? {
           key: 'agenda',
-          to: `${connectedPathWithKind('calendar')}#catalog`,
+          to: marketplacePathWithKind('calendar'),
           icon: CalendarDays,
           label: t('integrations.connected.nextAgenda'),
         }
@@ -33,7 +33,7 @@ export function ConnectionsNextSteps({ needsChannel, needsAgenda, needsModule }:
     needsModule
       ? {
           key: 'module',
-          to: '/modules',
+          to: '/connections/marketplace',
           icon: Puzzle,
           label: t('integrations.connected.nextModule'),
         }

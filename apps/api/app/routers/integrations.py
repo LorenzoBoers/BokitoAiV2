@@ -841,18 +841,35 @@ async def mcp_oauth_start(
     provider: str = Query(...),
     return_url: str = Query(...),
 ):
-    del session, return_url
-    if provider not in PROVIDER_BY_SLUG:
-        raise HTTPException(status_code=400, detail="Unknown provider")
-    # No mock success: MCP OAuth connects only ship together with a real
-    # authorization flow. Until then the catalog lists these as coming_soon.
-    raise HTTPException(
-        status_code=503,
-        detail=(
-            "MCP OAuth is not available yet. "
-            "Install the MCP server with its URL and API key instead."
-        ),
+    auth.require_role("owner", "admin")
+    from app.services.mcp_oauth import start_mcp_remote_oauth
+
+    return await start_mcp_remote_oauth(
+        session,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+        provider=provider,
+        return_url=return_url,
     )
+
+
+@router.get("/mcp/oauth/callback")
+async def mcp_oauth_callback(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    state: str = Query(...),
+    code: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    error_description: str | None = Query(default=None),
+):
+    from app.services.mcp_oauth import complete_mcp_remote_oauth
+
+    target = await complete_mcp_remote_oauth(
+        session,
+        state=state,
+        code=code,
+        error=error or error_description,
+    )
+    return RedirectResponse(url=target, status_code=302)
 
 
 @router.post("/mcp/install", dependencies=[Depends(rate_limit("mcp-install", limit=10))])
@@ -926,19 +943,46 @@ async def list_mcp_servers(
 ):
     import json as _json
 
+    from app.models.integration import IntegrationBinding, IntegrationConnection
+
     result = await session.execute(select(McpServer).where(McpServer.tenant_id == auth.tenant.id))
+    binding_result = await session.execute(
+        select(IntegrationBinding, IntegrationConnection)
+        .join(IntegrationConnection, IntegrationConnection.id == IntegrationBinding.connection_id)
+        .where(
+            IntegrationBinding.tenant_id == auth.tenant.id,
+            IntegrationBinding.binding_type == "mcp_server",
+        )
+    )
+    server_meta: dict[str, dict] = {}
+    for binding, conn in binding_result.all():
+        try:
+            cfg = _json.loads(binding.config_json or "{}")
+        except (_json.JSONDecodeError, TypeError):
+            cfg = {}
+        sid = str(cfg.get("mcp_server_id") or "").strip()
+        if sid:
+            server_meta[sid] = {
+                "provider": conn.provider,
+                "connection_id": str(conn.id),
+                "display_name": conn.display_name,
+            }
+
     rows = []
     for s in result.scalars().all():
         try:
             tools = _json.loads(s.tools_json or "[]")
         except (_json.JSONDecodeError, TypeError):
             tools = []
+        meta = server_meta.get(str(s.id), {})
         rows.append(
             {
                 "id": str(s.id),
                 "name": s.name,
                 "server_url": s.server_url,
                 "is_active": s.is_active,
+                "provider": meta.get("provider"),
+                "connection_id": meta.get("connection_id"),
                 "tools": tools if isinstance(tools, list) else [],
                 "tools_synced_at": s.tools_synced_at.isoformat() if s.tools_synced_at else None,
             }

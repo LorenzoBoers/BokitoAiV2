@@ -22,6 +22,43 @@ async def _login(client: AsyncClient) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest.mark.asyncio
+async def test_parked_slack_skips_decision_notify(monkeypatch: pytest.MonkeyPatch):
+    """A parked Slack channel drops out of the decision fan-out; push stays."""
+    import uuid
+
+    from app.config import get_settings
+    from app.gateway import publish as publish_module
+    from app.services import push as push_module
+    from app.services import slack_notify
+
+    scheduled: list[str] = []
+    monkeypatch.setattr(
+        push_module,
+        "schedule_notify_decision",
+        lambda *a, **k: scheduled.append("push"),
+    )
+    monkeypatch.setattr(
+        slack_notify,
+        "schedule_notify_decision_slack",
+        lambda *a, **k: scheduled.append("slack"),
+    )
+    monkeypatch.setattr(publish_module, "_safe_publish", AsyncMock())
+
+    tenant_id = uuid.uuid4()
+    monkeypatch.setattr(get_settings(), "parked_channels", "slack")
+    await publish_module.publish_decision(
+        tenant_id, decision_id=uuid.uuid4(), status="awaiting_human"
+    )
+    assert scheduled == ["push"]
+
+    monkeypatch.setattr(get_settings(), "parked_channels", "")
+    await publish_module.publish_decision(
+        tenant_id, decision_id=uuid.uuid4(), status="awaiting_human"
+    )
+    assert scheduled == ["push", "push", "slack"]
+
+
 def test_decision_blocks_carry_decision_id():
     from app.models.notification import DecisionRequest
     from app.services.slack_notify import decision_blocks
@@ -90,7 +127,9 @@ def _signed_interaction_headers(secret: str, body: bytes) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_slack_interaction_approves_decision(client: AsyncClient, session_override, monkeypatch):
+async def test_slack_interaction_approves_decision(
+    client: AsyncClient, session_override, monkeypatch, unparked_channels
+):
     from app.models.auth import Tenant
     from app.services import slack_notify
 
@@ -151,7 +190,7 @@ async def test_slack_interaction_approves_decision(client: AsyncClient, session_
 
 
 @pytest.mark.asyncio
-async def test_slack_interaction_rejects_bad_signature(client: AsyncClient):
+async def test_slack_interaction_rejects_bad_signature(client: AsyncClient, unparked_channels):
     headers = await _login(client)
     await client.post(
         "/api/channels/accounts",

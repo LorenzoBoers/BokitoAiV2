@@ -170,9 +170,12 @@ async def collect_tenant_snapshot(
     ).scalars().all()
     mcp_servers = []
     for m in mcp_rows:
-        # Module-package connections (native:// servers) are surfaced as module
-        # capacity below, not as MCP servers with vendor tool names.
-        if m.server_url.startswith("native://"):
+        # Module-package connections (native:// or Bokito-hosted partner MCP)
+        # are surfaced as module capacity below, not as MCP servers with vendor
+        # tool names that would confuse agents.
+        from app.services.partner_mcp import is_partner_mcp_url
+
+        if m.server_url.startswith("native://") or is_partner_mcp_url(m.server_url):
             continue
         try:
             cached_tools = json.loads(m.tools_json or "[]")
@@ -354,7 +357,7 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
         for module in modules:
             slug = str(module.get("slug") or "")
             status = str(module.get("tenant_status") or module.get("status") or "")
-            setup = str(module.get("setup_path") or f"/settings/modules/{slug}")
+            setup = str(module.get("setup_path") or f"/connections/{slug}")
             when = str(module.get("needs_when") or "").strip()
             if status == "coming_soon":
                 coming.append(slug)

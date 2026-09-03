@@ -36,7 +36,7 @@ import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda
 import { Input } from '../components/ui/input'
 import { agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { resolveAgendaAgentId, resolveAgendaAgentName } from '../lib/agenda-label'
-import { pickClosestThreadBySubject } from '../lib/agenda-thread'
+import { pickClosestThreadBySubject, triggerThreadPath } from '../lib/agenda-thread'
 import { translateDecisionText } from '../lib/activity-labels'
 import { agendaStatusLabel } from '../lib/status-labels'
 import { cn } from '../lib/utils'
@@ -389,6 +389,12 @@ export default function AgendaPage() {
       return
     }
     void (async () => {
+      // The trigger knows its own thread; only older rows need a subject search.
+      const direct = item.status !== 'planned' || item.run_id ? triggerThreadPath(item) : null
+      if (direct) {
+        navigate(direct)
+        return
+      }
       if (token && item.name.trim()) {
         try {
           const found = await listThreads(token, {

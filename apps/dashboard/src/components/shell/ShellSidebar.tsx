@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Fragment } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Brain, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
@@ -157,8 +157,8 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             const isGroupCollapsed = collapsedGroups[group.label] ?? false
             const showItems = collapsed || !isGroupCollapsed
             return (
+              <Fragment key={group.label}>
               <section
-                key={group.label}
                 data-tour={group.label === 'AI' ? 'nav-group-ai' : undefined}
               >
                 {!collapsed ? (
@@ -182,8 +182,15 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                       const active = activeTab === tab
                       const badge = badgeForTab(tab)
                       const showNew = isNewTab(tab)
+                      const knowledgeActive =
+                        tab === 'knowledge' &&
+                        (pathname.startsWith('/knowledge') ||
+                          pathname.startsWith('/workspace') ||
+                          pathname.startsWith('/skills'))
                       const activeClass =
-                        'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
+                        tab === 'knowledge'
+                          ? 'bg-ai/10 font-medium text-ai-ink shadow-[inset_2px_0_0_0_rgb(var(--color-ai))]'
+                          : 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
                       return (
                         <NavLink
                           key={tab}
@@ -195,7 +202,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                           className={`relative flex items-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
                             collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
                           } ${
-                            active
+                            active || knowledgeActive
                               ? activeClass
                               : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
                           }`}
@@ -222,19 +229,26 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                         </NavLink>
                       )
                     })}
-                    {group.label === 'AI' ? (
-                      <KnowledgeNavLink collapsed={collapsed} onNavigate={onNavigate} />
-                    ) : null}
-                    {group.label === 'AI' && installedModules.length > 0 ? (
-                      <InstalledModulesNav
-                        modules={installedModules}
-                        collapsed={collapsed}
-                        onNavigate={onNavigate}
-                      />
-                    ) : null}
                   </div>
                 ) : null}
               </section>
+              {group.label === 'AI' && installedModules.length > 0 ? (
+                <section key="installed-modules">
+                  {!collapsed ? (
+                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                      {t('tabGroups.modules', { defaultValue: 'Modules' })}
+                    </p>
+                  ) : null}
+                  <div className={`mt-0.5 space-y-px ${collapsed ? 'flex flex-col items-center gap-1 space-y-0' : ''}`}>
+                    <InstalledModulesNav
+                      modules={installedModules}
+                      collapsed={collapsed}
+                      onNavigate={onNavigate}
+                    />
+                  </div>
+                </section>
+              ) : null}
+              </Fragment>
             )
           })}
         </nav>
@@ -256,42 +270,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   )
 }
 
-/** Knowledge nests under the Agents (AI) group — violet brain identity. */
-function KnowledgeNavLink({
-  collapsed,
-  onNavigate,
-}: {
-  collapsed: boolean
-  onNavigate?: () => void
-}) {
-  const { t } = useTranslation('nav')
-  const { pathname } = useLocation()
-  const active =
-    pathname.startsWith('/knowledge') ||
-    pathname.startsWith('/workspace') ||
-    pathname.startsWith('/skills')
-  const label = t('tabs.knowledge.title', { defaultValue: 'Knowledge' })
-  return (
-    <NavLink
-      to="/knowledge"
-      onClick={onNavigate}
-      title={label}
-      aria-label={label}
-      data-tour="nav-knowledge"
-      className={`relative flex items-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
-        collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
-      } ${
-        active
-          ? 'bg-ai/10 font-medium text-ai-ink shadow-[inset_2px_0_0_0_rgb(var(--color-ai))]'
-          : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
-      }`}
-    >
-      <Brain size={15} className="shrink-0" />
-      {!collapsed ? <span className="min-w-0 flex-1 truncate">{label}</span> : null}
-    </NavLink>
-  )
-}
-
+/** Installed module workspaces — own rail group, not nested under AI or Connections. */
 function InstalledModulesNav({
   modules,
   collapsed,
@@ -304,43 +283,8 @@ function InstalledModulesNav({
   const { t } = useTranslation('nav')
   const { pathname } = useLocation()
 
-  if (collapsed) {
-    return (
-      <>
-        {modules.map((module) => {
-          const to = moduleWorkspacePath(module)
-          const active = pathname.startsWith(to)
-          const name = t(`integrations.modules.${module.slug}.name`, {
-            defaultValue: module.name,
-          })
-          const Icon = moduleNavIcon(module.slug)
-          return (
-            <NavLink
-              key={module.slug}
-              to={to}
-              onClick={onNavigate}
-              title={name}
-              aria-label={name}
-              data-tour={`nav-module-${module.slug}`}
-              className={`relative flex h-9 w-9 items-center justify-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
-                active
-                  ? 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
-                  : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
-              }`}
-            >
-              <Icon size={15} className="shrink-0" />
-            </NavLink>
-          )
-        })}
-      </>
-    )
-  }
-
   return (
-    <div className="mt-2 space-y-px border-t border-border/30 pt-2">
-      <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-        {t('tabGroups.modules', { defaultValue: 'Modules' })}
-      </p>
+    <>
       {modules.map((module) => {
         const to = moduleWorkspacePath(module)
         const active = pathname.startsWith(to)
@@ -356,17 +300,19 @@ function InstalledModulesNav({
             title={name}
             aria-label={name}
             data-tour={`nav-module-${module.slug}`}
-            className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
+            className={`relative flex items-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
+              collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
+            } ${
               active
                 ? 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
                 : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
             }`}
           >
             <Icon size={15} className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{name}</span>
+            {!collapsed ? <span className="min-w-0 flex-1 truncate">{name}</span> : null}
           </NavLink>
         )
       })}
-    </div>
+    </>
   )
 }

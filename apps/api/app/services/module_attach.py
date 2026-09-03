@@ -21,6 +21,9 @@ from app.modules.catalog import MODULE_BY_SLUG, module_for_provider
 
 MODULE_BINDING = "module"
 RESERVED_MODULE_PATHS = frozenset({"connected", "marketplace", "tools"})
+# Hub path segments that carry a module slug: `/connections/{slug}` today,
+# `/modules/{slug}` on links minted before the hub moved.
+MODULE_PATH_ROOTS = ("connections", "modules")
 
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
@@ -51,7 +54,11 @@ def module_slug_from_return_url(return_url: str) -> str | None:
     if raw in MODULE_BY_SLUG:
         return raw
     parts = [p for p in parsed.path.strip("/").split("/") if p]
-    if len(parts) >= 2 and parts[0] == "modules" and parts[1] not in RESERVED_MODULE_PATHS:
+    if (
+        len(parts) >= 2
+        and parts[0] in MODULE_PATH_ROOTS
+        and parts[1] not in RESERVED_MODULE_PATHS
+    ):
         slug = parts[1]
         if slug in MODULE_BY_SLUG:
             return slug

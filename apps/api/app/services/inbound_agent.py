@@ -173,6 +173,7 @@ async def create_action_suggestion(
         agent_id=agent.id if agent else None,
         signal_id=signal.id,
         project_id=signal.project_id,
+        run_id=run_id,
         notification_title="No reply needed",
         notification_payload={
             "kind": "action_suggestion",
@@ -374,6 +375,7 @@ async def create_human_attention_suggestion(
         agent_id=agent.id if agent else None,
         signal_id=signal.id,
         project_id=signal.project_id,
+        run_id=run_id,
         notification_payload={
             "kind": "needs_attention",
             "channel": signal.channel,
@@ -470,6 +472,7 @@ async def create_reply_suggestion(
         agent_id=agent.id,
         signal_id=signal.id,
         project_id=signal.project_id,
+        run_id=run_id,
         notification_payload={
             "kind": "reply_suggestion",
             "channel": signal.channel,

@@ -20,9 +20,8 @@ import {
 } from '../lib/integration-setup-url'
 import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
-import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
-import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
-import { moduleHomePath, moduleIsOn, plannedProviderLabel } from '../lib/integration-modules'
+import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
+import { applicationsForModule } from '../lib/module-applications'
 import {
   localizeApplication,
   resolveApplicationConnectTarget,
@@ -33,8 +32,8 @@ import { ApplicationCard } from '../components/integrations/ApplicationCard'
 import {
   ApplicationHubDialog,
   type ApplicationHubStep,
+  type HubBanner,
 } from '../components/integrations/ApplicationHubDialog'
-import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -48,7 +47,7 @@ function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): 
   return step === 'setup' ? 'offer-setup' : 'offer-detail'
 }
 
-export default function IntegrationsMarketplace() {
+export default function ConnectionsMarketplace() {
   const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -244,33 +243,22 @@ export default function IntegrationsMarketplace() {
     [applications],
   )
 
-  const moduleSlugs = useMemo(() => new Set(modules.map((m) => m.slug)), [modules])
-
-  const moduleSections = useMemo(() => {
+  /**
+   * Modules are their own zone: a preset is not a login, so the kind and status
+   * filters (which describe connections) hide the strip instead of reshaping it.
+   */
+  const visibleModules = useMemo(() => {
+    if (kindFilter !== 'all' || statusFilter === 'connected') return []
     const q = search.trim().toLowerCase()
-    return modules
-      .map((module) => {
-        const apps = filtered.filter((app) => app.module === module.slug && app.status !== 'coming_soon')
-        const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
-        const description = t(`integrations.modules.${module.slug}.description`, {
-          defaultValue: module.description,
-        })
-        const searchMatch =
-          !q || name.toLowerCase().includes(q) || description.toLowerCase().includes(q)
-        const showEmptyModule =
-          apps.length === 0 &&
-          statusFilter !== 'connected' &&
-          searchMatch &&
-          (module.status === 'coming_soon' || module.status === 'available')
-        return { module, name, description, apps, showEmptyModule }
+    if (!q) return modules
+    return modules.filter((module) => {
+      const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
+      const description = t(`integrations.modules.${module.slug}.description`, {
+        defaultValue: module.description,
       })
-      .filter((s) => s.apps.length > 0 || s.showEmptyModule)
-  }, [modules, filtered, search, statusFilter, t])
-
-  const ungrouped = useMemo(
-    () => filtered.filter((app) => !app.module || !moduleSlugs.has(app.module)),
-    [filtered, moduleSlugs],
-  )
+      return `${name} ${description}`.toLowerCase().includes(q)
+    })
+  }, [modules, kindFilter, statusFilter, search, t])
 
   return (
     <PageContent width="xl">
@@ -282,7 +270,7 @@ export default function IntegrationsMarketplace() {
         <p className="mt-1 max-w-2xl text-xs text-text-muted">
           {t('integrations.pageMeta.marketplace.modulesHint', {
             defaultValue:
-              'Business modules are turned on under Settings > Modules. Packages below show which connectors belong to each module.',
+              'Modules install a domain preset for agents. Integrations are the programs you sign in to; a module runs on top of them.',
           })}
         </p>
         {loadError ? (
@@ -331,7 +319,7 @@ export default function IntegrationsMarketplace() {
         </div>
       </div>
 
-      {filtered.length === 0 && moduleSections.length === 0 ? (
+      {filtered.length === 0 && visibleModules.length === 0 ? (
         <EmptyState
           icon={Search}
           title={
@@ -357,10 +345,7 @@ export default function IntegrationsMarketplace() {
                 </Button>
               ) : null}
               <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
-                <Link to="/modules" className="font-medium text-accent hover:underline">
-                  {t('integrations.marketplace.openModules')}
-                </Link>
-                <Link to="/modules/connected" className="font-medium text-accent hover:underline">
+                <Link to="/connections" className="font-medium text-accent hover:underline">
                   {t('integrations.marketplace.openConnected')}
                 </Link>
               </div>
@@ -368,84 +353,48 @@ export default function IntegrationsMarketplace() {
           }
         />
       ) : (
-        <div className="space-y-8">
-          {moduleSections.map((section) => (
-            <section key={section.module.slug}>
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <Link
-                  to={moduleHomePath(section.module)}
-                  className="text-sm font-semibold text-text-primary hover:text-accent"
-                >
-                  {section.name}
-                </Link>
-                <ModuleStatusBadge module={section.module} />
-                {section.module.status === 'coming_soon' ? null : (
-                  <ModuleInstallControls
-                    module={section.module}
-                    onAction={runModuleAction}
-                    compact
-                  />
-                )}
-                {section.module.status === 'coming_soon' ? null : (
-                  <Link
-                    to={moduleHomePath(section.module)}
-                    className="text-xs font-medium text-accent hover:underline"
-                  >
-                    {moduleIsOn(section.module)
-                      ? t('integrations.modules.manageCta', {
-                          defaultValue: 'Manage {{name}}',
-                          name: section.name,
-                        })
-                      : t('integrations.modules.setupCta', {
-                          defaultValue: 'View {{name}}',
-                          name: section.name,
-                        })}
-                  </Link>
-                )}
-              </div>
-              <p className="mb-3 max-w-2xl text-xs text-text-muted">{section.description}</p>
-              {section.apps.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {section.apps.map((application) => (
-                    <ApplicationCard
-                      key={application.hostSlug}
-                      application={application}
-                      onOpenDetail={() => openApplicationHub(application, 'app')}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {section.module.planned_provider_slugs.length > 0 ? (
-                <div className={`${section.apps.length > 0 ? 'mt-3' : ''} rounded-lg border border-dashed border-border-default p-4`}>
-                  <p className="text-xs text-text-muted">
-                    {t('integrations.modules.planned', {
-                      defaultValue: 'Planned connectors: {{providers}}',
-                      providers: section.module.planned_provider_slugs
-                        .map(plannedProviderLabel)
-                        .join(', '),
-                    })}
-                  </p>
-                </div>
-              ) : section.apps.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border-default p-4">
-                  <p className="text-xs text-text-muted">
-                    {t('integrations.modules.plannedEmpty', {
-                      defaultValue: 'Connectors for this module are not listed yet.',
-                    })}
-                  </p>
-                </div>
-              ) : null}
-            </section>
-          ))}
-          {ungrouped.length > 0 ? (
+        <div className="space-y-10">
+          {visibleModules.length > 0 ? (
             <section>
-              {moduleSections.length > 0 ? (
-                <h2 className="mb-3 text-sm font-semibold text-text-primary">
-                  {t('integrations.modules.sectionOther', { defaultValue: 'More integrations' })}
+              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold text-text-primary">
+                  {t('integrations.marketplace.modulesTitle', { defaultValue: 'Modules' })}
                 </h2>
-              ) : null}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {ungrouped.map((application) => (
+                <p className="text-xs text-text-muted">
+                  {t('integrations.marketplace.modulesSubtitle', {
+                    defaultValue: 'Domain presets: tools, prompts, and decisions in one install.',
+                  })}
+                </p>
+              </div>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {visibleModules.map((module) => (
+                  <MarketplaceModuleCard
+                    key={module.slug}
+                    module={module}
+                    applications={applicationsForModule(applications, module)}
+                    onAction={runModuleAction}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {filtered.length > 0 ? (
+            <section>
+              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold text-text-primary">
+                  {t('integrations.marketplace.integrationsTitle', {
+                    defaultValue: 'Integrations',
+                  })}
+                </h2>
+                <p className="text-xs text-text-muted">
+                  {t('integrations.marketplace.integrationsSubtitle', {
+                    defaultValue: 'Sign in to a program so agents can read and act in it.',
+                  })}
+                </p>
+              </div>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((application) => (
                   <ApplicationCard
                     key={application.hostSlug}
                     application={application}
@@ -480,6 +429,7 @@ export default function IntegrationsMarketplace() {
         initialStep={hubStep}
         initialOfferId={hubOffer?.integration.id ?? null}
         banner={hubBanner}
+        modules={modules}
         onViewConnected={handleViewConnected}
         onSaved={() => void refreshCatalog()}
       />

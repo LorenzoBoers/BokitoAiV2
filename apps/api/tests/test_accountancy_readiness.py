@@ -313,7 +313,10 @@ async def test_king_accountancy_install_discovers_read_tools(
     )
     assert install.status_code == 200, install.text
     body = install.json()
-    assert body["binding"]["config"]["server_url"] == "native://king-accountancy"
+    assert body["binding"]["config"]["server_url"].endswith("/api/mcp/partners/king")
+    from app.services.partner_mcp import is_partner_mcp_url
+
+    assert is_partner_mcp_url(body["binding"]["config"]["server_url"]) == "king"
     discovery = body.get("discovery")
     assert discovery and discovery["ok"] is True
     tool_names = {t["name"] for t in discovery["tools"]}

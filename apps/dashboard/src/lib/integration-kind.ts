@@ -1,3 +1,5 @@
+import { REMOTE_MCP_SLUGS } from './mcp-remote-providers'
+
 export type IntegrationKind = 'inbox' | 'repository' | 'mcp' | 'calendar' | 'app'
 
 const APP_SLUGS = new Set(['moneybird', 'exact_online', 'snelstart', 'gocardless_bank'])
@@ -6,18 +8,10 @@ const MCP_SLUGS = new Set([
   'king_accountancy',
   'bjorn_lunden_mcp',
   'custom_mcp',
-  'notion_mcp',
-  'linear_mcp',
-  'atlassian_mcp',
-  'slack_mcp',
-  'asana_mcp',
-  'clickup_mcp',
-  'sentry_mcp',
-  'stripe_mcp',
   'shopify_mcp',
-  'github_mcp',
-  'microsoft_graph_mcp',
-  'higgsfield_mcp',
+  'pmb_exact_mcp',
+  'yuki_mcp',
+  ...REMOTE_MCP_SLUGS,
 ])
 const REPOSITORY_SLUGS = new Set(['github', 'gitlab'])
 const CALENDAR_SLUGS = new Set(['google_calendar', 'outlook_calendar', 'google-calendar', 'outlook-calendar'])
@@ -58,14 +52,14 @@ export function resolveIntegrationKind(
 export function getManagePath(kind: IntegrationKind): string {
   switch (kind) {
     case 'repository':
-      return '/modules/connected?kind=repository'
+      return '/connections?kind=repository'
     case 'inbox':
-      return '/modules/connected?kind=inbox'
+      return '/connections?kind=inbox'
     case 'calendar':
       return '/agenda'
     case 'mcp':
-      return '/modules/connected?kind=mcp'
+      return '/connections?kind=mcp'
     case 'app':
-      return '/modules/connected?kind=app'
+      return '/connections?kind=app'
   }
 }

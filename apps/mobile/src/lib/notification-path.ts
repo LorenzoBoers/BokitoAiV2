@@ -1,5 +1,6 @@
 export type NotificationData = {
   signal_id?: string
+  message_id?: string
   decision_id?: string
   agent_id?: string
   contact_id?: string
@@ -24,7 +25,9 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
   if (!data) return { type: 'app', path: '/(tabs)/home' }
 
   if (data.signal_id) {
-    return { type: 'app', path: `/thread/${data.signal_id}` }
+    // A decision push carries its card: open the thread on that message.
+    const suffix = data.message_id ? `?message=${encodeURIComponent(data.message_id)}` : ''
+    return { type: 'app', path: `/thread/${data.signal_id}${suffix}` }
   }
 
   if (
@@ -33,6 +36,7 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
     data.kind === 'decision_request' ||
     (data.kind ?? '').startsWith('decision')
   ) {
+    // No thread yet (or none sent): the queue is the only place to act.
     return { type: 'app', path: '/(tabs)/decisions' }
   }
 

@@ -34,6 +34,7 @@ from app.routers import (
     livechat,
     integrations,
     mcp,
+    partner_mcp,
     me,
     metrics,
     models,
@@ -189,6 +190,7 @@ app.include_router(projects.router, prefix=api_prefix)
 app.include_router(workforce.router, prefix=api_prefix)
 app.include_router(govern.router, prefix=api_prefix)
 app.include_router(mcp.router, prefix=api_prefix)
+app.include_router(partner_mcp.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)

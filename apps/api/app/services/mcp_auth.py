@@ -7,8 +7,9 @@ from typing import Any
 
 def mcp_auth_headers(auth: dict[str, Any]) -> dict[str, str]:
     headers: dict[str, str] = {"Content-Type": "application/json"}
-    if auth.get("bearer_token"):
-        headers["Authorization"] = f"Bearer {auth['bearer_token']}"
+    bearer = auth.get("bearer_token") or auth.get("access_token")
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
     elif auth.get("api_key"):
         headers["Authorization"] = f"Bearer {auth['api_key']}"
         headers["X-API-Key"] = str(auth["api_key"])

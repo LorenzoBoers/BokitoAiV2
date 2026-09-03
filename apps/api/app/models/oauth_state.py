@@ -27,5 +27,7 @@ class OAuthState(SQLModel, table=True):
     # Where to send the browser back to after the callback completes.
     return_url: str = ""
     redirect_uri: str = ""
+    # PKCE verifier, token endpoint, MCP resource URL, etc. for mcp_remote flows.
+    context_json: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: datetime = Field(default_factory=_default_expiry)

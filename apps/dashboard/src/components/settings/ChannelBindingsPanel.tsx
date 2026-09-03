@@ -16,6 +16,7 @@ import {
   type ChannelBinding,
 } from '../../lib/channel-bindings-api'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
+import { withoutParkedChannels } from '../../lib/channel-surface'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboxPath } from '../../lib/messages-paths'
@@ -39,6 +40,7 @@ export default function ChannelBindingsPanel() {
   const [saving, setSaving] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const channelOptions = withoutParkedChannels(CHANNELS)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -161,7 +163,7 @@ export default function ChannelBindingsPanel() {
                 <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">
                   {t('channelsPage.bindings.openCommunication')}
                 </Link>
-                <Link to="/modules/marketplace" className="text-xs font-medium text-accent hover:underline">
+                <Link to="/connections/marketplace" className="text-xs font-medium text-accent hover:underline">
                   {t('channelsPage.bindings.openMarketplace')}
                 </Link>
               </div>
@@ -219,7 +221,7 @@ export default function ChannelBindingsPanel() {
                 }}
                 className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
               >
-                {CHANNELS.map((value) => (
+                {channelOptions.map((value) => (
                   <option key={value} value={value}>
                     {t(`channelsPage.bindings.${value}`)}
                   </option>

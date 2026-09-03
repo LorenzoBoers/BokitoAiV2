@@ -20,6 +20,15 @@ describe('pathForNotification', () => {
     ).toBe('/communication/decisions/t/sig-2')
   })
 
+  it('deep-links to the decision card when the payload carries a message id', () => {
+    expect(
+      pathForNotification({
+        kind: 'decision_request',
+        payload: { signal_id: 'sig-3', message_id: 'msg-9', channel: 'email' },
+      }),
+    ).toBe('/communication/decisions/t/sig-3?message=msg-9')
+  })
+
   it('accepts numeric thread ids in legacy payloads', () => {
     expect(notificationSignalId({ thread_id: 42 })).toBe('42')
   })

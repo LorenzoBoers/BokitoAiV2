@@ -223,6 +223,21 @@ async def call_mcp_tool(
         response.update(outcome)
         return response
 
+    from app.services.partner_mcp import call_partner_tool, is_partner_mcp_url
+
+    partner_slug = is_partner_mcp_url(server.server_url)
+    if partner_slug:
+        try:
+            auth_data = json.loads(server.auth_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            auth_data = {}
+        if not isinstance(auth_data, dict):
+            auth_data = {}
+        outcome = await call_partner_tool(partner_slug, auth_data, tool_name, arguments or {})
+        response = {"server": server_name, "tool": tool_name}
+        response.update(outcome)
+        return response
+
     if server.server_url.startswith("native://"):
         from app.services.bjorn_lunden import call_bl_tool, has_bl_credentials
 

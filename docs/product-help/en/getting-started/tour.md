@@ -14,24 +14,30 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 ## Control: the daily loop
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*Overview, Messages, Agenda and Projects.*
+*Overview, Communication, Agenda and Projects.*
 
-- **Overview** — the morning scan of open work, decisions and usage. See [Overview](/docs/getting-started/cockpit). You can set Overview as your start page under Profile; Messages is the default.
-- **Messages** — the conversations, and the contacts behind them. See [Messages](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
+- **Overview** — the morning scan of open work, decisions and usage. See [Overview](/docs/getting-started/cockpit). You can set Overview as your start page under Profile; Communication is the default.
+- **Communication** — the conversations, and the contacts behind them. See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
 - **Agenda** — when agents wake. See [Agenda](/docs/ai/agenda).
 - **Projects** — work that spans days. See [Projects](/docs/ai/projects).
 
 ## AI: the workforce
 
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).
-- **Knowledge** — nested under the AI group: what agents answer from. See [Knowledge](/docs/ai/knowledge).
-- **Modules** — business capabilities and every connection (Connections, Discover). See [Integrations](/docs/integrations/integrations).
+- **Knowledge** — docs, skills and memory; equal sibling next to Agents. See [Knowledge](/docs/ai/knowledge).
 
-## Settings: the control room
+## Modules: installed workspaces
 
-**Email & messages**, **AI reply settings**, **Chat widget**, **Members**, **Providers & models**, **Setup guide** and **Govern** live here. Owners and admins spend time here; members rarely need it. See the [setup guide](/docs/getting-started/setup-guide). **Overview** lives in Control, not Settings — see [Overview](/docs/getting-started/cockpit).
+Installed modules (for example **Accounting**) appear here as their own rail items. See [Integrations](/docs/integrations/integrations).
 
-Personal screens — **Profile** (including start page: Messages or Overview) and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
+## Organization: connections and the control room
+
+- **Connections** — installed modules, partner logins, custom MCP and marketplace. See [Integrations](/docs/integrations/integrations).
+- **Settings** — **Email & messages**, inbox AI, chat widget, members, models and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support.
+
+Owners and admins come here; members rarely. See the [setup guide](/docs/getting-started/setup-guide). **Overview** lives under Control, not Organization — see [Overview](/docs/getting-started/cockpit).
+
+Personal screens — **Profile** (including start page: Communication or Overview) and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
 
 ## Use the command palette
 
@@ -44,7 +50,7 @@ Communication search in the thread list searches conversations. The palette is f
 
 ## Two other shortcuts
 
-The help menu in the top bar opens these articles from any page. The public site is `/docs` (no login). In-app Learn is `/learn`.
+The account menu offers **Profile**, **Settings**, **Workspaces** and **Help**. **Help** (`/settings/help`) links to the setup guide, product tour, `/docs`, `/docs/api` and support (email or talk to the assistant). The public site is `/docs` (no login). In-app Learn remains at `/learn` for page banners.
 
 ## What to do next
 

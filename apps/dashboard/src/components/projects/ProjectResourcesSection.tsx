@@ -127,10 +127,10 @@ export function ProjectResourcesSection({
         <div className="space-y-1.5">
           <p className="text-sm text-text-muted">{t('projects.work.resourcesEmpty')}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Link to="/modules" className="text-xs font-medium text-accent hover:underline">
+            <Link to="/connections" className="text-xs font-medium text-accent hover:underline">
               {t('projects.work.openModules')}
             </Link>
-            <Link to="/modules/connected" className="text-xs font-medium text-accent hover:underline">
+            <Link to="/connections/connected" className="text-xs font-medium text-accent hover:underline">
               {t('projects.work.openIntegrations')}
             </Link>
           </div>

@@ -47,7 +47,15 @@ class DecisionRequest(SQLModel, table=True):
     chosen_option_id: Optional[str] = None
     source_type: str = Field(default="agent")  # agent | email | system
     source_id: Optional[str] = None
+    # Provenance: where the question came from, so the card and the mobile
+    # notification can name the source and link back to it.
     project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     platform_change_id: Optional[uuid.UUID] = Field(default=None, foreign_key="platform_changes.id", index=True)
+    # Soft links for the same reason as message_id: AgentTask already points at
+    # its card message, so a real FK closes the loop
+    # signal_messages -> decision_requests -> agent_tasks -> signal_messages and
+    # leaves SQLAlchemy unable to order those tables for a tenant purge.
+    agent_task_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    run_id: Optional[uuid.UUID] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     resolved_at: Optional[datetime] = None

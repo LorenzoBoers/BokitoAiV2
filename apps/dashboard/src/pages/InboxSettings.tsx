@@ -48,6 +48,7 @@ import {
   syncChannel,
   type ChannelRow,
 } from '../lib/channels-api'
+import { isChannelParked } from '../lib/channel-surface'
 import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
 import { formatAppDateTime } from '../lib/app-locale'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
@@ -107,7 +108,7 @@ function ChannelKindsMark() {
     <BrandMark key="outlook" slug="outlook" size={13} />,
     <BrandMark key="gmail" slug="gmail" size={13} />,
     <BrandMark key="whatsapp" slug="whatsapp" size={13} />,
-    <BrandMark key="slack" slug="slack" size={13} />,
+    ...(isChannelParked('slack') ? [] : [<BrandMark key="slack" slug="slack" size={13} />]),
     <MessageSquare key="widget" size={12} className="text-text-secondary" />,
   ]
   return (
@@ -769,7 +770,7 @@ export default function InboxSettings() {
           { to: inboxPath('open'), label: t('channelsPage.crossLinks.communication') },
           { to: '/settings/communication', label: t('channelsPage.crossLinks.inboxAi') },
           { to: WEBSITE_WIDGET_PATH, label: t('channelsPage.crossLinks.widget') },
-          { to: '/modules/marketplace?kind=inbox', label: t('channelsPage.crossLinks.integrations') },
+          { to: '/connections/marketplace?kind=inbox', label: t('channelsPage.crossLinks.integrations') },
           { to: '/docs/inbox/channels', label: t('pageGuides.learnMore') },
         ]}
       />

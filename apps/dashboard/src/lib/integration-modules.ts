@@ -138,8 +138,8 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     ],
     capability_summary:
       'Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances.',
-    setup_path: '/modules/accounting',
-    workspace_path: '/modules/accounting',
+    setup_path: '/connections/accounting',
+    workspace_path: '/connections/accounting',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'not_installed',
@@ -175,8 +175,8 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
       'When a bank connector ships, you will pick it here and approve payments as decisions.',
     ],
     capability_summary: 'Later: read accounts, balances, and transactions.',
-    setup_path: '/modules/banking',
-    workspace_path: '/modules/banking',
+    setup_path: '/connections/banking',
+    workspace_path: '/connections/banking',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'coming_soon',
@@ -207,8 +207,8 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
       'When a broker or market-data connector ships, orders will land as decisions.',
     ],
     capability_summary: 'Later: positions, quotes, and watchlists.',
-    setup_path: '/modules/investing',
-    workspace_path: '/modules/investing',
+    setup_path: '/connections/investing',
+    workspace_path: '/connections/investing',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'coming_soon',
@@ -239,8 +239,8 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
       'When a storage connector ships, reads feed Knowledge and uploads stay decisions.',
     ],
     capability_summary: 'Later: search and read external files into Knowledge.',
-    setup_path: '/modules/documents',
-    workspace_path: '/modules/documents',
+    setup_path: '/connections/documents',
+    workspace_path: '/connections/documents',
     enabled: false,
     install_state: 'not_installed',
     tenant_status: 'coming_soon',
@@ -314,17 +314,19 @@ export function verbLabelKey(label: string): string {
 
 export function moduleHomePath(module: Pick<IntegrationModuleRow, 'slug' | 'setup_path'>): string {
   const path = module.setup_path?.trim()
-  if (path?.startsWith('/modules/')) return path
+  if (path?.startsWith('/connections/')) return path
+  // Rows seeded before the hub moved still carry the old hub prefixes.
+  if (path?.startsWith('/modules/')) return path.replace('/modules/', '/connections/')
   if (path?.startsWith('/settings/modules/')) {
-    return path.replace('/settings/modules/', '/modules/')
+    return path.replace('/settings/modules/', '/connections/')
   }
-  return `/modules/${encodeURIComponent(module.slug)}`
+  return `/connections/${encodeURIComponent(module.slug)}`
 }
 
 export function moduleWorkspacePath(
   module: Pick<IntegrationModuleRow, 'slug' | 'workspace_path' | 'setup_path'>,
 ): string {
-  // Single module page: workspace and setup share `/modules/:slug`.
+  // Single module page: workspace and setup share `/connections/:slug`.
   return moduleHomePath(module)
 }
 

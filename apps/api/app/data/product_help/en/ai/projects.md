@@ -57,4 +57,4 @@ Items born from a conversation show **Open source thread**, which takes you back
 
 ## What to do next
 
-Attach a schedule on the [Agenda](/docs/ai/agenda). Browse the same project docs under [Knowledge](/docs/ai/knowledge) with the Projects filter; organization-wide knowledge stays on Knowledge → Organization.
+Attach a schedule on the [Agenda](/docs/ai/agenda). Browse the same project docs under [Knowledge](/docs/ai/knowledge) by clicking that project name; organization-wide knowledge stays on the workspace chip.

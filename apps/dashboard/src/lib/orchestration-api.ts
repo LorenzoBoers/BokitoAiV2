@@ -211,6 +211,8 @@ export type AgendaItem = {
   end_at?: string | null
   status: string
   run_id: string | null
+  /** Thread the trigger posts its results into, when it has one. */
+  signal_id?: string | null
   source?: string | null
   provider?: string | null
   provider_label?: string | null

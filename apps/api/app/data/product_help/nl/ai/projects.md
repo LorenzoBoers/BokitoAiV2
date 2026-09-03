@@ -57,4 +57,4 @@ Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je ter
 
 ## Wat nu
 
-Hang een planning op de [Agenda](/docs/ai/agenda). Bekijk dezelfde projectdocs onder [Kennis](/docs/ai/knowledge) met het filter Projecten; workspacebrede kennis blijft onder Kennis → Organisatie.
+Hang een planning op de [Agenda](/docs/ai/agenda). Bekijk dezelfde projectdocs onder [Kennis](/docs/ai/knowledge) door op die projectnaam te klikken; workspacebrede kennis blijft op de workspace-chip.

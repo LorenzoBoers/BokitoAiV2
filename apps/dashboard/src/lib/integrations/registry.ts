@@ -134,15 +134,19 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
   },
 ]
 
-const REMOTE_MCP_REGISTRY: ProviderRegistryEntry[] = REMOTE_MCP_PROVIDERS.map((p) => ({
-  staticId: p.staticId,
-  platformSlug: p.slug,
-  kind: 'mcp' as IntegrationKind,
-  setupMode: 'remote_mcp_oauth' as IntegrationSetupMode,
-  oauthStrategy: 'mcp_remote' as IntegrationOAuthStrategy,
-  mcpRemoteUrl: p.mcpRemoteUrl,
-  connectionCountSource: 'platform' as ConnectionCountSource,
-}))
+const REMOTE_MCP_REGISTRY: ProviderRegistryEntry[] = REMOTE_MCP_PROVIDERS.map((p) => {
+  const usesRemoteOAuth = p.authMethod === 'mcp_remote_oauth'
+  return {
+    staticId: p.staticId,
+    platformSlug: p.slug,
+    kind: 'mcp' as IntegrationKind,
+    setupMode: usesRemoteOAuth ? ('remote_mcp_oauth' as IntegrationSetupMode) : ('custom_mcp' as IntegrationSetupMode),
+    oauthStrategy: usesRemoteOAuth ? ('mcp_remote' as IntegrationOAuthStrategy) : undefined,
+    mcpRemoteUrl: p.mcpRemoteUrl || undefined,
+    mcpPreset: usesRemoteOAuth ? undefined : ('custom_mcp' as McpSetupPreset),
+    connectionCountSource: 'platform' as ConnectionCountSource,
+  }
+})
 
 const REGISTRY_LIST: ProviderRegistryEntry[] = [...CORE_REGISTRY, ...REMOTE_MCP_REGISTRY]
 

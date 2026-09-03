@@ -2,15 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ConnectionsCatalogList } from '../components/integrations/ConnectionsCatalogList'
 import { ConnectionsNextSteps } from '../components/integrations/ConnectionsNextSteps'
-import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
+import { ConnectionSections } from '../components/integrations/ConnectionSections'
+import { InstalledModuleCard } from '../components/integrations/ModuleCard'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import {
   ApplicationHubDialog,
   type ApplicationHubStep,
+  type HubBanner,
 } from '../components/integrations/ApplicationHubDialog'
-import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { CardGridSkeleton } from '../components/ui/skeleton'
@@ -39,6 +39,7 @@ import {
 } from '../lib/integration-applications'
 import { resolveProviderBrand } from '../lib/integration-brand'
 import { moduleIsOn } from '../lib/integration-modules'
+import { applicationsForModule } from '../lib/module-applications'
 import {
   parseHubConnectParam,
   stripOAuthCallbackParams,
@@ -56,7 +57,7 @@ function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): 
   return step === 'setup' ? 'offer-setup' : 'offer-detail'
 }
 
-export default function IntegrationsConnected() {
+export default function ConnectionsHub() {
   const { t } = useTranslation('nav')
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFromUrl = searchParams.get('kind')
@@ -106,12 +107,6 @@ export default function IntegrationsConnected() {
       setSearchParams(params, { replace: true })
     }
   }, [kindFromUrl, kindFilter, searchParams, setSearchParams])
-
-  useEffect(() => {
-    if (window.location.hash === '#catalog') {
-      document.getElementById('catalog')?.scrollIntoView({ block: 'start' })
-    }
-  }, [loading])
 
   const openApplicationHub = useCallback(
     (
@@ -325,8 +320,21 @@ export default function IntegrationsConnected() {
     return kindFilter === 'all' ? filtered : filtered.filter((row) => row.kind === kindFilter)
   }, [items, kindFilter, query])
 
-  const groups = useMemo(() => groupConnectionItems(visibleItems), [visibleItems])
-  const hasInstalledModule = modules.some((module) => moduleIsOn(module))
+  const connectionItems = useMemo(
+    () => visibleItems.filter((row) => row.kind !== 'mcp'),
+    [visibleItems],
+  )
+  const mcpItems = useMemo(
+    () => visibleItems.filter((row) => row.kind === 'mcp'),
+    [visibleItems],
+  )
+  const connectionGroups = useMemo(() => groupConnectionItems(connectionItems), [connectionItems])
+  const mcpGroups = useMemo(() => groupConnectionItems(mcpItems), [mcpItems])
+  const installedModules = useMemo(
+    () => modules.filter((module) => module.status !== 'coming_soon' && moduleIsOn(module)),
+    [modules],
+  )
+  const hasInstalledModule = installedModules.length > 0
 
   const refreshAll = useCallback(async () => {
     await Promise.all([refresh(), refreshCatalog()])
@@ -376,6 +384,49 @@ export default function IntegrationsConnected() {
         {t('integrations.pageMeta.connected.description')}
       </p>
 
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              {t('integrations.connected.installedModulesTitle', {
+                defaultValue: 'Installed modules',
+              })}
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+              {t('integrations.connected.installedModulesHint', {
+                defaultValue: 'Domain presets that are on for this workspace.',
+              })}
+            </p>
+          </div>
+          <Button size="sm" variant="ghost" asChild>
+            <Link to="/connections/marketplace">
+              {t('integrations.modules.browseMarketplace', {
+                defaultValue: 'Browse marketplace',
+              })}
+            </Link>
+          </Button>
+        </div>
+        {modules.length === 0 ? (
+          <CardGridSkeleton cards={2} />
+        ) : installedModules.length === 0 ? (
+          <p className="text-sm text-text-muted">
+            {t('integrations.connected.noInstalledModules', {
+              defaultValue: 'No modules installed yet. Discover presets on the marketplace.',
+            })}
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {installedModules.map((module) => (
+              <InstalledModuleCard
+                key={module.slug}
+                module={module}
+                applications={applicationsForModule(applications, module)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <IntegrationKindNav value={kindFilter} onChange={setKindFilter} />
         <Input
@@ -394,131 +445,50 @@ export default function IntegrationsConnected() {
         needsModule={!hasInstalledModule}
       />
 
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-          {t('integrations.connected.yourList')}
-        </h2>
-        {loading ? (
-          <CardGridSkeleton />
-        ) : groups.length === 0 ? (
-          <p className="text-sm text-text-muted">
-            {query.trim()
-              ? t('integrations.connected.noSearchMatches')
-              : t('integrations.connected.emptyAllDescription')}
-          </p>
-        ) : (
-          <div className="space-y-6">
-            {groups.map((group) => (
-              <div key={group.kind} className="space-y-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-text-heading">
-                    {t(`integrations.kind.${group.kind}`)}
-                  </h3>
-                  {group.kind === 'repository' ? (
-                    <p className="text-[11px] text-text-muted">{t('integrations.connected.codeHint')}</p>
-                  ) : null}
-                </div>
-                <div className="space-y-4">
-                  {group.programs.map((program) => (
-                    <div key={program.programKey} className="rounded-xl border border-border/60 bg-bg-surface">
-                      <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <IntegrationHostLogo
-                            logoUrl={program.brand.logoUrl}
-                            logoDarkUrl={program.brand.logoDarkUrl}
-                            initials={program.brand.initials}
-                            color={program.brand.color}
-                            name={program.programName}
-                            hostSlug={program.brand.hostSlug}
-                            size="sm"
-                          />
-                          <p className="text-sm font-medium truncate">{program.programName}</p>
-                          <span className="text-[11px] tabular-nums text-text-muted">
-                            {t('integrations.application.alreadyCount', { count: program.items.length })}
-                          </span>
-                        </div>
-                        {program.kind !== 'inbox' && program.kind !== 'calendar' ? (
-                          <Button size="sm" variant="ghost" onClick={() => openProgram(program.programKey)}>
-                            {t('integrations.actions.connectAnother')}
-                          </Button>
-                        ) : null}
-                      </div>
-                      <ul>
-                        {program.items.map((row) => {
-                          const canAttach =
-                            Boolean(row.eligibleModule) &&
-                            !row.attachedModules.includes(row.eligibleModule ?? '')
-                          return (
-                            <li
-                              key={row.id}
-                              className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-border/30 first:border-t-0"
-                            >
-                              <div className="min-w-0">
-                                <p className="text-sm text-text-heading truncate">{row.title}</p>
-                                <p className="text-[11px] text-text-muted truncate">
-                                  {row.attachedModules.length > 0
-                                    ? row.attachedModules
-                                        .map((slug) =>
-                                          t(`integrations.modules.${slug}.name`, { defaultValue: slug }),
-                                        )
-                                        .join(', ')
-                                    : row.subtitle}
-                                </p>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {row.source === 'inbox' ? (
-                                  <Button size="sm" variant="outline" asChild>
-                                    <Link to="/settings/channels">{t('integrations.connected.openChannels')}</Link>
-                                  </Button>
-                                ) : null}
-                                {row.source === 'calendar' ? (
-                                  <Button size="sm" variant="outline" asChild>
-                                    <Link to="/agenda">{t('integrations.actions.manage')}</Link>
-                                  </Button>
-                                ) : null}
-                                {canAttach && row.eligibleModule ? (
-                                  <Button size="sm" variant="secondary" onClick={() => void handleAttach(row)}>
-                                    {t('integrations.connected.useInModule', {
-                                      name: t(`integrations.modules.${row.eligibleModule}.name`, {
-                                        defaultValue: row.eligibleModule,
-                                      }),
-                                    })}
-                                  </Button>
-                                ) : null}
-                                {row.source !== 'inbox' && row.source !== 'calendar' ? (
-                                  <Button size="sm" variant="ghost" onClick={() => void handleDisconnect(row)}>
-                                    {t('integrations.actions.disconnect')}
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <ConnectionSections
+        title={t('integrations.connected.yourList')}
+        loading={loading}
+        groups={connectionGroups}
+        emptyLabel={
+          query.trim()
+            ? t('integrations.connected.noSearchMatches')
+            : t('integrations.connected.emptyAllDescription')
+        }
+        onOpenProgram={openProgram}
+        onAttach={handleAttach}
+        onDisconnect={handleDisconnect}
+      />
 
-      <section id="catalog" className="space-y-3">
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-            {t('integrations.connected.catalogTitle')}
-          </h2>
-          <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            {t('integrations.connected.catalogHint')}
-          </p>
-        </div>
-        <ConnectionsCatalogList
-          applications={applications}
-          kindFilter={kindFilter}
-          query={query}
-          onOpen={(app) => openApplicationHub(app)}
-        />
+      <ConnectionSections
+        title={t('integrations.connected.mcpServersTitle', {
+          defaultValue: 'Custom MCP servers',
+        })}
+        loading={loading}
+        groups={mcpGroups}
+        emptyLabel={
+          query.trim()
+            ? t('integrations.connected.noSearchMatches')
+            : t('integrations.connected.emptyMcpDescription', {
+                defaultValue: 'No custom MCP servers connected yet.',
+              })
+        }
+        onOpenProgram={openProgram}
+        onAttach={handleAttach}
+        onDisconnect={handleDisconnect}
+        hideKindHeading
+      />
+
+      <section className="rounded-xl border border-dashed border-border/60 px-4 py-3">
+        <p className="text-sm text-text-secondary">
+          {t('integrations.connected.marketplaceHint', {
+            defaultValue: 'Looking for something else? Add modules and connections on the marketplace.',
+          })}
+        </p>
+        <Button size="sm" variant="secondary" className="mt-2" asChild>
+          <Link to="/connections/marketplace">
+            {t('integrations.modules.browseMarketplace', { defaultValue: 'Browse marketplace' })}
+          </Link>
+        </Button>
       </section>
 
       <ApplicationHubDialog
@@ -528,6 +498,7 @@ export default function IntegrationsConnected() {
         initialStep={hubStep}
         initialOfferId={hubOffer?.integration.id ?? null}
         banner={hubBanner}
+        modules={modules}
         onViewConnected={() => setHubOpen(false)}
         onSaved={() => void refreshAll()}
       />

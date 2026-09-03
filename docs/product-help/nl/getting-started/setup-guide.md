@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace-setupgids
 
-De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen** en daarna **Setupgids** voor de live checklist. De gids volgt dezelfde vier onboardingstappen als de eerste-keer-kaart, daarna een rustige lijst **Later** (branding, team, modules, projecten, cijfers, Govern).
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen**, daarna **Hulp**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). De gids volgt dezelfde vier onboardingstappen als de eerste-keer-kaart, daarna een rustige lijst **Later** (branding, team, modules, projecten, cijfers, Govern).
 
 ## Workspace-basics en branding
 
@@ -43,11 +43,11 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 
 ## Plan terugkerend werk
 
-Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in het gesprek **Platform check-in** in Berichten wanneer iets jou nodig heeft. Je zet die aan vanuit de setupgids, Overview, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Overview](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Overview **Verbruik**.
+Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in zijn eigen kanaal in Communicatie wanneer iets jou nodig heeft. Dat is hetzelfde gesprek dat je opent onder **Agents** in de zijbalk, zodat bevindingen naast je eigen vragen aan die assistent staan. Je zet die aan vanuit de setupgids, Overview, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Overview](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Overview **Verbruik**.
 
 ## Volg de live checklist
 
-Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde vier stappen staan onder **Instellingen** en daarna **Setupgids**:
+Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde vier stappen staan onder **Instellingen** → **Hulp** → **Setupgids**:
 
 1. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **E-mail en berichten**, niet via de module-marketplace. Zie [Kanalen](/docs/inbox/channels).
 2. **Praat met de assistent** — een kort gesprek vult de bedrijfskennis. Zie [Kennis](/docs/ai/knowledge).

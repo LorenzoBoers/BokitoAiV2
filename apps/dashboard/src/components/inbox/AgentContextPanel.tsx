@@ -285,7 +285,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
               {t('agentContext.govern')}
             </Link>
-            <Link to="/modules/connected" className="font-medium text-accent hover:underline">
+            <Link to="/connections/connected" className="font-medium text-accent hover:underline">
               {t('agentContext.openIntegrations')}
             </Link>
           </div>
@@ -321,7 +321,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               {mcpRows.map((row) => (
                 <Link
                   key={row.id}
-                  to="/modules/connected"
+                  to="/connections/connected"
                   className="flex items-center gap-2 rounded-md border border-border/40 bg-bg-elevated/45 px-2 py-1 transition-colors hover:border-accent/40"
                 >
                   <span

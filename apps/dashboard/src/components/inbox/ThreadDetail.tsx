@@ -1,7 +1,7 @@
 import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, FolderPlus, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   createInboxRule,
@@ -605,6 +605,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [membersById, setMembersById] = useState<Record<number, InboxMember>>({})
   const [activeDayLabel, setActiveDayLabel] = useState<string | null>(null)
   const [unseenNew, setUnseenNew] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Card targeted by a `?message=` deep link; highlighted for a few seconds.
+  const [focusedMessageId, setFocusedMessageId] = useState<string | null>(null)
   const [composerDraft, setComposerDraft] = useState<{
     body: string
     subject?: string
@@ -787,6 +790,51 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   const loadedThreadId = detail?.thread.id ?? null
   const messageCount = detail?.messages.length ?? 0
+
+  // Deep link from a notification or push: `?message=` scrolls to that card
+  // and highlights it briefly, instead of dropping the reader at the bottom.
+  useEffect(() => {
+    const requested = searchParams.get('message')
+    if (!requested || loading || groups.length === 0) return
+    if (threadId == null || String(loadedThreadId) !== String(threadId)) return
+
+    setFocusedMessageId(requested)
+    anchorToBottomRef.current = false
+
+    const reveal = () => {
+      const container = scrollRef.current
+      const node = container?.querySelector(
+        `[data-message-id="${requested}"]`,
+      ) as HTMLElement | null
+      if (!container || !node) return
+      programmaticScrollRef.current = true
+      const containerRect = container.getBoundingClientRect()
+      const nodeRect = node.getBoundingClientRect()
+      container.scrollTop = Math.max(0, container.scrollTop + (nodeRect.top - containerRect.top) - 24)
+      window.setTimeout(() => {
+        programmaticScrollRef.current = false
+      }, 120)
+    }
+
+    // The first-visit pinning above re-scrolls for up to 700ms; land after it.
+    const timers = [0, 150, 400, 800].map((delay) => window.setTimeout(reveal, delay))
+    const clear = window.setTimeout(() => {
+      setFocusedMessageId(null)
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params)
+          next.delete('message')
+          return next
+        },
+        { replace: true },
+      )
+    }, 3000)
+
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id))
+      window.clearTimeout(clear)
+    }
+  }, [searchParams, setSearchParams, loading, groups.length, threadId, loadedThreadId])
 
   // Scroll to bottom whenever a thread finishes loading. We engage the anchor
   // flag so the ResizeObserver below keeps re-pinning as email iframes finish
@@ -1888,7 +1936,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 return (
                 <div
                   key={item.id}
-                  className={item.kind === 'events' ? 'mb-1.5' : 'mb-3'}
+                  className={`${item.kind === 'events' ? 'mb-1.5' : 'mb-3'}${
+                    item.kind === 'message' &&
+                    focusedMessageId != null &&
+                    String(item.entry.data.id) === focusedMessageId
+                      ? ' rounded-xl ring-2 ring-accent/60 ring-offset-2 ring-offset-bg-base'
+                      : ''
+                  }`}
+                  data-message-id={item.kind === 'message' ? String(item.entry.data.id) : undefined}
                   data-latest-message={item.id === latestMessageId ? 'true' : undefined}
                 >
                   {showTime ? (

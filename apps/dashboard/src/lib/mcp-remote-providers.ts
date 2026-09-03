@@ -1,159 +1,105 @@
-/** Canonical remote MCP OAuth provider definitions (platform seed). */
+/** Remote MCP marketplace presets. Source: apps/api/app/data/mcp_remote_catalog.json */
+
+import catalog from '../../../api/app/data/mcp_remote_catalog.json'
+
+export type McpMarketplaceCategory =
+  | 'Accounting'
+  | 'Banking'
+  | 'Communication'
+  | 'Productivity'
+  | 'CRM'
+  | 'Development'
+
+export type McpPresetAuth = 'mcp_remote_oauth' | 'api_key' | 'bearer'
+
+export type RemoteMcpHostDef = {
+  slug: string
+  name: string
+  brand_color: string
+  initials: string
+  simpleicons?: string
+  /** Public website domain for favicon fallback when Simple Icons has no mark. */
+  logo_domain?: string
+  description?: string
+}
+
 export type RemoteMcpProviderDef = {
   slug: string
   staticId: string
+  hostSlug: string
   name: string
   description: string
-  category: 'Communication' | 'Development' | 'Productivity'
+  category: McpMarketplaceCategory
   mcpRemoteUrl: string
   mcpTransport: 'streamable_http' | 'sse'
-  oauthConfigKey: string
-  popular?: boolean
-  wave: 1 | 2 | 3
-  /** UI status when OAuth env is not configured on platform. */
+  authMethod: McpPresetAuth
   defaultStatus: 'available' | 'coming_soon'
+  module?: 'accounting' | 'banking'
 }
 
-export const REMOTE_MCP_PROVIDERS: RemoteMcpProviderDef[] = [
-  {
-    slug: 'notion_mcp',
-    staticId: 'notion',
-    name: 'Notion',
-    description: 'Connect Notion workspaces for documents and knowledge bases.',
-    category: 'Productivity',
-    mcpRemoteUrl: 'https://mcp.notion.com/mcp',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'NOTION_MCP',
-    popular: true,
-    wave: 1,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'linear_mcp',
-    staticId: 'linear',
-    name: 'Linear',
-    description: 'Issues, projects, and comments from Linear for agents.',
-    category: 'Productivity',
-    mcpRemoteUrl: 'https://mcp.linear.app/mcp',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'LINEAR_MCP',
-    popular: true,
-    wave: 1,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'atlassian_mcp',
-    staticId: 'atlassian',
-    name: 'Atlassian Rovo',
-    description: 'Jira, Confluence, and Compass via Atlassian.',
-    category: 'Productivity',
-    mcpRemoteUrl: 'https://mcp.atlassian.com/v1/mcp/authv2',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'ATLASSIAN_MCP',
-    popular: true,
-    wave: 1,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'slack_mcp',
-    staticId: 'slack',
-    name: 'Slack',
-    description: 'Search, messages and channels in Slack.',
-    category: 'Communication',
-    mcpRemoteUrl: 'https://mcp.slack.com/mcp',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'SLACK_MCP',
-    popular: true,
-    wave: 1,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'asana_mcp',
-    staticId: 'asana',
-    name: 'Asana',
-    description: 'Tasks and projects in Asana.',
-    category: 'Productivity',
-    mcpRemoteUrl: 'https://mcp.asana.com/v2/mcp',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'ASANA_MCP',
-    wave: 2,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'clickup_mcp',
-    staticId: 'clickup',
-    name: 'ClickUp',
-    description: 'ClickUp workspaces and tasks for agent workflows.',
-    category: 'Productivity',
-    mcpRemoteUrl: 'https://mcp.clickup.com/mcp',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'CLICKUP_MCP',
-    wave: 2,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'sentry_mcp',
-    staticId: 'sentry',
-    name: 'Sentry',
-    description: 'Issues, projects, and debugging context from Sentry.',
-    category: 'Development',
-    mcpRemoteUrl: 'https://mcp.sentry.dev/mcp',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'SENTRY_MCP',
-    wave: 2,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'stripe_mcp',
-    staticId: 'stripe',
-    name: 'Stripe',
-    description: 'Stripe data and actions.',
-    category: 'Productivity',
-    mcpRemoteUrl: 'https://mcp.stripe.com',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'STRIPE_MCP',
-    wave: 2,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'github_mcp',
-    staticId: 'github-mcp',
-    name: 'GitHub tools',
-    description: 'GitHub issues and PRs (alongside repository indexing).',
-    category: 'Development',
-    mcpRemoteUrl: 'https://api.githubcopilot.com/mcp/',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'GITHUB_MCP',
-    wave: 3,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'microsoft_graph_mcp',
-    staticId: 'microsoft-graph-mcp',
-    name: 'Microsoft Graph',
-    description: 'Entra and directory insights (preview).',
-    category: 'Communication',
-    mcpRemoteUrl: 'https://mcp.svc.cloud.microsoft/enterprise',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'MICROSOFT_GRAPH_MCP',
-    wave: 3,
-    defaultStatus: 'coming_soon',
-  },
-  {
-    slug: 'higgsfield_mcp',
-    staticId: 'higgsfield',
-    name: 'Higgsfield',
-    description: 'Generate AI images and videos (Sora, Veo, Kling, and more).',
-    category: 'Productivity',
-    mcpRemoteUrl: 'https://mcp.higgsfield.ai/mcp',
-    mcpTransport: 'streamable_http',
-    oauthConfigKey: 'HIGGSFIELD_MCP',
-    wave: 2,
-    defaultStatus: 'coming_soon',
-  },
-]
+type CatalogJson = {
+  hosts: RemoteMcpHostDef[]
+  providers: Array<{
+    slug: string
+    static_id: string
+    host_slug: string
+    name: string
+    description: string
+    category: McpMarketplaceCategory
+    auth_type: McpPresetAuth
+    mcp_remote_url?: string
+    mcp_transport?: 'streamable_http' | 'sse'
+    status?: 'available' | 'coming_soon'
+    module?: 'accounting' | 'banking'
+  }>
+}
+
+const data = catalog as CatalogJson
+
+export const REMOTE_MCP_HOSTS: RemoteMcpHostDef[] = data.hosts
+
+export const REMOTE_MCP_HOST_BY_SLUG: Record<string, RemoteMcpHostDef> = Object.fromEntries(
+  REMOTE_MCP_HOSTS.map((h) => [h.slug, h]),
+)
+
+export const REMOTE_MCP_PROVIDERS: RemoteMcpProviderDef[] = data.providers.map((p) => {
+  const url = (p.mcp_remote_url || '').trim()
+  const authMethod = p.auth_type
+  const defaultStatus: 'available' | 'coming_soon' =
+    authMethod === 'mcp_remote_oauth' && !url ? 'coming_soon' : (p.status ?? 'coming_soon')
+  return {
+    slug: p.slug,
+    staticId: p.static_id,
+    hostSlug: p.host_slug,
+    name: p.name,
+    description: p.description,
+    category: p.category,
+    mcpRemoteUrl: url,
+    mcpTransport: p.mcp_transport ?? 'streamable_http',
+    authMethod,
+    defaultStatus,
+    module: p.module,
+  }
+})
 
 export const REMOTE_MCP_SLUGS = REMOTE_MCP_PROVIDERS.map((p) => p.slug)
+
+export function simpleIconsLogoUrl(iconSlug: string, color: string): string {
+  const hex = color.replace('#', '')
+  return `https://cdn.simpleicons.org/${iconSlug}/${hex}`
+}
+
+export function faviconLogoUrl(domain: string): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`
+}
+
+export function logoUrlForHost(hostSlug: string): string | null {
+  const host = REMOTE_MCP_HOST_BY_SLUG[hostSlug]
+  if (!host) return null
+  if (host.simpleicons) return simpleIconsLogoUrl(host.simpleicons, host.brand_color)
+  if (host.logo_domain) return faviconLogoUrl(host.logo_domain)
+  return null
+}
 
 export function remoteMcpBySlug(slug: string): RemoteMcpProviderDef | undefined {
   return REMOTE_MCP_PROVIDERS.find((p) => p.slug === slug)
@@ -161,4 +107,8 @@ export function remoteMcpBySlug(slug: string): RemoteMcpProviderDef | undefined 
 
 export function remoteMcpByStaticId(staticId: string): RemoteMcpProviderDef | undefined {
   return REMOTE_MCP_PROVIDERS.find((p) => p.staticId === staticId)
+}
+
+export function hostSlugForRemoteStaticId(staticId: string): string | undefined {
+  return remoteMcpByStaticId(staticId)?.hostSlug
 }

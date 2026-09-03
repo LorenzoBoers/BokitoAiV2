@@ -31,6 +31,17 @@ async def test_list_providers(client: AsyncClient):
     assert "github" in slugs
     assert "gmail" in slugs
     assert "higgsfield_mcp" in slugs
+    mollie = next(p for p in data["providers"] if p["slug"] == "mollie_mcp")
+    assert mollie["mcp_remote_url"] == "https://mcp.mollie.com/mcp"
+    assert mollie["auth_type"] == "mcp_remote_oauth"
+    moneybird_mcp = next(p for p in data["providers"] if p["slug"] == "moneybird_mcp")
+    assert moneybird_mcp["mcp_remote_url"] == "https://moneybird.com/mcp/v1/read_only"
+    assert moneybird_mcp["auth_type"] == "mcp_remote_oauth"
+    assert moneybird_mcp["module"] == "accounting"
+    twinfield = next(p for p in data["providers"] if p["slug"] == "twinfield_mcp")
+    assert twinfield["host"]["slug"] == "twinfield"
+    hubspot = next(p for p in data["providers"] if p["slug"] == "hubspot_mcp")
+    assert hubspot["mcp_remote_url"] == "https://mcp.hubspot.com"
     higgsfield = next(p for p in data["providers"] if p["slug"] == "higgsfield_mcp")
     assert higgsfield["mcp_remote_url"] == "https://mcp.higgsfield.ai/mcp"
     assert higgsfield["auth_type"] == "mcp_remote_oauth"

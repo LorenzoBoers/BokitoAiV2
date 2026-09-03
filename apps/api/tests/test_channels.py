@@ -15,7 +15,7 @@ async def _login(client: AsyncClient) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_channel_accounts_crud(client: AsyncClient):
+async def test_channel_accounts_crud(client: AsyncClient, unparked_channels):
     headers = await _login(client)
 
     created = await client.post(
@@ -313,7 +313,46 @@ async def test_contact_threads_include_cross_channel_history(client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_slack_url_verification(client: AsyncClient):
+async def test_parked_channel_cannot_be_connected(client: AsyncClient):
+    """Slack ships parked: the connect endpoint refuses new accounts."""
+    headers = await _login(client)
+
+    res = await client.post(
+        "/api/channels/accounts",
+        json={"channel": "slack", "provider": "slack", "address": "T404"},
+        headers=headers,
+    )
+    assert res.status_code == 400
+    assert "not available" in res.json()["error"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_parked_channel_hidden_from_channel_list(
+    client: AsyncClient, unparked_channels, monkeypatch: pytest.MonkeyPatch
+):
+    """An existing Slack row disappears from /api/channels once slack is parked."""
+    from app.config import get_settings
+
+    headers = await _login(client)
+    created = await client.post(
+        "/api/channels/accounts",
+        json={"channel": "slack", "provider": "slack", "address": "T777"},
+        headers=headers,
+    )
+    assert created.status_code == 200
+
+    listed = await client.get("/api/channels", headers=headers)
+    assert listed.status_code == 200
+    assert "slack" in {row["channel"] for row in listed.json()["channels"]}
+
+    monkeypatch.setattr(get_settings(), "parked_channels", "slack")
+    parked = await client.get("/api/channels", headers=headers)
+    assert parked.status_code == 200
+    assert "slack" not in {row["channel"] for row in parked.json()["channels"]}
+
+
+@pytest.mark.asyncio
+async def test_slack_url_verification(client: AsyncClient, unparked_channels):
     headers = await _login(client)
     account = await client.post(
         "/api/channels/accounts",
@@ -338,7 +377,7 @@ async def test_slack_url_verification(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_slack_signed_event_creates_signal(client: AsyncClient):
+async def test_slack_signed_event_creates_signal(client: AsyncClient, unparked_channels):
     import hashlib
     import hmac
     import json as jsonlib

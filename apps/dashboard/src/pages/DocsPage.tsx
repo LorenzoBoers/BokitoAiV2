@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -13,29 +13,24 @@ import {
   Inbox,
   Plug,
   Rocket,
-  Search,
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 import MarkdownView from '../components/docs/MarkdownView'
 import ArticleFeedback from '../components/docs/ArticleFeedback'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
+import { DocsHeader, useDocsLang } from '../components/docs/DocsChrome'
 import {
   getProductHelpArticle,
   getProductHelpIndex,
   getProductHelpMarkdown,
-  searchProductHelp,
   type ProductHelpArticle,
   type ProductHelpIndex,
-  type ProductHelpSearchResult,
   type ProductHelpSectionId,
-  helpLang,
 } from '../lib/product-help-api'
 import { extractToc } from '../lib/docs-toc'
 import { applyDocsMeta } from '../lib/docs-seo'
 import { readLastDocs, writeLastDocs } from '../lib/docs-continue'
-
-const DOCS_LANG_KEY = 'bokito.docs.lang'
 
 const SECTION_ICONS: Record<ProductHelpSectionId, LucideIcon> = {
   'getting-started': Rocket,
@@ -44,26 +39,6 @@ const SECTION_ICONS: Record<ProductHelpSectionId, LucideIcon> = {
   govern: ShieldCheck,
   integrations: Plug,
   developers: Code2,
-}
-
-function useDocsLang(): [string, (next: 'en' | 'nl') => void] {
-  const { i18n } = useTranslation()
-  const [lang, setLangState] = useState<string>(() => {
-    try {
-      return helpLang(localStorage.getItem(DOCS_LANG_KEY) || i18n.language)
-    } catch {
-      return helpLang(i18n.language)
-    }
-  })
-  const setLang = useCallback((next: 'en' | 'nl') => {
-    setLangState(next)
-    try {
-      localStorage.setItem(DOCS_LANG_KEY, next)
-    } catch {
-      // storage unavailable; keep in-memory state
-    }
-  }, [])
-  return [lang, setLang]
 }
 
 function useDocsIndex(lang: string) {
@@ -130,134 +105,6 @@ function LegacyRedirect({
   return <Navigate to={article ? `/docs/${article.path}` : '/docs'} replace />
 }
 
-function DocsHeader({ lang, setLang }: { lang: string; setLang: (next: 'en' | 'nl') => void }) {
-  const { t } = useTranslation('nav')
-  return (
-    <header className="z-20 border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-3.5">
-        <Link to="/docs" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-          <BookOpen className="h-4.5 w-4.5" aria-hidden />
-          {t('docs.title')}
-        </Link>
-        <div className="min-w-0 flex-1">
-          <DocsSearch lang={lang} />
-        </div>
-        <nav className="flex shrink-0 items-center gap-1.5">
-          <Link
-            to="/docs/api"
-            className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted/50"
-          >
-            {t('docs.apiReference')}
-          </Link>
-          <div className="flex items-center rounded-lg border p-0.5" role="group" aria-label="Language">
-            {(['en', 'nl'] as const).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLang(code)}
-                className={`rounded-md px-2 py-1 text-[11px] font-semibold uppercase ${
-                  helpLang(lang) === code ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
-        </nav>
-      </div>
-    </header>
-  )
-}
-
-function DocsSearch({ lang }: { lang: string }) {
-  const { t } = useTranslation('nav')
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<ProductHelpSearchResult[] | null>(null)
-  const [open, setOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const boxRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null
-      const typing = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      if (event.key === '/' && !typing) {
-        event.preventDefault()
-        inputRef.current?.focus()
-      }
-      if (event.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
-  useEffect(() => {
-    function onClick(event: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) setOpen(false)
-    }
-    window.addEventListener('mousedown', onClick)
-    return () => window.removeEventListener('mousedown', onClick)
-  }, [])
-
-  useEffect(() => {
-    const q = query.trim()
-    if (!q) {
-      setResults(null)
-      return
-    }
-    const handle = window.setTimeout(() => {
-      void searchProductHelp(q, lang)
-        .then((rows) => setResults(rows))
-        .catch(() => setResults([]))
-    }, 200)
-    return () => window.clearTimeout(handle)
-  }, [query, lang])
-
-  return (
-    <div ref={boxRef} className="relative max-w-md">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-      <input
-        ref={inputRef}
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-        placeholder={t('docs.searchPlaceholder')}
-        className="w-full rounded-lg border bg-background py-2 pl-9 pr-3 text-[13px] outline-none focus:border-primary"
-      />
-      {open && results !== null ? (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border bg-background shadow-lg">
-          {results.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-muted-foreground">{t('docs.noResults')}</p>
-          ) : (
-            results.map((row) => (
-              <Link
-                key={`${row.slug}:${row.heading}`}
-                to={`/docs/${row.path}`}
-                onClick={() => {
-                  setOpen(false)
-                  setQuery('')
-                }}
-                className="block border-b px-4 py-2.5 last:border-b-0 hover:bg-muted/50"
-              >
-                <p className="text-[13px] font-medium">
-                  {row.title}
-                  {row.heading !== row.title ? (
-                    <span className="text-muted-foreground"> - {row.heading}</span>
-                  ) : null}
-                </p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{row.snippet}</p>
-              </Link>
-            ))
-          )}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFailed: boolean }) {
   const { t } = useTranslation('nav')
 
@@ -283,43 +130,70 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
   const lastDocs = readLastDocs()
 
   return (
-    <main className="mx-auto max-w-6xl px-6 pb-20">
-      <section className="py-14 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">{t('docs.heroTitle')}</h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">{t('docs.heroBody')}</p>
+    <main className="relative mx-auto max-w-6xl px-6 pb-24">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-8 h-[28rem] overflow-hidden"
+      >
+        <div className="absolute left-1/2 top-0 h-[22rem] w-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgb(var(--color-accent)/0.22),transparent_70%)] blur-2xl" />
+        <div className="absolute left-[18%] top-24 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgb(var(--color-accent)/0.14),transparent_70%)] blur-xl" />
+        <div className="absolute right-[14%] top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgb(var(--color-accent)/0.1),transparent_70%)] blur-xl" />
+      </div>
+
+      <section className="relative py-16 text-center sm:py-20">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+          {t('docs.title')}
+        </p>
+        <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+          {t('docs.heroTitle')}
+        </h1>
+        <p className="mx-auto mt-4 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground">
+          {t('docs.heroBody')}
+        </p>
         {lastDocs ? (
           <Link
             to={lastDocs.path}
-            className="mt-5 inline-flex flex-col items-center rounded-xl border border-primary/30 bg-muted/30 px-4 py-2.5"
+            className="mt-7 inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-[13px] font-medium text-accent transition-colors hover:bg-accent/15"
           >
-            <span className="text-xs font-medium text-primary">{t('docs.continueLast')}</span>
-            <span className="text-[13px]">{t('docs.continueLastHint', { title: lastDocs.title })}</span>
+            <span className="text-accent/70">{t('docs.continueLast')}</span>
+            <span className="text-foreground">{lastDocs.title}</span>
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         ) : null}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {index.sections.map((section) => {
+      <section className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {index.sections.map((section, i) => {
           const Icon = SECTION_ICONS[section.id] ?? BookOpen
           const first = section.articles[0]
           return (
             <Link
               key={section.id}
               to={first ? `/docs/${first.path}` : '/docs'}
-              className="group rounded-xl border p-5 transition-colors hover:border-primary/40 hover:bg-muted/30"
+              style={{ animationDelay: `${i * 40}ms` }}
+              className="group relative overflow-hidden rounded-2xl border border-border/70 bg-background/60 p-5 shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-0.5 hover:border-accent/45 hover:bg-muted/25 hover:shadow-md"
             >
-              <div className="flex items-center gap-2.5">
-                <span className="rounded-lg border bg-muted/40 p-2">
-                  <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-accent/0 transition-colors duration-200 group-hover:bg-accent/10"
+              />
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl border border-accent/20 bg-accent/10 p-2.5 text-accent transition-colors group-hover:bg-accent/15">
+                  <Icon className="h-4 w-4" aria-hidden />
                 </span>
-                <h2 className="text-sm font-semibold">{t(`docs.sections.${section.id}.title`)}</h2>
+                <h2 className="text-[15px] font-semibold tracking-tight">
+                  {t(`docs.sections.${section.id}.title`)}
+                </h2>
               </div>
-              <p className="mt-2.5 text-[13px] leading-5 text-muted-foreground">
+              <p className="mt-3 text-[13px] leading-5 text-muted-foreground">
                 {t(`docs.sections.${section.id}.blurb`)}
               </p>
-              <p className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
+              <p className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-accent">
                 {t('docs.sectionCta', { count: section.articles.length })}
-                <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                <ChevronRight
+                  className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+                  aria-hidden
+                />
               </p>
             </Link>
           )
@@ -327,19 +201,26 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
       </section>
 
       {popular.length > 0 ? (
-        <section className="mt-12">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <section className="relative mt-14">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent/80">
             {t('docs.popular')}
           </h2>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {popular.map((item) => (
               <Link
                 key={item.slug}
                 to={`/docs/${item.path}`}
-                className="rounded-lg border px-4 py-3 transition-colors hover:bg-muted/40"
+                className="group flex items-start gap-3 rounded-xl border border-transparent px-4 py-3.5 transition-colors hover:border-border/80 hover:bg-muted/35"
               >
-                <p className="text-[13px] font-medium">{item.title}</p>
-                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent opacity-80 transition-opacity group-hover:opacity-100">
+                  <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <p className="text-[13px] font-medium text-foreground group-hover:text-accent">
+                    {item.title}
+                  </p>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
+                </span>
               </Link>
             ))}
           </div>

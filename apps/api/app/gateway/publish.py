@@ -236,11 +236,14 @@ async def publish_decision(
         },
     )
     if status == "awaiting_human":
+        from app.services.channel_registry import is_parked_channel
         from app.services.push import schedule_notify_decision
-        from app.services.slack_notify import schedule_notify_decision_slack
 
         schedule_notify_decision(decision_id, signal_id=signal_id)
-        schedule_notify_decision_slack(decision_id, signal_id=signal_id)
+        if not is_parked_channel("slack"):
+            from app.services.slack_notify import schedule_notify_decision_slack
+
+            schedule_notify_decision_slack(decision_id, signal_id=signal_id)
 
 
 async def publish_notification(tenant_id: Any, *, notification_id: Any, kind: str, title: str) -> None:

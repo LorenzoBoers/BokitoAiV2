@@ -37,6 +37,19 @@ def _reset_rate_limits():
     reset_rate_limits()
 
 
+@pytest.fixture
+def unparked_channels(monkeypatch: pytest.MonkeyPatch):
+    """Bring every channel back on the product surface for one test.
+
+    Slack ships parked (PARKED_CHANNELS defaults to "slack"), so adapter and
+    webhook tests that need to connect a Slack workspace ask for this fixture.
+    """
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "parked_channels", "")
+    yield
+
+
 @pytest_asyncio.fixture
 async def session_override() -> AsyncGenerator[AsyncSession, None]:
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)

@@ -103,9 +103,20 @@ async def test_notify_decision_sends_expo_push(client, session_override):
     session_override.add(signal)
     await session_override.flush()
 
+    card = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant.id,
+        kind="decision_request",
+        direction="inbound",
+        body_text="Approve refund",
+    )
+    session_override.add(card)
+    await session_override.flush()
+
     decision = DecisionRequest(
         tenant_id=tenant.id,
         signal_id=signal.id,
+        message_id=card.id,
         title="Approve refund",
         summary="Customer requests a full refund",
         status="awaiting_human",
@@ -128,8 +139,11 @@ async def test_notify_decision_sends_expo_push(client, session_override):
     assert sent == 1
     mock_expo.assert_awaited_once()
     payload = mock_expo.await_args.args[3]
+    assert payload["kind"] == "decision_request"
     assert payload["decision_id"] == str(decision.id)
     assert payload["signal_id"] == str(signal.id)
+    # Deep link: the push carries the card so the client can scroll to it.
+    assert payload["message_id"] == str(card.id)
 
 
 @pytest.mark.asyncio

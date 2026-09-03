@@ -1,8 +1,12 @@
 import type { IntegrationKind } from '../lib/integration-kind'
 import { BRAND_ASSETS } from '../lib/brand-assets'
-import { REMOTE_MCP_PROVIDERS } from '../lib/mcp-remote-providers'
+import {
+  REMOTE_MCP_HOST_BY_SLUG,
+  REMOTE_MCP_PROVIDERS,
+  logoUrlForHost,
+} from '../lib/mcp-remote-providers'
 
-const STATIC_HOST_SLUG: Record<string, string> = {
+const CORE_HOST_SLUG: Record<string, string> = {
   github: 'github',
   'microsoft-365': 'microsoft',
   'google-workspace': 'google',
@@ -14,33 +18,13 @@ const STATIC_HOST_SLUG: Record<string, string> = {
   exact_online: 'exact',
   snelstart: 'snelstart',
   custom_mcp: 'custom',
-  notion: 'notion',
-  linear: 'linear',
-  atlassian: 'atlassian',
-  slack: 'slack',
-  asana: 'asana',
-  clickup: 'clickup',
-  sentry: 'sentry',
-  stripe: 'stripe',
   shopify: 'shopify',
-  'github-mcp': 'github',
-  'microsoft-graph-mcp': 'microsoft',
-  higgsfield: 'higgsfield',
+  whatsapp: 'whatsapp',
 }
 
-const REMOTE_LOGO_META: Record<string, { initials: string; color: string }> = {
-  notion: { initials: 'NO', color: '#000000' },
-  linear: { initials: 'LN', color: '#5E6AD2' },
-  atlassian: { initials: 'AT', color: '#0052CC' },
-  slack: { initials: 'SL', color: '#4A154B' },
-  asana: { initials: 'AS', color: '#F06A6A' },
-  clickup: { initials: 'CU', color: '#7B68EE' },
-  sentry: { initials: 'SE', color: '#362D59' },
-  stripe: { initials: 'ST', color: '#635BFF' },
-  shopify: { initials: 'SH', color: '#96BF48' },
-  'github-mcp': { initials: 'GH', color: '#24292E' },
-  'microsoft-graph-mcp': { initials: 'MG', color: '#0078D4' },
-  higgsfield: { initials: 'HF', color: '#111111' },
+const STATIC_HOST_SLUG: Record<string, string> = {
+  ...CORE_HOST_SLUG,
+  ...Object.fromEntries(REMOTE_MCP_PROVIDERS.map((p) => [p.staticId, p.hostSlug])),
 }
 
 /** Business categories kept for API rows; marketplace filters by IntegrationKind instead. */
@@ -48,6 +32,9 @@ export type IntegrationCategory =
   | 'Communication'
   | 'Development'
   | 'Productivity'
+  | 'Accounting'
+  | 'Banking'
+  | 'CRM'
 
 export type IntegrationStatus = 'connected' | 'available' | 'coming_soon'
 
@@ -92,7 +79,7 @@ export function isPlatformProviderSlug(slug: string): slug is PlatformProviderSl
 
 /**
  * Static display metadata for live platform integrations (fallback when providers API is unavailable).
- * API slugs `outlook` / `gmail` map to these ids via IntegrationsMarketplace SLUG_TO_STATIC_ID.
+ * API slugs `outlook` / `gmail` map to these ids via ConnectionsMarketplace SLUG_TO_STATIC_ID.
  */
 function staticBrand(id: string): Pick<Integration, 'hostSlug' | 'logoUrl' | 'logoDarkUrl'> {
   const hostSlug = STATIC_HOST_SLUG[id] ?? id
@@ -105,7 +92,11 @@ function staticBrand(id: string): Pick<Integration, 'hostSlug' | 'logoUrl' | 'lo
 }
 
 function remoteMcpIntegration(p: (typeof REMOTE_MCP_PROVIDERS)[number]): Integration {
-  const meta = REMOTE_LOGO_META[p.staticId] ?? { initials: 'MC', color: '#475569' }
+  const host = REMOTE_MCP_HOST_BY_SLUG[p.hostSlug]
+  const meta = host
+    ? { initials: host.initials, color: host.brand_color }
+    : { initials: 'MC', color: '#475569' }
+  const brand = staticBrand(p.staticId)
   return {
     id: p.staticId,
     name: p.name,
@@ -115,8 +106,8 @@ function remoteMcpIntegration(p: (typeof REMOTE_MCP_PROVIDERS)[number]): Integra
     status: p.defaultStatus,
     color: meta.color,
     initials: meta.initials,
-    popular: p.popular,
-    ...staticBrand(p.staticId),
+    ...brand,
+    logoUrl: brand.logoUrl ?? logoUrlForHost(p.hostSlug),
   }
 }
 

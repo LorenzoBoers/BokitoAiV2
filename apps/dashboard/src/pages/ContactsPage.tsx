@@ -51,6 +51,7 @@ import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../lib/contact-label'
 import { inboxPath } from '../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { withoutParkedChannels } from '../lib/channel-surface'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import type { InboxThread } from '../lib/inbox-api'
 import { listSignalThreads } from '../lib/signals-api'
@@ -1039,7 +1040,7 @@ export default function ContactsPage() {
               onChange={(e) => setCreateDraft((p) => ({ ...p, channel: e.target.value }))}
               className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
-              {(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
+              {withoutParkedChannels(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
                 <option key={channel} value={channel}>
                   {t(`contactsPage.channels.${channel}`)}
                 </option>

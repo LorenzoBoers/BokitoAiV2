@@ -11,12 +11,14 @@ describe('resolveIntegrationKind', () => {
   it('keeps KING and custom tools on MCP', () => {
     expect(resolveIntegrationKind('king_accountancy', { mcp_tools: true })).toBe('mcp')
     expect(resolveIntegrationKind('custom_mcp')).toBe('mcp')
+    expect(resolveIntegrationKind('moneybird_mcp')).toBe('mcp')
+    expect(resolveIntegrationKind('twinfield_mcp')).toBe('mcp')
   })
 })
 
 describe('getManagePath', () => {
   it('sends Moneybird manage to Connections, not tools', () => {
-    expect(getManagePath('app')).toBe('/modules/connected?kind=app')
-    expect(getManagePath('mcp')).toBe('/modules/connected?kind=mcp')
+    expect(getManagePath('app')).toBe('/connections?kind=app')
+    expect(getManagePath('mcp')).toBe('/connections?kind=mcp')
   })
 })

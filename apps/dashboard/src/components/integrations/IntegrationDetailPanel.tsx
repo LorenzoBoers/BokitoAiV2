@@ -1,6 +1,13 @@
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { RefreshCw } from 'lucide-react'
 import type { Integration } from '../../data/integrations-data'
-import type { IntegrationProviderRow } from '../../lib/integrations-api'
+import {
+  listMcpServers,
+  testMcpServer,
+  type IntegrationProviderRow,
+  type McpServerRow,
+} from '../../lib/integrations-api'
 import { capabilityLabels } from '../../lib/integration-setup'
 import { remoteMcpByStaticId } from '../../lib/mcp-remote-providers'
 import { getRegistryEntryByStaticId } from '../../lib/integrations/registry'
@@ -18,10 +25,20 @@ type Props = {
   onSetup: () => void
   onViewConnected: () => void
   onAddAccount?: () => void
+  /** Extra context above the actions, e.g. the modules that use this login. */
+  children?: ReactNode
 }
 
 function kindLabelKey(kind: IntegrationKind): string {
   return `integrations.kind.${kind}`
+}
+
+function serversForProvider(
+  servers: McpServerRow[],
+  providerSlug: string | undefined,
+): McpServerRow[] {
+  if (!providerSlug) return []
+  return servers.filter((s) => s.provider === providerSlug && s.is_active !== false)
 }
 
 export function IntegrationDetailPanel({
@@ -32,6 +49,7 @@ export function IntegrationDetailPanel({
   onSetup,
   onViewConnected,
   onAddAccount,
+  children,
 }: Props) {
   const { t } = useTranslation('nav')
   const kind = integration.kind ?? resolveIntegrationKind(integration.id)
@@ -43,6 +61,79 @@ export function IntegrationDetailPanel({
   const registryEntry = getRegistryEntryByStaticId(integration.id)
   const remoteEndpoint =
     provider?.mcp_remote_url ?? registryEntry?.mcpRemoteUrl ?? remoteDef?.mcpRemoteUrl
+  const isMcp = Boolean(
+    provider?.capabilities?.mcp_tools || remoteEndpoint || registryEntry?.setupMode === 'custom_mcp'
+      || registryEntry?.setupMode === 'remote_mcp_oauth' || kind === 'mcp',
+  )
+
+  const [servers, setServers] = useState<McpServerRow[]>([])
+  const [toolsBusy, setToolsBusy] = useState(false)
+  const [toolsError, setToolsError] = useState<string | null>(null)
+
+  const loadServers = useCallback(async () => {
+    if (!isMcp || !isConnected || !provider?.slug) {
+      setServers([])
+      return
+    }
+    try {
+      const rows = await listMcpServers()
+      setServers(serversForProvider(rows, provider.slug))
+      setToolsError(null)
+    } catch {
+      setServers([])
+      setToolsError(
+        t('integrations.hub.detail.toolsLoadError', {
+          defaultValue: 'Could not load MCP tools.',
+        }),
+      )
+    }
+  }, [isConnected, isMcp, provider?.slug, t])
+
+  useEffect(() => {
+    void loadServers()
+  }, [loadServers])
+
+  const refreshTools = async () => {
+    const target = servers[0]
+    if (!target) return
+    setToolsBusy(true)
+    setToolsError(null)
+    try {
+      const result = await testMcpServer(target.id)
+      setServers((prev) =>
+        prev.map((s) =>
+          s.id === target.id
+            ? {
+                ...s,
+                tools: result.tools ?? [],
+                tools_synced_at: new Date().toISOString(),
+              }
+            : s,
+        ),
+      )
+      if (!result.ok && result.error) {
+        setToolsError(result.error)
+      }
+    } catch {
+      setToolsError(
+        t('integrations.hub.detail.toolsRefreshError', {
+          defaultValue: 'Could not refresh tools from the MCP server.',
+        }),
+      )
+    } finally {
+      setToolsBusy(false)
+    }
+  }
+
+  const toolNames = servers.flatMap((s) =>
+    (s.tools ?? [])
+      .map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        server: s.name,
+      }))
+      .filter((tool) => Boolean(tool.name)),
+  )
 
   return (
     <div className="space-y-4">
@@ -89,6 +180,60 @@ export function IntegrationDetailPanel({
           </ul>
         </div>
       ) : null}
+
+      {isMcp ? (
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+              {t('integrations.hub.detail.tools', { defaultValue: 'Tools' })}
+            </p>
+            {isConnected && servers.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-[11px]"
+                disabled={toolsBusy}
+                onClick={() => void refreshTools()}
+              >
+                <RefreshCw className={`h-3 w-3 ${toolsBusy ? 'animate-spin' : ''}`} aria-hidden />
+                {t('integrations.hub.detail.refreshTools', { defaultValue: 'Refresh' })}
+              </Button>
+            ) : null}
+          </div>
+          {!isConnected ? (
+            <p className="text-xs text-text-muted">
+              {t('integrations.hub.detail.toolsAfterConnect', {
+                defaultValue: 'Exact MCP tool paths appear after you connect this integration.',
+              })}
+            </p>
+          ) : toolsError ? (
+            <p className="text-xs text-status-error">{toolsError}</p>
+          ) : toolNames.length === 0 ? (
+            <p className="text-xs text-text-muted">
+              {t('integrations.hub.detail.toolsEmpty', {
+                defaultValue: 'No tools synced yet. Refresh to discover tools from the MCP server.',
+              })}
+            </p>
+          ) : (
+            <ul className="flex flex-wrap gap-1.5">
+              {toolNames.map((tool) => (
+                <li key={`${tool.server}-${tool.name}`}>
+                  <Badge
+                    variant="neutral"
+                    className="max-w-full font-mono text-[10px] font-normal"
+                    title={tool.description || tool.name}
+                  >
+                    {tool.name}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
+      {children}
 
       <div className="flex items-center gap-2">
         <Badge variant="neutral" className="text-[10px] uppercase tracking-wide">

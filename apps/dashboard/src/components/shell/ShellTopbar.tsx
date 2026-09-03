@@ -1,4 +1,4 @@
-import { Bell, Building2, ChevronDown, CircleHelp, Compass, Languages, LogOut, Mail, Menu, Search, Sparkles, UserCircle2 } from 'lucide-react'
+import { Building2, ChevronDown, CircleHelp, LogOut, Menu, Search, Settings, Sparkles, UserCircle2 } from 'lucide-react'
 import { useLocation, useNavigate, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -16,11 +16,9 @@ import {
 } from '../ui/dropdown-menu'
 import StaffTenantBar from '../layout/StaffTenantBar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
-import { useTour } from '../tour/TourContext'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 import { settingsLinkForPath } from './SettingsLayout'
 import { extraCrumbsForPath } from '../../lib/page-crumbs'
-import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
 
 type ShellTopbarProps = {
   onOpenNavDrawer: () => void
@@ -30,15 +28,19 @@ type ShellTopbarProps = {
 export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTopbarProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { t, i18n } = useTranslation('nav')
-  const { t: tTour } = useTranslation('tour')
-  const { user, token, logout } = useAuth()
-  const { start: startTour } = useTour()
+  const { t } = useTranslation('nav')
+  const { user, logout } = useAuth()
   const { status: onboardingStatus } = useOnboardingStatus()
   const setupIncomplete = Boolean(onboardingStatus && !onboardingStatus.completed)
   const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace()
   const tab = tabFromPath(pathname)
-  const pageTitle = tab ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) }) : 'Bokito'
+  const onModuleWorkspace =
+    pathname.startsWith('/connections/') && !pathname.startsWith('/connections/marketplace')
+  const pageTitle = tab
+    ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
+    : onModuleWorkspace
+      ? t('tabGroups.modules', { defaultValue: 'Modules' })
+      : 'Bokito'
   const settingsLink = settingsLinkForPath(pathname)
   const extraCrumbs = extraCrumbsForPath(pathname)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
@@ -230,46 +232,18 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
             <UserCircle2 size={14} className="mr-2 text-text-muted" />
             {t('topbar.profile')}
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              const next = i18n.language.startsWith('nl') ? 'en' : 'nl'
-              applyUiLanguageLocally(i18n, next)
-              if (token) void persistUiLanguage(token, next)
-            }}
-          >
-            <Languages size={14} className="mr-2 text-text-muted" />
-            {i18n.language.startsWith('nl') ? t('topbar.languageEn') : t('topbar.languageNl')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/learn')}>
-            <CircleHelp size={14} className="mr-2 text-text-muted" />
-            {t('topbar.help')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/settings/notifications')}>
-            <Bell size={14} className="mr-2 text-text-muted" />
-            {t('topbar.notifications')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/settings/channels')}>
-            <Mail size={14} className="mr-2 text-text-muted" />
-            {t('topbar.emailMessages')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/settings/communication')}>
-            <Sparkles size={14} className="mr-2 text-text-muted" />
-            {t('topbar.inboxAi')}
+          <DropdownMenuItem onClick={() => navigate('/settings')}>
+            <Settings size={14} className="mr-2 text-text-muted" />
+            {t('topbar.settings')}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={goToWorkspacesHub}>
             <Building2 size={14} className="mr-2 text-text-muted" />
             {t('topbar.workspaces')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={startTour}>
-            <Compass size={14} className="mr-2 text-text-muted" />
-            {tTour('replay')}
+          <DropdownMenuItem onClick={() => navigate('/settings/help')}>
+            <CircleHelp size={14} className="mr-2 text-text-muted" />
+            {t('topbar.help')}
           </DropdownMenuItem>
-          {setupIncomplete ? (
-            <DropdownMenuItem onClick={() => navigate('/settings/setup')}>
-              <Sparkles size={14} className="mr-2 text-text-muted" />
-              {t('topbar.resumeSetup')}
-            </DropdownMenuItem>
-          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout}>
             <LogOut size={14} className="mr-2 text-text-muted" />

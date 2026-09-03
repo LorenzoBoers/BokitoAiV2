@@ -39,12 +39,14 @@ setup-guide:
   routes:
     - /settings
     - /settings/setup
+    - /settings/help
     - /settings/general
     - /settings/branding
   code_globs:
     - apps/dashboard/src/pages/WorkspaceSettings.tsx
     - apps/dashboard/src/pages/CompanyConfig.tsx
     - apps/dashboard/src/pages/SetupHubPage.tsx
+    - apps/dashboard/src/pages/HelpHubPage.tsx
     - apps/dashboard/src/components/shell/SettingsLayout.tsx
   screenshots:
     - workspace
@@ -53,10 +55,13 @@ tour:
   section: getting-started
   routes:
     - /learn
+    - /settings/help
   code_globs:
     - apps/dashboard/src/components/tour/tour-steps.ts
     - apps/dashboard/src/components/shell/ShellSidebar.tsx
     - apps/dashboard/src/components/shell/CommandPalette.tsx
+    - apps/dashboard/src/components/shell/ShellTopbar.tsx
+    - apps/dashboard/src/pages/HelpHubPage.tsx
   screenshots:
     - sidebar
 
@@ -130,8 +135,8 @@ channels:
     - apps/dashboard/src/components/inbox/AddChannelDialog.tsx
     - apps/dashboard/src/components/inbox/ChannelStateBadge.tsx
     - apps/dashboard/src/components/inbox/WhatsAppConnectForm.tsx
-    - apps/dashboard/src/components/inbox/SlackConnectForm.tsx
     - apps/dashboard/src/components/inbox/SmtpImapConnectForm.tsx
+    - apps/dashboard/src/lib/channel-surface.ts
     - apps/dashboard/src/components/inbox/FoldersAndTagsManager.tsx
     - apps/api/app/services/channel_registry.py
     - apps/api/app/services/signal_tags.py
@@ -275,15 +280,13 @@ models:
 integrations:
   section: integrations
   routes:
-    - /modules
-    - /modules/connected
-    - /modules/marketplace
-    - /modules/:slug
+    - /connections
+    - /connections/marketplace
+    - /connections/:slug
     - /ai/modules/:slug
   code_globs:
-    - apps/dashboard/src/pages/IntegrationsConnected.tsx
-    - apps/dashboard/src/pages/IntegrationsMarketplace.tsx
-    - apps/dashboard/src/pages/ModulesPage.tsx
+    - apps/dashboard/src/pages/ConnectionsHub.tsx
+    - apps/dashboard/src/pages/ConnectionsMarketplace.tsx
     - apps/dashboard/src/pages/ModuleSetupPage.tsx
     - apps/dashboard/src/components/integrations/**
     - apps/dashboard/src/components/shell/IntegrationsTabs.tsx
@@ -301,7 +304,7 @@ integrations:
 mcp:
   section: integrations
   routes:
-    - /modules/tools
+    - /connections?kind=mcp
   code_globs:
     - apps/dashboard/src/components/mcp/**
     - apps/dashboard/src/pages/IntegrationsMcp.tsx

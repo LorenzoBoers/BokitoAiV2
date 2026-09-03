@@ -14,6 +14,7 @@ import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-set
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
+import { legacyModulesPath } from './lib/integration-kind-url'
 import { CardGridSkeleton } from './components/ui/skeleton'
 import { activityTerminalPath, agentChatPath, agentRunsPath, channelPath, decisionsPath, inboxPath, newConversationPath } from './lib/messages-paths'
 
@@ -63,11 +64,11 @@ const MemberManagement = lazy(() => import('./pages/MemberManagement'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
-const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected'))
-const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
-const ModulesPage = lazy(() => import('./pages/ModulesPage'))
+const ConnectionsMarketplace = lazy(() => import('./pages/ConnectionsMarketplace'))
+const ConnectionsHub = lazy(() => import('./pages/ConnectionsHub'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
+const HelpHubPage = lazy(() => import('./pages/HelpHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
 
 // Control plane hub
@@ -132,20 +133,19 @@ function RedirectPreserveSearch({ to }: { to: string }) {
   return <Navigate to={`${to}${location.search}`} replace />
 }
 
-/** Legacy Settings path for Modules → first-class `/modules` hub. */
+/** Legacy `/settings/modules*` and `/modules*` paths → the `/connections` hub. */
 function RedirectModulesLegacy() {
   const location = useLocation()
-  const rest = location.pathname.replace(/^\/settings\/modules/, '') || ''
-  return <Navigate to={`/modules${rest}${location.search}`} replace />
+  return <Navigate to={`${legacyModulesPath(location.pathname)}${location.search}`} replace />
 }
 
-/** Former AI workspace URL → single module page under `/modules/:slug`. */
+/** Former AI workspace URL → single module page under `/connections/:slug`. */
 function RedirectAiModuleWorkspace() {
   const { slug = '' } = useParams<{ slug: string }>()
   const location = useLocation()
   return (
     <Navigate
-      to={`/modules/${encodeURIComponent(slug)}${location.search}`}
+      to={`/connections/${encodeURIComponent(slug)}${location.search}`}
       replace
     />
   )
@@ -391,17 +391,22 @@ export default function App() {
           <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
 
           {/* Modules hub (first-class product surface; one Connections story) */}
-          <Route path="/modules" element={<ModulesPage />} />
-          <Route path="/modules/connected" element={<IntegrationsConnected />} />
-          <Route path="/modules/marketplace" element={<IntegrationsMarketplace />} />
-          <Route path="/modules/tools" element={<RedirectPreserveSearch to="/modules/connected" />} />
-          <Route path="/modules/:slug" element={<ModuleSetupPage />} />
+          <Route path="/connections" element={<ConnectionsHub />} />
+          <Route path="/connections/marketplace" element={<ConnectionsMarketplace />} />
+          <Route path="/connections/:slug" element={<ModuleSetupPage />} />
+          {/* Former hub URL; every `/modules*` path lands on its `/connections` twin. */}
+          <Route path="/modules" element={<RedirectModulesLegacy />} />
+          <Route path="/modules/connected" element={<RedirectModulesLegacy />} />
+          <Route path="/modules/tools" element={<RedirectModulesLegacy />} />
+          <Route path="/modules/marketplace" element={<RedirectModulesLegacy />} />
+          <Route path="/modules/:slug" element={<RedirectModulesLegacy />} />
           <Route path="/ai/modules/:slug" element={<RedirectAiModuleWorkspace />} />
 
           {/* Settings */}
           <Route element={<SettingsLayout />}>
             <Route path="/settings" element={<SettingsHomeRedirect />} />
             <Route path="/settings/setup" element={<SetupHubPage />} />
+            <Route path="/settings/help" element={<HelpHubPage />} />
             <Route path="/settings/profile" element={<ProfileSettings />} />
             <Route path="/settings/assistant" element={<Navigate to={newConversationPath()} replace />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />
@@ -413,14 +418,14 @@ export default function App() {
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
             <Route path="/settings/help-centers" element={<Navigate to="/knowledge" replace />} />
-            <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/modules/connected" />} />
-            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
-            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />
-            <Route path="/settings/integrations/docs" element={<Navigate to="/modules/marketplace" replace />} />
-            <Route path="/settings/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
+            <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/connections" />} />
+            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
+            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/connections" />} />
+            <Route path="/settings/integrations/docs" element={<Navigate to="/connections/marketplace" replace />} />
+            <Route path="/settings/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
             <Route path="/settings/modules" element={<RedirectModulesLegacy />} />
             <Route path="/settings/modules/:slug" element={<RedirectModulesLegacy />} />
-            <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />
+            <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/connections" />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />
             <Route path="/settings/trust" element={<TrustPrivacyPage />} />
@@ -450,10 +455,10 @@ export default function App() {
           <Route path="/govern" element={<RedirectPreserveSearch to="/settings/govern" />} />
           <Route path="/automations" element={<Navigate to="/agenda?view=automations" replace />} />
           <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
-          <Route path="/integrations" element={<RedirectPreserveSearch to="/modules/connected" />} />
-          <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/modules/connected" />} />
-          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/modules/marketplace" />} />
-          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/modules/connected" />} />
+          <Route path="/integrations" element={<RedirectPreserveSearch to="/connections" />} />
+          <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/connections" />} />
+          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
+          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/connections" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
           <Route path="/settings/widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />

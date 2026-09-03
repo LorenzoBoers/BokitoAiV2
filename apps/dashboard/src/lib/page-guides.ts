@@ -26,7 +26,7 @@ export const PAGE_GUIDE_BACK: Record<PageGuideSlug, string> = {
   knowledge: '/knowledge',
   govern: '/settings/govern',
   channels: '/settings/channels',
-  integrations: '/modules/connected',
+  integrations: '/connections',
   models: '/settings/models',
   widget: '/ai/assistant/external/installation',
   autonomy: '/settings/govern',
@@ -84,10 +84,10 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   channels: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/ai/assistant/external/installation', labelKey: 'pageGuides.related.widget' },
-    { to: '/modules/marketplace', labelKey: 'pageGuides.related.integrations' },
+    { to: '/connections/marketplace', labelKey: 'pageGuides.related.integrations' },
   ],
   integrations: [
-    { to: '/modules/marketplace', labelKey: 'pageGuides.related.integrations' },
+    { to: '/connections/marketplace', labelKey: 'pageGuides.related.integrations' },
     { to: '/settings/models', labelKey: 'pageGuides.related.models' },
     { to: '/settings/govern', labelKey: 'pageGuides.related.govern' },
   ],

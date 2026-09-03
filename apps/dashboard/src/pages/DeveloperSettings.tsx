@@ -263,7 +263,7 @@ function ApiTokensSection() {
                 {t('developersPage.newToken')}
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={() => navigate('/modules/connected')}>
+            <Button size="sm" variant="ghost" onClick={() => navigate('/connections/connected')}>
               {t('developersPage.openIntegrations')}
             </Button>
           </div>

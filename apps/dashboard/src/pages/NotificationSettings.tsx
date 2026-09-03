@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Bell, BellRing, Monitor } from 'lucide-react'
 import { listChannelAccounts } from '../lib/channel-accounts-api'
+import { isChannelParked } from '../lib/channel-surface'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
@@ -39,15 +40,20 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
-  // Slack toggles only make sense with a connected workspace.
+  // Slack toggles only make sense with a connected workspace, and disappear
+  // entirely while the channel is parked platform-wide.
+  const slackAvailable = !isChannelParked('slack')
+  const gridCols = slackAvailable
+    ? 'grid-cols-[1fr_84px_84px_84px]'
+    : 'grid-cols-[1fr_84px_84px]'
   const [slackConnected, setSlackConnected] = useState(false)
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !slackAvailable) return
     listChannelAccounts(token)
       .then((accounts) => setSlackConnected(accounts.some((a) => a.channel === 'slack' && a.isEnabled)))
       .catch(() => setSlackConnected(false))
-  }, [token])
+  }, [token, slackAvailable])
 
   // Fade the "Saved" confirmation shortly after the last successful save.
   useEffect(() => {
@@ -229,32 +235,36 @@ export default function NotificationSettings() {
       </div>
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[1fr_84px_84px_84px] border-b border-border/60 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
+        <div
+          className={`grid ${gridCols} border-b border-border/60 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted`}
+        >
           <span>{t('notificationsPage.notifyMe')}</span>
           <span className="text-center">{t('notificationsPage.inApp')}</span>
           <span className="text-center">{t('notificationsPage.email')}</span>
-          <span className="text-center">
-            {slackConnected ? (
-              t('notificationsPage.slack')
-            ) : (
-              <Link to="/settings/channels" className="normal-case tracking-normal text-accent hover:underline">
-                {t('notificationsPage.slackColumnHint')}
-              </Link>
-            )}
-          </span>
+          {slackAvailable ? (
+            <span className="text-center">
+              {slackConnected ? (
+                t('notificationsPage.slack')
+              ) : (
+                <Link to="/settings/channels" className="normal-case tracking-normal text-accent hover:underline">
+                  {t('notificationsPage.slackColumnHint')}
+                </Link>
+              )}
+            </span>
+          ) : null}
         </div>
 
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid grid-cols-[1fr_84px_84px_84px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
+            className={`grid ${gridCols} items-center border-b border-border/60 px-5 py-3 last:border-b-0`}
           >
             <p className="pr-3 text-sm text-text-primary">
               {t(`notificationsPage.rows.${row.id}`)}
             </p>
             {channelCell(row, 'desktop', t('notificationsPage.inApp'))}
             {channelCell(row, 'email', t('notificationsPage.email'))}
-            {channelCell(row, 'slack', t('notificationsPage.slack'))}
+            {slackAvailable ? channelCell(row, 'slack', t('notificationsPage.slack')) : null}
           </div>
         ))}
       </Card>
@@ -298,7 +308,7 @@ export default function NotificationSettings() {
           </p>
           <p className="text-xs text-text-secondary">
             {t('notificationsPage.channelsBody')}
-            {!slackConnected ? (
+            {slackAvailable && !slackConnected ? (
               <>
                 {' '}
                 <Link to="/settings/channels" className="text-accent hover:underline">

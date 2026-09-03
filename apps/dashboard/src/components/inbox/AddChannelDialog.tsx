@@ -20,6 +20,7 @@ import {
   type RelayOptions,
 } from '../../lib/channels-api'
 import { startOAuthConnection } from '../../lib/email-api'
+import { isChannelParked } from '../../lib/channel-surface'
 import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { cn } from '../../lib/utils'
 import type { Provider } from '../../lib/email-oauth'
@@ -168,6 +169,7 @@ export default function AddChannelDialog({
 }: AddChannelDialogProps) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const slackParked = isChannelParked('slack')
   const [choice, setChoice] = useState<Choice>('menu')
   const [connectBusy, setConnectBusy] = useState<'outlook' | 'gmail' | null>(null)
   const [connectError, setConnectError] = useState<string | null>(null)
@@ -332,16 +334,18 @@ export default function AddChannelDialog({
                   title={t('channelsPage.option.whatsapp')}
                   hint={t('whatsappCard.description')}
                 />
-                <ChoiceRow
-                  onClick={() => setChoice('slack')}
-                  icon={
-                    <IconTile>
-                      <BrandMark slug="slack" size={18} />
-                    </IconTile>
-                  }
-                  title={t('channelsPage.option.slack')}
-                  hint={t('slackCard.description')}
-                />
+                {slackParked ? null : (
+                  <ChoiceRow
+                    onClick={() => setChoice('slack')}
+                    icon={
+                      <IconTile>
+                        <BrandMark slug="slack" size={18} />
+                      </IconTile>
+                    }
+                    title={t('channelsPage.option.slack')}
+                    hint={t('slackCard.description')}
+                  />
+                )}
                 <Link
                   to={WEBSITE_WIDGET_PATH}
                   onClick={() => onOpenChange(false)}
@@ -474,7 +478,9 @@ export default function AddChannelDialog({
             ) : null}
 
             {choice === 'whatsapp' ? <WhatsAppConnectForm onConnected={onChannelAdded} /> : null}
-            {choice === 'slack' ? <SlackConnectForm onConnected={onChannelAdded} /> : null}
+            {choice === 'slack' && !slackParked ? (
+              <SlackConnectForm onConnected={onChannelAdded} />
+            ) : null}
             {choice === 'smtp_imap' ? (
               <SmtpImapConnectForm onConnected={onChannelAdded} />
             ) : null}

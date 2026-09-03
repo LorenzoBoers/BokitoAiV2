@@ -217,8 +217,12 @@ async def create_trigger(
 # ── firing ───────────────────────────────────────────────────────────
 
 
-async def _resolve_agent(session: AsyncSession, trigger: Trigger) -> Agent | None:
-    """Resolve the agent for a trigger. Archived / inactive agents never fire."""
+async def resolve_trigger_agent(session: AsyncSession, trigger: Trigger) -> Agent | None:
+    """Resolve the agent for a trigger. Archived / inactive agents never fire.
+
+    Public because the seeded check-in binds its thread to the same agent that
+    will run it (`platform_watch`); two resolutions would fight over the row.
+    """
     if trigger.agent_id:
         result = await session.execute(
             select(Agent).where(Agent.id == trigger.agent_id, Agent.tenant_id == trigger.tenant_id)
@@ -277,24 +281,26 @@ async def _operations_signal_id(session: AsyncSession, tenant_id: UUID) -> UUID 
 async def _surface_result(
     session: AsyncSession, trigger: Trigger, agent: Agent, text: str
 ) -> None:
-    """Post a non-OK trigger result into an internal Signal thread (Messages)."""
+    """Post a non-OK trigger result into a Signal thread (Messages)."""
     from app.models.signal import Signal
     from app.services.assistant_threads import append_signal_chat_message
-    from app.services.platform_watch import ensure_operations_thread
+    from app.services.platform_watch import ensure_agent_channel
     from app.services.signal_decisions import get_or_create_internal_thread
 
     signal: Signal | None = None
-    # Check-in findings always land in the shared operations conversation.
+    # Check-in findings land in the channel of the agent that ran the check-in,
+    # so they read as that assistant talking instead of as a separate mailbox.
     if trigger.kind == "heartbeat":
-        ops = await ensure_operations_thread(session, trigger.tenant_id)
-        if ops.tenant_id == trigger.tenant_id:
-            signal = ops
+        channel = await ensure_agent_channel(session, trigger.tenant_id, agent=agent)
+        if channel.tenant_id == trigger.tenant_id:
+            signal = channel
     # 1. Reuse the trigger's own thread so recurring fires land in one place.
     if not signal and trigger.signal_id:
         signal = await session.get(Signal, trigger.signal_id)
         if signal and signal.tenant_id != trigger.tenant_id:
             signal = None
-    # 2. Fall back to the tenant-wide operations thread when configured.
+    # 2. Fall back to a tenant-wide operations thread when one is configured
+    #    (webhook tenants point `operations_signal_id` at their own thread).
     if not signal:
         ops_signal_id = await _operations_signal_id(session, trigger.tenant_id)
         if ops_signal_id:
@@ -395,7 +401,7 @@ async def fire_trigger(
         await session.commit()
         return {"task_id": str(task.id), "status": "started"}
 
-    agent = await _resolve_agent(session, trigger)
+    agent = await resolve_trigger_agent(session, trigger)
     if not agent:
         status = "no_agent"
         if trigger.agent_id:
@@ -547,6 +553,9 @@ async def agenda_occurrences(
             "trigger_id": str(trigger.id),
             "name": trigger.name,
             "kind": trigger.kind,
+            # The thread the results land in, so the agenda links there without
+            # guessing a conversation from the trigger name.
+            "signal_id": str(trigger.signal_id) if trigger.signal_id else None,
             "agent_id": str(trigger.agent_id) if trigger.agent_id else None,
             "agent_role": trigger.agent_role,
             "agent_name": agent_name,
@@ -598,6 +607,7 @@ async def agenda_occurrences(
                 "trigger_id": run.trigger_id,
                 "name": trigger.name,
                 "kind": trigger.kind,
+                "signal_id": str(trigger.signal_id) if trigger.signal_id else None,
                 "agent_id": str(run.agent_id),
                 "agent_role": trigger.agent_role,
                 "agent_name": agent_names.get(run.agent_id),

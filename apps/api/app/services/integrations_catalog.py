@@ -1,4 +1,4 @@
-"""Static integration provider catalog for the dashboard marketplace.
+﻿"""Static integration provider catalog for the dashboard marketplace.
 
 Provider ids are stable UUID5 values derived from slug so connection rows
 can reference them via provider_id without a database seed table.
@@ -8,6 +8,8 @@ import uuid
 from typing import Any
 
 from app.config import get_settings
+from app.services.mcp_remote_catalog import catalog_hosts, catalog_providers
+from app.services.partner_mcp import partner_mcp_url
 
 NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
@@ -20,7 +22,7 @@ def host_id(slug: str) -> str:
     return str(uuid.uuid5(NAMESPACE, f"bokito.host.{slug}"))
 
 
-HOSTS: list[dict[str, Any]] = [
+_CORE_HOSTS: list[dict[str, Any]] = [
     {"id": host_id("github"), "slug": "github", "name": "GitHub", "brand_color": "#24292f", "initials": "GH"},
     {"id": host_id("microsoft"), "slug": "microsoft", "name": "Microsoft", "brand_color": "#0078d4", "initials": "MS"},
     {"id": host_id("google"), "slug": "google", "name": "Google", "brand_color": "#4285f4", "initials": "GO"},
@@ -43,6 +45,25 @@ HOSTS: list[dict[str, Any]] = [
     {"id": host_id("exact"), "slug": "exact", "name": "Exact Online", "brand_color": "#e2001a", "initials": "EX"},
     {"id": host_id("snelstart"), "slug": "snelstart", "name": "SnelStart", "brand_color": "#f39200", "initials": "SS"},
 ]
+
+
+def _merge_catalog_hosts(core: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_slug = {h["slug"]: h for h in core}
+    for row in catalog_hosts():
+        slug = str(row["slug"])
+        if slug in by_slug:
+            continue
+        by_slug[slug] = {
+            "id": host_id(slug),
+            "slug": slug,
+            "name": str(row.get("name") or slug),
+            "brand_color": str(row.get("brand_color") or "#475569"),
+            "initials": str(row.get("initials") or slug[:2].upper()),
+        }
+    return list(by_slug.values())
+
+
+HOSTS: list[dict[str, Any]] = _merge_catalog_hosts(_CORE_HOSTS)
 
 HOST_BY_SLUG = {h["slug"]: h for h in HOSTS}
 
@@ -83,7 +104,7 @@ def _provider(
     }
 
 
-PROVIDERS: list[dict[str, Any]] = [
+_CORE_PROVIDERS: list[dict[str, Any]] = [
     _provider(
         "github",
         "GitHub",
@@ -168,6 +189,8 @@ PROVIDERS: list[dict[str, Any]] = [
         host_slug="king",
         capabilities={"mcp_tools": True, "accounting": True},
         sort_order=9,
+        mcp_remote_url=partner_mcp_url("king"),
+        mcp_transport="streamable_http",
         module="accounting",
     ),
     _provider(
@@ -229,7 +252,7 @@ PROVIDERS: list[dict[str, Any]] = [
     _provider(
         "shopify_mcp",
         "Shopify",
-        "Shopify-winkel via MCP (OAuth).",
+        "Shopify-winkel via MCP (per store; storefront URL is not a single OAuth preset).",
         "Productiviteit",
         "oauth2",
         host_slug="shopify",
@@ -237,150 +260,44 @@ PROVIDERS: list[dict[str, Any]] = [
         status="coming_soon",
         sort_order=12,
     ),
-    _provider(
-        "notion_mcp",
-        "Notion",
-        "Notion-workspaces voor documenten en kennisbanken via MCP.",
-        "Productiviteit",
-        "mcp_remote_oauth",
-        host_slug="notion",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=20,
-        mcp_remote_url="https://mcp.notion.com/mcp",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "linear_mcp",
-        "Linear",
-        "Issues, projecten en comments uit Linear voor agents.",
-        "Productiviteit",
-        "mcp_remote_oauth",
-        host_slug="linear",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=21,
-        mcp_remote_url="https://mcp.linear.app/mcp",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "atlassian_mcp",
-        "Atlassian Rovo",
-        "Jira, Confluence en Compass via Atlassian MCP.",
-        "Productiviteit",
-        "mcp_remote_oauth",
-        host_slug="atlassian",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=22,
-        mcp_remote_url="https://mcp.atlassian.com/v1/mcp/authv2",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "slack_mcp",
-        "Slack",
-        "Zoeken, berichten en kanalen in Slack via MCP.",
-        "Communicatie",
-        "mcp_remote_oauth",
-        host_slug="slack",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=23,
-        mcp_remote_url="https://mcp.slack.com/mcp",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "asana_mcp",
-        "Asana",
-        "Taken en projecten in Asana via MCP.",
-        "Productiviteit",
-        "mcp_remote_oauth",
-        host_slug="asana",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=24,
-        mcp_remote_url="https://mcp.asana.com/v2/mcp",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "clickup_mcp",
-        "ClickUp",
-        "ClickUp-workspaces en taken voor agentworkflows.",
-        "Productiviteit",
-        "mcp_remote_oauth",
-        host_slug="clickup",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=25,
-        mcp_remote_url="https://mcp.clickup.com/mcp",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "sentry_mcp",
-        "Sentry",
-        "Issues, projecten en debugging-context uit Sentry.",
-        "Ontwikkeling",
-        "mcp_remote_oauth",
-        host_slug="sentry",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=26,
-        mcp_remote_url="https://mcp.sentry.dev/mcp",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "stripe_mcp",
-        "Stripe",
-        "Stripe-data en acties via hosted MCP.",
-        "Productiviteit",
-        "mcp_remote_oauth",
-        host_slug="stripe",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=27,
-        mcp_remote_url="https://mcp.stripe.com",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "github_mcp",
-        "GitHub MCP",
-        "GitHub issues en PRs via remote MCP.",
-        "Ontwikkeling",
-        "mcp_remote_oauth",
-        host_slug="github",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=28,
-        mcp_remote_url="https://api.githubcopilot.com/mcp/",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "microsoft_graph_mcp",
-        "Microsoft Graph MCP",
-        "Entra en directory-inzichten via Microsoft MCP Server.",
-        "Communicatie",
-        "mcp_remote_oauth",
-        host_slug="microsoft",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=29,
-        mcp_remote_url="https://mcp.svc.cloud.microsoft/enterprise",
-        mcp_transport="streamable_http",
-    ),
-    _provider(
-        "higgsfield_mcp",
-        "Higgsfield",
-        "AI-beeld- en videogeneratie via de hosted Higgsfield MCP-server.",
-        "Productiviteit",
-        "mcp_remote_oauth",
-        host_slug="higgsfield",
-        capabilities={"mcp_tools": True},
-        status="coming_soon",
-        sort_order=30,
-        mcp_remote_url="https://mcp.higgsfield.ai/mcp",
-        mcp_transport="streamable_http",
-    ),
 ]
+
+
+def _remote_mcp_providers() -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(catalog_providers()):
+        slug = str(row["slug"])
+        url = str(row.get("mcp_remote_url") or "").strip() or None
+        auth = str(row.get("auth_type") or "mcp_remote_oauth")
+        caps = {"mcp_tools": True}
+        module = row.get("module")
+        if module == "accounting":
+            caps["accounting"] = True
+        if module == "banking":
+            caps["banking"] = True
+        status = str(row.get("status") or "coming_soon")
+        if auth == "mcp_remote_oauth" and not url:
+            status = "coming_soon"
+        rows.append(
+            _provider(
+                slug,
+                str(row.get("name") or slug),
+                str(row.get("description") or ""),
+                str(row.get("category_nl") or row.get("category") or "Productiviteit"),
+                auth,
+                host_slug=str(row.get("host_slug") or "custom"),
+                capabilities=caps,
+                status=status,
+                sort_order=20 + index,
+                mcp_remote_url=url,
+                mcp_transport=str(row.get("mcp_transport") or "streamable_http") if url else None,
+                module=str(module) if module else None,
+            )
+        )
+    return rows
+
+
+PROVIDERS: list[dict[str, Any]] = [*_CORE_PROVIDERS, *_remote_mcp_providers()]
 
 PROVIDER_BY_SLUG = {p["slug"]: p for p in PROVIDERS}
 PROVIDER_BY_ID = {p["id"]: p for p in PROVIDERS}

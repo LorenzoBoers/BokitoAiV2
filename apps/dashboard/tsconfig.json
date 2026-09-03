@@ -22,7 +22,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"],
+  "include": ["src", "../api/app/data/mcp_remote_catalog.json"],
   "exclude": ["node_modules", "dist"]
 }
 

@@ -89,7 +89,9 @@ async def list_rows(session: AsyncSession, tenant_id: UUID) -> list[dict[str, An
 
 def verify_identity(server_url: str, auth: dict[str, Any]) -> str | None:
     """Identity string for a native MCP registration during live verify."""
-    if server_url.startswith("native://king-accountancy"):
+    from app.services.partner_mcp import is_king_mcp_url
+
+    if is_king_mcp_url(server_url):
         from app.services.king_finance import parse_administraties
 
         admins = parse_administraties(auth)

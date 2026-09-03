@@ -37,7 +37,7 @@ Agents with calendar tools can list upcoming events (with stable ids) and propos
    - **Event** — a reminder on the agenda. No agent run.
    - **Recurring schedule** — **Cron expression (UTC)** (for example weekday mornings).
    - **Repeating** — **Every (minutes)**.
-   - **Check-in** — a heartbeat. The agent reports only when something needs attention.
+   - **Check-in** — a heartbeat. The agent reports only when something needs attention, in its own channel in Communication.
    - **Incoming trigger** — an external system POSTs JSON to the **Hook URL**. After save, copy **Incoming secret (shown once)**. Send it as header `X-Bokito-Secret` or `?secret=`. Use **Test ping** and **Rotate secret** later. Incoming hooks are limited to 60 POSTs per minute.
 
 Leave **Enabled** on. Disabled items stay on the agenda but never fire.

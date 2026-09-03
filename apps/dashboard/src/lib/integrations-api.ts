@@ -48,6 +48,15 @@ export interface ModuleToolCard {
   kind: 'read' | 'propose'
 }
 
+export interface AttachedMcpToolServer {
+  server_id: string
+  server_name: string
+  provider: string
+  server_url?: string
+  tools_synced_at?: string | null
+  tools: Array<{ name: string; description?: string }>
+}
+
 export interface IntegrationModuleRow {
   slug: string
   name: string
@@ -69,6 +78,8 @@ export interface IntegrationModuleRow {
   install_state?: 'not_installed' | 'setup' | 'installed'
   assigned_agent_count?: number
   attached_connection_count?: number
+  /** Exact MCP tools from servers attached to this module. */
+  attached_mcp_tools?: AttachedMcpToolServer[]
   default_agent_id?: string | null
   /** False when this member is outside the module's user_access selection. */
   user_accessible?: boolean
@@ -317,6 +328,21 @@ export async function installMcpIntegration(input: {
 
 export async function listMcpBindings(): Promise<McpBindingsResponse> {
   return apiGet<McpBindingsResponse>(integrationsRoutes.platform.mcpBindings)
+}
+
+export type McpServerRow = {
+  id: string
+  name: string
+  server_url: string
+  is_active: boolean
+  provider?: string | null
+  connection_id?: string | null
+  tools: Array<{ name: string; description?: string }>
+  tools_synced_at?: string | null
+}
+
+export async function listMcpServers(): Promise<McpServerRow[]> {
+  return apiGet<McpServerRow[]>(integrationsRoutes.platform.mcpServers)
 }
 
 export type McpTestResult = {

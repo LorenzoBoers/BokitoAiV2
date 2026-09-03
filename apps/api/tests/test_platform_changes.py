@@ -52,6 +52,19 @@ async def test_propose_ask_creates_pending_change_and_decision(client: AsyncClie
     assert decision.signal_id is not None
     assert decision.message_id is not None
 
+    # The bell payload carries the deep link, so a push lands on the card itself.
+    from app.models.notification import Notification
+
+    notification = (
+        await session_override.execute(
+            select(Notification).where(Notification.id == decision.notification_id)
+        )
+    ).scalar_one()
+    payload = json.loads(notification.payload_json)
+    assert payload["platform_change_id"] == str(change.id)
+    assert payload["signal_id"] == str(decision.signal_id)
+    assert payload["message_id"] == str(decision.message_id)
+
 
 @pytest.mark.asyncio
 async def test_accept_doc_change_writes_doc(client: AsyncClient, session_override):

@@ -425,10 +425,12 @@ async def install_mcp(
         from app.services.bjorn_lunden import BL_NATIVE_URL
 
         url = BL_NATIVE_URL
-    if not url and provider == "king_accountancy":
-        from app.services.king_finance import KING_NATIVE_URL
+    if provider == "king_accountancy":
+        from app.services.partner_mcp import is_king_mcp_url, partner_mcp_url
 
-        url = KING_NATIVE_URL
+        # Prefer the hosted partner MCP URL; keep native:// only as a legacy shim.
+        if not url or url.startswith("native://") or not is_king_mcp_url(url):
+            url = partner_mcp_url("king")
     if not url:
         if get_settings().is_production:
             raise HTTPException(
@@ -462,6 +464,16 @@ async def install_mcp(
             auth_payload = stamped
         elif use_mock:
             auth_payload["mock"] = True
+        if provider == "king_accountancy":
+            from app.services.partner_mcp import mint_partner_access_token
+
+            # Hosted partner MCP authenticates with this token (same as remote MCP bearer).
+            token = str(auth_payload.get("partner_access_token") or "").strip()
+            if not token:
+                token = mint_partner_access_token()
+            auth_payload["partner_access_token"] = token
+            auth_payload["bearer_token"] = token
+            auth_payload["auth_type"] = "bearer"
     elif provider == "custom_mcp" or not url.startswith("native://"):
         if not key and not use_mock:
             raise HTTPException(
@@ -682,6 +694,29 @@ async def test_mcp_server(
         tools = [dict(t) for t in KING_NATIVE_TOOLS]
         await _persist_discovered_tools(session, server, tools)
         payload: dict[str, Any] = {
+            "ok": bool(check.get("ok")),
+            "server_id": str(server.id),
+            "server_name": server.name,
+            "tool_count": len(tools),
+            "tools": tools,
+        }
+        if check.get("error"):
+            payload["error"] = check["error"]
+        if check.get("note"):
+            payload["note"] = check["note"]
+        return payload
+
+    from app.services.partner_mcp import is_partner_mcp_url, partner_tools
+
+    partner_slug = is_partner_mcp_url(server.server_url)
+    if partner_slug == "king":
+        from app.services.king_finance import validate_credentials as validate_king_credentials
+
+        auth_data = _parse_json(server.auth_json)
+        check = await validate_king_credentials(auth_data if isinstance(auth_data, dict) else {})
+        tools = partner_tools(partner_slug)
+        await _persist_discovered_tools(session, server, tools)
+        payload = {
             "ok": bool(check.get("ok")),
             "server_id": str(server.id),
             "server_name": server.name,

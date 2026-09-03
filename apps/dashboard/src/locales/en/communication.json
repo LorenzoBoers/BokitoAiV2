@@ -215,6 +215,13 @@
     "earlierDraft": "Earlier draft — dismissed",
     "automatedExplainer": "This looks like an automated message, so no reply was drafted.",
     "decisionNeeded": "Decision needed",
+    "source": {
+      "prefix": "From",
+      "agent_task": "queue item",
+      "project": "project",
+      "agent_run": "agent run",
+      "platform_change": "platform change"
+    },
     "module": {
       "title": "{{module}} write",
       "kinds": {

@@ -14,6 +14,11 @@ import {
   UserRound,
   Zap,
 } from 'lucide-react'
+import {
+  decisionSourceLabelKey,
+  decisionSourcePath,
+  parseDecisionSource,
+} from '../../lib/decision-source'
 import { moduleProposalFromOptions } from '../../lib/module-proposal'
 import { ModuleProposalBlock } from './ModuleProposalBlock'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
@@ -266,6 +271,14 @@ export default function DecisionRequestMessage({
     t,
   )
   const excerpt = formatDecisionExcerpt(summary)
+  // Where the question came from (queue item, run, project, platform change).
+  const decisionSource = useMemo(
+    () =>
+      parseDecisionSource(
+        (message.payload?.decision as { source?: unknown } | undefined)?.source,
+      ),
+    [message.payload],
+  )
   const draftBody = useMemo(() => {
     if (toolCopy) return toolCopy.summary
     return translateMockAgentBody(
@@ -601,6 +614,19 @@ export default function DecisionRequestMessage({
             </button>
           ) : null}
         </div>
+        {decisionSource ? (
+          <p className="mb-1.5 text-[11px] text-text-muted">
+            {t('decisionCard.source.prefix', { defaultValue: 'From' })}{' '}
+            <Link
+              to={decisionSourcePath(decisionSource)}
+              className="font-medium text-accent hover:underline"
+            >
+              {t(decisionSourceLabelKey(decisionSource), {
+                defaultValue: decisionSource.type.replace('_', ' '),
+              })}
+            </Link>
+          </p>
+        ) : null}
         {isActionSuggestion ? (
           <>
             <p className="text-sm text-text-primary">{t('decisionCard.automatedExplainer')}</p>

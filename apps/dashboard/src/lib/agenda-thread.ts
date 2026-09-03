@@ -1,4 +1,4 @@
-import { agentRunsPath } from './messages-paths'
+import { agentChatPath, agentRunsPath } from './messages-paths'
 import { agentWorkforceRunUrl } from './workforce-run-urls'
 
 /** EN/NL titles that should match the same Agent-runs conversation. */
@@ -52,11 +52,32 @@ function occurrenceAtMs(at: string): number {
   return new Date(at.endsWith('Z') ? at : `${at}Z`).getTime()
 }
 
+/**
+ * The thread a trigger posts into, straight from `signal_id` instead of a
+ * subject guess. Check-ins land in the agent's own channel; other triggers
+ * keep their internal run thread.
+ */
+export function triggerThreadPath(item: {
+  kind?: string | null
+  signal_id?: string | null
+  agent_id?: string | null
+  status?: string | null
+}): string | null {
+  if (!item.signal_id) return null
+  if (item.kind === 'heartbeat' && item.agent_id) {
+    return agentChatPath(item.agent_id, item.signal_id)
+  }
+  return agentRunsPath(item.status === 'completed' ? 'results' : 'all', item.signal_id)
+}
+
 /** Link a planned Agenda row: past/completed work opens Agent-runs; future wakes stay on Agenda. */
 export function agendaOccurrenceHref(
   item: {
     name: string
     at: string
+    kind?: string | null
+    signal_id?: string | null
+    status?: string | null
     run_id?: string | null
     agent_id?: string | null
     trigger_id?: string | null
@@ -67,6 +88,10 @@ export function agendaOccurrenceHref(
 ): string {
   const atMs = occurrenceAtMs(item.at)
   const isFuture = Number.isFinite(atMs) && atMs > nowMs
+  if (!isFuture || item.run_id) {
+    const direct = triggerThreadPath(item)
+    if (direct) return direct
+  }
   const match = !isFuture || item.run_id
     ? pickClosestThreadBySubject(threads, item.name, item.at)
     : null

@@ -19,6 +19,7 @@ from app.models.agent import Agent
 from app.models.auth import Membership, User, user_numeric_id
 from app.models.channel import ChannelAccount, Contact
 from app.models.notification import DecisionRequest, Notification
+from app.services.signal_decisions import decision_provenance
 from app.models.signal import (
     EXTERNAL_CHANNELS,
     Signal,
@@ -232,6 +233,8 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
             "summary": decision.summary,
             "status": decision.status,
             "options": options,
+            # Provenance so the card can name and link its source.
+            "source": decision_provenance(decision),
         }
     try:
         meta = json.loads(message.metadata_json or "{}")

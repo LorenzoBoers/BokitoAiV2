@@ -1,12 +1,14 @@
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Info } from 'lucide-react'
 import ContentHeader from './ContentHeader'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
+import { cn } from '../../lib/utils'
 
 type SettingsLink = { labelKey: string; to: string; match?: string | string[]; hintKey?: string }
-type SettingsGroup = { labelKey: string; links: SettingsLink[] }
+type SettingsGroup = { labelKey: string; links: SettingsLink[]; accent?: boolean }
 
 const SETTINGS_GROUPS: SettingsGroup[] = [
   {
@@ -19,7 +21,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     labelKey: 'settings.groups.workspace',
     links: [
-      { labelKey: 'settings.links.setupGuide', to: '/settings/setup', hintKey: 'settings.hints.setupGuide' },
       { labelKey: 'settings.links.general', to: '/settings/general', hintKey: 'settings.hints.general' },
       { labelKey: 'settings.links.branding', to: '/settings/branding', hintKey: 'settings.hints.branding' },
       { labelKey: 'settings.links.members', to: '/settings/members', hintKey: 'settings.hints.members' },
@@ -47,24 +48,37 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { labelKey: 'settings.links.models', to: '/settings/models', hintKey: 'settings.hints.models' },
     ],
   },
+  {
+    labelKey: 'settings.groups.help',
+    accent: true,
+    links: [
+      { labelKey: 'settings.links.help', to: '/settings/help', hintKey: 'settings.hints.help' },
+    ],
+  },
 ]
 
 export const SETTINGS_PALETTE_LINKS: SettingsLink[] = [
   ...SETTINGS_GROUPS.flatMap((group) => group.links),
-  // Connections live in the Modules hub; keep them findable from the palette.
+  // Setup guide lives on Help; keep findable from the palette and deep links.
+  {
+    labelKey: 'settings.links.setupGuide',
+    to: '/settings/setup',
+    hintKey: 'settings.hints.setupGuide',
+  },
+  // Connections live in the hub; keep them findable from the palette.
   {
     labelKey: 'settings.links.integrations',
-    to: '/modules/connected',
+    to: '/connections',
     hintKey: 'settings.hints.integrations',
   },
   {
     labelKey: 'integrations.links.marketplace',
-    to: '/modules/marketplace',
+    to: '/connections/marketplace',
     hintKey: 'settings.hints.marketplace',
   },
   {
     labelKey: 'integrations.links.mcp',
-    to: '/modules/connected',
+    to: '/connections?kind=mcp',
     hintKey: 'settings.hints.connectedTools',
   },
 ]
@@ -92,9 +106,7 @@ export function SettingsHomeRedirect() {
 export default function SettingsLayout() {
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
-  const activeLink = SETTINGS_GROUPS.flatMap((group) => group.links).find((link) =>
-    linkIsActive(pathname, link),
-  )
+  const activeLink = SETTINGS_PALETTE_LINKS.find((link) => linkIsActive(pathname, link))
   const activeLabel = activeLink ? t(activeLink.labelKey) : t('tabs.settings.subtitle')
 
   const subtitle = activeLabel
@@ -105,7 +117,7 @@ export default function SettingsLayout() {
         <p className="px-2.5 pb-3 text-[15px] font-semibold leading-none text-text-heading">
           {t('tabs.settings.title')}
         </p>
-        <nav className="min-h-0 flex-1 overflow-y-auto" aria-label={t('tabs.settings.title')}>
+        <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label={t('tabs.settings.title')}>
           <SettingsNav pathname={pathname} />
         </nav>
       </aside>
@@ -130,33 +142,32 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
   const { t } = useTranslation('nav')
   return (
     <TooltipProvider delayDuration={250}>
-      <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex flex-col gap-y-5'}>
-        {SETTINGS_GROUPS.map((group) => (
-          <section key={group.labelKey} className={compact ? 'min-w-[140px]' : undefined}>
-            <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-              {t(group.labelKey)}
-            </p>
-            <div className="space-y-px">
-              {group.links.map((link) => {
-                const active = linkIsActive(pathname, link)
-                const hint = link.hintKey ? t(link.hintKey) : ''
-                const item = (
-                  <NavLink
-                    to={link.to}
-                    className={`block rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors ${
-                      active
-                        ? 'bg-accent/12 font-medium text-accent'
-                        : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
-                    }`}
-                  >
-                    {t(link.labelKey)}
-                  </NavLink>
-                )
-                if (!hint) return <div key={link.to}>{item}</div>
-                return (
-                  <Tooltip key={link.to}>
+      <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex h-full min-h-0 flex-col gap-y-5'}>
+        {SETTINGS_GROUPS.map((group) => {
+          if (group.accent) {
+            const link = group.links[0]
+            if (!link) return null
+            const active = linkIsActive(pathname, link)
+            const hint = link.hintKey ? t(link.hintKey) : ''
+            const item = (
+              <NavLink
+                to={link.to}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors',
+                  active
+                    ? 'bg-accent/12 font-medium text-accent'
+                    : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary',
+                )}
+              >
+                <Info size={14} className="shrink-0" aria-hidden />
+                {t(link.labelKey)}
+              </NavLink>
+            )
+            return (
+              <div key={group.labelKey} className={compact ? 'min-w-[140px]' : 'mt-auto w-full'}>
+                {hint ? (
+                  <Tooltip>
                     <TooltipTrigger asChild>{item}</TooltipTrigger>
-                    {/* Beside the rail so the hint never covers the next nav row. */}
                     <TooltipContent
                       side={compact ? 'top' : 'right'}
                       align="start"
@@ -166,11 +177,53 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
                       {hint}
                     </TooltipContent>
                   </Tooltip>
-                )
-              })}
-            </div>
-          </section>
-        ))}
+                ) : (
+                  item
+                )}
+              </div>
+            )
+          }
+          return (
+            <section key={group.labelKey} className={compact ? 'min-w-[140px]' : undefined}>
+              <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                {t(group.labelKey)}
+              </p>
+              <div className="space-y-px">
+                {group.links.map((link) => {
+                  const active = linkIsActive(pathname, link)
+                  const hint = link.hintKey ? t(link.hintKey) : ''
+                  const item = (
+                    <NavLink
+                      to={link.to}
+                      className={cn(
+                        'block rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors',
+                        active
+                          ? 'bg-accent/12 font-medium text-accent'
+                          : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary',
+                      )}
+                    >
+                      {t(link.labelKey)}
+                    </NavLink>
+                  )
+                  if (!hint) return <div key={link.to}>{item}</div>
+                  return (
+                    <Tooltip key={link.to}>
+                      <TooltipTrigger asChild>{item}</TooltipTrigger>
+                      <TooltipContent
+                        side={compact ? 'top' : 'right'}
+                        align="start"
+                        sideOffset={8}
+                        className="max-w-56 font-normal"
+                      >
+                        {hint}
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </div>
+            </section>
+          )
+        })}
       </div>
     </TooltipProvider>
   )

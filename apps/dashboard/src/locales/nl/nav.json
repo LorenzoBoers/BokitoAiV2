@@ -19,7 +19,7 @@
       "subtitle": "Dagelijkse scan, aandacht en verbruik"
     },
     "communication": {
-      "title": "Berichten",
+      "title": "Communicatie",
       "subtitle": "Chats, klant- en agentgesprekken"
     },
     "contacts": {
@@ -43,8 +43,8 @@
       "subtitle": "Documenten, skills en geheugen"
     },
     "modules": {
-      "title": "Modules",
-      "subtitle": "Zet bedrijfscapabilities aan of uit",
+      "title": "Koppelingen",
+      "subtitle": "Geïnstalleerde modules, partnerlogins en tools",
       "newBadge": "Nieuw"
     },
     "settings": {
@@ -1859,7 +1859,7 @@
     "control": "Besturing",
     "agent": "Agent",
     "ai": "AI",
-    "settings": "Instellingen",
+    "settings": "Organisatie",
     "modules": "Modules"
   },
   "palette": {
@@ -1928,6 +1928,7 @@
     "allWorkspaces": "Alle workspaces",
     "current": "huidig",
     "profile": "Profiel",
+    "settings": "Instellingen",
     "help": "Hulp",
     "notifications": "Notificaties",
     "workspaces": "Workspaces",
@@ -2456,7 +2457,13 @@
         "subtitle": "Meer informatie over deze integratie en hoe je deze koppelt.",
         "setup": "Nieuwe verbinding instellen",
         "manageConnected": "Beheren bij Verbonden",
-        "capabilities": "Mogelijkheden"
+        "capabilities": "Mogelijkheden",
+        "tools": "Tools",
+        "refreshTools": "Vernieuwen",
+        "toolsAfterConnect": "Exacte MCP-toolpaden verschijnen nadat je deze integratie koppelt.",
+        "toolsEmpty": "Nog geen tools gesynchroniseerd. Vernieuw om tools van de MCP-server op te halen.",
+        "toolsLoadError": "MCP-tools konden niet worden geladen.",
+        "toolsRefreshError": "Tools konden niet worden vernieuwd vanaf de MCP-server."
       },
       "capability": {
         "inbox_sync": "Inbox-synchronisatie",
@@ -2491,6 +2498,7 @@
       "hubSubtitle": "Kies hoe je wilt koppelen ({{count}} opties).",
       "hubSubtitle_one": "Koppel dit pakket.",
       "connectionTypes": "Koppelingstypen",
+      "usedByModules": "Werkt met modules",
       "connectedShort": "Verbonden",
       "alreadyCount": "{{count}} gekoppeld",
       "alreadyCount_one": "{{count}} gekoppeld"
@@ -2579,7 +2587,6 @@
     },
     "modules": {
       "comingSoon": "Binnenkort",
-      "sectionOther": "Overige integraties",
       "planned": "Geplande koppelingen: {{providers}}",
       "moduleBadge": "Module",
       "companies": "Administraties ({{count}})",
@@ -2614,6 +2621,9 @@
       "toolset": "AI-toolset",
       "toolsetTitle": "Acties die deze module kan uitvoeren",
       "proposeToolset": "Schrijven (als beslissingen)",
+      "attachedMcpToolsTitle": "Tools van gekoppelde MCP-servers",
+      "attachedMcpToolsEmpty": "Nog geen tools ontdekt op deze server.",
+      "toolsSynced": "Gesynchroniseerd",
       "applyNote": "Voorstellen landen als beslissingen. Goedkeuring voert de schrijfactie alleen uit als de schrijfschakelaar van de workspace aan staat.",
       "openWorkspace": "{{name}} openen",
       "continueSetup": "Setup voortzetten",
@@ -2649,7 +2659,6 @@
       "openSetup": "{{name}} openen",
       "browseMarketplace": "Integraties bekijken op Marketplace",
       "helpLink": "Hoe modules werken",
-      "plannedEmpty": "Voor deze module staan nog geen koppelingen klaar.",
       "notFound": "Deze module staat niet in de catalogus.",
       "tabs": {
         "overview": "Overzicht",
@@ -2892,9 +2901,12 @@
       "emptyKind": "Geen integraties in deze categorie.",
       "emptyFiltered": "Geen treffers voor deze zoekopdracht of dit filter.",
       "clearFilters": "Filters wissen",
-      "openModules": "Modules openen",
       "openConnected": "Gekoppelde integraties openen",
-      "catalogFallback": "Catalogus-API niet beschikbaar; lokale lijst wordt gebruikt."
+      "modulesTitle": "Modules",
+      "modulesSubtitle": "Vakgebied-presets: tools, prompts en beslissingen in één installatie.",
+      "integrationsTitle": "Integraties",
+      "integrationsSubtitle": "Log in bij een programma zodat agents erin kunnen lezen en handelen.",
+      "catalogFallback": "Catalogus-API niet beschikbaar; lokale lijst wordt getoond."
     },
     "categories": {
       "productivity": "Productiviteit"
@@ -2913,10 +2925,13 @@
       "nextChannel": "Koppel e-mail of chat",
       "nextAgenda": "Koppel Agenda",
       "nextModule": "Installeer een module",
-      "yourList": "Gekoppeld",
-      "catalogTitle": "Toevoegen",
-      "catalogHint": "Zelfde programma twee keer koppelen kan: bijvoorbeeld twee Moneybird-administraties.",
-      "catalogEmpty": "Niets in deze filter.",
+      "yourList": "Koppelingen",
+      "installedModulesTitle": "Geïnstalleerde modules",
+      "installedModulesHint": "Vakgebied-presets die aan staan in deze workspace.",
+      "noInstalledModules": "Nog geen modules geïnstalleerd. Ontdek presets in de marketplace.",
+      "mcpServersTitle": "Custom MCP-servers",
+      "emptyMcpDescription": "Nog geen custom MCP-servers gekoppeld.",
+      "marketplaceHint": "Iets anders nodig? Voeg modules en koppelingen toe in de marketplace.",
       "codeHint": "Alleen nodig voor code-projecten.",
       "mailboxProgram": "{{count}} mailboxen",
       "mailboxProgram_one": "{{count}} mailbox",
@@ -2945,12 +2960,12 @@
     "pageMeta": {
       "connected": {
         "title": "Koppelingen",
-        "description": "Wat je al gekoppeld hebt, gegroepeerd per type en programma. Daaronder kun je iets nieuws koppelen."
+        "description": "Geïnstalleerde modules, partnerlogins en tools voor deze workspace. Ontdek meer in de marketplace."
       },
       "marketplace": {
-        "title": "Ontdekken",
-        "description": "Ontdek en koppel e-mail, repositories en tools die je agents kunnen gebruiken.",
-        "modulesHint": "Bedrijfsmodules zet je aan onder Instellingen > Modules. De pakketten hieronder tonen welke koppelingen bij elke module horen."
+        "title": "Marketplace",
+        "description": "Ontdek en koppel modules, e-mail, repositories en tools die je agents kunnen gebruiken.",
+        "modulesHint": "Modules installeren een vakgebied-preset voor agents. Integraties zijn de programma's waar je inlogt; een module werkt daarbovenop."
       },
       "connections": {
         "title": "Verbonden",
@@ -4129,13 +4144,15 @@
       "integrations": "Integraties",
       "govern": "Govern",
       "advanced": "Geavanceerd",
-      "data": "Data"
+      "data": "Data",
+      "help": "help"
     },
     "links": {
       "profile": "Profiel",
       "profileSecurity": "Profiel en beveiliging",
       "notifications": "Notificaties",
       "setupGuide": "Setupgids",
+      "help": "help",
       "inbox": "Mailboxen",
       "emailMessages": "E-mail en berichten",
       "chatWidget": "Chatwidget",
@@ -4148,7 +4165,7 @@
       "members": "Leden",
       "membersTeams": "Leden en teams",
       "integrations": "Integraties",
-      "modules": "Modules",
+      "modules": "Koppelingen",
       "govern": "Govern",
       "trust": "Vertrouwen en privacy",
       "reports": "Overview",
@@ -4166,6 +4183,7 @@
       "profileSecurity": "Naam, foto, wachtwoord en e-mailhandtekening",
       "notifications": "Wanneer Bokito je moet waarschuwen",
       "setupGuide": "Begeleide checklist om te starten",
+      "help": "Setupgids, producttour, documentatie en support",
       "general": "Bedrijfsnaam en taal",
       "branding": "Logo en kleuren",
       "members": "Collega's uitnodigen",
@@ -4174,7 +4192,7 @@
       "inboxAi": "Hoe agents klanten beantwoorden",
       "helpCenters": "Openbare helpartikelen",
       "integrations": "Andere tools koppelen",
-      "modules": "Zet bedrijfsmodules aan of uit — boekhouding, facturen, btw",
+      "modules": "Geïnstalleerde modules, partnerlogins en tools",
       "marketplace": "Marketplace-apps en tools die je agents kunnen gebruiken — zoek op markt",
       "connectedTools": "Tools die agents al mogen gebruiken",
       "govern": "Goedkeuringen en hoeveel agents mogen doen",
@@ -4182,6 +4200,43 @@
       "reports": "Dagelijkse scan, aandacht en verbruik",
       "developers": "API-sleutels en webhooks",
       "models": "Welke AI-modellen je gebruikt"
+    }
+  },
+  "helpHub": {
+    "intro": "Gidsen, documentatie en manieren om hulp te krijgen — op één plek.",
+    "guidesTitle": "Gidsen en documentatie",
+    "supportTitle": "Ondersteuning",
+    "supportIntro": "Hulp nodig bij iets dat de docs niet dekken? Mail ons of praat met de assistent in je workspace.",
+    "assistantPrefill": "Ik heb hulp nodig met Bokito. Kun je me verder helpen?",
+    "items": {
+      "setup": {
+        "title": "Setupgids",
+        "description": "Checklist om je workspace in te richten: kanalen, agents en autonomie."
+      },
+      "tour": {
+        "title": "Producttour",
+        "description": "Korte rondleiding door de hoofdoppervlakken van Bokito."
+      },
+      "docs": {
+        "title": "Documentatie",
+        "description": "Openbare productgidsen met stappen en screenshots."
+      },
+      "api": {
+        "title": "API-reference",
+        "description": "REST-endpoints en schemas voor integraties."
+      },
+      "learn": {
+        "title": "In-app Learn",
+        "description": "Korte gidsen terwijl je ingelogd bent."
+      },
+      "email": {
+        "title": "Mail support",
+        "description": "Schrijf naar support@bokito.ai — we reageren zo snel mogelijk."
+      },
+      "assistant": {
+        "title": "Praat met de assistent",
+        "description": "Stel een vraag in Communicatie; de workspace-assistent helpt verder."
+      }
     }
   },
   "trustPage": {

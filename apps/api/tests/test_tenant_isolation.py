@@ -10,6 +10,7 @@ from app.models.project import Project
 from app.models.signal import Signal
 from app.models.trigger import Trigger
 from app.services.auth import decode_access_token
+from app.services.platform_watch import AGENT_CHANNEL_SOURCE
 
 
 @pytest.mark.asyncio
@@ -41,9 +42,12 @@ async def test_signup_creates_empty_tenant(client: AsyncClient, session_override
     signals = (
         await session_override.execute(select(Signal).where(Signal.tenant_id == tenant.id))
     ).scalars().all()
-    assert len(signals) == 1, "fresh tenant has one Platform check-in conversation"
-    assert signals[0].channel == "internal"
-    assert signals[0].subject == "Platform check-in"
+    # The only seeded thread is the assistant's own channel; the check-in posts
+    # there instead of into a separate operations conversation.
+    assert len(signals) == 1, "fresh tenant has one assistant channel conversation"
+    assert signals[0].channel == "assistant"
+    assert signals[0].source == AGENT_CHANNEL_SOURCE
+    assert signals[0].owner_user_id is None
 
     triggers = (
         await session_override.execute(select(Trigger).where(Trigger.tenant_id == tenant.id))
@@ -51,7 +55,7 @@ async def test_signup_creates_empty_tenant(client: AsyncClient, session_override
     assert len(triggers) == 1
     assert triggers[0].kind == "heartbeat"
     assert triggers[0].enabled is True
-    assert triggers[0].name == "Platform check-in"
+    assert triggers[0].signal_id == signals[0].id
 
     user = (
         await session_override.execute(select(User).where(User.email == "fresh@example.com"))

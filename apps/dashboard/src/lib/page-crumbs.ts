@@ -13,6 +13,7 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (/^\/agents\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.agent' }]
   if (/^\/projects\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.project' }]
   if (/^\/knowledge\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.document' }]
+  if (pathname.startsWith('/knowledge')) return []
   if (pathname.startsWith('/communication/new')) return [{ labelKey: 'crumbs.newConversation' }]
   if (pathname.startsWith('/communication/decisions') || pathname.includes('/awaiting-decision')) {
     return [{ labelKey: 'crumbs.decisions' }]
@@ -26,13 +27,11 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/ai/assistant') && pathname.includes('/customization')) {
     return [{ labelKey: 'crumbs.widgetLook' }]
   }
-  if (pathname.startsWith('/modules/marketplace')) return [{ labelKey: 'crumbs.marketplace' }]
-  if (pathname.startsWith('/modules/tools')) return [{ labelKey: 'crumbs.connected' }]
-  if (pathname.startsWith('/modules/connected')) return [{ labelKey: 'crumbs.connected' }]
-  if (pathname.startsWith('/modules/') && pathname !== '/modules') {
+  if (pathname.startsWith('/connections/marketplace')) return [{ labelKey: 'crumbs.marketplace' }]
+  if (pathname.startsWith('/connections/') && pathname !== '/connections') {
     return [{ labelKey: 'crumbs.moduleSetup' }]
   }
-  if (pathname.startsWith('/modules')) return []
+  if (pathname.startsWith('/connections')) return []
   if (pathname.startsWith('/learn')) return [{ labelKey: 'crumbs.learn' }]
   if (pathname.startsWith('/docs')) return [{ labelKey: 'crumbs.docs' }]
   return []

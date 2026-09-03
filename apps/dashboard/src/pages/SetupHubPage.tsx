@@ -198,7 +198,7 @@ export default function SetupHubPage() {
       { label: t('setupGuidePage.later.team', { defaultValue: 'Invite the team' }), to: '/settings/members' },
       {
         label: t('setupGuidePage.later.modules', { defaultValue: 'Add a field of work' }),
-        to: '/modules',
+        to: '/connections',
       },
       { label: t('setupGuidePage.later.projects', { defaultValue: 'Projects' }), to: '/projects' },
       { label: t('setupGuidePage.later.kpis', { defaultValue: 'Numbers on Cockpit' }), to: '/cockpit' },
@@ -332,7 +332,7 @@ export default function SetupHubPage() {
 
             <p className="text-xs text-text-muted">
               {t('setupGuidePage.advancedHint')}{' '}
-              <Link to="/modules/connected" className="text-accent hover:underline">
+              <Link to="/connections/connected" className="text-accent hover:underline">
                 {t('setupGuidePage.advancedLink')}
               </Link>
               .

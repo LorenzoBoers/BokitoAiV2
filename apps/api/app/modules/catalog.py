@@ -34,9 +34,9 @@ TenantModuleStatus = Literal[
 ]
 MODULE_SETTINGS_KEY = "modules"
 
-SETUP_PATH_PREFIX = "/modules"
+SETUP_PATH_PREFIX = "/connections"
 # Same surface as setup: one module page (no separate /ai/modules workspace).
-WORKSPACE_PATH_PREFIX = "/modules"
+WORKSPACE_PATH_PREFIX = "/connections"
 
 
 @dataclass(frozen=True)
@@ -169,7 +169,15 @@ MODULES: list[ModuleSpec] = [
         ),
         status="available",
         provider_slugs=("king_accountancy", "bjorn_lunden_mcp", "moneybird"),
-        planned_provider_slugs=("exact_online", "snelstart"),
+        planned_provider_slugs=(
+            "exact_online",
+            "snelstart",
+            "moneybird_mcp",
+            "twinfield_mcp",
+            "exact_online_mcp",
+            "yuki_mcp",
+            "pmb_exact_mcp",
+        ),
         tool_cards=(
             ModuleToolCard(
                 "list_companies",
@@ -738,16 +746,19 @@ async def serialize_modules_for_tenant(
 
     roster = await module_roster_summaries(session, tenant_id)
     from app.services.module_attach import attached_modules_by_connection
+    from app.services.partner_mcp import list_attached_mcp_tools_by_module
 
     attach_counts: dict[str, int] = {}
     for slugs in (await attached_modules_by_connection(session, tenant_id)).values():
         for slug in slugs:
             attach_counts[slug] = attach_counts.get(slug, 0) + 1
+    attached_tools = await list_attached_mcp_tools_by_module(session, tenant_id)
     for row in rows:
         summary = roster.get(row["slug"]) or {}
         row["assigned_agent_count"] = int(summary.get("assigned_agent_count") or 0)
         row["default_agent_id"] = summary.get("default_agent_id")
         row["attached_connection_count"] = attach_counts.get(row["slug"], 0)
+        row["attached_mcp_tools"] = attached_tools.get(row["slug"], [])
     return rows
 
 

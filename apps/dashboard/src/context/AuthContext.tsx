@@ -28,6 +28,7 @@ import {
 } from '../lib/host-routing';
 import { publishDashboardUserToWidget } from '../lib/widget-bridge';
 import { clearAuthRetryHandlers, configureAuthRetry, jwtRemainingSeconds } from '../lib/auth-retry';
+import { normalizeParkedChannels, setParkedChannels } from '../lib/channel-surface';
 const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
 /** When set, the auth router returned 404 for POST /refresh; skip further refresh calls until logout. */
 const SKIP_SERVER_AUTH_REFRESH_KEY = 'bokito_skip_server_auth_refresh';
@@ -121,6 +122,8 @@ interface User {
   totpEnabled: boolean;
   tenant: Tenant;
   memberships: TenantMembership[];
+  /** Channel kinds parked platform-wide; their connect surfaces stay hidden. */
+  parkedChannels: string[];
 }
 
 /** Thrown by `login` when the account requires a TOTP code as a second step. */
@@ -326,6 +329,7 @@ function normalizeAuthUser(raw: unknown): User {
       logo: resolveTenantLogo(payload, tenantRaw),
     },
     memberships,
+    parkedChannels: normalizeParkedChannels(payload.parked_channels),
   };
 }
 
@@ -765,6 +769,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [adoptWorkspaceSession, token],
   );
+
+  useEffect(() => {
+    if (!user) return;
+    setParkedChannels(user.parkedChannels);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {

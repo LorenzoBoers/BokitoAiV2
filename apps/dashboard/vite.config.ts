@@ -83,6 +83,9 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
       open: false,
       proxy,
+      fs: {
+        allow: [path.resolve(__dirname), path.resolve(__dirname, '../api/app/data')],
+      },
     },
   }
 })

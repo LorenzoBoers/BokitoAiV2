@@ -17,6 +17,27 @@ from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
 
 
+def decision_provenance(decision: DecisionRequest) -> dict[str, Any] | None:
+    """Where this decision came from, for the card and the notification.
+
+    One shape per source so the UI can label it ("Queue item", "Agent run") and
+    link to the right surface. Returns None for a plain agent question.
+    """
+    if decision.platform_change_id:
+        return {"type": "platform_change", "id": str(decision.platform_change_id)}
+    if decision.agent_task_id:
+        return {
+            "type": "agent_task",
+            "id": str(decision.agent_task_id),
+            "project_id": str(decision.project_id) if decision.project_id else None,
+        }
+    if decision.project_id:
+        return {"type": "project", "id": str(decision.project_id)}
+    if decision.run_id:
+        return {"type": "agent_run", "id": str(decision.run_id)}
+    return None
+
+
 async def get_or_create_internal_thread(
     session: AsyncSession,
     tenant_id: UUID,
@@ -216,6 +237,8 @@ async def create_decision(
     signal_id: UUID | None = None,
     project_id: UUID | None = None,
     platform_change_id: UUID | None = None,
+    agent_task_id: UUID | None = None,
+    run_id: UUID | None = None,
     source_type: str = "agent",
     source_id: str | None = None,
     notification_payload: dict[str, Any] | None = None,
@@ -227,6 +250,10 @@ async def create_decision(
     (respecting mute preferences), lands the card as a message in a Signal
     thread, and publishes the gateway events. Callers never write Notification
     rows for decisions themselves.
+
+    The notification payload always ends up carrying `decision_id`,
+    `signal_id` and `message_id`, so the bell and a push both deep-link to the
+    exact card instead of the inbox root.
     """
     from app.gateway.publish import publish_notification
     from app.services.notification_mail import decision_bell_status
@@ -259,6 +286,8 @@ async def create_decision(
         status="awaiting_human",
         project_id=project_id,
         platform_change_id=platform_change_id,
+        agent_task_id=agent_task_id,
+        run_id=run_id,
         signal_id=signal_id,
         source_type=source_type,
         source_id=source_id,
@@ -274,4 +303,17 @@ async def create_decision(
         project_id=project_id,
         signal_id=signal_id,
     )
+    # The thread and the card only exist after the append, so the bell payload
+    # is completed here rather than trusting each caller to guess the ids.
+    notification.payload_json = json.dumps(
+        {
+            **(notification_payload or {}),
+            "decision_id": str(decision.id),
+            "signal_id": str(decision.signal_id) if decision.signal_id else None,
+            "message_id": str(message.id),
+        },
+        default=str,
+    )
+    session.add(notification)
+    await session.flush()
     return decision, message

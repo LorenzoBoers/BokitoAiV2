@@ -715,6 +715,19 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
             project_uuid = None
     from app.services.signal_decisions import create_decision
 
+    # Provenance: the card names the run and, when the run executes a queue
+    # item, the AgentTask behind it. The task lives on the run, so one lookup
+    # covers every caller instead of threading a task id through the executor.
+    task_uuid: UUID | None = None
+    if ctx.run_id:
+        from app.models.agent import AgentRun
+
+        run_row = (
+            await ctx.session.execute(select(AgentRun).where(AgentRun.id == ctx.run_id))
+        ).scalar_one_or_none()
+        if run_row:
+            task_uuid = run_row.task_id
+
     decision, _ = await create_decision(
         ctx.session,
         ctx.tenant_id,
@@ -725,6 +738,8 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         agent_id=ctx.agent.id if ctx.agent else None,
         signal_id=target_signal_id,
         project_id=project_uuid,
+        agent_task_id=task_uuid,
+        run_id=ctx.run_id,
         notification_payload=tool_input,
     )
     await ctx.session.commit()
@@ -1939,7 +1954,8 @@ register_tool(
         description=(
             "Show whether the workspace check-in is on. The check-in is the "
             "assistant waking on a timer, reading heartbeat.md, and posting "
-            "only when something needs attention (Platform check-in in Messages)."
+            "only when something needs attention — in your own channel in "
+            "Communication, where the operator already talks to you."
         ),
         category="triggers",
         input_schema={"type": "object", "properties": {}},
@@ -1954,8 +1970,8 @@ register_tool(
         name="set_platform_watch",
         description=(
             "Turn the workspace check-in on or off. This only toggles the "
-            "seeded Platform check-in (not other Agenda items). Use enabled "
-            "true so you watch the workspace yourself; findings land in Messages."
+            "seeded check-in (not other Agenda items). Use enabled true so you "
+            "watch the workspace yourself; findings land in your own channel."
         ),
         category="triggers",
         input_schema={

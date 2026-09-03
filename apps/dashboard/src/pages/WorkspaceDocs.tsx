@@ -25,6 +25,7 @@ import { LinkedRequestsChips } from '../components/knowledge/LinkedRequestsChips
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { KnowledgeMark, KnowledgeTile, LearnedChip } from '../components/knowledge/KnowledgeMark'
 import { useAuth } from '../context/AuthContext'
+import { useWorkspace } from '../context/WorkspaceContext'
 import {
   createWorkspaceDoc,
   deleteWorkspaceDoc,
@@ -47,6 +48,7 @@ import { titleToDocPath } from '../lib/workspace-doc-path'
 import { cn } from '../lib/utils'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { formatAppTime } from '../lib/app-locale'
+import { workspaceBrandName } from '../lib/tenant-branding'
 
 const KIND_ORDER: WorkspaceDocKind[] = [
   'persona',
@@ -102,6 +104,10 @@ export default function WorkspaceDocs() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { currentWorkspace } = useWorkspace()
+  const organizationName = workspaceBrandName(
+    currentWorkspace ?? { name: user?.tenant?.name },
+  )
 
   const kindLabel = (kind: WorkspaceDocKind) =>
     t(`knowledgePage.kinds.${kind}`, { defaultValue: kind })
@@ -137,6 +143,23 @@ export default function WorkspaceDocs() {
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const knowledgeDirty = Boolean(editing && active && draft !== (active.content ?? ''))
   useUnsavedChangesGuard(knowledgeDirty && !saving, t('knowledgePage.unsavedLeave'))
+
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => a.name.localeCompare(b.name, i18n.language)),
+    [projects, i18n.language],
+  )
+  const sortedAgents = useMemo(
+    () => [...agents].sort((a, b) => a.name.localeCompare(b.name, i18n.language)),
+    [agents, i18n.language],
+  )
+
+  const entityChipClass = (selected: boolean) =>
+    cn(
+      'max-w-[11rem] truncate rounded-full border px-2 py-0.5 text-[10px]',
+      selected
+        ? 'border-accent/40 bg-accent/10 text-accent'
+        : 'border-border/60 text-text-muted hover:text-text-secondary',
+    )
 
   useEffect(() => {
     void (async () => {
@@ -471,56 +494,49 @@ export default function WorkspaceDocs() {
               </div>
             ) : null}
             <div className="flex flex-wrap gap-1">
-              {(
-                [
-                  ['organization', t('knowledgePage.scopeOrganization')],
-                  ['project', t('knowledgePage.scopeProjects')],
-                  ['agent', t('knowledgePage.scopeAgents')],
-                ] as const
-              ).map(([key, label]) => (
+              <button
+                type="button"
+                onClick={() => {
+                  setScope('organization')
+                  setScopeProjectId('')
+                  setScopeAgentId('')
+                }}
+                className={entityChipClass(scope === 'organization')}
+                title={organizationName}
+              >
+                {organizationName}
+              </button>
+              {sortedProjects.map((project) => (
                 <button
-                  key={key}
+                  key={project.id}
                   type="button"
-                  onClick={() => setScope(key)}
-                  className={cn(
-                    'rounded-full border px-2 py-0.5 text-[10px]',
-                    scope === key
-                      ? 'border-accent/40 bg-accent/10 text-accent'
-                      : 'border-border/60 text-text-muted hover:text-text-secondary',
-                  )}
+                  onClick={() => {
+                    setScope('project')
+                    setScopeProjectId(project.id)
+                    setScopeAgentId('')
+                  }}
+                  className={entityChipClass(scope === 'project' && scopeProjectId === project.id)}
+                  title={project.name}
                 >
-                  {label}
+                  {project.name}
+                </button>
+              ))}
+              {sortedAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  type="button"
+                  onClick={() => {
+                    setScope('agent')
+                    setScopeAgentId(agent.id)
+                    setScopeProjectId('')
+                  }}
+                  className={entityChipClass(scope === 'agent' && scopeAgentId === agent.id)}
+                  title={agent.name}
+                >
+                  {agent.name}
                 </button>
               ))}
             </div>
-            {scope === 'project' ? (
-              <select
-                className="h-8 w-full rounded-md border border-border/60 bg-bg-surface px-2 text-xs text-text-primary"
-                value={scopeProjectId}
-                onChange={(e) => setScopeProjectId(e.target.value)}
-              >
-                <option value="">{t('knowledgePage.pickProject')}</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-            {scope === 'agent' ? (
-              <select
-                className="h-8 w-full rounded-md border border-border/60 bg-bg-surface px-2 text-xs text-text-primary"
-                value={scopeAgentId}
-                onChange={(e) => setScopeAgentId(e.target.value)}
-              >
-                <option value="">{t('knowledgePage.pickAgent')}</option>
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
-            ) : null}
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />

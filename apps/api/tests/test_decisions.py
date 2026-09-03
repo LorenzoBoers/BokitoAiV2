@@ -246,3 +246,74 @@ async def test_acknowledge_action_resolves_without_tool(client: AsyncClient, ses
     sig = (await session_override.execute(select(Signal).where(Signal.id == signal_id))).scalar_one()
     assert sig.ai_paused is True
     assert sig.assigned_user_id == user.id
+
+
+@pytest.mark.asyncio
+async def test_decision_provenance_and_deep_link_payload(client: AsyncClient, session_override):
+    """A decision keeps its source, and the bell payload points at the card."""
+    from app.models.agent import Agent, AgentRun
+    from app.models.auth import Tenant
+    from app.models.notification import Notification
+    from app.models.orchestration import AgentTask
+    from app.models.project import Project
+    from app.services.signal_decisions import create_decision, decision_provenance
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id).limit(1))
+    ).scalar_one()
+
+    project = Project(tenant_id=tenant.id, name="Provenance", slug="provenance")
+    session_override.add(project)
+    await session_override.flush()
+
+    task = AgentTask(tenant_id=tenant.id, project_id=project.id, title="Do the thing")
+    run = AgentRun(tenant_id=tenant.id, agent_id=agent.id, status="running")
+    session_override.add(task)
+    session_override.add(run)
+    await session_override.flush()
+
+    decision, message = await create_decision(
+        session_override,
+        tenant.id,
+        title="Ship it?",
+        summary="Queue item needs a call",
+        agent_id=agent.id,
+        project_id=project.id,
+        agent_task_id=task.id,
+        run_id=run.id,
+        notification_payload={"kind": "queue_item"},
+    )
+    await session_override.commit()
+
+    assert decision.agent_task_id == task.id
+    assert decision.run_id == run.id
+    # The queue item wins over the plain project link: it is the concrete source.
+    assert decision_provenance(decision) == {
+        "type": "agent_task",
+        "id": str(task.id),
+        "project_id": str(project.id),
+    }
+
+    notification = (
+        await session_override.execute(
+            select(Notification).where(Notification.id == decision.notification_id)
+        )
+    ).scalar_one()
+    payload = json.loads(notification.payload_json)
+    assert payload["kind"] == "queue_item"
+    assert payload["decision_id"] == str(decision.id)
+    assert payload["signal_id"] == str(decision.signal_id)
+    assert payload["message_id"] == str(message.id)
+
+    headers = await _auth_headers(client)
+    listed = await client.get("/api/notifications/decisions", headers=headers)
+    assert listed.status_code == 200
+    row = next(d for d in listed.json() if d["id"] == str(decision.id))
+    assert row["message_id"] == str(message.id)
+    assert row["source"]["type"] == "agent_task"
+
+    detail = await client.get(f"/api/signals/{decision.signal_id}", headers=headers)
+    assert detail.status_code == 200
+    card = next(m for m in detail.json()["messages"] if m["kind"] == "decision_request")
+    assert card["payload"]["decision"]["source"]["type"] == "agent_task"

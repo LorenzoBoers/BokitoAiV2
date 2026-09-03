@@ -1,7 +1,7 @@
 ---
 title: Connect MCP servers
 intro: Give agents extra tools by connecting external MCP servers.
-description: Connect MCP servers from Discover; they appear in the Tools group on Connections. Keep risky tools on Ask first in Govern.
+description: Connect MCP servers from Marketplace; they appear under Custom MCP servers on Connections. Keep risky tools on Ask first in Govern.
 keywords: mcp, model context protocol, connected tools, integrations
 sort: 20
 related: integrations,agents,mcp-endpoint
@@ -9,18 +9,18 @@ related: integrations,agents,mcp-endpoint
 
 # Connect MCP servers
 
-MCP is how agents call external tools over a standard protocol. Those logins live in the **Tools** group on **Connections**.
+MCP is how agents call external tools over a standard protocol. Those logins live under **Custom MCP servers** on **Connections**.
 
 ## Add a server
 
 ![MCP servers](/api/docs/assets/mcp/servers.png)
 *Add the server URL and credentials.*
 
-1. Open **Modules** in the rail, then **Discover**, and filter **Tools**. Choose **Custom tool** (or Notion, Linear, and other marketplace apps).
+1. Open **Connections** in the rail, then **Marketplace**, and filter **Tools**. Choose **Custom tool** (or Notion, Linear, and other marketplace apps).
 2. Finish setup: for a custom server enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**.
-3. **Save connection**. The row appears under **Connections** in the **Tools** group. Choose **Disconnect** to remove it.
+3. **Save connection**. The row appears under **Custom MCP servers** on **Connections**. Choose **Disconnect** to remove it.
 
-Marketplace apps such as Notion or Linear also land here after browser sign-in. A misconfigured server often fails at call time, not at connect time.
+Marketplace apps such as Notion, Linear, or KING Accountancy also land here after setup. Open an app card to see the **Tool endpoint** and, once connected, the exact **Tools** discovered from the MCP server (refresh to re-run discovery). A misconfigured server often fails at call time, not at connect time.
 
 ## Test it once
 

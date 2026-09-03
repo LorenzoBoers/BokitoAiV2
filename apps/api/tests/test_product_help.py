@@ -36,7 +36,7 @@ REQUIRED_RAIL_ROUTES = {
     "/agents",
     "/projects",
     "/knowledge",
-    "/modules",
+    "/connections",
     "/settings",
 }
 
@@ -50,7 +50,7 @@ REQUIRED_PAGE_GUIDE_ROUTES = {
     "/knowledge",
     "/settings/govern",
     "/settings/channels",
-    "/modules/connected",
+    "/connections",
     "/settings/models",
     "/ai/assistant/external/installation",
 }
@@ -65,9 +65,8 @@ REQUIRED_SETTINGS_ROUTES = {
     "/settings/channels",
     "/ai/assistant/external/installation",
     "/settings/communication",
-    "/modules/connected",
-    "/modules/marketplace",
-    "/modules/tools",
+    "/connections",
+    "/connections/marketplace",
     "/settings/govern",
     "/settings/developers",
     "/settings/models",

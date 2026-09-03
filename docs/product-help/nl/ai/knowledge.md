@@ -14,11 +14,10 @@ Kennis is wat agents bij elke run lezen. Open **Kennis** om organisatie-, projec
 ## Kies een scope
 
 ![Kennis-pagina](/api/docs/assets/knowledge/add-doc.png)
-*Filter op Organisatie, Projecten of Agents, en voeg de documenten toe waaruit agents antwoorden.*
+*Filter op workspacenaam, projectnaam of agentnaam — elke chip is een echte entiteit.*
 
 1. Open **Kennis**.
-2. Kies **Organisatie** (standaard), **Projecten** of **Agents**.
-3. Bij Projecten of Agents kies je het project of de agent in de dropdown. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als Projectdocumentatie.
+2. Klik op je **workspacenaam** (standaard), een **projectnaam** of een **agentnaam** in de chiprij. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als Projectdocumentatie.
 
 Organisatie groepeert nog steeds soorten:
 
@@ -55,4 +54,4 @@ Actieve queue-aanvragen die aan een document hangen, tonen subtiele chips onder 
 
 ## Wat nu
 
-Houd projectsgebonden docs op het tabblad Documentatie van [Projecten](/docs/ai/projects) — ze verschijnen in Kennis wanneer je dat project filtert. Laat agents Skills en Geheugen gebruiken zodat antwoorden onderbouwd blijven.
+Houd projectsgebonden docs op het tabblad Documentatie van [Projecten](/docs/ai/projects) — ze verschijnen in Kennis wanneer je op die projectnaam klikt. Laat agents Skills en Geheugen gebruiken zodat antwoorden onderbouwd blijven.

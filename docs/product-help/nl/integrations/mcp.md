@@ -1,7 +1,7 @@
 ---
 title: MCP-servers koppelen
 intro: Geef agents extra tools door externe MCP-servers te koppelen.
-description: Koppel MCP-servers via Ontdekken; ze verschijnen in de groep Tools op Koppelingen. Houd risicovolle tools op Eerst vragen in Govern.
+description: Koppel MCP-servers via Marketplace; ze verschijnen onder Custom MCP-servers op Koppelingen. Houd risicovolle tools op Eerst vragen in Govern.
 keywords: mcp, model context protocol, gekoppelde tools, integraties
 sort: 20
 related: integrations,agents,mcp-endpoint
@@ -9,18 +9,18 @@ related: integrations,agents,mcp-endpoint
 
 # MCP-servers koppelen
 
-MCP is hoe agents externe tools aanroepen via een standaardprotocol. Die logins staan in de groep **Tools** op **Koppelingen**.
+MCP is hoe agents externe tools aanroepen via een standaardprotocol. Die logins staan onder **Custom MCP-servers** op **Koppelingen**.
 
 ## Voeg een server toe
 
 ![MCP-servers](/api/docs/assets/mcp/servers.png)
 *Voeg de server-URL en inloggegevens toe.*
 
-1. Open **Modules** in de zijbalk, daarna **Ontdekken**, en filter **Tools**. Kies **Eigen tool** (of Notion, Linear en andere marketplace-apps).
+1. Open **Koppelingen** in de zijbalk, daarna **Marketplace**, en filter **Tools**. Kies **Eigen tool** (of Notion, Linear en andere marketplace-apps).
 2. Rond setup af: voor een eigen server vul je een **Weergavenaam**, **Server-URL** en **Authenticatie** (**API-sleutel** of **Bearer-token**) plus **Geheim / token** in.
-3. **Verbinding opslaan**. De rij verschijnt onder **Koppelingen** in de groep **Tools**. Kies **Ontkoppelen** om die te verwijderen.
+3. **Verbinding opslaan**. De rij verschijnt onder **Custom MCP-servers** op **Koppelingen**. Kies **Ontkoppelen** om die te verwijderen.
 
-Marketplace-apps zoals Notion of Linear landen hier ook na inloggen in de browser. Een verkeerd geconfigureerde server faalt vaak pas bij de aanroep, niet bij het koppelen.
+Marketplace-apps zoals Notion, Linear of KING Accountancy landen hier ook na setup. Open een appkaart om het **Tool-endpoint** te zien en, na koppelen, de exacte **Tools** die van de MCP-server zijn ontdekt (vernieuw om discovery opnieuw te draaien). Een verkeerd geconfigureerde server faalt vaak pas bij de aanroep, niet bij het koppelen.
 
 ## Test eenmaal
 

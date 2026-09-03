@@ -124,9 +124,15 @@ async def create_account(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.services.channel_registry import is_parked_channel
+
     auth.require_role("owner", "admin")
     if body.channel not in CHANNEL_ACCOUNT_CHANNELS:
         raise HTTPException(status_code=400, detail=f"Invalid channel: {body.channel}")
+    if is_parked_channel(body.channel):
+        raise HTTPException(
+            status_code=400, detail=f"Channel is not available: {body.channel}"
+        )
 
     credentials = dict(body.credentials or {})
     address = body.address

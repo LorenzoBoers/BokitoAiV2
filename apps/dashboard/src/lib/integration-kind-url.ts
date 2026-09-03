@@ -16,15 +16,26 @@ export function kindFilterToParam(kind: IntegrationKindFilter): string | null {
 }
 
 export function marketplacePathWithKind(kind: IntegrationKindFilter): string {
-  const base = '/modules/marketplace'
+  const base = '/connections/marketplace'
   const param = kindFilterToParam(kind)
   return param ? `${base}?kind=${param}` : base
 }
 
 export function connectedPathWithKind(kind: IntegrationKindFilter): string {
-  const base = '/modules/connected'
+  const base = '/connections'
   const param = kindFilterToParam(kind)
   return param ? `${base}?kind=${param}` : base
+}
+
+/** Where a legacy `/modules*` or `/settings/modules*` path lands on the hub.
+ *
+ * The hub used to live at `/modules` with `connected` and `tools` as separate
+ * leaves; both are folded into `/connections` now, and a module slug keeps its
+ * own page. Returns a path without the query string — callers append it. */
+export function legacyModulesPath(pathname: string): string {
+  const rest = pathname.replace(/^(\/settings)?\/modules/, '')
+  if (rest === '/connected' || rest === '/tools' || rest === '') return '/connections'
+  return `/connections${rest}`
 }
 
 export type MarketplaceStatusFilter = 'all' | 'connected' | 'available'

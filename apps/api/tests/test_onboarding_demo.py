@@ -64,7 +64,9 @@ async def test_demo_thread_seed_resolve_and_first_decision_step(client: AsyncCli
 
 
 @pytest.mark.asyncio
-async def test_demo_thread_removed_when_real_channel_connects(client: AsyncClient):
+async def test_demo_thread_removed_when_real_channel_connects(
+    client: AsyncClient, unparked_channels
+):
     headers = await _signup(client, "demo-cleanup-co")
     created = await client.post("/api/app/onboarding/demo-thread", headers=headers)
     signal_id = created.json()["signal_id"]
