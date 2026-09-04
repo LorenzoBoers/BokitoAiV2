@@ -5099,7 +5099,53 @@
     "viewing": "Viewing {{workspace}}",
     "locked": "Support off",
     "loadError": "Could not load workspaces.",
-    "switchError": "Could not switch workspace."
+    "switchError": "Could not switch workspace.",
+    "ops": "Ops"
+  },
+  "ops": {
+    "title": "Platform ops",
+    "subtitle": "Tenants, users and support access on this API environment. Enter only workspaces that allow platform support.",
+    "modelsLink": "Model catalog",
+    "searchPlaceholder": "Search workspace, slug or email",
+    "search": "Search",
+    "loading": "Loading…",
+    "loadError": "Could not load ops directory.",
+    "enterError": "Could not enter workspace.",
+    "stats": {
+      "tenants": "Tenants",
+      "users": "Users",
+      "supportOn": "Support allowed"
+    },
+    "env": {
+      "production": "Production",
+      "acceptance": "Acceptance",
+      "local": "Local"
+    },
+    "tenantsTitle": "Tenants",
+    "usersTitle": "Users",
+    "logsTitle": "Recent support access",
+    "col": {
+      "workspace": "Workspace",
+      "members": "Members",
+      "support": "Support",
+      "created": "Created",
+      "user": "User",
+      "role": "Type",
+      "memberships": "Memberships",
+      "when": "When",
+      "staff": "Staff",
+      "action": "Action"
+    },
+    "supportOn": "Allowed",
+    "supportOff": "Off",
+    "enter": "Enter",
+    "current": "Current",
+    "staff": "Staff",
+    "customer": "Customer",
+    "inactive": "Inactive",
+    "emptyTenants": "No tenants match.",
+    "emptyUsers": "No users match.",
+    "emptyLogs": "No support access logged yet."
   },
   "helpPublic": {
     "title": "Help Center",

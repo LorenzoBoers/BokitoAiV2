@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Building2, Loader2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -89,6 +90,12 @@ export default function StaffTenantBar() {
         </Select>
       )}
       {switching ? <Loader2 size={14} className="animate-spin text-text-muted" /> : null}
+      <Link
+        to="/ops"
+        className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+      >
+        {t('staffBar.ops')}
+      </Link>
       {error ? <span className="truncate text-[11px] text-status-error">{error}</span> : null}
     </div>
   )

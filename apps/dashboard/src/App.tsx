@@ -56,6 +56,7 @@ const WorkstreamRunDetail = lazy(() => import('./pages/WorkstreamRunDetail'))
 // Settings sections
 const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
 const ModelsSettings = lazy(() => import('./pages/ModelsSettings'))
+const OpsPage = lazy(() => import('./pages/OpsPage'))
 const DeveloperSettings = lazy(() => import('./pages/DeveloperSettings'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
@@ -371,6 +372,7 @@ export default function App() {
           </Route>
 
           {/* Control */}
+          <Route path="/ops" element={<OpsPage />} />
           <Route path="/cockpit" element={<CockpitPage />} />
           <Route path="/cockpit/activity" element={<Navigate to="/activity" replace />} />
           <Route path="/cockpit/usage" element={<UsagePage />} />

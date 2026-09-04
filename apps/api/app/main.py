@@ -38,6 +38,7 @@ from app.routers import (
     me,
     metrics,
     models,
+    staff_ops,
     notifications,
     privacy,
     projects,
@@ -200,6 +201,7 @@ app.include_router(learning.router, prefix=api_prefix)
 app.include_router(metrics.router, prefix=api_prefix)
 app.include_router(models.router, prefix=api_prefix)
 app.include_router(models.staff_router, prefix=api_prefix)
+app.include_router(staff_ops.router, prefix=api_prefix)
 app.include_router(webhooks.router, prefix=api_prefix)
 app.include_router(public_api.router, prefix=api_prefix)
 app.include_router(orchestration.router, prefix=api_prefix)

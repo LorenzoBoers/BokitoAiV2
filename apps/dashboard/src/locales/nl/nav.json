@@ -5099,7 +5099,53 @@
     "viewing": "Je bekijkt {{workspace}}",
     "locked": "Support uit",
     "loadError": "Kon workspaces niet laden.",
-    "switchError": "Kon niet van workspace wisselen."
+    "switchError": "Kon niet van workspace wisselen.",
+    "ops": "Ops"
+  },
+  "ops": {
+    "title": "Platform ops",
+    "subtitle": "Tenants, users en supporttoegang op deze API-omgeving. Ga alleen workspaces binnen die platform support toestaan.",
+    "modelsLink": "Modelcatalogus",
+    "searchPlaceholder": "Zoek workspace, slug of e-mail",
+    "search": "Zoeken",
+    "loading": "Laden…",
+    "loadError": "Kon ops-directory niet laden.",
+    "enterError": "Kon workspace niet openen.",
+    "stats": {
+      "tenants": "Tenants",
+      "users": "Users",
+      "supportOn": "Support toegestaan"
+    },
+    "env": {
+      "production": "Productie",
+      "acceptance": "Acceptatie",
+      "local": "Lokaal"
+    },
+    "tenantsTitle": "Tenants",
+    "usersTitle": "Users",
+    "logsTitle": "Recente supporttoegang",
+    "col": {
+      "workspace": "Workspace",
+      "members": "Leden",
+      "support": "Support",
+      "created": "Aangemaakt",
+      "user": "User",
+      "role": "Type",
+      "memberships": "Memberships",
+      "when": "Wanneer",
+      "staff": "Staff",
+      "action": "Actie"
+    },
+    "supportOn": "Toegestaan",
+    "supportOff": "Uit",
+    "enter": "Binnen",
+    "current": "Huidig",
+    "staff": "Staff",
+    "customer": "Klant",
+    "inactive": "Inactief",
+    "emptyTenants": "Geen tenants gevonden.",
+    "emptyUsers": "Geen users gevonden.",
+    "emptyLogs": "Nog geen supporttoegang gelogd."
   },
   "helpPublic": {
     "title": "Helpcentrum",
