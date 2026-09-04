@@ -70,6 +70,7 @@ async def seed() -> None:
                 password_hash=hash_password(TEST_PASSWORD),
                 display_name="Bokito Admin",
                 email_verified=True,
+                is_staff=True,
                 # Playwright e2e assertions use English copy; pin the UI
                 # language so the platform default (Dutch) does not apply.
                 settings_json=json.dumps({"ui_language": "en"}),
@@ -78,6 +79,7 @@ async def seed() -> None:
             await session.flush()
         else:
             user.email_verified = True
+            user.is_staff = True
 
         membership_result = await session.execute(
             select(Membership).where(Membership.user_id == user.id, Membership.tenant_id == tenant.id)

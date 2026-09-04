@@ -14,26 +14,16 @@ Kennis is wat agents bij elke run lezen. Open **Kennis** om organisatie-, projec
 ## Kies een scope
 
 ![Kennis-pagina](/api/docs/assets/knowledge/add-doc.png)
-*Filter op workspacenaam, projectnaam of agentnaam — elke chip is een echte entiteit.*
+*Elke chip is een echte entiteit, gelabeld Platform, Project of Agent.*
 
 1. Open **Kennis**.
-2. Klik op je **workspacenaam** (standaard), een **projectnaam** of een **agentnaam** in de chiprij. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als Projectdocumentatie.
+2. Klik op je **workspacenaam** (standaard, met label **Platform**), een **projectnaam** of een **agentnaam**. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als Projectdocumentatie.
 
-Organisatie groepeert nog steeds soorten:
-
-- **Stem** — hoe jullie klinken. Toon, zinnen die wel of niet mogen.
-- **Geheugen** — feiten die de workspace moet onthouden. Agents werken dit bij terwijl ze leren.
-- **Skills** — procedures: hoe je terugbetaalt, escaleert, boekt.
-- **Docs** — naslag (prijzen, beleid, productfeiten). Alleen dit soort kun je publiceren naar een helpcenter.
-- **Projectdocs** — documenten bij een project (ook bewerkbaar op het tabblad Documentatie van het project).
-- **Check-ins** — terugkerende heartbeat-checklists. Agents schrijven hier wanneer een geplande check iets vindt.
-- **Dagnotities** — korte logs die agents bijhouden. Jij leest ze; jij schrijft ze zelden.
-
-Geheugen, check-ins en dagnotities onderhoudt de AI. Bewerk ze als een feit fout is; behandel ze niet als tweede wiki.
+De zijbalk groepeert documenten naar de soorten die er echt zijn — bijvoorbeeld Stem, Geheugen, Skills, Docs, Check-ins of Dagnotities wanneer die bestaan. Lege soorten blijven weg. Geheugen, check-ins en dagnotities onderhoudt de AI: bewerk ze als een feit fout is; behandel ze niet als tweede wiki.
 
 ## Voeg of bewerk een document
 
-1. Open **Kennis**. Een lege bibliotheek biedt **Eerste document maken** en een dropzone voor een PDF of Word-bestand. Gebruik **Zoek in kennis** (Enter of **Zoeken**) als de lijst lang is, of **Zoekopdracht wissen** om weer te bladeren. Soortchips filteren de zijbalk.
+1. Open **Kennis**. Een lege bibliotheek biedt **Eerste document maken** en een dropzone voor een PDF of Word-bestand. Gebruik **Zoek in kennis** (Enter of **Zoeken**) als de lijst lang is, of **Zoekopdracht wissen** om weer te bladeren.
 2. Kies **Nieuw document**, typ een titel (het pad wordt automatisch gemaakt) en daarna **Toevoegen**. Of gebruik **Document uploaden (PDF, Word, tekst)**.
 3. Kies **Bewerken**. De editor opent standaard in **Schrijven** (WYSIWYG); schakel naar **Markdown** voor de ruwe bron. Inhoud wordt altijd als markdown opgeslagen.
 4. **Opslaan** of druk op Ctrl/Cmd+S. Weggaan met niet-opgeslagen wijzigingen vraagt om bevestiging. Klik het documentpad om het te kopiëren. **Publiceren** vraagt of het artikel op de openbare helpsite mag. **Document verwijderen** haalt een pagina weg die je niet meer wilt.

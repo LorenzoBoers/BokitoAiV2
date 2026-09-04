@@ -31,8 +31,8 @@ function currentTheme(): string {
  * element — the same bundle a tenant embeds on their own website. The
  * `in_app` surface makes the backend answer as the platform-owned Bokito
  * agent, serve Bokito's product help in the help tab, and keep the animated
- * Bokito mark instead of tenant messenger branding. Only the workspace accent
- * colour carries over.
+ * Bokito mark instead of tenant messenger branding. The workspace accent
+ * colour tints the launcher and chrome so the helper feels part of the app.
  */
 export default function PersonalAssistantWidget() {
   const { token } = useAuth()
@@ -43,6 +43,7 @@ export default function PersonalAssistantWidget() {
 
   const tenantSlug = currentWorkspace?.slug ?? ''
   const workspaceId = currentWorkspace?.id != null ? String(currentWorkspace.id) : ''
+  const brandColor = currentWorkspace?.brand_color?.trim() || ''
   const locale = (i18n.language || 'en').slice(0, 2)
 
   useEffect(() => {
@@ -65,6 +66,11 @@ export default function PersonalAssistantWidget() {
           window.location.pathname,
           window.location.search,
         )
+        // Keep the Bokito mark; tint chrome with the workspace accent so the
+        // FAB matches the rest of the dashboard instead of default green.
+        if (brandColor) {
+          el.dataset.previewOverrides = JSON.stringify({ main_color: brandColor })
+        }
         el.setAttribute('data-theme', currentTheme())
         document.body.appendChild(el)
         widgetRef.current = el
@@ -85,7 +91,7 @@ export default function PersonalAssistantWidget() {
     }
     // Remounting on a workspace switch is intentional: the helper answers
     // inside one workspace at a time, with that workspace's accent and agent.
-  }, [token, tenantSlug, workspaceId])
+  }, [token, tenantSlug, workspaceId, brandColor])
 
   useEffect(() => {
     const el = widgetRef.current

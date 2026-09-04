@@ -26,9 +26,10 @@ Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna 
 Gebruik dit als je provider geen Gmail- of Outlook-OAuth-kaart heeft (bijvoorbeeld Hostinger, cPanel of een eigen domeinmailbox).
 
 1. Kies **Kanaal toevoegen**, daarna **E-mail** en dan **SMTP / IMAP**.
-2. Onder **Voorbereiden**: zet IMAP aan in de mailboxinstellingen en gebruik liever een app-wachtwoord. Typische poorten: IMAP **993** met SSL en SMTP **587** met STARTTLS (of **465** met SSL).
-3. Onder **Gegevens invullen**: vul **E-mailadres**, **Gebruikersnaam** (standaard het e-mailadres), **Wachtwoord**, **IMAP-host** / poort / SSL en **SMTP-host** / poort / beveiliging in. Zet **Zelfde host voor IMAP en SMTP** aan als beide dezelfde hostname delen.
-4. Kies **Koppelen en controleren**. Bokito logt in op IMAP en SMTP; bij succes verschijnt de rij in **Kanalen** en synchroniseert Inbox-mail naar Communicatie. Antwoorden gaan via SMTP vanaf dit adres.
+2. Onder **Mailbox-login**: vul **E-mailadres** en **Wachtwoord** in (liever een app-wachtwoord). Open **Gebruikersnaam wijkt af van e-mailadres** alleen als de loginnaam anders is.
+3. Onder **Provider**: kies een preset (**Gmail**, **Outlook / Microsoft 365**, **Yahoo**, **iCloud**, **Zoho**) om hosts en poorten in te vullen, of **Custom** voor eigen hosting. Bokito kan een preset voorstellen op basis van het e-maildomein.
+4. Controleer **Inkomende mail (IMAP)** (server, poort, versleuteling), daarna optioneel **Uitgaande mail gebruikt dezelfde server als inkomend**, en dan **Uitgaande mail (SMTP)** (server, poort, versleuteling). Open **Hulp nodig bij serverinstellingen?** voor poorten en firewalltips.
+5. Kies **Koppelen en controleren**. Bokito logt in op IMAP en SMTP; bij succes verschijnt de rij in **Kanalen** en synchroniseert Inbox-mail naar Communicatie. Antwoorden gaan via SMTP vanaf dit adres.
 
 Faalt de controle met een netwerkfout, dan zijn uitgaande poorten 993, 587 of 465 mogelijk geblokkeerd op de server die de API of workers draait.
 
@@ -82,13 +83,11 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 2. Maak een titel en tekst, of sla een concept op vanuit de composer in een gesprek.
 3. Iedereen kan een opgeslagen antwoord invoegen tijdens het antwoorden in Communicatie.
 
-## Kies standaard submappen en beheer tags
+## Kies standaard submappen
 
-1. Scroll naar **Mappen en tags** op dezelfde pagina (of open `#tags` via het tandwiel dat verschijnt als je over de sectie **Tags** in de Communicatie-zijbalk beweegt).
-2. Elke kanaal-, tag- en agentmap in Communicatie heeft dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten**. Submappen verschijnen pas als je op de map klikt. Kies de **Standaard submap** waarmee een map opent, en wijk daar per kanaal of assistent van af.
-3. De lijst **Tags** is je hele tagvocabulaire, met per tag hoeveel gesprekken die gebruiken. Vul een **Tagnaam** in en kies **Tag toevoegen** om een tag aan te maken voordat een gesprek die draagt.
-4. Kies **Vastzetten** bij een tag om die als map onder Tags in de Communicatie-zijbalk te houden. Tags die al op gesprekken staan verschijnen daar ook, en een gesprek met meerdere tags komt onder elke tag terug.
-5. Vul **Wanneer gebruik je deze tag** in om AI-tagging te sturen: triage en agents mogen alleen tags uit deze lijst gebruiken en volgen die hint. Hernoem een tag om elk gesprek in een keer bij te werken, of verwijder de tag overal.
+1. Scroll naar **Mappen** op dezelfde pagina.
+2. Elke kanaal- en agentmap in Communicatie heeft dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten**. Submappen verschijnen pas als je op de map klikt. Kies de **Standaard submap** waarmee een map opent, en wijk daar per kanaal of assistent van af.
+3. Gesprekken classificeren gaat niet meer met tags op deze pagina: intake-types staan op de pagina [Signalen](/docs/ai/cases), en een gesprek toont zijn signalen in het zijpaneel.
 
 ## Wat nu
 

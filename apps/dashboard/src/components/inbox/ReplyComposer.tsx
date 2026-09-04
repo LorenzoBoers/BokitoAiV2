@@ -469,9 +469,19 @@ export default function ReplyComposer({
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
 
-        {replyBlocked ? (
-          <div className="rounded-xl border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[12px] text-text-secondary">
+        {/* Only on Reply — Intern/Agent already work; repeating the mailbox banner there feels broken. */}
+        {replyBlocked && isReply ? (
+          <div className="space-y-2 rounded-xl border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[12px] text-text-secondary">
             {replyDisabledNotice}
+            {showNoteTab ? (
+              <button
+                type="button"
+                onClick={() => setMode('note')}
+                className="text-[11px] font-medium text-accent hover:underline"
+              >
+                {t('composer.switchToNote', { defaultValue: 'Write an internal note instead' })}
+              </button>
+            ) : null}
           </div>
         ) : null}
 

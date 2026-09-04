@@ -467,6 +467,15 @@ def _drop_legacy_orchestra_tables(connection: Connection) -> None:
             connection.execute(text(f"DROP TABLE {table}{cascade}"))
 
 
+def _drop_custom_metrics_tables(connection: Connection) -> None:
+    """Custom cockpit metrics (Jouw cijfers) removed; drop leftover tables."""
+    inspector = inspect(connection)
+    cascade = " CASCADE" if connection.dialect.name == "postgresql" else ""
+    for table in ("custom_metric_points", "custom_metrics"):
+        if inspector.has_table(table):
+            connection.execute(text(f"DROP TABLE {table}{cascade}"))
+
+
 def _block_markdown(content_json: str | None) -> str:
     try:
         content = json.loads(content_json or "{}")
@@ -850,6 +859,7 @@ def apply_data_repairs(connection: Connection) -> None:
     _migrate_legacy_threads_to_signals(connection)
     _drop_legacy_policy_tables(connection)
     _drop_legacy_orchestra_tables(connection)
+    _drop_custom_metrics_tables(connection)
     _migrate_blueprint_to_workspace_docs(connection)
     _migrate_schedules_to_triggers(connection)
     _backfill_contacts_from_signals(connection)

@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Plug,
+  Radar,
   Settings,
   Workflow,
   type LucideIcon,
@@ -23,6 +24,7 @@ export type Tab =
   | 'overview'
   | 'communication'
   | 'agenda'
+  | 'cases'
   | 'agents'
   | 'workstreams'
   | 'knowledge'
@@ -30,9 +32,12 @@ export type Tab =
   | 'modules'
   | 'settings'
 
+export const PINNED_TABS: readonly Tab[] = ['overview']
+
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Control', tabs: ['overview', 'communication', 'agenda', 'projects'] },
-  { label: 'AI', tabs: ['agents', 'workstreams', 'knowledge'] },
+  { label: 'Control', tabs: ['communication', 'agenda', 'cases'] },
+  { label: 'Work', tabs: ['projects', 'workstreams'] },
+  { label: 'AI', tabs: ['agents', 'knowledge'] },
   { label: 'Settings', tabs: ['modules', 'settings'] },
 ]
 
@@ -40,6 +45,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   overview: '/cockpit',
   communication: '/communication/inbox/open',
   agenda: '/agenda',
+  cases: '/cases',
   agents: '/agents',
   workstreams: '/workstreams',
   knowledge: '/knowledge',
@@ -61,6 +67,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   overview: LayoutDashboard,
   communication: MessageSquare,
   agenda: CalendarDays,
+  cases: Radar,
   agents: Bot,
   workstreams: Workflow,
   knowledge: Brain,
@@ -73,6 +80,7 @@ const TAB_TITLES: Record<Tab, string> = {
   overview: 'Overview',
   communication: 'Communication',
   agenda: 'Agenda',
+  cases: 'Cases',
   agents: 'Agents',
   workstreams: 'Workstreams',
   knowledge: 'Knowledge',
@@ -85,6 +93,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   overview: 'Daily scan, attention and usage',
   communication: 'Chats, customer and agent threads',
   agenda: 'Scheduled wakes, tasks and events',
+  cases: 'Typed intake on conversations, and the type catalog',
   agents: 'People and agents you can chat with',
   workstreams: 'Repeatable step-by-step playbooks for agents',
   knowledge: 'Docs, skills and memory',
@@ -151,6 +160,7 @@ export function tabFromPath(pathname: string): Tab | null {
   // Contacts nest under Communication.
   if (pathname.startsWith('/contacts')) return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
+  if (pathname.startsWith('/cases')) return 'cases'
   if (pathname.startsWith('/agents')) return 'agents'
   if (pathname.startsWith('/workstreams')) return 'workstreams'
   if (pathname.startsWith('/projects')) return 'projects'

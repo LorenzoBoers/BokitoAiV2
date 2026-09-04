@@ -9,9 +9,9 @@ import {
 } from './compose-intent'
 
 describe('compose intent', () => {
-  it('builds a Communication URL that other pages can open', () => {
+  it('builds a Communication draft URL that other pages can open', () => {
     expect(composeEmailPath({ to: 'ada@example.com' })).toBe(
-      '/communication/inbox/open?compose=1&to=ada%40example.com',
+      '/communication/new?intent=contact&to=ada%40example.com',
     )
     expect(newContactPath()).toBe('/contacts?new=1')
     expect(newContactPath('ada@example.com')).toBe(

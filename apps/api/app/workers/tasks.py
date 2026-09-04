@@ -568,15 +568,6 @@ async def send_tenant_digests_job(ctx):
     return {"daily": daily, "weekly": weekly}
 
 
-async def snapshot_platform_metrics_job(ctx):
-    """Daily snapshot points for platform-sourced custom metrics."""
-    from app.services.metrics import snapshot_platform_metrics
-
-    async with async_session_factory() as session:
-        written = await snapshot_platform_metrics(session)
-    return {"points": written}
-
-
 async def index_project_repo_job(ctx, tenant_id: str, project_id: str):
     """Index a project's connected GitHub repo into the vector pipeline."""
     from app.services.repo_index import index_project_repo
@@ -703,7 +694,6 @@ class WorkerSettings:
         cron(sync_calendar_connections_job, minute={0, 15, 30, 45}),
         cron(purge_retention_job, hour=4, minute=20),
         cron(send_tenant_digests_job, hour=6, minute=0),
-        cron(snapshot_platform_metrics_job, hour=5, minute=30),
         cron(reindex_module_sources_job, weekday=0, hour=3, minute=15),
         cron(nudge_idle_agent_sessions_job, second=30),
     ]

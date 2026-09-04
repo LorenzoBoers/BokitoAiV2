@@ -115,7 +115,6 @@ communication:
     - /communication
     - /communication/inbox
     - /communication/inbox/open
-    - /communication/tag/{tag}
   code_globs:
     - apps/dashboard/src/pages/Communication.tsx
     - apps/dashboard/src/components/inbox/**
@@ -155,7 +154,6 @@ channels:
     - apps/dashboard/src/lib/channel-surface.ts
     - apps/dashboard/src/components/inbox/FoldersAndTagsManager.tsx
     - apps/api/app/services/channel_registry.py
-    - apps/api/app/services/signal_tags.py
     - apps/api/app/services/email_relay.py
     - apps/api/app/services/smtp_imap.py
     - apps/api/app/routers/channels.py
@@ -263,12 +261,13 @@ workstreams:
 cases:
   section: ai
   routes:
-    - /workstreams
-    - /workstreams/{workstreamId}
+    - /cases
+    - /cases?tab=types
     - /communication
   code_globs:
+    - apps/dashboard/src/pages/CasesPage.tsx
+    - apps/dashboard/src/components/cases/**
     - apps/dashboard/src/components/inbox/ThreadCasesList.tsx
-    - apps/dashboard/src/components/workstreams/CaseTypesCard.tsx
     - apps/dashboard/src/components/workstreams/CaseBindingsCard.tsx
     - apps/dashboard/src/lib/cases-api.ts
     - apps/dashboard/src/api/routes/cases.routes.ts

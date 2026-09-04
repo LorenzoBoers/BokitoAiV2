@@ -36,7 +36,7 @@ Installed modules (for example **Accounting**) appear here as their own rail ite
 - **Connections** — installed modules, partner logins, custom MCP and marketplace. See [Integrations](/docs/integrations/integrations).
 - **Settings** — **Email & messages**, inbox AI, chat widget, members, models and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live on [Workstreams](/docs/ai/workstreams); see [Cases](/docs/ai/cases).
 
-Owners and admins come here; members rarely. See the [setup guide](/docs/getting-started/setup-guide). **Overview** lives under Control, not Organization — see [Overview](/docs/getting-started/cockpit).
+Owners and admins come here; members rarely. See the [setup guide](/docs/getting-started/setup-guide). **Overview** sits above Control in the rail — see [Overview](/docs/getting-started/cockpit).
 
 Personal screens — **Profile** (including start page: Communication or Overview) and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
 

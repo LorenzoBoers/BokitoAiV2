@@ -7,7 +7,6 @@ from app.models.channel import ChannelAccount, ChannelBinding, Company, Contact
 from app.models.email_routing import EmailRoutingRule
 from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
-from app.models.metric import CustomMetric, CustomMetricPoint
 from app.models.outcome import OperationalOutcome
 from app.models.platform_change import PlatformChange
 from app.models.signal import (
@@ -114,8 +113,6 @@ __all__ = [
     "Feedback",
     "EvalScore",
     "InboxRule",
-    "CustomMetric",
-    "CustomMetricPoint",
     "OperationalOutcome",
     "PlatformChange",
     "AgentTask",

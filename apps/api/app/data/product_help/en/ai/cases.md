@@ -1,22 +1,31 @@
 ---
 title: How Cases works
 intro: A case is typed intake on a conversation — one intent, one case, then a workstream or project if you bind it.
-description: Label work that lands in chat, bind types to workstreams, confirm a visitor when needed, and keep several cases on one thread.
-keywords: cases, intake, signal, workstream binding, verify, website chat
+description: Manage intake types and the case queue on the Cases page, bind types to workstreams, confirm a visitor when needed, and keep several cases on one thread.
+keywords: cases, intake, signal, queue, workstream binding, verify, website chat
 sort: 46
 related: workstreams,communication,widget,projects,integrations
 ---
 
 # How Cases works
 
-A case is a labelled piece of work on a conversation, not the conversation itself. Open **Workstreams** to manage types, bind them on a workstream or project, and watch them appear in the conversation side panel in [Messages](/docs/inbox/communication).
+A case is a labelled piece of work on a conversation, not the conversation itself. The **Cases** page in the sidebar (under Control) holds the queue of open cases and the catalog of intake types. Cases replace the old conversation tags: agents classify inbound messages against your type catalog and open a case instead of a tag.
+
+## Work the case queue
+
+1. Open **Cases**. The **Queue** tab lists every case with its type, title, conversation subject, age and status.
+2. Use the status pills — **Needs you**, **Open**, **Waiting**, **Linked** and **Done** — to focus on what needs a decision first. The search field matches title, summary and type name; type chips narrow to one intake type.
+3. Click a row for the detail panel: change the status, edit the title or summary, or link the case to a workstream or project.
+4. Choose **Open thread** to jump to the conversation in [Messages](/docs/inbox/communication). Closing a case never closes the conversation — they live independently.
+5. Move through rows with **J**/**K** and open one with **Enter**.
 
 ## Add an intake type
 
-1. Open **Workstreams**.
-2. Under **Intake types**, type a name (for example Billing question) and choose **Add type**.
-3. Leave the type on. Turn the switch off when agents should stop opening that type.
-4. Bind it on a workstream or project next — a type with no binding stays on the conversation.
+1. Open **Cases**, then the **Types** tab.
+2. Choose **New type** and give it a name (for example Billing question).
+3. Describe precisely when the type applies — agents follow that description when they classify incoming messages, so also say when it does not apply.
+4. Leave the type on. Turn the switch off when agents should stop opening that type.
+5. Bind it on a workstream or project next — a type with no binding stays on the conversation as a status label only.
 
 ## Bind a type to a workstream
 

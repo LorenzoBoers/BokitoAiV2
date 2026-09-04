@@ -116,7 +116,13 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
   const expanded = floor >= preset.max - 8
 
   return (
-    <div className={cn('relative rounded-2xl border px-3 pb-2 pt-3 shadow-card focus-within:border-accent/50', className)}>
+    <div
+      className={cn(
+        'group/composer relative rounded-2xl border bg-bg-elevated/40 px-3 pb-2 pt-3 shadow-card transition-[border-color,box-shadow] duration-200',
+        'focus-within:border-accent/55 focus-within:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.16)]',
+        className,
+      )}
+    >
       {overlay}
       <div className="absolute inset-x-0 top-0 z-10 flex h-3 items-center justify-center">
         <div
@@ -150,14 +156,14 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
           }}
           className="flex h-3 w-full cursor-row-resize touch-none items-center justify-center"
         >
-          <span className="h-1 w-8 rounded-full bg-border/80 transition-colors hover:bg-accent" />
+          <span className="h-0.5 w-6 rounded-full bg-border/40 transition-colors group-hover/composer:bg-border/80 group-focus-within/composer:bg-accent/70 hover:bg-accent" />
         </div>
         <button
           type="button"
           onClick={toggleExpand}
           title={expanded ? t('composer.collapse') : t('composer.expand')}
           aria-label={expanded ? t('composer.collapse') : t('composer.expand')}
-          className="absolute right-0.5 top-0.5 rounded-md p-0.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          className="absolute right-2 top-1 rounded-md p-1 text-text-muted/50 opacity-0 transition-all group-hover/composer:opacity-100 group-focus-within/composer:opacity-100 hover:bg-bg-hover hover:text-text-primary"
         >
           {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
         </button>

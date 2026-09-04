@@ -9,7 +9,7 @@ related: communication,agent-runs,decisions,agenda
 
 # How Overview works
 
-Overview is the morning scan. Open it from the **Control** rail (above Messages) to see open work, waiting decisions and what agents already did, then jump into the thread that needs you. Under **Settings → Profile** you can set Overview as your start page after sign-in; Messages remains the default.
+Overview is the morning scan. Open it from the left rail (above **Control**) to see open work, waiting decisions and what agents already did, then jump into the thread that needs you. Under **Settings → Profile** you can set Overview as your start page after sign-in; Messages remains the default.
 
 ## Scan the day on Overview
 
@@ -21,12 +21,6 @@ Overview is the morning scan. Open it from the **Control** rail (above Messages)
 3. Click a card to open Messages, [Agent runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) or [Contacts](/docs/inbox/contacts). On **Needs attention**, choose **Open first** to jump to the oldest waiting thread. The clock on a row parks that conversation until tomorrow 9:00.
 
 On a new workspace, Overview may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).
-
-## Add a number you care about
-
-1. On Overview, scroll to **Your numbers**.
-2. Choose **Add a number**. The dialog is **New number**. Give it a **Name**, a **Unit** (Number, Count, Percent, Currency (EUR) or Duration (minutes)), and an optional **Target**.
-3. Record values yourself, or let [agents](/docs/ai/agents) keep the number current. Platform-computed numbers snapshot daily; you cannot fill those by hand.
 
 ## Open work that is waiting on you
 

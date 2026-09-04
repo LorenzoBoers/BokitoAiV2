@@ -17,7 +17,7 @@ from sqlalchemy import select as sa_select
 from app.db.session import get_session
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import Tenant, User
-from app.models.signal import Signal
+from app.models.signal import Signal, SignalMessage
 from app.services.agent_avatar import avatar_payload
 from app.services.livechat_compat import (
     SURFACE_IN_APP,
@@ -346,6 +346,12 @@ async def user_conversations(
         if surface_from_widget_token(token) == SURFACE_IN_APP
         else "widget"
     )
+    # Skip empty drafts: "New conversation" without a message must not clutter history.
+    has_message = (
+        sa_select(SignalMessage.id)
+        .where(SignalMessage.signal_id == Signal.id)
+        .exists()
+    )
     result = await session.execute(
         sa_select(Signal)
         .where(
@@ -353,6 +359,7 @@ async def user_conversations(
             Signal.channel == "assistant",
             Signal.source == thread_source,
             Signal.owner_user_id == user.id,
+            has_message,
         )
         .order_by(Signal.updated_at.desc())
         .limit(per_page)
@@ -401,12 +408,18 @@ async def customer_conversations(
     contact = contact_result.scalar_one_or_none()
     if not contact:
         return {"items": [], "conversations": [], "per_page": per_page}
+    has_message = (
+        sa_select(SignalMessage.id)
+        .where(SignalMessage.signal_id == Signal.id)
+        .exists()
+    )
     result = await session.execute(
         sa_select(Signal)
         .where(
             Signal.tenant_id == tenant.id,
             Signal.channel == "widget",
             Signal.contact_id == contact.id,
+            has_message,
         )
         .order_by(Signal.updated_at.desc())
         .limit(per_page)

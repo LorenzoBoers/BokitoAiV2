@@ -130,7 +130,6 @@ export default function WorkspaceDocs() {
   const [newTitle, setNewTitle] = useState('')
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [kindFilter, setKindFilter] = useState<WorkspaceDocKind | 'all'>('all')
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [scope, setScope] = useState<KnowledgeScope>(() => {
     const raw = searchParams.get('scope')
@@ -156,10 +155,19 @@ export default function WorkspaceDocs() {
 
   const entityChipClass = (selected: boolean) =>
     cn(
-      'max-w-[11rem] truncate rounded-full border px-2 py-0.5 text-[10px]',
+      'inline-flex max-w-[12rem] flex-col items-start gap-0 rounded-lg border px-2 py-1 text-left leading-tight',
       selected
         ? 'border-accent/40 bg-accent/10 text-accent'
         : 'border-border/60 text-text-muted hover:text-text-secondary',
+    )
+
+  const scopeTypeLabel = (value: KnowledgeScope) =>
+    t(
+      value === 'organization'
+        ? 'knowledgePage.scopePlatform'
+        : value === 'project'
+          ? 'knowledgePage.scopeProject'
+          : 'knowledgePage.scopeAgent',
     )
 
   useEffect(() => {
@@ -263,15 +271,28 @@ export default function WorkspaceDocs() {
     }
   }, [docId, t])
 
-  const grouped = useMemo(() => {
-    const groups = new Map<WorkspaceDocKind, WorkspaceDocRow[]>()
-    for (const kind of KIND_ORDER) groups.set(kind, [])
+  /** Sections follow what is actually in the library — no empty predefined kinds. */
+  const presentSections = useMemo(() => {
+    const byKind = new Map<WorkspaceDocKind, WorkspaceDocRow[]>()
     for (const doc of docs) {
-      const bucket = groups.get(doc.kind) ?? groups.get('doc')!
+      const kind: WorkspaceDocKind = KIND_ORDER.includes(doc.kind) ? doc.kind : 'doc'
+      const bucket = byKind.get(kind) ?? []
       bucket.push(doc)
+      byKind.set(kind, bucket)
     }
-    return groups
-  }, [docs])
+    const prefer = (kind: WorkspaceDocKind) => {
+      const idx = KIND_ORDER.indexOf(kind)
+      return idx === -1 ? KIND_ORDER.length : idx
+    }
+    return [...byKind.entries()]
+      .map(([kind, rows]) => ({
+        kind,
+        rows: [...rows].sort((a, b) =>
+          (a.title || a.path).localeCompare(b.title || b.path, i18n.language),
+        ),
+      }))
+      .sort((a, b) => prefer(a.kind) - prefer(b.kind))
+  }, [docs, i18n.language])
 
   const runSearch = useCallback(async () => {
     if (!query.trim()) {
@@ -505,7 +526,7 @@ export default function WorkspaceDocs() {
                 </Button>
               </div>
             ) : null}
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -514,9 +535,10 @@ export default function WorkspaceDocs() {
                   setScopeAgentId('')
                 }}
                 className={entityChipClass(scope === 'organization')}
-                title={organizationName}
+                title={`${organizationName} · ${scopeTypeLabel('organization')}`}
               >
-                {organizationName}
+                <span className="max-w-full truncate text-[11px] font-medium">{organizationName}</span>
+                <span className="text-[9px] font-normal opacity-70">{scopeTypeLabel('organization')}</span>
               </button>
               {sortedProjects.map((project) => (
                 <button
@@ -528,9 +550,10 @@ export default function WorkspaceDocs() {
                     setScopeAgentId('')
                   }}
                   className={entityChipClass(scope === 'project' && scopeProjectId === project.id)}
-                  title={project.name}
+                  title={`${project.name} · ${scopeTypeLabel('project')}`}
                 >
-                  {project.name}
+                  <span className="max-w-full truncate text-[11px] font-medium">{project.name}</span>
+                  <span className="text-[9px] font-normal opacity-70">{scopeTypeLabel('project')}</span>
                 </button>
               ))}
               {sortedAgents.map((agent) => (
@@ -543,9 +566,10 @@ export default function WorkspaceDocs() {
                     setScopeProjectId('')
                   }}
                   className={entityChipClass(scope === 'agent' && scopeAgentId === agent.id)}
-                  title={agent.name}
+                  title={`${agent.name} · ${scopeTypeLabel('agent')}`}
                 >
-                  {agent.name}
+                  <span className="max-w-full truncate text-[11px] font-medium">{agent.name}</span>
+                  <span className="text-[9px] font-normal opacity-70">{scopeTypeLabel('agent')}</span>
                 </button>
               ))}
             </div>
@@ -567,37 +591,6 @@ export default function WorkspaceDocs() {
                 {t('knowledgePage.search')}
               </Button>
             </div>
-            {docs.length > 0 && hits === null ? (
-              <div className="flex flex-wrap gap-1">
-                <button
-                  type="button"
-                  onClick={() => setKindFilter('all')}
-                  className={cn(
-                    'rounded-full border px-2 py-0.5 text-[10px]',
-                    kindFilter === 'all'
-                      ? 'border-accent/40 bg-accent/10 text-accent'
-                      : 'border-border/60 text-text-muted hover:text-text-secondary',
-                  )}
-                >
-                  {t('knowledgePage.filterAll')}
-                </button>
-                {KIND_ORDER.map((kind) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => setKindFilter(kind)}
-                    className={cn(
-                      'rounded-full border px-2 py-0.5 text-[10px]',
-                      kindFilter === kind
-                        ? 'border-accent/40 bg-accent/10 text-accent'
-                        : 'border-border/60 text-text-muted hover:text-text-secondary',
-                    )}
-                  >
-                    {kindLabel(kind)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             {refreshedAt ? (
               <p className="text-[10px] text-text-muted">
                 {t('knowledgePage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
@@ -653,18 +646,11 @@ export default function WorkspaceDocs() {
                 </Link>
               </div>
             ) : (
-              KIND_ORDER.map((kind) => {
-                if (kindFilter !== 'all' && kind !== kindFilter) return null
-                const rows = grouped.get(kind) ?? []
-                if (rows.length === 0) return null
-                return (
+              presentSections.map(({ kind, rows }) => (
                   <div key={kind} className="mb-3">
                     <p className="flex items-center gap-1.5 px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-text-muted">
                       {kindLabel(kind)}
                       {AI_MAINTAINED_KINDS.has(kind) ? <KnowledgeMark size={11} /> : null}
-                    </p>
-                    <p className="px-2 pb-1 text-[10px] leading-4 text-text-muted/80">
-                      {t(`knowledgePage.kindIntros.${kind}`)}
                     </p>
                     {rows.map((doc) => (
                       <button
@@ -691,8 +677,7 @@ export default function WorkspaceDocs() {
                       </button>
                     ))}
                   </div>
-                )
-              })
+                ))
             )}
           </div>
         </aside>

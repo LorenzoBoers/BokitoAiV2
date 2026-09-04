@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace-setupgids
 
-De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen**, daarna **Hulp**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). De gids volgt dezelfde vier onboardingstappen als de eerste-keer-kaart, daarna een rustige lijst **Later** (branding, team, modules, projecten, cijfers, Govern).
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen**, daarna **Hulp**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). De gids volgt dezelfde vier onboardingstappen als de eerste-keer-kaart, daarna een rustige lijst **Later** (branding, team, modules, projecten, Govern).
 
 ## Workspace-basics en branding
 
@@ -54,6 +54,6 @@ Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde vier st
 3. **Keur één beslissing goed** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
 4. **Zet check-in aan** — de uurlijkse check-in staat aan voor nieuwe workspaces. Bestaande workspaces zetten die aan vanuit de setupgids.
 
-**Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Modules](/docs/integrations/integrations), projecten, cijfers op de Cockpit, en [Govern](/docs/govern/govern).
+**Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Modules](/docs/integrations/integrations), projecten, en [Govern](/docs/govern/govern).
 
 **Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die vier stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, één beslissing duidelijk is, en de assistent waakt.

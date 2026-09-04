@@ -9,7 +9,7 @@ related: communication,agent-runs,decisions,agenda
 
 # Zo werkt Overview
 
-Overview is de ochtendscan. Open die in de rail **Besturing** (boven Berichten) om open werk, wachtende beslissingen en wat agents al deden te zien, en spring daarna in het gesprek dat jou nodig heeft. Onder **Instellingen → Profiel** kun je Overview als startpagina na inloggen kiezen; Berichten blijft de standaard.
+Overview is de ochtendscan. Open die in de linkerrail (boven **Besturing**) om open werk, wachtende beslissingen en wat agents al deden te zien, en spring daarna in het gesprek dat jou nodig heeft. Onder **Instellingen → Profiel** kun je Overview als startpagina na inloggen kiezen; Berichten blijft de standaard.
 
 ## Scan de dag op Overview
 
@@ -21,12 +21,6 @@ Overview is de ochtendscan. Open die in de rail **Besturing** (boven Berichten) 
 3. Klik een kaart om Berichten, [Agent-runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) of [Contacten](/docs/inbox/contacts) te openen. Bij **Vraagt aandacht** kies je **Open de eerste** om naar het oudste wachtende gesprek te springen. De klok op een rij zet dat gesprek tot morgen 9:00 in Uitgesteld.
 
 In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via de [setupgids](/docs/getting-started/setup-guide).
-
-## Voeg een cijfer toe dat telt
-
-1. Scroll op Overview naar **Jouw cijfers**.
-2. Kies **Cijfer toevoegen**. De dialoog heet **Nieuw cijfer**. Geef een **Naam**, een **Eenheid** (Getal, Aantal, Procent, Valuta (EUR) of Duur (minuten)), en optioneel een **Doel**.
-3. Vul waarden zelf in, of laat [agents](/docs/ai/agents) het cijfer bijhouden. Platformcijfers worden dagelijks vastgelegd; die kun je niet met de hand vullen.
 
 ## Open werk dat op jou wacht
 

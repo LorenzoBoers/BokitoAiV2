@@ -981,83 +981,6 @@ async def _propose_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     )
 
 
-async def _record_metric(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Append a value to a custom cockpit metric (creates the metric if new)."""
-    from app.services.metrics import create_metric, get_metric_by_key, normalize_metric_key, record_metric_point
-
-    key = normalize_metric_key(str(tool_input.get("key") or tool_input.get("label") or ""))
-    if not key:
-        return {"error": "key or label required"}
-    raw_value = tool_input.get("value")
-    try:
-        value = float(raw_value)
-    except (TypeError, ValueError):
-        return {"error": "value must be a number"}
-
-    metric = await get_metric_by_key(ctx.session, ctx.tenant_id, key)
-    if metric is not None:
-        from app.services.metrics import PLATFORM_METRIC_SOURCES
-
-        if (metric.source or "manual") in PLATFORM_METRIC_SOURCES:
-            return {
-                "error": (
-                    f"Metric '{key}' is bound to platform data "
-                    f"({metric.source}) and cannot be filled by agents."
-                )
-            }
-    if metric is None:
-        try:
-            metric = await create_metric(
-                ctx.session,
-                ctx.tenant_id,
-                key=key,
-                label=str(tool_input.get("label") or key),
-                description=str(tool_input.get("description") or ""),
-                unit=str(tool_input.get("unit") or "number"),
-            )
-        except ValueError as exc:
-            return {"error": str(exc)}
-    point = await record_metric_point(
-        ctx.session,
-        ctx.tenant_id,
-        metric,
-        value=value,
-        note=str(tool_input.get("note") or ""),
-        source="agent",
-        recorded_by=str(ctx.agent.id) if ctx.agent else "agent",
-    )
-    await ctx.session.commit()
-    return {
-        "metric_id": str(metric.id),
-        "key": metric.key,
-        "label": metric.label,
-        "unit": metric.unit,
-        "value": point.value,
-        "recorded_at": point.recorded_at.isoformat(),
-    }
-
-
-async def _list_metrics(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """List the tenant's custom metrics with their latest values."""
-    from app.services.metrics import list_metrics_with_latest
-
-    items = await list_metrics_with_latest(ctx.session, ctx.tenant_id)
-    return {
-        "metrics": [
-            {
-                "key": m["key"],
-                "label": m["label"],
-                "unit": m["unit"],
-                "target": m["target"],
-                "latest_value": m["latest_value"],
-                "latest_at": m["latest_at"],
-                "delta": m["delta"],
-            }
-            for m in items
-        ]
-    }
-
-
 async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from uuid import UUID
 
@@ -1671,47 +1594,6 @@ register_tool(
         handler=_create_decision_request,
         gated=False,
         audience="both",
-    )
-)
-
-register_tool(
-    ToolSpec(
-        name="record_metric",
-        description=(
-            "Record a value for a custom cockpit KPI. Creates the metric on first "
-            "use. Use for business numbers worth tracking over time (revenue, "
-            "open tickets, response time, ...)."
-        ),
-        category="workspace",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "key": {"type": "string", "description": "Stable metric slug, e.g. open_tickets"},
-                "label": {"type": "string", "description": "Human label shown on the Cockpit"},
-                "value": {"type": "number"},
-                "unit": {
-                    "type": "string",
-                    "enum": ["number", "percent", "currency", "duration", "count"],
-                },
-                "note": {"type": "string", "description": "Optional context for this data point"},
-                "description": {"type": "string"},
-            },
-            "required": ["value"],
-        },
-        handler=_record_metric,
-        gated=False,
-    )
-)
-
-register_tool(
-    ToolSpec(
-        name="list_metrics",
-        description="List the workspace's custom cockpit metrics with their latest values.",
-        category="workspace",
-        input_schema={"type": "object", "properties": {}},
-        handler=_list_metrics,
-        mutating=False,
-        gated=False,
     )
 )
 

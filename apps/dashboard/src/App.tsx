@@ -75,6 +75,7 @@ const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const HelpHubPage = lazy(() => import('./pages/HelpHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
+const CasesPage = lazy(() => import('./pages/CasesPage'))
 
 // Control plane hub
 const Workspaces = lazy(() => import('./pages/Workspaces'))
@@ -382,6 +383,7 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/cases" element={<CasesPage />} />
           <Route path="/learn" element={<LearnPage />} />
           <Route path="/learn/:slug" element={<LearnPage />} />
           <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />

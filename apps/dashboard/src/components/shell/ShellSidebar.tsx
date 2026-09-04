@@ -7,6 +7,7 @@ import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
 import { APP_VERSION } from '../../lib/app-version'
 import {
+  PINNED_TABS,
   TAB_GROUPS,
   iconForTab,
   isNewTab,
@@ -153,6 +154,55 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-3">
         {/* Nav groups */}
         <nav className="flex flex-col gap-3">
+          {PINNED_TABS.length > 0 ? (
+            <section data-tour="nav-pinned">
+              <div className={`space-y-px ${collapsed ? 'flex flex-col items-center gap-1 space-y-0' : ''}`}>
+                {PINNED_TABS.map((tab) => {
+                  const Icon = iconForTab(tab)
+                  const active = activeTab === tab
+                  const badge = badgeForTab(tab)
+                  const showNew = isNewTab(tab)
+                  return (
+                    <NavLink
+                      key={tab}
+                      to={pathForTab(tab)}
+                      onClick={onNavigate}
+                      title={tabTitle(tab)}
+                      aria-label={tabTitle(tab)}
+                      data-tour={`nav-${tab}`}
+                      className={`relative flex items-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
+                        collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
+                      } ${
+                        active
+                          ? 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
+                          : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
+                      }`}
+                    >
+                      <Icon size={15} className="shrink-0" />
+                      {!collapsed ? (
+                        <>
+                          <span className="min-w-0 flex-1 truncate">{tabTitle(tab)}</span>
+                          {showNew ? (
+                            <span className="ml-auto shrink-0 rounded-md bg-accent/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
+                              {t('tabs.modules.newBadge', { defaultValue: 'New' })}
+                            </span>
+                          ) : badge > 0 ? (
+                            <span className="count-pop ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">
+                              {badge > 99 ? '99+' : badge}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : showNew ? (
+                        <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" title={t('tabs.modules.newBadge', { defaultValue: 'New' })} />
+                      ) : badge > 0 ? (
+                        <span className="pulse-dot absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                      ) : null}
+                    </NavLink>
+                  )
+                })}
+              </div>
+            </section>
+          ) : null}
           {TAB_GROUPS.map((group) => {
             const isGroupCollapsed = collapsedGroups[group.label] ?? false
             const showItems = collapsed || !isGroupCollapsed

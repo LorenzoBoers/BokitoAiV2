@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace setup guide
 
-The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Help**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). The guide follows the same four onboarding steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, numbers, Govern).
+The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Help**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). The guide follows the same four onboarding steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, Govern).
 
 ## Workspace basics and branding
 
@@ -54,6 +54,6 @@ On first login, Communication shows **Continue setup**. The same four steps live
 3. **Approve one decision** — **Try the demo** starts a sample thread so you can approve a card.
 4. **Turn on check-in** — the hourly check-in is on for new workspaces. Existing workspaces can turn it on from the setup guide.
 
-**Later** (no numbers): branding, invite the team, add a field of work on [Modules](/docs/integrations/integrations), projects, numbers on Cockpit, and [Govern](/docs/govern/govern).
+**Later** (no numbers): branding, invite the team, add a field of work on [Modules](/docs/integrations/integrations), projects, and [Govern](/docs/govern/govern).
 
 **Hide setup** only hides the card. The checklist on Settings stays until those four steps are done. You are ready when mail flows in, one decision is understood, and the assistant is watching.

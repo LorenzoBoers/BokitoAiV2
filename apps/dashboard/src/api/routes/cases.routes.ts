@@ -4,6 +4,7 @@ import { withQuery } from '../url'
 export const casesRoutes = {
   list: '/cases',
   listQuery: (params: URLSearchParams) => withQuery('/cases', params),
+  stats: '/cases/stats',
   byId: (caseId: string) => `/cases/${encodeURIComponent(caseId)}`,
   link: (caseId: string) => `/cases/${encodeURIComponent(caseId)}/link`,
   types: '/cases/types',

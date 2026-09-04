@@ -26,9 +26,10 @@ Channels are how customers reach the workspace. Open **Settings**, then **Email 
 Use this when your provider has no Gmail or Outlook OAuth card (for example Hostinger, cPanel, or a custom domain mailbox).
 
 1. Choose **Add channel**, then **Email**, then **SMTP / IMAP**.
-2. Under **Prepare**, enable IMAP in the mailbox settings and prefer an app password when the provider offers one. Typical ports are IMAP **993** with SSL and SMTP **587** with STARTTLS (or **465** with SSL).
-3. Under **Enter details**, fill **Email address**, **Username** (defaults to the email), **Password**, **IMAP host** / port / SSL, and **SMTP host** / port / security. Turn on **Same host for IMAP and SMTP** when both share one hostname.
-4. Choose **Connect and verify**. Bokito logs in to IMAP and SMTP; on success the row appears in **Channels** and Inbox mail syncs into Communication. Replies send through SMTP from this address.
+2. Under **Mailbox login**, enter **Email address** and **Password** (prefer an app password). Open **Username differs from email address** only when the login name is different.
+3. Under **Provider**, pick a preset (**Gmail**, **Outlook / Microsoft 365**, **Yahoo**, **iCloud**, **Zoho**) to fill hosts and ports, or **Custom** for your own hosting. Bokito may suggest a preset from the email domain.
+4. Check **Incoming mail (IMAP)** (server, port, encryption), then optionally **Outgoing mail uses the same server as incoming**, then **Outgoing mail (SMTP)** (server, port, encryption). Open **Need help finding server settings?** for ports and firewall tips.
+5. Choose **Connect and verify**. Bokito logs in to IMAP and SMTP; on success the row appears in **Channels** and Inbox mail syncs into Communication. Replies send through SMTP from this address.
 
 If verify fails with a network error, outbound ports 993, 587 or 465 may be blocked on the server that runs the API or workers.
 
@@ -82,13 +83,11 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 2. Create a title and body, or save a draft from the composer in a thread.
 3. Anyone can insert a saved reply while answering in Communication.
 
-## Choose default sub-views and manage tags
+## Choose default sub-views
 
-1. Scroll to **Folders and tags** on the same page (or open `#tags` from the gear that appears when you hover the **Tags** section in the Communication sidebar).
-2. Every channel, tag, and agent folder in Communication has the same sub-views: **Open**, **Mine**, **Unassigned** and **Closed**. Sub-views appear only after you click the folder. Pick the **Default sub-view** a folder opens on, and override it per channel or assistant below.
-3. The **Tags** list is your whole tag vocabulary, with how many conversations use each one. Enter a **Tag name** and choose **Add tag** to create one before any conversation carries it.
-4. Choose **Pin** on a tag to keep it as a folder under Tags in the Communication sidebar. Tags already used on conversations appear there as well, and a conversation with several tags shows up under each of them.
-5. Fill in **When to use this tag** to steer AI tagging: triage and agents may only apply tags from this list, and they follow that hint. Rename a tag to update every conversation at once, or remove it everywhere.
+1. Scroll to **Folders** on the same page.
+2. Every channel and agent folder in Communication has the same sub-views: **Open**, **Mine**, **Unassigned** and **Closed**. Sub-views appear only after you click the folder. Pick the **Default sub-view** a folder opens on, and override it per channel or assistant below.
+3. Classifying conversations no longer happens with tags here: intake types live on the [Cases page](/docs/ai/cases), and a conversation shows its cases in the side panel.
 
 ## What to do next
 

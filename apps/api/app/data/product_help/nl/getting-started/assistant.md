@@ -33,9 +33,9 @@ Werk doorgeven vraagt geen owner- of adminrol. Agents inrichten wel — zie [Gov
 
 ## Ga verder met een eerder gesprek
 
-1. Open **Berichten**. Je Bokito-gesprekken staan in een eigen sectie **Bokito** in de zijbalk.
-2. Kies een gesprek om het weer te openen in het helpervenster.
-3. Deze gesprekken zijn privé. Geen ander lid van de workspace ziet ze, en ze verschijnen nooit bij de agents van de workspace.
+1. Open de Bokito-knop rechtsonder.
+2. Open je gesprekslijst in het helpervenster en kies een eerder gesprek.
+3. Deze gesprekken zijn privé. Ze verschijnen niet in Communicatie, en geen ander lid van de workspace ziet ze.
 
 ## Vind je gesprekken in een andere workspace
 

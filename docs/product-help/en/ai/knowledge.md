@@ -14,26 +14,16 @@ Knowledge is what agents read on every run. Open **Knowledge** to manage organiz
 ## Pick a scope
 
 ![Knowledge page](/api/docs/assets/knowledge/add-doc.png)
-*Filter by workspace, project, or agent name — each chip is a real entity.*
+*Each chip is a real entity, labeled Platform, Project, or Agent.*
 
 1. Open **Knowledge**.
-2. Click your **workspace name** (default), a **project name**, or an **agent name** in the chip row. Creating a document in that scope stores it on the same `WorkspaceDoc` table Project Documentation uses.
+2. Click your **workspace name** (default, marked **Platform**), a **project name**, or an **agent name**. Creating a document in that scope stores it on the same `WorkspaceDoc` table Project Documentation uses.
 
-Organization still groups kinds:
-
-- **Voice** — how you sound. Tone, phrases to use or avoid.
-- **Memory** — long-term facts the workspace should remember. Agents update this as they learn.
-- **Skills** — procedures: how to refund, how to escalate, how to book.
-- **Docs** — reference pages (pricing, policy, product facts). Only this kind can be published to a help center.
-- **Project docs** — documents scoped to a project (also editable on the project's Documentation tab).
-- **Check-ins** — recurring heartbeat checklists. Agents write here when a scheduled check finds something.
-- **Daily notes** — short logs agents keep. You read them; you rarely author them.
-
-Memory, check-ins and daily notes are AI-maintained. Edit them when a fact is wrong; do not treat them as a second wiki.
+The sidebar groups documents by the kinds that are actually present — for example Voice, Memory, Skills, Docs, Check-ins, or Daily notes when those exist. Empty kinds stay hidden. Memory, check-ins and daily notes are AI-maintained: edit them when a fact is wrong; do not treat them as a second wiki.
 
 ## Add or edit a document
 
-1. Open **Knowledge**. An empty library offers **Create first document** and a drop zone for a PDF or Word file. Use **Search knowledge** (Enter or **Search**) when the list is long, or **Clear search** to browse again. Kind chips filter the sidebar.
+1. Open **Knowledge**. An empty library offers **Create first document** and a drop zone for a PDF or Word file. Use **Search knowledge** (Enter or **Search**) when the list is long, or **Clear search** to browse again.
 2. Choose **New document**, type a title (the path is generated), then **Add**. Or use **Upload a document (PDF, Word, text)**.
 3. Choose **Edit**. The editor opens in **Write** (WYSIWYG) by default; switch to **Markdown** for the raw source. Content always saves as markdown.
 4. **Save** or press Ctrl/Cmd+S. Leaving with unsaved edits asks you to confirm. Click the document path to copy it. **Publish** asks if the article should appear on the public help site. **Delete document** removes a page you no longer want.

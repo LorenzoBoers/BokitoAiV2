@@ -1,5 +1,5 @@
 import { isPlaceholderContactAddress } from './contact-label'
-import { inboxPath } from './messages-paths'
+import { newConversationPath } from './messages-paths'
 
 /** Deep-links that open compose / create flows from other product surfaces. */
 
@@ -7,6 +7,7 @@ export type ComposeIntent = {
   to?: string
   subject?: string
   body?: string
+  connectionId?: string | number
 }
 
 export function parseComposeIntent(params: URLSearchParams): ComposeIntent | null {
@@ -14,7 +15,9 @@ export function parseComposeIntent(params: URLSearchParams): ComposeIntent | nul
   const to = params.get('to')?.trim() || undefined
   const subject = params.get('subject')?.trim() || undefined
   const body = params.get('body')?.trim() || undefined
-  return { to, subject, body }
+  const connectionRaw = params.get('connectionId')?.trim()
+  const connectionId = connectionRaw || undefined
+  return { to, subject, body, connectionId }
 }
 
 export function stripComposeIntent(params: URLSearchParams): URLSearchParams {
@@ -23,16 +26,19 @@ export function stripComposeIntent(params: URLSearchParams): URLSearchParams {
   next.delete('to')
   next.delete('subject')
   next.delete('body')
+  next.delete('connectionId')
   return next
 }
 
+/** Opens the Communication draft surface for outbound email (create-on-send). */
 export function composeEmailPath(intent: ComposeIntent = {}): string {
-  const params = new URLSearchParams()
-  params.set('compose', '1')
-  if (intent.to) params.set('to', intent.to)
-  if (intent.subject) params.set('subject', intent.subject)
-  if (intent.body) params.set('body', intent.body)
-  return `${inboxPath('open')}?${params.toString()}`
+  return newConversationPath({
+    intent: 'contact',
+    to: intent.to,
+    subject: intent.subject,
+    body: intent.body,
+    connectionId: intent.connectionId,
+  })
 }
 
 export function newContactPath(address?: string): string {

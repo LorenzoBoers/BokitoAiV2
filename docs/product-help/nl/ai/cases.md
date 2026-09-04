@@ -1,22 +1,31 @@
 ---
 title: Hoe Signalen werken
 intro: Een signaal is getypte intake op een gesprek — één intentie, één signaal, daarna een werkstroom of project als je het koppelt.
-description: Label werk dat in chat binnenkomt, koppel types aan werkstromen, bevestig een bezoeker wanneer dat nodig is, en houd meerdere signalen op één thread.
-keywords: signalen, intake, case, werkstroom, binding, bevestigen, websitechat
+description: Beheer intake-types en de signaalwachtrij op de pagina Signalen, koppel types aan werkstromen, bevestig een bezoeker wanneer dat nodig is, en houd meerdere signalen op één thread.
+keywords: signalen, intake, case, wachtrij, werkstroom, binding, bevestigen, websitechat
 sort: 46
 related: workstreams,communication,widget,projects,integrations
 ---
 
 # Hoe Signalen werken
 
-Een signaal is een gelabeld stuk werk op een gesprek, niet het gesprek zelf. Open **Werkstromen** om types te beheren, koppel ze aan een werkstroom of project, en zie ze in het zijpaneel van een gesprek in [Berichten](/docs/inbox/communication).
+Een signaal is een gelabeld stuk werk op een gesprek, niet het gesprek zelf. De pagina **Signalen** in de zijbalk (onder Besturing) bevat de wachtrij met open signalen en de catalogus met intake-types. Signalen vervangen de oude gesprekkentags: agents classificeren binnenkomende berichten tegen je typecatalogus en openen een signaal in plaats van een tag.
+
+## Werk de signaalwachtrij weg
+
+1. Open **Signalen**. Het tabblad **Wachtrij** toont elk signaal met type, titel, gespreksonderwerp, leeftijd en status.
+2. Gebruik de statuspillen — **Jij aan zet**, **Open**, **Wachten**, **Gekoppeld** en **Klaar** — om te beginnen bij wat een beslissing nodig heeft. Het zoekveld zoekt op titel, samenvatting en typenaam; type-chips filteren op één intake-type.
+3. Klik op een rij voor het detailpaneel: wijzig de status, pas titel of samenvatting aan, of koppel het signaal aan een werkstroom of project.
+4. Kies **Open gesprek** om naar het gesprek in [Communicatie](/docs/inbox/communication) te springen. Een signaal sluiten sluit nooit het gesprek — ze staan los van elkaar.
+5. Beweeg door de rijen met **J**/**K** en open er een met **Enter**.
 
 ## Voeg een intake-type toe
 
-1. Open **Werkstromen**.
-2. Typ onder **Intake-types** een naam (bijvoorbeeld Factuurvraag) en kies **Type toevoegen**.
-3. Laat het type aan. Zet de schakelaar uit wanneer agents dat type niet meer mogen openen.
-4. Koppel het daarna aan een werkstroom of project — een type zonder koppeling blijft op het gesprek.
+1. Open **Signalen** en daarna het tabblad **Types**.
+2. Kies **Nieuw type** en geef het een naam (bijvoorbeeld Factuurvraag).
+3. Omschrijf precies wanneer het type van toepassing is — agents volgen die omschrijving bij het classificeren van binnenkomende berichten, dus benoem ook wanneer het niet geldt.
+4. Laat het type aan. Zet de schakelaar uit wanneer agents dat type niet meer mogen openen.
+5. Koppel het daarna aan een werkstroom of project — een type zonder koppeling blijft alleen als statuslabel op het gesprek.
 
 ## Koppel een type aan een werkstroom
 

@@ -129,9 +129,34 @@ export function tagPath(
   return withThread(base, options.threadId)
 }
 
-/** URL of the composer-first "New conversation" surface. */
-export function newConversationPath(): string {
-  return '/communication/new'
+/** URL of the composer-first "New conversation" draft surface. */
+export type NewConversationOpts = {
+  intent?: 'contact' | 'agent' | 'teammate'
+  agentId?: string
+  connectionId?: string | number
+  to?: string
+  subject?: string
+  body?: string
+  memberId?: string | number
+  prefill?: string
+  autosend?: boolean
+}
+
+export function newConversationPath(opts: NewConversationOpts = {}): string {
+  const params = new URLSearchParams()
+  if (opts.intent) params.set('intent', opts.intent)
+  if (opts.agentId) params.set('agent', opts.agentId)
+  if (opts.connectionId != null && String(opts.connectionId)) {
+    params.set('connectionId', String(opts.connectionId))
+  }
+  if (opts.to) params.set('to', opts.to)
+  if (opts.subject) params.set('subject', opts.subject)
+  if (opts.body) params.set('body', opts.body)
+  if (opts.memberId != null) params.set('member', String(opts.memberId))
+  if (opts.prefill) params.set('prefill', opts.prefill)
+  if (opts.autosend) params.set('autosend', '1')
+  const qs = params.toString()
+  return qs ? `/communication/new?${qs}` : '/communication/new'
 }
 
 /** Canonical URL for a leaf (optionally with a selected thread). */

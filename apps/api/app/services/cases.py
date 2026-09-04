@@ -507,6 +507,10 @@ async def list_cases(
     *,
     signal_id: UUID | None = None,
     status: str | None = None,
+    case_type_id: UUID | None = None,
+    q: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
 ) -> list[tuple[Case, CaseType]]:
     stmt = (
         select(Case, CaseType)
@@ -518,7 +522,53 @@ async def list_cases(
         stmt = stmt.where(Case.signal_id == signal_id)
     if status:
         stmt = stmt.where(Case.status == status)
+    if case_type_id:
+        stmt = stmt.where(Case.case_type_id == case_type_id)
+    if q and q.strip():
+        needle = f"%{q.strip()}%"
+        stmt = stmt.where(
+            Case.title.ilike(needle)  # type: ignore[attr-defined]
+            | Case.summary.ilike(needle)  # type: ignore[attr-defined]
+            | CaseType.name.ilike(needle)  # type: ignore[attr-defined]
+        )
+    if offset:
+        stmt = stmt.offset(max(0, int(offset)))
+    if limit:
+        stmt = stmt.limit(max(1, min(500, int(limit))))
     return list((await session.execute(stmt)).all())
+
+
+async def case_stats(session: AsyncSession, tenant_id: UUID) -> dict[str, int]:
+    """Case counts per status for the hub queue pills (tenant-scoped)."""
+    from sqlalchemy import func
+
+    rows = (
+        await session.execute(
+            select(Case.status, func.count())
+            .where(Case.tenant_id == tenant_id)
+            .group_by(Case.status)
+        )
+    ).all()
+    counts = {status: 0 for status in CASE_STATUSES}
+    for status, count in rows:
+        counts[status] = int(count)
+    return counts
+
+
+async def signal_subjects(
+    session: AsyncSession, tenant_id: UUID, signal_ids: list[UUID]
+) -> dict[str, str]:
+    """Bulk lookup of thread subjects for hub queue rows (avoids N+1)."""
+    if not signal_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(Signal.id, Signal.subject).where(
+                Signal.tenant_id == tenant_id, Signal.id.in_(signal_ids)
+            )
+        )
+    ).all()
+    return {str(signal_id): subject or "" for signal_id, subject in rows}
 
 
 async def get_case(session: AsyncSession, tenant_id: UUID, case_id: UUID) -> tuple[Case, CaseType]:

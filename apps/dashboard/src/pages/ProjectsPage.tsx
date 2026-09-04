@@ -548,8 +548,10 @@ export default function ProjectsPage() {
 
       <PageRelatedLinks
         links={[
+          { to: '/workstreams', label: t('pageGuides.related.workstreams') },
+          { to: '/cases', label: t('pageGuides.related.cases') },
           { to: '/agents', label: t('projects.page.openAgents') },
-          { to: '/knowledge', label: t('projects.page.openKnowledge') },
+          { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
           { to: '/docs/ai/projects', label: t('pageGuides.learnMore') },
         ]}
       />

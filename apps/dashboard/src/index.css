@@ -542,6 +542,7 @@
     .animate-pop-in,
     .animate-fade-in,
     .animate-slide-in-left,
+    .msg-bubble-enter,
     .stream-caret,
     .ai-glow,
     .knowledge-glow,
@@ -601,6 +602,22 @@
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
+}
+
+/* Soft enter for Messages hub bubbles — mirrors the chat-widget feel. */
+@keyframes msg-bubble-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.msg-bubble-enter {
+  animation: msg-bubble-enter 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sheen-sweep {

@@ -80,7 +80,6 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "search_repo",
     "list_docs",
     "read_doc",
-    "list_metrics",
     "list_threads",
     "list_tasks",
     "list_projects",
@@ -98,7 +97,6 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     # Propose and set up, within the user's own role.
     "write_doc",
     "set_doc_section_status",
-    "record_metric",
     "add_graph_node",
     "connect_graph_nodes",
     "create_agent",

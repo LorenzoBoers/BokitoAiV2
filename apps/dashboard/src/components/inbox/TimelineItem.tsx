@@ -764,7 +764,12 @@ function ChatMessageBubble({
 }) {
   const isRight = side === 'right'
   return (
-    <div className={cn('flex items-end gap-2', isRight ? 'justify-end' : 'justify-start')}>
+    <div
+      className={cn(
+        'msg-bubble-enter flex items-end gap-2',
+        isRight ? 'justify-end' : 'justify-start',
+      )}
+    >
       {isRight ? null : avatar}
       <div
         className={cn(

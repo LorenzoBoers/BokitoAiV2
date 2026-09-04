@@ -24,7 +24,7 @@ import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
-import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
+import { PINNED_TABS, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
 import { activityTerminalPath, agentChatPath, decisionsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
 import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
@@ -115,8 +115,9 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   }, [token, query])
 
   const catalog = useMemo(() => {
-    const nav: PaletteItem[] = TAB_GROUPS.flatMap((group) =>
-      group.tabs.map((tab) => ({
+    const navTabs = [...PINNED_TABS, ...TAB_GROUPS.flatMap((group) => group.tabs)]
+    const nav: PaletteItem[] = navTabs
+      .map((tab) => ({
         id: `nav-${tab}`,
         label: t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) }),
         hint: t(`tabs.${tab}.subtitle`, { defaultValue: subtitleForTab(tab) }),
@@ -124,8 +125,8 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         icon: iconForTab(tab),
         href: pathForTab(tab),
         run: () => navigate(pathForTab(tab)),
-      })),
-    ).concat([
+      }))
+      .concat([
       // Nested destinations that left the rail but stay one keystroke away.
       {
         id: 'nav-contacts',

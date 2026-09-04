@@ -71,6 +71,8 @@ type SidebarFolderProps = {
   title?: string
   /** Extra rows under the standard Open / Mine / Unassigned / Closed list. */
   extra?: ReactNode
+  /** Optional trailing control on the folder header (e.g. compose +). */
+  headerAction?: ReactNode
 }
 
 /**
@@ -90,6 +92,7 @@ export function SidebarFolder({
   badgeCount = 0,
   title,
   extra,
+  headerAction,
 }: SidebarFolderProps) {
   const navigate = useNavigate()
   const { prefs, setLeafExpanded } = useSidebarPrefs()
@@ -140,6 +143,15 @@ export function SidebarFolder({
           {icon}
         </span>
         <span className="min-w-0 flex-1 truncate">{label}</span>
+        {headerAction ? (
+          <span
+            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {headerAction}
+          </span>
+        ) : null}
         <NavCountBadge count={badgeCount} placement="inline" />
       </button>
       <div className="nav-fold" data-open={expanded ? 'true' : undefined} aria-hidden={!expanded}>

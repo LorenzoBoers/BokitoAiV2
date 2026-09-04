@@ -1,11 +1,32 @@
 import { useEffect, useRef } from 'react'
 import type { ThreadId } from '../lib/inbox-api'
 
+const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable="true"]'
+
+/**
+ * Walk into open shadow roots (e.g. in-app `bokito-chat`). Keydown listeners
+ * on window see a retargeted host as `event.target`, so we must use the
+ * deepest `activeElement` to detect typing in the widget composer.
+ */
+export function deepestActiveElement(): Element | null {
+  let el: Element | null = document.activeElement
+  while (el instanceof HTMLElement && el.shadowRoot?.activeElement) {
+    el = el.shadowRoot.activeElement
+  }
+  return el
+}
+
+function elementIsEditable(el: Element | null): boolean {
+  if (!(el instanceof HTMLElement)) return false
+  if (el.matches(EDITABLE_SELECTOR)) return true
+  return Boolean(el.closest(EDITABLE_SELECTOR))
+}
+
 export function isTypingTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
-  )
+  // Prefer deepest activeElement so open shadow roots (bokito-chat) count as typing.
+  if (elementIsEditable(deepestActiveElement())) return true
+  if (target instanceof Element && elementIsEditable(target)) return true
+  return false
 }
 
 export function isInsideDialog(target: EventTarget | null): boolean {

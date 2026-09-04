@@ -10,6 +10,15 @@ type Props = {
   signalId: string
 }
 
+function statusLabel(
+  status: string,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  return t(`casesPage.statuses.${status}`, {
+    defaultValue: status.replace(/_/g, ' '),
+  })
+}
+
 export function ThreadCasesList({ signalId }: Props) {
   const { t } = useTranslation('nav')
   const [rows, setRows] = useState<CaseRow[]>([])
@@ -41,9 +50,17 @@ export function ThreadCasesList({ signalId }: Props) {
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-        {t('cases.listTitle', { defaultValue: 'Cases' })}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+          {t('cases.listTitle', { defaultValue: 'Cases' })}
+        </p>
+        <Link
+          to="/cases"
+          className="shrink-0 text-[10.5px] font-medium text-accent hover:underline"
+        >
+          {t('cases.openHub', { defaultValue: 'All cases' })}
+        </Link>
+      </div>
       {rows.length === 0 ? (
         <p className="text-xs text-text-muted">
           {t('cases.emptyThread', { defaultValue: 'No cases on this conversation yet.' })}
@@ -60,7 +77,7 @@ export function ThreadCasesList({ signalId }: Props) {
               </p>
               <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] text-text-muted">
                 <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                  {row.status}
+                  {statusLabel(row.status, t)}
                 </Badge>
                 {row.case_type?.name ? <span>{row.case_type.name}</span> : null}
                 {row.workstream_id ? (
@@ -89,7 +106,14 @@ export function ThreadCasesList({ signalId }: Props) {
             </Button>
           ))}
         </div>
-      ) : null}
+      ) : (
+        <Link
+          to="/cases?tab=types"
+          className="inline-flex text-[11px] font-medium text-accent hover:underline"
+        >
+          {t('cases.manageTypes', { defaultValue: 'Set up case types' })}
+        </Link>
+      )}
     </div>
   )
 }

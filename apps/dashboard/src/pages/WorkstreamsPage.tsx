@@ -21,7 +21,6 @@ import {
   type WorkstreamRunRow,
 } from '../lib/workstreams-api'
 import { runStatusBadgeVariant, workstreamRunPath, workstreamPath } from '../lib/workstream-ui'
-import { CaseTypesCard } from '../components/workstreams/CaseTypesCard'
 
 export default function WorkstreamsPage() {
   const { t, i18n } = useTranslation('nav')
@@ -164,7 +163,14 @@ export default function WorkstreamsPage() {
             </CardContent>
           </Card>
 
-          {isAdmin ? <CaseTypesCard /> : null}
+          {isAdmin ? (
+            <p className="text-xs text-text-muted">
+              {t('casesPage.manageInCases', { defaultValue: 'Intake types are managed on the Cases page.' })}{' '}
+              <Link to="/cases?tab=types" className="font-medium text-accent hover:underline">
+                {t('casesPage.openCases', { defaultValue: 'Open Cases' })}
+              </Link>
+            </p>
+          ) : null}
 
           <Card>
             <CardHeader>

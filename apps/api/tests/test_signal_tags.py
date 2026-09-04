@@ -141,31 +141,120 @@ async def test_tag_folder_lists_only_tagged_threads(client: AsyncClient, session
 
 
 @pytest.mark.asyncio
-async def test_apply_triage_merges_tags_union(client: AsyncClient, session_override):
+async def test_triage_intent_creates_case_not_tag(client: AsyncClient, session_override):
+    """Catalog hits from triage become Cases; tags_json stays untouched."""
     headers = await _auth_headers(client)
-    signal_id = await _ingest(client, headers, "Tagged by operator")
-    await client.patch(f"/api/signals/{signal_id}", headers=headers, json={"tags": ["operator-tag"]})
+    signal_id = await _ingest(client, headers, "Refund request")
 
     from uuid import UUID
 
     from app.models.auth import Tenant
-    from app.services.signals import apply_triage
+    from app.models.case import Case
+    from app.models.signal import Signal
+    from app.services.cases import create_case_type
+    from app.services.interpretation import _create_cases_from_triage
 
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    signal = await apply_triage(
+    case_type = await create_case_type(
         session_override,
         tenant.id,
-        UUID(signal_id),
-        category="billing",
-        urgency=50,
-        impact=40,
-        summary="Summary",
-        certainty=80,
-        tags=["billing", "operator-tag"],
+        name="Refund request",
+        slug="refund_request",
+        description="Customer explicitly asks for money back.",
+        create_mode="auto",
+        auto_threshold=5,
     )
-    tags = json.loads(signal.tags_json)
-    # Union merge: operator tag kept, AI tag added, no duplicates.
-    assert sorted(tags) == ["billing", "operator-tag"]
+
+    await _create_cases_from_triage(
+        session_override,
+        tenant.id,
+        signal_id=UUID(signal_id),
+        slugs=["refund_request"],
+        enabled_types=[case_type],
+        summary="Customer wants a refund for order 123.",
+        certainty=90,
+    )
+
+    cases = (
+        await session_override.execute(
+            select(Case).where(Case.signal_id == UUID(signal_id))
+        )
+    ).scalars().all()
+    assert len(cases) == 1
+    assert cases[0].case_type_id == case_type.id
+    assert cases[0].status == "open"
+    assert cases[0].created_by_type == "triage"
+
+    signal = (
+        await session_override.execute(select(Signal).where(Signal.id == UUID(signal_id)))
+    ).scalar_one()
+    assert json.loads(signal.tags_json or "[]") == []
+
+    # Idempotent: a second triage pass never duplicates the case.
+    await _create_cases_from_triage(
+        session_override,
+        tenant.id,
+        signal_id=UUID(signal_id),
+        slugs=["refund_request"],
+        enabled_types=[case_type],
+        summary="Customer wants a refund for order 123.",
+        certainty=90,
+    )
+    cases = (
+        await session_override.execute(
+            select(Case).where(Case.signal_id == UUID(signal_id))
+        )
+    ).scalars().all()
+    assert len(cases) == 1
+
+
+@pytest.mark.asyncio
+async def test_migration_maps_tags_to_case_types(client: AsyncClient, session_override):
+    """migrate_tags_to_cases helpers: reuse by slug, billing template, dry-run."""
+    await _auth_headers(client)  # seeds the tenant
+
+    from app.models.auth import Tenant
+    from app.services.cases import create_case_type
+    from scripts.dev.migrate_tags_to_cases import _map_tag_to_type
+
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+
+    # "billing" prefers the installed accounting template over a new type.
+    billing_type = await create_case_type(
+        session_override,
+        tenant.id,
+        name="Billing inquiry",
+        slug="billing_inquiry",  # stored slugified as billing-inquiry
+        template_slug="billing_inquiry",
+        module_slug="accounting",
+    )
+    mapped = await _map_tag_to_type(
+        session_override, tenant.id, "billing", "", dry_run=False
+    )
+    assert mapped is not None and mapped.id == billing_type.id
+
+    # Dry-run never creates a type.
+    assert (
+        await _map_tag_to_type(
+            session_override, tenant.id, "refund request", "", dry_run=True
+        )
+        is None
+    )
+
+    # A fresh tag becomes a manual-only type with a slugified slug.
+    created = await _map_tag_to_type(
+        session_override, tenant.id, "refund request", "Money back", dry_run=False
+    )
+    assert created is not None
+    assert created.slug == "refund-request"
+    assert created.create_mode == "manual_only"
+    # Re-running reuses the same type instead of duplicating it.
+    again = await _map_tag_to_type(
+        session_override, tenant.id, "refund request", "", dry_run=False
+    )
+    assert again is not None and again.id == created.id
 
 
 @pytest.mark.asyncio
@@ -236,3 +325,18 @@ async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_o
         json={"inbox_folders": {"default_queue": "bogus"}},
     )
     assert invalid.status_code == 400
+
+    outbound = await client.patch(
+        "/api/me/preferences",
+        headers=headers,
+        json={"default_outbound_connection_id": 42},
+    )
+    assert outbound.status_code == 200
+    assert outbound.json()["default_outbound_connection_id"] == 42
+    cleared = await client.patch(
+        "/api/me/preferences",
+        headers=headers,
+        json={"default_outbound_connection_id": None},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["default_outbound_connection_id"] is None

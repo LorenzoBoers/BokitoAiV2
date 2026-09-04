@@ -36,7 +36,7 @@ Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) verschijnen hier als eige
 - **Koppelingen** — geïnstalleerde modules, partnerlogins, custom MCP en marketplace. Zie [Integraties](/docs/integrations/integrations).
 - **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan op [Werkstromen](/docs/ai/workstreams); zie [Signalen](/docs/ai/cases).
 
-Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat onder Besturing, niet onder Organisatie — zie [Overview](/docs/getting-started/cockpit).
+Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat boven Besturing in de rail — zie [Overview](/docs/getting-started/cockpit).
 
 Persoonlijke schermen — **Profiel** (inclusief startpagina: Communicatie of Overview) en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
 

@@ -33,6 +33,7 @@ import {
 import { listWorkstreams } from '../lib/workstreams-api'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
 import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda-week'
+import { isTypingTarget } from '../hooks/useInboxListShortcuts'
 import { Input } from '../components/ui/input'
 import { agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { resolveAgendaAgentId, resolveAgendaAgentName } from '../lib/agenda-label'
@@ -294,10 +295,7 @@ export default function AgendaPage() {
     if (view !== 'week') return
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      const target = event.target as HTMLElement | null
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) {
-        return
-      }
+      if (isTypingTarget(event.target)) return
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
         applyWeekOffset(weekOffset - 1)

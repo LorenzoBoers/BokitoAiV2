@@ -28,7 +28,7 @@ import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
 import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
-import { parseComposeIntent, stripComposeIntent } from '../lib/compose-intent'
+import { composeEmailPath, parseComposeIntent } from '../lib/compose-intent'
 import { writeLastInboxQueue } from '../lib/inbox-prefs'
 import { nextUnreadId, parseQuickFilterParam, toggleOrRangeSelect } from '../lib/inbox-ops'
 import { snoozeUntilIso, SNOOZE_PRESETS, toLocalDateTimeValue } from '../lib/snooze'
@@ -420,24 +420,30 @@ export default function Communication() {
     [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
 
-  // Compose (new outbound email) + forward. Forward pre-fills the compose
-  // modal with the quoted thread content; sending creates a new thread.
+  // Legacy ?compose=1 deep-links land on the draft surface (create-on-send).
+  // Forward from a thread still uses the compose modal via openCompose().
   const incomingCompose = parseComposeIntent(searchParams)
-  const [composeOpen, setComposeOpen] = useState(() => Boolean(incomingCompose))
-  const [composePrefill, setComposePrefill] = useState<ComposePrefill | null>(() => incomingCompose)
+  useEffect(() => {
+    if (!incomingCompose) return
+    navigate(
+      composeEmailPath({
+        to: incomingCompose.to,
+        subject: incomingCompose.subject,
+        body: incomingCompose.body,
+        connectionId: incomingCompose.connectionId,
+      }),
+      { replace: true },
+    )
+  }, [incomingCompose, navigate])
+
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [composePrefill, setComposePrefill] = useState<ComposePrefill | null>(null)
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
   const openCompose = useCallback(() => {
     setComposePrefill(null)
     setComposeOpen(true)
   }, [])
 
-  useEffect(() => {
-    const intent = parseComposeIntent(searchParams)
-    if (!intent) return
-    setComposePrefill(intent)
-    setComposeOpen(true)
-    setSearchParams(stripComposeIntent(searchParams), { replace: true })
-  }, [searchParams, setSearchParams])
   const handleComposeSent = useCallback(
     (threadId: string) => {
       void refreshThreads()
@@ -449,11 +455,11 @@ export default function Communication() {
   const firstThreadId = pickPreferredInboxThread(filteredThreads)?.id ?? null
 
   useEffect(() => {
-    if (incomingCompose || composeOpen) return
+    if (composeOpen) return
     if (threadIdParam || !threadsReady || firstThreadId == null) return
     setSkipMarkRead(true)
     handleSelectThread(firstThreadId, true, { markRead: false })
-  }, [incomingCompose, composeOpen, threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
+  }, [composeOpen, threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
 
   const handleListMarkRead = useCallback(
     async (id: ThreadId) => {

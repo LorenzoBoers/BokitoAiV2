@@ -14,6 +14,7 @@ import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
 import PersonalAssistantWidget from './PersonalAssistantWidget'
 import { TourProvider } from '../tour/TourContext'
+import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -95,6 +96,7 @@ export default function AppShell() {
   // Global Cmd/Ctrl+K opens the command palette.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPaletteOpen((v) => !v)

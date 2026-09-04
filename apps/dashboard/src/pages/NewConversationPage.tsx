@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowUp, Bot, Check, ChevronDown, Loader2, Mail, Sparkles, User } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowUp,
+  Bot,
+  Check,
+  ChevronDown,
+  Loader2,
+  Mail,
+  User,
+  Users,
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
 import {
@@ -11,10 +21,11 @@ import {
 } from '../lib/signals-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { lastInboxPath } from '../lib/inbox-prefs'
-import { agentChatPath } from '../lib/messages-paths'
+import { agentChatPath, channelPath } from '../lib/messages-paths'
 import { ComposerCard } from '../components/ui/ComposerCard'
-import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { canComposeToAddress } from '../lib/compose-intent'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
+import { isSendableMailbox, sendNewEmail } from '../lib/email-api'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
@@ -24,39 +35,79 @@ import { useMentionDraft } from '../hooks/useMentionDraft'
 import MentionPopover from '../components/inbox/MentionPopover'
 import { MentionHighlight } from '../components/inbox/MentionHighlight'
 import type { MentionItem } from '../lib/mentions'
+import {
+  fetchOutboundConnectionId,
+  readLocalOutboundConnectionId,
+  resolveOutboundConnectionId,
+  saveOutboundConnectionId,
+} from '../lib/outbound-channel-pref'
+import { cn } from '../lib/utils'
 
-type PickerFilter = 'all' | 'company' | 'people'
+type Intent = 'contact' | 'agent' | 'teammate'
+
+function parseIntent(raw: string | null): Intent | null {
+  if (raw === 'contact' || raw === 'agent' || raw === 'teammate') return raw
+  return null
+}
 
 /**
- * Composer-first "New conversation" surface: pick a company agent (or email a
- * person), type, and Enter starts the chat. An agent must be chosen explicitly;
- * `default_agent_id` may preselect when it is in the permitted list.
+ * Draft "New conversation" surface inside Communication.
+ * Intent first (Contact / Agent / Teammate); thread is created only on send.
  */
 export default function NewConversationPage() {
   const { t } = useTranslation(['communication', 'nav'])
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const navigate = useNavigate()
-  const { activeConnections } = useMailboxConnections()
-  const canSendEmail = activeConnections.length > 0
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { refresh: refreshSessions } = useChatSessions()
+  const { activeConnections } = useMailboxConnections()
+  const sendableMailboxes = useMemo(
+    () => activeConnections.filter(isSendableMailbox),
+    [activeConnections],
+  )
+  const canSendEmail = sendableMailboxes.length > 0
+
+  const intent = parseIntent(searchParams.get('intent'))
+  const agentParam = searchParams.get('agent')?.trim() || ''
+  const toParam = searchParams.get('to')?.trim() || ''
+  const subjectParam = searchParams.get('subject')?.trim() || ''
+  const bodyParam = searchParams.get('body')?.trim() || ''
+  const connectionParam = searchParams.get('connectionId')?.trim() || ''
+  const memberParam = searchParams.get('member')?.trim() || ''
+  const autoSendRequested = useRef(searchParams.get('autosend') === '1')
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [contacts, setContacts] = useState<ContactRow[]>([])
   const [loadingTargets, setLoadingTargets] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
-  const [selected, setSelected] = useState<ChatTarget | null>(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerQuery, setPickerQuery] = useState('')
-  const [pickerFilter, setPickerFilter] = useState<PickerFilter>('all')
-  // Seed the composer from a ?prefill= query (e.g. "Ask assistant" from a
-  // customer thread). Read once on mount so user edits are never overwritten.
+  const [selectedAgent, setSelectedAgent] = useState<ChatTarget | null>(null)
+  const [agentPickerOpen, setAgentPickerOpen] = useState(false)
+  const [agentQuery, setAgentQuery] = useState('')
+  const [toAddress, setToAddress] = useState(toParam)
+  const [toQuery, setToQuery] = useState('')
+  const [toPickerOpen, setToPickerOpen] = useState(false)
+  const [subject, setSubject] = useState(subjectParam)
+  const [connectionId, setConnectionId] = useState<number | null>(
+    connectionParam ? Number(connectionParam) || null : readLocalOutboundConnectionId(),
+  )
+  const [rememberFrom, setRememberFrom] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // ?autosend=1 (first-run tour setup chat): fire the prefilled message as
-  // soon as the default recipient is resolved, once.
-  const autoSendRequested = useRef(searchParams.get('autosend') === '1')
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(memberParam || null)
+
   const { members } = useMembers()
+  const selfEmail = (user?.email || '').trim().toLowerCase()
+  const teammateOptions = useMemo(
+    () =>
+      members.filter((m) => {
+        const email = (m.email || '').trim().toLowerCase()
+        if (!email || !email.includes('@')) return false
+        if (selfEmail && email === selfEmail) return false
+        return true
+      }),
+    [members, selfEmail],
+  )
+
   const mentionItems = useMemo<MentionItem[]>(
     () => [
       ...members.map((member) => ({
@@ -75,12 +126,26 @@ export default function NewConversationPage() {
     [members, targets],
   )
   const mention = useMentionDraft({
-    initialRaw: searchParams.get('prefill') ?? '',
+    initialRaw: searchParams.get('prefill') ?? bodyParam,
     items: mentionItems,
   })
   const composerRef = mention.textareaRef
-  const pickerInputRef = useRef<HTMLInputElement>(null)
-  const pickerRef = useRef<HTMLDivElement>(null)
+  const agentPickerRef = useRef<HTMLDivElement>(null)
+  const toPickerRef = useRef<HTMLDivElement>(null)
+
+  const setIntent = useCallback(
+    (next: Intent | null, extra?: Record<string, string>) => {
+      const params = new URLSearchParams()
+      if (next) params.set('intent', next)
+      if (extra) {
+        for (const [k, v] of Object.entries(extra)) {
+          if (v) params.set(k, v)
+        }
+      }
+      setSearchParams(params, { replace: true })
+    },
+    [setSearchParams],
+  )
 
   const loadTargets = useCallback(async () => {
     if (!token) return
@@ -94,122 +159,180 @@ export default function NewConversationPage() {
       ])
       setTargets(data.items)
       setContacts(people)
-      const agentParam = searchParams.get('agent')?.trim()
       const last = readLastChatTarget()
       const defaultId = data.default_agent_id
       const preselect =
         data.items.find((row) => row.id === agentParam) ??
-        data.items.find((row) => row.id === last) ??
-        (defaultId ? data.items.find((row) => row.id === defaultId) : undefined) ??
+        (intent === 'agent'
+          ? data.items.find((row) => row.id === last) ??
+            (defaultId ? data.items.find((row) => row.id === defaultId) : undefined)
+          : undefined) ??
         null
-      setSelected(preselect)
+      setSelectedAgent(preselect ?? null)
     } catch {
       setLoadFailed(true)
       setError(t('newConversation.loadError'))
     } finally {
       setLoadingTargets(false)
     }
-  }, [token, t, searchParams])
+  }, [token, t, agentParam, intent])
 
   useEffect(() => {
     void loadTargets()
   }, [loadTargets])
 
   useEffect(() => {
-    const to = searchParams.get('to')?.trim()
-    if (to && canComposeToAddress('email', to)) {
-      navigate(composeEmailPath({ to }), { replace: true })
+    if (!token) return
+    let cancelled = false
+    void fetchOutboundConnectionId(token)
+      .then((id) => {
+        if (cancelled || connectionParam) return
+        setConnectionId((prev) => prev ?? id)
+      })
+      .catch(() => {
+        /* local fallback already applied */
+      })
+    return () => {
+      cancelled = true
     }
-  }, [searchParams, navigate])
+  }, [token, connectionParam])
 
   useEffect(() => {
-    composerRef.current?.focus()
-  }, [loadingTargets])
+    if (connectionParam) {
+      const n = Number(connectionParam)
+      if (Number.isFinite(n) && n > 0) setConnectionId(n)
+      return
+    }
+    const resolved = resolveOutboundConnectionId(
+      sendableMailboxes.map((c) => c.id),
+      connectionId ?? readLocalOutboundConnectionId(),
+    )
+    if (resolved != null && resolved !== connectionId) setConnectionId(resolved)
+  }, [sendableMailboxes, connectionParam]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || pickerOpen) return
-      if (mention.raw.trim()) return
-      const target = event.target
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-        if (target.value.trim()) return
+    if (toParam) setToAddress(toParam)
+  }, [toParam])
+
+  useEffect(() => {
+    if (!memberParam || !teammateOptions.length) return
+    const member = teammateOptions.find((m) => String(m.id) === memberParam || m.uuid === memberParam)
+    if (member?.email) {
+      setSelectedMemberId(String(member.id))
+      setToAddress(member.email)
+    }
+  }, [memberParam, teammateOptions])
+
+  useEffect(() => {
+    if (!intent) return
+    window.setTimeout(() => composerRef.current?.focus(), 40)
+  }, [intent, loadingTargets])
+
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (agentPickerOpen || toPickerOpen) {
+        setAgentPickerOpen(false)
+        setToPickerOpen(false)
+        return
       }
+      if (mention.raw.trim() || toAddress.trim() || subject.trim()) return
       event.preventDefault()
-      navigate(lastInboxPath())
+      if (intent) setIntent(null)
+      else navigate(lastInboxPath())
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pickerOpen, mention.raw, navigate])
+  }, [agentPickerOpen, toPickerOpen, mention.raw, toAddress, subject, intent, setIntent, navigate])
 
-  // Close the picker when clicking outside.
   useEffect(() => {
-    if (!pickerOpen) return
+    if (!agentPickerOpen && !toPickerOpen) return
     const onClick = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setPickerOpen(false)
+      if (agentPickerRef.current && !agentPickerRef.current.contains(e.target as Node)) {
+        setAgentPickerOpen(false)
+      }
+      if (toPickerRef.current && !toPickerRef.current.contains(e.target as Node)) {
+        setToPickerOpen(false)
       }
     }
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
-  }, [pickerOpen])
+  }, [agentPickerOpen, toPickerOpen])
 
-  const filteredTargets = useMemo(() => {
-    const q = pickerQuery.trim().toLowerCase()
-    return targets.filter((row) => {
-      if (pickerFilter === 'people') return false
-      if (q && !row.name.toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [targets, pickerQuery, pickerFilter])
+  const filteredAgents = useMemo(() => {
+    const q = agentQuery.trim().toLowerCase()
+    return targets.filter((row) => !q || row.name.toLowerCase().includes(q))
+  }, [targets, agentQuery])
 
   const matchingContacts = useMemo(() => {
-    if (!canSendEmail) return []
-    const q = pickerQuery.trim().toLowerCase()
+    const q = (toPickerOpen ? toQuery : toAddress).trim().toLowerCase()
     return contacts
       .filter((contact) => canComposeToAddress(contact.channel, contact.address))
       .filter((contact) => {
-        if (pickerFilter === 'company') return false
-        if (!q) return pickerFilter === 'people' || pickerFilter === 'all'
-        const name = `${contact.displayName} ${contact.address}`.toLowerCase()
-        return name.includes(q)
+        if (!q) return true
+        return `${contact.displayName} ${contact.address}`.toLowerCase().includes(q)
       })
-  }, [canSendEmail, contacts, pickerQuery, pickerFilter])
-  const filteredContacts = matchingContacts.slice(0, 8)
-
-  const targetLabel = (target: ChatTarget) => target.name
+      .slice(0, 8)
+  }, [contacts, toAddress, toQuery, toPickerOpen])
 
   const directEmailQuery = useMemo(() => {
-    if (!canSendEmail) return null
-    const q = pickerQuery.trim()
-    if (pickerFilter === 'company') return null
+    const q = (toPickerOpen ? toQuery : toAddress).trim()
     if (!canComposeToAddress('email', q)) return null
     const exists = contacts.some((c) => c.address.trim().toLowerCase() === q.toLowerCase())
     return exists ? null : q
-  }, [canSendEmail, pickerQuery, pickerFilter, contacts])
+  }, [toAddress, toQuery, toPickerOpen, contacts])
 
-  const openPicker = (filter: PickerFilter = 'all') => {
-    setPickerFilter(filter)
-    setPickerQuery('')
-    setPickerOpen(true)
-    window.setTimeout(() => pickerInputRef.current?.focus(), 0)
-  }
-
-  const choose = (target: ChatTarget) => {
+  const chooseAgent = (target: ChatTarget) => {
     writeLastChatTarget(target.id)
-    setSelected(target)
-    setPickerOpen(false)
+    setSelectedAgent(target)
+    setAgentPickerOpen(false)
+    setIntent('agent', { agent: target.id })
     composerRef.current?.focus()
   }
 
-  const start = useCallback(async () => {
+  const chooseContactAddress = (address: string) => {
+    setToAddress(address.trim())
+    setToQuery('')
+    setToPickerOpen(false)
+    composerRef.current?.focus()
+  }
+
+  const chooseTeammate = (memberId: string, email: string) => {
+    setSelectedMemberId(memberId)
+    setToAddress(email)
+    setIntent('teammate', { member: memberId, to: email })
+  }
+
+  const onFromChange = (nextId: number) => {
+    setConnectionId(nextId)
+    if (rememberFrom && token) {
+      void saveOutboundConnectionId(token, nextId).catch(() => {
+        /* keep local */
+      })
+    } else {
+      // Session-only switch for this draft; still keep local paint for next open
+      // unless the user unchecked remember — then only update local when they send.
+    }
+  }
+
+  const canSendContact =
+    canSendEmail &&
+    connectionId != null &&
+    canComposeToAddress('email', toAddress) &&
+    mention.raw.trim().length > 0
+
+  const canSendAgent = Boolean(selectedAgent && mention.raw.trim())
+  const canSendTeammate = canSendContact
+
+  const startAgent = useCallback(async () => {
     const content = mention.raw.trim()
-    if (!content || !token || !selected || sending) return
+    if (!content || !token || !selectedAgent || sending) return
     setSending(true)
     setError(null)
     try {
-      const created = await bokitoCreateConversation(token, content.slice(0, 60), selected.id)
+      const created = await bokitoCreateConversation(token, content.slice(0, 60), selectedAgent.id)
       void refreshSessions()
-      navigate(agentChatPath(selected.id, created.id), { state: { autoSend: content } })
+      navigate(agentChatPath(selectedAgent.id, created.id), { state: { autoSend: content } })
     } catch (err) {
       const message = err instanceof Error ? err.message : t('newConversation.startError')
       if (/no agents available/i.test(message)) {
@@ -219,322 +342,469 @@ export default function NewConversationPage() {
       }
       setSending(false)
     }
-  }, [mention.raw, token, selected, sending, navigate, refreshSessions, t])
+  }, [mention.raw, token, selectedAgent, sending, navigate, refreshSessions, t])
+
+  const startOutboundEmail = useCallback(async () => {
+    const content = mention.raw.trim()
+    const to = toAddress.trim()
+    if (!token || !canComposeToAddress('email', to) || !content || connectionId == null || sending) return
+    setSending(true)
+    setError(null)
+    try {
+      if (rememberFrom) {
+        void saveOutboundConnectionId(token, connectionId).catch(() => undefined)
+      }
+      const result = await sendNewEmail(token, {
+        toAddresses: to,
+        subject: subject.trim() || t('compose.noSubject'),
+        bodyText: content,
+        connectionId,
+      })
+      navigate(channelPath('email', { connectionId, queue: 'open', threadId: result.threadId }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('newConversation.startError'))
+      setSending(false)
+    }
+  }, [mention.raw, toAddress, token, connectionId, sending, rememberFrom, subject, navigate, t])
+
+  const start = useCallback(async () => {
+    if (intent === 'agent') return startAgent()
+    if (intent === 'contact' || intent === 'teammate') return startOutboundEmail()
+  }, [intent, startAgent, startOutboundEmail])
 
   useEffect(() => {
-    if (!autoSendRequested.current || loadingTargets || !selected || !mention.raw.trim()) return
+    if (!autoSendRequested.current || intent !== 'agent') return
+    if (loadingTargets || !selectedAgent || !mention.raw.trim()) return
     autoSendRequested.current = false
-    void start()
-  }, [loadingTargets, selected, mention.raw, start])
+    void startAgent()
+  }, [loadingTargets, selectedAgent, mention.raw, intent, startAgent])
 
-  const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const onComposerKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     mention.onKeyDown(e, () => void start())
   }
 
-  const noAgents = !loadingTargets && targets.length === 0
+  const noAgents = !loadingTargets && targets.length === 0 && intent === 'agent'
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/40 px-4">
-        <Link
-          to={lastInboxPath()}
-          className="text-[12px] font-medium text-text-muted hover:text-text-primary"
+        <button
+          type="button"
+          onClick={() => (intent ? setIntent(null) : navigate(lastInboxPath()))}
+          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-text-muted hover:text-text-primary"
         >
-          {t('newConversation.back')}
-        </Link>
-        <p className="text-[13px] font-medium text-text-primary">{t('newConversation.title')}</p>
+          <ArrowLeft size={13} />
+          {intent ? t('newConversation.changeType') : t('newConversation.back')}
+        </button>
+        <p className="text-[13px] font-medium text-text-primary">
+          {intent === 'contact'
+            ? t('newConversation.draftContact')
+            : intent === 'agent'
+              ? t('newConversation.draftAgent')
+              : intent === 'teammate'
+                ? t('newConversation.draftTeammate')
+                : t('newConversation.title')}
+        </p>
+        <span className="rounded-md border border-border/50 bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+          {t('newConversation.draftBadge')}
+        </span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[680px] px-4 pt-10">
-          {noAgents ? (
-            <div className="rounded-xl border border-border/60 bg-bg-surface px-5 py-8 text-center shadow-card">
-              <Bot size={28} className="mx-auto text-text-muted" />
-              <p className="mt-3 text-[15px] font-medium text-text-primary">
-                {t('newConversation.noAgentsAvailable')}
-              </p>
-              <p className="mt-1.5 text-[12.5px] text-text-muted">
-                {t('newConversation.noAgentsAvailableForUser')}
-              </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
-                <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
-                  {t('newConversation.openAgents')}
-                </Link>
-                <Link to="/docs/ai/agents" className="text-[12px] font-medium text-accent hover:underline">
-                  {t('pageGuides.learnMore', { ns: 'nav' })}
-                </Link>
+        <div className="mx-auto w-full max-w-[720px] px-4 pt-8 pb-10">
+          {!intent ? (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-lg font-semibold text-text-primary">{t('newConversation.pickTitle')}</h1>
+                <p className="mt-1 text-sm text-text-muted">{t('newConversation.pickHint')}</p>
               </div>
-            </div>
-          ) : null}
-
-          {/* To: picker */}
-          {!noAgents ? (
-          <div ref={pickerRef} className="relative">
-            <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
-              <span className="text-[12px] font-medium text-text-muted" title={t('newConversation.toHint')}>{t('newConversation.to')}</span>
-              {pickerOpen ? (
-                <input
-                  ref={pickerInputRef}
-                  value={pickerQuery}
-                  onChange={(e) => setPickerQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (filteredTargets[0] || filteredContacts[0] || directEmailQuery)) {
-                      e.preventDefault()
-                      if (filteredTargets[0]) choose(filteredTargets[0])
-                      else if (filteredContacts[0]) {
-                        navigate(composeEmailPath({ to: filteredContacts[0].address }))
-                      } else if (directEmailQuery) {
-                        navigate(composeEmailPath({ to: directEmailQuery }))
-                      }
-                    }
-                    if (e.key === 'Escape') setPickerOpen(false)
-                  }}
-                  placeholder={t('newConversation.searchPlaceholder')}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none"
+              <div className="grid gap-3 sm:grid-cols-3">
+                <IntentCard
+                  icon={<Mail size={22} />}
+                  title={t('newConversation.intentContact')}
+                  hint={t('newConversation.intentContactHint')}
+                  disabled={!canSendEmail}
+                  onClick={() => setIntent('contact')}
                 />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openPicker('all')}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  {loadingTargets ? (
-                    <span className="inline-flex items-center gap-1.5 text-[13px] text-text-muted">
-                      <Loader2 size={12} className="animate-spin" /> {t('newConversation.loading')}
-                    </span>
-                  ) : selected ? (
-                    <>
-                      <AiAvatar
-                        name={selected.name}
-                        seed={selected.id}
-                        size={20}
-                        kind={selected.avatar_kind}
-                        icon={selected.avatar_icon}
-                        color={selected.avatar_color}
-                        imageUrl={selected.avatar_image_url}
-                      />
-                      <span className="truncate text-[13px] text-text-primary">{targetLabel(selected)}</span>
-                      <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated px-1.5 py-px text-[10px] text-text-muted">
-                        {t('newConversation.companyAgent')}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-[13px] text-text-muted">{t('newConversation.chooseRecipient')}</span>
-                  )}
-                  <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
-                </button>
-              )}
-            </div>
-            {!pickerOpen && !selected ? (
-              <p className="mt-1.5 px-1 text-[11px] text-text-muted">{t('newConversation.toHint')}</p>
-            ) : null}
-
-            {pickerOpen ? (
-              <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
-                <div className="max-h-[300px] overflow-y-auto p-1">
-                  {filteredTargets.length === 0 && filteredContacts.length === 0 && !directEmailQuery ? (
-                    <div className="px-3 py-2.5">
-                      <p className="text-[12px] text-text-muted">
-                        {targets.length === 0
-                          ? t('newConversation.noAgentsAvailable')
-                          : t('newConversation.noMatches')}
-                      </p>
-                      {targets.length === 0 ? (
-                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                          <Link to="/agents" className="inline-block text-[11px] font-medium text-accent hover:underline">
-                            {t('newConversation.openAgents')}
-                          </Link>
-                          <Link to="/docs/ai/agents" className="inline-block text-[11px] font-medium text-accent hover:underline">
-                            {t('pageGuides.learnMore', { ns: 'nav' })}
-                          </Link>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <>
-                      {filteredTargets.map((target) => (
-                        <button
-                          key={target.id}
-                          type="button"
-                          onClick={() => choose(target)}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
-                        >
-                          <AiAvatar
-                            name={target.name}
-                            seed={target.id}
-                            size={24}
-                            kind={target.avatar_kind}
-                            icon={target.avatar_icon}
-                            color={target.avatar_color}
-                            imageUrl={target.avatar_image_url}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[12.5px] text-text-primary">{targetLabel(target)}</span>
-                            <span className="block text-[10.5px] text-text-muted">
-                              {t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
-                            </span>
-                          </span>
-                          {selected?.id === target.id ? <Check size={13} className="shrink-0 text-accent" /> : null}
-                        </button>
-                      ))}
-                      {filteredContacts.length > 0 ? (
-                        <p className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                          {t('newConversation.people')}
-                        </p>
-                      ) : null}
-                      {filteredContacts.map((contact) => (
-                        <button
-                          key={contact.id}
-                          type="button"
-                          onClick={() => navigate(composeEmailPath({ to: contact.address }))}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
-                        >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-text-muted">
-                            <User size={12} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[12.5px] text-text-primary">
-                              {humanizeContactName(
-                                contact.displayName,
-                                contact.address,
-                                t('contactPanel.widgetVisitor'),
-                              ) || contact.address}
-                            </span>
-                            <span className="block text-[10.5px] text-text-muted">
-                              {t('newConversation.emailContact')} · {contact.address}
-                            </span>
-                          </span>
-                        </button>
-                      ))}
-                      {directEmailQuery ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(composeEmailPath({ to: directEmailQuery }))}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
-                        >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-text-muted">
-                            <Mail size={12} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[12.5px] text-text-primary">
-                              {t('newConversation.emailAddressDirect', { address: directEmailQuery })}
-                            </span>
-                            <span className="block text-[10.5px] text-text-muted">
-                              {t('newConversation.emailAddressDirectHint')}
-                            </span>
-                          </span>
-                        </button>
-                      ) : null}
-                      {matchingContacts.length > 8 ? (
-                        <Link
-                          to="/contacts"
-                          className="mt-1 block px-2.5 pb-2 text-[11px] font-medium text-accent hover:underline"
-                        >
-                          {t('newConversation.openContacts')}
-                        </Link>
-                      ) : null}
-                    </>
-                  )}
-                </div>
+                <IntentCard
+                  icon={<Bot size={22} />}
+                  title={t('newConversation.intentAgent')}
+                  hint={t('newConversation.intentAgentHint')}
+                  onClick={() => setIntent('agent')}
+                />
+                <IntentCard
+                  icon={<Users size={22} />}
+                  title={t('newConversation.intentTeammate')}
+                  hint={t('newConversation.intentTeammateHint')}
+                  disabled={!canSendEmail || teammateOptions.length === 0}
+                  onClick={() => setIntent('teammate')}
+                />
               </div>
-            ) : null}
-          </div>
+              {!canSendEmail ? (
+                <p className="text-[12px] text-text-muted">
+                  {t('newConversation.connectMailboxHint')}{' '}
+                  <Link to="/settings/channels" className="font-medium text-accent hover:underline">
+                    {t('newConversation.connectMailbox')}
+                  </Link>
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
-          {/* Quick chips */}
-          {!noAgents ? (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            <Link
-              to={canSendEmail ? composeEmailPath() : '/settings/channels'}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-            >
-              <Mail size={11} />
-              {canSendEmail ? t('newConversation.emailACustomer') : t('newConversation.connectMailbox')}
-            </Link>
-            <button
-              type="button"
-              onClick={() => openPicker('company')}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-            >
-              <Sparkles size={11} />
-              {t('newConversation.messageAnAgent')}
-            </button>
-            {canSendEmail ? (
-              <button
-                type="button"
-                onClick={() => openPicker('people')}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-              >
-                <User size={11} />
-                {t('newConversation.writeToPerson')}
-              </button>
-            ) : null}
-          </div>
-          ) : null}
+          {intent === 'contact' || intent === 'teammate' ? (
+            <div className="space-y-3">
+              {intent === 'teammate' ? (
+                <div className="space-y-1.5">
+                  <p className="text-[12px] font-medium text-text-muted">{t('newConversation.teammate')}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {teammateOptions.map((member) => {
+                      const active = selectedMemberId === String(member.id)
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => chooseTeammate(String(member.id), member.email)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px]',
+                            active
+                              ? 'border-accent/40 bg-accent/10 text-text-heading'
+                              : 'border-border/60 text-text-secondary hover:border-accent/30 hover:text-text-primary',
+                          )}
+                        >
+                          <User size={12} />
+                          {member.name || member.email}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div ref={toPickerRef} className="relative">
+                  <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
+                    <span className="text-[12px] font-medium text-text-muted">{t('newConversation.to')}</span>
+                    {toPickerOpen ? (
+                      <input
+                        value={toQuery}
+                        onChange={(e) => setToQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            if (matchingContacts[0]) chooseContactAddress(matchingContacts[0].address)
+                            else if (directEmailQuery) chooseContactAddress(directEmailQuery)
+                          }
+                          if (e.key === 'Escape') setToPickerOpen(false)
+                        }}
+                        placeholder={t('newConversation.searchContacts')}
+                        className="min-w-0 flex-1 bg-transparent text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none"
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setToQuery(toAddress)
+                          setToPickerOpen(true)
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      >
+                        {toAddress ? (
+                          <span className="truncate text-[13px] text-text-primary">{toAddress}</span>
+                        ) : (
+                          <span className="text-[13px] text-text-muted">{t('newConversation.chooseContact')}</span>
+                        )}
+                        <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
+                      </button>
+                    )}
+                  </div>
+                  {toPickerOpen ? (
+                    <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
+                      <div className="max-h-[280px] overflow-y-auto p-1">
+                        {matchingContacts.map((contact) => (
+                          <button
+                            key={contact.id}
+                            type="button"
+                            onClick={() => chooseContactAddress(contact.address)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
+                          >
+                            <User size={14} className="shrink-0 text-text-muted" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[12.5px] text-text-primary">
+                                {humanizeContactName(
+                                  contact.displayName,
+                                  contact.address,
+                                  t('contactPanel.widgetVisitor'),
+                                ) || contact.address}
+                              </span>
+                              <span className="block text-[10.5px] text-text-muted">{contact.address}</span>
+                            </span>
+                          </button>
+                        ))}
+                        {directEmailQuery ? (
+                          <button
+                            type="button"
+                            onClick={() => chooseContactAddress(directEmailQuery)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
+                          >
+                            <Mail size={14} className="shrink-0 text-text-muted" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[12.5px] text-text-primary">
+                                {t('newConversation.emailAddressDirect', { address: directEmailQuery })}
+                              </span>
+                              <span className="block text-[10.5px] text-text-muted">
+                                {t('newConversation.emailAddressDirectHint')}
+                              </span>
+                            </span>
+                          </button>
+                        ) : null}
+                        {!matchingContacts.length && !directEmailQuery ? (
+                          <p className="px-3 py-2.5 text-[12px] text-text-muted">{t('newConversation.noMatches')}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
-          {/* Composer */}
-          {!noAgents ? (
-          <div className="mt-6">
-            {error ? (
-              <div className="mb-2 flex items-center gap-2 px-1">
-                <p className="text-[12px] text-status-error">{error}</p>
-                {loadFailed ? (
-                  <button
-                    type="button"
-                    className="text-[12px] font-medium text-accent hover:underline"
-                    onClick={() => void loadTargets()}
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
+                <span className="text-[12px] font-medium text-text-muted">{t('newConversation.from')}</span>
+                {!canSendEmail ? (
+                  <Link to="/settings/channels" className="text-[13px] font-medium text-accent hover:underline">
+                    {t('newConversation.connectMailbox')}
+                  </Link>
+                ) : sendableMailboxes.length === 1 ? (
+                  <span className="truncate text-[13px] text-text-primary">{sendableMailboxes[0].mailboxEmail}</span>
+                ) : (
+                  <select
+                    value={connectionId ?? ''}
+                    onChange={(e) => onFromChange(Number(e.target.value))}
+                    className="min-w-0 flex-1 rounded-md border border-border/50 bg-bg-input px-2 py-1 text-[13px] text-text-primary"
                   >
-                    {t('newConversation.retry')}
-                  </button>
+                    {sendableMailboxes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.mailboxEmail}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {canSendEmail && sendableMailboxes.length > 1 ? (
+                  <label className="ml-auto flex items-center gap-1.5 text-[11px] text-text-muted">
+                    <input
+                      type="checkbox"
+                      checked={rememberFrom}
+                      onChange={(e) => setRememberFrom(e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    {t('newConversation.rememberFrom')}
+                  </label>
                 ) : null}
               </div>
-            ) : null}
-            <ComposerCard
-              ref={composerRef}
-              mode="chat"
-              value={mention.display}
-              onChange={(e) =>
-                mention.onChange(e.currentTarget.value, e.currentTarget.selectionStart ?? e.currentTarget.value.length)
-              }
-              onClick={(e) =>
-                mention.refreshMentionState(
-                  e.currentTarget.value,
-                  e.currentTarget.selectionStart ?? e.currentTarget.value.length,
-                )
-              }
-              onKeyDown={onComposerKeyDown}
-              highlighter={<MentionHighlight raw={mention.raw} />}
-              overlay={
-                mention.mentionOpen ? (
-                  <MentionPopover
-                    items={mention.mentionMatches}
-                    activeIndex={mention.mentionIndex}
-                    onSelect={mention.selectMention}
-                    onHover={mention.setMentionIndex}
-                  />
-                ) : null
-              }
-              placeholder={
-                selected
-                  ? t('newConversation.messageName', { name: targetLabel(selected) })
-                  : t('newConversation.chooseAndType')
-              }
-              className="border-border/60 bg-bg-surface"
-            >
-              <button
-                type="button"
-                onClick={() => void start()}
-                disabled={!mention.raw.trim() || !selected || sending}
-                title={`${t('newConversation.send')} — ${t('composer.hintChat')}`}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder={t('newConversation.subjectPlaceholder')}
+                className="w-full rounded-xl border border-border/60 bg-bg-surface px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted shadow-card focus:border-border-focus focus:outline-none"
+              />
+            </div>
+          ) : null}
+
+          {intent === 'agent' ? (
+            <div ref={agentPickerRef} className="relative">
+              {noAgents ? (
+                <div className="rounded-xl border border-border/60 bg-bg-surface px-5 py-8 text-center shadow-card">
+                  <Bot size={28} className="mx-auto text-text-muted" />
+                  <p className="mt-3 text-[15px] font-medium text-text-primary">
+                    {t('newConversation.noAgentsAvailable')}
+                  </p>
+                  <Link to="/agents" className="mt-3 inline-block text-[12px] font-medium text-accent hover:underline">
+                    {t('newConversation.openAgents')}
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
+                  <span className="text-[12px] font-medium text-text-muted">{t('newConversation.to')}</span>
+                  {agentPickerOpen ? (
+                    <input
+                      value={agentQuery}
+                      onChange={(e) => setAgentQuery(e.target.value)}
+                      placeholder={t('newConversation.searchAgents')}
+                      className="min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAgentQuery('')
+                        setAgentPickerOpen(true)
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      {loadingTargets ? (
+                        <span className="inline-flex items-center gap-1.5 text-[13px] text-text-muted">
+                          <Loader2 size={12} className="animate-spin" /> {t('newConversation.loading')}
+                        </span>
+                      ) : selectedAgent ? (
+                        <>
+                          <AiAvatar
+                            name={selectedAgent.name}
+                            seed={selectedAgent.id}
+                            size={20}
+                            kind={selectedAgent.avatar_kind}
+                            icon={selectedAgent.avatar_icon}
+                            color={selectedAgent.avatar_color}
+                            imageUrl={selectedAgent.avatar_image_url}
+                          />
+                          <span className="truncate text-[13px] text-text-primary">{selectedAgent.name}</span>
+                        </>
+                      ) : (
+                        <span className="text-[13px] text-text-muted">{t('newConversation.chooseRecipient')}</span>
+                      )}
+                      <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
+                    </button>
+                  )}
+                </div>
+              )}
+              {agentPickerOpen ? (
+                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
+                  <div className="max-h-[280px] overflow-y-auto p-1">
+                    {filteredAgents.map((target) => (
+                      <button
+                        key={target.id}
+                        type="button"
+                        onClick={() => chooseAgent(target)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
+                      >
+                        <AiAvatar
+                          name={target.name}
+                          seed={target.id}
+                          size={24}
+                          kind={target.avatar_kind}
+                          icon={target.avatar_icon}
+                          color={target.avatar_color}
+                          imageUrl={target.avatar_image_url}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[12.5px] text-text-primary">{target.name}</span>
+                          <span className="block text-[10.5px] text-text-muted">
+                            {t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
+                          </span>
+                        </span>
+                        {selectedAgent?.id === target.id ? <Check size={13} className="text-accent" /> : null}
+                      </button>
+                    ))}
+                    {!filteredAgents.length ? (
+                      <p className="px-3 py-2.5 text-[12px] text-text-muted">{t('newConversation.noMatches')}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {intent && !(intent === 'agent' && noAgents) ? (
+            <div className="mt-6">
+              {error ? (
+                <div className="mb-2 flex items-center gap-2 px-1">
+                  <p className="text-[12px] text-status-error">{error}</p>
+                  {loadFailed ? (
+                    <button
+                      type="button"
+                      className="text-[12px] font-medium text-accent hover:underline"
+                      onClick={() => void loadTargets()}
+                    >
+                      {t('newConversation.retry')}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              <p className="mb-2 px-1 text-[11px] text-text-muted">{t('newConversation.draftHint')}</p>
+              <ComposerCard
+                ref={composerRef}
+                mode={intent === 'agent' ? 'chat' : 'email'}
+                value={mention.display}
+                onChange={(e) =>
+                  mention.onChange(
+                    e.currentTarget.value,
+                    e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+                  )
+                }
+                onClick={(e) =>
+                  mention.refreshMentionState(
+                    e.currentTarget.value,
+                    e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+                  )
+                }
+                onKeyDown={onComposerKeyDown}
+                highlighter={<MentionHighlight raw={mention.raw} />}
+                overlay={
+                  mention.mentionOpen ? (
+                    <MentionPopover
+                      items={mention.mentionMatches}
+                      activeIndex={mention.mentionIndex}
+                      onSelect={mention.selectMention}
+                      onHover={mention.setMentionIndex}
+                    />
+                  ) : null
+                }
+                placeholder={
+                  intent === 'agent'
+                    ? selectedAgent
+                      ? t('newConversation.messageName', { name: selectedAgent.name })
+                      : t('newConversation.chooseAndType')
+                    : t('newConversation.writeMessage')
+                }
+                className="border-border/60 bg-bg-surface"
               >
-                {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
-              </button>
-            </ComposerCard>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => void start()}
+                  disabled={
+                    sending ||
+                    (intent === 'agent' ? !canSendAgent : intent === 'teammate' ? !canSendTeammate : !canSendContact)
+                  }
+                  title={t('newConversation.send')}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+                >
+                  {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
+                </button>
+              </ComposerCard>
+            </div>
           ) : null}
         </div>
       </div>
     </div>
+  )
+}
+
+function IntentCard({
+  icon,
+  title,
+  hint,
+  onClick,
+  disabled,
+}: {
+  icon: ReactNode
+  title: string
+  hint: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'flex flex-col items-start gap-2 rounded-xl border border-border/60 bg-bg-surface p-4 text-left shadow-card transition-colors',
+        disabled
+          ? 'cursor-not-allowed opacity-50'
+          : 'hover:border-accent/40 hover:bg-bg-hover/40',
+      )}
+    >
+      <span className="text-accent">{icon}</span>
+      <span className="text-[14px] font-semibold text-text-primary">{title}</span>
+      <span className="text-[12px] leading-snug text-text-muted">{hint}</span>
+    </button>
   )
 }

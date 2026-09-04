@@ -198,12 +198,40 @@ async def list_cases(
     session: Annotated[AsyncSession, Depends(get_session)],
     signal_id: UUID | None = None,
     status: str | None = None,
+    case_type_id: UUID | None = None,
+    q: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
 ):
-    """List cases, optionally filtered to one conversation."""
+    """List cases for the hub queue, filterable by type, status and text."""
     rows = await svc.list_cases(
-        session, auth.tenant.id, signal_id=signal_id, status=status
+        session,
+        auth.tenant.id,
+        signal_id=signal_id,
+        status=status,
+        case_type_id=case_type_id,
+        q=q,
+        limit=limit,
+        offset=offset,
     )
-    return {"items": [svc.serialize_case(case, case_type) for case, case_type in rows]}
+    subjects = await svc.signal_subjects(
+        session, auth.tenant.id, [case.signal_id for case, _ in rows]
+    )
+    items = []
+    for case, case_type in rows:
+        item = svc.serialize_case(case, case_type)
+        item["signal_subject"] = subjects.get(str(case.signal_id), "")
+        items.append(item)
+    return {"items": items}
+
+
+@router.get("/stats")
+async def get_case_stats(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Case counts per status, for the hub queue pills."""
+    return {"counts": await svc.case_stats(session, auth.tenant.id)}
 
 
 @router.post("")

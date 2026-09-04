@@ -53,3 +53,18 @@ routine case work and structural type/binding edits.
 There is no `/cases` inbox and `Signal` is not renamed. Agents open one case
 per intent. Type mode plus certainty plus verify remain the real gate;
 the tenant `cases` slider can only deny agent intake entirely.
+
+## Addendum 2026-09: Cases hub, tags superseded
+
+- **CaseType supersedes thread tags** as the only intent catalog. The Tags
+  rail, tag folders, `TagPicker`, and the tag vocabulary CRUD are removed
+  from the dashboard. AI triage no longer writes `tags_json`; catalog hits
+  open cases through the normal create path (mode, thresholds, verify).
+  `signal_tags` and `/api/signals/tags` stay read/compat until a cleanup PR.
+  One-shot migration: `apps/api/scripts/dev/migrate_tags_to_cases.py`.
+- **`/cases` hub exists after all** — but it is a case queue plus the type
+  catalog, not a second message inbox. Rows deep-link to the thread in
+  Communication; case lifecycle stays independent of the thread (D2 holds).
+- **Nav:** tab `cases` under Control (EN Cases, NL Signalen); a new Work
+  group holds projects and workstreams. Bindings stay on workstream and
+  project detail (D4/D5 unchanged).

@@ -33,9 +33,9 @@ Handing work over does not need an owner or admin role. Configuring agents does 
 
 ## Continue an earlier chat
 
-1. Open **Communication**. Your Bokito chats sit in their own **Bokito** section in the rail.
-2. Choose a chat to reopen it in the helper window.
-3. These chats are private. No other member of the workspace sees them, and they never appear under the workspace agents.
+1. Open the Bokito button in the bottom-right corner.
+2. Open your conversation list in the helper window and choose an earlier chat.
+3. These chats are private. They do not appear in Communication, and no other member of the workspace sees them.
 
 ## Find your chats in another workspace
 

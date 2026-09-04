@@ -4,23 +4,21 @@
  * Fixed at the top (never customizable): New chat + All communication.
  * Pinned at the bottom: Activity, Contacts, and a single Settings link
  * (the 'settings' section flag only controls the link's visibility).
- * Middle sections (bokito, channels, agents, tags) can be reordered, hidden,
- * collapsed.
+ * Middle sections (channels, agents) can be reordered, hidden, collapsed.
  *
- * Note: the former 'assistant' section was merged into 'agents'. Stored prefs
- * that still list 'assistant' are repaired by normalizeSidebarPrefs. 'bokito'
- * is something else: the user's own helper threads, which are private and are
- * never a company agent chat.
+ * Note: the former 'assistant' section was merged into 'agents'. The former
+ * 'bokito' section (personal helper thread list) was removed — history lives
+ * only in the in-app widget. The former 'tags' section was superseded by
+ * Cases (`/cases`) as the single intent catalog. Stored prefs that still
+ * list those ids are repaired by normalizeSidebarPrefs.
  */
 
-export type SidebarSection = 'bokito' | 'agents' | 'channels' | 'tags' | 'settings'
+export type SidebarSection = 'agents' | 'channels' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
 export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
-  'bokito',
   'channels',
   'agents',
-  'tags',
 ]
 
 export const ALL_SECTIONS: readonly SidebarSection[] = [...MOVABLE_SECTIONS, 'settings']
@@ -52,15 +50,12 @@ function isSection(value: unknown): value is SidebarSection {
   return typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)
 }
 
-/** Keep Settings anchored last; drop unknowns (e.g. legacy 'assistant'). */
+/** Keep Settings anchored last; drop unknowns (e.g. legacy 'assistant' / 'bokito'). */
 function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
   const middle = order.filter((s) => s !== 'settings')
   for (const section of MOVABLE_SECTIONS) {
     if (middle.includes(section)) continue
-    // Bokito is the user's own helper, so it opens the rail rather than
-    // landing under the tenant's channels when older prefs are repaired.
-    if (section === 'bokito') middle.unshift(section)
-    else middle.push(section)
+    middle.push(section)
   }
   return [...middle, 'settings']
 }

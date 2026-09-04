@@ -512,6 +512,49 @@ async def test_ask_operator_creates_decision_and_status_update(client: AsyncClie
 
 
 @pytest.mark.asyncio
+async def test_hub_list_filters_and_stats(client: AsyncClient, session_override):
+    """`GET /api/cases` filters (case_type_id, q) and `GET /api/cases/stats`."""
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    signal = await _signal(session_override, tenant.id, subject="Hub filter thread")
+    bug = await _type_by_slug(session_override, tenant.id, "bug_report")
+    feature = await _type_by_slug(session_override, tenant.id, "feature_request")
+
+    first = await client.post(
+        "/api/cases",
+        headers=headers,
+        json={"case_type_id": str(bug.id), "signal_id": str(signal.id), "title": "Checkout crash"},
+    )
+    second = await client.post(
+        "/api/cases",
+        headers=headers,
+        json={"case_type_id": str(feature.id), "signal_id": str(signal.id), "title": "CSV export"},
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    by_type = await client.get(f"/api/cases?case_type_id={bug.id}", headers=headers)
+    assert by_type.status_code == 200
+    items = by_type.json()["items"]
+    assert items
+    assert all(row["case_type_id"] == str(bug.id) for row in items)
+    # Hub rows carry the thread subject for the queue list.
+    assert any(row["signal_subject"] == "Hub filter thread" for row in items)
+
+    by_text = await client.get("/api/cases?q=checkout", headers=headers)
+    assert by_text.status_code == 200
+    titles = [row["title"] for row in by_text.json()["items"]]
+    assert "Checkout crash" in titles
+    assert "CSV export" not in titles
+
+    stats = await client.get("/api/cases/stats", headers=headers)
+    assert stats.status_code == 200
+    counts = stats.json()["counts"]
+    assert counts["open"] >= 2
+    assert set(counts) >= {"proposed", "open", "waiting_customer", "waiting_operator", "linked", "closed", "cancelled"}
+
+
+@pytest.mark.asyncio
 async def test_case_binding_map_lists_unbound_types(client: AsyncClient, session_override):
     tenant = await _tenant(session_override)
     from app.services.assistant_context import case_binding_map_block

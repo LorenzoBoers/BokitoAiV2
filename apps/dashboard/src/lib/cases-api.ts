@@ -54,6 +54,52 @@ export type CaseRow = {
   status: CaseStatus
   certainty: number | null
   created_at: string | null
+  updated_at?: string | null
+  /** Thread subject, only present on hub list responses. */
+  signal_subject?: string
+}
+
+export type CaseStats = Record<CaseStatus, number>
+
+export async function listCases(opts?: {
+  status?: CaseStatus
+  caseTypeId?: string
+  q?: string
+  limit?: number
+  offset?: number
+}): Promise<CaseRow[]> {
+  const params = new URLSearchParams()
+  if (opts?.status) params.set('status', opts.status)
+  if (opts?.caseTypeId) params.set('case_type_id', opts.caseTypeId)
+  if (opts?.q) params.set('q', opts.q)
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  if (opts?.offset) params.set('offset', String(opts.offset))
+  const path = params.size > 0 ? casesRoutes.listQuery(params) : casesRoutes.list
+  const res = await apiGet<{ items: CaseRow[] }>(path)
+  return res.items ?? []
+}
+
+export async function getCaseStats(): Promise<CaseStats> {
+  const res = await apiGet<{ counts: CaseStats }>(casesRoutes.stats)
+  return res.counts
+}
+
+export async function getCase(caseId: string): Promise<CaseRow> {
+  return apiGet<CaseRow>(casesRoutes.byId(caseId))
+}
+
+export async function patchCase(
+  caseId: string,
+  body: { title?: string; summary?: string; status?: CaseStatus; project_id?: string | null },
+): Promise<CaseRow> {
+  return apiPatch<CaseRow>(casesRoutes.byId(caseId), body)
+}
+
+export async function linkCase(
+  caseId: string,
+  body: { target_kind: 'workstream' | 'project'; target_id: string; auto_start_run?: boolean },
+): Promise<CaseRow> {
+  return apiPost<CaseRow>(casesRoutes.link(caseId), body)
 }
 
 export async function listCaseTypes(): Promise<CaseTypeRow[]> {
@@ -76,7 +122,7 @@ export async function createCaseType(body: {
 
 export async function patchCaseType(
   typeId: string,
-  body: Partial<Pick<CaseTypeRow, 'name' | 'description' | 'create_mode' | 'enabled' | 'ask_threshold' | 'auto_threshold' | 'requires_verification'>>,
+  body: Partial<Pick<CaseTypeRow, 'name' | 'description' | 'create_mode' | 'enabled' | 'ask_threshold' | 'auto_threshold' | 'requires_verification' | 'audience'>>,
 ): Promise<CaseTypeRow> {
   return apiPatch<CaseTypeRow>(casesRoutes.typeById(typeId), body)
 }

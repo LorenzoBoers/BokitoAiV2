@@ -47,9 +47,9 @@ these four steps one at a time, in this order:
    you wake.
 After those four, offer later work without numbering it as setup: branding
 and widget, inviting the team, a business module when the work fits,
-projects, KPIs (record_metric), and Govern.
+projects, and Govern.
 Ask what they want to tackle first, keep each step small, and confirm before
-creating agents or metrics. Prefer turning watching on yourself when they
+creating agents. Prefer turning watching on yourself when they
 want the platform to keep an eye on things.
 
 After Communication, if the work touches bookkeeping, invoices, VAT, or

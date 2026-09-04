@@ -2,14 +2,11 @@ import { newConversationPath } from './messages-paths'
 
 /** Open New conversation with a message already in the composer. */
 export function talkToAssistantPath(prefill: string, agentId?: string | null): string {
-  const path = newConversationPath()
-  const params = new URLSearchParams()
-  const text = prefill.trim()
-  if (text) params.set('prefill', text)
-  const agent = (agentId || '').trim()
-  if (agent) params.set('agent', agent)
-  const q = params.toString()
-  return q ? `${path}?${q}` : path
+  return newConversationPath({
+    intent: 'agent',
+    agentId: (agentId || '').trim() || undefined,
+    prefill: prefill.trim() || undefined,
+  })
 }
 
 export function isEnabledTrigger(row: { enabled?: boolean }): boolean {

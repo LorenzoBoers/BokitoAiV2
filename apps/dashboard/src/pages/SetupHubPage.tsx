@@ -201,7 +201,6 @@ export default function SetupHubPage() {
         to: '/connections',
       },
       { label: t('setupGuidePage.later.projects', { defaultValue: 'Projects' }), to: '/projects' },
-      { label: t('setupGuidePage.later.kpis', { defaultValue: 'Numbers on Cockpit' }), to: '/cockpit' },
       { label: t('setupGuidePage.later.govern', { defaultValue: 'Govern' }), to: '/settings/govern' },
     ],
     [t],

@@ -220,3 +220,65 @@ def test_theme_localized_welcome_defaults():
     theme = livechat_theme_from_tenant(custom)
     assert theme["welcome_title"] == "Hoi!"
     assert theme["welcome_subtitle"] == "Hoe kunnen we je helpen?"
+
+
+@pytest.mark.asyncio
+async def test_empty_conversations_hidden_from_history(client: AsyncClient, session_override):
+    """Draft threads with no messages must not appear in the widget history list."""
+    from sqlalchemy import select as sa_select
+
+    from app.models.auth import Tenant
+    from app.models.channel import Contact
+    from app.models.signal import Signal, SignalMessage
+
+    r = await client.post(
+        "/api/livechat/session/start",
+        json={"auth_mode": "optional", "tenant_subdomain": "test"},
+    )
+    assert r.status_code == 200
+    token = r.json()["session_token"]
+    customer_id = r.json()["customer_id"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # POST /conversation creates an empty draft (same as the old "New chat" path).
+    created = await client.post("/api/livechat/conversation", headers=headers, json={})
+    assert created.status_code == 200
+    empty_id = created.json()["conversation_id"]
+
+    tenant = (
+        await session_override.execute(sa_select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    contact = (
+        await session_override.execute(
+            sa_select(Contact).where(
+                Contact.tenant_id == tenant.id,
+                Contact.channel == "widget",
+                Contact.address == customer_id,
+            )
+        )
+    ).scalar_one()
+    with_msg = Signal(
+        tenant_id=tenant.id,
+        channel="widget",
+        contact_id=contact.id,
+        subject="Real chat",
+    )
+    session_override.add(with_msg)
+    await session_override.commit()
+    await session_override.refresh(with_msg)
+    session_override.add(
+        SignalMessage(
+            signal_id=with_msg.id,
+            tenant_id=tenant.id,
+            role="user",
+            content="hello",
+            channel="widget",
+        )
+    )
+    await session_override.commit()
+
+    listed = await client.get("/api/livechat/customer/conversations", headers=headers)
+    assert listed.status_code == 200
+    ids = {item["id"] for item in listed.json()["items"]}
+    assert empty_id not in ids
+    assert str(with_msg.id) in ids

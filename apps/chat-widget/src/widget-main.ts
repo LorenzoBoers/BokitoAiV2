@@ -488,8 +488,9 @@ const WIDGET_CSS = `
   --bk-shadow:        0 8px 20px rgba(12,18,32,.12),0 2px 8px rgba(12,18,32,.06);
   --bk-shadow-lg:     0 24px 64px rgba(12,18,32,.18),0 8px 20px rgba(12,18,32,.08);
   --bk-glow:          0 0 28px color-mix(in srgb, var(--bk-primary) 32%, transparent);
+  --bk-mark:          var(--bk-primary);
   --bk-launcher-bg:   color-mix(in srgb, var(--bk-bg-surface) 88%, var(--bk-primary) 12%);
-  --bk-launcher-icon: var(--bk-primary);
+  --bk-launcher-icon: var(--bk-mark);
   --bk-launcher-shadow: 0 8px 28px color-mix(in srgb, var(--bk-primary) 22%, rgba(2,6,23,.1)), 0 2px 8px rgba(2,6,23,.06);
   --bk-launcher-shadow-hover: 0 14px 38px color-mix(in srgb, var(--bk-primary) 32%, rgba(2,6,23,.12)), 0 4px 12px rgba(2,6,23,.08);
   --bk-radius:        16px;
@@ -572,7 +573,7 @@ const WIDGET_CSS = `
 @media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}}
 :host([data-theme="dark"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}
 :host([data-theme="light"]) .bk-header-avatar{background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);}
-.bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-primary);}
+.bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-mark,var(--bk-primary));}
 .bk-header-avatar.has-brand-icon .bk-avatar-logo{display:none!important;}
 .bk-header-avatar-img{width:100%;height:100%;padding:5px;object-fit:contain;display:block;border-radius:inherit;box-sizing:border-box;}
 .bk-header-avatar-initials{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;letter-spacing:.02em;border-radius:inherit;user-select:none;}
@@ -658,9 +659,9 @@ const WIDGET_CSS = `
 .bk-home-tab[hidden]{display:none;}
 .bk-home-tab[data-tab="home"]{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .bk-home-tab[data-tab="messages"],.bk-home-tab[data-tab="tools"]{overflow:hidden;min-height:0;}
-.bk-home-footer{flex-shrink:0;background:var(--bk-bg);position:relative;z-index:2;display:flex;flex-direction:column;}
-.bk-tab-nav{display:flex;flex-direction:row;justify-content:space-between;align-items:stretch;min-height:64px;padding:2px 0 6px;}
-.bk-tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0;background:transparent;border:none;color:var(--bk-text-muted);font:600 12px var(--bk-font);cursor:pointer;transition:color .2s,opacity .2s;position:relative;opacity:.72;}
+.bk-home-footer{flex-shrink:0;background:var(--bk-bg);position:relative;z-index:2;display:flex;flex-direction:column;border-top:1px solid var(--bk-border-light);}
+.bk-tab-nav{display:flex;flex-direction:row;justify-content:space-between;align-items:stretch;min-height:56px;padding:4px 0 8px;}
+.bk-tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0;background:transparent;border:none;color:var(--bk-text-muted);font:600 11.5px var(--bk-font);cursor:pointer;transition:color .2s,opacity .2s;position:relative;opacity:.72;}
 .bk-tab-btn svg{width:22px;height:22px;display:block;}
 .bk-tab-btn .bk-tab-label{margin-top:6px;line-height:1.1;letter-spacing:.005em;}
 .bk-tab-btn:hover{color:var(--bk-primary);}
@@ -711,9 +712,10 @@ const WIDGET_CSS = `
 .bk-conv-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .bk-home-tab[data-tab="tools"] .bk-home-section{overflow-y:auto;}
 .bk-home-section-title{font-size:12px;font-weight:600;color:var(--bk-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
-.bk-conv-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;margin:2px 8px 2px 0;cursor:pointer;border:none;border-radius:var(--bk-radius-sm);width:100%;background:transparent;transition:background var(--bk-transition);text-align:left;color:var(--bk-text);animation:bk-slide-up .25s ease both;}
+.bk-conv-list{scrollbar-width:thin;scrollbar-color:var(--bk-border) transparent;}
+.bk-conv-item{display:flex;align-items:flex-start;gap:12px;padding:12px 12px;margin:2px 0;cursor:pointer;border:none;border-radius:var(--bk-radius-sm);width:100%;max-width:100%;box-sizing:border-box;background:transparent;transition:background var(--bk-transition);text-align:left;color:var(--bk-text);animation:bk-slide-up .25s ease both;}
 .bk-conv-item:hover{background:var(--bk-bg-hover);}
-.bk-conv-item-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--bk-primary);flex-shrink:0;}
+.bk-conv-item-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--bk-mark,var(--bk-primary));flex-shrink:0;}
 .bk-conv-item-avatar svg{width:18px;height:18px;}
 .bk-conv-item-body{flex:1;min-width:0;}
 .bk-conv-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px;}
@@ -750,7 +752,8 @@ const WIDGET_CSS = `
 .bk-msg--user{align-self:flex-end;}
 .bk-msg-bubble{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
 .bk-msg--ai .bk-msg-bubble{background:var(--bk-bg-surface);color:var(--bk-text);border-bottom-left-radius:4px;border:1px solid var(--bk-border-light);}
-.bk-msg--user .bk-msg-bubble{background:var(--bk-primary);color:var(--bk-on-primary);border-bottom-right-radius:4px;}
+.bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 22%,var(--bk-bg-surface));color:var(--bk-text);border:1px solid color-mix(in srgb,var(--bk-primary) 32%,var(--bk-border));border-bottom-right-radius:4px;}
+:host([data-theme="light"]) .bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 14%,#fff);color:var(--bk-text);border-color:color-mix(in srgb,var(--bk-primary) 28%,var(--bk-border));}
 .bk-msg-time{font-size:11px;color:var(--bk-text-muted);margin-top:4px;padding:0 4px;}
 .bk-msg--user .bk-msg-time{text-align:right;}
 .bk-msg-time--hidden{display:none;}
@@ -1091,6 +1094,8 @@ class BokitoChatWidget extends HTMLElement {
   #pendingFinalMsg = null;
   #pendingAttachments = []; // [{ localUrl, id, url, uploading }]
   #nonBlockingSend = true;
+  /** In-flight POST /conversation so the first message does not double-create. */
+  #ensureConversationPromise = null;
   #sendQueue = [];
   #activeSend = null;
   #isResponding = false;
@@ -3048,6 +3053,17 @@ class BokitoChatWidget extends HTMLElement {
     }
 
     const mainColor = theme.main_color || theme.primary_color;
+
+    if (!this.#isPreviewEmbedded()) {
+      if (theme.dark_light_mode === 'dark' || theme.dark_light_mode === 'light') {
+        host.setAttribute('data-theme', theme.dark_light_mode);
+      } else {
+        host.removeAttribute('data-theme');
+      }
+    }
+
+    // Brand tokens need the resolved theme (data-theme / prefers-color-scheme)
+    // so marks and accents stay readable on dark chrome.
     if (this.#isValidCssColor(mainColor)) {
       const trimmed = mainColor.trim();
       const rgb = parseHexColor(trimmed) || this.#parseColorToRgbTriplet(trimmed);
@@ -3062,20 +3078,18 @@ class BokitoChatWidget extends HTMLElement {
     if (typeof abg === 'string' && abg.trim() && this.#isSafeAtmosphereBackgroundCss(abg)) {
       host.style.setProperty('--bk-window-atmosphere-bg', abg.trim());
     }
-
-    if (!this.#isPreviewEmbedded()) {
-      if (theme.dark_light_mode === 'dark' || theme.dark_light_mode === 'light') {
-        host.setAttribute('data-theme', theme.dark_light_mode);
-      } else {
-        host.removeAttribute('data-theme');
-      }
-    }
   }
 
+  /**
+   * Open a blank composer without persisting a thread. The Signal is created
+   * on the first visitor/operator message via `#ensureConversation`.
+   */
   async #startNewConversation() {
     if (!this.#sessionToken) await this.#initSession();
     if (this.#sm.state === 'login_required') return;
-    this.#sm.transition('connecting');
+    this.#conversationId = null;
+    this.#pageCtx?.setConversationId(null);
+    this.#ensureConversationPromise = null;
     this.#renderedMsgIds.clear();
     clearTimeout(this.#bundleTimer);
     this.#bundleTimer = null;
@@ -3090,7 +3104,19 @@ class BokitoChatWidget extends HTMLElement {
     this.#deltaQueue = [];
     this.#pendingFinalMsg = null;
     if (this.#deltaRaf) { cancelAnimationFrame(this.#deltaRaf); this.#deltaRaf = null; }
-    try {
+    const banner = this.#root.querySelector('.bk-agent-banner');
+    if (banner) banner.style.display = 'none';
+    if (this.#messageList) this.#messageList.innerHTML = '';
+    this.#sm.transition('active');
+    this.#maybeShowPreChatForm();
+    this.#loadSuggestions();
+  }
+
+  /** Create (or reuse) the persisted thread right before the first send. */
+  async #ensureConversation() {
+    if (this.#conversationId) return this.#conversationId;
+    if (this.#ensureConversationPromise) return this.#ensureConversationPromise;
+    this.#ensureConversationPromise = (async () => {
       const data = await this.#api.post('conversation', {});
       const conversationId = data?.conversation_id || data?.id || data?.conversation?.id || null;
       if (!conversationId) throw new Error('Conversation create returned no id');
@@ -3099,13 +3125,11 @@ class BokitoChatWidget extends HTMLElement {
       this.#pageCtx?.setConversationId(this.#conversationId);
       this.#connectRealtime();
       if (data.greeting_message) this.#appendMessage(data.greeting_message);
-      this.#sm.transition('active');
-      this.#maybeShowPreChatForm();
-      this.#loadSuggestions();
-    } catch (e) {
-      console.error('[Bokito] startNewConversation failed:', { message: e.message });
-      this.#sm.transition('error');
-    }
+      return conversationId;
+    })().finally(() => {
+      this.#ensureConversationPromise = null;
+    });
+    return this.#ensureConversationPromise;
   }
 
   async #openConversation(conversationId) {
@@ -3584,26 +3608,37 @@ class BokitoChatWidget extends HTMLElement {
       this.#bundleTimer = setTimeout(() => this.#flushBundledSend(), this.#typingIdleMs);
       return;
     }
-    if (!this.#conversationId) {
+    const text = this.#pendingBundleTextParts.join('\n');
+    const attachments = [...this.#pendingBundleAttachments];
+    if (!text && !attachments.length) {
       this.#pendingBundleTextParts = [];
       this.#pendingBundleAttachments = [];
       return;
     }
-    const text = this.#pendingBundleTextParts.join('\n');
-    const attachments = [...this.#pendingBundleAttachments];
-    this.#pendingBundleTextParts = [];
-    this.#pendingBundleAttachments = [];
-    if (!text && !attachments.length) return;
-    const turnId = ++this.#turnCounter;
-    this.#sendQueue.push({
-      turnId,
-      text,
-      attachments,
-      clientMessageId: this.#createGuid(),
-      idempotencyKey: this.#createGuid(),
-    });
-    this.#updateQueueTelemetry();
-    this.#drainSendQueue();
+    void (async () => {
+      try {
+        await this.#ensureConversation();
+      } catch (e) {
+        console.error('[Bokito] ensureConversation failed:', { message: e?.message });
+        this.#pendingBundleTextParts = [];
+        this.#pendingBundleAttachments = [];
+        this.#showError(this.#chrome('noActiveConversation'));
+        return;
+      }
+      this.#pendingBundleTextParts = [];
+      this.#pendingBundleAttachments = [];
+      if (!this.#conversationId) return;
+      const turnId = ++this.#turnCounter;
+      this.#sendQueue.push({
+        turnId,
+        text,
+        attachments,
+        clientMessageId: this.#createGuid(),
+        idempotencyKey: this.#createGuid(),
+      });
+      this.#updateQueueTelemetry();
+      this.#drainSendQueue();
+    })();
   }
 
   #emitTelemetry(eventName, detail = {}) {
@@ -3816,7 +3851,10 @@ class BokitoChatWidget extends HTMLElement {
       created_at: createdAt,
       attachments,
     });
-    if (!this.#conversationId) {
+    try {
+      await this.#ensureConversation();
+    } catch (e) {
+      console.error('[Bokito] ensureConversation failed:', { message: e?.message });
       this.#showError(this.#chrome('noActiveConversation'));
       return;
     }
@@ -4916,7 +4954,7 @@ class BokitoChatWidget extends HTMLElement {
       await this.#startNewConversation();
       await new Promise(r => setTimeout(r, 100));
     }
-    if (this.#conversationId && this.#textarea) {
+    if (this.#textarea) {
       this.#textarea.value = text;
       this.#sendBtn.disabled = false;
       this.#textarea.dispatchEvent(new Event('input'));

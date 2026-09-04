@@ -8,8 +8,6 @@ import {
   Plus,
   Scale,
   Settings,
-  Sparkles,
-  Tag,
   Users,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -18,27 +16,15 @@ import { useNavBadges } from '../../context/NavBadgeContext'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
 import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
-import { useSignalTags } from '../../hooks/useSignalTags'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
 import { isChannelParked } from '../../lib/channel-surface'
-import {
-  bokitoListChatTargets,
-  bokitoListConversations,
-  mergeSidebarTagRows,
-  type ChatTarget,
-  type ConversationWithAgent,
-} from '../../lib/signals-api'
-import {
-  openAssistantThread,
-  startAssistantThread,
-} from '../../lib/personal-assistant-widget'
+import { bokitoListChatTargets, type ChatTarget } from '../../lib/signals-api'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
   inboxPath,
   activityTerminalPath,
-  agentChatPath,
   decisionsPath,
   leafFromPath,
   leafKey,
@@ -67,10 +53,8 @@ const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> 
 ]
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
-  bokito: { labelKey: 'support.section.bokito', defaultLabel: 'Bokito' },
   agents: { labelKey: 'support.section.agents', defaultLabel: 'Agents' },
   channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
-  tags: { labelKey: 'support.section.tags', defaultLabel: 'Tags' },
   settings: { labelKey: 'support.section.settings', defaultLabel: 'Settings' },
 }
 
@@ -109,11 +93,6 @@ const SECTION_GEAR: Partial<
     to: '/settings/channels',
     labelKey: 'support.channels.settingsAria',
     defaultLabel: 'Manage channels',
-  },
-  tags: {
-    to: '/settings/channels#tags',
-    labelKey: 'support.tags.settingsAria',
-    defaultLabel: 'Manage tags',
   },
   agents: {
     to: '/agents',
@@ -192,6 +171,19 @@ function CollapsibleSection({ section, title, count, headerAction, children }: C
 }
 
 type TFn = (key: string, opts?: { defaultValue?: string }) => string
+
+function ComposePlusLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link
+      to={to}
+      title={label}
+      aria-label={label}
+      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-accent"
+    >
+      <Plus size={13} />
+    </Link>
+  )
+}
 
 type ChannelsSectionProps = {
   folders: ChannelFolder[]
@@ -297,14 +289,21 @@ function ChannelsSection({ folders, loading, activeLeaf, defaultQueueFor, t }: C
         <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.channels.loading')}</p>
       ) : null}
       {!loading && !hasAnyChannel ? (
-        <Link
-          to="/settings/channels"
-          title={t('support.channels.connectChannel')}
-          className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-1.5 text-[12px] font-medium text-accent transition-colors duration-150 hover:bg-bg-hover/55 active:scale-[0.985]"
-        >
-          <Plus size={14} className="shrink-0" />
-          <span className="min-w-0 truncate">{t('support.channels.connectChannel')}</span>
-        </Link>
+        <div className="space-y-1.5 px-0.5">
+          <p className="px-2.5 text-[11px] leading-snug text-text-muted">
+            {t('support.channels.emptyHint', {
+              defaultValue: 'Connect email or chat so customer threads land here.',
+            })}
+          </p>
+          <Link
+            to="/settings/channels"
+            title={t('support.channels.connectChannel')}
+            className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-1.5 text-[12px] font-medium text-accent transition-colors duration-150 hover:bg-bg-hover/55 active:scale-[0.985]"
+          >
+            <Plus size={14} className="shrink-0" />
+            <span className="min-w-0 truncate">{t('support.channels.connectChannel')}</span>
+          </Link>
+        </div>
       ) : null}
       {folders.map((folder) => (
         <SidebarFolder
@@ -315,68 +314,21 @@ function ChannelsSection({ folders, loading, activeLeaf, defaultQueueFor, t }: C
           title={folder.title}
           activeLeaf={activeLeaf}
           defaultQueue={defaultQueueFor(folder.leaf)}
+          headerAction={
+            folder.leaf.type === 'channel' && folder.leaf.channelKey === 'email' && folder.leaf.connectionId ? (
+              <ComposePlusLink
+                to={newConversationPath({ intent: 'contact', connectionId: folder.leaf.connectionId })}
+                label={t('support.composeFromChannel')}
+              />
+            ) : folder.leaf.type === 'channel' ? (
+              <ComposePlusLink
+                to={newConversationPath({ intent: 'contact' })}
+                label={t('support.composeFromChannel')}
+              />
+            ) : null
+          }
         />
       ))}
-    </div>
-  )
-}
-
-type TagsSectionProps = {
-  rows: ReturnType<typeof mergeSidebarTagRows> | null
-  activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
-  t: TFn
-}
-
-function useSidebarTagRows() {
-  const { prefs } = useInboxFolderPrefs()
-  const { rows: catalog } = useSignalTags()
-  return useMemo(
-    () => (catalog == null ? null : mergeSidebarTagRows(prefs.sidebarTags, catalog)),
-    [catalog, prefs.sidebarTags],
-  )
-}
-
-function TagsSection({ rows, activeLeaf, defaultQueueFor, t }: TagsSectionProps) {
-  return (
-    <div className="space-y-0.5">
-      {rows === null ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.tags.loading')}</p>
-      ) : rows.length === 0 ? (
-        <div className="space-y-1 px-3 py-1">
-          <p className="text-[12px] text-text-muted">{t('support.tags.empty')}</p>
-          <Link
-            to={inboxPath('open')}
-            className="block text-[11px] font-medium text-accent hover:underline"
-          >
-            {t('support.tags.openToTag')}
-          </Link>
-        </div>
-      ) : (
-        rows.map((row) => {
-          const leaf: HubLeaf = { type: 'tag', tag: row.tag }
-          return (
-            <SidebarFolder
-              key={row.tag}
-              baseLeaf={leaf}
-              label={row.tag}
-              title={row.tag}
-              icon={<Tag size={14} className="shrink-0 text-text-muted" />}
-              activeLeaf={activeLeaf}
-              defaultQueue={defaultQueueFor(leaf)}
-              badgeCount={row.open}
-            />
-          )
-        })
-      )}
-      {rows != null && rows.length === 0 ? (
-        <Link
-          to="/settings/channels#tags"
-          className="flex items-center gap-2 rounded-lg px-3 py-1 text-[11px] font-medium text-accent hover:underline"
-        >
-          {t('support.tags.manage')}
-        </Link>
-      ) : null}
     </div>
   )
 }
@@ -425,6 +377,12 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
             icon={<Bot size={14} className="shrink-0 text-ai-ink" />}
             activeLeaf={activeLeaf}
             defaultQueue={defaultQueueFor(baseLeaf)}
+            headerAction={
+              <ComposePlusLink
+                to={newConversationPath({ intent: 'agent', agentId: agent.id })}
+                label={t('support.composeToAgent')}
+              />
+            }
             extra={
               <NavLink
                 to={activityTerminalPath(agent.id)}
@@ -448,58 +406,15 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
   )
 }
 
-type BokitoSectionProps = {
-  threads: ConversationWithAgent[]
-  loading: boolean
-  t: TFn
-}
-
-/**
- * The user's own Bokito helper threads.
- *
- * These are private: no other member sees them, and they never appear under
- * the tenant's agents. Clicking one hands the thread to the mounted widget
- * rather than opening a second chat surface in the dashboard.
- */
-function BokitoSection({ threads, loading, t }: BokitoSectionProps) {
-  return (
-    <div className="space-y-0.5">
-      <button
-        type="button"
-        onClick={() => startAssistantThread()}
-        className="nav-row flex w-full items-center gap-2 rounded-lg border border-transparent px-3 py-1 text-[12px] font-medium text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary"
-      >
-        <Plus size={12} className="shrink-0 text-accent" />
-        <span className="min-w-0 flex-1 truncate text-left">{t('support.bokito.newChat')}</span>
-      </button>
-      {loading ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.bokito.loading')}</p>
-      ) : null}
-      {!loading && threads.length === 0 ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.bokito.empty')}</p>
-      ) : null}
-      {threads.map((thread) => (
-        <button
-          key={thread.id}
-          type="button"
-          onClick={() => openAssistantThread(thread.id)}
-          title={thread.title}
-          className="nav-row flex w-full items-center gap-2 rounded-lg border border-transparent px-3 py-1 text-[12px] font-medium text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary"
-        >
-          <Sparkles size={12} className="shrink-0 text-ai-ink" />
-          <span className="min-w-0 flex-1 truncate text-left">{thread.title}</span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
 /**
  * Communication hub inner rail.
  *
  * Fixed top: New chat + Inbox.
  * Scrollable middle: Agents / Channels (user order).
  * Anchored bottom: Settings.
+ *
+ * Personal Bokito helper history stays in the in-app widget only — not listed
+ * here as channels.
  */
 export default function MessagesHubNav() {
   const { t } = useTranslation('nav')
@@ -512,10 +427,7 @@ export default function MessagesHubNav() {
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
-  const [bokitoThreads, setBokitoThreads] = useState<ConversationWithAgent[]>([])
-  const [bokitoLoading, setBokitoLoading] = useState(true)
   const { folders: channelFolders, loading: channelsLoading } = useConnectedChannelFolders(t)
-  const tagRows = useSidebarTagRows()
 
   useEffect(() => {
     let cancelled = false
@@ -537,54 +449,22 @@ export default function MessagesHubNav() {
     }
   }, [token])
 
-  // Private helper threads, fetched separately because the conversation list
-  // deliberately hides source=personal from the tenant's agent chats.
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      if (!token) return
-      setBokitoLoading(true)
-      try {
-        const rows = await bokitoListConversations(token, undefined, { source: 'personal' })
-        if (!cancelled) setBokitoThreads(rows.slice(0, 10))
-      } catch {
-        if (!cancelled) setBokitoThreads([])
-      } finally {
-        if (!cancelled) setBokitoLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [token])
-
   const companyAgents = targets.filter((target) => target.kind === 'company')
   const inboxBaseLeaf: HubLeaf = { type: 'inbox' }
   const inboxDefaultQueue = defaultQueueFor(inboxBaseLeaf)
   const inboxBadge = countForInboxQueue(counts, inboxDefaultQueue)
 
+  // Hide "(0)" — it reads as unfinished; the empty CTA inside the section is enough.
   const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
-    bokito: bokitoLoading ? null : bokitoThreads.length,
-    channels: channelsLoading ? null : channelFolders.length,
-    tags: tagRows == null ? null : tagRows.length,
-    agents: targetsLoading ? null : companyAgents.length,
+    channels: channelsLoading ? null : channelFolders.length > 0 ? channelFolders.length : null,
+    agents: targetsLoading ? null : companyAgents.length > 0 ? companyAgents.length : null,
   }
 
   const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
-    bokito: <BokitoSection threads={bokitoThreads} loading={bokitoLoading} t={t} />,
     channels: (
       <ChannelsSection
         folders={channelFolders}
         loading={channelsLoading}
-        activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
-        t={t}
-      />
-    ),
-    tags: (
-      <TagsSection
-        rows={tagRows}
         activeLeaf={activeLeaf}
         defaultQueueFor={defaultQueueFor}
         t={t}

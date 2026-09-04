@@ -63,8 +63,6 @@ import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { createQueueItem } from '../../lib/project-work-api'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { threadStatusLabel } from '../../lib/status-labels'
-import { tagPath } from '../../lib/messages-paths'
-import { TagPicker } from './TagPicker'
 import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
 import { formatAppDateTime } from '../../lib/app-locale'
 import { toast } from 'sonner'
@@ -412,30 +410,22 @@ const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
 }
 
 /**
- * Compact chips row under the thread header: priority selector plus tag
- * chips with add/remove. Backed by `PATCH /signals/{id}` (tags, priority).
+ * Compact chips row under the thread header: priority selector plus the AI
+ * triage badge. Classification lives on cases (`ThreadCasesList` in the
+ * context panels), not on free-form tags.
  */
 function ThreadMetaRow({
-  tags,
   priority,
   saving,
   onPatch,
   triage,
-  onOpenTag,
 }: {
-  tags: string[]
   priority: string
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
   triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
-  /** Open a tag's folder in the Messages hub. */
-  onOpenTag?: (tag: string) => void
 }) {
   const { t } = useTranslation('communication')
-
-  const removeTag = (tag: string) => {
-    void onPatch({ tags: tags.filter((t) => t !== tag) })
-  }
 
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
   const priorityLabel = t(priorityMeta.labelKey)
@@ -494,46 +484,6 @@ function ThreadMetaRow({
         </Tooltip>
       ) : null}
 
-      <span className="mx-0.5 h-3 w-px bg-border/50" aria-hidden />
-
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="group/tag inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface-hover/50 px-2 py-0.5 text-[11px] text-text-secondary"
-        >
-          {onOpenTag ? (
-            <button
-              type="button"
-              onClick={() => onOpenTag(tag)}
-              title={t('listItem.openTagFolder', { tag })}
-              className="inline-flex items-center gap-1 hover:text-accent transition-colors"
-            >
-              <Tag size={9} className="text-text-muted" />
-              {tag}
-            </button>
-          ) : (
-            <>
-              <Tag size={9} className="text-text-muted" />
-              {tag}
-            </>
-          )}
-          <button
-            type="button"
-            disabled={saving}
-            aria-label={t('tags.removeLabel', { tag })}
-            onClick={() => removeTag(tag)}
-            className="-mr-0.5 rounded-full p-0.5 text-text-muted/50 hover:text-status-error transition-colors disabled:opacity-40"
-          >
-            <X size={9} />
-          </button>
-        </span>
-      ))}
-
-      <TagPicker
-        tags={tags}
-        disabled={saving}
-        onChange={(next) => onPatch({ tags: next })}
-      />
     </div>
   )
 }
@@ -1023,7 +973,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   useEffect(() => {
     setComposerDraft(null)
-    setComposerMode('reply')
   }, [threadId])
 
   const myMemberId = useMemo(() => {
@@ -1121,11 +1070,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
   const activeSessionId = activeSession?.id ?? null
 
-  // A running meta session owns the composer: the operator types to the agent
-  // until they explicitly switch back to Reply or Internal.
+  // Prefer Intern when outbound reply cannot send; Agent wins when a meta session runs.
   useEffect(() => {
-    if (activeSessionId) setComposerMode('agent')
-  }, [activeSessionId])
+    if (activeSessionId) {
+      setComposerMode('agent')
+      return
+    }
+    setComposerMode(mailboxDisconnected ? 'note' : 'reply')
+  }, [threadId, mailboxDisconnected, activeSessionId])
 
   const loadSessionMessages = useCallback(
     async (sessionId: string | null) => {
@@ -1839,11 +1791,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
       {!isInternalThread(thread) ? (
         <ThreadMetaRow
-          tags={thread.tags}
           priority={thread.priority}
           saving={saving}
           onPatch={onPatch}
-          onOpenTag={(tag) => navigate(tagPath(tag))}
           triage={{
             category: thread.category,
             urgency: thread.urgency,

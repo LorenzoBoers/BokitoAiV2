@@ -34,6 +34,9 @@ class PreferencesPatch(BaseModel):
     inbox_folders: dict | None = None
     # Post-login / home landing: communication (default) or overview (/cockpit).
     default_landing: str | None = None
+    # Numeric EmailConnection / ChannelAccount id used as From: when starting
+    # outbound mail. Null clears the preference.
+    default_outbound_connection_id: int | None = None
 
 
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
@@ -46,6 +49,18 @@ MAX_SIDEBAR_TAG_LEN = 40
 def _default_landing_state(stored: dict) -> str:
     raw = stored.get("default_landing")
     return raw if raw in DEFAULT_LANDINGS else "communication"
+
+
+def _outbound_connection_id(stored: dict) -> int | None:
+    raw = stored.get("default_outbound_connection_id")
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int) and raw > 0:
+        return raw
+    if isinstance(raw, str) and raw.isdigit():
+        value = int(raw)
+        return value if value > 0 else None
+    return None
 
 
 def _tour_state(stored: dict) -> dict:
@@ -113,6 +128,7 @@ async def get_my_preferences(
         "tour": _tour_state(stored),
         "inbox_folders": _inbox_folders_state(stored),
         "default_landing": _default_landing_state(stored),
+        "default_outbound_connection_id": _outbound_connection_id(stored),
     }
 
 
@@ -173,6 +189,13 @@ async def patch_my_preferences(
                 detail="default_landing must be communication or overview",
             )
         stored["default_landing"] = body.default_landing
+    if "default_outbound_connection_id" in body.model_fields_set:
+        if body.default_outbound_connection_id is None:
+            stored.pop("default_outbound_connection_id", None)
+        elif body.default_outbound_connection_id <= 0:
+            raise HTTPException(status_code=400, detail="default_outbound_connection_id must be positive")
+        else:
+            stored["default_outbound_connection_id"] = int(body.default_outbound_connection_id)
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
 
@@ -206,6 +229,7 @@ async def patch_my_preferences(
         "tour": _tour_state(stored),
         "inbox_folders": _inbox_folders_state(stored),
         "default_landing": _default_landing_state(stored),
+        "default_outbound_connection_id": _outbound_connection_id(stored),
         "default_chat_agent_id": default_chat_agent_id,
     }
 

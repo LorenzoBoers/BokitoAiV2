@@ -549,10 +549,15 @@ async def apply_triage(
     summary: str,
     certainty: int,
     priority: Optional[str] = None,
-    tags: Optional[list[str]] = None,
     intent: Optional[str] = None,
     sentiment: Optional[str] = None,
 ) -> Signal:
+    """Persist triage scores on the thread.
+
+    Intent classification is no longer written to `tags_json`: catalog hits
+    become Cases (see `interpretation.triage_signal`). Non-intent fields
+    (priority, urgency, sentiment, ...) stay thread-level.
+    """
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
     )
@@ -571,19 +576,6 @@ async def apply_triage(
         signal.sentiment = sentiment
     if priority:
         signal.priority = priority
-    added_tags: list[str] = []
-    if tags:
-        from app.services import signal_tags as tag_svc
-
-        # Union merge: AI tagging only ever adds, never removes operator tags.
-        try:
-            existing = json.loads(signal.tags_json or "[]")
-        except json.JSONDecodeError:
-            existing = []
-        current = tag_svc.normalize_tags(existing if isinstance(existing, list) else [])
-        added_tags = [t for t in tag_svc.normalize_tags(tags) if t not in current]
-        if added_tags:
-            signal.tags_json = json.dumps([*current, *added_tags])
     session.add(
         SignalEvent(
             signal_id=signal.id,
@@ -597,7 +589,6 @@ async def apply_triage(
                     "impact": impact,
                     "certainty": certainty,
                     "intent": intent,
-                    "tags_added": added_tags,
                 }
             ),
         )

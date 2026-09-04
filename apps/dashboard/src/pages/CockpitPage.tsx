@@ -22,7 +22,6 @@ import { toast } from 'sonner'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
-import CustomMetricsSection from '../components/cockpit/CustomMetricsSection'
 import { OnboardingCompactCard, useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
@@ -589,9 +588,6 @@ export default function CockpitPage() {
           to="/cockpit/usage"
         />
       </div>
-
-      {/* Tenant-defined KPIs, fillable by users and agents */}
-      <CustomMetricsSection />
 
       {/* Attention + event log */}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
