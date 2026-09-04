@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
-import { BookmarkPlus, ChevronDown, Clock, MessageSquareText, Paperclip, Quote, Send, Square, StickyNote } from 'lucide-react'
+import { ChevronDown, Clock, Mic, MicOff, Paperclip, Quote, Send, Square, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -9,6 +8,7 @@ import { ComposerCard } from '../ui/ComposerCard'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { AiMark } from '../ai/AiMark'
 import { useMembers } from '../../hooks/useMembers'
+import { useSpeechDictation } from '../../hooks/useSpeechDictation'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,8 +30,8 @@ import {
 import { applyDisplayEdit, applyMentionAtDisplay, displayFromRaw } from '../../lib/mention-editor'
 import { parseComposerDraft, serializeComposerDraft } from '../../lib/inbox-ops'
 import { SNOOZE_PRESETS } from '../../lib/snooze'
-import { createSavedReply, listSavedReplies, type SavedReplyRow } from '../../lib/signals-api'
 import { uploadAttachment } from '../../lib/uploads-api'
+import ComposerWriteAssist from './ComposerWriteAssist'
 import MentionPopover from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
 import MessageAttachments from './MessageAttachments'
@@ -126,9 +126,9 @@ export default function ReplyComposer({
   lastInboundText,
 }: Props) {
   const { t } = useTranslation('communication')
-  const navigate = useNavigate()
   const { token } = useAuth()
   const [uncontrolledTab, setUncontrolledTab] = useState<ComposerTab>(surface.defaultTab)
+  const [dictationInterim, setDictationInterim] = useState('')
   const mode: ComposerMode =
     modeProp ?? (uncontrolledTab === 'note' ? 'note' : 'reply')
   const setMode = (next: ComposerMode) => {
@@ -245,35 +245,17 @@ export default function ReplyComposer({
     return () => writeStoredDraft(persistKey, serializeComposerDraft(draftRef.current))
   }, [persistKey])
 
-  // Saved replies (canned responses), loaded lazily when the picker opens.
-  const [savedReplies, setSavedReplies] = useState<SavedReplyRow[] | null>(null)
-  const loadSavedReplies = async () => {
-    if (!token || savedReplies !== null) return
-    try {
-      setSavedReplies(await listSavedReplies(token))
-    } catch (err) {
-      setSavedReplies([])
-      toast.error(formatApiErrorMessage(err, t('composer.loadSavedRepliesError')))
-    }
+  const appendDictation = (chunk: string) => {
+    setBody((prev) => {
+      const base = prev.trimEnd()
+      return base ? `${base} ${chunk}` : chunk
+    })
+    setDictationInterim('')
   }
-  const insertSavedReply = (row: SavedReplyRow) => {
-    setBody((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${row.bodyText}` : row.bodyText))
-    requestAnimationFrame(() => textareaRef.current?.focus())
-  }
-  const saveCurrentAsReply = async () => {
-    if (!token || !body.trim()) return
-    const title = window.prompt(t('composer.templateNamePrompt'), body.trim().slice(0, 40))
-    if (!title?.trim()) return
-    try {
-      const created = await createSavedReply(token, { title: title.trim(), bodyText: body.trim() })
-      if (created) {
-        setSavedReplies((prev) => (prev ? [...prev, created] : [created]))
-        toast.success(t('composer.savedReplyCreated'))
-      }
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('composer.saveReplyError')))
-    }
-  }
+  const dictation = useSpeechDictation({
+    onFinal: appendDictation,
+    onInterim: setDictationInterim,
+  })
 
   useEffect(() => {
     // Never steal focus from an in-flight agent chat when a draft arrives.
@@ -287,13 +269,16 @@ export default function ReplyComposer({
 
   const showReplyTab = surface.tabs.includes('reply')
   const showNoteTab = surface.tabs.includes('note')
-  const showAgentTab = Boolean(agentModeName) || mode === 'agent'
+  // One agent control: the tab. Session starts on first send (parent), not on click.
+  const showAgentTab = Boolean(onAgentMessage)
   const showCustomerActions =
     showReplyTab && surface.channel !== 'internal' && surface.channel !== 'assistant'
   const isNote = mode === 'note'
   const isAgent = mode === 'agent'
   const isReply = mode === 'reply'
   const busy = saving || agentStreaming
+  const threadIdForAi = persistKey?.trim() || null
+  const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
 
   const handleSubmit = async (
     action: 'send' | 'send_and_close' | 'send_and_pending',
@@ -614,16 +599,20 @@ export default function ReplyComposer({
           highlighter={<MentionHighlight raw={body} />}
           disabled={disabled || busy}
           placeholder={
-            isAgent
-              ? t('composer.agentPlaceholder', {
-                  name: agentModeName || t('agentSession.title'),
-                })
-              : isNote
-                ? t('composer.notePlaceholder')
-                : t(surface.replyPlaceholderKey, {
-                    ...surface.replyPlaceholderParams,
-                    defaultValue: surface.replyPlaceholder,
+            dictation.listening
+              ? dictationInterim
+                ? t('composer.dictationHearing', { text: dictationInterim })
+                : t('composer.dictationListening')
+              : isAgent
+                ? t('composer.agentPlaceholder', {
+                    name: agentModeName || t('agentSession.title'),
                   })
+                : isNote
+                  ? t('composer.notePlaceholder')
+                  : t(surface.replyPlaceholderKey, {
+                      ...surface.replyPlaceholderParams,
+                      defaultValue: surface.replyPlaceholder,
+                    })
           }
           className={
             isAgent
@@ -651,56 +640,47 @@ export default function ReplyComposer({
             onChange={(e) => void onPickFiles(e.target.files)}
           />
           {!isNote && !isAgent ? (
-            <DropdownMenu onOpenChange={(open) => open && void loadSavedReplies()}>
-              <DropdownMenuTrigger asChild>
+            <>
+              {showWriteAssist && threadIdForAi ? (
+                <ComposerWriteAssist
+                  threadId={threadIdForAi}
+                  body={body}
+                  disabled={saving || disabled || busy}
+                  onApply={(text) => {
+                    setBody(text)
+                    requestAnimationFrame(() => textareaRef.current?.focus())
+                  }}
+                />
+              ) : null}
+              {dictation.supported ? (
                 <button
                   type="button"
-                  disabled={saving || disabled}
-                  title={t('composer.savedReplies')}
-                  className="flex h-8 shrink-0 items-center gap-1 rounded-xl px-2 text-[11px] font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+                  disabled={saving || disabled || busy}
+                  title={
+                    dictation.listening
+                      ? t('composer.dictationStop')
+                      : t('composer.dictationStart')
+                  }
+                  aria-pressed={dictation.listening}
+                  aria-label={
+                    dictation.listening
+                      ? t('composer.dictationStop')
+                      : t('composer.dictationStart')
+                  }
+                  onClick={() => {
+                    if (!dictation.listening) setMode('reply')
+                    dictation.toggle()
+                  }}
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
+                    dictation.listening
+                      ? 'bg-accent/15 text-accent ring-1 ring-accent/30'
+                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                  }`}
                 >
-                  <MessageSquareText size={14} />
-                  {t('composer.templates')}
+                  {dictation.listening ? <MicOff size={14} /> : <Mic size={14} />}
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                {savedReplies === null ? (
-                  <DropdownMenuItem disabled className="text-xs">
-                    {t('composer.loadingSavedReplies')}
-                  </DropdownMenuItem>
-                ) : savedReplies.length === 0 ? (
-                  <DropdownMenuItem
-                    className="text-xs"
-                    onSelect={() => navigate('/settings/channels#saved-replies')}
-                  >
-                    {t('composer.noSavedReplies')}
-                  </DropdownMenuItem>
-                ) : (
-                  savedReplies.map((row) => (
-                    <DropdownMenuItem
-                      key={row.id}
-                      className="flex-col items-start gap-0.5 text-xs"
-                      onSelect={() => insertSavedReply(row)}
-                    >
-                      <span className="font-medium text-text-heading">{row.title}</span>
-                      <span className="line-clamp-1 text-[11px] text-text-muted">{row.bodyText}</span>
-                    </DropdownMenuItem>
-                  ))
-                )}
-                {body.trim() ? (
-                  <DropdownMenuItem className="gap-1.5 text-xs" onSelect={() => void saveCurrentAsReply()}>
-                    <BookmarkPlus size={12} />
-                    {t('composer.saveAsTemplate')}
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem
-                  className="text-xs"
-                  onSelect={() => navigate('/settings/channels#saved-replies')}
-                >
-                  {t('composer.manageSavedReplies')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              ) : null}
+            </>
           ) : null}
           <button
             type="button"

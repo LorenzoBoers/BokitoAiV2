@@ -286,7 +286,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
                 className="gap-1.5 text-xs text-text-muted hover:text-text-primary"
               >
                 <MessageSquareText size={13} />
-                {t('composer.templates')}
+                {t('composer.savedReplies')}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">

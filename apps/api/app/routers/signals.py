@@ -684,13 +684,23 @@ async def draft_reply(
         raise HTTPException(status_code=409, detail="No active agent for this workspace")
 
     history = await signal_chat_history(session, signal.id)
-    instruction = (
-        "Draft a concise, professional reply to the latest customer message. "
-        "Output only the customer-facing body. Do not repeat these instructions."
-    )
     extra = (body.instruction or "").strip()
-    if extra:
-        instruction += f"\nOperator guidance: {extra}"
+    # Operator can pass a full rewrite/compose brief (Compose with AI). When the
+    # brief already asks for customer-facing output, use it as-is; otherwise
+    # treat it as optional guidance on top of a default draft prompt.
+    if extra and (
+        "Output only" in extra
+        or "customer-facing" in extra.lower()
+        or "Current draft:" in extra
+    ):
+        instruction = extra
+    else:
+        instruction = (
+            "Draft a concise, professional reply to the latest customer message. "
+            "Output only the customer-facing body. Do not repeat these instructions."
+        )
+        if extra:
+            instruction += f"\nOperator guidance: {extra}"
 
     loop = AgentLoop(
         session,

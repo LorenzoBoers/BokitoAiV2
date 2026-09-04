@@ -46,10 +46,8 @@ import {
   bokitoListMessages,
   closeAgentSession,
   discardAgentSession,
-  listThreadAgentCandidates,
   startAgentSession,
   type ChatMessage,
-  type ThreadAgentCandidate,
 } from '../../lib/signals-api'
 import {
   mergeSessionLiveMessages,
@@ -57,7 +55,6 @@ import {
 } from '../../lib/use-agent-session-chat'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
-import { AiMark } from '../ai/AiMark'
 import { createAgentTask } from '../../lib/orchestration-api'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { createQueueItem } from '../../lib/project-work-api'
@@ -166,114 +163,6 @@ type Props = {
 
 const HEADER_ICON =
   'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
-
-/**
- * The agent that owns this conversation, as a chip next to the composer tabs.
- * Clicking it opens the internal meta conversation with that agent: it starts
- * a session when none runs yet, and otherwise just focuses the agent tab.
- * When several agents are relevant and the thread has no owner, the chip
- * becomes a picker ordered by relevance.
- */
-function OwnerAgentChip({
-  threadId,
-  threadAgentId,
-  threadAgentName,
-  activeAgentName,
-  hasActiveSession,
-  disabled,
-  onStart,
-  onFocusAgentMode,
-}: {
-  threadId: string
-  threadAgentId?: string | null
-  threadAgentName?: string | null
-  activeAgentName?: string | null
-  hasActiveSession: boolean
-  disabled: boolean
-  onStart: (agentId: string | null) => Promise<void>
-  onFocusAgentMode: () => void
-}) {
-  const { t } = useTranslation('communication')
-  const { token } = useAuth()
-  const [candidates, setCandidates] = useState<ThreadAgentCandidate[]>([])
-  const [starting, setStarting] = useState(false)
-
-  useEffect(() => {
-    if (!token) return
-    let cancelled = false
-    listThreadAgentCandidates(token, threadId)
-      .then((rows) => {
-        if (!cancelled) setCandidates(rows)
-      })
-      .catch(() => {
-        // Falls back to the thread owner, or to the backend's own pick.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [token, threadId])
-
-  const name =
-    activeAgentName || threadAgentName || candidates[0]?.name || t('listItem.agent')
-  const showPicker = !hasActiveSession && !threadAgentId && candidates.length > 1
-
-  const activate = async (agentId: string | null) => {
-    if (hasActiveSession) {
-      onFocusAgentMode()
-      return
-    }
-    if (starting) return
-    setStarting(true)
-    try {
-      await onStart(agentId)
-    } finally {
-      setStarting(false)
-    }
-  }
-
-  const chip = (
-    <button
-      type="button"
-      disabled={disabled || starting}
-      title={t('composer.ownerChipHint', { name })}
-      onClick={
-        showPicker
-          ? undefined
-          : () => void activate(threadAgentId ?? candidates[0]?.id ?? null)
-      }
-      className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] font-medium text-ai-ink transition-colors hover:bg-ai/15 disabled:opacity-40"
-    >
-      {starting ? <RefreshCw size={11} className="animate-spin" /> : <AiMark size={11} />}
-      <span className="max-w-[8rem] truncate">{name}</span>
-    </button>
-  )
-
-  if (!showPicker) return chip
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{chip}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-          {t('composer.ownerChipPick')}
-        </p>
-        {candidates.map((candidate) => (
-          <DropdownMenuItem
-            key={candidate.id}
-            className="gap-2 text-xs"
-            onSelect={() => void activate(candidate.id)}
-          >
-            <Bot size={12} className="text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
-            <span className="shrink-0 text-[10px] text-text-muted">
-              {t(`agentSession.reason.${candidate.reason}`)}
-            </span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
 
 /**
  * Lightweight project picker: choosing a project creates a Task with
@@ -1379,7 +1268,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     )
   }
 
-  const hasActiveSession = activeSession != null
   // What the header's name slot shows; the " · email" suffix is skipped when
   // this already is the email address (no name known), to avoid "x@y · x@y".
   const contactDisplayName =
@@ -2047,17 +1935,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <Sparkles size={12} />
                 {t('threadChrome.askAssistant')}
               </Button>
-            ) : !isInternalThread(thread) ? (
-              <OwnerAgentChip
-                threadId={String(thread.id)}
-                threadAgentId={thread.agentId}
-                threadAgentName={thread.agentName}
-                activeAgentName={activeSession?.agentName ?? null}
-                hasActiveSession={hasActiveSession}
-                disabled={saving}
-                onStart={startSessionWith}
-                onFocusAgentMode={() => setComposerMode('agent')}
-              />
             ) : null
           }
         />
