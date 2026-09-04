@@ -38,6 +38,8 @@ class ModuleInstall(SQLModel, table=True):
     default_company_json: str = Field(default="{}")
     # JSON {"mode": "all_members"|"selected", "user_ids": [...]}.
     user_access_json: str = Field(default="{}")
+    # JSON {"list_my_invoices": true} — opt-in customer verbs, default off.
+    customer_tools_json: str = Field(default="{}")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -455,10 +455,14 @@ def _drop_legacy_policy_tables(connection: Connection) -> None:
 
 
 def _drop_legacy_orchestra_tables(connection: Connection) -> None:
-    """Cycle 2: AgentProfile/WorkstreamRun replaced by RuntimeProfile + AgentTask/AgentRun."""
+    """Cycle 2: AgentProfile/WorkstreamStepRun replaced by RuntimeProfile + AgentTask/AgentRun.
+
+    `workstream_runs` was dropped here historically but the name is reused by
+    the rebuilt Workstream engine (migration 033), so it must not be dropped.
+    """
     inspector = inspect(connection)
     cascade = " CASCADE" if connection.dialect.name == "postgresql" else ""
-    for table in ("workstream_step_runs", "workstream_runs", "agent_profiles"):
+    for table in ("workstream_step_runs", "agent_profiles"):
         if inspector.has_table(table):
             connection.execute(text(f"DROP TABLE {table}{cascade}"))
 

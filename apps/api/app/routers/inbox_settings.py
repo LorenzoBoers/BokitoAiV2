@@ -161,7 +161,7 @@ class WidgetSettingsUpdate(BaseModel):
 async def get_widget_settings(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
 ):
-    """Widget behaviour: pre-chat form, office hours and offline message."""
+    """Widget behaviour: pre-chat form and team reachability hours."""
     from app.services.livechat_compat import office_hours_open, widget_settings_from_tenant
 
     cfg = widget_settings_from_tenant(auth.tenant)

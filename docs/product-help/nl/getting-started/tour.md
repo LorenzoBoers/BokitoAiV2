@@ -24,6 +24,7 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 ## AI: de workforce
 
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
+- **Werkstromen** — herhaalbare stappenprocessen die agents uitvoeren. Zie [Werkstromen](/docs/ai/workstreams).
 - **Kennis** — documenten, skills en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
 
 ## Modules: geïnstalleerde werkplekken
@@ -33,7 +34,7 @@ Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) verschijnen hier als eige
 ## Organisatie: koppelingen en controleruimte
 
 - **Koppelingen** — geïnstalleerde modules, partnerlogins, custom MCP en marketplace. Zie [Integraties](/docs/integrations/integrations).
-- **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support.
+- **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan op [Werkstromen](/docs/ai/workstreams); zie [Signalen](/docs/ai/cases).
 
 Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat onder Besturing, niet onder Organisatie — zie [Overview](/docs/getting-started/cockpit).
 
@@ -47,6 +48,12 @@ Persoonlijke schermen — **Profiel** (inclusief startpagina: Communicatie of Ov
 4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
 Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen, niet om inboxfilters te zetten.
+
+## Vraag Bokito
+
+1. Kies de Bokito-knop rechtsonder op elke pagina.
+2. Typ je vraag. Bokito weet welke pagina je bekijkt, dus "wat betekent deze status?" werkt zonder uit te leggen waar je bent.
+3. Het gesprek draait met jouw eigen rechten, en Bokito geeft echt werk door aan de agents van de workspace. Zie [Bokito, je assistent](/docs/getting-started/assistant).
 
 ## Twee andere snelkoppelingen
 

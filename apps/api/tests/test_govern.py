@@ -1,4 +1,5 @@
 import json
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -77,16 +78,44 @@ async def test_autonomy_auto_executes_and_audits(client: AsyncClient, session_ov
 async def test_approval_autonomy_escalates_and_audits(client: AsyncClient, session_override):
     await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    agent = await _assistant(session_override)  # default autonomy "approval"; agents category = ask
+    agent = await _assistant(session_override)  # default autonomy "approval"; projects category = ask
 
     result = await execute_tool(
-        session_override, tenant.id, None, "create_task", {"title": "Maybe"}, agent=agent
+        session_override,
+        tenant.id,
+        None,
+        "update_queue_item_status",
+        {"queue_item_id": str(uuid4()), "status": "done"},
+        agent=agent,
     )
-    # agents category is "ask" under assisted posture -> escalated to a human decision.
+    # projects category is "ask" under assisted posture -> escalated to a human
+    # decision. The gate resolves before the handler runs, so the item does not
+    # have to exist for this to hold.
     assert result.get("status") == "awaiting_human"
 
-    events = await search_audit(session_override, tenant.id, action="tool_call:create_task")
+    events = await search_audit(
+        session_override, tenant.id, action="tool_call:update_queue_item_status"
+    )
     assert any(e.outcome == "escalated" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_delegation_runs_without_a_human_gate(client: AsyncClient, session_override):
+    """Handing work over is not a structural change, so it does not ask first.
+
+    The delegated run is governed in its own right — every mutation the
+    receiving agent makes passes through this same policy — so gating the
+    handover as well would only put a gate in front of a gate.
+    """
+    await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = await _assistant(session_override)  # default autonomy "approval"
+
+    result = await execute_tool(
+        session_override, tenant.id, None, "create_task", {"title": "Hand over"}, agent=agent
+    )
+    assert result.get("status") != "awaiting_human"
+    assert result.get("task_id")
 
 
 @pytest.mark.asyncio
@@ -97,7 +126,8 @@ async def test_external_trust_never_auto_mutates(client: AsyncClient, session_ov
     agent.autonomy_level = "auto"
     await session_override.commit()
 
-    # agents category is denied entirely for external sessions.
+    # delegation is denied entirely for external sessions: a site visitor
+    # never queues internal work.
     result = await execute_tool(
         session_override, tenant.id, None, "create_task", {"title": "Hack"}, agent=agent,
         trust="external",
@@ -215,6 +245,38 @@ async def test_tool_override_wins_over_slider(client: AsyncClient, session_overr
     result = await execute_tool(session_override, tenant.id, None, "create_task", {"title": "Go"})
     assert result.get("task_id")
     assert result.get("status") in ("created", "queued", "running", "completed")
+
+
+@pytest.mark.asyncio
+async def test_member_role_clamps_restricted_categories(client: AsyncClient, session_override):
+    """A member session never mutates owner/admin categories, regardless of
+    allowances or agent passport; owners and safe categories are unaffected."""
+    headers = await _auth_headers(client)
+    res = await client.put(
+        "/api/govern/allowances", headers=headers, json={"allowances": {"agents": "allow"}}
+    )
+    assert res.status_code == 200
+
+    session_override.expire_all()
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+    spec = get_tool_spec("create_agent")
+    mode, reason = await resolve_tool_mode(
+        session_override, tenant, None, spec, user_role="member"
+    )
+    assert (mode, reason) == ("deny", "user_role")
+
+    mode, _ = await resolve_tool_mode(
+        session_override, tenant, None, spec, user_role="owner"
+    )
+    assert mode == "allow"
+
+    # Categories outside the clamp stay governed by the normal allowances.
+    doc_spec = get_tool_spec("write_doc")
+    mode, reason = await resolve_tool_mode(
+        session_override, tenant, None, doc_spec, user_role="member"
+    )
+    assert reason != "user_role"
 
 
 @pytest.mark.asyncio

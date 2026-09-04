@@ -9,6 +9,7 @@ from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
 from app.services.language import platform_default_ui_language
+from app.services.personal_assistant import ensure_personal_assistant
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
 
@@ -95,6 +96,8 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             is_lead=True,
         )
     )
+    # Platform furniture, not a tenant agent: every member's own Bokito helper.
+    await ensure_personal_assistant(session, tenant_id, commit=False)
     for path, kind, content in DEFAULT_DOCS:
         await upsert_doc(
             session,
@@ -113,6 +116,9 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # the widget is embedded, so it gets a row to carry state and an off switch.
     await ensure_widget_channel(session, tenant_id, commit=False)
     await seed_default_triggers(session, tenant_id)
+    from app.services.cases import ensure_platform_case_types
+
+    await ensure_platform_case_types(session, tenant_id, commit=False)
 
 
 async def ensure_widget_channel(

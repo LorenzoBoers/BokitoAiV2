@@ -4,7 +4,7 @@ intro: Everything that should happen on a clock or an incoming event is planned 
 description: Schedule agent wakes, sync Google or Outlook calendars into the same week view, pause automations, or run them now.
 keywords: agenda, scheduler, automations, cron, webhook, heartbeat, google calendar, outlook calendar
 sort: 50
-related: agents,projects,communication,agent-runs,integrations
+related: agents,projects,communication,agent-runs,integrations,workstreams
 ---
 
 # How Agenda works
@@ -47,9 +47,10 @@ Leave **Enabled** on. Disabled items stay on the agenda but never fire.
 ![Agenda automations](/api/docs/assets/agenda/automations.png)
 *Pause, edit or run an automation now.*
 
-1. Open **Automations**. An empty list offers **Create automation**. An empty week day offers **Schedule**. The type filter is kept in the URL as `kind`.
+1. Open **Automations**. The panel lists your triggers (schedules, repeats, check-ins, incoming hooks). An empty list offers **Create automation**. An empty week day offers **Schedule**. The type filter is kept in the URL as `kind`.
 2. **Pause**, edit, or **Run now**.
-3. Heartbeats check workspace docs on a timer. On-demand chat runs belong in Activity, not here.
+3. A trigger can target an agent or a [workstream](/docs/ai/workstreams); a workstream trigger starts a full run with the trigger payload as input. Use **Open Workstreams** to manage the workstreams themselves.
+4. Heartbeats check workspace docs on a timer. On-demand chat runs belong in Activity, not here.
 
 If the linked agent is archived, the wake fails until you pick another agent.
 

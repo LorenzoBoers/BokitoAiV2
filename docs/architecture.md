@@ -10,7 +10,7 @@ The product maps to Salim Ismail's Intelligence Stack as **conceptual lanes** on
 
 | Layer | Backend | Frontend |
 |-------|---------|----------|
-| Sensing | `Signal`, `GET/PATCH/POST /api/signals/*` (inbox-parity), channel webhooks (`/api/channels/...`) | Messages hub (`/messages`) |
+| Sensing | `Signal`, `Case` / `CaseType` / `CaseTypeBinding`, `GET/PATCH/POST /api/signals/*`, `/api/cases/*`, channel webhooks (`/api/channels/...`) | Messages hub (`/messages`), Workstreams intake |
 | Interpretation | `interpretation.triage_signal`, `POST /api/signals/{id}/triage` | Inbox triage fields |
 | Orchestration | `Agent`, `Workstream`, `AgentLoop`, `Trigger` scheduler | Agents, Automations |
 | Integration | `IntegrationConnection`, `McpServer`, MCP HTTP client | Integrations |
@@ -21,7 +21,7 @@ The product maps to Salim Ismail's Intelligence Stack as **conceptual lanes** on
 
 All governed capabilities live in `apps/api/app/tools/`:
 
-- `registry.py` — `ToolSpec` (name, category, schema, handler) registered into one registry. Categories: `messaging`, `workspace`, `agents`, `channels`, `triggers`, `integrations`, `govern`.
+- `registry.py` — `ToolSpec` (name, category, schema, handler) registered into one registry. Categories: `messaging`, `workspace`, `projects`, `agents`, `delegation`, `channels`, `triggers`, `integrations`, `govern`, `cases`. `agents` covers configuring the workforce (owner/admin in the API); `delegation` covers using it (handing over work, starting a run) and stays open to members. `cases` is operational intake; type and binding edits stay on `govern`.
 - `policy.py` — allowance engine. Each category has a slider `deny | ask | allow`.
 - `builtin.py` — built-in tool implementations (messaging, workspace docs, platform mutations, MCP client).
 - `executor.py` — `execute_tool()`: the **single execution path** for every tool call.
@@ -38,7 +38,7 @@ Two consumers, one implementation:
 3. Tenant category sliders (`tool_allowances` in settings, `PUT /api/govern/allowances`)
 4. Agent passport `autonomy_level`: `manual` caps allow→ask; `auto` lifts ask→allow
 5. Per-tool override (`tool_overrides`, `PUT /api/govern/tool-overrides`; "Voortaan automatisch oppakken" writes `allow`)
-6. Trust clamp: `external` (widget/visitor) sessions never auto-mutate — allow→ask, and `agents/channels/triggers/integrations/govern` are denied outright
+6. Trust clamp: `external` (widget/visitor) sessions never auto-mutate — allow→ask, and `agents/delegation/channels/triggers/integrations/govern` are denied outright
 
 Outcomes: **deny** → audited error; **ask** → inline `DecisionRequest` (platform tools additionally record a pending `PlatformChange`); **allow** → execute + audit. Decision approval re-runs the tool with `approved=True`.
 
@@ -96,6 +96,7 @@ Channel → Signal mapping:
 - **Queues (views):** `all_open`, `mine`, `unassigned`, `pending`, `closed`, `pinned`, `awaiting_decision`, `updates`, `results`
 - **Decision cards:** `SignalMessage.kind=decision_request` renders inline in thread timeline; resolve via `POST /api/signals/{id}/messages/{msgId}/resolve`. `DecisionRequest.signal_id` is the only thread link (`conversation_id` removed)
 - **Chat APIs:** `/api/chat/*` and `/api/livechat/*` keep their contracts but persist to Signal threads (`/api/widget` was removed in favor of `/api/livechat`); inbound email processing runs through the `process_inbound_signal` worker task
+- **Cases:** typed intake nodes on a Signal (`/api/cases`). UI NL label is Signaal. Bindings route to a workstream or project; workstream runs that start from a case use `input_kind=case`. See [`docs/adr/001-cases-trust-govern.md`](adr/001-cases-trust-govern.md)
 - **Legacy redirects:** `/messages`, `/communication`, `/os/communication`, `/project/:id/communication` → Messages hub with folder/queue filters
 
 ## Decisions (unified)

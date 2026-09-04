@@ -63,6 +63,8 @@ class ModulePrefsBody(BaseModel):
     writes_enabled: bool | None = None
     # Owner/admin only: {"mode": "all_members"|"selected", "user_ids": [...]}.
     user_access: dict | None = None
+    # Owner/admin only: {"list_my_invoices": true} opt-in customer verbs.
+    customer_tools: dict | None = None
 
 
 class McpInstallBody(BaseModel):
@@ -179,6 +181,124 @@ async def patch_module(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"module": row}
+
+
+@router.get("/modules/{slug}/templates")
+async def list_module_templates(
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Workstream templates this module ships, with requirement status."""
+    from app.models.orchestra import Workstream
+    from app.modules.catalog import get_module, module_workstream_templates
+    from app.services.workstream_integrity import check_template_requirements
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
+    installed_slugs = set(
+        (
+            await session.execute(
+                select(Workstream.template_slug).where(
+                    Workstream.tenant_id == auth.tenant.id,
+                    Workstream.module_slug == slug,
+                )
+            )
+        ).scalars()
+    )
+    items = []
+    for template in module_workstream_templates(slug):
+        row = template.serialize()
+        problems = await check_template_requirements(session, auth.tenant.id, template)
+        row["problems"] = problems
+        row["installable"] = not problems
+        row["already_installed"] = template.slug in installed_slugs
+        items.append(row)
+    return {"items": items}
+
+
+@router.post("/modules/{slug}/templates/{template_slug}/install")
+async def install_module_template(
+    slug: str,
+    template_slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Copy a module workstream template to this workspace."""
+    from app.modules.catalog import get_module
+    from app.services import workstreams as ws_svc
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
+    ws = await ws_svc.install_template(session, auth.tenant.id, slug, template_slug)
+
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="module:template_installed",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="workstream",
+        resource_id=str(ws.id),
+        summary=f"Workstream template '{ws.name}' installed from module {slug}",
+        after={"module_slug": slug, "template_slug": template_slug},
+    )
+    return {"workstream": ws_svc.serialize_workstream(ws)}
+
+
+@router.get("/modules/{slug}/case-type-templates")
+async def list_module_case_type_templates(
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Intake types this module ships."""
+    from app.models.case import CaseType
+    from app.modules.catalog import get_module, module_case_type_templates
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
+    installed = set(
+        (
+            await session.execute(
+                select(CaseType.template_slug).where(
+                    CaseType.tenant_id == auth.tenant.id,
+                    CaseType.module_slug == slug,
+                )
+            )
+        ).scalars()
+    )
+    items = []
+    for template in module_case_type_templates(slug):
+        row = template.serialize()
+        row["already_installed"] = template.slug in installed
+        items.append(row)
+    return {"items": items}
+
+
+@router.post("/modules/{slug}/case-type-templates/{template_slug}/install")
+async def install_module_case_type_template(
+    slug: str,
+    template_slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services import cases as case_svc
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    auth.require_role("owner", "admin")
+    await _ensure_module_access(session, auth, slug)
+    row = await case_svc.install_case_type_template(
+        session, auth.tenant.id, slug, template_slug
+    )
+    return {"case_type": case_svc.serialize_case_type(row)}
 
 
 class ModuleAgentAddBody(BaseModel):
@@ -368,7 +488,11 @@ async def patch_module_prefs(
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
-    if body.writes_enabled is not None or body.user_access is not None:
+    if (
+        body.writes_enabled is not None
+        or body.user_access is not None
+        or body.customer_tools is not None
+    ):
         auth.require_role("owner", "admin")
     try:
         prefs = await set_module_defaults(
@@ -379,13 +503,18 @@ async def patch_module_prefs(
             default_company_id=body.default_company_id,
             clear_default_connection=body.clear_default_connection,
         )
-        if body.writes_enabled is not None or body.user_access is not None:
+        if (
+            body.writes_enabled is not None
+            or body.user_access is not None
+            or body.customer_tools is not None
+        ):
             prefs = await update_module_prefs(
                 session,
                 auth.tenant.id,
                 slug,
                 writes_enabled=body.writes_enabled,
                 user_access=body.user_access,
+                customer_tools=body.customer_tools,
             )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

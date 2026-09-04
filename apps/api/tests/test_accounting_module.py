@@ -79,10 +79,13 @@ def test_module_catalog_has_prepared_modules():
     assert "list_companies" in modules["accounting"]["verbs"]
     assert modules["accounting"]["verb_labels"]
     cards = modules["accounting"]["tool_cards"]
-    assert len(cards) == len(modules["accounting"]["verbs"]) + len(
-        modules["accounting"]["propose_verbs"]
-    )
-    verbs_from_cards = [c["verb"] for c in cards if c["kind"] == "read"]
+    operator_reads = [
+        c for c in cards if c["kind"] == "read" and c.get("exposure", "internal") != "customer"
+    ]
+    customer_reads = [c for c in cards if c.get("exposure") == "customer"]
+    assert len(operator_reads) == len(modules["accounting"]["verbs"])
+    assert {c["verb"] for c in customer_reads} == {"list_my_invoices", "list_my_documents"}
+    verbs_from_cards = [c["verb"] for c in operator_reads]
     propose_from_cards = [c["verb"] for c in cards if c["kind"] == "propose"]
     assert verbs_from_cards == modules["accounting"]["verbs"]
     assert propose_from_cards == modules["accounting"]["propose_verbs"]
@@ -532,6 +535,7 @@ def test_accounting_tools_registered_and_ungated():
         assert spec.category == "integrations"
         assert spec.mutating is False
         assert spec.gated is False
+        assert spec.audience == "operator"
 
     for name in ("accounting_propose_document", "accounting_propose_send"):
         spec = get_tool_spec(name)

@@ -4,7 +4,7 @@ intro: Markdown the workspace owns across organization, project, and agent scope
 description: Browse Knowledge as a hub for org, project, and agent docs, edit in Write or Markdown mode, and publish customer help articles.
 keywords: knowledge, docs, voice, memory, skills, help center, grounding, project documentation
 sort: 30
-related: agents,communication,projects
+related: agents,communication,projects,workstreams
 ---
 
 # How Knowledge works
@@ -39,6 +39,14 @@ Memory, check-ins and daily notes are AI-maintained. Edit them when a fact is wr
 4. **Save** or press Ctrl/Cmd+S. Leaving with unsaved edits asks you to confirm. Click the document path to copy it. **Publish** asks if the article should appear on the public help site. **Delete document** removes a page you no longer want.
 
 Active queue requests linked to a document show as subtle chips under the title. Request status lives on the queue item, not on the document.
+
+## Work per section
+
+A document is a page built from `##` sections; each section is the atomic unit agents read, search, and edit — one topic, roughly 150 to 400 words.
+
+1. Open a document and expand **Sections**. Each section shows its heading, content, and a status chip: **Draft**, **Review**, or **Final**.
+2. Edit one section without touching the rest of the page. Add a section for a new topic instead of growing an existing one.
+3. Set the status per section. A section an agent writes during a workstream run moves to **Review**; approving the run's gate promotes it to **Final**. Only set **Final** yourself when you verified the content.
 
 ## Ground a draft
 

@@ -41,7 +41,17 @@ const TOKEN_SCOPE_GROUPS: { labelKey: 'restApi' | 'mcpTools'; scopes: string[] }
   { labelKey: 'restApi', scopes: ['signals:read', 'signals:write'] },
   {
     labelKey: 'mcpTools',
-    scopes: ['messaging', 'workspace', 'agents', 'channels', 'triggers', 'integrations', 'govern'],
+    scopes: [
+      'messaging',
+      'workspace',
+      'projects',
+      'agents',
+      'delegation',
+      'channels',
+      'triggers',
+      'integrations',
+      'govern',
+    ],
   },
 ]
 

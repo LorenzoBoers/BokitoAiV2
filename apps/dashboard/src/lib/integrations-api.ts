@@ -46,6 +46,9 @@ export interface ModuleToolCard {
   label: string
   description: string
   kind: 'read' | 'propose'
+  exposure?: 'internal' | 'customer' | 'both'
+  sensitivity?: string
+  min_assurance?: string
 }
 
 export interface AttachedMcpToolServer {
@@ -228,6 +231,61 @@ export interface ModuleAgentRow {
   avatar_icon?: string | null
   avatar_color?: string | null
   avatar_image_url?: string | null
+}
+
+export interface ModuleWorkstreamTemplate {
+  slug: string
+  module_slug: string
+  name: string
+  description: string
+  steps_count: number
+  required_agent_roles: string[]
+  requires_module_connection: boolean
+  problems: string[]
+  installable: boolean
+  already_installed: boolean
+}
+
+export async function listModuleTemplates(
+  slug: string,
+): Promise<ModuleWorkstreamTemplate[]> {
+  const res = await apiGet<{ items: ModuleWorkstreamTemplate[] }>(
+    integrationsRoutes.platform.moduleTemplates(slug),
+  )
+  return res.items
+}
+
+export async function installModuleTemplate(
+  slug: string,
+  templateSlug: string,
+): Promise<{ workstream: { id: string; name: string } }> {
+  return apiPost(integrationsRoutes.platform.moduleTemplateInstall(slug, templateSlug), {})
+}
+
+export type ModuleCaseTypeTemplate = {
+  slug: string
+  module_slug: string
+  name: string
+  description: string
+  create_mode: string
+  requires_verification: boolean
+  already_installed: boolean
+}
+
+export async function listModuleCaseTypeTemplates(
+  slug: string,
+): Promise<ModuleCaseTypeTemplate[]> {
+  const res = await apiGet<{ items: ModuleCaseTypeTemplate[] }>(
+    integrationsRoutes.platform.moduleCaseTypeTemplates(slug),
+  )
+  return res.items ?? []
+}
+
+export async function installModuleCaseTypeTemplate(
+  slug: string,
+  templateSlug: string,
+): Promise<{ case_type: { id: string; name: string } }> {
+  return apiPost(integrationsRoutes.platform.moduleCaseTypeTemplateInstall(slug, templateSlug), {})
 }
 
 export async function listModuleAgents(slug: string): Promise<ModuleAgentRow[]> {

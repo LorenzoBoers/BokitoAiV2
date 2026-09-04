@@ -20,10 +20,14 @@ from app.models.auth import Tenant, User
 from app.models.signal import Signal
 from app.services.agent_avatar import avatar_payload
 from app.services.livechat_compat import (
+    SURFACE_IN_APP,
+    SURFACE_SITE,
     create_widget_session_token,
     decode_widget_session_token,
+    normalize_surface,
     resolve_tenant_for_livechat,
     session_start_payload,
+    surface_from_widget_token,
     widget_assistant_agent,
     widget_assistant_name,
 )
@@ -31,6 +35,7 @@ from app.services.livechat_stream import (
     get_or_create_widget_thread,
     widget_stream_events,
 )
+from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
 
 router = APIRouter(prefix="/livechat", tags=["livechat"])
 
@@ -43,6 +48,9 @@ class SessionStartBody(BaseModel):
     host_auth_token: str | None = None
     auth_mode: str = "optional"
     auth_cookie_name: str | None = None
+    # "site" (a tenant's own website) or "in_app" (the operator's personal
+    # Bokito helper inside the dashboard).
+    surface: str = SURFACE_SITE
 
 
 async def _optional_widget_auth(
@@ -90,14 +98,30 @@ async def session_start(
     if auth_mode not in {"anonymous", "optional", "required"}:
         auth_mode = "optional"
 
+    # The in-app helper only exists for a signed-in teammate; an anonymous
+    # caller asking for it falls back to the tenant's own website widget.
+    surface = normalize_surface(body.surface)
+    if surface == SURFACE_IN_APP and user is None:
+        surface = SURFACE_SITE
+
     customer_id = body.customer_id or f"cust_{secrets.token_hex(8)}"
     session_token = create_widget_session_token(
         tenant_id=tenant.id,
         user_id=user.id if user else None,
         customer_id=customer_id,
+        surface=surface,
     )
-    assistant_agent = await widget_assistant_agent(session, tenant.id)
-    assistant_name = await widget_assistant_name(session, tenant.id)
+    if surface == SURFACE_IN_APP:
+        # Chrome is forced to Bokito for this surface, so the tenant's
+        # answering agent is irrelevant here.
+        assistant_name = ""
+        agent_avatar = None
+    else:
+        assistant_agent = await widget_assistant_agent(session, tenant.id)
+        assistant_name = await widget_assistant_name(session, tenant.id)
+        agent_avatar = (
+            avatar_payload(assistant_agent) if assistant_agent is not None else None
+        )
     return session_start_payload(
         tenant,
         user,
@@ -105,7 +129,8 @@ async def session_start(
         auth_mode=auth_mode,
         customer_id=customer_id,
         assistant_name=assistant_name,
-        agent_avatar=avatar_payload(assistant_agent) if assistant_agent is not None else None,
+        agent_avatar=agent_avatar,
+        surface=surface,
     )
 
 
@@ -313,11 +338,20 @@ async def user_conversations(
     tenant, user, token = ctx
     if not user:
         return {"items": [], "conversations": [], "per_page": per_page}
+    # Each surface lists its own history: the in-app helper shows the person's
+    # private Bokito threads, a tenant's own site widget shows the threads it
+    # created. Neither shows their Messages chats with company agents.
+    thread_source = (
+        PERSONAL_THREAD_SOURCE
+        if surface_from_widget_token(token) == SURFACE_IN_APP
+        else "widget"
+    )
     result = await session.execute(
         sa_select(Signal)
         .where(
             Signal.tenant_id == tenant.id,
             Signal.channel == "assistant",
+            Signal.source == thread_source,
             Signal.owner_user_id == user.id,
         )
         .order_by(Signal.updated_at.desc())
@@ -449,10 +483,24 @@ async def request_conversation_handoff(
     pause on the thread and owners/admins are alerted so a team member can
     take over in the same conversation.
     """
-    from app.services.handoff import request_human_handoff
+    from app.services.handoff import request_callback, request_human_handoff
+    from app.services.livechat_compat import SURFACE_IN_APP, surface_from_widget_token, team_is_reachable
 
     tenant, user, token = ctx
     signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
+    surface = surface_from_widget_token(token)
+    if surface != SURFACE_IN_APP and not team_is_reachable(tenant, surface=surface):
+        await request_callback(
+            session,
+            tenant.id,
+            signal,
+            reason=body.reason.strip()[:500],
+            via="visitor_callback",
+            actor_type="user",
+            actor_id=str(user.id) if user else "",
+        )
+        await session.commit()
+        return {"ok": True, "ai_paused": False, "via": "callback"}
     await request_human_handoff(
         session,
         tenant.id,
@@ -686,7 +734,11 @@ async def create_conversation(
         except Exception:
             customer_id = None
     signal = await get_or_create_widget_thread(
-        session, tenant, user, customer_id=customer_id
+        session,
+        tenant,
+        user,
+        customer_id=customer_id,
+        surface=surface_from_widget_token(token),
     )
     await session.commit()
     if getattr(signal, "_newly_created", False):
@@ -731,51 +783,88 @@ class StreamChatBody(BaseModel):
     session_token: str | None = None
     page_content: str | None = None
     attachments: list[dict[str, Any]] | None = None
+    # What the person has open. On the in-app surface this is the dashboard
+    # route and entity; the widget sends it with every turn.
+    page_context: dict[str, Any] | str | None = None
 
     model_config = {"extra": "allow"}
 
 
-@router.post("/stream-chat")
+def _page_context_text(raw: dict[str, Any] | str | None) -> str:
+    """Flatten the widget's page-context payload into one prompt line."""
+    if isinstance(raw, str):
+        return raw.strip()
+    if not isinstance(raw, dict):
+        return ""
+    seen: list[str] = []
+    for key in ("description", "title", "page_title", "url", "page_url"):
+        part = str(raw.get(key) or "").strip()
+        if part and part not in seen:
+            seen.append(part)
+    return " - ".join(seen)
+
+
+@router.post("/stream-chat", dependencies=[Depends(rate_limit("livechat-stream", limit=60))])
 async def stream_chat(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
     body: StreamChatBody,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    tenant, user, _token = ctx
+    tenant, user, token = ctx
+    surface = surface_from_widget_token(token)
     message = (body.message_content or body.message or "").strip()
     attachments = body.attachments if isinstance(body.attachments, list) else None
     signal = await get_or_create_widget_thread(
-        session, tenant, user, conversation_id=body.conversation_id
+        session, tenant, user, conversation_id=body.conversation_id, surface=surface
     )
     await session.commit()
+    page_context = _page_context_text(body.page_context)
 
     async def event_generator():
         async for chunk in widget_stream_events(
-            session, tenant, user, message=message, attachments=attachments, signal=signal
+            session,
+            tenant,
+            user,
+            message=message,
+            attachments=attachments,
+            signal=signal,
+            surface=surface,
+            page_context=page_context,
         ):
             yield chunk
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-@router.post("/stream-chat-continue")
+@router.post(
+    "/stream-chat-continue",
+    dependencies=[Depends(rate_limit("livechat-stream", limit=60))],
+)
 async def stream_chat_continue(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
     body: StreamChatBody,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Continue after page context handoff (same SSE contract as stream-chat)."""
-    tenant, user, _token = ctx
+    tenant, user, token = ctx
+    surface = surface_from_widget_token(token)
     page_content = (body.page_content or "").strip()
     message = page_content or "Continue with the page context provided."
     signal = await get_or_create_widget_thread(
-        session, tenant, user, conversation_id=body.conversation_id
+        session, tenant, user, conversation_id=body.conversation_id, surface=surface
     )
     await session.commit()
+    page_context = _page_context_text(body.page_context)
 
     async def event_generator():
         async for chunk in widget_stream_events(
-            session, tenant, user, message=message, signal=signal
+            session,
+            tenant,
+            user,
+            message=message,
+            signal=signal,
+            surface=surface,
+            page_context=page_context,
         ):
             yield chunk
 

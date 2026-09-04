@@ -11,6 +11,8 @@ export const appRoutes = {
   },
   me: {
     preferences: '/me/preferences',
+    assistantMemory: '/me/assistant-memory',
+    assistantMemoryKey: (key: string) => `/me/assistant-memory/${encodeURIComponent(key)}`,
   },
   workspaces: {
     list: '/workspaces',
@@ -25,6 +27,10 @@ export const appRoutes = {
   },
   workspaceInvites: {
     create: '/workspace-invites',
+  },
+  assistant: {
+    /** This user's Bokito helper threads across every workspace they belong to. */
+    threads: '/assistant/threads',
   },
   mailStatus: '/mail-status',
   customTables: {
@@ -123,16 +129,11 @@ export const appRoutes = {
     settings: '/inbox/settings',
   },
   orchestration: {
-    workstreams: '/orchestration/workstreams',
     tasks: '/orchestration/tasks',
     task: (id: string) => `/orchestration/tasks/${id}`,
     taskCancel: (id: string) => `/orchestration/tasks/${id}/cancel`,
     taskResume: (id: string) => `/orchestration/tasks/${id}/resume`,
     taskArtifacts: (id: string) => `/orchestration/tasks/${id}/artifacts`,
-    workstreamRun: (id: string) => `/orchestration/workstreams/${id}/run`,
-    workstreamSteps: (id: string) => `/orchestration/workstreams/${id}/steps`,
-    workstreamStep: (workstreamId: string, stepId: string) =>
-      `/orchestration/workstreams/${workstreamId}/steps/${stepId}`,
     runEvents: (runId: string) => `/orchestration/runs/${runId}/events`,
   },
   triggers: {

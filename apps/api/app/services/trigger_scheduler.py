@@ -48,6 +48,12 @@ async def trigger_scheduler_loop() -> None:
                 if due_tasks:
                     logger.info("Woke %s scheduled task(s)", due_tasks)
 
+                from app.services.workstreams import process_due_run_deadlines
+
+                due_runs = await process_due_run_deadlines(session)
+                if due_runs:
+                    logger.info("Woke %s waiting workstream run(s)", due_runs)
+
                 from app.services.signal_threads import (
                     deliver_due_outbound_messages,
                     wake_snoozed_threads,

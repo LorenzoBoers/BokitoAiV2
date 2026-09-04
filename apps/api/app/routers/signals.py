@@ -698,6 +698,7 @@ async def draft_reply(
         auth.user.id,
         agent=agent,
         signal_id=signal.id,
+        user_role=auth.role,
     )
     loop.tools = []
     draft_text, tokens = await loop.run_chat(
@@ -781,6 +782,7 @@ async def invoke_agent(
         auth.user.id,
         agent=agent,
         signal_id=signal.id,
+        user_role=auth.role,
     )
     reply_text, tokens = await loop.run_chat(
         [*history, {"role": "user", "content": instruction}]

@@ -1,18 +1,17 @@
-"""Conversation-driven project work: queue lifecycle, smart-doc sections, links.
+"""Conversation-driven project work: queue lifecycle, doc links, resources.
 
 Flow: a conversation (or user/agent) produces a queue task (a workflow-kind
 row on the unified `AgentTask` ledger); accepting it wakes the project agent
 on that same task, which compares the request against the project's
-documentation, links the task to the doc sections it touches (`TaskDocLink`),
-and drives section statuses (open -> planned -> in_progress -> implemented ->
-verified). Every status transition is audited; tasks born from a thread echo
-progress back into that thread as SignalEvents.
+documentation, links the task to the documents/sections it touches
+(`TaskDocLink`), and drives section maturity (draft -> review -> final) on the
+atomic `DocSection` knowledge units. Every status transition is audited; tasks
+born from a thread echo progress back into that thread as SignalEvents.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -28,26 +27,24 @@ from app.models.orchestration import (
     AgentTask,
 )
 from app.models.project_work import (
-    DOC_SECTION_STATUSES,
     PROJECT_RESOURCE_STATUSES,
     PROJECT_RESOURCE_TYPES,
     QUEUE_LINK_RELATIONS,
-    ProjectDocSection,
     ProjectResource,
     TaskDocLink,
 )
 from app.models.signal import SignalEvent
-from app.models.workspace import WorkspaceDoc
+from app.models.workspace import DocSection, WorkspaceDoc
 
 # Legal workflow transitions on the unified status machine; "rejected" is
-# reachable from any non-terminal state. "running" doubles as the execution
-# status while an agent segment is live, so agent tools may finish a run by
-# moving running -> planned/verifying/completed directly.
+# reachable from any non-terminal state. Accepted items execute through a
+# workstream run ("analyzing" while the run is live), so the run outcome may
+# complete an item from analyzing/planned directly.
 QUEUE_TRANSITIONS: dict[str, set[str]] = {
     "proposed": {"queued", "rejected"},
     "queued": {"analyzing", "planned", "rejected"},
-    "analyzing": {"planned", "queued", "rejected"},
-    "planned": {"running", "analyzing", "rejected"},
+    "analyzing": {"planned", "queued", "verifying", "completed", "rejected"},
+    "planned": {"running", "analyzing", "verifying", "completed", "rejected"},
     "running": {"verifying", "planned", "completed", "rejected"},
     "verifying": {"completed", "running"},
     "completed": set(),
@@ -100,20 +97,10 @@ def serialize_queue_item(
     }
 
 
-def serialize_section(section: ProjectDocSection) -> dict[str, Any]:
-    return {
-        "id": str(section.id),
-        "doc_id": str(section.doc_id),
-        "project_id": str(section.project_id),
-        "anchor": section.anchor,
-        "heading": section.heading,
-        "position": section.position,
-        "status": section.status,
-        "status_changed_at": _iso(section.status_changed_at),
-        "status_changed_by_type": section.status_changed_by_type,
-        "summary": section.summary,
-        "updated_at": _iso(section.updated_at),
-    }
+def serialize_section(section: DocSection) -> dict[str, Any]:
+    from app.services.workspace import serialize_section as _serialize
+
+    return _serialize(section)
 
 
 def serialize_resource(resource: ProjectResource) -> dict[str, Any]:
@@ -140,104 +127,15 @@ def serialize_resource(resource: ProjectResource) -> dict[str, Any]:
     }
 
 
-# ── doc section sync ─────────────────────────────────────────────
-
-_HEADING_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
-
-
-def _anchor_from(heading: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", heading.lower()).strip("-")
-    return slug[:120] or "section"
-
-
-def extract_headings(content: str) -> list[str]:
-    """Ordered `##` headings; the smart-doc section grain."""
-    return [match.group(1).strip() for match in _HEADING_RE.finditer(content or "")]
-
-
-async def sync_doc_sections(session: AsyncSession, doc: WorkspaceDoc) -> list[ProjectDocSection]:
-    """Align section rows with the doc's `##` headings.
-
-    Anchors are heading slugs, so a section keeps its status and links across
-    saves as long as the heading survives. Sections whose heading disappeared
-    are marked deprecated (not deleted) to preserve queue-item link history.
-    """
-    if not doc.project_id:
-        return []
-    existing = (
-        await session.execute(
-            select(ProjectDocSection).where(ProjectDocSection.doc_id == doc.id)
-        )
-    ).scalars().all()
-    by_anchor = {section.anchor: section for section in existing}
-    now = datetime.utcnow()
-
-    seen: set[str] = set()
-    out: list[ProjectDocSection] = []
-    for position, heading in enumerate(extract_headings(doc.content)):
-        anchor = _anchor_from(heading)
-        if anchor in seen:
-            continue  # duplicate headings collapse into the first section
-        seen.add(anchor)
-        section = by_anchor.get(anchor)
-        if section:
-            changed = section.heading != heading or section.position != position
-            section.heading = heading
-            section.position = position
-            if section.status == "deprecated":
-                # Heading came back: reopen instead of resurrecting old status.
-                section.status = "open"
-                section.status_changed_at = now
-                section.status_changed_by_type = "system"
-                changed = True
-            if changed:
-                section.updated_at = now
-            session.add(section)
-        else:
-            section = ProjectDocSection(
-                tenant_id=doc.tenant_id,
-                project_id=doc.project_id,
-                doc_id=doc.id,
-                anchor=anchor,
-                heading=heading,
-                position=position,
-                status="open",
-                updated_at=now,
-            )
-            session.add(section)
-        out.append(section)
-
-    for section in existing:
-        if section.anchor not in seen and section.status != "deprecated":
-            section.status = "deprecated"
-            section.status_changed_at = now
-            section.status_changed_by_type = "system"
-            section.updated_at = now
-            session.add(section)
-
-    await session.flush()
-    return out
-
-
-async def section_status_by_heading(session: AsyncSession, doc: WorkspaceDoc) -> dict[str, str]:
-    """heading -> status map for chunk metadata (RAG knows planned vs implemented)."""
-    rows = (
-        await session.execute(
-            select(ProjectDocSection).where(ProjectDocSection.doc_id == doc.id)
-        )
-    ).scalars().all()
-    return {section.heading: section.status for section in rows}
+# ── doc sections (delegated to the workspace knowledge layer) ────
 
 
 async def list_doc_sections(
     session: AsyncSession, tenant_id: UUID, doc_id: UUID
-) -> list[ProjectDocSection]:
-    result = await session.execute(
-        select(ProjectDocSection)
-        .where(ProjectDocSection.tenant_id == tenant_id, ProjectDocSection.doc_id == doc_id)
-        .order_by(ProjectDocSection.position)
-    )
-    return list(result.scalars().all())
+) -> list[DocSection]:
+    from app.services.workspace import list_sections
+
+    return await list_sections(session, tenant_id, doc_id)
 
 
 async def set_section_status(
@@ -250,55 +148,19 @@ async def set_section_status(
     actor_id: str = "",
     summary: str | None = None,
     commit: bool = True,
-) -> ProjectDocSection:
-    if status not in DOC_SECTION_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid section status: {status}")
-    section = (
-        await session.execute(
-            select(ProjectDocSection).where(
-                ProjectDocSection.id == section_id, ProjectDocSection.tenant_id == tenant_id
-            )
-        )
-    ).scalar_one_or_none()
-    if not section:
-        raise HTTPException(status_code=404, detail="Doc section not found")
-    previous = section.status
-    section.status = status
-    section.status_changed_at = datetime.utcnow()
-    section.status_changed_by_type = actor_type
-    section.status_changed_by_id = actor_id
-    if summary is not None:
-        section.summary = summary
-    section.updated_at = datetime.utcnow()
-    session.add(section)
+) -> DocSection:
+    from app.services.workspace import set_section_status as _set
 
-    from app.services.audit import record_audit
-
-    await record_audit(
+    return await _set(
         session,
         tenant_id,
-        action="project_doc_section:status",
+        section_id,
+        status,
         actor_type=actor_type,
         actor_id=actor_id,
-        resource_type="project_doc_section",
-        resource_id=str(section.id),
-        summary=f"Section '{section.heading}' {previous} -> {status}",
-        before={"status": previous},
-        after={"status": status},
-        commit=False,
+        summary=summary,
+        commit=commit,
     )
-    # Keep chunk metadata (planned vs implemented) in sync for RAG consumers.
-    doc = (
-        await session.execute(select(WorkspaceDoc).where(WorkspaceDoc.id == section.doc_id))
-    ).scalar_one_or_none()
-    if doc is not None:
-        from app.services.workspace import reindex_doc
-
-        await reindex_doc(session, doc)
-    if commit:
-        await session.commit()
-        await session.refresh(section)
-    return section
 
 
 # ── queue items ──────────────────────────────────────────────────
@@ -325,8 +187,8 @@ async def _links_for_items(
     if not item_ids:
         return {}
     result = await session.execute(
-        select(TaskDocLink, ProjectDocSection, WorkspaceDoc)
-        .outerjoin(ProjectDocSection, ProjectDocSection.id == TaskDocLink.section_id)
+        select(TaskDocLink, DocSection, WorkspaceDoc)
+        .outerjoin(DocSection, DocSection.id == TaskDocLink.section_id)
         .outerjoin(WorkspaceDoc, WorkspaceDoc.id == TaskDocLink.doc_id)
         .where(
             TaskDocLink.tenant_id == tenant_id,
@@ -731,16 +593,17 @@ async def link_item_to_section(
     if relation not in QUEUE_LINK_RELATIONS:
         raise HTTPException(status_code=400, detail=f"Invalid link relation: {relation}")
     item = await get_queue_item(session, tenant_id, item_id)
-    section = (
+    row = (
         await session.execute(
-            select(ProjectDocSection).where(
-                ProjectDocSection.id == section_id, ProjectDocSection.tenant_id == tenant_id
-            )
+            select(DocSection, WorkspaceDoc)
+            .join(WorkspaceDoc, WorkspaceDoc.id == DocSection.doc_id)
+            .where(DocSection.id == section_id, DocSection.tenant_id == tenant_id)
         )
-    ).scalar_one_or_none()
-    if not section:
+    ).first()
+    if not row:
         raise HTTPException(status_code=404, detail="Doc section not found")
-    if section.project_id != item.project_id:
+    section, section_doc = row
+    if section_doc.project_id and item.project_id and section_doc.project_id != item.project_id:
         raise HTTPException(status_code=400, detail="Section belongs to another project")
     existing = (
         await session.execute(
@@ -792,14 +655,15 @@ async def unlink_item_section(
 
 async def sections_for_project(
     session: AsyncSession, tenant_id: UUID, project_id: UUID
-) -> list[ProjectDocSection]:
+) -> list[DocSection]:
     result = await session.execute(
-        select(ProjectDocSection)
+        select(DocSection)
+        .join(WorkspaceDoc, WorkspaceDoc.id == DocSection.doc_id)
         .where(
-            ProjectDocSection.tenant_id == tenant_id,
-            ProjectDocSection.project_id == project_id,
+            DocSection.tenant_id == tenant_id,
+            WorkspaceDoc.project_id == project_id,
         )
-        .order_by(ProjectDocSection.doc_id, ProjectDocSection.position)
+        .order_by(DocSection.doc_id, DocSection.position)
     )
     return list(result.scalars().all())
 
@@ -1025,7 +889,7 @@ async def _project_work_context(
     docs = await list_docs(session, tenant_id, project_id=project_id)
     sections = await sections_for_project(session, tenant_id, project_id)
     links = await links_for_sections(session, tenant_id, [s.id for s in sections])
-    sections_by_doc: dict[UUID, list[ProjectDocSection]] = {}
+    sections_by_doc: dict[UUID, list[DocSection]] = {}
     for section in sections:
         sections_by_doc.setdefault(section.doc_id, []).append(section)
 
@@ -1064,35 +928,17 @@ async def _project_work_context(
     return "\n".join(lines)
 
 
-ANALYSIS_INSTRUCTIONS = (
-    "You are analyzing a project queue task against the project documentation.\n"
-    "Capability: Knowledge architecture and maintenance — keep documents logically "
-    "structured; split or create a document only when a stable new concept emerges; "
-    "prefer editing existing docs over proliferating files.\n"
-    "1. Read the queue task and the documentation below.\n"
-    "2. Impact analysis: decide which documents this request touches or modifies. "
-    "Use link_queue_item_to_doc with doc_id for each "
-    "(relation: implements | modifies | touches | documents).\n"
-    "3. If documentation must change, update those docs with write_doc "
-    "(keep structure clear; new `##` headings only when needed).\n"
-    "4. Optionally set touched section statuses with set_doc_section_status.\n"
-    "5. If this duplicates an existing queue task, say so and mark it via "
-    "update_queue_item_status with status 'rejected' and mention the duplicate.\n"
-    "6. Before finishing, verify the linked docs match the intended reality of "
-    "this request, then update_queue_item_status to 'planned' with a concise "
-    "impact summary of what this touches and why."
-)
-
 VERIFY_INSTRUCTIONS = (
     "You are verifying that reality matches the documentation for a queue task.\n"
     "1. Re-read the linked doc sections and their acceptance checklists.\n"
     "2. Use the available context (search_repo when a repo is connected, "
     "search_index, thread history) to check each checklist point.\n"
-    "3. If everything matches: set the linked sections to 'implemented' (or "
-    "'verified' when you have direct evidence) with set_doc_section_status and "
-    "move the task to 'completed' with update_queue_item_status.\n"
-    "4. If something does not match: describe the gap, update the doc if the "
-    "doc is wrong, and move the task back to 'planned' with your findings."
+    "3. If everything matches: set the linked sections to 'final' with "
+    "set_doc_section_status (only with direct evidence; otherwise leave "
+    "'review') and move the task to 'completed' with update_queue_item_status.\n"
+    "4. If something does not match: describe the gap and move the task back "
+    "to 'planned' with your findings. Doc fixes run through a workstream run, "
+    "not through direct writes from this verification."
 )
 
 
@@ -1139,28 +985,70 @@ async def _wake_task_agent(
 async def start_queue_item_analysis(
     session: AsyncSession, tenant_id: UUID, item: AgentTask
 ) -> dict[str, Any] | None:
-    """Wake the project agent on this task: analyze it against the project docs."""
-    agent = await resolve_project_agent(session, tenant_id, item.project_id)
-    if agent is None:
+    """Route an accepted queue item into a workstream run.
+
+    The project agent (PO) picks the best-matching project workstream (the
+    default as fallback) and a run starts with the item as input. The item
+    status follows the run from there: completed run -> completed item,
+    failed/cancelled run -> back to planned.
+    """
+    from app.services import workstreams as ws_engine
+
+    if not item.project_id:
         return None
+    agent = await resolve_project_agent(session, tenant_id, item.project_id)
     item = await transition_queue_item(
         session,
         tenant_id,
         item.id,
         "analyzing",
         actor_type="system",
-        actor_id="queue_analysis",
+        actor_id="queue_routing",
     )
-    context = await _project_work_context(session, tenant_id, item.project_id)
-    instructions = (
-        f"{ANALYSIS_INSTRUCTIONS}\n\n"
-        f"## Queue task\n"
-        f"- id: {item.id}\n- kind: {item.kind}\n- priority: {item.priority}\n"
-        f"- title: {item.title}\n\n{item.description}\n\n{context}"
+    ws = await ws_engine.choose_workstream_for_input(
+        session,
+        tenant_id,
+        item.project_id,
+        f"{item.kind} {item.title} {item.description}",
     )
-    return await _wake_task_agent(
-        session, tenant_id, item, agent, instructions=instructions, fallback_status="planned"
+    steps = await ws_engine.list_steps(session, tenant_id, ws.id)
+    if not steps:
+        # A definable workstream without steps cannot run; fall back to the
+        # seeded default, which always has one agent step.
+        ws = await ws_engine.ensure_default_workstream(
+            session, tenant_id, item.project_id
+        )
+    input_text = (
+        f"Queue task (id: {item.id})\n"
+        f"- kind: {item.kind}\n- priority: {item.priority}\n- title: {item.title}\n\n"
+        f"{item.description}"
     )
+    if agent is not None:
+        item.assignee_agent_id = agent.id
+        session.add(item)
+        await session.commit()
+    run = await ws_engine.start_run(
+        session,
+        tenant_id,
+        ws.id,
+        input_kind="queue_item",
+        input_text=input_text,
+        input_ref=str(item.id),
+        triggered_by_type="agent" if agent else "system",
+        triggered_by_id=str(agent.id) if agent else "queue_routing",
+    )
+    item = await get_queue_item(session, tenant_id, item.id)
+    try:
+        ctx = json.loads(item.context_json or "{}")
+        if not isinstance(ctx, dict):
+            ctx = {}
+    except json.JSONDecodeError:
+        ctx = {}
+    ctx["workstream_run_id"] = str(run.id)
+    item.context_json = json.dumps(ctx)
+    session.add(item)
+    await session.commit()
+    return {"task_id": str(item.id), "workstream_run_id": str(run.id)}
 
 
 async def start_queue_item_verification(

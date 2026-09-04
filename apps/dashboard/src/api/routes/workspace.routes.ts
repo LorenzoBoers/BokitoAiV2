@@ -28,5 +28,8 @@ export const workspaceRoutes = {
   doc: (docId: string) => `/workspace/docs/${encodeURIComponent(docId)}`,
   docPublish: (docId: string) => `/workspace/docs/${encodeURIComponent(docId)}/publish`,
   docsUpload: () => '/workspace/docs/upload',
+  docSections: (docId: string) => `/workspace/docs/${encodeURIComponent(docId)}/sections`,
+  docSection: (docId: string, sectionId: string) =>
+    `/workspace/docs/${encodeURIComponent(docId)}/sections/${encodeURIComponent(sectionId)}`,
   search: () => '/workspace/search',
 } as const

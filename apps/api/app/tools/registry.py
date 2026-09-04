@@ -4,25 +4,40 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Awaitable, Callable, Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Categories double as the allowance-slider groups in Govern.
+#
+# ``agents`` and ``delegation`` split along the same line as the API's role
+# guards: configuring the workforce (create/update an agent or workstream)
+# is owner/admin territory, while using it (hand over work, start a run) is
+# open to every member. See app/routers/workstreams.py.
 TOOL_CATEGORIES = (
     "messaging",
     "workspace",
     "projects",
     "agents",
+    "delegation",
     "channels",
     "triggers",
     "integrations",
     "govern",
+    "cases",
 )
 
 # Where a tool call originated; clamps what the policy engine will allow.
 TRUST_LEVELS = ("operator", "external", "api")
+TOOL_AUDIENCES = ("operator", "customer", "both")
+ASSURANCE_LEVELS = ("none", "verified")
+
+
+def audience_for_trust(trust: str) -> str:
+    """Widget / inbound sessions are customers; everyone else is an operator."""
+    return "customer" if trust == "external" else "operator"
 
 
 @dataclass
@@ -38,6 +53,14 @@ class ToolContext:
     trust: str = "operator"
     # Resolved allowance mode for this call: "apply" (allowed) or "ask".
     mode: str = "apply"
+    # Membership role of the session user (owner | admin | member); None for
+    # autonomous runs. The policy clamps member sessions to member-safe tools.
+    user_role: str | None = None
+    audience: str = "operator"
+    assurance_level: str = "none"
+    assurance_expires_at: datetime | None = None
+    assurance_email: str = ""
+    surface: str = ""
 
 
 ToolHandler = Callable[[ToolContext, dict[str, Any]], Awaitable[dict[str, Any]]]
@@ -56,6 +79,11 @@ class ToolSpec:
     # handles_ask=True: handler implements the "ask" mode itself (platform
     # mutations create a pending PlatformChange + DecisionRequest).
     handles_ask: bool = False
+    # Who may see and call this tool. Default operator hides it from webchat.
+    audience: str = "operator"
+    # none | verified. Customer reads that need a magic-link stay at verified.
+    min_assurance: str = "none"
+    sensitivity: str = "none"
 
     def definition(self) -> dict[str, Any]:
         return {
@@ -110,6 +138,32 @@ def filter_tools_for_agent(tools: list[dict[str, Any]], agent: Any | None) -> li
     return [t for t in tools if t["name"] in allowed]
 
 
+def tool_matches_audience(spec: ToolSpec, audience: str) -> bool:
+    return spec.audience in ("both", audience)
+
+
+def filter_tools_for_audience(
+    tools: list[dict[str, Any]],
+    audience: str,
+    *,
+    enabled_customer_tools: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Hide operator-only tools from customers and opt-in customer verbs."""
+    kept: list[dict[str, Any]] = []
+    enabled = enabled_customer_tools or set()
+    for tool in tools:
+        spec = get_tool_spec(str(tool.get("name") or ""))
+        if spec is None:
+            kept.append(tool)
+            continue
+        if not tool_matches_audience(spec, audience):
+            continue
+        if spec.audience == "customer" and spec.name not in enabled:
+            continue
+        kept.append(tool)
+    return kept
+
+
 _builtin_loaded = False
 
 
@@ -123,3 +177,4 @@ def _ensure_builtin_loaded() -> None:
     import app.tools.modules  # noqa: F401 — registers list_modules / recommend_module
     import app.tools.builtin  # noqa: F401 — registers built-in tools
     import app.tools.project_work  # noqa: F401 — registers project queue/doc tools
+    import app.tools.cases  # noqa: F401 — registers operational case tools

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Info } from 'lucide-react'
 import ContentHeader from './ContentHeader'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
+import { MY_ASSISTANT_SETTINGS_PATH, WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 import { cn } from '../../lib/utils'
 
@@ -15,6 +15,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     labelKey: 'settings.groups.personal',
     links: [
       { labelKey: 'settings.links.profileSecurity', to: '/settings/profile', hintKey: 'settings.hints.profileSecurity' },
+      { labelKey: 'settings.links.myAssistant', to: MY_ASSISTANT_SETTINGS_PATH, hintKey: 'settings.hints.myAssistant' },
       { labelKey: 'settings.links.notifications', to: '/settings/notifications', hintKey: 'settings.hints.notifications' },
     ],
   },

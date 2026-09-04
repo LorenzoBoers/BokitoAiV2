@@ -194,6 +194,20 @@ async def resolve_decision(
 
                 await resume_agent_task(session, tenant_id, UUID(str(task_id_raw)))
 
+        if action_type in ("workstream_continue", "workstream_retry"):
+            run_id_raw = payload.get("run_id")
+            if run_id_raw:
+                from app.services.workstreams import resume_run
+
+                await resume_run(session, tenant_id, UUID(str(run_id_raw)))
+
+        if action_type == "workstream_cancel":
+            run_id_raw = payload.get("run_id")
+            if run_id_raw:
+                from app.services.workstreams import cancel_run
+
+                await cancel_run(session, tenant_id, UUID(str(run_id_raw)))
+
         change_id = decision.platform_change_id
         platform_change_id = payload.get("platform_change_id") or chosen.get("platform_change_id")
         if change_id and user_id:
@@ -216,6 +230,9 @@ async def resolve_decision(
             "add_module_source",
             "accept_platform_change",
             "orchestration_continue",
+            "workstream_continue",
+            "workstream_retry",
+            "workstream_cancel",
             "session_checkout",
         ):
             from app.tools import execute_tool

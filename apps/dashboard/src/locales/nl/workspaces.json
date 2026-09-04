@@ -2,6 +2,11 @@
   "loading": "Workspaces laden...",
   "title": "Workspaces",
   "description": "Beheer je workspaces en kies waar je wilt doorgaan.",
+  "assistant": {
+    "title": "Recente gesprekken met Bokito",
+    "description": "Je privégesprekken met je helper, in alle workspaces waar je lid van bent.",
+    "thisWorkspace": "Hier"
+  },
   "nav": {
     "title": "Workspace hub",
     "workspaces": "Workspaces",

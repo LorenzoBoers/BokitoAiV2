@@ -21,6 +21,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import MarkdownView from '../components/docs/MarkdownView'
 import { KnowledgeMarkdownEditor } from '../components/knowledge/KnowledgeMarkdownEditor'
+import { DocSectionsEditor } from '../components/knowledge/DocSections'
 import { LinkedRequestsChips } from '../components/knowledge/LinkedRequestsChips'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { KnowledgeMark, KnowledgeTile, LearnedChip } from '../components/knowledge/KnowledgeMark'
@@ -248,6 +249,17 @@ export default function WorkspaceDocs() {
     })()
     return () => {
       cancelled = true
+    }
+  }, [docId, t])
+
+  const reloadActive = useCallback(async () => {
+    if (!docId) return
+    try {
+      const doc = await getWorkspaceDoc(docId)
+      setActive(doc)
+      setDraft(doc.content ?? '')
+    } catch {
+      toast.error(t('knowledgePage.loadDocError'))
     }
   }, [docId, t])
 
@@ -884,6 +896,23 @@ export default function WorkspaceDocs() {
                   minHeightClassName="min-h-[60vh]"
                   writeLabel={t('knowledgePage.editorWrite')}
                   markdownLabel={t('knowledgePage.editorMarkdown')}
+                />
+              ) : (active.sections?.length ?? 0) > 0 ? (
+                <DocSectionsEditor
+                  docId={active.id}
+                  sections={(active.sections ?? []).map((s) =>
+                    s.heading
+                      ? s
+                      : {
+                          ...s,
+                          content: stripDuplicateTitle(s.content, [
+                            activeTitle,
+                            active.title || '',
+                            active.path,
+                          ]),
+                        },
+                  )}
+                  onChanged={() => void reloadActive()}
                 />
               ) : (
                 <MarkdownView content={displayContent} />

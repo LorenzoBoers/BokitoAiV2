@@ -4,7 +4,7 @@ intro: Zet Bokito-chat op je site zodat bezoekers in Communicatie landen naast e
 description: Installeer de Bokito-chatwidget, zet Uiterlijk en Stem en uren, en toon hulp-artikelen naast chat.
 keywords: widget, websitechat, livechat, installeren, uiterlijk, openingstijden
 sort: 40
-related: channels,communication,widget-embed
+related: channels,communication,widget-embed,cases,assistant
 ---
 
 # De websitewidget installeren
@@ -31,8 +31,10 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 ## Zet Stem, uren en het vooraf-formulier
 
 1. Open **Stem en uren**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in, en kies **Wijzigingen opslaan**. Het model zelf zet je op de agentpagina.
-2. Onder **Beschikbaarheid** zet je **Openingstijden** met **Van**, **Tot** en **Tijdzone**, plus **Offlinebericht**. Kies **Beschikbaarheid opslaan**. Buiten die uren toont de widget het offlinebericht. Bezoekers kunnen nog steeds een bericht achterlaten.
+2. Onder **Beschikbaarheid** zet je **Teambereikbaarheid** met **Van**, **Tot** en **Tijdzone**. Kies **Beschikbaarheid opslaan**. Buiten die uren blijft chat open. De widget toont het team als afwezig en bezoekers kunnen een terugbelverzoek vragen in plaats van een live overdracht.
 3. Zet **Vooraf-formulier** aan wanneer je naam en e-mail wilt vóór het eerste bericht. Die bezoekers worden echte [contacten](/docs/inbox/contacts) in plaats van anonieme websitebezoekers.
+
+De websitewidget volgt het lichte of donkere systeemthema van de bezoeker. Er zit geen thema-schakelaar in de widget. Light en Dark op deze pagina zijn alleen om contrast te controleren.
 
 ## Toon je hulp-artikelen
 
@@ -42,4 +44,4 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 
 ## Wat nu
 
-Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [Inbox AI](/docs/inbox/inbox-ai) (websitechat staat vaak op **Automatisch antwoorden**).
+Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [Inbox AI](/docs/inbox/inbox-ai) (websitechat staat vaak op **Automatisch antwoorden**). Getypte intake uit chat is een [signaal](/docs/ai/cases), geen tweede inbox.

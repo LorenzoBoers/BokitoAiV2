@@ -4,7 +4,7 @@ intro: Give agents tools outside Bokito — marketplace apps and connected accou
 description: Use Connections and Marketplace to install modules, attach partner logins, and govern what agents may call.
 keywords: integrations, marketplace, connected, github, mcp, modules, accounting, moneybird, connections
 sort: 10
-related: mcp,models,channels,govern
+related: mcp,models,channels,govern,cases
 ---
 
 # Connect integrations
@@ -61,6 +61,15 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 4. Under **Administration scope**, pick the administrations the agent may address. No selection means access to all administrations.
 5. Every proposed write lands as a decision card showing the administration and the payload. Approving applies it to the package only when both write switches are on.
 
+## Install a workstream template
+
+Modules ship pre-built workstreams — for example **VAT filing preparation** and **Monthly close review** on Accounting, **Bank reconciliation** on Banking.
+
+1. Open the module page from the rail **Modules** group. When the module is on, the **Workstream templates** panel lists what it ships, with the step count per template.
+2. A template that cannot run yet shows why (module connection missing, required agent role not assigned). Fix the requirement first.
+3. Choose **Install**. The workstream is copied to your workspace — you own and can edit the copy. **Open workstream** takes you to it under [Workstreams](/docs/ai/workstreams).
+4. Before every run of an installed template, Bokito re-checks the requirements; a broken requirement pauses the run with a decision instead of failing silently.
+
 ## Index module sources
 
 1. Open the module home **Sources** tab.
@@ -73,6 +82,12 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 2. Assign at least one agent if you have not yet, then review the checklist and choose **Continue with assigned agent**.
 3. The default assigned agent walks you through optional integrations, defaults and sources, and can put decisions on the thread when something needs approval.
 4. Return to the module page and choose **Finish setup** when the checklist is done.
+
+## Turn on customer chat tools and intake types
+
+1. Open an installed module such as **Accounting**.
+2. Under **Customer chat tools**, turn a verb on only when the website widget may look up that visitor's own records after they confirm a short email link.
+3. Under **Intake types**, choose **Install** on a template (for example billing inquiry). Bind the type on a [workstream](/docs/ai/workstreams) so chat can open a [case](/docs/ai/cases).
 
 ## Set what agents may call
 

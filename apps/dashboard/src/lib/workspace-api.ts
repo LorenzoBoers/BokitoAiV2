@@ -20,6 +20,23 @@ export interface LinkedRequestRef {
   relation?: string
 }
 
+export type DocSectionStatus = 'draft' | 'review' | 'final'
+
+export interface DocSectionRow {
+  id: string
+  doc_id: string
+  anchor: string
+  heading: string
+  position: number
+  content: string
+  status: DocSectionStatus
+  status_changed_at: string | null
+  status_changed_by_type: string
+  summary: string
+  edited_by_type?: string
+  updated_at: string | null
+}
+
 export interface WorkspaceDocRow {
   id: string
   path: string
@@ -34,6 +51,7 @@ export interface WorkspaceDocRow {
   created_at: string
   updated_at: string
   content?: string
+  sections?: DocSectionRow[]
   linked_requests?: LinkedRequestRef[]
 }
 
@@ -84,6 +102,31 @@ export async function updateWorkspaceDoc(
 
 export async function deleteWorkspaceDoc(docId: string): Promise<void> {
   await apiDelete(workspaceRoutes.doc(docId))
+}
+
+export async function createDocSection(
+  docId: string,
+  input: { heading: string; content?: string; summary?: string; position?: number },
+): Promise<DocSectionRow> {
+  return apiPost<DocSectionRow>(workspaceRoutes.docSections(docId), input)
+}
+
+export async function updateDocSection(
+  docId: string,
+  sectionId: string,
+  patch: {
+    heading?: string
+    content?: string
+    status?: DocSectionStatus
+    summary?: string
+    position?: number
+  },
+): Promise<DocSectionRow> {
+  return apiPatch<DocSectionRow>(workspaceRoutes.docSection(docId, sectionId), patch)
+}
+
+export async function deleteDocSection(docId: string, sectionId: string): Promise<void> {
+  await apiDelete(workspaceRoutes.docSection(docId, sectionId))
 }
 
 /** Publish or unpublish a doc on the tenant's public help center. */

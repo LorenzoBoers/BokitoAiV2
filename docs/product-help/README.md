@@ -29,7 +29,7 @@ Sections (fixed set, in nav order):
 | --- | --- |
 | `getting-started` | welcome, quickstart, setup-guide, tour, cockpit, members |
 | `inbox` | communication, agent-runs, channels, contacts, inbox-ai, widget |
-| `ai` | agents, decisions, knowledge, projects, agenda |
+| `ai` | agents, decisions, knowledge, projects, workstreams, cases, agenda |
 | `govern` | govern, autonomy, models |
 | `integrations` | integrations, mcp |
 | `developers` | api-overview, authentication, api-signals, webhooks, mcp-endpoint, widget-embed, rate-limits |

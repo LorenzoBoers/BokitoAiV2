@@ -4,7 +4,7 @@ intro: A project holds a goal — its implementation queue, its documentation, w
 description: Work the implementation queue, keep smart documentation with section statuses, link resources like a repo or drive, and let agents propose queue items from conversations.
 keywords: projects, queue, documentation, sections, resources, repository, budget, orchestration
 sort: 40
-related: agenda,knowledge,communication
+related: agenda,knowledge,communication,workstreams
 ---
 
 # How Projects works
@@ -24,7 +24,7 @@ A project is work that spans days. Open **Projects** when a goal should have a h
 
 1. On the **Queue** tab, choose **Add to queue**. Give the request a title, pick a kind (**Feature**, **Bug**, **Task**, **Idea**, **Risk**) and a priority, then choose **Add**.
 2. Items are grouped by status: **Proposed**, **Accepted**, **Analyzing**, **Planned**, **In progress**, **Verifying**, **Done**, **Rejected**. Open an item to read its context, impact analysis, and linked knowledge documents.
-3. Choose **Accept** on a proposed item. The project agent analyzes it against the documentation, links the documents it touches, and writes an impact summary. Use **Analyze** to run that again. You can also **Link document** on an open item to attach a project or organization knowledge page.
+3. Choose **Accept** on a proposed item. The project agent routes it into the best-matching project [workstream](/docs/ai/workstreams) and a run starts with the item as input. Every project ships with a default **Review and execute** workstream, so there is always a runnable path. The item's status follows the run: a completed run completes the item, a failed or cancelled run puts it back to **Planned**. You can also **Link document** on an open item to attach a project or organization knowledge page.
 4. When the work is done, choose **Ready to verify** and then **Verify**. The agent checks the documentation against reality before the item moves to **Done**.
 
 Items born from a conversation show **Open source thread**, which takes you back to the exact conversation in [Communication](/docs/inbox/communication).
@@ -40,8 +40,9 @@ Items born from a conversation show **Open source thread**, which takes you back
 
 1. Open the **Documentation** tab (a contextual view of the same docs as Knowledge filtered to this project). Choose **New document**, give it a name, and write in **Write** or **Markdown**. Content always saves as markdown.
 2. Active linked queue requests show as chips on the document. Request status stays on the queue item.
-3. Section statuses under each `##` heading remain available when you expand **Sections**; they are secondary to document-level links.
-4. Choose **Open in Knowledge hub** to edit the same document under Knowledge → Projects.
+3. Expand **Sections** to work per `##` section, each with a status: **Draft**, **Review**, or **Final**. A section an agent writes during a workstream run moves to **Review**; gate approval promotes it to **Final**.
+4. You edit directly; agents may only edit project documentation inside a [workstream](/docs/ai/workstreams) run, so every agent change has a worklog behind it.
+5. Choose **Open in Knowledge hub** to edit the same document under Knowledge → Projects.
 
 ## Link resources
 
@@ -57,4 +58,4 @@ Items born from a conversation show **Open source thread**, which takes you back
 
 ## What to do next
 
-Attach a schedule on the [Agenda](/docs/ai/agenda). Browse the same project docs under [Knowledge](/docs/ai/knowledge) by clicking that project name; organization-wide knowledge stays on the workspace chip.
+Define the recurring processes behind the queue under [Workstreams](/docs/ai/workstreams). Attach a schedule on the [Agenda](/docs/ai/agenda). Browse the same project docs under [Knowledge](/docs/ai/knowledge) by clicking that project name; organization-wide knowledge stays on the workspace chip.

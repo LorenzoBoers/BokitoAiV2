@@ -4,16 +4,20 @@
  * Fixed at the top (never customizable): New chat + All communication.
  * Pinned at the bottom: Activity, Contacts, and a single Settings link
  * (the 'settings' section flag only controls the link's visibility).
- * Middle sections (channels, agents, tags) can be reordered, hidden, collapsed.
+ * Middle sections (bokito, channels, agents, tags) can be reordered, hidden,
+ * collapsed.
  *
  * Note: the former 'assistant' section was merged into 'agents'. Stored prefs
- * that still list 'assistant' are repaired by normalizeSidebarPrefs.
+ * that still list 'assistant' are repaired by normalizeSidebarPrefs. 'bokito'
+ * is something else: the user's own helper threads, which are private and are
+ * never a company agent chat.
  */
 
-export type SidebarSection = 'agents' | 'channels' | 'tags' | 'settings'
+export type SidebarSection = 'bokito' | 'agents' | 'channels' | 'tags' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
 export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
+  'bokito',
   'channels',
   'agents',
   'tags',
@@ -52,7 +56,11 @@ function isSection(value: unknown): value is SidebarSection {
 function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
   const middle = order.filter((s) => s !== 'settings')
   for (const section of MOVABLE_SECTIONS) {
-    if (!middle.includes(section)) middle.push(section)
+    if (middle.includes(section)) continue
+    // Bokito is the user's own helper, so it opens the rail rather than
+    // landing under the tenant's channels when older prefs are repaired.
+    if (section === 'bokito') middle.unshift(section)
+    else middle.push(section)
   }
   return [...middle, 'settings']
 }

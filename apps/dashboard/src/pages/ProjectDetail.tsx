@@ -9,8 +9,6 @@ import {
   GitBranch,
   Loader2,
   MessageSquare,
-  Play,
-  Plus,
   RefreshCw,
   Trash2,
   Wallet,
@@ -58,12 +56,9 @@ import {
 } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { workLogDetailUrl } from '../lib/workforce-run-urls'
-import {
-  createProjectWorkstream,
-  listProjectWorkstreams,
-  runProjectWorkstream,
-  type ProjectWorkstreamRow,
-} from '../lib/workstreams-api'
+import { listWorkstreams, type WorkstreamRow } from '../lib/workstreams-api'
+import { workstreamPath } from '../lib/workstream-ui'
+import { CaseBindingsCard } from '../components/workstreams/CaseBindingsCard'
 
 async function copyText(value: string, copied: string, copyError: string) {
   try {
@@ -83,7 +78,7 @@ export default function ProjectDetail() {
 
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [budget, setBudget] = useState<ProjectBudgetResponse | null>(null)
-  const [workstreams, setWorkstreams] = useState<ProjectWorkstreamRow[]>([])
+  const [workstreams, setWorkstreams] = useState<WorkstreamRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
   const [agents, setAgents] = useState<AgentVisualFields[]>([])
@@ -98,9 +93,6 @@ export default function ProjectDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const [newStreamName, setNewStreamName] = useState('')
-  const [creatingStream, setCreatingStream] = useState(false)
-  const [runningStreamId, setRunningStreamId] = useState<string | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
   const load = useCallback(async () => {
@@ -115,13 +107,13 @@ export default function ProjectDetail() {
       // Secondary data may fail independently without blocking the page.
       const [budgetResult, streamsResult, runsResult, agentsResult, threadsResult] = await Promise.allSettled([
         getProjectBudget(projectId),
-        listProjectWorkstreams(projectId),
+        listWorkstreams({ projectId }),
         listWorkLogs({ project_id: projectId, limit: 10 }),
         listAgents(),
         token ? listThreads(token, { folder: 'internal', perPage: 80 }) : Promise.reject(new Error('signed out')),
       ])
       setBudget(budgetResult.status === 'fulfilled' ? budgetResult.value : null)
-      setWorkstreams(streamsResult.status === 'fulfilled' ? streamsResult.value.items : [])
+      setWorkstreams(streamsResult.status === 'fulfilled' ? streamsResult.value : [])
       setRuns(runsResult.status === 'fulfilled' ? runsResult.value : [])
       setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
       setAgents(
@@ -317,159 +309,40 @@ export default function ProjectDetail() {
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs text-text-muted">
                     <Workflow size={12} />
-                    {t('projects.detail.flows')}
+                    {t('projects.detail.workstreams')}
                   </Label>
                   {workstreams.length === 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-text-muted">
-                        {t('projects.detail.noFlows')}
-                      </p>
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <Link to={`${AGENDA_AUTOMATIONS_PATH}&project=${project.id}`}>
-                          {t('projects.detail.addFirstStep')}
-                        </Link>
-                      </Button>
-                    </div>
+                    <p className="text-sm text-text-muted">{t('projects.detail.noWorkstreams')}</p>
                   ) : (
                     <ul className="space-y-1">
                       {workstreams.map((stream) => (
-                        <li
-                          key={stream.id}
-                          className="flex items-center justify-between gap-2 rounded-md border border-border/50 px-2.5 py-1.5"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm text-text-primary">{stream.name}</span>
-                            <span className="block text-[11px] text-text-muted">
-                              {stream.steps_count > 0 ? (
-                                t('projects.detail.stepCount', { count: stream.steps_count })
-                              ) : (
-                                <>
-                                  {t('projects.detail.noSteps')}{' '}
-                                  <Link to={AGENDA_AUTOMATIONS_PATH} className="text-accent hover:underline">
-                                    {t('projects.detail.addOnAgenda')}
-                                  </Link>
-                                </>
-                              )}
+                        <li key={stream.id}>
+                          <Link
+                            to={workstreamPath(stream.id)}
+                            className="flex items-center justify-between gap-2 rounded-md border border-border/50 px-2.5 py-1.5 transition-colors hover:border-border hover:bg-bg-muted/40"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm text-text-primary">{stream.name}</span>
+                              <span className="block text-[11px] text-text-muted">
+                                {t('projects.detail.stepCount', { count: stream.steps_count ?? 0 })}
+                              </span>
                             </span>
-                          </span>
-                          <span className="flex shrink-0 items-center gap-1.5">
                             <Badge
                               variant={stream.enabled ? 'secondary' : 'outline'}
-                              className="px-1.5 py-0 text-[10px]"
+                              className="shrink-0 px-1.5 py-0 text-[10px]"
                             >
                               {flowStatusLabel(stream.enabled, t)}
                             </Badge>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-1.5"
-                              disabled={runningStreamId !== null || stream.steps_count === 0}
-                              title={
-                                stream.steps_count === 0
-                                  ? t('projects.detail.addStepsFirst')
-                                  : t('projects.detail.runFlow')
-                              }
-                              onClick={async () => {
-                                setRunningStreamId(stream.id)
-                                try {
-                                  await runProjectWorkstream(stream.id)
-                                  toast.success(t('projects.detail.started', { name: stream.name }))
-                                  void load()
-                                } catch (err) {
-                                  toast.error(
-                                    err instanceof Error ? err.message : t('projects.detail.startError'),
-                                  )
-                                } finally {
-                                  setRunningStreamId(null)
-                                }
-                              }}
-                            >
-                              {runningStreamId === stream.id ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                <Play size={12} />
-                              )}
-                            </Button>
-                          </span>
+                          </Link>
                         </li>
                       ))}
                     </ul>
                   )}
-                  {isAdmin ? (
-                    <div className="flex gap-2 pt-1">
-                      <Input
-                        value={newStreamName}
-                        onChange={(e) => setNewStreamName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newStreamName.trim() && projectId) {
-                            e.preventDefault()
-                            void (async () => {
-                              setCreatingStream(true)
-                              try {
-                                await createProjectWorkstream(projectId, { name: newStreamName.trim() })
-                                setNewStreamName('')
-                                toast.success(
-                                  <span>
-                                    {t('projects.detail.created')}{' '}
-                                    <Link to={AGENDA_AUTOMATIONS_PATH} className="font-medium underline">
-                                      {t('projects.detail.addOnAgenda')}
-                                    </Link>
-                                  </span>,
-                                )
-                                void load()
-                              } catch (err) {
-                                toast.error(
-                                  err instanceof Error ? err.message : t('projects.detail.createError'),
-                                )
-                              } finally {
-                                setCreatingStream(false)
-                              }
-                            })()
-                          }
-                        }}
-                        placeholder={t('projects.detail.newFlowName')}
-                        className="h-8 text-sm"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        disabled={creatingStream || !newStreamName.trim()}
-                        onClick={async () => {
-                          if (!projectId) return
-                          setCreatingStream(true)
-                          try {
-                            await createProjectWorkstream(projectId, { name: newStreamName.trim() })
-                            setNewStreamName('')
-                            toast.success(
-                              <span>
-                                {t('projects.detail.created')}{' '}
-                                <Link to={AGENDA_AUTOMATIONS_PATH} className="font-medium underline">
-                                  {t('projects.detail.addOnAgenda')}
-                                </Link>
-                              </span>,
-                            )
-                            void load()
-                          } catch (err) {
-                            toast.error(
-                              err instanceof Error ? err.message : t('projects.detail.createError'),
-                            )
-                          } finally {
-                            setCreatingStream(false)
-                          }
-                        }}
-                      >
-                        {creatingStream ? (
-                          <Loader2 size={13} className="mr-1 animate-spin" />
-                        ) : (
-                          <Plus size={13} className="mr-1" />
-                        )}
-                        {t('projects.detail.add')}
-                      </Button>
-                    </div>
-                  ) : null}
+                  <Button type="button" size="sm" variant="outline" asChild>
+                    <Link to="/workstreams">{t('projects.detail.openWorkstreams')}</Link>
+                  </Button>
                 </div>
+                <CaseBindingsCard targetKind="project" targetId={project.id} canEdit={isAdmin} />
               </CardContent>
             </Card>
 

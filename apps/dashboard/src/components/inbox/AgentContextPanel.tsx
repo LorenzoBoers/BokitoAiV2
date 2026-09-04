@@ -31,6 +31,7 @@ import { translateDecisionText } from '../../lib/activity-labels'
 import { permissionScopeLabel } from '../../lib/permission-scope-label'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ThreadProjectPicker } from './ThreadProjectPicker'
+import { ThreadCasesList } from './ThreadCasesList'
 
 type Props = {
   thread: InboxThread
@@ -204,6 +205,9 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         projectId={thread.projectId ?? null}
         onUpdated={onThreadUpdated}
       />
+      <div className="border-b border-border/40 px-4 py-3">
+        <ThreadCasesList signalId={String(thread.id)} />
+      </div>
 
       {loadFailed && !loading ? (
         <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 px-3 py-2">

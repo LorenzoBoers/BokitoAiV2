@@ -4,7 +4,7 @@ intro: Alles wat op een klok of een inbound event moet gebeuren, plan je hier, n
 description: Plan agent-wakes, sync Google- of Outlook-kalenders in dezelfde weekweergave, pauzeer automatiseringen of start ze nu.
 keywords: agenda, planner, automatiseringen, cron, webhook, heartbeat, google calendar, outlook calendar
 sort: 50
-related: agents,projects,communication,agent-runs,integrations
+related: agents,projects,communication,agent-runs,integrations,workstreams
 ---
 
 # Zo werkt Agenda
@@ -47,9 +47,10 @@ Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starte
 ![Agenda-automatiseringen](/api/docs/assets/agenda/automations.png)
 *Pauzeer, bewerk of start een automatisering nu.*
 
-1. Open **Automatiseringen**. Een lege lijst biedt **Automatisering maken**. Een lege weekdag biedt **Plannen**. Het typefilter blijft in de URL als `kind`.
+1. Open **Automatiseringen**. Het paneel toont je triggers (schema's, herhalingen, check-ins, inkomende hooks). Een lege lijst biedt **Automatisering maken**. Een lege weekdag biedt **Plannen**. Het typefilter blijft in de URL als `kind`.
 2. **Pauzeer**, bewerk, of **Nu uitvoeren**.
-3. Heartbeats checken workspace-docs op een timer. On-demand chatruns horen in Activiteit, niet hier.
+3. Een trigger kan een agent of een [werkstroom](/docs/ai/workstreams) als doel hebben; een werkstroom-trigger start een volledige run met de trigger-payload als input. Gebruik **Open Werkstromen** om de werkstromen zelf te beheren.
+4. Heartbeats checken workspace-docs op een timer. On-demand chatruns horen in Activiteit, niet hier.
 
 Als de gekoppelde agent is gearchiveerd, faalt de wake tot je een andere agent kiest.
 

@@ -5,7 +5,7 @@ from app.models.auth_token import AuthToken
 from app.models.oauth_state import OAuthState
 from app.models.channel import ChannelAccount, ChannelBinding, Company, Contact
 from app.models.email_routing import EmailRoutingRule
-from app.models.workspace import DocChunk, WorkspaceDoc
+from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
 from app.models.metric import CustomMetric, CustomMetricPoint
 from app.models.outcome import OperationalOutcome
@@ -21,7 +21,7 @@ from app.models.signal import (
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
 from app.models.trigger import Trigger
-from app.models.orchestra import Workstream, WorkstreamStep
+from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep
 from app.models.api_token import ApiToken
 from app.models.webhook import WebhookDelivery, WebhookEndpoint
 from app.models.custom_db import (
@@ -36,7 +36,6 @@ from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
 from app.models.project import Project, ProjectAgent
 from app.models.project_work import (
-    ProjectDocSection,
     ProjectResource,
     TaskDocLink,
 )
@@ -52,6 +51,9 @@ from app.models.module_source import ModuleSource
 from app.models.module_agent import AgentScope, ModuleAgent
 from app.models.module_install import ModuleInstall
 from app.models.calendar import CalendarEvent
+from app.models.user_memory import UserAssistantMemory
+from app.models.customer_verify import CustomerVerifyToken
+from app.models.case import Case, CaseType, CaseTypeBinding
 
 __all__ = [
     "Tenant",
@@ -65,6 +67,7 @@ __all__ = [
     "UserNotificationPreference",
     "DecisionRequest",
     "WorkspaceDoc",
+    "DocSection",
     "DocChunk",
     "IntegrationConnection",
     "IntegrationBinding",
@@ -86,10 +89,10 @@ __all__ = [
     "ApiToken",
     "Trigger",
     "Workstream",
+    "WorkstreamRun",
     "WorkstreamStep",
     "Project",
     "ProjectAgent",
-    "ProjectDocSection",
     "TaskDocLink",
     "ProjectResource",
     "UsageLedger",
@@ -128,4 +131,9 @@ __all__ = [
     "ModuleAgent",
     "ModuleInstall",
     "CalendarEvent",
+    "UserAssistantMemory",
+    "CustomerVerifyToken",
+    "Case",
+    "CaseType",
+    "CaseTypeBinding",
 ]

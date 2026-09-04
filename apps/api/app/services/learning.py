@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -702,7 +703,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         from uuid import UUID as _UUID
 
         from app.models.orchestra import Workstream
-        from app.services.orchestration.queue import enqueue_workstream_run
+        from app.services.workstreams import start_run
 
         ws_id = settings.get("strategy_workstream_id")
         ws = None
@@ -717,10 +718,20 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
                     )
                 )
             ).scalar_one_or_none()
-        if ws:
-            workstream_enqueued = await enqueue_workstream_run(
-                str(tenant_id), str(ws.id), "learning_cycle"
-            )
+        if ws and ws.enabled:
+            try:
+                await start_run(
+                    session,
+                    tenant_id,
+                    ws.id,
+                    input_kind="trigger",
+                    input_text="Learning cycle detected a worsening eval trend; review strategy.",
+                    triggered_by_type="system",
+                    triggered_by_id="learning_cycle",
+                )
+                workstream_enqueued = True
+            except HTTPException:
+                workstream_enqueued = False
 
     return {
         "mapped_outcomes": mapped,

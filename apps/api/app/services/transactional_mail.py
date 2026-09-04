@@ -288,6 +288,29 @@ async def send_password_reset_mail(to: str, *, reset_link: str) -> bool:
     return await send_mail(to, subject, text, html, kind="password_reset")
 
 
+async def send_customer_verify_mail(to: str, *, verify_link: str) -> bool:
+    subject = "Confirm this conversation"
+    text = (
+        "Confirm this conversation so we can look up your account details.\n\n"
+        f"Open this link:\n{verify_link}\n\n"
+        "This link expires in 20 minutes and can be used once. If you did not "
+        "ask for this you can ignore this email."
+    )
+    html = render_mail_html(
+        title="Confirm this conversation",
+        paragraphs=[
+            "Confirm this conversation so we can look up your account details."
+        ],
+        cta_label="Confirm conversation",
+        cta_url=verify_link,
+        footer=(
+            "This link expires in 20 minutes and can be used once. If you did "
+            "not ask for this you can ignore this email."
+        ),
+    )
+    return await send_mail(to, subject, text, html, kind="customer_verify")
+
+
 async def send_verification_mail(to: str, *, verify_link: str) -> bool:
     subject = "Verify your email address"
     text = (

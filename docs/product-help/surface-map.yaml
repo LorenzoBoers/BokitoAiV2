@@ -65,6 +65,22 @@ tour:
   screenshots:
     - sidebar
 
+assistant:
+  section: getting-started
+  routes:
+    - /workspaces
+    - /settings/assistant
+  code_globs:
+    - apps/dashboard/src/components/shell/PersonalAssistantWidget.tsx
+    - apps/dashboard/src/lib/personal-assistant-widget.ts
+    - apps/dashboard/src/pages/Workspaces.tsx
+    - apps/dashboard/src/pages/MyAssistantSettings.tsx
+    - apps/chat-widget/src/widget-main.ts
+    - apps/api/app/services/personal_assistant.py
+    - apps/api/app/services/user_memory.py
+    - apps/api/app/services/livechat_compat.py
+    - apps/api/app/services/livechat_stream.py
+
 cockpit:
   section: getting-started
   routes:
@@ -170,6 +186,8 @@ widget:
   routes:
     - /ai/assistant
     - /ai/assistant/external/installation
+    - /ai/assistant/external/hours
+    - /ai/assistant/external/customization
   code_globs:
     - apps/dashboard/src/pages/MessengerSettings.tsx
     - apps/chat-widget/src/widget-main.ts
@@ -207,6 +225,7 @@ knowledge:
     - /knowledge
   code_globs:
     - apps/dashboard/src/pages/WorkspaceDocs.tsx
+    - apps/dashboard/src/components/knowledge/DocSections.tsx
     - apps/api/app/services/workspace.py
   screenshots:
     - add-doc
@@ -223,6 +242,41 @@ projects:
     - apps/api/app/routers/projects.py
   screenshots:
     - project
+
+workstreams:
+  section: ai
+  routes:
+    - /workstreams
+    - /workstreams/{workstreamId}
+    - /workstreams/runs/{runId}
+  code_globs:
+    - apps/dashboard/src/pages/WorkstreamsPage.tsx
+    - apps/dashboard/src/pages/WorkstreamDetail.tsx
+    - apps/dashboard/src/pages/WorkstreamRunDetail.tsx
+    - apps/dashboard/src/lib/workstreams-api.ts
+    - apps/api/app/routers/workstreams.py
+    - apps/api/app/services/workstreams.py
+    - apps/api/app/services/workstream_integrity.py
+    - apps/api/app/modules/catalog.py
+  screenshots: []
+
+cases:
+  section: ai
+  routes:
+    - /workstreams
+    - /workstreams/{workstreamId}
+    - /communication
+  code_globs:
+    - apps/dashboard/src/components/inbox/ThreadCasesList.tsx
+    - apps/dashboard/src/components/workstreams/CaseTypesCard.tsx
+    - apps/dashboard/src/components/workstreams/CaseBindingsCard.tsx
+    - apps/dashboard/src/lib/cases-api.ts
+    - apps/dashboard/src/api/routes/cases.routes.ts
+    - apps/api/app/routers/cases.py
+    - apps/api/app/services/cases.py
+    - apps/api/app/tools/cases.py
+    - apps/api/app/models/case.py
+  screenshots: []
 
 agenda:
   section: ai

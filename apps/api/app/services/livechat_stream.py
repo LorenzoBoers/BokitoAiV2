@@ -14,16 +14,30 @@ from app.models.auth import Tenant, User
 from app.models.channel import Contact
 from app.models.signal import Signal
 from app.services.agent.loop import AgentLoop
+from app.services.assistant_context import page_context_block
 from app.services.assistant_threads import (
     append_signal_chat_message,
     signal_chat_history,
+)
+from app.services.livechat_compat import SURFACE_IN_APP, SURFACE_SITE, normalize_surface
+from app.services.personal_assistant import (
+    PERSONAL_THREAD_SOURCE,
+    ensure_personal_assistant,
 )
 from app.services.routing import resolve_agent_for_channel, resolve_agent_for_signal
 
 
 async def _assistant_agent(
-    session: AsyncSession, tenant_id: UUID, signal: Signal | None = None
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal | None = None,
+    *,
+    surface: str = SURFACE_SITE,
 ) -> Agent:
+    # The in-app surface always answers as the tenant's Bokito helper, never
+    # as a channel-bound tenant agent.
+    if normalize_surface(surface) == SURFACE_IN_APP:
+        return await ensure_personal_assistant(session, tenant_id)
     if signal:
         agent = await resolve_agent_for_signal(session, signal)
     else:
@@ -40,11 +54,14 @@ async def get_or_create_widget_thread(
     *,
     conversation_id: str | None = None,
     customer_id: str | None = None,
+    surface: str = SURFACE_SITE,
 ) -> Signal:
     """Resolve the Signal thread for a widget session.
 
-    Logged-in users get an assistant-channel thread (channel="assistant");
-    anonymous visitors get a widget thread linked to a Contact.
+    In-app helper sessions get a private per-user thread pinned to the Bokito
+    agent (source="personal"). Other logged-in users get an assistant-channel
+    thread (source="widget"); anonymous visitors get a widget thread linked to
+    a Contact.
     """
     if conversation_id:
         try:
@@ -60,12 +77,15 @@ async def get_or_create_widget_thread(
                 return existing
 
     if user:
+        in_app = normalize_surface(surface) == SURFACE_IN_APP
+        helper = await ensure_personal_assistant(session, tenant.id) if in_app else None
         signal = Signal(
             tenant_id=tenant.id,
             channel="assistant",
-            source="widget",
+            source=PERSONAL_THREAD_SOURCE if in_app else "widget",
             subject="New conversation",
             owner_user_id=user.id,
+            agent_id=helper.id if helper else None,
             contact_name=user.display_name or user.email,
             has_unread=False,
         )
@@ -118,9 +138,12 @@ async def widget_stream_events(
     message: str,
     attachments: list[dict[str, Any]] | None = None,
     signal: Signal | None = None,
+    surface: str = SURFACE_SITE,
+    page_context: str = "",
 ) -> AsyncGenerator[str, None]:
     """Yield SSE lines compatible with bokito-chat (`evt.t` chunks + `type: done`)."""
-    agent = await _assistant_agent(session, tenant.id, signal)
+    surface = normalize_surface(surface)
+    agent = await _assistant_agent(session, tenant.id, signal, surface=surface)
     user_id = user.id if user else None
 
     history: list[dict[str, Any]]
@@ -180,6 +203,9 @@ async def widget_stream_events(
     else:
         history = [{"role": "user", "content": message or "Hello"}]
 
+    # A signed-in teammate's session is clamped to their own workspace role
+    # (AgentLoop resolves the membership row itself), so the effective mode is
+    # the minimum of the agent passport and what that person may do in the API.
     loop = AgentLoop(
         session,
         tenant.id,
@@ -187,10 +213,16 @@ async def widget_stream_events(
         agent=agent,
         signal_id=signal.id if signal else None,
         trust="operator" if user_id else "external",
+        enable_chat_thinking=surface == SURFACE_IN_APP,
+        surface=surface,
     )
     full_text = ""
     final_sent = False
-    async for event in loop.stream_chat(history, attachments=attachments):
+    async for event in loop.stream_chat(
+        history,
+        extra_context=page_context_block(page_context) if user_id else "",
+        attachments=attachments,
+    ):
         if event.get("type") == "delta":
             chunk = str(event.get("text") or "")
             if chunk:

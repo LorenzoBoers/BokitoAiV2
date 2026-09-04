@@ -4,7 +4,7 @@ intro: Geef agents tools buiten Bokito — marketplace-apps en gekoppelde accoun
 description: Gebruik Koppelingen en Marketplace om modules te installeren, partnerlogins te koppelen en te sturen wat agents mogen aanroepen.
 keywords: integraties, marketplace, verbonden, github, mcp, modules, boekhouding, moneybird, koppelingen
 sort: 10
-related: mcp,models,channels,govern
+related: mcp,models,channels,govern,cases
 ---
 
 # Integraties koppelen
@@ -61,6 +61,15 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 4. Kies onder **Administratie-scope** de administraties die de agent mag benaderen. Geen selectie betekent toegang tot alle administraties.
 5. Elke voorgestelde schrijfactie landt als beslissingskaart met de administratie en de inhoud. Goedkeuren voert de actie alleen uit als beide schrijfschakelaars aan staan.
 
+## Installeer een werkstroom-sjabloon
+
+Modules leveren voorgebouwde werkstromen mee — bijvoorbeeld **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding, **Bankreconciliatie** op Bankieren.
+
+1. Open de modulepagina vanuit de rail-groep **Modules**. Als de module aan staat, toont het paneel **Werkstroom-sjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
+2. Een sjabloon dat nog niet kan draaien, laat zien waarom (moduleverbinding ontbreekt, vereiste agentrol niet toegewezen). Los eerst die vereiste op.
+3. Kies **Installeren**. De werkstroom wordt naar je workspace gekopieerd — jij bent eigenaar en mag de kopie bewerken. **Open werkstroom** brengt je ernaartoe onder [Werkstromen](/docs/ai/workstreams).
+4. Voor elke run van een geïnstalleerd sjabloon controleert Bokito de vereisten opnieuw; een kapotte vereiste pauzeert de run met een beslissing in plaats van stil te falen.
+
 ## Indexeer modulebronnen
 
 1. Open op de module-home de tab **Bronnen**.
@@ -73,6 +82,12 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 2. Wijs minstens één agent toe als dat nog niet gebeurd is, bekijk de checklist en kies **Doorgaan met toegewezen agent**.
 3. De standaard toegewezen agent begeleidt optionele integraties, standaarden en bronnen, en kan beslissingen op de thread zetten wanneer goedkeuring nodig is.
 4. Ga terug naar de modulepagina en kies **Setup afronden** wanneer de checklist klaar is.
+
+## Zet klantchat-tools en intake-types aan
+
+1. Open een geïnstalleerde module zoals **Boekhouding**.
+2. Zet onder **Klantchat-tools** een actie alleen aan wanneer de websitewidget de eigen gegevens van die bezoeker mag opzoeken nadat ze een korte e-maillink bevestigen.
+3. Kies onder **Intake-types** **Installeren** bij een sjabloon (bijvoorbeeld billing inquiry). Koppel het type aan een [werkstroom](/docs/ai/workstreams) zodat chat een [signaal](/docs/ai/cases) kan openen.
 
 ## Zet wat agents mogen aanroepen
 

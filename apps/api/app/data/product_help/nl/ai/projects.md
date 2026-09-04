@@ -4,7 +4,7 @@ intro: Een project houdt een doel vast — de implementatie-queue, de documentat
 description: Werk de implementatie-queue af, houd slimme documentatie met sectiestatussen bij, koppel resources zoals een repo of drive, en laat agents queue-items voorstellen vanuit gesprekken.
 keywords: projecten, queue, documentatie, secties, resources, repository, budget, orkestratie
 sort: 40
-related: agenda,knowledge,communication
+related: agenda,knowledge,communication,workstreams
 ---
 
 # Zo werken Projecten
@@ -24,7 +24,7 @@ Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis mo
 
 1. Kies op het tabblad **Queue** voor **Aan queue toevoegen**. Geef het verzoek een titel, kies een soort (**Feature**, **Bug**, **Taak**, **Idee**, **Risico**) en een prioriteit, en kies **Toevoegen**.
 2. Items zijn gegroepeerd op status: **Voorgesteld**, **Geaccepteerd**, **In analyse**, **Gepland**, **In uitvoering**, **In verificatie**, **Klaar**, **Afgewezen**. Open een item om de context, impactanalyse en gekoppelde kennisdocumenten te lezen.
-3. Kies **Accepteren** op een voorgesteld item. De projectagent analyseert het tegen de documentatie, koppelt de documenten die het raakt en schrijft een impactsamenvatting. Gebruik **Analyseer** om dat opnieuw te draaien. Op een open item kun je ook **Document koppelen** kiezen om een project- of organisatiekennispagina te hangen.
+3. Kies **Accepteren** op een voorgesteld item. De projectagent leidt het naar de best passende project-[werkstroom](/docs/ai/workstreams) en er start een run met het item als input. Elk project heeft standaard een werkstroom **Beoordeel en voer uit**, dus er is altijd een uitvoerbaar pad. De itemstatus volgt de run: een afgeronde run rondt het item af, een mislukte of geannuleerde run zet het terug naar **Gepland**. Op een open item kun je ook **Document koppelen** kiezen om een project- of organisatiekennispagina te hangen.
 4. Als het werk klaar is, kies je **Klaar voor verificatie** en daarna **Verifieer**. De agent toetst de documentatie aan de realiteit voordat het item naar **Klaar** gaat.
 
 Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je terugbrengt naar het exacte gesprek in [Communicatie](/docs/inbox/communication).
@@ -40,8 +40,9 @@ Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je ter
 
 1. Open het tabblad **Documentatie** (een contextuele weergave van dezelfde docs als Kennis, gefilterd op dit project). Kies **Nieuw document**, geef het een naam en schrijf in **Schrijven** of **Markdown**. Inhoud wordt altijd als markdown opgeslagen.
 2. Actieve gekoppelde queue-aanvragen tonen chips op het document. De status blijft op het queue-item.
-3. Sectiestatussen onder elke `##`-kop blijven beschikbaar wanneer je **Secties** uitklapt; ze zijn secundair ten opzichte van documentkoppelingen.
-4. Kies **Openen in Kennishub** om hetzelfde document onder Kennis → Projecten te bewerken.
+3. Klap **Secties** uit om per `##`-sectie te werken, elk met een status: **Concept**, **Review** of **Definitief**. Een sectie die een agent tijdens een werkstroom-run schrijft, gaat naar **Review**; gate-goedkeuring promoveert haar naar **Definitief**.
+4. Jij bewerkt direct; agents mogen projectdocumentatie alleen bewerken binnen een [werkstroom](/docs/ai/workstreams)-run, zodat achter elke agent-wijziging een werklog zit.
+5. Kies **Openen in Kennishub** om hetzelfde document onder Kennis → Projecten te bewerken.
 
 ## Koppel resources
 
@@ -57,4 +58,4 @@ Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je ter
 
 ## Wat nu
 
-Hang een planning op de [Agenda](/docs/ai/agenda). Bekijk dezelfde projectdocs onder [Kennis](/docs/ai/knowledge) door op die projectnaam te klikken; workspacebrede kennis blijft op de workspace-chip.
+Definieer de terugkerende processen achter de queue onder [Werkstromen](/docs/ai/workstreams). Hang een planning op de [Agenda](/docs/ai/agenda). Bekijk dezelfde projectdocs onder [Kennis](/docs/ai/knowledge) door op die projectnaam te klikken; workspacebrede kennis blijft op de workspace-chip.

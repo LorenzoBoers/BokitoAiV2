@@ -1,6 +1,5 @@
 """Tests for platform automation: MCP auth, orchestration resume, inbound replies."""
 
-import json
 from uuid import uuid4
 
 import pytest
@@ -44,8 +43,10 @@ async def test_mock_trading_mcp_risk_status(session_override):
 
 
 @pytest.mark.asyncio
-async def test_orchestration_continue_resumes_task(session_override):
-    from app.models.orchestra import Workstream, WorkstreamStep
+async def test_workstream_gate_decision_resumes_run(session_override):
+    """Approving the gate decision resumes the run past the gate step."""
+    from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep
+    from app.services.workstreams import start_run
 
     tenant = Tenant(slug="orch-resume", name="Orch Resume")
     session_override.add(tenant)
@@ -58,41 +59,29 @@ async def test_orchestration_continue_resumes_task(session_override):
         tenant_id=tenant.id,
         workstream_id=workstream.id,
         name="Review",
-        order=0,
-        step_kind="human_gate",
+        position=0,
+        kind="gate",
     )
     session_override.add(gate)
-    await session_override.flush()
-
-    task = AgentTask(
-        tenant_id=tenant.id,
-        workstream_id=workstream.id,
-        current_step_id=gate.id,
-        title="Paused workstream",
-        status="awaiting_human",
-        pause_reason="human_gate",
-    )
-    session_override.add(task)
-    await session_override.flush()
-
-    decision = DecisionRequest(
-        tenant_id=tenant.id,
-        title="Continue?",
-        summary="Approve to continue",
-        status="awaiting_human",
-        options_json=json.dumps(
-            [
-                {
-                    "id": "approve",
-                    "label": "Continue",
-                    "action_type": "orchestration_continue",
-                    "payload": {"task_id": str(task.id)},
-                }
-            ]
-        ),
-    )
-    session_override.add(decision)
     await session_override.commit()
+
+    run = await start_run(
+        session_override,
+        tenant.id,
+        workstream.id,
+        input_kind="manual",
+        input_text="Please review.",
+        triggered_by_type="system",
+    )
+    assert run.status == "awaiting_gate"
+
+    # advance_run raised the gate decision; approving it resumes the run.
+    decision = (
+        await session_override.execute(
+            select(DecisionRequest).where(DecisionRequest.tenant_id == tenant.id)
+        )
+    ).scalars().first()
+    assert decision is not None
 
     await resolve_decision(
         session_override,
@@ -104,11 +93,11 @@ async def test_orchestration_continue_resumes_task(session_override):
     )
 
     refreshed = (
-        await session_override.execute(select(AgentTask).where(AgentTask.id == task.id))
+        await session_override.execute(
+            select(WorkstreamRun).where(WorkstreamRun.id == run.id)
+        )
     ).scalar_one()
-    # Resume executes inline (no queue in tests): the approved gate is skipped
-    # and the gate-only workstream runs to completion.
-    assert refreshed.pause_reason is None
+    # The gate was the only step, so the resumed run completes.
     assert refreshed.status == "completed"
 
 

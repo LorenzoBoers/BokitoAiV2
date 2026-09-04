@@ -32,6 +32,14 @@ export const integrationsRoutes = {
     moduleSourceReindex: (slug: string, sourceId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/sources/${encodeURIComponent(sourceId)}/reindex`,
     moduleCompanies: (moduleSlug: string) => `/integrations/modules/${moduleSlug}/companies`,
+    moduleTemplates: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/templates`,
+    moduleTemplateInstall: (slug: string, templateSlug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/templates/${encodeURIComponent(templateSlug)}/install`,
+    moduleCaseTypeTemplates: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/case-type-templates`,
+    moduleCaseTypeTemplateInstall: (slug: string, templateSlug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/case-type-templates/${encodeURIComponent(templateSlug)}/install`,
     calendars: {
       connections: '/calendars/connections',
       syncAll: '/calendars/sync',

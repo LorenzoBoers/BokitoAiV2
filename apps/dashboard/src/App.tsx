@@ -49,6 +49,9 @@ const LearnPage = lazy(() => import('./pages/LearnPage'))
 const AiAgents = lazy(() => import('./pages/AiAgents'))
 const AiAgentDetail = lazy(() => import('./pages/AiAgentDetail'))
 const WorkspaceDocs = lazy(() => import('./pages/WorkspaceDocs'))
+const WorkstreamsPage = lazy(() => import('./pages/WorkstreamsPage'))
+const WorkstreamDetail = lazy(() => import('./pages/WorkstreamDetail'))
+const WorkstreamRunDetail = lazy(() => import('./pages/WorkstreamRunDetail'))
 
 // Settings sections
 const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
@@ -64,6 +67,7 @@ const MemberManagement = lazy(() => import('./pages/MemberManagement'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
+const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
 const ConnectionsMarketplace = lazy(() => import('./pages/ConnectionsMarketplace'))
 const ConnectionsHub = lazy(() => import('./pages/ConnectionsHub'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
@@ -389,6 +393,9 @@ export default function App() {
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
           <Route path="/knowledge" element={<WorkspaceDocs />} />
           <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
+          <Route path="/workstreams" element={<WorkstreamsPage />} />
+          <Route path="/workstreams/runs/:runId" element={<WorkstreamRunDetail />} />
+          <Route path="/workstreams/:workstreamId" element={<WorkstreamDetail />} />
 
           {/* Modules hub (first-class product surface; one Connections story) */}
           <Route path="/connections" element={<ConnectionsHub />} />
@@ -408,7 +415,7 @@ export default function App() {
             <Route path="/settings/setup" element={<SetupHubPage />} />
             <Route path="/settings/help" element={<HelpHubPage />} />
             <Route path="/settings/profile" element={<ProfileSettings />} />
-            <Route path="/settings/assistant" element={<Navigate to={newConversationPath()} replace />} />
+            <Route path="/settings/assistant" element={<MyAssistantSettings />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />
             <Route path="/settings/access-security" element={<Navigate to="/settings/profile" replace />} />
             <Route path="/settings/general" element={<WorkspaceSettings />} />

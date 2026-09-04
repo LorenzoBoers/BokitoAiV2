@@ -37,6 +37,7 @@ export type ModuleConnectionsResponse = {
     /** Tenant-level write switch (owner/admin). */
     writes_enabled?: boolean
     user_access?: { mode?: string; user_ids?: string[] }
+    customer_tools?: Record<string, boolean>
   }
   /** True only when the platform switch AND the tenant pref are both on. */
   writes_active?: boolean
@@ -76,6 +77,7 @@ export async function setModulePrefs(
     clear_default_connection?: boolean
     writes_enabled?: boolean
     user_access?: ModuleUserAccess
+    customer_tools?: Record<string, boolean>
   },
 ): Promise<{ prefs: Record<string, unknown> }> {
   return apiPatch(integrationsRoutes.platform.modulePrefs(slug), body)

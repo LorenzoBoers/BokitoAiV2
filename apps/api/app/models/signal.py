@@ -117,6 +117,15 @@ class Signal(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Thread-scoped customer assurance (magic-link). Empty level = none.
+    assurance_level: str = ""
+    assurance_contact_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contacts.id"
+    )
+    assurance_email: str = ""
+    assurance_expires_at: Optional[datetime] = Field(default=None, index=True)
+    assurance_verified_at: Optional[datetime] = None
+
 
 class SignalMessage(SQLModel, table=True):
     __tablename__ = "signal_messages"

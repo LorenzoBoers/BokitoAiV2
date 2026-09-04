@@ -2,6 +2,11 @@
   "loading": "Loading workspaces...",
   "title": "Workspaces",
   "description": "Manage your workspaces and choose where you want to continue.",
+  "assistant": {
+    "title": "Recent chats with Bokito",
+    "description": "Your private helper conversations, across every workspace you belong to.",
+    "thisWorkspace": "Here"
+  },
   "nav": {
     "title": "Workspace hub",
     "workspaces": "Workspaces",

@@ -40,6 +40,22 @@ async def _search_product_help(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     return {"results": results}
 
 
+async def _remember_about_me(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.user_memory import upsert_user_memory
+
+    if not ctx.user_id:
+        return {"error": "No person in this session to remember anything about"}
+    key = str(tool_input.get("key") or "").strip()
+    if not key:
+        return {"error": "key is required"}
+    entry = await upsert_user_memory(
+        ctx.session, ctx.user_id, key, str(tool_input.get("content") or "")
+    )
+    if entry is None:
+        return {"forgotten": key}
+    return {"remembered": entry.key, "content": entry.content}
+
+
 async def _list_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.workspace import list_docs, serialize_doc
 
@@ -118,11 +134,48 @@ async def _platform_change(
     }
 
 
+async def _workstream_run_id(ctx: ToolContext) -> UUID | None:
+    """The workstream run behind the current agent run, when there is one."""
+    if not ctx.run_id:
+        return None
+    from app.models.agent import AgentRun
+
+    return (
+        await ctx.session.execute(
+            select(AgentRun.workstream_run_id).where(AgentRun.id == ctx.run_id)
+        )
+    ).scalar_one_or_none()
+
+
 async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.workspace import get_doc_by_path
+    from app.services.workspace import (
+        SECTION_MAX_WORDS,
+        SECTION_SPLIT_HINT,
+        get_doc_by_path,
+        split_markdown_sections,
+        word_count,
+    )
 
     path = tool_input["path"]
     mode = tool_input.get("mode", "append")
+    section = str(tool_input.get("section") or "").strip()
+    content = tool_input["content"]
+    # Knowledge skill enforcement: agents keep sections small (one topic,
+    # roughly 150-400 words). Oversized writes come back with a split hint.
+    if ctx.agent is not None:
+        if section:
+            if word_count(content) > SECTION_MAX_WORDS:
+                return {"error": SECTION_SPLIT_HINT}
+        else:
+            oversized = [
+                heading or "(intro)"
+                for heading, body in split_markdown_sections(content)
+                if word_count(body) > SECTION_MAX_WORDS
+            ]
+            if oversized:
+                return {
+                    "error": f"{SECTION_SPLIT_HINT} Oversized sections: {', '.join(oversized[:5])}"
+                }
     # Project-scoped runs write project docs by default (smart documentation).
     project_id = str(tool_input.get("project_id") or "").strip() or (
         str(ctx.project_id) if ctx.project_id else None
@@ -136,18 +189,39 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
             project_id = str(existing.project_id)
         if getattr(existing, "agent_id", None):
             agent_id = str(existing.agent_id)
+    # Run-context rule: autonomous agent writes to project docs go through
+    # workstream runs only. A human live in the session (user_id set), a
+    # human-gated proposal (mode "ask"), and non-project docs stay direct.
+    run_ref = await _workstream_run_id(ctx)
+    if (
+        ctx.agent is not None
+        and ctx.user_id is None
+        and ctx.mode == "apply"
+        and project_id
+        and run_ref is None
+    ):
+        return {
+            "error": (
+                "Project docs are agent-editable only inside a workstream run. "
+                "Route this work through a project workstream (a queue item or "
+                "manual run) instead of writing directly."
+            )
+        }
+    target = f"{path} § {section}" if section else path
     return await _platform_change(
         ctx,
         resource_type="workspace_doc",
         change_kind="update" if existing else "create",
-        summary=f"{'Update' if existing else 'Create'} workspace doc {path}",
+        summary=f"{'Update' if existing else 'Create'} workspace doc {target}",
         after={
             "path": path,
-            "content": tool_input["content"],
-            "mode": mode if existing else "replace",
+            "content": content,
+            "mode": mode if existing else ("replace" if not section else mode),
+            "section": section or None,
             "kind": tool_input.get("kind"),
             "project_id": project_id,
             "agent_id": agent_id,
+            "workstream_run_id": str(run_ref) if run_ref else None,
         },
         before=before,
         tool_name="write_doc",
@@ -660,6 +734,65 @@ async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     }
 
 
+async def _request_callback(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Ask the team to get back later without pausing the chat."""
+    from app.models.signal import Signal
+    from app.services.handoff import request_callback
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            pass
+    if not signal_id:
+        return {"error": "signal_id required"}
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+
+    reason = str(tool_input.get("reason") or "").strip()
+    await request_callback(
+        ctx.session,
+        ctx.tenant_id,
+        signal,
+        reason=reason,
+        via="request_callback",
+        actor_type="agent" if ctx.agent else "user",
+        actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+    )
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "ai_paused": False,
+        "note": (
+            "The team has been notified to get back later. Chat stays open. "
+            "Tell the visitor the team is away and will follow up in this conversation."
+        ),
+    }
+
+
+async def _request_customer_verify(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.customer_verify import request_customer_verify
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            pass
+    email = str(tool_input.get("email") or "").strip()
+    return await request_customer_verify(
+        ctx.session, ctx.tenant_id, signal_id=signal_id, email=email
+    )
+
+
 async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.agent.style import strip_emoji
 
@@ -1061,6 +1194,29 @@ async def _snapshot_before(
                 "description": row.description,
                 "enabled": row.enabled,
             }
+    if resource_type == "case_type" and after.get("case_type_id"):
+        from app.models.case import CaseType
+
+        row = (
+            await ctx.session.execute(
+                select(CaseType).where(
+                    CaseType.id == UUID(str(after["case_type_id"])),
+                    CaseType.tenant_id == ctx.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row:
+            return {
+                "case_type_id": str(row.id),
+                "name": row.name,
+                "description": row.description,
+                "create_mode": row.create_mode,
+                "ask_threshold": row.ask_threshold,
+                "auto_threshold": row.auto_threshold,
+                "requires_verification": row.requires_verification,
+                "audience": row.audience,
+                "enabled": row.enabled,
+            }
     return None
 
 
@@ -1123,6 +1279,30 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="remember_about_me",
+        description=(
+            "Store one durable fact about the person you are helping, under a short "
+            "key like 'role' or 'working-style'. This memory follows them into every "
+            "workspace they belong to, so keep it about the person and never store "
+            "company or customer data. Empty content forgets the entry."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "key": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["key"],
+        },
+        handler=_remember_about_me,
+        mutating=True,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="list_docs",
         description=(
             "List workspace docs (path, kind, title, project_id, agent_id). "
@@ -1168,10 +1348,14 @@ register_tool(
     ToolSpec(
         name="write_doc",
         description=(
-            "Create or update a workspace markdown doc. mode=append adds to the end; "
-            "mode=replace overwrites. In a project-scoped run new docs become project "
-            "documentation automatically; pass project_id or agent_id to scope the doc. "
-            "Prefer editing existing docs over creating many new files."
+            "Create or update a knowledge page. Knowledge skill: pages are made of "
+            "small `##` sections — one topic per section, roughly 150-400 words. "
+            "Pass `section` (the `##` heading) to edit exactly one section without "
+            "touching the rest of the page; without `section`, content replaces or "
+            "appends the whole page. mode=append adds to the end. In a "
+            "project-scoped run new docs become project documentation "
+            "automatically; pass project_id or agent_id to scope the doc. Prefer "
+            "editing existing sections over creating many new files."
         ),
         category="workspace",
         input_schema={
@@ -1179,6 +1363,10 @@ register_tool(
             "properties": {
                 "path": {"type": "string"},
                 "content": {"type": "string"},
+                "section": {
+                    "type": "string",
+                    "description": "A `##` heading: write only that section (created when missing).",
+                },
                 "mode": {"type": "string", "enum": ["append", "replace"]},
                 "kind": {"type": "string"},
                 "project_id": {
@@ -1220,6 +1408,7 @@ register_tool(
             "required": [],
         },
         handler=_send_reply,
+        audience="both",
     )
 )
 
@@ -1247,6 +1436,7 @@ register_tool(
         handler=_suggest_thread_reply,
         # Proposing to a human is the safe path; it never waits on approval.
         gated=False,
+        audience="both",
     )
 )
 
@@ -1379,6 +1569,60 @@ register_tool(
         handler=_handoff_to_human,
         # Escalating TO a human must never itself wait on human approval.
         gated=False,
+        audience="both",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="request_callback",
+        description=(
+            "Ask the team to get back to this visitor later. Use when the team "
+            "is not reachable for a live handoff. Chat stays open; do not say "
+            "the chat is closed or offline."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "reason": {
+                    "type": "string",
+                    "description": "Short summary of what the visitor needs a callback for.",
+                },
+            },
+            "required": [],
+        },
+        handler=_request_callback,
+        gated=False,
+        audience="both",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="request_customer_verify",
+        description=(
+            "Start a short confirmation for this visitor's email so they can see "
+            "their own invoices or documents. Ask for the email they use with this "
+            "company first. Always tell them to check their inbox. Never say "
+            "whether an account exists."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "email": {
+                    "type": "string",
+                    "description": "The email address the visitor says they use with this company.",
+                },
+            },
+            "required": ["email"],
+        },
+        handler=_request_customer_verify,
+        gated=False,
+        audience="both",
     )
 )
 
@@ -1426,6 +1670,7 @@ register_tool(
         },
         handler=_create_decision_request,
         gated=False,
+        audience="both",
     )
 )
 
@@ -1561,7 +1806,7 @@ register_tool(
     ToolSpec(
         name="create_task",
         description="Create an orchestration task for an agent (starts internal thread + optional workstream segment).",
-        category="agents",
+        category="delegation",
         input_schema={
             "type": "object",
             "properties": {
@@ -1582,7 +1827,7 @@ register_tool(
     ToolSpec(
         name="delegate_to_agent",
         description="Delegate work to another agent in this tenant by creating an orchestration task.",
-        category="agents",
+        category="delegation",
         input_schema={
             "type": "object",
             "properties": {
@@ -1776,6 +2021,89 @@ register_tool(
     )
 )
 
+register_tool(
+    ToolSpec(
+        name="create_case_type",
+        description="Propose a new intake type (complaint, bug, billing, …). Structural — goes through Govern.",
+        category="govern",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "slug": {"type": "string"},
+                "description": {"type": "string"},
+                "create_mode": {
+                    "type": "string",
+                    "enum": ["ask_customer", "ask_operator", "auto", "manual_only"],
+                },
+                "ask_threshold": {"type": "integer"},
+                "auto_threshold": {"type": "integer"},
+                "requires_verification": {"type": "boolean"},
+                "audience": {"type": "string", "enum": ["customer", "internal", "both"]},
+            },
+            "required": ["name"],
+        },
+        handler=_make_platform_handler(
+            "create_case_type", "case_type", "create", lambda i: f"Create intake type {i.get('name')}"
+        ),
+        handles_ask=True,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="update_case_type",
+        description="Propose an update to an intake type (mode, thresholds, enabled).",
+        category="govern",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "case_type_id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "create_mode": {"type": "string"},
+                "ask_threshold": {"type": "integer"},
+                "auto_threshold": {"type": "integer"},
+                "requires_verification": {"type": "boolean"},
+                "enabled": {"type": "boolean"},
+                "audience": {"type": "string"},
+            },
+            "required": ["case_type_id"],
+        },
+        handler=_make_platform_handler(
+            "update_case_type", "case_type", "update", lambda i: f"Update intake type {i.get('case_type_id')}"
+        ),
+        handles_ask=True,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="bind_case_type",
+        description="Propose routing an intake type to a workstream or project.",
+        category="govern",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "case_type_id": {"type": "string"},
+                "target_kind": {"type": "string", "enum": ["workstream", "project"]},
+                "target_id": {"type": "string"},
+                "priority": {"type": "integer"},
+                "auto_link": {"type": "boolean"},
+                "auto_start_run": {"type": "boolean"},
+            },
+            "required": ["case_type_id", "target_kind", "target_id"],
+        },
+        handler=_make_platform_handler(
+            "bind_case_type",
+            "case_type_binding",
+            "create",
+            lambda i: f"Bind intake type {i.get('case_type_id')} to {i.get('target_kind')}",
+        ),
+        handles_ask=True,
+    )
+)
+
 
 # ── tenant introspection (read-only) ─────────────────────────────
 
@@ -1896,7 +2224,7 @@ register_tool(
     ToolSpec(
         name="list_tasks",
         description="List orchestration AgentTasks (queued/running/completed). Optional status and project_id filters.",
-        category="agents",
+        category="delegation",
         input_schema={
             "type": "object",
             "properties": {
@@ -2108,7 +2436,7 @@ register_tool(
             "an agent. Use this whenever something must be done later — by you, "
             "a peer agent, or a person."
         ),
-        category="agents",
+        category="delegation",
         input_schema={
             "type": "object",
             "properties": {

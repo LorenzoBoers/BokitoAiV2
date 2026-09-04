@@ -10,7 +10,7 @@
  *           defer></script>
  */
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
-import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, apiGroupUrl, gatewayWebSocketUrl, livechatHttpUrl, normalizeLivechatApiBase } from './api/livechat-url'
+import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, apiGroupUrl, gatewayWebSocketUrl, livechatHttpUrl, normalizeApiOrigin, normalizeLivechatApiBase } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
 import { applyBrandToHost, parseHexColor } from './brand'
 import { ICONS, MONKEY_MARK } from './icons'
@@ -124,6 +124,7 @@ function readCookieValue(cookieName = '') {
 class ApiClient {
   #baseUrl; #token = null; #agentSlug; #onSessionExpired; #stateMachine; #identityTokenGetter;
   #hostAuthTokenGetter; #authModeGetter; #authCookieNameGetter; #customerIdGetter; #tenantSubdomainGetter;
+  #surfaceGetter;
 
   constructor({
     baseUrl,
@@ -136,7 +137,9 @@ class ApiClient {
     authCookieNameGetter,
     customerIdGetter,
     tenantSubdomainGetter,
+    surfaceGetter,
   }) {
+    this.#surfaceGetter = surfaceGetter;
     this.#baseUrl = normalizeLivechatApiBase(baseUrl);
     this.#agentSlug = agentSlug;
     this.#stateMachine = stateMachine;
@@ -174,6 +177,10 @@ class ApiClient {
       if (authMode) body.auth_mode = authMode;
       if (authCookieName) body.auth_cookie_name = authCookieName;
       if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
+      // Silent refresh must land on the same surface, or the helper would come
+      // back as the tenant's website assistant mid-conversation.
+      const surface = this.#surfaceGetter?.();
+      if (surface) body.surface = surface;
       const r = await fetch(livechatHttpUrl(this.#baseUrl, livechatRoutes.session.start), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -589,6 +596,7 @@ const WIDGET_CSS = `
 .bk-header-status{font-size:12px;opacity:.88;display:flex;align-items:center;gap:6px;margin-top:2px;}
 .bk-header-ai-disclosure{font-size:10px;opacity:.75;margin-top:3px;line-height:1.3;}
 .bk-header-status::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
+.bk-header-status[data-reach="away"]::before{background:#FBBF24;}
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
 .bk-icon-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;transition:background var(--bk-transition);}
 .bk-icon-btn:hover{background:rgba(255,255,255,.25);}
@@ -1044,6 +1052,8 @@ class BokitoChatWidget extends HTMLElement {
   #identityToken = null; #identityType = 'anonymous'; #conversationId = null;
   #hostAuthToken = null; #authCookieName = '';
   #authMode = 'anonymous'; #authTokenValidationUrl = null;
+  /** "site" (tenant's own website) or "in_app" (personal Bokito helper in the dashboard). */
+  #surface = 'site';
   #tenantSubdomain = null;
   #sessionUser = null; #sessionTenant = null; #tenantMcpServers = [];
   #loginSigninEl = null;
@@ -1124,6 +1134,16 @@ class BokitoChatWidget extends HTMLElement {
       this.#parsePreviewOverridesAttribute();
       this.#refreshChromeFromThemeAndPreview();
     }
+  }
+
+  /** Page context sent with each turn. A single-page host (the dashboard)
+   * describes its own route through data-page-context, because document.title
+   * and the URL alone do not say which entity is on screen. */
+  #messagePageContext() {
+    const snapshot = this.#pageCtx?.getMessageSnapshot() ?? null;
+    const explicit = (this.dataset.pageContext || '').trim();
+    if (!explicit) return snapshot;
+    return { ...(snapshot || {}), description: explicit };
   }
 
   #storKey(key) {
@@ -1441,6 +1461,24 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#sm.state !== 'idle') this.#closeWindow();
   }
 
+  /**
+   * Public API: open the window on an existing conversation.
+   *
+   * The in-app host (Messages rail) uses this to hand a thread to the widget
+   * instead of rendering a second chat surface of its own.
+   */
+  async openThread(conversationId) {
+    if (!conversationId) return;
+    if (this.#sm.state === 'idle') await this.#openWidget();
+    await this.#openConversation(String(conversationId));
+  }
+
+  /** Public API: start a fresh conversation in an open window. */
+  async startThread() {
+    if (this.#sm.state === 'idle') await this.#openWidget();
+    await this.#startNewConversation();
+  }
+
   /** Public API: toggle the chat window programmatically. */
   toggle() {
     if (this.#sm.state === 'idle') void this.#openWidget();
@@ -1497,6 +1535,11 @@ class BokitoChatWidget extends HTMLElement {
     this.#authCookieName = (this.dataset.authCookieName || '').trim();
     this.#authMode = (this.dataset.authMode || 'anonymous').trim().toLowerCase();
     if (!['anonymous', 'optional', 'required'].includes(this.#authMode)) this.#authMode = 'anonymous';
+    // Same bundle, two surfaces: a tenant's website widget and the operator's
+    // personal Bokito helper inside the dashboard. The server decides which
+    // agent answers and whose branding the chrome shows.
+    this.#surface = (this.dataset.surface || 'site').trim().toLowerCase().replace(/-/g, '_');
+    if (!['site', 'in_app'].includes(this.#surface)) this.#surface = 'site';
     // Explicit tenant wins over host-based resolution (needed on customer domains).
     this.#tenantSubdomain = (this.dataset.tenant || '').trim() || null;
     this.#hostAuthToken = this.#resolveHostAuthToken();
@@ -1523,8 +1566,12 @@ class BokitoChatWidget extends HTMLElement {
     this.#loadUserPreferences();
     this.#syncLoginLinks();
     this.#syncVoiceAvailability();
-    this.#idleWatcher = new IdleWatcher(() => this.#onUserIdle(), { idleMs: 3000, maxTriggers: 3 });
-    this.#idleWatcher.start();
+    // Proactive bubbles are for a site visitor deciding whether to ask. The
+    // in-app helper waits to be asked instead of nudging someone at work.
+    if (this.#surface !== 'in_app') {
+      this.#idleWatcher = new IdleWatcher(() => this.#onUserIdle(), { idleMs: 3000, maxTriggers: 3 });
+      this.#idleWatcher.start();
+    }
     if (import.meta.env.MODE !== 'production' && this.dataset.debug === 'true') {
       this.#setupDebugPanel();
     }
@@ -1670,7 +1717,7 @@ class BokitoChatWidget extends HTMLElement {
           </div>
           <div class="bk-header-info">
             <div class="bk-header-name"></div>
-            <div class="bk-header-status">Online</div>
+            <div class="bk-header-status" data-reach="available">Available</div>
             <div class="bk-header-ai-disclosure"></div>
           </div>
           <div class="bk-header-actions">
@@ -1774,10 +1821,7 @@ class BokitoChatWidget extends HTMLElement {
             ${ICONS.user}
             <span>A team member is helping you</span>
           </div>
-          <div class="bk-offline-banner" style="display:none">
-            ${ICONS.clock}
-            <span class="bk-offline-text">We are currently offline. Leave a message and we will get back to you.</span>
-          </div>
+          <div class="bk-offline-banner" style="display:none" hidden></div>
           <div class="bk-messages">
             <div class="bk-thinking agent-live-status is-active" style="display:none" role="status" aria-live="polite">
               <div class="bk-thinking-dots agent-live-line is-current">
@@ -1822,7 +1866,7 @@ class BokitoChatWidget extends HTMLElement {
         <div class="bk-settings" style="display:none">
           <div class="bk-settings-inner">
             <h2 class="bk-settings-title">Settings</h2>
-            <section class="bk-settings-section">
+            <section class="bk-settings-section bk-theme-settings" hidden>
               <h3 class="bk-settings-section-title">Appearance</h3>
               <div class="bk-settings-option">
                 <span class="bk-settings-label">Theme</span>
@@ -1914,6 +1958,7 @@ class BokitoChatWidget extends HTMLElement {
       identityTokenGetter: () => this.#identityToken,
       hostAuthTokenGetter: () => this.#hostAuthToken,
       authModeGetter: () => this.#authMode,
+      surfaceGetter: () => this.#surface,
       authCookieNameGetter: () => this.#authCookieName,
       tenantSubdomainGetter: () => this.#tenantSubdomain,
       customerIdGetter: () => this.#storGet(LS_CUSTOMER_ID_KEY),
@@ -2058,6 +2103,11 @@ class BokitoChatWidget extends HTMLElement {
   #syncWindowPowered() {
     const el = this.#root.querySelector('.bk-window-powered');
     if (!el) return;
+    // Inside Bokito itself, a "Powered by Bokito" line is just noise.
+    if (this.#surface === 'in_app') {
+      el.hidden = true;
+      return;
+    }
     const settingsOpen = this.#settingsView && this.#settingsView.style.display !== 'none';
     const homeVisible = this.#homeView && this.#homeView.style.display !== 'none';
     const chatVisible = this.#chatView && this.#chatView.style.display !== 'none';
@@ -2358,26 +2408,6 @@ class BokitoChatWidget extends HTMLElement {
     header.appendChild(avatar);
     header.appendChild(info);
     el.appendChild(header);
-
-    const themeRow = document.createElement('div');
-    themeRow.className = 'bk-user-popover-theme';
-    const themeBtn = document.createElement('button');
-    themeBtn.type = 'button';
-    themeBtn.className = 'bk-user-popover-btn bk-user-popover-theme-btn';
-    const themeIcon = document.createElement('span');
-    themeIcon.className = 'bk-user-popover-theme-icon';
-    themeIcon.setAttribute('aria-hidden', 'true');
-    const themeCaption = document.createElement('span');
-    themeCaption.className = 'bk-user-popover-theme-caption';
-    themeBtn.appendChild(themeIcon);
-    themeBtn.appendChild(themeCaption);
-    themeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const dark = this.#effectiveUserThemeIsDark();
-      this.#setUserTheme(dark ? 'light' : 'dark');
-    });
-    themeRow.appendChild(themeBtn);
-    el.appendChild(themeRow);
 
     const actions = document.createElement('div');
     actions.className = 'bk-user-popover-actions';
@@ -2757,7 +2787,7 @@ class BokitoChatWidget extends HTMLElement {
     // Theme may carry a workspace locale; re-localize chrome before painting.
     this.#localizeChrome();
     this.#refreshChromeFromThemeAndPreview();
-    this.#syncOfflineBanner();
+    this.#syncReachabilityStatus();
     this.#syncLoginLinks();
     this.#syncVoiceAvailability();
     void this.#maybeLoadHelpArticles();
@@ -2767,18 +2797,17 @@ class BokitoChatWidget extends HTMLElement {
     if (data.preferences) this.#hydrateUserPreferences(data.preferences);
   }
 
-  #syncOfflineBanner() {
+  #syncReachabilityStatus() {
     const banner = this.#root?.querySelector('.bk-offline-banner');
-    if (!banner) return;
-    const isOpen = this.#agentConfig?.office_open !== false;
-    if (isOpen) {
+    if (banner) {
       banner.style.display = 'none';
-      return;
+      banner.setAttribute('hidden', '');
     }
-    const textEl = banner.querySelector('.bk-offline-text');
-    const custom = String(this.#agentConfig?.offline_message || '').trim();
-    if (textEl) textEl.textContent = custom || this.#chrome('offlineDefault');
-    banner.style.display = 'flex';
+    const status = this.#root?.querySelector('.bk-header-status');
+    if (!status) return;
+    const isOpen = this.#surface === 'in_app' || this.#agentConfig?.office_open !== false;
+    status.setAttribute('data-reach', isOpen ? 'available' : 'away');
+    status.textContent = isOpen ? 'Available' : 'Away';
   }
 
   #visitorIdentity() {
@@ -2896,6 +2925,7 @@ class BokitoChatWidget extends HTMLElement {
       if (this.#hostAuthToken) body.host_auth_token = this.#hostAuthToken;
       if (this.#authCookieName) body.auth_cookie_name = this.#authCookieName;
       body.auth_mode = this.#authMode;
+      body.surface = this.#surface;
       if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
       const data = await this.#api.post('session/start', body);
       this.#applySessionPayload(data);
@@ -3978,7 +4008,7 @@ class BokitoChatWidget extends HTMLElement {
           conversation_id: this.#conversationId,
           message_content: text,
           session_token: this.#sessionToken,
-          page_context: this.#pageCtx?.getMessageSnapshot() ?? null,
+          page_context: this.#messagePageContext(),
           attachments: attachments.length ? attachments : null,
           user_context: this.#sessionUser ? {
             id: this.#sessionUser.id || null,
@@ -4125,6 +4155,7 @@ class BokitoChatWidget extends HTMLElement {
           conversation_id: this.#conversationId,
           session_token: this.#sessionToken,
           page_content: text || `[URL: ${window.location.href}] [No further content available]`,
+          page_context: this.#messagePageContext(),
           tenant_context: this.#sessionTenant ? {
             id: this.#sessionTenant.id || null,
             slug: this.#sessionTenant.slug || null,
@@ -5020,13 +5051,50 @@ class BokitoChatWidget extends HTMLElement {
     return this.#sessionTenant?.slug || this.#tenantSubdomain || null;
   }
 
-  /** Fetch the public article index once per session; the Help tab only
-   * appears when the tenant actually published articles. */
-  async #maybeLoadHelpArticles() {
+  /** True when the Help tab serves Bokito's product help instead of the
+   * tenant's own published help center (in-app helper surface). */
+  #helpUsesProductHelp() {
+    return (this.#agentConfig?.theme?.help_source || '') === 'product_help';
+  }
+
+  #helpLang() {
+    const locale = String(this.#agentConfig?.theme?.locale || '').toLowerCase();
+    return locale === 'nl' ? 'nl' : 'en';
+  }
+
+  #helpIndexUrl() {
+    if (this.#helpUsesProductHelp()) {
+      return `${normalizeApiOrigin(this.#apiUrl)}/api/docs?lang=${this.#helpLang()}`;
+    }
     const slug = this.#helpTenantSlug();
-    if (!slug || this.#helpArticles !== null) return;
+    return slug ? apiGroupUrl(this.#apiUrl, 'help', `/${encodeURIComponent(slug)}`) : null;
+  }
+
+  #helpArticleUrl(slug) {
+    if (!slug) return null;
+    if (this.#helpUsesProductHelp()) {
+      return apiGroupUrl(
+        this.#apiUrl, 'docs',
+        `/${encodeURIComponent(slug)}?lang=${this.#helpLang()}`,
+      );
+    }
+    const tenantSlug = this.#helpTenantSlug();
+    return tenantSlug
+      ? apiGroupUrl(
+          this.#apiUrl, 'help',
+          `/${encodeURIComponent(tenantSlug)}/${encodeURIComponent(slug)}`,
+        )
+      : null;
+  }
+
+  /** Fetch the article index once per session; on a tenant's own site the Help
+   * tab only appears when they actually published articles, while the in-app
+   * helper always has Bokito's product help. */
+  async #maybeLoadHelpArticles() {
+    const url = this.#helpIndexUrl();
+    if (!url || this.#helpArticles !== null) return;
     try {
-      const r = await fetch(apiGroupUrl(this.#apiUrl, 'help', `/${encodeURIComponent(slug)}`));
+      const r = await fetch(url);
       const data = r.ok ? await r.json() : null;
       this.#helpArticles = Array.isArray(data?.articles) ? data.articles : [];
     } catch {
@@ -5077,18 +5145,15 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   async #openHelpArticle(slug) {
-    const tenantSlug = this.#helpTenantSlug();
-    if (!tenantSlug || !slug) return;
+    const url = this.#helpArticleUrl(slug);
+    if (!url) return;
     const listView = this.#root.querySelector('.bk-help-list-view');
     const articleView = this.#root.querySelector('.bk-help-article');
     const titleEl = this.#root.querySelector('.bk-help-article-title');
     const bodyEl = this.#root.querySelector('.bk-help-article-body');
     if (!listView || !articleView || !titleEl || !bodyEl) return;
     try {
-      const r = await fetch(apiGroupUrl(
-        this.#apiUrl, 'help',
-        `/${encodeURIComponent(tenantSlug)}/${encodeURIComponent(slug)}`,
-      ));
+      const r = await fetch(url);
       if (!r.ok) return;
       const article = await r.json();
       titleEl.textContent = article.title || 'Untitled';
@@ -5249,11 +5314,16 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #applyUserThemeOverride() {
-    if (!this.#isPreviewEmbedded()) {
-      const theme = this.#storGet(LS_THEME_KEY) || 'system';
-      if (theme === 'light' || theme === 'dark') this.setAttribute('data-theme', theme);
-      else this.removeAttribute('data-theme');
+    if (this.#isPreviewEmbedded()) {
+      this.#syncUserPopoverThemeToggle();
+      return;
     }
+    if (this.#surface === 'in_app') {
+      // Dashboard host owns data-theme on this element.
+      this.#syncUserPopoverThemeToggle();
+      return;
+    }
+    this.removeAttribute('data-theme');
     this.#syncUserPopoverThemeToggle();
   }
 
@@ -5507,6 +5577,7 @@ if (!customElements.get('bokito-chat')) {
   const authToken = scriptEl?.dataset?.authToken || cfg.authToken || null;
   const authCookieName = scriptEl?.dataset?.authCookieName || cfg.authCookieName || '';
   const authMode = scriptEl?.dataset?.authMode || cfg.authMode || '';
+  const surface = scriptEl?.dataset?.surface || cfg.surface || '';
   const tenant = scriptEl?.dataset?.tenant || cfg.tenant || '';
   const signinUrl = scriptEl?.dataset?.signinUrl || cfg.signinUrl || '';
   const csrfToken = scriptEl?.dataset?.csrfToken || cfg.csrfToken || '';
@@ -5525,6 +5596,7 @@ if (!customElements.get('bokito-chat')) {
     if (authToken) widget.dataset.authToken = String(authToken);
     if (authCookieName) widget.dataset.authCookieName = String(authCookieName);
     if (authMode) widget.dataset.authMode = String(authMode);
+    if (surface) widget.dataset.surface = String(surface);
     if (tenant) widget.dataset.tenant = String(tenant);
     if (signinUrl) widget.dataset.signinUrl = String(signinUrl);
     if (csrfToken) widget.dataset.csrfToken = String(csrfToken);

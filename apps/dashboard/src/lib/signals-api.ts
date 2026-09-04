@@ -1,5 +1,13 @@
 import { appRoutes } from '../api/routes/app.routes'
-import { APP_API_BASE, apiDelete, apiGet, apiPatch, apiPost, buildAuthHeaders } from './api'
+import {
+  APP_API_BASE,
+  apiDelete,
+  apiGet,
+  apiPatch,
+  apiPost,
+  appScopedGet,
+  buildAuthHeaders,
+} from './api'
 import { normalizeMyFeedback } from './inbox-api'
 import type {
   InboxEvent,
@@ -1049,13 +1057,39 @@ export async function bokitoListChatTargets(token: string) {
   )
 }
 
-export async function bokitoListConversations(token: string, channel?: string) {
+export async function bokitoListConversations(
+  token: string,
+  channel?: string,
+  options?: {
+    /** Thread source, e.g. "personal" for the user's own Bokito helper threads.
+     * Omitted, personal threads are excluded from the agent chat list. */
+    source?: string
+  },
+) {
   const params = new URLSearchParams()
   if (channel) params.set('channel', channel)
-  const path = channel
+  if (options?.source) params.set('source', options.source)
+  const path = [...params.keys()].length
     ? appRoutes.signals.conversationsQuery(params)
     : appRoutes.signals.conversations
   return apiGet<ConversationWithAgent[]>(path, token)
+}
+
+/** Bokito helper threads for this user, across every workspace they belong to. */
+export async function bokitoListAssistantThreads(token: string) {
+  return appScopedGet<{ items: PersonalAssistantThread[] }>(
+    appRoutes.assistant.threads,
+    token,
+  )
+}
+
+export type PersonalAssistantThread = {
+  id: string
+  title: string
+  workspace_id: string
+  workspace_slug: string
+  workspace_name: string
+  updated_at: string | null
 }
 
 export async function bokitoCreateConversation(
@@ -1096,10 +1130,20 @@ export async function bokitoListMessages(token: string, conversationId: string) 
   return apiGet<ChatMessage[]>(appRoutes.signals.conversationMessages(conversationId), token)
 }
 
-export async function bokitoSendMessage(token: string, conversationId: string, content: string) {
+export async function bokitoSendMessage(
+  token: string,
+  conversationId: string,
+  content: string,
+  options?: {
+    /** What the operator is looking at (route + entity), for the in-app assistant. */
+    pageContext?: string
+  },
+) {
+  const body: Record<string, unknown> = { content }
+  if (options?.pageContext) body.page_context = options.pageContext
   return apiPost<{ message: ChatMessage }>(
     appRoutes.signals.conversationMessages(conversationId),
-    { content },
+    body,
     token,
   )
 }
@@ -1116,14 +1160,20 @@ export async function bokitoStreamMessage(
   onDelta: (text: string) => void,
   signal?: AbortSignal,
   onThinking?: (text: string) => void,
+  options?: {
+    /** What the operator is looking at (route + entity), for the in-app assistant. */
+    pageContext?: string
+  },
 ): Promise<string> {
+  const payload: Record<string, unknown> = { content }
+  if (options?.pageContext) payload.page_context = options.pageContext
   const res = await fetch(
     `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
     {
       method: 'POST',
       headers: buildAuthHeaders(token),
       credentials: 'include',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(payload),
       signal,
     },
   )

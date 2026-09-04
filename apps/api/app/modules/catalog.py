@@ -20,6 +20,7 @@ MODULE_SKILL_DIR = Path(__file__).resolve().parent.parent / "data" / "module_ski
 
 ModuleStatus = Literal["available", "coming_soon"]
 ToolKind = Literal["read", "propose", "apply"]
+ToolExposure = Literal["internal", "customer", "both"]
 # Public lifecycle shown in UI / nav. Legacy "off"/"on" still accepted when reading.
 InstallState = Literal["not_installed", "setup", "installed"]
 TenantModuleStatus = Literal[
@@ -55,6 +56,9 @@ class ModuleToolCard:
     kind: ToolKind = "read"
     props: tuple[tuple[str, dict], ...] = ()
     required: tuple[str, ...] = ()
+    exposure: ToolExposure = "internal"
+    sensitivity: str = "none"
+    min_assurance: str = "none"
 
     @property
     def input_props(self) -> dict[str, Any]:
@@ -66,6 +70,9 @@ class ModuleToolCard:
             "label": self.label,
             "description": self.description,
             "kind": self.kind,
+            "exposure": self.exposure,
+            "sensitivity": self.sensitivity,
+            "min_assurance": self.min_assurance,
         }
 
 
@@ -86,7 +93,11 @@ class ModuleSpec:
 
     @property
     def verbs(self) -> tuple[str, ...]:
-        return tuple(c.verb for c in self.tool_cards if c.kind == "read")
+        return tuple(
+            c.verb
+            for c in self.tool_cards
+            if c.kind == "read" and c.exposure != "customer"
+        )
 
     @property
     def propose_verbs(self) -> tuple[str, ...]:
@@ -94,7 +105,11 @@ class ModuleSpec:
 
     @property
     def verb_labels(self) -> tuple[str, ...]:
-        return tuple(c.label for c in self.tool_cards if c.kind == "read")
+        return tuple(
+            c.label
+            for c in self.tool_cards
+            if c.kind == "read" and c.exposure != "customer"
+        )
 
     @property
     def setup_path(self) -> str:
@@ -254,6 +269,22 @@ MODULES: list[ModuleSpec] = [
                 "summarize",
                 "Summary",
                 "Produce a short financial snapshot (open items, recent documents) for the agent.",
+            ),
+            ModuleToolCard(
+                "list_my_invoices",
+                "My invoices",
+                "List sales invoices that belong to the verified customer on this conversation.",
+                exposure="customer",
+                sensitivity="financial",
+                min_assurance="verified",
+            ),
+            ModuleToolCard(
+                "list_my_documents",
+                "My documents",
+                "List invoices and bills that belong to the verified customer on this conversation.",
+                exposure="customer",
+                sensitivity="financial",
+                min_assurance="verified",
             ),
             ModuleToolCard(
                 "propose_document",
@@ -482,6 +513,219 @@ MODULES: list[ModuleSpec] = [
 
 MODULE_BY_SLUG: dict[str, ModuleSpec] = {m.slug: m for m in MODULES}
 
+
+@dataclass(frozen=True)
+class WorkstreamTemplate:
+    """Pre-built workstream a module ships. Installing copies it to the
+    tenant (the tenant owns and may edit the copy); the requirements manifest
+    is checked at install time and again before every run of the copy."""
+
+    slug: str
+    module_slug: str
+    name: str
+    description: str
+    # Step payloads in `replace_steps` shape: name, kind, goal, agent_role,
+    # wait_kind, deadline_hours, on_deadline.
+    steps: tuple[dict[str, Any], ...]
+    # Requirements manifest.
+    required_agent_roles: tuple[str, ...] = ()
+    requires_module_connection: bool = False
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "slug": self.slug,
+            "module_slug": self.module_slug,
+            "name": self.name,
+            "description": self.description,
+            "steps": [dict(s) for s in self.steps],
+            "steps_count": len(self.steps),
+            "required_agent_roles": list(self.required_agent_roles),
+            "requires_module_connection": self.requires_module_connection,
+        }
+
+
+WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
+    "accounting": (
+        WorkstreamTemplate(
+            slug="vat-filing-prep",
+            module_slug="accounting",
+            name="VAT filing preparation",
+            description=(
+                "Collect the figures for the VAT period, chase missing "
+                "documents, and deliver an approved filing summary."
+            ),
+            steps=(
+                {
+                    "name": "Collect figures",
+                    "kind": "agent",
+                    "goal": (
+                        "Use the accounting module tools (list_documents, "
+                        "list_ledger, list_outstanding) to collect the figures "
+                        "for the VAT period named in the run input. List the "
+                        "totals per rate, note documents that look incomplete "
+                        "or unbooked, and end with the open questions."
+                    ),
+                },
+                {
+                    "name": "Wait for missing documents",
+                    "kind": "wait",
+                    "wait_kind": "input",
+                    "deadline_hours": 72,
+                    "on_deadline": "remind_then_continue",
+                },
+                {
+                    "name": "Approve filing summary",
+                    "kind": "gate",
+                    "goal": "Review the collected figures before the filing summary is finalized.",
+                },
+                {
+                    "name": "Finalize filing summary",
+                    "kind": "agent",
+                    "goal": (
+                        "Write the final VAT filing summary: totals per rate, "
+                        "corrections applied, and the amounts to file. Note "
+                        "anything that still needs a bookkeeper's eye."
+                    ),
+                },
+            ),
+            requires_module_connection=True,
+        ),
+        WorkstreamTemplate(
+            slug="monthly-close-review",
+            module_slug="accounting",
+            name="Monthly close review",
+            description=(
+                "Review the month: unbooked bank mutations, open invoices, "
+                "and a short close report after approval."
+            ),
+            steps=(
+                {
+                    "name": "Review the month",
+                    "kind": "agent",
+                    "goal": (
+                        "Review the month named in the run input with the "
+                        "accounting module tools: unmatched bank mutations "
+                        "(list_bank_mutations), overdue invoices "
+                        "(list_outstanding), and unusual ledger movements. "
+                        "Summarize what needs action."
+                    ),
+                },
+                {
+                    "name": "Approve close report",
+                    "kind": "gate",
+                    "goal": "Confirm the findings before the close report is written.",
+                },
+                {
+                    "name": "Write close report",
+                    "kind": "agent",
+                    "goal": (
+                        "Write the monthly close report from the approved "
+                        "findings: key numbers, resolved items, and the "
+                        "follow-ups for next month."
+                    ),
+                },
+            ),
+            requires_module_connection=True,
+        ),
+    ),
+    "banking": (
+        WorkstreamTemplate(
+            slug="bank-reconciliation",
+            module_slug="banking",
+            name="Bank reconciliation",
+            description=(
+                "Match recent bank transactions against open items and "
+                "report what remains unmatched."
+            ),
+            steps=(
+                {
+                    "name": "Match transactions",
+                    "kind": "agent",
+                    "goal": (
+                        "List recent transactions on the linked bank accounts "
+                        "(list_transactions) and match them against open items. "
+                        "Report matched pairs and everything that stays "
+                        "unmatched with a suggested follow-up."
+                    ),
+                },
+            ),
+            requires_module_connection=True,
+        ),
+    ),
+}
+
+
+def module_workstream_templates(module_slug: str) -> tuple[WorkstreamTemplate, ...]:
+    return WORKSTREAM_TEMPLATES.get(module_slug, ())
+
+
+def get_workstream_template(
+    module_slug: str, template_slug: str
+) -> WorkstreamTemplate | None:
+    for template in module_workstream_templates(module_slug):
+        if template.slug == template_slug:
+            return template
+    return None
+
+
+@dataclass(frozen=True)
+class CaseTypeTemplate:
+    """Intake type a module ships. Installing copies it to the tenant."""
+
+    slug: str
+    module_slug: str
+    name: str
+    description: str
+    create_mode: str = "ask_customer"
+    ask_threshold: int = 6
+    auto_threshold: int = 11
+    requires_verification: bool = False
+    audience: str = "customer"
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "slug": self.slug,
+            "module_slug": self.module_slug,
+            "name": self.name,
+            "description": self.description,
+            "create_mode": self.create_mode,
+            "ask_threshold": self.ask_threshold,
+            "auto_threshold": self.auto_threshold,
+            "requires_verification": self.requires_verification,
+            "audience": self.audience,
+        }
+
+
+CASE_TYPE_TEMPLATES: dict[str, tuple[CaseTypeTemplate, ...]] = {
+    "accounting": (
+        CaseTypeTemplate(
+            slug="billing_inquiry",
+            module_slug="accounting",
+            name="Billing inquiry",
+            description=(
+                "A customer asks about an invoice, balance, or payment. "
+                "Requires a confirmed email before looking up their records."
+            ),
+            create_mode="ask_customer",
+            requires_verification=True,
+            audience="customer",
+        ),
+    ),
+}
+
+
+def module_case_type_templates(module_slug: str) -> tuple[CaseTypeTemplate, ...]:
+    return CASE_TYPE_TEMPLATES.get(module_slug, ())
+
+
+def get_case_type_template(
+    module_slug: str, template_slug: str
+) -> CaseTypeTemplate | None:
+    for template in module_case_type_templates(module_slug):
+        if template.slug == template_slug:
+            return template
+    return None
+
 # Registry tool names are always "{slug}_{verb}"; used to hide module tools
 # when the module is off or the agent is not rostered.
 MODULE_TOOL_PREFIXES: dict[str, str] = {m.slug: f"{m.slug}_" for m in MODULES}
@@ -662,6 +906,11 @@ def _row_prefs(row: Any) -> dict[str, Any]:
     user_access = _load_json_dict(row.user_access_json)
     if user_access:
         prefs["user_access"] = user_access
+    customer_tools = _load_json_dict(getattr(row, "customer_tools_json", None))
+    if customer_tools:
+        prefs["customer_tools"] = {
+            str(k): bool(v) for k, v in customer_tools.items()
+        }
     return prefs
 
 
@@ -973,6 +1222,7 @@ async def update_module_prefs(
     clear_default_connection: bool = False,
     writes_enabled: bool | None = None,
     user_access: dict[str, Any] | None = None,
+    customer_tools: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist operator defaults for multi-registration modules."""
     if MODULE_BY_SLUG.get(slug) is None:
@@ -1009,6 +1259,13 @@ async def update_module_prefs(
             mode = "all_members"
         user_ids = [str(u) for u in (user_access.get("user_ids") or []) if str(u).strip()]
         row.user_access_json = json.dumps({"mode": mode, "user_ids": user_ids})
+    if customer_tools is not None:
+        cleaned = {
+            str(k).strip(): bool(v)
+            for k, v in customer_tools.items()
+            if str(k).strip()
+        }
+        row.customer_tools_json = json.dumps(cleaned)
     row.updated_at = _dt.utcnow()
     session.add(row)
     await session.commit()

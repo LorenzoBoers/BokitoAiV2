@@ -57,9 +57,13 @@ async def test_project_workstreams_crud(client: AsyncClient):
     project_id = created.json()["id"]
 
     stream = await client.post(
-        f"{API}/{project_id}/workstreams",
+        "/api/workstreams",
         headers=headers,
-        json={"name": "Weekly digest", "description": "Summarize activity"},
+        json={
+            "name": "Weekly digest",
+            "description": "Summarize activity",
+            "project_id": project_id,
+        },
     )
     assert stream.status_code == 200
     body = stream.json()
@@ -68,14 +72,16 @@ async def test_project_workstreams_crud(client: AsyncClient):
     assert body["steps_count"] == 0
 
     patched = await client.patch(
-        f"{API}/{project_id}/workstreams/{body['id']}",
+        f"/api/workstreams/{body['id']}",
         headers=headers,
         json={"enabled": False},
     )
     assert patched.status_code == 200
     assert patched.json()["enabled"] is False
 
-    listed = await client.get(f"{API}/{project_id}/workstreams", headers=headers)
+    listed = await client.get(
+        f"/api/workstreams?project_id={project_id}", headers=headers
+    )
     assert listed.status_code == 200
     assert any(s["id"] == body["id"] for s in listed.json()["items"])
 
@@ -118,6 +124,6 @@ async def test_project_repo_and_po_agent(client: AsyncClient):
     assert po.json()["setup_complete"] is True
     assert po.json()["po_agent"]["agent_type"] == "orchestrator"
 
-    streams = await client.get(f"{API}/{project_id}/workstreams", headers=headers)
-    assert streams.status_code == 200
-    assert streams.json()["po_agent"] is not None
+    summary = await client.get(f"{API}/{project_id}/po-agent", headers=headers)
+    assert summary.status_code == 200
+    assert summary.json()["po_agent"] is not None

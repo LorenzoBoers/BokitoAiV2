@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.orchestration import QUEUE_ITEM_KINDS, AgentTask
 from app.models.project import Project, ProjectAgent
-from app.models.project_work import ProjectDocSection, ProjectResource
+from app.models.project_work import ProjectResource
 from app.models.orchestra import Workstream
 from app.models.usage import UsageLedger
 
@@ -184,19 +184,21 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             .group_by(AgentTask.project_id)
         )
         open_queue_by_project = {row[0]: row[1] for row in queue_result.all()}
+        from app.models.workspace import DocSection, WorkspaceDoc
+
         section_result = await session.execute(
-            select(ProjectDocSection.project_id, ProjectDocSection.status, func.count())
+            select(WorkspaceDoc.project_id, DocSection.status, func.count())
+            .join(WorkspaceDoc, WorkspaceDoc.id == DocSection.doc_id)
             .where(
-                ProjectDocSection.tenant_id == tenant_id,
-                ProjectDocSection.project_id.in_(project_ids),
-                ProjectDocSection.status != "deprecated",
+                DocSection.tenant_id == tenant_id,
+                WorkspaceDoc.project_id.in_(project_ids),
             )
-            .group_by(ProjectDocSection.project_id, ProjectDocSection.status)
+            .group_by(WorkspaceDoc.project_id, DocSection.status)
         )
         for project_id, status, count in section_result.all():
             total, done = sections_by_project.get(project_id, (0, 0))
             total += count
-            if status in ("implemented", "verified"):
+            if status == "final":
                 done += count
             sections_by_project[project_id] = (total, done)
     out = []
@@ -240,6 +242,12 @@ async def create_project(
         updated_at=now,
     )
     session.add(project)
+    await session.flush()
+    # Every project ships with a default workstream: agent edits to project
+    # docs run exclusively through workstream runs.
+    from app.services.workstreams import ensure_default_workstream
+
+    await ensure_default_workstream(session, tenant_id, project.id, commit=False)
     await session.commit()
     await session.refresh(project)
     return serialize_project(project)
@@ -294,19 +302,21 @@ async def delete_project(
     # Project-owned work: queue tasks, doc sections, links, resources, docs.
     from sqlalchemy import delete as sa_delete, update as sa_update
 
-    from app.models.project_work import ProjectDocSection, TaskDocLink
-    from app.models.workspace import DocChunk, WorkspaceDoc
+    from app.models.project_work import TaskDocLink
+    from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 
-    section_ids = select(ProjectDocSection.id).where(ProjectDocSection.project_id == project_id)
+    project_doc_ids = select(WorkspaceDoc.id).where(WorkspaceDoc.project_id == project_id)
+    section_ids = select(DocSection.id).where(DocSection.doc_id.in_(project_doc_ids))
     task_ids = select(AgentTask.id).where(AgentTask.project_id == project_id)
     await session.execute(
         sa_delete(TaskDocLink).where(
             TaskDocLink.section_id.in_(section_ids)
+            | TaskDocLink.doc_id.in_(project_doc_ids)
             | TaskDocLink.task_id.in_(task_ids)
         )
     )
     await session.execute(
-        sa_delete(ProjectDocSection).where(ProjectDocSection.project_id == project_id)
+        sa_delete(DocSection).where(DocSection.doc_id.in_(project_doc_ids))
     )
     # Queue tasks belong to the project and go with it; execution jobs (and
     # their run history) outlive the project with the reference detached.
@@ -531,101 +541,6 @@ async def usage_summary(
         "tokens_remaining_today": budget["remaining_today"],
         "by_day": [],
     }
-
-
-async def _workstream_step_counts(
-    session: AsyncSession, workstream_ids: list[UUID]
-) -> dict[UUID, int]:
-    from sqlalchemy import func
-
-    from app.models.orchestra import WorkstreamStep
-
-    if not workstream_ids:
-        return {}
-    result = await session.execute(
-        select(WorkstreamStep.workstream_id, func.count())
-        .where(WorkstreamStep.workstream_id.in_(workstream_ids))
-        .group_by(WorkstreamStep.workstream_id)
-    )
-    return {row[0]: int(row[1]) for row in result.all()}
-
-
-def serialize_workstream(row: Workstream, *, steps_count: int = 0) -> dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "project_id": str(row.project_id) if row.project_id else None,
-        "tenant_id": str(row.tenant_id),
-        "name": row.name,
-        "description": row.description or "",
-        "enabled": row.enabled,
-        "steps_count": steps_count,
-        "created_at": _iso(row.created_at),
-    }
-
-
-async def list_workstreams(
-    session: AsyncSession, tenant_id: UUID, project_id: UUID
-) -> dict[str, Any]:
-    project, po_agent = await get_project_row(session, tenant_id, project_id)
-    result = await session.execute(
-        select(Workstream)
-        .where(Workstream.project_id == project_id, Workstream.tenant_id == tenant_id)
-        .order_by(Workstream.created_at)
-    )
-    rows = list(result.scalars().all())
-    counts = await _workstream_step_counts(session, [w.id for w in rows])
-    items = [serialize_workstream(w, steps_count=counts.get(w.id, 0)) for w in rows]
-    return {"items": items, "po_agent": serialize_po_agent(po_agent)}
-
-
-async def create_workstream(
-    session: AsyncSession,
-    tenant_id: UUID,
-    project_id: UUID,
-    data: dict[str, Any],
-) -> dict[str, Any]:
-    await get_project_row(session, tenant_id, project_id)
-    row = Workstream(
-        tenant_id=tenant_id,
-        project_id=project_id,
-        name=str(data.get("name", "Workstream")).strip() or "Workstream",
-        description=str(data.get("description") or "").strip(),
-        enabled=bool(data.get("enabled", True)),
-    )
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return serialize_workstream(row)
-
-
-async def patch_workstream(
-    session: AsyncSession,
-    tenant_id: UUID,
-    project_id: UUID,
-    workstream_id: UUID,
-    patch: dict[str, Any],
-) -> dict[str, Any]:
-    result = await session.execute(
-        select(Workstream).where(
-            Workstream.id == workstream_id,
-            Workstream.project_id == project_id,
-            Workstream.tenant_id == tenant_id,
-        )
-    )
-    row = result.scalar_one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Workstream not found")
-    if "name" in patch and patch["name"] is not None:
-        row.name = str(patch["name"]).strip() or row.name
-    if "description" in patch and patch["description"] is not None:
-        row.description = str(patch["description"]).strip()
-    if "enabled" in patch and patch["enabled"] is not None:
-        row.enabled = bool(patch["enabled"])
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    counts = await _workstream_step_counts(session, [row.id])
-    return serialize_workstream(row, steps_count=counts.get(row.id, 0))
 
 
 async def po_agent_summary(

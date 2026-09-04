@@ -10,6 +10,7 @@ import {
 } from '../components/integrations/ApplicationHubDialog'
 import { ModuleConnectionsPanel } from '../components/integrations/ModuleConnectionsPanel'
 import { ModuleSourcesPanel } from '../components/integrations/ModuleSourcesPanel'
+import { ModuleTemplatesPanel } from '../components/integrations/ModuleTemplatesPanel'
 import { ModuleOverview } from '../components/modules/ModuleOverview'
 import {
   buildModulePackageItems,
@@ -399,6 +400,7 @@ export default function ModuleSetupPage() {
                 <p className="max-w-2xl text-sm text-text-secondary">{capability}</p>
               ) : null}
               {on ? <ModuleOverview module={module} applications={applications} /> : null}
+              {on ? <ModuleTemplatesPanel slug={slug} /> : null}
               <ModuleConnectionsPanel
                 slug={slug}
                 onAddPackage={openAddRegistration}

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.models.audit import AuditEvent
 from app.models.auth import Tenant
 from app.models.project import Project
-from app.models.project_work import ProjectDocSection
+from app.models.workspace import DocSection
 from app.models.signal import Signal, SignalEvent
 from app.services import project_work as svc
 from app.services.workspace import upsert_doc
@@ -68,14 +68,17 @@ async def test_doc_section_sync_and_rename(client: AsyncClient, session_override
     )
     assert doc.kind == "project_doc"
     sections = await svc.list_doc_sections(session_override, tenant.id, doc.id)
-    assert [s.heading for s in sections] == ["Login flow", "Billing export"]
-    assert all(s.status == "open" for s in sections)
+    # Preamble (# Product) lands in an intro section; ## headings follow.
+    assert [s.heading for s in sections] == ["", "Login flow", "Billing export"]
+    assert all(s.status == "draft" for s in sections)
+    assert "Users sign in with email." in sections[1].content
 
-    # Mark one section planned, then drop it from the doc: it deprecates, the
-    # other keeps its status.
+    # Mark one section review, then drop the other from the doc: the dropped
+    # section is deleted, the surviving one keeps its status and id.
     await svc.set_section_status(
-        session_override, tenant.id, sections[1].id, "planned", actor_type="user"
+        session_override, tenant.id, sections[1].id, "review", actor_type="user"
     )
+    login_id = sections[1].id
     await upsert_doc(
         session_override,
         tenant.id,
@@ -85,12 +88,14 @@ async def test_doc_section_sync_and_rename(client: AsyncClient, session_override
     )
     rows = (
         await session_override.execute(
-            select(ProjectDocSection).where(ProjectDocSection.doc_id == doc.id)
+            select(DocSection).where(DocSection.doc_id == doc.id)
         )
     ).scalars().all()
     by_anchor = {s.anchor: s for s in rows}
-    assert by_anchor["login-flow"].status == "open"
-    assert by_anchor["billing-export"].status == "deprecated"
+    assert set(by_anchor) == {"_intro", "login-flow"}
+    assert by_anchor["login-flow"].id == login_id
+    assert by_anchor["login-flow"].status == "review"
+    assert by_anchor["login-flow"].content == "Still here."
 
 
 @pytest.mark.asyncio
@@ -190,20 +195,21 @@ async def test_links_and_section_rollup(client: AsyncClient, session_override):
         project_id=project.id,
     )
     sections = await svc.list_doc_sections(session_override, tenant.id, doc.id)
+    login = next(s for s in sections if s.heading == "Login flow")
     item = await svc.create_queue_item(
         session_override, tenant.id, project.id, kind="feature", title="Improve login"
     )
     await svc.link_item_to_section(
-        session_override, tenant.id, item.id, sections[0].id, relation="modifies"
+        session_override, tenant.id, item.id, login.id, relation="modifies"
     )
     detail = await svc.get_queue_item_detail(session_override, tenant.id, item.id)
     assert detail["links"][0]["heading"] == "Login flow"
     assert detail["links"][0]["relation"] == "modifies"
 
-    rollup = await svc.links_for_sections(session_override, tenant.id, [sections[0].id])
-    assert rollup[sections[0].id][0]["title"] == "Improve login"
+    rollup = await svc.links_for_sections(session_override, tenant.id, [login.id])
+    assert rollup[login.id][0]["title"] == "Improve login"
 
-    await svc.unlink_item_section(session_override, tenant.id, item.id, sections[0].id)
+    await svc.unlink_item_section(session_override, tenant.id, item.id, login.id)
     detail = await svc.get_queue_item_detail(session_override, tenant.id, item.id)
     assert detail["links"] == []
 
@@ -282,7 +288,7 @@ async def test_project_queue_api_and_resources(client: AsyncClient, session_over
     docs = await client.get(f"{API}/{project_id}/docs", headers=headers)
     assert docs.status_code == 200
     payload = docs.json()["docs"]
-    assert payload and payload[0]["sections"][0]["status"] == "open"
+    assert payload and payload[0]["sections"][0]["status"] == "draft"
 
 
 @pytest.mark.asyncio

@@ -110,8 +110,106 @@ _PROPOSE_PROPS: dict[str, Any] = {
 }
 
 
+def _audience_for_card(card: ModuleToolCard) -> str:
+    if card.exposure == "customer":
+        return "customer"
+    if card.exposure == "both":
+        return "both"
+    return "operator"
+
+
+def _customer_read_handler(slug: str, verb: str):
+    async def handler(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+        from app.modules.dispatch import call_module_verb
+        from app.services.customer_verify import normalize_email
+
+        email = normalize_email(ctx.assurance_email)
+        if not email:
+            return {
+                "status": "needs_verification",
+                "copy": "This conversation is not confirmed yet.",
+            }
+        try:
+            parties_out = await call_module_verb(
+                ctx.session,
+                ctx.tenant_id,
+                slug,
+                "search_parties",
+                {"query": email, "role": "customer"},
+                agent_id=_agent_id(ctx),
+            )
+        except Exception as exc:
+            return {"documents": [], "note": str(exc)}
+        parties = parties_out.get("parties") or parties_out.get("items") or []
+        party_id = ""
+        if isinstance(parties, list):
+            for party in parties:
+                if not isinstance(party, dict):
+                    continue
+                party_email = normalize_email(
+                    str(party.get("email") or party.get("address") or "")
+                )
+                if party_email == email:
+                    party_id = str(party.get("id") or "")
+                    break
+        if not party_id:
+            return {"documents": []}
+        kind = "sales_invoice" if verb == "list_my_invoices" else None
+        payload = {**tool_input, "party_id": party_id}
+        if kind:
+            payload["kind"] = kind
+        try:
+            docs_out = await call_module_verb(
+                ctx.session,
+                ctx.tenant_id,
+                slug,
+                "list_documents",
+                payload,
+                agent_id=_agent_id(ctx),
+            )
+        except Exception as exc:
+            return {"documents": [], "note": str(exc)}
+        documents = docs_out.get("documents") or docs_out.get("items") or []
+        if not isinstance(documents, list):
+            return {"documents": []}
+        scoped = []
+        for doc in documents:
+            if not isinstance(doc, dict):
+                continue
+            doc_party = str(doc.get("party_id") or "")
+            doc_email = normalize_email(str(doc.get("party_email") or ""))
+            if doc_party and doc_party != party_id and doc_email and doc_email != email:
+                continue
+            if kind and str(doc.get("kind") or "") not in ("", kind):
+                continue
+            scoped.append(doc)
+        return {"documents": scoped}
+
+    return handler
+
+
 def _register_card(slug: str, card: ModuleToolCard) -> None:
     name = f"{slug}_{card.verb}"
+    audience = _audience_for_card(card)
+    if card.kind == "read" and card.exposure == "customer":
+        register_tool(
+            ToolSpec(
+                name=name,
+                description=card.description,
+                category="integrations",
+                input_schema={
+                    "type": "object",
+                    "properties": {**_COMMON_PROPS, **card.input_props},
+                },
+                handler=_customer_read_handler(slug, card.verb),
+                mutating=False,
+                gated=True,
+                audience=audience,
+                min_assurance=card.min_assurance or "verified",
+                sensitivity=card.sensitivity,
+            )
+        )
+        return
     if card.kind == "read":
         register_tool(
             ToolSpec(
@@ -125,6 +223,9 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
                 handler=_verb_handler(slug, card.verb),
                 mutating=False,
                 gated=False,
+                audience=audience,
+                min_assurance=card.min_assurance or "none",
+                sensitivity=card.sensitivity,
             )
         )
     elif card.kind == "propose":
@@ -140,6 +241,7 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
                 },
                 handler=_propose_handler(slug, card.verb),
                 gated=False,
+                audience=audience,
             )
         )
     else:  # apply
@@ -156,6 +258,7 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
                 handler=_verb_handler(slug, card.verb),
                 mutating=True,
                 gated=True,
+                audience=audience,
             )
         )
 

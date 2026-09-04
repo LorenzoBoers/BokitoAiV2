@@ -36,6 +36,35 @@ async def test_chat_flow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_chat_message_accepts_page_context(client: AsyncClient):
+    """The in-app assistant sends the operator's current page with each turn."""
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    targets = await client.get("/api/signals/chat/targets", headers=headers)
+    agent_id = targets.json()["items"][0]["id"]
+    conv = await client.post(
+        "/api/signals/conversations",
+        json={"title": "In-app assistant", "agent_id": agent_id},
+        headers=headers,
+    )
+    assert conv.status_code == 200
+
+    msg = await client.post(
+        f"/api/signals/conversations/{conv.json()['id']}/messages",
+        json={
+            "content": "What am I looking at?",
+            "page_context": "Workstreams — /workstreams/abc, run 12",
+        },
+        headers=headers,
+    )
+    assert msg.status_code == 200
+    assert msg.json()["message"]["role"] == "assistant"
+
+
+@pytest.mark.asyncio
 async def test_chat_targets_company_only_and_create_requires_agent(
     client: AsyncClient, session_override
 ):

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { ArrowRight, Building2, CirclePlus, Copy, Plus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowRight, Building2, CirclePlus, Copy, Plus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { getAvatarColor } from '../lib/avatar'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +10,11 @@ import { Button } from '../components/ui/button'
 import { buildTenantOrigin, isLocalHostname } from '../lib/host-routing'
 import { useAuth } from '../context/AuthContext'
 import { inboxPath } from '../lib/messages-paths'
+import { bokitoListAssistantThreads, type PersonalAssistantThread } from '../lib/signals-api'
+import {
+  openAssistantThread,
+  requestAssistantThread,
+} from '../lib/personal-assistant-widget'
 import { normalizeWorkspaceSubdomain, validateWorkspaceSubdomain } from '../lib/workspace-subdomain'
 import {
   Dialog,
@@ -21,6 +26,77 @@ import {
 } from '../components/ui/dialog'
 
 const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Amsterdam'
+
+/**
+ * Recent chats with Bokito, across every workspace this person belongs to.
+ *
+ * The threads themselves stay tenant-scoped — only this reading view fans out,
+ * which is why it lives on the workspace switcher rather than inside a single
+ * workspace.
+ */
+function AssistantThreadsSection({
+  currentWorkspaceId,
+  onOpen,
+}: {
+  currentWorkspaceId: string
+  onOpen: (thread: PersonalAssistantThread) => void | Promise<void>
+}) {
+  const { t } = useTranslation('workspaces')
+  const { token } = useAuth()
+  const [threads, setThreads] = useState<PersonalAssistantThread[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!token) return
+      try {
+        const data = await bokitoListAssistantThreads(token)
+        if (!cancelled) setThreads(data.items)
+      } catch {
+        if (!cancelled) setThreads([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  if (loading || threads.length === 0) return null
+
+  return (
+    <section className="space-y-3">
+      <div className="space-y-1 text-center">
+        <h3 className="text-[15px] font-semibold text-text-heading">{t('assistant.title')}</h3>
+        <p className="text-xs text-text-secondary">{t('assistant.description')}</p>
+      </div>
+      <ul className="space-y-1.5">
+        {threads.slice(0, 8).map((thread) => (
+          <li key={thread.id}>
+            <button
+              type="button"
+              onClick={() => void onOpen(thread)}
+              className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-2.5 text-left hover:border-accent/40 hover:bg-bg-hover/60"
+            >
+              <Sparkles size={14} className="shrink-0 text-ai-ink" aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+                {thread.title}
+              </span>
+              <span className="shrink-0 text-[11px] uppercase tracking-[0.08em] text-text-muted">
+                {thread.workspace_id === currentWorkspaceId
+                  ? t('assistant.thisWorkspace')
+                  : thread.workspace_name}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
 
 export default function Workspaces() {
   const { t } = useTranslation('workspaces')
@@ -232,6 +308,20 @@ export default function Workspaces() {
           </div>
 
         </div>
+
+        <AssistantThreadsSection
+          currentWorkspaceId={currentWorkspace?.id != null ? String(currentWorkspace.id) : ''}
+          onOpen={async (thread) => {
+            if (thread.workspace_id === (currentWorkspace?.id != null ? String(currentWorkspace.id) : '')) {
+              openAssistantThread(thread.id)
+              return
+            }
+            // Other workspace: park the thread, switch, and let the widget
+            // pick it up once it remounts over there.
+            requestAssistantThread(thread.workspace_id, thread.id)
+            await switchWorkspace(thread.workspace_id)
+          }}
+        />
       </div>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

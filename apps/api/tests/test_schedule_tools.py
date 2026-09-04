@@ -38,7 +38,9 @@ def test_schedule_tools_are_governed():
         assert spec.gated is True, f"{name} must be policy-gated"
         assert spec.mutating is True, f"{name} must be mutating"
     assert get_tool_spec("schedule_wake").category == "triggers"
-    assert get_tool_spec("schedule_task").category == "agents"
+    # Scheduling work for an agent is delegation, not agent configuration, so
+    # a member's assistant may do it while creating agents stays admin-only.
+    assert get_tool_spec("schedule_task").category == "delegation"
 
 
 @pytest.mark.asyncio

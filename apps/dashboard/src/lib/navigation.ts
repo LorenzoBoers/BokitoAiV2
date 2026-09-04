@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Plug,
   Settings,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -23,6 +24,7 @@ export type Tab =
   | 'communication'
   | 'agenda'
   | 'agents'
+  | 'workstreams'
   | 'knowledge'
   | 'projects'
   | 'modules'
@@ -30,7 +32,7 @@ export type Tab =
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
   { label: 'Control', tabs: ['overview', 'communication', 'agenda', 'projects'] },
-  { label: 'AI', tabs: ['agents', 'knowledge'] },
+  { label: 'AI', tabs: ['agents', 'workstreams', 'knowledge'] },
   { label: 'Settings', tabs: ['modules', 'settings'] },
 ]
 
@@ -39,6 +41,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   communication: '/communication/inbox/open',
   agenda: '/agenda',
   agents: '/agents',
+  workstreams: '/workstreams',
   knowledge: '/knowledge',
   projects: '/projects',
   modules: '/connections',
@@ -59,6 +62,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   communication: MessageSquare,
   agenda: CalendarDays,
   agents: Bot,
+  workstreams: Workflow,
   knowledge: Brain,
   projects: FolderKanban,
   modules: Plug,
@@ -70,6 +74,7 @@ const TAB_TITLES: Record<Tab, string> = {
   communication: 'Communication',
   agenda: 'Agenda',
   agents: 'Agents',
+  workstreams: 'Workstreams',
   knowledge: 'Knowledge',
   projects: 'Projects',
   modules: 'Connections',
@@ -81,6 +86,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   communication: 'Chats, customer and agent threads',
   agenda: 'Scheduled wakes, tasks and events',
   agents: 'People and agents you can chat with',
+  workstreams: 'Repeatable step-by-step playbooks for agents',
   knowledge: 'Docs, skills and memory',
   projects: 'Shared goals for agents and threads',
   modules: 'Installed modules, partner logins and tools',
@@ -146,6 +152,7 @@ export function tabFromPath(pathname: string): Tab | null {
   if (pathname.startsWith('/contacts')) return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/agents')) return 'agents'
+  if (pathname.startsWith('/workstreams')) return 'workstreams'
   if (pathname.startsWith('/projects')) return 'projects'
   if (
     pathname.startsWith('/knowledge') ||

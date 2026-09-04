@@ -91,6 +91,21 @@ async def get_mail_status(
     return {"configured": mail_configured()}
 
 
+@router.get("/assistant/threads")
+async def get_assistant_threads(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = 50,
+):
+    """The signed-in person's Bokito helper threads across their workspaces."""
+    from app.services.personal_assistant import list_user_assistant_threads
+
+    items = await list_user_assistant_threads(
+        session, auth.user.id, limit=max(1, min(limit, 100))
+    )
+    return {"items": items}
+
+
 @router.get("/workspaces")
 async def get_workspaces(
     auth: Annotated[AuthContext, Depends(get_current_auth)],

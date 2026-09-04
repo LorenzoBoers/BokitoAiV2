@@ -46,18 +46,6 @@ class RepoConnectBody(BaseModel):
     github_connection_id: str | None = None
 
 
-class WorkstreamCreateBody(BaseModel):
-    name: str
-    description: str = ""
-    enabled: bool = True
-
-
-class WorkstreamPatchBody(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    enabled: bool | None = None
-
-
 class PoAgentCreateBody(BaseModel):
     name: str | None = None
 
@@ -200,42 +188,6 @@ async def usage_summary(
     period: str = Query(default="30d"),
 ):
     return await svc.usage_summary(session, auth.tenant.id, project_id, period)
-
-
-@router.get("/{project_id}/workstreams")
-async def list_workstreams(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.list_workstreams(session, auth.tenant.id, project_id)
-
-
-@router.post("/{project_id}/workstreams")
-async def create_workstream(
-    project_id: UUID,
-    body: WorkstreamCreateBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.create_workstream(session, auth.tenant.id, project_id, body.model_dump())
-
-
-@router.patch("/{project_id}/workstreams/{workstream_id}")
-async def patch_workstream(
-    project_id: UUID,
-    workstream_id: UUID,
-    body: WorkstreamPatchBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.patch_workstream(
-        session,
-        auth.tenant.id,
-        project_id,
-        workstream_id,
-        body.model_dump(exclude_unset=True),
-    )
 
 
 @router.get("/{project_id}/po-agent")
@@ -568,7 +520,7 @@ async def patch_doc_section(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Manually set a section status (open/planned/in_progress/implemented/...)."""
+    """Manually set a section maturity status (draft/review/final)."""
     section = await work.set_section_status(
         session,
         auth.tenant.id,

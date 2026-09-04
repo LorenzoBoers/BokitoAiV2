@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, FileText, Loader2, Pencil, Plus, X } from 'l
 import { toast } from 'sonner'
 import MarkdownView from '../docs/MarkdownView'
 import { KnowledgeMarkdownEditor } from '../knowledge/KnowledgeMarkdownEditor'
+import { DocSectionsEditor } from '../knowledge/DocSections'
 import { LinkedRequestsChips } from '../knowledge/LinkedRequestsChips'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
@@ -27,14 +28,7 @@ import {
   SECTION_STATUS_VARIANT,
 } from './projectWorkBadges'
 
-const SECTION_STATUSES: DocSectionStatus[] = [
-  'open',
-  'planned',
-  'in_progress',
-  'implemented',
-  'verified',
-  'deprecated',
-]
+const SECTION_STATUSES: DocSectionStatus[] = ['draft', 'review', 'final']
 
 function SectionRow({
   section,
@@ -336,16 +330,14 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                   {t('projects.work.sections')}
                 </summary>
                 <ul className="mt-2 space-y-1.5">
-                  {selected.sections
-                    .filter((section) => section.status !== 'deprecated')
-                    .map((section) => (
-                      <SectionRow
-                        key={section.id}
-                        section={section}
-                        canEdit={canEdit}
-                        onSetStatus={handleSetStatus}
-                      />
-                    ))}
+                  {selected.sections.map((section) => (
+                    <SectionRow
+                      key={section.id}
+                      section={section}
+                      canEdit={canEdit}
+                      onSetStatus={handleSetStatus}
+                    />
+                  ))}
                 </ul>
               </details>
             ) : null}
@@ -378,6 +370,13 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                   onChange={setDraft}
                   writeLabel={t('knowledgePage.editorWrite')}
                   markdownLabel={t('knowledgePage.editorMarkdown')}
+                />
+              ) : selected.sections.length > 0 ? (
+                <DocSectionsEditor
+                  docId={selected.id}
+                  sections={selected.sections}
+                  onChanged={() => void load()}
+                  readOnly={!canEdit}
                 />
               ) : (
                 <MarkdownView content={selected.content ?? ''} />

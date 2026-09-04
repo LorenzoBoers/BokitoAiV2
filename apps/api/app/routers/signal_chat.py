@@ -32,6 +32,8 @@ from app.models.agent import Agent, AgentRun
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
 from app.services.agent.loop import AgentLoop
+from app.services.assistant_context import page_context_block
+from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
 from app.services.assistant_threads import (
     append_signal_chat_message,
     serialize_chat_message,
@@ -65,6 +67,9 @@ class ConversationUpdate(BaseModel):
 class MessageCreate(BaseModel):
     content: str
     attachments: list[dict] = []
+    # In-app assistant: what the operator is looking at (route + entity), sent
+    # with every turn so the agent can help in context.
+    page_context: str = ""
 
 
 def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = None) -> dict:
@@ -73,6 +78,7 @@ def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = N
         "id": str(signal.id),
         "title": signal.subject,
         "channel": signal.channel,
+        "source": signal.source,
         "audience": "internal" if signal.channel == "assistant" else "external",
         "ai_paused": signal.ai_paused,
         "agent_id": str(signal.agent_id) if signal.agent_id else None,
@@ -123,6 +129,7 @@ async def list_conversations(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     channel: str | None = None,
+    source: str | None = None,
 ):
     query = select(Signal).where(Signal.tenant_id == auth.tenant.id)
     if channel:
@@ -136,6 +143,12 @@ async def list_conversations(
             Signal.channel == "assistant",
             (Signal.owner_user_id == auth.user.id) | (Signal.owner_user_id.is_(None)),
         )
+    # Private Bokito helper threads live in their own rail section, so they stay
+    # out of the operator's agent chats unless asked for explicitly.
+    if source:
+        query = query.where(Signal.source == source)
+    else:
+        query = query.where(Signal.source != PERSONAL_THREAD_SOURCE)
     result = await session.execute(query.order_by(Signal.updated_at.desc()))
     signals = list(result.scalars().all())
     agents = await _agents_by_id(session, auth.tenant.id, [s.agent_id for s in signals])
@@ -280,12 +293,17 @@ async def send_message(
         session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
         enable_chat_thinking=True,
         tool_signal_id=signal.context_signal_id,
+        user_role=auth.role,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
     from app.services.agent.run_cancel import clear_cancel, is_run_cancelled
 
     try:
-        reply_text, tokens = await loop.run_chat(history, attachments=body.attachments)
+        reply_text, tokens = await loop.run_chat(
+            history,
+            extra_context=page_context_block(body.page_context),
+            attachments=body.attachments,
+        )
     except Exception as exc:
         logger.exception("assistant chat failed for signal %s", signal.id)
         reply_text = _agent_error_message(exc, llm_meta)
@@ -400,6 +418,7 @@ async def stream_message(
         session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
         enable_chat_thinking=True,
         tool_signal_id=signal.context_signal_id,
+        user_role=auth.role,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
     from app.services.agent.run_cancel import clear_cancel
@@ -412,7 +431,11 @@ async def stream_message(
                 "data": json.dumps({"run_id": str(run.id)}),
             }
         try:
-            async for event in loop.stream_chat(history, attachments=body.attachments):
+            async for event in loop.stream_chat(
+                history,
+                extra_context=page_context_block(body.page_context),
+                attachments=body.attachments,
+            ):
                 if event["type"] == "thinking":
                     yield {
                         "event": "thinking",

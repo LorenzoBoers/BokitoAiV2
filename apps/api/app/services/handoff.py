@@ -64,3 +64,46 @@ async def request_human_handoff(
         cooldown_minutes=30,
     )
     return newly_paused
+
+
+async def request_callback(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    *,
+    reason: str = "",
+    via: str = "request_callback",
+    actor_type: str = "user",
+    actor_id: str = "",
+) -> None:
+    """Ask the team to get back later. Does not pause AI replies."""
+    from app.gateway.publish import publish_thread_update
+    from app.services.ops_alerts import notify_tenant_admins
+
+    signal.has_unread = True
+    signal.updated_at = datetime.utcnow()
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            event_type="callback_requested",
+            actor_type=actor_type,
+            actor_id=actor_id,
+            payload_json=json.dumps({"via": via, "reason": reason}),
+        )
+    )
+    await session.flush()
+    await publish_thread_update(signal)
+
+    who = signal.contact_name or "A visitor"
+    await notify_tenant_admins(
+        session,
+        tenant_id,
+        category="handoff",
+        title=f"Callback requested: {signal.subject or who}"[:200],
+        body=reason
+        or f"{who} asked the team to get back. Chat stays open; no live handoff right now.",
+        payload={"signal_id": str(signal.id), "channel": signal.channel, "via": via},
+        cooldown_minutes=30,
+    )

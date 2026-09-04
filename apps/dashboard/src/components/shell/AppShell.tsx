@@ -12,6 +12,7 @@ import VerifyEmailBanner from './VerifyEmailBanner'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
 import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
+import PersonalAssistantWidget from './PersonalAssistantWidget'
 import { TourProvider } from '../tour/TourContext'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
@@ -165,6 +166,10 @@ export default function AppShell() {
           </div>
 
           <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          {/* Mounted on every page, including Messages: the Bokito rail
+            section there hands its threads to this one widget instead of
+            rendering a second chat surface. */}
+          <PersonalAssistantWidget />
           </TourProvider>
         </ChatSessionsProvider>
       </InboxCommunicationProvider>

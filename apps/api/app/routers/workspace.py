@@ -42,6 +42,21 @@ class SearchBody(BaseModel):
     source_types: list[str] | None = None
 
 
+class SectionCreateBody(BaseModel):
+    heading: str
+    content: str = ""
+    summary: str | None = None
+    position: int | None = None
+
+
+class SectionUpdateBody(BaseModel):
+    heading: str | None = None
+    content: str | None = None
+    status: str | None = None
+    summary: str | None = None
+    position: int | None = None
+
+
 @router.get("/docs")
 async def list_workspace_docs(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -167,9 +182,70 @@ async def get_workspace_doc(
     if not doc:
         raise HTTPException(status_code=404, detail="Doc not found")
     data = svc.serialize_doc(doc)
+    sections = await svc.list_sections(session, auth.tenant.id, doc.id)
+    data["sections"] = [svc.serialize_section(s) for s in sections]
     linked = await _linked_requests_for_docs(session, auth.tenant.id, [doc.id])
     data["linked_requests"] = linked.get(doc.id, [])
     return data
+
+
+@router.post("/docs/{doc_id}/sections")
+async def create_doc_section(
+    doc_id: UUID,
+    body: SectionCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Add one section (atomic knowledge unit) to a page."""
+    doc = await svc.get_doc(session, auth.tenant.id, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Doc not found")
+    section = await svc.upsert_section(
+        session,
+        auth.tenant.id,
+        doc,
+        heading=body.heading,
+        content=body.content,
+        summary=body.summary,
+        position=body.position,
+        actor_type="user",
+        actor_id=str(auth.user.id),
+    )
+    return svc.serialize_section(section)
+
+
+@router.patch("/docs/{doc_id}/sections/{section_id}")
+async def update_doc_section(
+    doc_id: UUID,
+    section_id: UUID,
+    body: SectionUpdateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    section = await svc.update_section(
+        session,
+        auth.tenant.id,
+        section_id,
+        heading=body.heading,
+        content=body.content,
+        status=body.status,
+        summary=body.summary,
+        position=body.position,
+        actor_type="user",
+        actor_id=str(auth.user.id),
+    )
+    return svc.serialize_section(section)
+
+
+@router.delete("/docs/{doc_id}/sections/{section_id}")
+async def delete_doc_section(
+    doc_id: UUID,
+    section_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await svc.delete_section(session, auth.tenant.id, section_id)
+    return {"ok": True}
 
 
 @router.patch("/docs/{doc_id}")

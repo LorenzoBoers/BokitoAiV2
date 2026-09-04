@@ -30,32 +30,6 @@ export type TaskArtifact = {
   created_at: string
 }
 
-export type WorkstreamStep = {
-  id: string
-  name: string
-  order: number
-  agent_id?: string | null
-  step_kind: string
-  prompt_template?: string
-  handoff_template?: string
-  eval_kind?: string
-}
-
-export type Workstream = {
-  id: string
-  name: string
-  description?: string
-  enabled: boolean
-}
-
-export async function listWorkstreams(): Promise<Workstream[]> {
-  return apiGet<Workstream[]>(appRoutes.orchestration.workstreams)
-}
-
-export async function createWorkstream(body: { name: string; description?: string }): Promise<{ id: string }> {
-  return apiPost<{ id: string }>(appRoutes.orchestration.workstreams, body)
-}
-
 export async function listAgentTasks(opts?: { signalId?: string }): Promise<AgentTask[]> {
   const path = opts?.signalId
     ? `${appRoutes.orchestration.tasks}?signal_id=${encodeURIComponent(opts.signalId)}`
@@ -89,25 +63,6 @@ export async function resumeAgentTask(taskId: string): Promise<AgentTask> {
 
 export async function listTaskArtifacts(taskId: string): Promise<TaskArtifact[]> {
   return apiGet<TaskArtifact[]>(appRoutes.orchestration.taskArtifacts(taskId))
-}
-
-export async function runWorkstreamOrchestrated(workstreamId: string): Promise<AgentTask> {
-  return apiPost<AgentTask>(appRoutes.orchestration.workstreamRun(workstreamId), {})
-}
-
-export async function listWorkstreamSteps(workstreamId: string): Promise<WorkstreamStep[]> {
-  return apiGet<WorkstreamStep[]>(appRoutes.orchestration.workstreamSteps(workstreamId))
-}
-
-export async function createWorkstreamStep(
-  workstreamId: string,
-  body: Partial<WorkstreamStep> & { name: string; order?: number },
-): Promise<{ id: string }> {
-  return apiPost<{ id: string }>(appRoutes.orchestration.workstreamSteps(workstreamId), body)
-}
-
-export async function deleteWorkstreamStep(workstreamId: string, stepId: string): Promise<void> {
-  await apiDelete(appRoutes.orchestration.workstreamStep(workstreamId, stepId))
 }
 
 export async function fetchRunEvents(runId: string): Promise<{

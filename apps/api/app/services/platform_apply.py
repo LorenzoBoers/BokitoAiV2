@@ -317,19 +317,91 @@ async def apply_canvas_edge_change(
     return {"canvas_edge_id": edge["id"], "status": "connected"}
 
 
+async def _track_run_section_write(
+    session: AsyncSession, tenant_id: UUID, run_id: str, section: Any
+) -> None:
+    """Section written inside a workstream run: status moves to review and the
+    run remembers the section so gate approval can promote it to final."""
+    from app.models.orchestra import WorkstreamRun
+
+    try:
+        run = await session.get(WorkstreamRun, UUID(run_id))
+    except ValueError:
+        return
+    if run is None or run.tenant_id != tenant_id:
+        return
+    if section.status == "draft":
+        now = datetime.utcnow()
+        section.status = "review"
+        section.status_changed_at = now
+        section.status_changed_by_type = "system"
+        section.status_changed_by_id = "workstream_run"
+        section.updated_at = now
+        session.add(section)
+    try:
+        ctx = json.loads(run.context_json or "{}")
+        if not isinstance(ctx, dict):
+            ctx = {}
+    except json.JSONDecodeError:
+        ctx = {}
+    written = ctx.get("written_section_ids")
+    if not isinstance(written, list):
+        written = []
+    if str(section.id) not in written:
+        written.append(str(section.id))
+    ctx["written_section_ids"] = written
+    run.context_json = json.dumps(ctx)
+    session.add(run)
+    await session.flush()
+
+
 async def apply_workspace_doc_change(
     session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
 ) -> dict[str, Any]:
-    from app.services.workspace import get_doc_by_path, upsert_doc
+    from app.services.workspace import get_doc_by_path, upsert_doc, upsert_section
 
     path = after.get("path")
     content = after.get("content", "")
     if not path:
         raise HTTPException(status_code=400, detail="after_json missing path")
     mode = after.get("mode", "append")
+    section = str(after.get("section") or "").strip()
     project_id = UUID(str(after["project_id"])) if after.get("project_id") else None
     agent_id = UUID(str(after["agent_id"])) if after.get("agent_id") else None
     existing = await get_doc_by_path(session, tenant_id, path)
+    if section:
+        # Section-scoped write: touch exactly one atomic knowledge unit.
+        doc = existing or await upsert_doc(
+            session,
+            tenant_id,
+            path=path,
+            content="",
+            kind=after.get("kind"),
+            project_id=project_id,
+            agent_id=agent_id,
+            created_by_type="agent",
+            commit=False,
+        )
+        row = await upsert_section(
+            session,
+            tenant_id,
+            doc,
+            heading=section,
+            content=content,
+            mode=mode,
+            actor_type="agent",
+            commit=False,
+        )
+        run_id = after.get("workstream_run_id")
+        if run_id:
+            await _track_run_section_write(session, tenant_id, str(run_id), row)
+        return {
+            "doc_id": str(doc.id),
+            "path": doc.path,
+            "section_id": str(row.id),
+            "section": row.heading,
+            "status": "written",
+        }
     if existing and mode == "append" and existing.content.strip():
         content = f"{existing.content.rstrip()}\n\n{content}"
     doc = await upsert_doc(
@@ -400,6 +472,10 @@ async def apply_change_to_domain(
         return await apply_autonomy_posture_change(session, tenant_id, after)
     if rt == "persona_review":
         return await apply_persona_review_change(session, tenant_id, after)
+    if rt == "case_type":
+        return await apply_case_type_change(session, tenant_id, ck, after, before)
+    if rt == "case_type_binding":
+        return await apply_case_type_binding_change(session, tenant_id, ck, after, before)
     return {"status": "applied", "resource_type": rt, "payload": after}
 
 
@@ -432,6 +508,94 @@ async def apply_persona_review_change(
     heading = f"Feedback review {_dt.utcnow().strftime('%Y-%m-%d')}"
     await append_persona_section(session, tenant_id, heading=heading, body=addition)
     return {"status": "applied", "resource_type": "persona_review", "doc": "persona.md"}
+
+
+def _as_uuid(raw: Any) -> UUID | None:
+    if not raw:
+        return None
+    try:
+        return UUID(str(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+async def apply_case_type_change(
+    session: AsyncSession,
+    tenant_id: UUID,
+    change_kind: str,
+    after: dict[str, Any],
+    before: dict[str, Any],
+) -> dict[str, Any]:
+    from app.services.cases import create_case_type, delete_case_type, serialize_case_type, update_case_type
+
+    if change_kind == "delete":
+        type_id = _as_uuid(after.get("case_type_id") or before.get("case_type_id"))
+        if type_id is None:
+            raise HTTPException(status_code=400, detail="case_type_id required for delete")
+        await delete_case_type(session, tenant_id, type_id, commit=False)
+        return {"case_type_id": str(type_id), "status": "deleted"}
+
+    if change_kind == "update":
+        type_id = _as_uuid(after.get("case_type_id") or before.get("case_type_id"))
+        if type_id is None:
+            raise HTTPException(status_code=400, detail="case_type_id required for update")
+        row = await update_case_type(session, tenant_id, type_id, after, commit=False)
+        return serialize_case_type(row)
+
+    row = await create_case_type(
+        session,
+        tenant_id,
+        name=str(after.get("name") or "New type"),
+        slug=str(after.get("slug") or ""),
+        description=str(after.get("description") or ""),
+        create_mode=str(after.get("create_mode") or "ask_customer"),
+        ask_threshold=int(after.get("ask_threshold") or 6),
+        auto_threshold=int(after.get("auto_threshold") or 9),
+        requires_verification=bool(after.get("requires_verification") or False),
+        allow_project_link=str(after.get("allow_project_link") or "optional"),
+        audience=str(after.get("audience") or "both"),
+        enabled=after.get("enabled", True),
+        sort_order=int(after.get("sort_order") or 0),
+        commit=False,
+    )
+    after["case_type_id"] = str(row.id)
+    return serialize_case_type(row)
+
+
+async def apply_case_type_binding_change(
+    session: AsyncSession,
+    tenant_id: UUID,
+    change_kind: str,
+    after: dict[str, Any],
+    before: dict[str, Any],
+) -> dict[str, Any]:
+    from app.services.cases import create_binding, delete_binding, serialize_binding
+
+    if change_kind == "delete":
+        binding_id = _as_uuid(after.get("binding_id") or before.get("binding_id"))
+        if binding_id is None:
+            raise HTTPException(status_code=400, detail="binding_id required for delete")
+        await delete_binding(session, tenant_id, binding_id, commit=False)
+        return {"binding_id": str(binding_id), "status": "deleted"}
+
+    type_id = _as_uuid(after.get("case_type_id"))
+    target_id = _as_uuid(after.get("target_id"))
+    if type_id is None or target_id is None:
+        raise HTTPException(status_code=400, detail="case_type_id and target_id are required")
+    row = await create_binding(
+        session,
+        tenant_id,
+        case_type_id=type_id,
+        target_kind=str(after.get("target_kind") or ""),
+        target_id=target_id,
+        priority=int(after.get("priority") or 0),
+        auto_link=bool(after.get("auto_link", True)),
+        auto_start_run=bool(after.get("auto_start_run") or False),
+        enabled=bool(after.get("enabled", True)),
+        commit=False,
+    )
+    after["binding_id"] = str(row.id)
+    return serialize_binding(row)
 
 
 async def apply_autonomy_posture_change(
@@ -476,4 +640,14 @@ async def rollback_change_to_domain(
         )
     if rt == "agent" and ck == "update" and before:
         return await apply_agent_change(session, tenant_id, "update", before, after)
+    if rt == "case_type" and ck == "create" and after.get("case_type_id"):
+        return await apply_case_type_change(
+            session, tenant_id, "delete", {"case_type_id": after["case_type_id"]}, before
+        )
+    if rt == "case_type" and ck == "update" and before:
+        return await apply_case_type_change(session, tenant_id, "update", before, after)
+    if rt == "case_type_binding" and ck == "create" and after.get("binding_id"):
+        return await apply_case_type_binding_change(
+            session, tenant_id, "delete", {"binding_id": after["binding_id"]}, before
+        )
     return {"status": "rollback_unsupported", "resource_type": rt}

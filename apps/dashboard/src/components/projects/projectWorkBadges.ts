@@ -55,20 +55,14 @@ export const QUEUE_KIND_VARIANT: Record<QueueItemKind, BadgeVariant> = {
 }
 
 export const SECTION_STATUS_VARIANT: Record<DocSectionStatus, BadgeVariant> = {
-  open: 'warning',
-  planned: 'info',
-  in_progress: 'accent',
-  implemented: 'success',
-  verified: 'success',
-  deprecated: 'neutral',
+  draft: 'neutral',
+  review: 'warning',
+  final: 'success',
 }
 
-/** Left rail color per section status (design tokens, no emoji). */
+/** Left rail color per section maturity (design tokens, no emoji). */
 export const SECTION_STATUS_RAIL: Record<DocSectionStatus, string> = {
-  open: 'bg-status-warning',
-  planned: 'bg-status-info',
-  in_progress: 'bg-accent',
-  implemented: 'bg-status-success',
-  verified: 'bg-status-success',
-  deprecated: 'bg-border',
+  draft: 'bg-border',
+  review: 'bg-status-warning',
+  final: 'bg-status-success',
 }

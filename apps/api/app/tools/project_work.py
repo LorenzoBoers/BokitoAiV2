@@ -507,18 +507,16 @@ register_tool(
     ToolSpec(
         name="set_doc_section_status",
         description=(
-            "Set the status of a project doc section (open, planned, in_progress, "
-            "implemented, verified, deprecated). Only mark implemented/verified "
-            "after checking reality matches the documentation."
+            "Set the maturity of a knowledge section: draft (concept), review "
+            "(written, awaiting verification), final (verified against reality). "
+            "Only mark final after checking reality matches the documentation."
         ),
         category="projects",
         input_schema={
             "type": "object",
             "properties": {
                 "section_id": {"type": "string"},
-                "status": {"type": "string", "enum": [
-                    "open", "planned", "in_progress", "implemented", "verified", "deprecated",
-                ]},
+                "status": {"type": "string", "enum": ["draft", "review", "final"]},
                 "summary": {"type": "string", "description": "One-line summary of what the section covers."},
             },
             "required": ["section_id", "status"],

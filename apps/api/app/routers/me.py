@@ -13,6 +13,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import UserPreference
 from app.services.language import platform_default_ui_language
 from app.services.personal_agents import allowed_company_agents, get_user_preference
+from app.services.user_memory import clear_user_memory, delete_user_memory, list_user_memory
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -228,3 +229,42 @@ async def get_chat_default(
             {"id": str(a.id), "name": a.name, "role": a.role} for a in company
         ],
     }
+
+
+def _serialize_memory_entry(entry) -> dict:
+    return {
+        "key": entry.key,
+        "content": entry.content,
+        "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+    }
+
+
+@router.get("/assistant-memory")
+async def get_my_assistant_memory(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Facts Bokito remembers about this person across workspaces."""
+    entries = await list_user_memory(session, auth.user.id)
+    return {"entries": [_serialize_memory_entry(e) for e in entries]}
+
+
+@router.delete("/assistant-memory/{key}")
+async def delete_my_assistant_memory_entry(
+    key: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    removed = await delete_user_memory(session, auth.user.id, key, commit=True)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Memory entry not found")
+    return {"ok": True, "key": key}
+
+
+@router.delete("/assistant-memory")
+async def clear_my_assistant_memory(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    count = await clear_user_memory(session, auth.user.id, commit=True)
+    return {"ok": True, "deleted": count}

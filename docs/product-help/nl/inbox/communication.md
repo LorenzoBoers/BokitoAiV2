@@ -4,7 +4,7 @@ intro: De hub voor elk gesprek — klanten en agents op één plek.
 description: Werk klantmail, chat en interne gesprekken af in Berichten, inclusief opstellen, notities, uitstellen en sjablonen.
 keywords: inbox, messages, gesprekken, email, chat, opstellen, uitstellen, sjablonen
 sort: 10
-related: agent-runs,channels,inbox-ai,contacts,decisions
+related: agent-runs,channels,inbox-ai,contacts,decisions,cases
 ---
 
 # Zo werken Berichten
@@ -77,6 +77,12 @@ Haal een agent erbij als je wilt sparren, iets wilt laten opzoeken of het gespre
 1. Open een websitechat. De kop kan **+N eerder** tonen als deze persoon al eerder schreef — dat opent het contactpaneel.
 2. Typ in **Details** hun naam en e-mail, daarna **E-mail opslaan**. **E-mail schrijven** wordt beschikbaar zodra er een echt adres staat.
 3. De contactkaart toont of iemand goedgekeurd, in afwachting of geblokkeerd is, en bedrijfsnamen openen de bedrijfspagina als die bestaat. Niet-opgeslagen notities blijven gemarkeerd tot je ze opslaat, en bij wegklikken vraagt Bokito om te bevestigen. Mail van een workspace-lid toont een **Teamlid**-kaart (geen Blokkeer of Goedkeuren) — dat is een collega, geen klantcontact.
+
+## Zie signalen op een gesprek
+
+1. Open een klant- of intern gesprek. Het zijpaneel toont **Signalen**.
+2. Elke rij toont het type, de status en een werkstroomlink wanneer er een koppeling is.
+3. Kies **Bug report toevoegen** (of een ander type) wanneer een tweede intentie verschijnt. Op één gesprek kunnen meerdere signalen staan — zie [Signalen](/docs/ai/cases).
 
 ## Wat nu
 

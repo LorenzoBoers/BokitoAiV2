@@ -27,10 +27,10 @@ import {
 import {
   listAgendaOccurrences,
   listTriggers,
-  listWorkstreams,
   type AgendaItem,
   type Trigger,
 } from '../lib/orchestration-api'
+import { listWorkstreams } from '../lib/workstreams-api'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
 import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda-week'
 import { Input } from '../components/ui/input'

@@ -24,6 +24,8 @@ PLATFORM_RESOURCE_TYPES = frozenset(
         # Learning-loop proposals (system-proposed, human-accepted in Govern).
         "autonomy_posture",
         "persona_review",
+        "case_type",
+        "case_type_binding",
     }
 )
 

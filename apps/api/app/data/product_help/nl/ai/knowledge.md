@@ -4,7 +4,7 @@ intro: Markdown die de workspace bezit over organisatie-, project- en agentscope
 description: Beheer Kennis als hub voor org-, project- en agentdocs, bewerk in Schrijven of Markdown, en publiceer klantartikelen.
 keywords: kennis, docs, stem, geheugen, skills, helpcenter, onderbouwing, projectdocumentatie
 sort: 30
-related: agents,communication,projects
+related: agents,communication,projects,workstreams
 ---
 
 # Zo werkt Kennis
@@ -39,6 +39,14 @@ Geheugen, check-ins en dagnotities onderhoudt de AI. Bewerk ze als een feit fout
 4. **Opslaan** of druk op Ctrl/Cmd+S. Weggaan met niet-opgeslagen wijzigingen vraagt om bevestiging. Klik het documentpad om het te kopiëren. **Publiceren** vraagt of het artikel op de openbare helpsite mag. **Document verwijderen** haalt een pagina weg die je niet meer wilt.
 
 Actieve queue-aanvragen die aan een document hangen, tonen subtiele chips onder de titel. De status blijft op het queue-item, niet op het document.
+
+## Werk per sectie
+
+Een document is een pagina opgebouwd uit `##`-secties; elke sectie is de atomaire eenheid die agents lezen, doorzoeken en bewerken — één onderwerp, grofweg 150 tot 400 woorden.
+
+1. Open een document en klap **Secties** uit. Elke sectie toont de kop, de inhoud en een statuschip: **Concept**, **Review** of **Definitief**.
+2. Bewerk één sectie zonder de rest van de pagina te raken. Voeg een sectie toe voor een nieuw onderwerp in plaats van een bestaande te laten groeien.
+3. Stel de status per sectie in. Een sectie die een agent tijdens een werkstroom-run schrijft, gaat naar **Review**; goedkeuring van de gate van de run promoveert haar naar **Definitief**. Zet zelf alleen **Definitief** wanneer je de inhoud hebt geverifieerd.
 
 ## Onderbouw een concept
 

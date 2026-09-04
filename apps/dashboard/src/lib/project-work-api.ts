@@ -15,13 +15,8 @@ export type QueueItemStatus =
   | 'completed'
   | 'rejected'
 
-export type DocSectionStatus =
-  | 'open'
-  | 'planned'
-  | 'in_progress'
-  | 'implemented'
-  | 'verified'
-  | 'deprecated'
+// Section maturity: draft (concept) -> review (written) -> final (verified).
+export type DocSectionStatus = 'draft' | 'review' | 'final'
 
 export type ResourceType = 'repo' | 'drive' | 'notion' | 'sheet' | 'vibecode' | 'site' | 'other'
 export type ResourceStatus = 'linked' | 'connected' | 'syncing' | 'error' | 'disconnected'
@@ -73,14 +68,15 @@ export interface DocSectionItemRef {
 export interface DocSectionRow {
   id: string
   doc_id: string
-  project_id: string
   anchor: string
   heading: string
   position: number
+  content: string
   status: DocSectionStatus
   status_changed_at: string | null
   status_changed_by_type: string
   summary: string
+  edited_by_type?: string
   updated_at: string | null
   items?: DocSectionItemRef[]
 }

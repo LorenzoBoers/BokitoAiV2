@@ -50,6 +50,9 @@ from app.routers import (
     webhooks,
     workforce,
     workspace,
+    workstreams,
+    customer_verify,
+    cases,
     orchestration,
     uploads,
 )
@@ -200,6 +203,10 @@ app.include_router(models.staff_router, prefix=api_prefix)
 app.include_router(webhooks.router, prefix=api_prefix)
 app.include_router(public_api.router, prefix=api_prefix)
 app.include_router(orchestration.router, prefix=api_prefix)
+app.include_router(workstreams.router, prefix=api_prefix)
+app.include_router(customer_verify.router, prefix=api_prefix)
+app.include_router(cases.router, prefix=api_prefix)
+app.include_router(cases.signal_cases_router, prefix=api_prefix)
 app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
 app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")
 

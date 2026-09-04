@@ -124,12 +124,14 @@
   "toolCategories": {
     "messaging": { "label": "Berichten", "hint": "Antwoorden, beslissingen en gespreksacties." },
     "workspace": { "label": "Workspace", "hint": "Geheugen, documenten, skill-wijzigingen en canvas-nodes." },
-    "agents": { "label": "Agents", "hint": "Agents, flows en taken aanmaken of bijwerken." },
+    "agents": { "label": "Agents", "hint": "Agents en werkstromen aanmaken of bijwerken." },
+    "delegation": { "label": "Delegeren", "hint": "Werk overdragen aan een agent en taken plannen." },
     "channels": { "label": "Kanalen", "hint": "Kanaalaccounts en routing." },
     "triggers": { "label": "Triggers", "hint": "Planningen, check-ins en inkomende triggers." },
     "integrations": { "label": "Integraties", "hint": "Externe koppelingen en verbonden tools." },
     "govern": { "label": "Govern", "hint": "Beleid en governance-wijzigingen." },
-    "handoff": { "label": "Overdracht", "hint": "Werk doorsturen naar teamleden of andere agents." }
+    "projects": { "label": "Projecten", "hint": "Projectdocumenten, queue-items en repositorywerk." },
+    "cases": { "label": "Signalen", "hint": "Getypte intake op een gesprek openen en koppelen." }
   },
   "tokens": {
     "title": "App-tokens",
@@ -176,7 +178,9 @@
       "canvas_node": "Canvas-node",
       "canvas_edge": "Canvas-verbinding",
       "autonomy_posture": "Hoeveel agents mogen doen",
-      "persona_review": "Stemreview"
+      "persona_review": "Stemreview",
+      "case_type": "Intake-type",
+      "case_type_binding": "Intake-routing"
     },
     "changeKind": {
       "create": "Aanmaken",

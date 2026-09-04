@@ -12,6 +12,8 @@ export const RESOURCE_TYPE_LABELS: Record<string, string> = {
   canvas_edge: 'Canvas connection',
   autonomy_posture: 'How much agents can do',
   persona_review: 'Voice review',
+  case_type: 'Intake type',
+  case_type_binding: 'Intake routing',
 }
 
 export const CHANGE_KIND_LABELS: Record<string, string> = {
@@ -40,12 +42,14 @@ export const ALLOWANCE_MODE_LABELS: Record<string, { label: string; hint: string
 export const TOOL_CATEGORY_LABELS: Record<string, { label: string; hint: string }> = {
   messaging: { label: 'Messaging', hint: 'Replies, decisions, and thread actions.' },
   workspace: { label: 'Workspace', hint: 'Memory, docs, and skill edits, canvas nodes.' },
+  projects: { label: 'Projects', hint: 'Project docs, queue items, and repository work.' },
   agents: { label: 'Agents', hint: 'Creating and updating agents, flows, and tasks.' },
+  delegation: { label: 'Delegation', hint: 'Handing work to an agent and scheduling tasks.' },
   channels: { label: 'Channels', hint: 'Channel accounts and routing.' },
   triggers: { label: 'Triggers', hint: 'Schedules, check-ins, and incoming triggers.' },
   integrations: { label: 'Integrations', hint: 'External connections and connected tools.' },
   govern: { label: 'Govern', hint: 'Policy and governance changes.' },
-  handoff: { label: 'Handoff', hint: 'Routing work to teammates or other agents.' },
+  cases: { label: 'Cases', hint: 'Opening and linking typed intake on a conversation.' },
 }
 
 const DIFF_FIELD_LABELS: Record<string, string> = {

@@ -4,7 +4,7 @@ intro: The hub for every conversation — customers and agents in one place.
 description: Work customer email, chat and internal threads from Messages, including compose, notes, snooze and saved replies.
 keywords: inbox, messages, threads, email, chat, compose, snooze, saved replies
 sort: 10
-related: agent-runs,channels,inbox-ai,contacts,decisions
+related: agent-runs,channels,inbox-ai,contacts,decisions,cases
 ---
 
 # How Messages works
@@ -77,6 +77,12 @@ Pull an agent in when you want to think out loud, look something up, or hand the
 1. Open a website-chat thread. The header can show **+N earlier** when this person already wrote before — that opens the contact panel.
 2. In **Details**, type their name and email, then **Save email**. Write email becomes available once a real address is stored.
 3. The contact card shows whether they are approved, pending or blocked, and company names open the company page when one exists. Unsaved contact notes stay highlighted until you save, and leaving the page asks you to confirm. Mail from a workspace member shows a **Teammate** card instead (no Block or Approve) — they are not treated as a customer contact.
+
+## See cases on a conversation
+
+1. Open a customer or internal thread. The side panel lists **Cases**.
+2. Each row shows the type, status, and a workstream link when one is bound.
+3. Choose **Add Bug report** (or another type) when a second intent appears. Several cases can sit on one conversation — see [Cases](/docs/ai/cases).
 
 ## What to do next
 

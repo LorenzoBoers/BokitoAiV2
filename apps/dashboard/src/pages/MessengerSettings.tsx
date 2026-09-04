@@ -41,7 +41,7 @@ import {
   type MessengerAppearance,
 } from '../lib/messenger-appearance'
 import {
-  ASSISTANT_DEFAULT_PATH,
+  assistantSettingsCanonicalPath,
   assistantSettingsPath,
   parseAssistantSettingsParams,
   type AssistantAudience,
@@ -174,7 +174,6 @@ function FoldableSection({
 }
 
 function MessengerSettingsContent({
-  audience,
   section,
 }: {
   audience: AssistantAudience
@@ -222,35 +221,13 @@ function MessengerSettingsContent({
 
   const previewPanelActive = section === 'customization' || section === 'installation'
 
-  const embedNavOptions: { value: AssistantAudience; label: string; icon: ReactNode }[] = [
-    { value: 'internal', label: t('messengerPage.internal'), icon: <Users className="h-3.5 w-3.5 opacity-70" /> },
-    { value: 'external', label: t('messengerPage.external'), icon: <Globe className="h-3.5 w-3.5 opacity-70" /> },
-  ]
-
-  const installationHtmlSnippet = useMemo(() => {
+  const installationSnippets = useMemo(() => {
     const apiOrigin = livechatWidgetHttpOrigin()
     const slug = DASHBOARD_CHAT_AGENT_SLUG
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const tenantSlug = (currentWorkspace?.slug || '').trim().toLowerCase()
     const tenantAttr = tenantSlug ? `  data-tenant="${tenantSlug}"\n` : ''
-
-    if (audience === 'internal') {
-      return (
-        `<!-- Bokito assistant for logged-in users of your platform. -->\n` +
-        `<!-- Pass the user's Bokito access token so the assistant knows who they are: -->\n` +
-        `<!--   window.BokitoConfig = { getAuthToken: () => yourAccessToken }        -->\n` +
-        `<script\n` +
-        `  src="${origin}${CHAT_WIDGET_SCRIPT_PATH}"\n` +
-        `  data-bokito-chat-widget\n` +
-        `  data-agent-slug="${slug}"\n` +
-        `  data-api-url="${apiOrigin}"\n` +
-        tenantAttr +
-        `  data-auth-mode="required"\n` +
-        `  defer\n` +
-        `></script>`
-      )
-    }
-    return (
+    const site = (
       `<!-- Bokito chat widget for anonymous website visitors. -->\n` +
       `<script\n` +
       `  src="${origin}${CHAT_WIDGET_SCRIPT_PATH}"\n` +
@@ -262,18 +239,33 @@ function MessengerSettingsContent({
       `  defer\n` +
       `></script>`
     )
-  }, [audience, currentWorkspace?.slug])
+    const signedIn = (
+      `<!-- Bokito assistant for logged-in users of your platform. -->\n` +
+      `<!-- Pass the user's Bokito access token so the assistant knows who they are: -->\n` +
+      `<!--   window.BokitoConfig = { getAuthToken: () => yourAccessToken }        -->\n` +
+      `<script\n` +
+      `  src="${origin}${CHAT_WIDGET_SCRIPT_PATH}"\n` +
+      `  data-bokito-chat-widget\n` +
+      `  data-agent-slug="${slug}"\n` +
+      `  data-api-url="${apiOrigin}"\n` +
+      tenantAttr +
+      `  data-auth-mode="required"\n` +
+      `  defer\n` +
+      `></script>`
+    )
+    return { site, signedIn }
+  }, [currentWorkspace?.slug])
 
-  const copyInstallationSnippet = useCallback(async () => {
+  const copyInstallationSnippet = useCallback(async (html: string) => {
     try {
-      await navigator.clipboard.writeText(installationHtmlSnippet)
+      await navigator.clipboard.writeText(html)
       toast.success(t('messengerPage.copiedHtml'))
       setInstallSnippetCopied(true)
       window.setTimeout(() => setInstallSnippetCopied(false), 2000)
     } catch {
       toast.error(t('messengerPage.copyFailed'))
     }
-  }, [installationHtmlSnippet, t])
+  }, [t])
 
   useEffect(() => {
     const base = currentWorkspace?.messengerAppearance ?? DEFAULT_MESSENGER_APPEARANCE
@@ -344,7 +336,6 @@ function MessengerSettingsContent({
     try {
       const next = await saveWidgetSettings(token, {
         preChatForm: widgetBehaviour.preChatForm,
-        offlineMessage: widgetBehaviour.offlineMessage,
         officeHours: widgetBehaviour.officeHours,
       })
       setWidgetBehaviour(next)
@@ -537,7 +528,7 @@ function MessengerSettingsContent({
 
   const mainOptions: { value: AssistantSection; label: string }[] = [
     { value: 'customization', label: t('messengerPage.customization') },
-    { value: 'agent', label: t('messengerPage.agent') },
+    { value: 'hours', label: t('messengerPage.agent') },
     { value: 'installation', label: t('messengerPage.installation') },
   ]
 
@@ -558,14 +549,8 @@ function MessengerSettingsContent({
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
           <h2 className="shrink-0 text-[17px] font-semibold leading-none text-text-heading">{t('messengerPage.title')}</h2>
           <SegmentedControl
-            value={audience}
-            onChange={(v) => navigate(assistantSettingsPath(v, section))}
-            options={embedNavOptions}
-            className="max-w-md"
-          />
-          <SegmentedControl
             value={section}
-            onChange={(v) => navigate(assistantSettingsPath(audience, v))}
+            onChange={(v) => navigate(assistantSettingsPath('external', v))}
             options={mainOptions}
             className="max-w-xl"
           />
@@ -602,9 +587,7 @@ function MessengerSettingsContent({
           <div className="flex flex-col gap-4 p-4 sm:p-6">
             {section === 'installation' ? (
               <p className="text-2xs leading-relaxed text-text-muted">
-                {audience === 'internal'
-                  ? t('messengerPage.installInternalBody')
-                  : t('messengerPage.installExternalBody')}
+                {t('messengerPage.installExternalBody')}
               </p>
             ) : null}
 
@@ -734,7 +717,7 @@ function MessengerSettingsContent({
               </>
             ) : null}
 
-            {section === 'agent' ? (
+            {section === 'hours' ? (
               <div className="space-y-4">
                 <FoldableSection title={t('messengerPage.personaTitle')} defaultOpen>
                     <div className="space-y-3 pt-1">
@@ -890,17 +873,6 @@ function MessengerSettingsContent({
                           </div>
                         </div>
                       ) : null}
-                      <div>
-                        <p className="text-sm font-medium text-text-heading">{t('messengerPage.offlineMessage')}</p>
-                        <textarea
-                          className="mt-2 w-full min-h-[64px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
-                          value={widgetBehaviour.offlineMessage}
-                          onChange={(e) =>
-                            setWidgetBehaviour({ ...widgetBehaviour, offlineMessage: e.target.value })
-                          }
-                          placeholder={t('messengerPage.offlinePlaceholder')}
-                        />
-                      </div>
                       <Button
                         size="sm"
                         disabled={widgetBehaviourSaving}
@@ -923,70 +895,84 @@ function MessengerSettingsContent({
 
             {section === 'installation' ? (
               <div className="space-y-4">
-                <div className="rounded-xl border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-                    <p className="text-sm font-medium text-text-heading">
-                      {audience === 'internal'
-                        ? t('messengerPage.installInternalTitle')
-                        : t('messengerPage.installExternalTitle')}
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      className="shrink-0 gap-1.5"
-                      onClick={() => void copyInstallationSnippet()}
-                      aria-label={t('messengerPage.copyAria')}
-                    >
-                      {installSnippetCopied ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          {t('messengerPage.copied')}
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" />
-                          {t('messengerPage.copySnippet')}
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <p className="px-4 pt-3 text-xs text-text-secondary">
-                    {audience === 'internal'
-                      ? t('messengerPage.installInternalBody')
-                      : t('messengerPage.installExternalBody')}
-                  </p>
-                  <div className="p-4 pt-2">
-                    <pre className="max-h-[min(60vh,420px)] overflow-auto rounded-lg border border-border/60 bg-[#141824] p-4 text-left shadow-inner">
-                      <code className="block whitespace-pre font-mono text-[12px] leading-relaxed text-[#e2e8f0]">
-                        {installationHtmlSnippet}
-                      </code>
-                    </pre>
-                  </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border/60 px-4 py-3">
-                    {installSnippetCopied ? (
-                      <button
+                {(
+                  [
+                    {
+                      key: 'site',
+                      title: t('messengerPage.installExternalTitle'),
+                      body: t('messengerPage.installExternalBody'),
+                      html: installationSnippets.site,
+                      icon: <Globe className="h-3.5 w-3.5 opacity-70" />,
+                    },
+                    {
+                      key: 'signedIn',
+                      title: t('messengerPage.installInternalTitle'),
+                      body: t('messengerPage.installInternalBody'),
+                      html: installationSnippets.signedIn,
+                      icon: <Users className="h-3.5 w-3.5 opacity-70" />,
+                    },
+                  ] as const
+                ).map((card) => (
+                  <div key={card.key} className="rounded-xl border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                      <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
+                        {card.icon}
+                        {card.title}
+                      </p>
+                      <Button
                         type="button"
-                        onClick={() => navigate(assistantSettingsPath(audience, 'customization'))}
-                        className="text-[12px] font-medium text-accent hover:underline"
-                        title={t('messengerPage.checkInstallationHint')}
+                        size="sm"
+                        variant="secondary"
+                        className="shrink-0 gap-1.5"
+                        onClick={() => void copyInstallationSnippet(card.html)}
+                        aria-label={t('messengerPage.copyAria')}
                       >
-                        {t('messengerPage.checkInstallation')}
-                      </button>
-                    ) : null}
-                    <Link
-                      to={inboxPath('open')}
-                      className="text-[12px] font-medium text-accent hover:underline"
-                    >
-                      {t('messengerPage.openCommunication')}
-                    </Link>
-                    <Link
-                      to="/settings/setup"
-                      className="text-[12px] font-medium text-accent hover:underline"
-                    >
-                      {t('messengerPage.openSetup')}
-                    </Link>
+                        {installSnippetCopied ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            {t('messengerPage.copied')}
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            {t('messengerPage.copySnippet')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="px-4 pt-3 text-xs text-text-secondary">{card.body}</p>
+                    <div className="p-4 pt-2">
+                      <pre className="max-h-[min(40vh,320px)] overflow-auto rounded-lg border border-border/60 bg-[#141824] p-4 text-left shadow-inner">
+                        <code className="block whitespace-pre font-mono text-[12px] leading-relaxed text-[#e2e8f0]">
+                          {card.html}
+                        </code>
+                      </pre>
+                    </div>
                   </div>
+                ))}
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {installSnippetCopied ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(assistantSettingsPath('external', 'customization'))}
+                      className="text-[12px] font-medium text-accent hover:underline"
+                      title={t('messengerPage.checkInstallationHint')}
+                    >
+                      {t('messengerPage.checkInstallation')}
+                    </button>
+                  ) : null}
+                  <Link
+                    to={inboxPath('open')}
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('messengerPage.openCommunication')}
+                  </Link>
+                  <Link
+                    to="/settings/setup"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('messengerPage.openSetup')}
+                  </Link>
                 </div>
               </div>
             ) : null}
@@ -1026,8 +1012,13 @@ export default function MessengerSettings() {
     () => parseAssistantSettingsParams(params.audience, params.section),
     [params.audience, params.section],
   )
+  const canonical = assistantSettingsCanonicalPath(params.audience, params.section)
+  const current = `/ai/assistant/${params.audience}/${params.section}`
   if (!parsed) {
-    return <Navigate to={ASSISTANT_DEFAULT_PATH} replace />
+    return <Navigate to={canonical} replace />
+  }
+  if (current !== canonical) {
+    return <Navigate to={canonical} replace />
   }
   return <MessengerSettingsContent audience={parsed.audience} section={parsed.section} />
 }

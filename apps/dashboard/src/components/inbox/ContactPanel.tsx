@@ -23,6 +23,7 @@ import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { threadStatusLabel } from '../../lib/status-labels'
+import { ThreadCasesList } from './ThreadCasesList'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
   const email = (address || '').trim().toLowerCase()
@@ -487,6 +488,12 @@ export default function ContactPanel({
           </div>
         ) : null}
       </div>
+
+      {currentThreadId ? (
+        <div className="border-t border-border/40 px-4 py-3">
+          <ThreadCasesList signalId={String(currentThreadId)} />
+        </div>
+      ) : null}
 
       {/* Previous conversations */}
       <div className="px-4 py-3">

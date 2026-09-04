@@ -36,6 +36,7 @@ export function ModuleOverview({ module }: Props) {
   const [connections, setConnections] = useState<ModuleConnectionsResponse | null>(null)
   const [roster, setRoster] = useState<ModuleAgentRow[]>([])
   const [writesBusy, setWritesBusy] = useState(false)
+  const [customerToolsBusy, setCustomerToolsBusy] = useState<string | null>(null)
 
   const loadConnections = useCallback(async () => {
     try {
@@ -51,6 +52,27 @@ export function ModuleOverview({ module }: Props) {
       .then(setRoster)
       .catch(() => setRoster([]))
   }, [module.slug, loadConnections])
+
+  const customerCards = (module.tool_cards ?? []).filter((card) => card.exposure === 'customer')
+  const customerTools = connections?.prefs?.customer_tools ?? {}
+
+  const toggleCustomerTool = async (verb: string, enabled: boolean) => {
+    setCustomerToolsBusy(verb)
+    try {
+      await setModulePrefs(module.slug, {
+        customer_tools: { ...customerTools, [verb]: enabled },
+      })
+      await loadConnections()
+    } catch {
+      toast.error(
+        t('integrations.modules.workspace.customerToolsError', {
+          defaultValue: 'Could not update customer chat tools.',
+        }),
+      )
+    } finally {
+      setCustomerToolsBusy(null)
+    }
+  }
 
   const connectedCount = (connections?.connections ?? []).filter((c) => c.ready).length
   const tenantWrites = Boolean(connections?.prefs?.writes_enabled)
@@ -157,6 +179,42 @@ export function ModuleOverview({ module }: Props) {
           ) : null}
         </div>
       </section>
+
+      {customerCards.length > 0 ? (
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4">
+          <h2 className="text-sm font-semibold text-text-heading">
+            {t('integrations.modules.workspace.customerToolsTitle', {
+              defaultValue: 'Customer chat tools',
+            })}
+          </h2>
+          <p className="mt-1 text-xs text-text-muted">
+            {t('integrations.modules.workspace.customerToolsHint', {
+              defaultValue:
+                "Off by default. When on, the website widget can look up this visitor's own records after they confirm a short email link.",
+            })}
+          </p>
+          <ul className="mt-3 space-y-2">
+            {customerCards.map((card) => (
+              <li
+                key={card.verb}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text-heading">{card.label}</p>
+                  <p className="text-xs text-text-muted">{card.description}</p>
+                </div>
+                {isAdmin ? (
+                  <Switch
+                    checked={Boolean(customerTools[card.verb])}
+                    disabled={customerToolsBusy === card.verb}
+                    onCheckedChange={(v) => void toggleCustomerTool(card.verb, v)}
+                  />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {roster.length > 0 ? (
         <section>

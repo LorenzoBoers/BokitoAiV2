@@ -12,7 +12,17 @@ from app.models.auth import Tenant
 from app.services.audit import record_audit
 from app.tools.decision_copy import format_policy_decision
 from app.tools.policy import resolve_tool_mode
-from app.tools.registry import ToolContext, agent_allowed_tools, get_tool_spec
+from app.tools.registry import (
+    ToolContext,
+    agent_allowed_tools,
+    audience_for_trust,
+    get_tool_spec,
+    tool_matches_audience,
+)
+
+_EXTERNAL_PASSPORT_BYPASS = frozenset(
+    {"handoff_to_human", "request_callback", "request_customer_verify"}
+)
 
 
 async def execute_tool(
@@ -28,6 +38,8 @@ async def execute_tool(
     project_id: UUID | None = None,
     trust: str = "operator",
     approved: bool = False,
+    user_role: str | None = None,
+    surface: str = "",
 ) -> dict[str, Any]:
     """Execute a registered tool under the allowance policy.
 
@@ -42,12 +54,14 @@ async def execute_tool(
     actor_type = "agent" if agent else ("user" if user_id else "system")
     agent_id = agent.id if agent else None
     action = f"tool_call:{tool_name}"
+    audience = audience_for_trust(trust)
 
     # Passport allowlist enforcement (per-agent). External conversations may
-    # always escalate to a human, even when the passport omits the tool.
+    # always escalate to a human or start a verify, even when the passport omits the tool.
     allowed_set = agent_allowed_tools(agent)
-    if tool_name == "handoff_to_human" and trust == "external":
+    if tool_name in _EXTERNAL_PASSPORT_BYPASS and trust == "external":
         allowed_set = None
+
     if allowed_set is not None and tool_name not in allowed_set:
         await record_audit(
             session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
@@ -70,6 +84,77 @@ async def execute_tool(
         )
         return {"error": scope_error, "status": "denied"}
 
+    from app.models.signal import Signal
+    from app.services.customer_verify import (
+        NEEDS_VERIFICATION,
+        customer_tool_enabled,
+        thread_assurance_valid,
+    )
+
+    signal = None
+    if signal_id is not None:
+        signal = (
+            await session.execute(
+                select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+
+    if not tool_matches_audience(spec, audience):
+        await record_audit(
+            session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+            agent_id=agent_id, run_id=run_id, outcome="denied",
+            summary=f"Tool '{tool_name}' hidden from {audience} audience",
+            payload=tool_input,
+        )
+        return {
+            "error": f"Tool '{tool_name}' is not available in this conversation",
+            "status": "denied",
+            "reason": "audience",
+        }
+
+    if spec.audience == "customer" and not await customer_tool_enabled(
+        session, tenant_id, tool_name
+    ):
+        await record_audit(
+            session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+            agent_id=agent_id, run_id=run_id, outcome="denied",
+            summary=f"Customer tool '{tool_name}' is switched off",
+            payload=tool_input,
+        )
+        return {
+            "error": f"Tool '{tool_name}' is not enabled for customers",
+            "status": "denied",
+            "reason": "customer_tools_off",
+        }
+
+    if (spec.min_assurance or "none") == "verified" and not thread_assurance_valid(signal):
+        await record_audit(
+            session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+            agent_id=agent_id, run_id=run_id, outcome="denied",
+            summary=f"Tool '{tool_name}' needs thread verification",
+            payload=tool_input,
+        )
+        return dict(NEEDS_VERIFICATION)
+
+    if tool_name == "handoff_to_human" and trust == "external":
+        from app.services.livechat_compat import team_is_reachable
+
+        tenant_row = (
+            await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+        ).scalar_one_or_none()
+        if tenant_row is not None and not team_is_reachable(tenant_row):
+            await record_audit(
+                session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+                agent_id=agent_id, run_id=run_id, outcome="denied",
+                summary="Live handoff is unavailable outside team hours",
+                payload=tool_input,
+            )
+            return {
+                "error": "The team is not reachable for a live handoff right now. Use request_callback.",
+                "status": "denied",
+                "reason": "team_away",
+            }
+
     # Allowance policy resolution.
     mode, reason = "allow", "approved"
     if not approved:
@@ -78,7 +163,8 @@ async def execute_tool(
         if tenant is None:
             return {"error": "Tenant not found"}
         mode, reason = await resolve_tool_mode(
-            session, tenant, agent, spec, trust=trust, tool_input=tool_input
+            session, tenant, agent, spec, trust=trust, tool_input=tool_input,
+            user_role=user_role,
         )
 
     if mode == "deny":
@@ -111,6 +197,12 @@ async def execute_tool(
         project_id=project_id,
         trust=trust,
         mode="ask" if mode == "ask" else "apply",
+        user_role=user_role,
+        audience=audience,
+        assurance_level=(signal.assurance_level or "none") if signal else "none",
+        assurance_expires_at=signal.assurance_expires_at if signal else None,
+        assurance_email=(signal.assurance_email or "") if signal else "",
+        surface=surface,
     )
 
     if mode == "ask":

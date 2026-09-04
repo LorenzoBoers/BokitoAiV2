@@ -37,12 +37,35 @@ def _asset_url(value: Any) -> str:
 
 MESSENGER_MODULE_KEYS = ("home", "messages", "help", "tools")
 
+# One widget bundle, two surfaces. ``site`` is the embed a tenant puts on
+# their own website for their visitors; ``in_app`` is the same widget running
+# inside the dashboard as the operator's personal Bokito helper. The surface
+# decides which agent answers, whose branding the chrome shows, and whether
+# the help tab serves the tenant's help center or Bokito's product help.
+SURFACE_SITE = "site"
+SURFACE_IN_APP = "in_app"
+WIDGET_SURFACES = (SURFACE_SITE, SURFACE_IN_APP)
+
+
+def normalize_surface(value: str | None) -> str:
+    raw = (value or "").strip().lower().replace("-", "_")
+    return raw if raw in WIDGET_SURFACES else SURFACE_SITE
+
 
 def _messenger_modules(appearance: dict[str, Any]) -> dict[str, bool]:
     """Which widget tabs the tenant enabled; unknown/missing keys default on."""
     raw = appearance.get("modules")
     raw = raw if isinstance(raw, dict) else {}
     return {key: bool(raw.get(key, True)) for key in MESSENGER_MODULE_KEYS}
+
+
+# Platform helper chrome: Bokito's own identity, not the tenant's messenger
+# branding. Only the accent colour is inherited from the workspace.
+PLATFORM_HELPER_NAME = "Bokito"
+PLATFORM_HELPER_WELCOME: dict[str, dict[str, str]] = {
+    "en": {"title": "Hi, I am Bokito", "subtitle": "Ask me anything about your workspace."},
+    "nl": {"title": "Hoi, ik ben Bokito", "subtitle": "Vraag me alles over je workspace."},
+}
 
 
 # Bootstrap seeds the company agent as "Assistant"; that generic name is not a
@@ -84,6 +107,7 @@ def livechat_theme_from_tenant(
     *,
     assistant_name: str = "",
     agent_avatar: dict[str, Any] | None = None,
+    surface: str = SURFACE_SITE,
 ) -> dict[str, Any]:
     settings_data = tenant_settings(tenant)
     livechat = settings_data.get("livechat_settings")
@@ -137,7 +161,7 @@ def livechat_theme_from_tenant(
         explicit_name = ""
     chatbot_name = explicit_name or assistant_name.strip() or (tenant.name or "").strip()
 
-    return {
+    theme = {
         "main_color": main_color,
         "primary_color": main_color,
         "locale": locale,
@@ -151,7 +175,36 @@ def livechat_theme_from_tenant(
         "agent_avatar_color": agent_color or None,
         "agent_avatar_image_url": agent_image or None,
         "modules": _messenger_modules(appearance),
+        "surface": SURFACE_SITE,
+        "help_source": "tenant",
     }
+    if normalize_surface(surface) != SURFACE_IN_APP:
+        return theme
+
+    # In-app helper: Bokito's own face and name, the workspace accent colour,
+    # and Bokito's product help instead of the tenant's customer help center.
+    # The tenant's messenger branding is for their visitors, not their team.
+    helper_welcome = PLATFORM_HELPER_WELCOME.get(locale, PLATFORM_HELPER_WELCOME["en"])
+    # main_color is deliberately left as resolved above: that chain is the same
+    # one `workspaces_portal` serializes as the workspace `brand_color`, so the
+    # helper wears the accent the person already sees in the dashboard.
+    theme.update(
+        {
+            "chatbot_name": PLATFORM_HELPER_NAME,
+            "welcome_title": helper_welcome["title"],
+            "welcome_subtitle": helper_welcome["subtitle"],
+            # Empty so the animated Bokito mark in the widget wins.
+            "widget_favicon_url": "",
+            "agent_avatar_kind": None,
+            "agent_avatar_icon": None,
+            "agent_avatar_color": None,
+            "agent_avatar_image_url": None,
+            "modules": {"home": True, "messages": True, "help": True, "tools": True},
+            "surface": SURFACE_IN_APP,
+            "help_source": "product_help",
+        }
+    )
+    return theme
 
 
 DEFAULT_OFFICE_HOURS: dict[str, Any] = {
@@ -179,6 +232,13 @@ def widget_settings_from_tenant(tenant: Tenant) -> dict[str, Any]:
         "office_hours": merged_hours,
         "offline_message": str(livechat.get("offline_message") or "").strip(),
     }
+
+
+def team_is_reachable(tenant: Tenant, *, surface: str = SURFACE_SITE) -> bool:
+    """Whether a live human handoff is available on this surface."""
+    if normalize_surface(surface) == SURFACE_IN_APP:
+        return True
+    return office_hours_open(widget_settings_from_tenant(tenant)["office_hours"])
 
 
 def office_hours_open(office_hours: dict[str, Any], *, now: datetime | None = None) -> bool:
@@ -210,6 +270,7 @@ def create_widget_session_token(
     tenant_id: UUID,
     user_id: UUID | None = None,
     customer_id: str | None = None,
+    surface: str = SURFACE_SITE,
 ) -> str:
     expire = datetime.utcnow() + timedelta(hours=12)
     payload: dict[str, Any] = {
@@ -221,7 +282,19 @@ def create_widget_session_token(
         payload["sub"] = str(user_id)
     if customer_id:
         payload["customer_id"] = customer_id
+    # The surface is pinned into the session so every later call (conversation,
+    # stream, history) keeps answering as the same assistant.
+    if normalize_surface(surface) == SURFACE_IN_APP:
+        payload["surface"] = SURFACE_IN_APP
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def surface_from_widget_token(token: str) -> str:
+    """Which surface this widget session was opened on ("site" when unknown)."""
+    try:
+        return normalize_surface(decode_widget_session_token(token).get("surface"))
+    except Exception:
+        return SURFACE_SITE
 
 
 def decode_widget_session_token(token: str) -> dict[str, Any]:
@@ -287,9 +360,14 @@ def session_start_payload(
     customer_id: str | None = None,
     assistant_name: str = "",
     agent_avatar: dict[str, Any] | None = None,
+    surface: str = SURFACE_SITE,
 ) -> dict[str, Any]:
+    surface = normalize_surface(surface)
     theme = livechat_theme_from_tenant(
-        tenant, assistant_name=assistant_name, agent_avatar=agent_avatar
+        tenant,
+        assistant_name=assistant_name,
+        agent_avatar=agent_avatar,
+        surface=surface,
     )
     identity_type = "authenticated" if user else "anonymous"
     # Optional host sign-in link shown on the widget's "Sign in required" panel.
@@ -302,13 +380,17 @@ def session_start_payload(
     agent_config = {
         "auth_mode": auth_mode,
         "theme": theme,
+        "surface": surface,
         "tool_display_names": {},
         "mcp_servers": [],
         "pre_chat_form": widget_cfg["pre_chat_form"],
         "office_open": is_open,
     }
-    if not is_open and widget_cfg["offline_message"]:
-        agent_config["offline_message"] = widget_cfg["offline_message"]
+    if surface == SURFACE_IN_APP:
+        # The helper is always available to a signed-in teammate: no pre-chat
+        # form, no office hours.
+        agent_config["pre_chat_form"] = False
+        agent_config["office_open"] = True
     if login_url:
         agent_config["login_url"] = login_url
     out: dict[str, Any] = {

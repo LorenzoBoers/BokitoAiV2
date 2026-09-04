@@ -373,24 +373,14 @@ async def fire_trigger(
         return await _fire_event(session, trigger, now)
 
     if trigger.workstream_id:
-        from app.services.orchestration.dispatcher import create_agent_task
         from app.services.outcomes import list_recent_outcomes, summarize_outcomes
+        from app.services.workstreams import start_run
 
-        description = trigger.instructions
+        input_text = trigger.instructions
         recent = await list_recent_outcomes(session, trigger.tenant_id, days=7)
         if recent:
-            description += f"\n\n## Recent operational outcomes\n{summarize_outcomes(recent)}"
+            input_text += f"\n\n## Recent operational outcomes\n{summarize_outcomes(recent)}"
 
-        task = await create_agent_task(
-            session,
-            trigger.tenant_id,
-            title=trigger.name,
-            description=description,
-            workstream_id=trigger.workstream_id,
-            trigger_type="trigger",
-            trigger_id=str(trigger.id),
-            auto_start=True,
-        )
         trigger.last_run_at = now
         trigger.last_status = "started"
         trigger.next_run_at = compute_next_run(trigger, now)
@@ -399,7 +389,17 @@ async def fire_trigger(
         trigger.updated_at = now
         session.add(trigger)
         await session.commit()
-        return {"task_id": str(task.id), "status": "started"}
+        run = await start_run(
+            session,
+            trigger.tenant_id,
+            trigger.workstream_id,
+            input_kind="trigger",
+            input_text=input_text,
+            input_ref=str(trigger.id),
+            triggered_by_type="trigger",
+            triggered_by_id=str(trigger.id),
+        )
+        return {"run_id": str(run.id), "status": "started"}
 
     agent = await resolve_trigger_agent(session, trigger)
     if not agent:

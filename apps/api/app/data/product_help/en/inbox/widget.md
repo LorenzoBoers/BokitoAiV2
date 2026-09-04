@@ -4,7 +4,7 @@ intro: Put Bokito chat on your site so visitors land in Communication next to em
 description: Install the Bokito chat widget, set Look and Voice and hours, and show help articles next to chat.
 keywords: widget, website chat, livechat, install, appearance, office hours
 sort: 40
-related: channels,communication,widget-embed
+related: channels,communication,widget-embed,cases,assistant
 ---
 
 # Install the website widget
@@ -31,8 +31,10 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 ## Set Voice, hours and the pre-chat form
 
 1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not**, then **Save changes**. The model itself is set on the agent page.
-2. Under **Availability**, set **Office hours** with **From**, **Until** and **Timezone**, plus **Offline message**. Choose **Save availability**. Outside those hours the widget shows the offline message. Visitors can still leave a message.
+2. Under **Availability**, set **Team hours** with **From**, **Until** and **Timezone**. Choose **Save availability**. Outside those hours chat stays open. The widget shows the team as away and visitors can ask for a callback instead of a live handoff.
 3. Turn on **Pre-chat form** when you want a name and email before the first message. Those visitors become real [contacts](/docs/inbox/contacts) instead of anonymous website visitors.
+
+The website widget follows the visitor's system light or dark setting. There is no theme switcher in the widget. Preview Light and Dark on this page only to check contrast.
 
 ## Show your help articles
 
@@ -42,4 +44,4 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 
 ## What to do next
 
-Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [Inbox AI](/docs/inbox/inbox-ai) (website chat is often **Reply automatically**).
+Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [Inbox AI](/docs/inbox/inbox-ai) (website chat is often **Reply automatically**). Typed intake from chat is a [case](/docs/ai/cases), not a second inbox.

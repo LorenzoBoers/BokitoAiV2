@@ -5,6 +5,7 @@ import uuid
 from typing import Any, AsyncGenerator
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -15,6 +16,8 @@ from app.services.agent.tools import (
     filter_tools_for_agent,
     get_tool_definitions,
 )
+from app.tools.registry import audience_for_trust, filter_tools_for_audience
+from app.services.personal_assistant import PERSONAL_ASSISTANT_KIND
 from app.services.workspace import build_workspace_context, hybrid_search
 
 
@@ -76,6 +79,8 @@ class AgentLoop:
         allowed_tool_names: set[str] | None = None,
         enable_chat_thinking: bool = False,
         tool_signal_id: UUID | None = None,
+        user_role: str | None = None,
+        surface: str = "",
     ):
         self.session = session
         self.tenant_id = tenant_id
@@ -88,6 +93,14 @@ class AgentLoop:
         # stays in the session, while replies/tags/handover hit the real thread.
         self.tool_signal_id = tool_signal_id or signal_id
         self.trust = trust
+        self.surface = surface
+        self.audience = audience_for_trust(trust)
+        # Membership role of the session user; explicit when the caller has an
+        # AuthContext (staff sessions map to admin there), else resolved from
+        # the membership row on first tool call. Autonomous runs stay None.
+        self._user_role_override = user_role
+        self._user_role_cached: str | None = None
+        self._user_role_resolved = False
         self.enable_chat_thinking = enable_chat_thinking
         self.llm = get_llm_provider()
         # Set during run_chat once the model call is resolved (drives metering).
@@ -233,6 +246,30 @@ class AgentLoop:
             stream_id=stream_id,
         )
 
+    async def _session_user_role(self) -> str | None:
+        """Membership role of the chatting user (None for autonomous runs)."""
+        if self._user_role_override:
+            return self._user_role_override
+        if not self.user_id:
+            return None
+        if self._user_role_resolved:
+            return self._user_role_cached
+        from sqlalchemy import select
+
+        from app.models.auth import Membership
+
+        membership = (
+            await self.session.execute(
+                select(Membership).where(
+                    Membership.tenant_id == self.tenant_id,
+                    Membership.user_id == self.user_id,
+                )
+            )
+        ).scalar_one_or_none()
+        self._user_role_cached = membership.role if membership else "member"
+        self._user_role_resolved = True
+        return self._user_role_cached
+
     async def _operator_context(self) -> str:
         """Tell the model who is chatting — an internal operator, not a customer."""
         if not self.user_id:
@@ -321,19 +358,50 @@ class AgentLoop:
                 f"{product_help_context}"
             )
         if self.trust == "external":
+            reachable = await self._team_reachable()
+            if reachable:
+                parts.append(
+                    "## Human handoff\n"
+                    "You can hand this conversation to a human team member at any time "
+                    "by calling the handoff_to_human tool. Do this when the visitor asks "
+                    "for a human, employee, or agent, when they are clearly frustrated, "
+                    "or when you cannot help. Never claim you are unable to connect them "
+                    "with a human. After the tool succeeds, tell the visitor a team "
+                    "member will take over in this same conversation."
+                )
+            else:
+                parts.append(
+                    "## Team reachability\n"
+                    "The team is away from live handoff right now. Chat stays open. "
+                    "Never say the chat is closed or offline. If the visitor wants a "
+                    "person, call request_callback and tell them the team will follow "
+                    "up in this conversation."
+                )
             parts.append(
-                "## Human handoff\n"
-                "You can hand this conversation to a human team member at any time "
-                "by calling the handoff_to_human tool. Do this when the visitor asks "
-                "for a human, employee, or agent, when they are clearly frustrated, "
-                "or when you cannot help. Never claim you are unable to connect them "
-                "with a human. After the tool succeeds, tell the visitor a team "
-                "member will take over in this same conversation."
+                "## Customer confirmation\n"
+                "Never claim you can see invoices or account data until the "
+                "visitor has confirmed a short email link. Call "
+                "request_customer_verify with the email they give you. Always "
+                "tell them to check their inbox. Never say whether an account "
+                "exists. Chat stays open after the link is sent."
             )
         else:
             operator = await self._operator_context()
             if operator:
                 parts.append(operator)
+            # The personal assistant is the one agent that carries memory of
+            # the person across workspaces.
+            if self.agent is not None and self.agent.kind == PERSONAL_ASSISTANT_KIND:
+                from app.services.user_memory import user_memory_block
+
+                memory = await user_memory_block(self.session, self.user_id)
+                if memory:
+                    parts.append(memory)
+        from app.services.assistant_context import case_binding_map_block
+
+        binding_map = await case_binding_map_block(self.session, self.tenant_id)
+        if binding_map:
+            parts.append(binding_map)
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
@@ -351,6 +419,48 @@ class AgentLoop:
         if resolved is not None and resolved.provider == "bokito":
             parts.append(BOKITO_MODEL_IDENTITY)
         return "\n\n".join(parts).strip()
+
+    async def _team_reachable(self) -> bool:
+        if self.trust != "external":
+            return True
+        from app.models.auth import Tenant
+        from app.services.livechat_compat import team_is_reachable
+
+        tenant = (
+            await self.session.execute(select(Tenant).where(Tenant.id == self.tenant_id))
+        ).scalar_one_or_none()
+        if tenant is None:
+            return True
+        return team_is_reachable(tenant)
+
+    async def _apply_reachability_tools(self) -> None:
+        reachable = await self._team_reachable()
+        names = {t["name"] for t in self.tools}
+        if reachable:
+            self.tools = [t for t in self.tools if t["name"] != "request_callback"]
+            if "handoff_to_human" not in names:
+                handoff = next(
+                    (t for t in get_tool_definitions() if t["name"] == "handoff_to_human"),
+                    None,
+                )
+                if handoff:
+                    self.tools = [*self.tools, handoff]
+        else:
+            self.tools = [t for t in self.tools if t["name"] != "handoff_to_human"]
+            if "request_callback" not in {t["name"] for t in self.tools}:
+                callback = next(
+                    (t for t in get_tool_definitions() if t["name"] == "request_callback"),
+                    None,
+                )
+                if callback:
+                    self.tools = [*self.tools, callback]
+        if "request_customer_verify" not in {t["name"] for t in self.tools}:
+            verify = next(
+                (t for t in get_tool_definitions() if t["name"] == "request_customer_verify"),
+                None,
+            )
+            if verify:
+                self.tools = [*self.tools, verify]
 
     async def _prepare_chat(
         self,
@@ -385,7 +495,20 @@ class AgentLoop:
                 rostered_slugs=rostered,
                 writable_slugs=writable,
             )
+            from app.services.customer_verify import enabled_customer_tool_names
+
+            enabled_customer = await enabled_customer_tool_names(
+                self.session, self.tenant_id
+            )
+            self.tools = filter_tools_for_audience(
+                self.tools,
+                self.audience,
+                enabled_customer_tools=enabled_customer,
+            )
             self._module_tools_applied = True
+        if self.trust == "external" and not getattr(self, "_reachability_tools_applied", False):
+            await self._apply_reachability_tools()
+            self._reachability_tools_applied = True
         self.resolved_call = await resolve_model_call(
             self.session, self.tenant_id, kind="chat", model_slug=model_slug
         )
@@ -585,6 +708,8 @@ class AgentLoop:
                 run_id=self.run.id if self.run else None,
                 project_id=self.run.project_id if self.run else None,
                 trust=self.trust,
+                user_role=await self._session_user_role(),
+                surface=self.surface,
             )
             await self._publish_agent_step(
                 "tool_result",

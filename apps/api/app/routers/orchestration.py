@@ -15,7 +15,6 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.agent import AgentRun, RunEvent
 from app.models.orchestration import AgentTask, TaskArtifact
-from app.models.orchestra import Workstream, WorkstreamStep
 from app.services.orchestration.dispatcher import (
     cancel_agent_task,
     create_agent_task,
@@ -23,7 +22,7 @@ from app.services.orchestration.dispatcher import (
     serialize_agent_task,
 )
 from app.services.orchestration.queue import enqueue_agent_task_segment
-from app.services.orchestration.runner import run_agent_task_segment, start_workstream_as_task
+from app.services.orchestration.runner import run_agent_task_segment
 
 router = APIRouter(prefix="/orchestration", tags=["orchestration"])
 
@@ -36,23 +35,6 @@ class AgentTaskCreate(BaseModel):
     agent_id: UUID | None = None
     signal_id: UUID | None = None
     success_criteria_json: str = "{}"
-
-
-class WorkstreamCreate(BaseModel):
-    name: str
-    description: str = ""
-
-
-class WorkstreamStepCreate(BaseModel):
-    name: str
-    order: int = 0
-    agent_id: UUID | None = None
-    step_kind: str = "agent"
-    prompt_template: str = ""
-    handoff_template: str = ""
-    success_criteria_json: str = "{}"
-    eval_kind: str = "rubric"
-    max_retries: int = 2
 
 
 @router.get("/tasks")
@@ -173,139 +155,6 @@ async def list_artifacts(
         }
         for a in rows
     ]
-
-
-@router.get("/workstreams")
-async def list_workstreams(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    rows = (
-        await session.execute(
-            select(Workstream).where(Workstream.tenant_id == auth.tenant.id).order_by(Workstream.name)
-        )
-    ).scalars().all()
-    return [
-        {"id": str(w.id), "name": w.name, "description": w.description, "enabled": w.enabled}
-        for w in rows
-    ]
-
-
-@router.post("/workstreams")
-async def create_workstream(
-    body: WorkstreamCreate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    ws = Workstream(tenant_id=auth.tenant.id, **body.model_dump())
-    session.add(ws)
-    await session.commit()
-    await session.refresh(ws)
-    return {"id": str(ws.id)}
-
-
-@router.post("/workstreams/{workstream_id}/run")
-async def run_workstream(
-    workstream_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    first_step = (
-        await session.execute(
-            select(WorkstreamStep)
-            .where(
-                WorkstreamStep.workstream_id == workstream_id,
-                WorkstreamStep.tenant_id == auth.tenant.id,
-            )
-            .order_by(WorkstreamStep.order)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if not first_step:
-        raise HTTPException(
-            status_code=400,
-            detail="Add at least one step before running this workstream.",
-        )
-    task = await start_workstream_as_task(session, auth.tenant.id, workstream_id, trigger_type="manual")
-    if not await enqueue_agent_task_segment(str(auth.tenant.id), str(task.id)):
-        await run_agent_task_segment(session, auth.tenant.id, task.id)
-        await session.refresh(task)
-    return serialize_agent_task(task)
-
-
-@router.get("/workstreams/{workstream_id}/steps")
-async def list_workstream_steps(
-    workstream_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    rows = (
-        await session.execute(
-            select(WorkstreamStep)
-            .where(WorkstreamStep.workstream_id == workstream_id, WorkstreamStep.tenant_id == auth.tenant.id)
-            .order_by(WorkstreamStep.order)
-        )
-    ).scalars().all()
-    return [
-        {
-            "id": str(s.id),
-            "name": s.name,
-            "order": s.order,
-            "agent_id": str(s.agent_id) if s.agent_id else None,
-            "step_kind": s.step_kind,
-            "prompt_template": s.prompt_template,
-            "handoff_template": s.handoff_template,
-            "eval_kind": s.eval_kind,
-        }
-        for s in rows
-    ]
-
-
-@router.post("/workstreams/{workstream_id}/steps")
-async def create_workstream_step(
-    workstream_id: UUID,
-    body: WorkstreamStepCreate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    ws = (
-        await session.execute(
-            select(Workstream).where(Workstream.id == workstream_id, Workstream.tenant_id == auth.tenant.id)
-        )
-    ).scalar_one_or_none()
-    if not ws:
-        raise HTTPException(status_code=404, detail="Workstream not found")
-    step = WorkstreamStep(tenant_id=auth.tenant.id, workstream_id=workstream_id, **body.model_dump())
-    session.add(step)
-    await session.commit()
-    await session.refresh(step)
-    return {"id": str(step.id)}
-
-
-@router.delete("/workstreams/{workstream_id}/steps/{step_id}")
-async def delete_workstream_step(
-    workstream_id: UUID,
-    step_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    step = (
-        await session.execute(
-            select(WorkstreamStep).where(
-                WorkstreamStep.id == step_id,
-                WorkstreamStep.workstream_id == workstream_id,
-                WorkstreamStep.tenant_id == auth.tenant.id,
-            )
-        )
-    ).scalar_one_or_none()
-    if not step:
-        raise HTTPException(status_code=404, detail="Step not found")
-    await session.delete(step)
-    await session.commit()
-    return {"ok": True}
 
 
 @router.get("/runs/{run_id}/events")
