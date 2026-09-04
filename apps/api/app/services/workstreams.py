@@ -26,7 +26,6 @@ from app.models.notification import DecisionRequest
 from app.models.orchestra import (
     WORKSTREAM_INPUT_KINDS,
     WORKSTREAM_ON_DEADLINE,
-    WORKSTREAM_RUN_STATUSES,
     WORKSTREAM_STEP_KINDS,
     WORKSTREAM_WAIT_KINDS,
     Workstream,

@@ -110,10 +110,11 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Govern' })).toBeVisible({ timeout: 20000 })
   })
 
-  test('settings assistant redirects to new conversation', async ({ page }) => {
+  test('settings assistant page renders personal memory', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/settings/assistant')
-    await expect(page).toHaveURL(/\/communication\/new/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/settings\/assistant/, { timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'What Bokito remembers' })).toBeVisible({ timeout: 20000 })
   })
 
   test('agents page renders agents library', async ({ page }) => {
@@ -126,14 +127,14 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/skills')
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: 'Workspace knowledge' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Knowledge' })).toBeVisible({ timeout: 20000 })
   })
 
   test('knowledge docs page renders', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/workspace')
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: 'Workspace knowledge' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Knowledge' })).toBeVisible({ timeout: 20000 })
   })
 
   test('agenda page renders week view and automations tab', async ({ page }) => {
@@ -142,7 +143,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('tab', { name: 'Week' })).toBeVisible({ timeout: 20000 })
     await page.getByRole('tab', { name: 'Automations' }).click()
-    await expect(page.getByRole('tab', { name: 'Triggers' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText('All triggers')).toBeVisible({ timeout: 20000 })
   })
 
   test('integrations settings section loads', async ({ page }) => {
