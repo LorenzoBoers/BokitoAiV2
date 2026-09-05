@@ -54,7 +54,7 @@ async def test_signup_creates_empty_tenant(client: AsyncClient, session_override
     ).scalars().all()
     assert len(triggers) == 1
     assert triggers[0].kind == "heartbeat"
-    assert triggers[0].enabled is True
+    assert triggers[0].enabled is False
     assert triggers[0].signal_id == signals[0].id
 
     user = (

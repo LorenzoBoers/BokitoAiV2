@@ -21,6 +21,7 @@ from app.models.project import Project
 from app.services.auth import hash_password
 from app.services.workspace import get_doc_by_path, upsert_doc
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
+from app.services.workspaces_portal import parse_settings, save_settings
 
 
 TEST_EMAIL = "admin@bokito.ai"
@@ -28,6 +29,16 @@ TEST_PASSWORD = "bokito-test-password"
 STAFF_EMAIL = "staff@bokito.ai"
 DEMO_EMAIL = "owner@demo.local"
 DEMO_PASSWORD = "demo-test-password"
+
+
+def _complete_onboarding_wizard(tenant: Tenant) -> None:
+    """Seeded tenants skip the first-run wizard so e2e can reach the app shell."""
+    settings = parse_settings(tenant)
+    block = dict(settings.get("onboarding") or {})
+    block["wizard_required"] = False
+    block["wizard_completed_at"] = datetime.utcnow().isoformat() + "Z"
+    settings["onboarding"] = block
+    save_settings(tenant, settings)
 
 
 async def seed() -> None:
@@ -89,6 +100,7 @@ async def seed() -> None:
 
         await _seed_channels(session, tenant)
         await _seed_tenant_data(session, tenant)
+        _complete_onboarding_wizard(tenant)
 
         # Demo tenant for isolation tests
         demo_result = await session.execute(select(Tenant).where(Tenant.slug == "demo"))
@@ -107,6 +119,7 @@ async def seed() -> None:
             await session.flush()
             session.add(Membership(tenant_id=demo.id, user_id=demo_user.id, role="owner"))
             await bootstrap_tenant(session, demo.id)
+        _complete_onboarding_wizard(demo)
 
         if os.environ.get("SEED_TRADING_TENANT", "").strip().lower() in ("1", "true", "yes"):
             await _seed_autotrading_tenant(session)

@@ -25,7 +25,7 @@ from app.tools.registry import get_tool_spec
 
 
 @pytest.mark.asyncio
-async def test_signup_enables_platform_watch(client: AsyncClient, session_override):
+async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_override):
     signup = await client.post(
         "/api/auth/signup",
         json={
@@ -53,7 +53,7 @@ async def test_signup_enables_platform_watch(client: AsyncClient, session_overri
             select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.kind == "heartbeat")
         )
     ).scalar_one()
-    assert trigger.enabled is True
+    assert trigger.enabled is False
     assert trigger.name == checkin_trigger_name(assistant)
     assert trigger.interval_minutes == 60
 
