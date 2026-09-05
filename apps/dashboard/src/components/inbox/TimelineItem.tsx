@@ -1,4 +1,4 @@
-import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, StickyNote, Text, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Text, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { translateMockAgentBody } from '../../lib/activity-labels'
@@ -15,7 +15,8 @@ import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment } from '../../lib/inbox-api'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
-import { AI_CARD_CLASS, AI_PILL_CLASS, AiIconBox, AiMark } from '../ai/AiMark'
+import { AI_PILL_CLASS, AiIconBox, AiMark } from '../ai/AiMark'
+import { BubbleHeader, ChatMessageBubble, type BubbleVariant } from './ChatBubble'
 import MessageAttachments from './MessageAttachments'
 import MessageMarkdown from './MessageMarkdown'
 import ReasoningDisclosure from './ReasoningDisclosure'
@@ -716,20 +717,6 @@ function EventPill({
   )
 }
 
-// Visual identity per author type — the "group chat" model: customers,
-// teammates and AI agents each have a distinct bubble; only the signed-in
-// user's own messages sit on the right (like WhatsApp / iMessage).
-type BubbleVariant = 'external' | 'team' | 'agent' | 'self' | 'note'
-
-const BUBBLE_VARIANT_CLASSES: Record<BubbleVariant, string> = {
-  external: 'bg-bg-surface border-border/60',
-  team: 'bg-bg-elevated/80 border-border/60',
-  agent: AI_CARD_CLASS,
-  self: 'bg-accent/15 border-accent/30',
-  // Notes use a dedicated left-rule layout — this class is unused for notes.
-  note: 'border-transparent bg-transparent',
-}
-
 // Small role chip next to the author name ("Team" / "AI").
 function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
   const { t } = useTranslation('communication')
@@ -744,45 +731,6 @@ function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
     >
       {kind === 'ai' ? t('timeline.roleAi') : t('timeline.roleTeam')}
     </span>
-  )
-}
-
-// Chat-style bubble: avatar on one side, message bubble constrained to a
-// portion of the width so left/right alignment is clearly visible.
-function ChatMessageBubble({
-  side,
-  avatar,
-  header,
-  body,
-  variant,
-}: {
-  side: 'left' | 'right'
-  avatar: ReactNode
-  header: ReactNode
-  body: ReactNode
-  variant: BubbleVariant
-}) {
-  const isRight = side === 'right'
-  return (
-    <div
-      className={cn(
-        'msg-bubble-enter flex items-end gap-2',
-        isRight ? 'justify-end' : 'justify-start',
-      )}
-    >
-      {isRight ? null : avatar}
-      <div
-        className={cn(
-          'max-w-[78%] min-w-0 rounded-2xl border px-3 py-2',
-          isRight ? 'rounded-br-sm' : 'rounded-bl-sm',
-          BUBBLE_VARIANT_CLASSES[variant],
-        )}
-      >
-        {header}
-        {body}
-      </div>
-      {isRight ? avatar : null}
-    </div>
   )
 }
 
@@ -1053,9 +1001,6 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   const contactAvatar = (
     <ContactAvatar email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
   )
-  const userAvatar = (
-    <UserAvatar name={authorName} email={authorEmail || authorName} avatarUrl={authorAvatarUrl} size={28} />
-  )
   const agentAvatar = (
     <AiIconBox />
   )
@@ -1082,6 +1027,17 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
         : isInbound
           ? 'external'
           : 'teammate'
+
+  // Prefer the signed-in profile for own bubbles (notes included) so the
+  // avatar stays correct even when the message author is not in membersById.
+  const userAvatar = (
+    <UserAvatar
+      name={isOwn ? user?.name?.trim() || authorName : authorName}
+      email={isOwn ? user?.email || authorEmail || authorName : authorEmail || authorName}
+      avatarUrl={isOwn ? user?.avatarUrl ?? authorAvatarUrl : authorAvatarUrl}
+      size={28}
+    />
+  )
 
   const sendFailed =
     typeof message.sendStatus === 'string' && message.sendStatus.startsWith('failed')
@@ -1119,30 +1075,27 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     </div>
   )
 
-  // Header per author type. Own messages skip the name (it is obviously you);
-  // notes and failed sends still surface their affordances.
+  // Header per author type. Own customer replies skip the name; internal
+  // notes always show who wrote them (avatar + name) because authorship is
+  // the main signal on a team-only message.
   const header = (() => {
     if (isInternal) {
       return (
-        <div className="flex items-center gap-1.5 mb-1 min-w-0">
-          <StickyNote size={12} className="shrink-0 text-text-muted" />
-          {!isOwn ? (
-            <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
-          ) : null}
-          <span className="text-[10px] text-text-muted shrink-0">{t('timeline.internalNote')}</span>
-          {noteEditControls}
-        </div>
+        <BubbleHeader
+          name={isOwn ? t('timeline.events.you') : authorName}
+          subtitle={t('timeline.internalNote')}
+          trailing={noteEditControls}
+        />
       )
     }
     if (authorKind === 'external') return inboundHeader
     if (authorKind === 'agent') {
       return (
-        <div className="mb-1 flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-xs font-medium text-text-heading">
-            {agentName || t('timeline.aiAgent')}
-          </span>
-          <RoleChip kind="ai" />
-        </div>
+        <BubbleHeader
+          name={agentName || t('timeline.aiAgent')}
+          chip={<RoleChip kind="ai" />}
+          subtitle={isOutbound ? t('timeline.sentToCustomer') : undefined}
+        />
       )
     }
     if (authorKind === 'teammate') {
@@ -1265,12 +1218,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     bubbleBody
   )
 
-  const bubble = isInternal ? (
-    <div className="border-l-2 border-border/70 py-0.5 pl-3">
-      {header}
-      <div className="text-xs leading-relaxed text-text-secondary">{bubbleBodyWithMeta}</div>
-    </div>
-  ) : useFullWidthEmailCard ? (
+  const bubble = useFullWidthEmailCard ? (
     <EmailMessageBlock avatar={contactAvatar} header={inboundHeader} body={bubbleBodyWithMeta} />
   ) : (
     <ChatMessageBubble side={side} avatar={avatar} header={header} body={bubbleBodyWithMeta} variant={variant} />

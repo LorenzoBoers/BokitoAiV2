@@ -264,8 +264,8 @@ async def set_platform_watch(
 
 
 async def bootstrap_new_tenant(session: AsyncSession, tenant_id: UUID) -> Trigger:
-    """New workspace: assistant channel + enabled hourly check-in."""
-    return await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=True)
+    """New workspace: assistant channel + hourly check-in row (paused until enabled)."""
+    return await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=False)
 
 
 async def ensure_platform_watch(session: AsyncSession) -> None:

@@ -3,9 +3,9 @@
 export type ComposerGrowMode = 'chat' | 'email' | 'note'
 
 export const COMPOSER_GROW: Record<ComposerGrowMode, { min: number; max: number }> = {
-  chat: { min: 52, max: 280 },
+  chat: { min: 52, max: 360 },
   email: { min: 132, max: 440 },
-  note: { min: 72, max: 280 },
+  note: { min: 72, max: 360 },
 }
 
 export function composerFloorKey(mode: ComposerGrowMode): string {

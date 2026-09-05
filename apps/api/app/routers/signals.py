@@ -68,6 +68,8 @@ class ReplyBody(BaseModel):
     # Soft undo: delay delivery by this many seconds (0/None = send now).
     # Capped server-side; the scheduler tick delivers once the delay passes.
     send_after_seconds: int | None = None
+    # Email-only: send from this mailbox and rebind the thread to it.
+    channel_account_id: UUID | None = None
 
 
 class NoteBody(BaseModel):
@@ -635,6 +637,8 @@ async def reply(
         # Undo is a short grace window, not a full "send later" scheduler UI;
         # cap the delay so the API cannot park messages for days.
         send_after_seconds=min(body.send_after_seconds or 0, 600) or None,
+        channel_account_id=body.channel_account_id,
+        actor_role=auth.role,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")

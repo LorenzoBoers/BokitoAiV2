@@ -9,7 +9,7 @@ related: communication,agent-runs,autonomy,govern
 
 # Approve and decline decisions
 
-A decision request is a message in the thread. Communication has one **Decisions** leaf that lists every thread with an open card — customer and internal together. You still act on the card inside the thread.
+A decision request is a message in the thread. Communication has one top-level **Decisions** row that lists every thread with an open card — customer and internal together. You still act on the card inside the thread.
 
 Automated mail (receipts, newsletters, no-reply senders) does not fill Decisions. The agent notes those quietly on the thread. If tip cards piled up from earlier mail, open [Agents](/docs/ai/agents) and use **Clear tip cards**.
 

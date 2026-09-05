@@ -1,7 +1,8 @@
-import { LayoutGrid, LogOut, UserCircle2 } from 'lucide-react'
+import { LayoutGrid, LogOut, Settings } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
+import { UserAvatar } from '../ui/UserAvatar'
 
 function navItemClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
@@ -16,12 +17,6 @@ export default function WorkspaceHubNav() {
   const { user, logout } = useAuth()
   const displayName = user?.name || t('account.sidebar.fallbackName')
   const email = user?.email || t('account.sidebar.fallbackEmail')
-  const initials = displayName
-    .split(' ')
-    .map((part) => part[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
 
   return (
     <aside className="flex h-full w-[220px] shrink-0 flex-col px-4 py-4">
@@ -30,22 +25,34 @@ export default function WorkspaceHubNav() {
         <span className="text-[15px] font-semibold text-text-heading">Bokito portal</span>
       </div>
       <nav className="space-y-1">
-        <NavLink to="/" end className={({ isActive }) => navItemClass(isActive)}>
+        <NavLink to="/workspaces" className={({ isActive }) => navItemClass(isActive)}>
           <LayoutGrid size={15} className="text-text-muted" />
           <span>{t('nav.workspaces')}</span>
+        </NavLink>
+        <NavLink to="/account" className={({ isActive }) => navItemClass(isActive)}>
+          <Settings size={15} className="text-text-muted" />
+          <span>{t('nav.settings')}</span>
         </NavLink>
       </nav>
 
       <div className="mt-auto flex items-center gap-1 border-t border-border/60 pt-3">
-        <NavLink to="/account" className={({ isActive }) => `min-w-0 flex-1 ${navItemClass(isActive)}`}>
-          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-bg-hover/70 text-[11px] font-semibold text-text-primary">
-            {initials}
-          </span>
+        <NavLink
+          to="/account"
+          title={t('nav.account')}
+          className={({ isActive }) => `min-w-0 flex-1 ${navItemClass(isActive)}`}
+        >
+          <UserAvatar
+            name={displayName}
+            email={email}
+            avatarUrl={user?.avatarUrl}
+            size={28}
+            decorative
+            className="rounded-md"
+          />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm text-text-heading">{displayName}</span>
             <span className="block truncate text-xs text-text-muted">{email}</span>
           </span>
-          <UserCircle2 size={14} className="shrink-0 text-text-muted" />
         </NavLink>
         <button
           type="button"

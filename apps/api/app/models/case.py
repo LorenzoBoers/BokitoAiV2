@@ -8,6 +8,7 @@ from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 CASE_CREATE_MODES = ("ask_customer", "ask_operator", "auto", "manual_only")
+CASE_FOLLOW_UP_MODES = ("label", "track", "route")
 CASE_STATUSES = (
     "proposed",
     "open",
@@ -32,6 +33,9 @@ class CaseType(SQLModel, table=True):
     name: str
     description: str = ""
     create_mode: str = "ask_customer"
+    # label = stamp only (never queue); track = queue without route;
+    # route = expect workstream/project bindings.
+    follow_up_mode: str = "track"
     ask_threshold: int = 6
     auto_threshold: int = 9
     requires_verification: bool = False

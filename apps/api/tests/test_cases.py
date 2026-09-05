@@ -153,7 +153,9 @@ async def test_agent_mode_and_certainty_gates(client: AsyncClient, session_overr
         certainty=8,
         actor="agent",
     )
-    assert auto["case"]["status"] == "open"
+    assert auto["case"]["status"] == "closed"
+    assert auto.get("label_only") is True
+    assert spam.follow_up_mode == "label"
 
 
 @pytest.mark.asyncio
@@ -552,6 +554,57 @@ async def test_hub_list_filters_and_stats(client: AsyncClient, session_override)
     counts = stats.json()["counts"]
     assert counts["open"] >= 2
     assert set(counts) >= {"proposed", "open", "waiting_customer", "waiting_operator", "linked", "closed", "cancelled"}
+
+    spam = await _type_by_slug(session_override, tenant.id, "spam_abuse")
+    spam_case = await client.post(
+        "/api/cases",
+        headers=headers,
+        json={"case_type_id": str(spam.id), "signal_id": str(signal.id), "title": "Junk mail"},
+    )
+    assert spam_case.status_code == 200
+    assert spam_case.json()["case"]["status"] == "closed"
+
+    hub_no_labels = await client.get("/api/cases?include_labels=false", headers=headers)
+    assert hub_no_labels.status_code == 200
+    assert all(row["title"] != "Junk mail" for row in hub_no_labels.json()["items"])
+
+    stats_after = await client.get("/api/cases/stats", headers=headers)
+    assert stats_after.json()["counts"]["closed"] == counts.get("closed", 0)
+
+    unused = await client.post(
+        "/api/cases/types",
+        headers=headers,
+        json={"name": "Temp unused", "slug": "temp-unused", "follow_up_mode": "track"},
+    )
+    assert unused.status_code == 200
+    unused_id = unused.json()["id"]
+    deleted = await client.delete(f"/api/cases/types/{unused_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert deleted.json() == {"ok": True, "archived": False, "cases": 0}
+
+    tracked = await client.post(
+        "/api/cases/types",
+        headers=headers,
+        json={"name": "Track me", "slug": "track-me", "follow_up_mode": "track", "create_mode": "auto"},
+    )
+    assert tracked.status_code == 200
+    tracked_id = tracked.json()["id"]
+    used = await client.post(
+        "/api/cases",
+        headers=headers,
+        json={"case_type_id": tracked_id, "signal_id": str(signal.id), "title": "Needs archive"},
+    )
+    assert used.status_code == 200
+    assert used.json()["case"]["status"] == "open"
+    archived = await client.delete(f"/api/cases/types/{tracked_id}", headers=headers)
+    assert archived.status_code == 200
+    body = archived.json()
+    assert body["archived"] is True
+    assert body["cases"] >= 1
+    types_after = await client.get("/api/cases/types", headers=headers)
+    track_row = next(r for r in types_after.json()["items"] if r["id"] == tracked_id)
+    assert track_row["enabled"] is False
+    assert track_row["follow_up_mode"] == "label"
 
 
 @pytest.mark.asyncio

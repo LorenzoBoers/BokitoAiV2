@@ -30,22 +30,26 @@ Use write_doc to document findings in workspace docs (company.md, memory.md, per
 Use suggest_integration when relevant integrations would help.
 Ask clarifying questions before writing docs. Be concise and friendly.
 
+The operator may already have filled a short intake (how they found Bokito, org size,
+primary use) during the first-run wizard. Do not re-ask those facts; use them as context
+and deepen from there.
+
 You can set the workspace up from this chat. Use your tools instead of sending
 people to settings pages unless they ask to click themselves.
 
 When the user asks for help setting up the workspace, guide them through
-these four steps one at a time, in this order:
+these steps one at a time:
 1. Channel - connect where customers reach them (Bokito address or mailbox
    first). Point them to Email & messages, not the module marketplace.
 2. Talk - interview them and document the organization (company.md) in this
    chat.
 3. One decision - make sure they have seen and approved a decision card.
 4. Check-in / watching - use get_platform_watch and set_platform_watch
-   (enabled true) so you watch the workspace. Findings land in your own
-   channel in Communication, the conversation the operator already uses to
-   talk to you. Keep heartbeat.md as the checklist you work through when
+   (enabled true) so you watch the workspace. The check-in starts paused;
+   turn it on when they want watching. Findings land in your own channel in
+   Communication. Keep heartbeat.md as the checklist you work through when
    you wake.
-After those four, offer later work without numbering it as setup: branding
+After those, offer later work without numbering it as setup: branding
 and widget, inviting the team, a business module when the work fits,
 projects, and Govern.
 Ask what they want to tackle first, keep each step small, and confirm before
@@ -110,7 +114,8 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
         )
     # Fresh tenants stay empty: no demo project, orchestrator or workstream.
     # Only the assistant, docs, the assistant's own channel conversation, and
-    # an enabled hourly check-in. The Agent row is the single runtime passport.
+    # a paused hourly check-in (operator or setup turns watching on). The Agent
+    # row is the single runtime passport.
     # Email stays empty until someone connects a mailbox or creates a Bokito
     # relay address. The website chat is the one channel that works the moment
     # the widget is embedded, so it gets a row to carry state and an off switch.
@@ -196,6 +201,9 @@ def default_tenant_settings() -> dict:
         "retention_audit_days": 730,
         "llm_may_use_message_bodies": True,
     }
+    # New workspaces must complete the first-run wizard once. Legacy tenants
+    # without this key are never force-redirected.
+    base["onboarding"] = {"wizard_required": True}
     return base
 
 

@@ -9,7 +9,7 @@ related: setup-guide,channels,tour,inbox-ai
 
 # Quickstart
 
-Dit is de kortste weg van een verse workspace naar echt werk.
+Dit is de kortste weg van een verse workspace naar echt werk. Na signup ronden owners eerst de **eerste-setupwizard** af (intake, talen, meldingen, autonomie, agentnaam, optioneel kanaal), daarna een korte producttour. Uitgenodigde leden zetten alleen taal en meldingen.
 
 ## 1. Koppel een mailbox
 
@@ -40,10 +40,10 @@ Dit is de kortste weg van een verse workspace naar echt werk.
 
 ## 5. Zet autonomie
 
-1. Open **Instellingen** en daarna **Govern**.
+1. Open **Instellingen** en daarna **Govern** — of kies de houding in de eerste-setupwizard.
 2. Begin met **Ondersteund**.
 3. Zie [Autonomie](/docs/govern/autonomy).
 
 ## Wat je nu hebt
 
-Mail komt binnen, de assistent maakt onderbouwde concepten, en jij keurt ze goed. Ga verder met de [setupgids](/docs/getting-started/setup-guide).
+Mail komt binnen, de assistent maakt onderbouwde concepten, en jij keurt ze goed. De uurlijkse platform-check-in start gepauzeerd; zet die aan via de [setupgids](/docs/getting-started/setup-guide) wanneer je wilt dat de assistent waakt. Ga verder met die gids voor branding, team en modules.

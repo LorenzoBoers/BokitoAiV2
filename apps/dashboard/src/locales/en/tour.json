@@ -52,8 +52,9 @@
   },
   "finish": {
     "title": "Set up together with your assistant",
-    "body": "The fastest way to configure Bokito is a conversation. Your assistant interviews you about your company and sets up channels, agents, knowledge and KPIs with you.",
+    "body": "The fastest way to configure Bokito is a conversation. Your assistant interviews you about your company and sets up channels, agents and knowledge with you.",
     "cta": "Start the setup chat",
+    "communication": "Open Communication",
     "setupGuide": "Open setup guide",
     "later": "I will explore on my own"
   },

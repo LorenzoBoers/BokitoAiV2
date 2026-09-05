@@ -14,6 +14,12 @@ import { tabFromPath, titleForTab } from '../../lib/navigation'
 
 /** Route plus page title, sent with every turn so Bokito can see the screen. */
 function describePage(pathname: string, search: string): string {
+  if (pathname === '/workspaces' || pathname.startsWith('/workspaces/')) {
+    return `Workspaces hub - manage and open workspaces - ${pathname}${search}`
+  }
+  if (pathname === '/account' || pathname.startsWith('/account/')) {
+    return `Account settings - profile and preferences - ${pathname}${search}`
+  }
   const tab = tabFromPath(pathname)
   const title = tab ? titleForTab(tab) : 'Bokito'
   return `${title} - ${pathname}${search}`

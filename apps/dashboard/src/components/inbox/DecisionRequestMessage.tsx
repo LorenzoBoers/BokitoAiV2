@@ -48,7 +48,8 @@ import { listAgents } from '../../lib/agents-api'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import { AI_CARD_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
+import { AI_TEXT_CLASS, AiIconBox, AiMark } from '../ai/AiMark'
+import { ChatMessageBubble } from './ChatBubble'
 
 type DecisionOption = {
   id: string
@@ -545,33 +546,36 @@ export default function DecisionRequestMessage({
     await resolve('approve', option.id)
   }
 
+  const agentAvatar = <AiIconBox />
+
   if (resolved && !ruleSuggestion) {
     return (
-      <div className="flex justify-start">
-        <div className="flex w-full max-w-3xl min-w-0 items-center gap-2 rounded-lg border border-border/50 bg-bg-surface/70 px-3 py-1.5">
-          <AiMark size={12} className="shrink-0 text-text-muted" />
-          <span className="min-w-0 flex-1 truncate text-[11.5px] text-text-muted">
-            {t('decisionCard.earlierDraft')}
-            {excerpt ? ` — ${excerpt}` : ''}
-          </span>
-          <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
-            {t('decisionCard.resolved')}
-          </span>
-        </div>
-      </div>
+      <ChatMessageBubble
+        side="left"
+        avatar={agentAvatar}
+        variant="external"
+        body={
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-[11.5px] text-text-muted">
+              {t('decisionCard.earlierDraft')}
+              {excerpt ? ` — ${excerpt}` : ''}
+            </span>
+            <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+              {t('decisionCard.resolved')}
+            </span>
+          </div>
+        }
+      />
     )
   }
 
   return (
-    <div className="flex justify-start">
-      <div
-        className={cn(
-          'w-full max-w-3xl min-w-0 rounded-2xl border px-4 py-3',
-          resolved
-            ? 'border-border/60 bg-bg-surface'
-            : AI_CARD_CLASS,
-        )}
-      >
+    <ChatMessageBubble
+      side="left"
+      avatar={agentAvatar}
+      variant={resolved ? 'external' : 'agent'}
+      body={
+        <>
         <div className="mb-1 flex items-center gap-2">
           {isActionSuggestion ? (
             <BellOff className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : AI_TEXT_CLASS)} aria-hidden />
@@ -938,7 +942,8 @@ export default function DecisionRequestMessage({
           </Tooltip>
         </div>
         ) : null}
-      </div>
-    </div>
+        </>
+      }
+    />
   )
 }

@@ -33,6 +33,7 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not**, then **Save changes**. The model itself is set on the agent page.
 2. Under **Availability**, set **Team hours** with **From**, **Until** and **Timezone**. Choose **Save availability**. Outside those hours chat stays open. The widget shows the team as away and visitors can ask for a callback instead of a live handoff.
 3. Turn on **Pre-chat form** when you want a name and email before the first message. Those visitors become real [contacts](/docs/inbox/contacts) instead of anonymous website visitors.
+4. In the chat composer, visitors can dictate with the microphone when the browser supports speech recognition (same pattern on the website widget and the in-app assistant): hold to talk or click to start; the button turns green with a check to confirm. The message box grows as spoken text appears.
 
 The website widget follows the visitor's system light or dark setting. There is no theme switcher in the widget. Preview Light and Dark on this page only to check contrast.
 

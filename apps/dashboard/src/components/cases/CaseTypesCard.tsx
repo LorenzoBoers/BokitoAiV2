@@ -20,6 +20,7 @@ import {
   patchCaseType,
   type CaseBindingRow,
   type CaseCreateMode,
+  type CaseFollowUpMode,
   type CaseTypeRow,
 } from '../../lib/cases-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -41,7 +42,14 @@ import { Switch } from '../ui/switch'
 import { Textarea } from '../ui/textarea'
 
 const CREATE_MODES: CaseCreateMode[] = ['ask_customer', 'ask_operator', 'auto', 'manual_only']
+const FOLLOW_UP_MODES: CaseFollowUpMode[] = ['label', 'track', 'route']
 const AUDIENCES: CaseTypeRow['audience'][] = ['customer', 'internal', 'both']
+
+const FOLLOW_UP_DEFAULTS: Record<CaseFollowUpMode, string> = {
+  label: 'Label only',
+  track: 'Track in queue',
+  route: 'Route to work',
+}
 
 type CaseTypesCardProps = {
   /** Notify the hub so the queue's type chips stay in sync. */
@@ -98,8 +106,18 @@ export function CaseTypesCard({ onTypesChanged }: CaseTypesCardProps) {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await deleteCaseType(deleteTarget.id)
+      const result = await deleteCaseType(deleteTarget.id)
       setDeleteTarget(null)
+      if (result?.archived) {
+        toast.success(
+          t('casesPage.typeArchived', {
+            defaultValue:
+              'Type archived. Existing cases stay on threads; open queue rows were closed.',
+          }),
+        )
+      } else {
+        toast.success(t('casesPage.typeDeleted', { defaultValue: 'Type deleted.' }))
+      }
       await load()
     } catch (err) {
       toast.error(
@@ -115,14 +133,27 @@ export function CaseTypesCard({ onTypesChanged }: CaseTypesCardProps) {
       defaultValue: { ask_customer: 'Ask customer', ask_operator: 'Ask operator', auto: 'Auto', manual_only: 'Manual only' }[mode],
     })
 
+  const followUpLabel = (mode: CaseFollowUpMode | undefined) =>
+    t(`casesPage.followUpModes.${mode ?? 'track'}`, {
+      defaultValue: FOLLOW_UP_DEFAULTS[mode ?? 'track'],
+    })
+
   const audienceLabel = (audience: CaseTypeRow['audience']) =>
     t(`casesPage.audiences.${audience}`, {
       defaultValue: { customer: 'Customer', internal: 'Internal', both: 'Both' }[audience],
     })
 
   const bindingSummary = (row: CaseTypeRow): string => {
+    const followUp = row.follow_up_mode ?? 'track'
+    if (followUp === 'label') {
+      return t('casesPage.labelNoQueue', { defaultValue: 'Never queues' })
+    }
     const list = bindingsByType.get(row.id) ?? []
-    if (list.length === 0) return t('casesPage.noBinding', { defaultValue: 'Label only — no follow-up' })
+    if (list.length === 0) {
+      return followUp === 'route'
+        ? t('casesPage.noRouteYet', { defaultValue: 'No route yet' })
+        : t('casesPage.noBinding', { defaultValue: 'In queue — no route' })
+    }
     const workstreams = list.filter((b) => b.target_kind === 'workstream').length
     const projects = list.filter((b) => b.target_kind === 'project').length
     const parts: string[] = []
@@ -139,7 +170,7 @@ export function CaseTypesCard({ onTypesChanged }: CaseTypesCardProps) {
         <p className="max-w-xl text-xs text-text-muted">
           {t('casesPage.typesIntro', {
             defaultValue:
-              'Types are the intent catalog. Write a sharp description of when a type applies (and when not) so agents classify well. Bind a type on a workstream or project when it needs follow-up; leave it unbound to use it as a label only.',
+              'Types are the intent catalog. Choose Label (stamp only), Track (queue without a route), or Route (bind to a workstream or project). Write a sharp description so agents classify well.',
           })}
         </p>
         <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
@@ -194,7 +225,8 @@ export function CaseTypesCard({ onTypesChanged }: CaseTypesCardProps) {
                       ) : null}
                     </span>
                     <span className="mt-0.5 block truncate text-[11px] text-text-muted">
-                      {modeLabel(row.create_mode)} · {audienceLabel(row.audience)} · {bindingSummary(row)}
+                      {followUpLabel(row.follow_up_mode)} · {modeLabel(row.create_mode)} ·{' '}
+                      {audienceLabel(row.audience)} · {bindingSummary(row)}
                     </span>
                   </span>
                   <Switch
@@ -211,6 +243,7 @@ export function CaseTypesCard({ onTypesChanged }: CaseTypesCardProps) {
                 </div>
                 {expanded ? (
                   <CaseTypeEditor
+                    key={row.id}
                     row={row}
                     onSaved={() => void load()}
                     onDelete={() => setDeleteTarget(row)}
@@ -246,7 +279,8 @@ export function CaseTypesCard({ onTypesChanged }: CaseTypesCardProps) {
           itemLabel={t('casesPage.deleteTypeLabel', { defaultValue: 'this type' })}
           itemName={deleteTarget.name}
           impactText={t('casesPage.deleteTypeImpact', {
-            defaultValue: 'Existing cases keep their history; bindings on workstreams and projects are removed.',
+            defaultValue:
+              'If cases already use this type, it is archived (turned off) and open queue rows are closed. Bindings on workstreams and projects are removed. Unused types are deleted.',
           })}
           isDeleting={deleting}
           onCancel={() => setDeleteTarget(null)}
@@ -269,6 +303,7 @@ function CaseTypeEditor({
   const { t } = useTranslation('nav')
   const [description, setDescription] = useState(row.description)
   const [createMode, setCreateMode] = useState<CaseCreateMode>(row.create_mode)
+  const [followUpMode, setFollowUpMode] = useState<CaseFollowUpMode>(row.follow_up_mode ?? 'track')
   const [audience, setAudience] = useState<CaseTypeRow['audience']>(row.audience)
   const [requiresVerification, setRequiresVerification] = useState(row.requires_verification)
   const [saving, setSaving] = useState(false)
@@ -276,6 +311,7 @@ function CaseTypeEditor({
   const dirty =
     description !== row.description ||
     createMode !== row.create_mode ||
+    followUpMode !== (row.follow_up_mode ?? 'track') ||
     audience !== row.audience ||
     requiresVerification !== row.requires_verification
 
@@ -285,6 +321,7 @@ function CaseTypeEditor({
       await patchCaseType(row.id, {
         description,
         create_mode: createMode,
+        follow_up_mode: followUpMode,
         audience,
         requires_verification: requiresVerification,
       })
@@ -315,6 +352,23 @@ function CaseTypeEditor({
         />
       </div>
       <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-[11px] font-medium text-text-secondary">
+            {t('casesPage.followUpLabel', { defaultValue: 'Follow-up' })}
+          </label>
+          <Select value={followUpMode} onValueChange={(v) => setFollowUpMode(v as CaseFollowUpMode)}>
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FOLLOW_UP_MODES.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {t(`casesPage.followUpModes.${mode}`, { defaultValue: FOLLOW_UP_DEFAULTS[mode] })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div>
           <label className="mb-1 block text-[11px] font-medium text-text-secondary">
             {t('casesPage.modeLabel', { defaultValue: 'Create mode' })}
@@ -358,6 +412,19 @@ function CaseTypeEditor({
           {t('cases.needsVerify', { defaultValue: 'needs confirmation' })}
         </label>
       </div>
+      {followUpMode === 'label' ? (
+        <p className="text-[11px] text-text-muted">
+          {t('casesPage.followUpLabelHint', {
+            defaultValue: 'Label-only cases stamp the conversation and never appear in the Open queue.',
+          })}
+        </p>
+      ) : followUpMode === 'route' ? (
+        <p className="text-[11px] text-text-muted">
+          {t('casesPage.followUpRouteHint', {
+            defaultValue: 'Bind this type on a workstream or project so new cases can route automatically.',
+          })}
+        </p>
+      ) : null}
       <div className="flex items-center justify-between">
         <Button
           type="button"
@@ -398,6 +465,7 @@ function CreateCaseTypeDialog({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [createMode, setCreateMode] = useState<CaseCreateMode>('ask_customer')
+  const [followUpMode, setFollowUpMode] = useState<CaseFollowUpMode>('track')
   const [busy, setBusy] = useState(false)
 
   const create = async () => {
@@ -405,10 +473,16 @@ function CreateCaseTypeDialog({
     if (!trimmed) return
     setBusy(true)
     try {
-      await createCaseType({ name: trimmed, description, create_mode: createMode })
+      await createCaseType({
+        name: trimmed,
+        description,
+        create_mode: createMode,
+        follow_up_mode: followUpMode,
+      })
       setName('')
       setDescription('')
       setCreateMode('ask_customer')
+      setFollowUpMode('track')
       onCreated()
     } catch (err) {
       toast.error(
@@ -446,20 +520,34 @@ function CreateCaseTypeDialog({
             })}
             className="text-sm"
           />
-          <Select value={createMode} onValueChange={(v) => setCreateMode(v as CaseCreateMode)}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CREATE_MODES.map((mode) => (
-                <SelectItem key={mode} value={mode}>
-                  {t(`casesPage.modes.${mode}`, {
-                    defaultValue: { ask_customer: 'Ask customer', ask_operator: 'Ask operator', auto: 'Auto', manual_only: 'Manual only' }[mode],
-                  })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={followUpMode} onValueChange={(v) => setFollowUpMode(v as CaseFollowUpMode)}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FOLLOW_UP_MODES.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {t(`casesPage.followUpModes.${mode}`, { defaultValue: FOLLOW_UP_DEFAULTS[mode] })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={createMode} onValueChange={(v) => setCreateMode(v as CaseCreateMode)}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CREATE_MODES.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {t(`casesPage.modes.${mode}`, {
+                      defaultValue: { ask_customer: 'Ask customer', ask_operator: 'Ask operator', auto: 'Auto', manual_only: 'Manual only' }[mode],
+                    })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>

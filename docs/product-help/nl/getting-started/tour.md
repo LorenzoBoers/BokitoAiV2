@@ -9,6 +9,8 @@ related: welcome,cockpit,communication
 
 # Producttour
 
+Na het aanmaken van een workspace ronden owners eerst een korte **eerste-setupwizard** af (`/onboarding`) — intake, talen, meldingen, autonomie, agentnaam, optioneel kanaal — vóór deze tour. Uitgenodigde leden zetten alleen hun eigen taal en meldingen. De rail-tour start niet automatisch tot die wizard klaar is; na de wizard begint de tour.
+
 Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
 
 ## Besturing: de dagelijkse loop

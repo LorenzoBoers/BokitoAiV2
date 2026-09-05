@@ -21,8 +21,10 @@ import { ComposerCard } from '../ui/ComposerCard'
 import { ChatTranscriptSkeleton } from '../ui/skeleton'
 import { useMembers } from '../../hooks/useMembers'
 import { useMentionDraft } from '../../hooks/useMentionDraft'
+import { useSpeechDictation } from '../../hooks/useSpeechDictation'
 import MentionPopover from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
+import { DictationMicButton } from './DictationMicButton'
 import type { MentionItem } from '../../lib/mentions'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/button'
@@ -353,6 +355,31 @@ export function AgentChatView({
     [members],
   )
   const mention = useMentionDraft({ items: mentionItems })
+  const [dictationInterim, setDictationInterim] = useState('')
+  const dictationInterimRef = useRef('')
+  dictationInterimRef.current = dictationInterim
+  const setMentionRaw = mention.setRaw
+  const appendDictation = useCallback((chunk: string) => {
+    setMentionRaw((prev) => {
+      const base = String(prev).trimEnd()
+      return base ? `${base} ${chunk}` : chunk
+    })
+    setDictationInterim('')
+  }, [setMentionRaw])
+  const dictation = useSpeechDictation({
+    onFinal: appendDictation,
+    onInterim: setDictationInterim,
+  })
+  const confirmDictation = useCallback(() => {
+    const pending = dictationInterimRef.current.trim()
+    if (pending) appendDictation(pending)
+    else setDictationInterim('')
+    dictation.stop()
+  }, [appendDictation, dictation])
+  const composerValue = useMemo(() => {
+    if (!dictation.listening || !dictationInterim.trim()) return mention.display
+    return mention.display ? `${mention.display} ${dictationInterim}` : dictationInterim
+  }, [dictation.listening, dictationInterim, mention.display])
   const [stream, setStream] = useState<StreamState>({ text: '', thinking: '', active: false })
   const gatewayStream = useSignalStream(conversationId)
   const [error, setError] = useState<string | null>(null)
@@ -635,10 +662,12 @@ export function AgentChatView({
             ref={composerRef}
             id="inbox-reply-composer"
             mode="chat"
-            value={mention.display}
-            onChange={(e) =>
+            value={composerValue}
+            readOnly={dictation.listening}
+            onChange={(e) => {
+              if (dictation.listening) return
               mention.onChange(e.currentTarget.value, e.currentTarget.selectionStart ?? e.currentTarget.value.length)
-            }
+            }}
             onClick={(e) =>
               mention.refreshMentionState(
                 e.currentTarget.value,
@@ -646,7 +675,7 @@ export function AgentChatView({
               )
             }
             onKeyDown={onComposerKeyDown}
-            highlighter={<MentionHighlight raw={mention.raw} />}
+            highlighter={dictation.listening ? undefined : <MentionHighlight raw={mention.raw} />}
             overlay={
               mention.mentionOpen ? (
                 <MentionPopover
@@ -657,9 +686,23 @@ export function AgentChatView({
                 />
               ) : null
             }
-            placeholder={composerPlaceholder ?? t('directChat.placeholder')}
+            placeholder={
+              dictation.listening
+                ? t('composer.dictationListening')
+                : (composerPlaceholder ?? t('directChat.placeholder'))
+            }
             className="border-border/60 bg-bg-surface"
           >
+            {dictation.supported && !stream.active ? (
+              <DictationMicButton
+                listening={dictation.listening}
+                disabled={stream.active}
+                onStart={() => {
+                  dictation.start()
+                }}
+                onConfirm={confirmDictation}
+              />
+            ) : null}
             {stream.active ? (
               <button type="button" onClick={stopStreaming} title={t('directChat.stop')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-bg-hover text-text-primary transition-colors hover:bg-bg-hover/80">
                 <Square size={13} />

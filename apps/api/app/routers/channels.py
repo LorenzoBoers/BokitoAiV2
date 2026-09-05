@@ -394,6 +394,8 @@ async def patch_channel(
             account.display_name = label
         else:
             settings.pop("label", None)
+            # Empty label clears the custom name; fall back to the address.
+            account.display_name = account.address or ""
     if body.is_enabled is not None:
         account.is_enabled = bool(body.is_enabled)
     if body.is_primary is not None:

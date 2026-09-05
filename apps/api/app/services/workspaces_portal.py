@@ -819,12 +819,26 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
         ).first()
     )
 
-    # The generic "channel" step was dropped: the email step already covers
-    # the flagship channel, and first_decision measures actual AI value.
-    # Watching is the seeded platform check-in (enabled heartbeat).
-    # Communication-first order: connect a channel, chat with an agent,
-    # approve a decision, schedule a wake — then profile and team.
+    # First-run wizard completion (owners). Legacy tenants without the
+    # onboarding.wizard_required flag never required the wizard, so they count
+    # as done.
+    from app.models.auth import Tenant
+    from app.services.onboarding_wizard import _onboarding_block
+
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    wizard_done = True
+    if tenant is not None:
+        block = _onboarding_block(parse_settings(tenant))
+        if block.get("wizard_required") and not block.get("wizard_completed_at"):
+            wizard_done = False
+
+    # Watching is done only when the operator enables the check-in (seeded paused).
+    # Communication-first order: wizard, channel, chat, decision, watching —
+    # then profile and team (Setup hub Later list).
     steps = [
+        {"id": "wizard", "done": wizard_done},
         {"id": "email", "done": email_done},
         {"id": "assistant", "done": assistant_done},
         {"id": "first_decision", "done": first_decision_done},

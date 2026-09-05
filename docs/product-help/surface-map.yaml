@@ -56,12 +56,17 @@ tour:
   routes:
     - /learn
     - /settings/help
+    - /onboarding
   code_globs:
     - apps/dashboard/src/components/tour/tour-steps.ts
+    - apps/dashboard/src/components/tour/TourContext.tsx
+    - apps/dashboard/src/pages/OnboardingWizardPage.tsx
+    - apps/dashboard/src/components/onboarding/OnboardingWizardGate.tsx
     - apps/dashboard/src/components/shell/ShellSidebar.tsx
     - apps/dashboard/src/components/shell/CommandPalette.tsx
     - apps/dashboard/src/components/shell/ShellTopbar.tsx
     - apps/dashboard/src/pages/HelpHubPage.tsx
+    - apps/api/app/services/onboarding_wizard.py
   screenshots:
     - sidebar
 

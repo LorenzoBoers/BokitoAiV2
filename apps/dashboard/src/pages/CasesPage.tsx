@@ -147,7 +147,12 @@ export default function CasesPage() {
     setLoading(true)
     try {
       const [cases, counts, typeRows] = await Promise.all([
-        listCases({ q: query.trim() || undefined, caseTypeId: typeFilter || undefined, limit: 300 }),
+        listCases({
+          q: query.trim() || undefined,
+          caseTypeId: typeFilter || undefined,
+          includeLabels: false,
+          limit: 300,
+        }),
         getCaseStats().catch(() => null),
         listCaseTypes().catch(() => [] as CaseTypeRow[]),
       ])

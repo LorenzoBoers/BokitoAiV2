@@ -7,6 +7,7 @@ import SettingsLayout, { SettingsHomeRedirect } from './components/shell/Setting
 import WorkspaceHubLayout from './components/layout/WorkspaceHubLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import ControlPlaneRoute from './components/auth/ControlPlaneRoute'
+import { OnboardingWizardGate } from './components/onboarding/OnboardingWizardGate'
 import { useWorkspace } from './context/WorkspaceContext'
 import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
@@ -44,6 +45,7 @@ const ActivityTerminalPage = lazy(() => import('./pages/ActivityTerminalPage'))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
+const OnboardingWizardPage = lazy(() => import('./pages/OnboardingWizardPage'))
 
 // Agent
 const AiAgents = lazy(() => import('./pages/AiAgents'))
@@ -288,6 +290,7 @@ export default function App() {
       <Route path="/trust" element={<PublicTrustPage />} />
 
       <Route element={<ProtectedRoute />}>
+        <Route path="/onboarding" element={<OnboardingWizardPage />} />
         <Route path="/" element={<HomeRoute />} />
 
         <Route element={<ControlPlaneRoute />}>
@@ -297,7 +300,13 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route element={<AppShell />}>
+        <Route
+          element={
+            <OnboardingWizardGate>
+              <AppShell />
+            </OnboardingWizardGate>
+          }
+        >
           {/* Communication hub: chats + customers + agents */}
           <Route element={<MessagesHub />}>
             <Route path="/communication" element={<LastInboxRedirect />} />

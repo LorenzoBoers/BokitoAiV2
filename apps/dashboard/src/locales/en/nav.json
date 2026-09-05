@@ -176,6 +176,8 @@
     "manageTypes": "Set up case types",
     "openWorkstream": "Workstream",
     "addType": "Add {{name}}",
+    "labelChip": "Label",
+    "addLabelHint": "Stamps the thread; does not open a queue item.",
     "typesTitle": "Intake types",
     "typesHint": "Types label work that lands on a conversation. Bind them on a workstream or project so agents know where to send them.",
     "newTypePlaceholder": "New type name",
@@ -245,7 +247,7 @@
       "dismiss": "Dismiss",
       "reopen": "Reopen"
     },
-    "typesIntro": "Types are the intent catalog. Write a sharp description of when a type applies (and when not) so agents classify well. Bind a type on a workstream or project when it needs follow-up; leave it unbound to use it as a label only.",
+    "typesIntro": "Types are the intent catalog. Choose Label (stamp only), Track (queue without a route), or Route (bind to a workstream or project). Write a sharp description so agents classify well.",
     "newType": "New type",
     "newTypeHint": "Describe precisely when this type applies so agents classify incoming messages well.",
     "typesEmptyTitle": "No intake types yet",
@@ -253,6 +255,14 @@
     "enabledToggle": "Enabled",
     "descriptionLabel": "Description (when to use, when not)",
     "descriptionPlaceholder": "e.g. Customer explicitly asks for a refund. Not for general billing questions.",
+    "followUpLabel": "Follow-up",
+    "followUpLabelHint": "Label-only cases stamp the conversation and never appear in the Open queue.",
+    "followUpRouteHint": "Bind this type on a workstream or project so new cases can route automatically.",
+    "followUpModes": {
+      "label": "Label only",
+      "track": "Track in queue",
+      "route": "Route to work"
+    },
     "modeLabel": "Create mode",
     "audienceLabel": "Audience",
     "modes": {
@@ -266,7 +276,9 @@
       "internal": "Internal",
       "both": "Both"
     },
-    "noBinding": "Label only — no follow-up",
+    "noBinding": "In queue — no route",
+    "noRouteYet": "No route yet",
+    "labelNoQueue": "Never queues",
     "boundWorkstreams": "{{count}} workstream(s)",
     "boundProjects": "{{count}} project(s)",
     "bindHint": "Routing is configured where work is done: open a workstream or project to accept types there.",
@@ -274,7 +286,9 @@
     "deleteType": "Delete",
     "deleteTypeTitle": "Delete intake type",
     "deleteTypeLabel": "this type",
-    "deleteTypeImpact": "Existing cases keep their history; bindings on workstreams and projects are removed.",
+    "deleteTypeImpact": "If cases already use this type, it is archived (turned off) and open queue rows are closed. Bindings on workstreams and projects are removed. Unused types are deleted.",
+    "typeDeleted": "Type deleted.",
+    "typeArchived": "Type archived. Existing cases stay on threads; open queue rows were closed.",
     "moduleTypeNoDelete": "Module types cannot be deleted here.",
     "manageInCases": "Intake types are managed on the Cases page.",
     "openCases": "Open Cases"
@@ -990,7 +1004,7 @@
       },
       "watch": {
         "title": "Turn on check-in",
-        "description": "Let the assistant watch the workspace and tell you when something needs you."
+        "description": "The check-in starts paused. Turn it on so the assistant watches the workspace and tells you when something needs you."
       }
     },
     "later": {
@@ -1559,6 +1573,13 @@
     "signature": "Signature",
     "routing": "Routing",
     "makePrimary": "Make primary sender",
+    "rename": "Rename",
+    "renameTitle": "Rename channel",
+    "renameBody": "Choose a short name for {{address}}. Leave empty to use the address.",
+    "renameLabel": "Display name",
+    "renameHint": "This name appears in Communication and on the reply button.",
+    "renameSave": "Save name",
+    "renameSaved": "Channel renamed",
     "remove": "Remove",
     "actionsFor": "Actions for {{email}}",
     "close": "Close",

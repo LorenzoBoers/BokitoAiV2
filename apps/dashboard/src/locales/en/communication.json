@@ -50,6 +50,8 @@
     "tabHintReply": "The customer sees this",
     "tabHintNote": "Only your team sees this",
     "tabHintAgent": "Talk with this agent internally. The customer does not see it. Sending the first message starts the session.",
+    "sendFrom": "Send from",
+    "sendFromHint": "Send from this mailbox. Switching moves the conversation here.",
     "templates": "Templates",
     "writeWithAi": "Write with AI",
     "writeWithAiShort": "Write",
@@ -68,6 +70,9 @@
     "aiError": "Could not generate a draft.",
     "dictationStart": "Dictate",
     "dictationStop": "Stop dictation",
+    "dictationConfirm": "Confirm dictation",
+    "dictationHoldHint": "Hold to talk, or click to start. Release or click the check to confirm.",
+    "dictationConfirmHint": "Click or release to confirm the text into the composer.",
     "dictationListening": "Listening...",
     "dictationHearing": "Hearing: {{text}}",
     "notePlaceholder": "Internal message (not visible to the customer)...",
@@ -514,6 +519,11 @@
     "loadError": "Could not load your setup checklist.",
     "retry": "Retry",
     "steps": {
+      "wizard": {
+        "title": "Finish first-run setup",
+        "description": "Languages, notifications, autonomy and your first agent — a short guided path.",
+        "cta": "Open setup wizard"
+      },
       "email": {
         "title": "Connect your channels",
         "description": "Create a Bokito address and forward mail to it, or connect Gmail or Outlook to use your own mailbox.",
@@ -537,7 +547,7 @@
       },
       "watching": {
         "title": "Let the assistant watch",
-        "description": "The hourly check-in wakes the assistant. It only writes in Communication when something needs you.",
+        "description": "The hourly check-in wakes the assistant. It starts paused; turn it on so it only writes in Communication when something needs you.",
         "cta": "Turn on check-in",
         "enabling": "Turning on…",
         "enabled": "Check-in is on. The assistant will watch in the background.",
@@ -951,6 +961,8 @@
     },
     "roleAi": "AI",
     "roleTeam": "Team",
+    "aiAgent": "AI agent",
+    "sentToCustomer": "Sent to the customer",
     "sending": "Sending",
     "copyId": "Copy message ID",
     "copyBody": "Copy text",

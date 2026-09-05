@@ -12,12 +12,16 @@ export type CaseStatus =
 
 export type CaseCreateMode = 'ask_customer' | 'ask_operator' | 'auto' | 'manual_only'
 
+/** How a type behaves after classification. */
+export type CaseFollowUpMode = 'label' | 'track' | 'route'
+
 export type CaseTypeRow = {
   id: string
   slug: string
   name: string
   description: string
   create_mode: CaseCreateMode
+  follow_up_mode: CaseFollowUpMode
   ask_threshold: number
   auto_threshold: number
   requires_verification: boolean
@@ -61,10 +65,19 @@ export type CaseRow = {
 
 export type CaseStats = Record<CaseStatus, number>
 
+export type DeleteCaseTypeResult = {
+  ok: boolean
+  archived: boolean
+  cases: number
+  closed?: number
+}
+
 export async function listCases(opts?: {
   status?: CaseStatus
   caseTypeId?: string
   q?: string
+  /** Hub queue should pass false so label-only stamps stay out of Open/Waiting. */
+  includeLabels?: boolean
   limit?: number
   offset?: number
 }): Promise<CaseRow[]> {
@@ -72,6 +85,8 @@ export async function listCases(opts?: {
   if (opts?.status) params.set('status', opts.status)
   if (opts?.caseTypeId) params.set('case_type_id', opts.caseTypeId)
   if (opts?.q) params.set('q', opts.q)
+  if (opts?.includeLabels === false) params.set('include_labels', 'false')
+  if (opts?.includeLabels === true) params.set('include_labels', 'true')
   if (opts?.limit) params.set('limit', String(opts.limit))
   if (opts?.offset) params.set('offset', String(opts.offset))
   const path = params.size > 0 ? casesRoutes.listQuery(params) : casesRoutes.list
@@ -112,6 +127,7 @@ export async function createCaseType(body: {
   slug?: string
   description?: string
   create_mode?: CaseCreateMode
+  follow_up_mode?: CaseFollowUpMode
   ask_threshold?: number
   auto_threshold?: number
   requires_verification?: boolean
@@ -122,13 +138,26 @@ export async function createCaseType(body: {
 
 export async function patchCaseType(
   typeId: string,
-  body: Partial<Pick<CaseTypeRow, 'name' | 'description' | 'create_mode' | 'enabled' | 'ask_threshold' | 'auto_threshold' | 'requires_verification' | 'audience'>>,
+  body: Partial<
+    Pick<
+      CaseTypeRow,
+      | 'name'
+      | 'description'
+      | 'create_mode'
+      | 'follow_up_mode'
+      | 'enabled'
+      | 'ask_threshold'
+      | 'auto_threshold'
+      | 'requires_verification'
+      | 'audience'
+    >
+  >,
 ): Promise<CaseTypeRow> {
   return apiPatch<CaseTypeRow>(casesRoutes.typeById(typeId), body)
 }
 
-export async function deleteCaseType(typeId: string): Promise<void> {
-  await apiDelete(casesRoutes.typeById(typeId))
+export async function deleteCaseType(typeId: string): Promise<DeleteCaseTypeResult> {
+  return apiDelete<DeleteCaseTypeResult>(casesRoutes.typeById(typeId))
 }
 
 export async function listCaseBindings(opts?: {

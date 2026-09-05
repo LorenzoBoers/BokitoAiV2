@@ -1,0 +1,91 @@
+{
+  "title": "Werkruimte instellen",
+  "subtitle": "Een paar keuzes zodat Bokito past bij hoe jullie werken. Alles kun je later nog wijzigen.",
+  "memberTitle": "Welkom",
+  "memberSubtitle": "Kies je taal en hoe je op de hoogte wilt blijven.",
+  "progress": "Stap {{current}} van {{total}}",
+  "back": "Terug",
+  "next": "Verder",
+  "finish": "Afronden",
+  "skip": "Later",
+  "saving": "Opslaan…",
+  "loadError": "Instellen laden mislukt. Probeer opnieuw.",
+  "saveError": "Opslaan mislukt. Probeer opnieuw.",
+  "logout": "Uitloggen",
+  "steps": {
+    "intake": "Over jou",
+    "languages": "Talen",
+    "notifications": "Meldingen",
+    "govern": "Autonomie",
+    "agent": "Je agent",
+    "channel": "Kanaal"
+  },
+  "intake": {
+    "title": "Vertel kort over jezelf",
+    "subtitle": "Dit helpt bij de setup. Het wordt niet buiten je werkruimte gedeeld.",
+    "source": "Hoe heb je Bokito gevonden?",
+    "sources": {
+      "search": "Zoeken",
+      "referral": "Via iemand",
+      "social": "Social media",
+      "partner": "Partner of bureau",
+      "other": "Anders"
+    },
+    "orgSize": "Omvang organisatie",
+    "sizes": {
+      "1": "Alleen ik",
+      "2-10": "2–10 personen",
+      "11-50": "11–50 personen",
+      "51-200": "51–200 personen",
+      "200+": "200+ personen"
+    },
+    "useCase": "Primair gebruik",
+    "useCases": {
+      "inbox": "Gedeelde inbox",
+      "support": "Klantenservice",
+      "sales": "Sales en outreach",
+      "ops": "Operations",
+      "agency": "Bureau / klanten",
+      "other": "Anders"
+    }
+  },
+  "languages": {
+    "title": "Talen",
+    "subtitle": "Je interfacetaal, en de taal die agents gebruiken als ze voor het team schrijven.",
+    "uiLabel": "Jouw interface",
+    "uiEn": "English",
+    "uiNl": "Nederlands",
+    "workspaceLabel": "Organisatie- / AI-taal",
+    "workspaceHint": "Voor operatorchats, samenvattingen en setup."
+  },
+  "notifications": {
+    "title": "Meldingen",
+    "subtitle": "Desktopmeldingen voor momenten die jou nodig hebben. Later verder af te stemmen onder Instellingen.",
+    "desktop": "Desktop",
+    "email": "E-mail",
+    "hint": "Browser-push kun je later aanzetten onder Instellingen → Meldingen."
+  },
+  "govern": {
+    "title": "Hoeveel mogen agents zelf doen?",
+    "subtitle": "Dit kun je altijd wijzigen in Govern."
+  },
+  "agent": {
+    "title": "Geef je eerste agent een naam",
+    "subtitle": "Dit is de lead-assistent van je werkruimte. Kies een naam en icoon.",
+    "nameLabel": "Naam",
+    "namePlaceholder": "bijv. Alex",
+    "iconLabel": "Icoon",
+    "initials": "Initialen",
+    "icon": "Icoon"
+  },
+  "channel": {
+    "title": "Kanaal koppelen (optioneel)",
+    "subtitle": "Maak een Bokito-adres of koppel een mailbox zodat klantmail binnenkomt. Je kunt dit overslaan en later via Setup doen.",
+    "openChannels": "Open kanalen",
+    "later": "Nu overslaan"
+  },
+  "done": {
+    "title": "Je bent klaar",
+    "body": "Hierna laten we je kort rondkijken in de app."
+  }
+}

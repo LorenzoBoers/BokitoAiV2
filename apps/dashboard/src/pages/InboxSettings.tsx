@@ -237,6 +237,26 @@ export default function InboxSettings() {
     [token, applyRow, refreshChannels, t],
   )
 
+  const handleRename = useCallback(
+    async (row: ChannelRow, label: string) => {
+      if (!token) return
+      setBusyId(row.id)
+      try {
+        applyRow(await patchChannel(token, row.id, { label }))
+        await refreshConnections()
+        toast.success(t('channelsPage.renameSaved', { defaultValue: 'Channel renamed' }))
+      } catch (err) {
+        setPageAlert({
+          kind: 'simple_error',
+          message: formatApiErrorMessage(err, t('channelsPage.mailboxSaveError')),
+        })
+      } finally {
+        setBusyId(null)
+      }
+    },
+    [token, applyRow, refreshConnections, t],
+  )
+
   const handleSyncWindowChange = useCallback(
     async (row: ChannelRow, days: number) => {
       if (!token) return
@@ -596,6 +616,7 @@ export default function InboxSettings() {
             onSync={(row) => void handleSync(row)}
             onReconnect={() => setAddOpen(true)}
             onMakePrimary={(row) => void handleMakePrimary(row)}
+            onRename={(row, label) => void handleRename(row, label)}
             onRemove={(row) => {
               setDeleteError(null)
               setDeleteTarget(row)

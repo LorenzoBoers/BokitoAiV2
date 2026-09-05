@@ -28,6 +28,8 @@ export type InboxThread = {
   id: ThreadId
   organisationId: string
   emailConnectionId: number | null
+  /** Canonical ChannelAccount UUID for the bound mailbox (email threads). */
+  channelAccountId?: string | null
   graphConversationId: string
   emailSubject: string
   /** Latest customer/agent line, for the thread list preview. */
@@ -245,6 +247,8 @@ export type ReplyInput = {
   bcc?: string
   /** Soft undo: delay delivery by this many seconds (server caps at 600). */
   sendAfterSeconds?: number
+  /** Email-only: send from this mailbox and rebind the thread to it. */
+  channelAccountId?: string
 }
 
 export type PatchThreadInput = {
@@ -347,6 +351,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     id,
     organisationId: asString(raw.organisation_id),
     emailConnectionId: raw.email_connection_id == null || raw.email_connection_id === 0 ? null : asNumber(raw.email_connection_id),
+    channelAccountId: asNullableString(raw.channel_account_id),
     graphConversationId: asString(raw.graph_conversation_id),
     emailSubject: asString(raw.email_subject, '(No subject)'),
     lastMessagePreview: asString(raw.last_message_preview),

@@ -9,7 +9,7 @@ related: setup-guide,channels,tour,inbox-ai
 
 # Quickstart
 
-This is the shortest path from a fresh workspace to real work happening.
+This is the shortest path from a fresh workspace to real work happening. After signup, owners first complete the **first-run wizard** (intake, languages, notifications, autonomy, agent name, optional channel), then a short product tour. Invited members only set language and notifications.
 
 ## 1. Connect a mailbox
 
@@ -40,10 +40,10 @@ This is the shortest path from a fresh workspace to real work happening.
 
 ## 5. Set autonomy
 
-1. Open **Settings**, then **Govern**.
+1. Open **Settings**, then **Govern** — or set posture in the first-run wizard.
 2. Start with **Assisted**.
 3. See [Autonomy](/docs/govern/autonomy).
 
 ## What you have now
 
-Mail flows in, the assistant drafts grounded replies, and you approve them. Continue with the [setup guide](/docs/getting-started/setup-guide).
+Mail flows in, the assistant drafts grounded replies, and you approve them. The hourly platform check-in starts paused; turn it on from the [setup guide](/docs/getting-started/setup-guide) when you want watching. Continue with that guide for branding, team and modules.

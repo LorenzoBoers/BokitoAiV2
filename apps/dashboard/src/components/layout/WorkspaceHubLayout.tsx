@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import PersonalAssistantWidget from '../shell/PersonalAssistantWidget'
 import WorkspaceHubNav from './WorkspaceHubNav'
 
 export default function WorkspaceHubLayout({ children }: { children?: ReactNode }) {
@@ -16,6 +17,10 @@ export default function WorkspaceHubLayout({ children }: { children?: ReactNode 
           </main>
         </div>
       </div>
+
+      {/* Same personal Bokito FAB as inside a workspace — person-scoped memory,
+          threads still land in the JWT/current workspace until they open another. */}
+      <PersonalAssistantWidget />
     </div>
   )
 }

@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace-setupgids
 
-De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen**, daarna **Hulp**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). De gids volgt dezelfde vier onboardingstappen als de eerste-keer-kaart, daarna een rustige lijst **Later** (branding, team, modules, projecten, Govern).
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen**, daarna **Hulp**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). Na de eerste-setupwizard en producttour volgt de gids dezelfde activatiestappen als de eerste-keer-kaart, daarna een rustige lijst **Later** (branding, team, modules, projecten, Govern).
 
 ## Workspace-basics en branding
 
@@ -43,17 +43,18 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 
 ## Plan terugkerend werk
 
-Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in zijn eigen kanaal in Communicatie wanneer iets jou nodig heeft. Dat is hetzelfde gesprek dat je opent onder **Agents** in de zijbalk, zodat bevindingen naast je eigen vragen aan die assistent staan. Je zet die aan vanuit de setupgids, Overview, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Overview](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Overview **Verbruik**.
+Nieuwe workspaces krijgen een uurlijkse **platform-check-in** die **gepauzeerd** start. Als je die aanzet, wordt de assistent wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in zijn eigen kanaal in Communicatie wanneer iets jou nodig heeft. Dat is hetzelfde gesprek dat je opent onder **Agents** in de zijbalk, zodat bevindingen naast je eigen vragen aan die assistent staan. Zet die aan vanuit de setupgids, Overview, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Overview](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Overview **Verbruik**.
 
 ## Volg de live checklist
 
-Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde vier stappen staan onder **Instellingen** → **Hulp** → **Setupgids**:
+Bij de eerste login ronden owners de **eerste-setupwizard** af, daarna de producttour. Daarna toont Communicatie **Ga verder met setup**. Dezelfde activatiestappen staan onder **Instellingen** → **Hulp** → **Setupgids**:
 
-1. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **E-mail en berichten**, niet via de module-marketplace. Zie [Kanalen](/docs/inbox/channels).
-2. **Praat met de assistent** — een kort gesprek vult de bedrijfskennis. Zie [Kennis](/docs/ai/knowledge).
-3. **Keur één beslissing goed** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
-4. **Zet check-in aan** — de uurlijkse check-in staat aan voor nieuwe workspaces. Bestaande workspaces zetten die aan vanuit de setupgids.
+1. **Rond de eerste setup af** — de wizard (talen, meldingen, autonomie, eerste agent).
+2. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **E-mail en berichten**, niet via de module-marketplace. Zie [Kanalen](/docs/inbox/channels).
+3. **Praat met de assistent** — een kort gesprek vult de bedrijfskennis. Zie [Kennis](/docs/ai/knowledge).
+4. **Keur één beslissing goed** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
+5. **Zet check-in aan** — de uurlijkse check-in start gepauzeerd; zet hem aan wanneer je wilt dat de assistent waakt.
 
 **Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Modules](/docs/integrations/integrations), projecten, en [Govern](/docs/govern/govern).
 
-**Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die vier stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, één beslissing duidelijk is, en de assistent waakt.
+**Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, één beslissing duidelijk is, en de assistent waakt.

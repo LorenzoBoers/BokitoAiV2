@@ -9,6 +9,8 @@ related: welcome,cockpit,communication
 
 # Product tour
 
+After you create a workspace, owners finish a short **first-run wizard** (`/onboarding`) — intake, languages, notifications, autonomy, agent name, optional channel — before this tour. Invited members only set personal language and notifications. The rail tour does not auto-start until that wizard is done; finishing the wizard starts the tour.
+
 Bokito has one sidebar with seven areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
 
 ## Control: the daily loop

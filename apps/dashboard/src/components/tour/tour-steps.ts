@@ -10,7 +10,7 @@
  * see it again (the auto-start check compares the persisted version).
  */
 
-export const TOUR_VERSION = 1
+export const TOUR_VERSION = 2
 
 export type TourStepDef = {
   /** i18n key under `tour:steps.{id}` and stable analytics id. */

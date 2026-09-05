@@ -47,8 +47,15 @@ A Bokito address receives and sends; it has no sync, so it shows no folders or l
 
 1. Choose **Add channel**, then **Email**.
 2. Choose **Gmail** or **Outlook** to open the provider's sign-in prompt.
-3. Back in the list, open the row menu for **Sync now**, **Folders**, **Signature**, **Routing**, **Make primary sender**, or **Remove**.
+3. Back in the list, open the row menu for **Rename**, **Sync now**, **Folders**, **Signature**, **Routing**, **Make primary sender**, or **Remove**.
 4. If the state badge reads **Action needed**, choose **Reconnect** before you try to send.
+
+## Rename a channel
+
+1. Open **Channels**.
+2. Open the row menu for the mailbox or Bokito address, then choose **Rename**.
+3. Type a short display name (for example **Support**) and choose **Save name**. Leave the field empty to use the address again.
+4. The name appears in the Channels list, in the Communication sidebar, and on the reply tab when you send from that mailbox.
 
 Do not screenshot or copy OAuth secrets from connected accounts.
 

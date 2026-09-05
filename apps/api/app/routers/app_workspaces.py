@@ -58,6 +58,48 @@ async def get_onboarding_status(
     return await onboarding_status(session, auth.tenant.id)
 
 
+class OnboardingWizardPatch(BaseModel):
+    intake: dict[str, Any] | None = None
+    ai_workspace_language: str | None = None
+    autonomy_posture: str | None = None
+    complete: bool | None = None
+
+
+@router.get("/onboarding/wizard")
+async def get_onboarding_wizard(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.onboarding_wizard import get_wizard_state
+
+    return await get_wizard_state(
+        session,
+        auth.tenant,
+        role=auth.role,
+        user_settings_json=auth.user.settings_json,
+    )
+
+
+@router.patch("/onboarding/wizard")
+async def patch_onboarding_wizard(
+    body: OnboardingWizardPatch,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.onboarding_wizard import patch_wizard_state
+
+    return await patch_wizard_state(
+        session,
+        auth.tenant,
+        role=auth.role,
+        intake=body.intake,
+        ai_workspace_language=body.ai_workspace_language,
+        autonomy_posture=body.autonomy_posture,
+        complete=body.complete,
+        user_settings_json=auth.user.settings_json,
+    )
+
+
 @router.post("/onboarding/demo-thread")
 async def create_demo_thread(
     auth: Annotated[AuthContext, Depends(get_current_auth)],

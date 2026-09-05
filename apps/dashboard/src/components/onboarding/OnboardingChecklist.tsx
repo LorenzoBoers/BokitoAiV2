@@ -12,7 +12,14 @@ import { platformCheckInTrigger, talkToAssistantPath } from '../../lib/talk-to-a
 import { readOnboardingDismissed, writeOnboardingDismissed } from '../../lib/onboarding-dismiss'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
-export type OnboardingStepId = 'email' | 'company' | 'assistant' | 'watching' | 'first_decision' | 'team'
+export type OnboardingStepId =
+  | 'wizard'
+  | 'email'
+  | 'company'
+  | 'assistant'
+  | 'watching'
+  | 'first_decision'
+  | 'team'
 
 export interface OnboardingStatus {
   steps: { id: OnboardingStepId; done: boolean }[]
@@ -115,6 +122,7 @@ function useEnablePlatformCheckIn(onEnabled?: () => void): {
 }
 
 const STEP_META: Record<OnboardingStepId, { to: string }> = {
+  wizard: { to: '/onboarding' },
   email: { to: '/settings/channels' },
   company: { to: '/knowledge' },
   assistant: { to: talkToAssistantPath('Help me set up this workspace. Walk me through it step by step.') },

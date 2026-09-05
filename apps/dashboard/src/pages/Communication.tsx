@@ -923,7 +923,7 @@ export default function Communication() {
       format?: 'email' | 'plain',
       attachments?: MessageAttachment[],
       snoozeMinutes?: number,
-      extras?: { cc?: string; bcc?: string },
+      extras?: { cc?: string; bcc?: string; channelAccountId?: string },
     ) => {
       // Email replies get a short soft-undo window: the backend schedules
       // delivery and the toast can cancel before the scheduler sends it.
@@ -941,9 +941,11 @@ export default function Communication() {
           snoozeMinutes,
           cc: extras?.cc,
           bcc: extras?.bcc,
+          channelAccountId: extras?.channelAccountId,
           sendAfterSeconds: undoable ? UNDO_SEND_SECONDS : undefined,
         })
         void refreshThreads()
+        void refreshDetail()
         if (resolving && fromId != null) {
           if (!undoable) {
             toast.success(

@@ -9,7 +9,7 @@ related: communication,agent-runs,autonomy,govern
 
 # Beslissingen goedkeuren en afwijzen
 
-Een DecisionRequest is een bericht in het gesprek. Communicatie heeft één blad **Beslissingen** met elk gesprek dat een open kaart heeft — klant en intern samen. Je handelt nog steeds af op de kaart in het gesprek.
+Een DecisionRequest is een bericht in het gesprek. Communicatie heeft één topniveau-rij **Beslissingen** met elk gesprek dat een open kaart heeft — klant en intern samen. Je handelt nog steeds af op de kaart in het gesprek.
 
 Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) vult Beslissingen niet. De agent noteert die stil in het gesprek. Als tipkaarten van eerdere mail zich hebben opgestapeld, open [Agents](/docs/ai/agents) en gebruik **Tipkaarten wissen**.
 

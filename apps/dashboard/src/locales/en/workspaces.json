@@ -10,6 +10,7 @@
   "nav": {
     "title": "Workspace hub",
     "workspaces": "Workspaces",
+    "settings": "Settings",
     "account": "Account",
     "support": "Support"
   },

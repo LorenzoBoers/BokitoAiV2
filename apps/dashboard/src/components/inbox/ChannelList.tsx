@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import {
   AlertTriangle,
@@ -23,6 +24,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
 import { Switch } from '../ui/switch'
 import {
   DropdownMenu,
@@ -121,6 +123,7 @@ export type ChannelListProps = {
   onSync: (row: ChannelRow) => void
   onReconnect: (row: ChannelRow) => void
   onMakePrimary: (row: ChannelRow) => void
+  onRename: (row: ChannelRow, label: string) => void
   onRemove: (row: ChannelRow) => void
   onSyncWindowChange: (row: ChannelRow, days: number) => void
   onFolders: (row: ChannelRow) => void
@@ -143,6 +146,7 @@ export default function ChannelList({
   onSync,
   onReconnect,
   onMakePrimary,
+  onRename,
   onRemove,
   onSyncWindowChange,
   onFolders,
@@ -154,6 +158,8 @@ export default function ChannelList({
   const { t, i18n } = useTranslation('nav')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [renameTarget, setRenameTarget] = useState<ChannelRow | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
 
   // Auto-open the check list when a channel still needs attention — first-time
   // users otherwise only see "Setup required" next to an enabled switch.
@@ -229,6 +235,7 @@ export default function ChannelList({
   }
 
   return (
+    <>
     <ul className="divide-y divide-border/50">
       {sorted.map((row) => {
         const isOpen = expanded[row.id] === true
@@ -306,6 +313,16 @@ export default function ChannelList({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem
+                      className="gap-2 text-xs"
+                      onSelect={() => {
+                        setRenameTarget(row)
+                        setRenameDraft(row.displayName || row.label || '')
+                      }}
+                    >
+                      <PenLine size={13} />
+                      {t('channelsPage.rename')}
+                    </DropdownMenuItem>
                     {canSync ? (
                       <DropdownMenuItem className="gap-2 text-xs" disabled={busy} onSelect={() => onSync(row)}>
                         <RefreshCw size={13} />
@@ -445,5 +462,75 @@ export default function ChannelList({
         )
       })}
     </ul>
+
+      <Dialog.Root
+        open={renameTarget != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameTarget(null)
+            setRenameDraft('')
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-xl">
+            <Dialog.Title className="mb-1 text-lg font-semibold text-text-heading">
+              {t('channelsPage.renameTitle')}
+            </Dialog.Title>
+            <p className="mb-3 text-sm text-text-secondary">
+              {t('channelsPage.renameBody', {
+                address: renameTarget?.address || renameTarget?.label || '',
+              })}
+            </p>
+            <label className="block text-xs text-text-muted">
+              <span className="mb-1 block font-medium text-text-secondary">
+                {t('channelsPage.renameLabel')}
+              </span>
+              <input
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+                placeholder={renameTarget?.address || ''}
+                autoFocus
+                className="w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent/60"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && renameTarget) {
+                    e.preventDefault()
+                    onRename(renameTarget, renameDraft.trim())
+                    setRenameTarget(null)
+                    setRenameDraft('')
+                  }
+                }}
+              />
+            </label>
+            <p className="mt-1.5 text-[11px] text-text-muted">{t('channelsPage.renameHint')}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setRenameTarget(null)
+                  setRenameDraft('')
+                }}
+              >
+                {t('channelsPage.close')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={busyId === renameTarget?.id}
+                onClick={() => {
+                  if (!renameTarget) return
+                  onRename(renameTarget, renameDraft.trim())
+                  setRenameTarget(null)
+                  setRenameDraft('')
+                }}
+              >
+                {t('channelsPage.renameSave')}
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </>
   )
 }

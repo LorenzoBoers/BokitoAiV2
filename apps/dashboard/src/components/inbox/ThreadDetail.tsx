@@ -125,7 +125,7 @@ type Props = {
     format?: 'email' | 'plain',
     attachments?: MessageAttachment[],
     snoozeMinutes?: number,
-    extras?: { cc?: string; bcc?: string },
+    extras?: { cc?: string; bcc?: string; channelAccountId?: string },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   /** Forward this email thread as a new outbound email (opens compose). */
@@ -1122,7 +1122,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       action: 'send' | 'send_and_close' | 'send_and_pending',
       attachments?: MessageAttachment[],
       snoozeMinutes?: number,
-      extras?: { cc?: string; bcc?: string },
+      extras?: { cc?: string; bcc?: string; channelAccountId?: string },
     ) => {
       const pendingDecisionId = composerDraft?.decisionMessageId
       if (pendingDecisionId && token && detail) {
@@ -1892,6 +1892,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onMentionInserted={(item) => void handleMentionInserted(item)}
           saving={saving || agentStreaming}
           lastInboundText={lastInboundText}
+          channelAccountId={thread.channelAccountId ?? null}
           replyDisabledNotice={
             mailboxDisconnected ? (
               <span className="flex flex-wrap items-center gap-2">

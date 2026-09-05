@@ -16,6 +16,7 @@ from app.models.case import (
     CASE_AUDIENCES,
     CASE_BINDING_TARGETS,
     CASE_CREATE_MODES,
+    CASE_FOLLOW_UP_MODES,
     CASE_PROJECT_LINK,
     CASE_STATUSES,
     Case,
@@ -35,6 +36,7 @@ PLATFORM_CASE_TYPES: tuple[dict[str, Any], ...] = (
         "name": "Complaint",
         "description": "A customer is unhappy and wants this recorded.",
         "create_mode": "ask_customer",
+        "follow_up_mode": "track",
         "ask_threshold": 6,
         "auto_threshold": 11,
         "audience": "customer",
@@ -45,6 +47,7 @@ PLATFORM_CASE_TYPES: tuple[dict[str, Any], ...] = (
         "name": "Bug report",
         "description": "Something is broken and should be looked at.",
         "create_mode": "ask_customer",
+        "follow_up_mode": "track",
         "ask_threshold": 6,
         "auto_threshold": 9,
         "audience": "both",
@@ -55,6 +58,7 @@ PLATFORM_CASE_TYPES: tuple[dict[str, Any], ...] = (
         "name": "Feature request",
         "description": "A request for a new capability.",
         "create_mode": "ask_customer",
+        "follow_up_mode": "track",
         "ask_threshold": 6,
         "auto_threshold": 11,
         "audience": "both",
@@ -65,6 +69,7 @@ PLATFORM_CASE_TYPES: tuple[dict[str, Any], ...] = (
         "name": "Spam or abuse",
         "description": "Unwanted or abusive inbound that should be closed quickly.",
         "create_mode": "auto",
+        "follow_up_mode": "label",
         "ask_threshold": 3,
         "auto_threshold": 7,
         "audience": "internal",
@@ -85,6 +90,7 @@ def serialize_case_type(row: CaseType) -> dict[str, Any]:
         "name": row.name,
         "description": row.description,
         "create_mode": row.create_mode,
+        "follow_up_mode": getattr(row, "follow_up_mode", None) or "track",
         "ask_threshold": row.ask_threshold,
         "auto_threshold": row.auto_threshold,
         "requires_verification": row.requires_verification,
@@ -142,35 +148,45 @@ def serialize_case(row: Case, case_type: CaseType | None = None) -> dict[str, An
 async def ensure_platform_case_types(
     session: AsyncSession, tenant_id: UUID, *, commit: bool = True
 ) -> None:
-    existing = set(
+    existing_rows = list(
         (
-            await session.execute(
-                select(CaseType.slug).where(CaseType.tenant_id == tenant_id)
-            )
+            await session.execute(select(CaseType).where(CaseType.tenant_id == tenant_id))
         ).scalars()
     )
+    by_slug = {row.slug: row for row in existing_rows}
     now = datetime.utcnow()
-    added = False
+    changed = False
     for spec in PLATFORM_CASE_TYPES:
-        if spec["slug"] in existing:
-            continue
-        session.add(
-            CaseType(
-                tenant_id=tenant_id,
-                slug=spec["slug"],
-                name=spec["name"],
-                description=spec["description"],
-                create_mode=spec["create_mode"],
-                ask_threshold=int(spec["ask_threshold"]),
-                auto_threshold=int(spec["auto_threshold"]),
-                audience=spec["audience"],
-                sort_order=int(spec["sort_order"]),
-                created_at=now,
-                updated_at=now,
+        mode = str(spec.get("follow_up_mode") or "track")
+        if mode not in CASE_FOLLOW_UP_MODES:
+            mode = "track"
+        existing = by_slug.get(spec["slug"])
+        if existing is None:
+            session.add(
+                CaseType(
+                    tenant_id=tenant_id,
+                    slug=spec["slug"],
+                    name=spec["name"],
+                    description=spec["description"],
+                    create_mode=spec["create_mode"],
+                    follow_up_mode=mode,
+                    ask_threshold=int(spec["ask_threshold"]),
+                    auto_threshold=int(spec["auto_threshold"]),
+                    audience=spec["audience"],
+                    sort_order=int(spec["sort_order"]),
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
-        added = True
-    if added:
+            changed = True
+            continue
+        # Keep platform spam/abuse on label-only so old tenants converge.
+        if spec["slug"] == "spam_abuse" and existing.follow_up_mode != "label":
+            existing.follow_up_mode = "label"
+            existing.updated_at = now
+            session.add(existing)
+            changed = True
+    if changed:
         if commit:
             await session.commit()
         else:
@@ -243,6 +259,7 @@ async def create_case_type(
     slug: str = "",
     description: str = "",
     create_mode: str = "ask_customer",
+    follow_up_mode: str = "track",
     ask_threshold: int = 6,
     auto_threshold: int = 9,
     requires_verification: bool = False,
@@ -257,6 +274,8 @@ async def create_case_type(
     slug = slugify(slug or name)
     if create_mode not in CASE_CREATE_MODES:
         raise HTTPException(status_code=400, detail="Invalid create_mode")
+    if follow_up_mode not in CASE_FOLLOW_UP_MODES:
+        raise HTTPException(status_code=400, detail="Invalid follow_up_mode")
     if audience not in CASE_AUDIENCES:
         raise HTTPException(status_code=400, detail="Invalid audience")
     if allow_project_link not in CASE_PROJECT_LINK:
@@ -274,6 +293,7 @@ async def create_case_type(
         name=name.strip() or slug,
         description=description,
         create_mode=create_mode,
+        follow_up_mode=follow_up_mode,
         ask_threshold=max(0, min(11, int(ask_threshold))),
         auto_threshold=max(0, min(11, int(auto_threshold))),
         requires_verification=requires_verification,
@@ -310,6 +330,10 @@ async def update_case_type(
         if patch["create_mode"] not in CASE_CREATE_MODES:
             raise HTTPException(status_code=400, detail="Invalid create_mode")
         row.create_mode = patch["create_mode"]
+    if "follow_up_mode" in patch and patch["follow_up_mode"] is not None:
+        if patch["follow_up_mode"] not in CASE_FOLLOW_UP_MODES:
+            raise HTTPException(status_code=400, detail="Invalid follow_up_mode")
+        row.follow_up_mode = patch["follow_up_mode"]
     if "ask_threshold" in patch and patch["ask_threshold"] is not None:
         row.ask_threshold = max(0, min(11, int(patch["ask_threshold"])))
     if "auto_threshold" in patch and patch["auto_threshold"] is not None:
@@ -333,15 +357,77 @@ async def update_case_type(
     if commit:
         await session.commit()
         await session.refresh(row)
+        # Switching to label-only closes leftover queue cases for this type.
+        if row.follow_up_mode == "label":
+            await _close_label_queue_cases(session, tenant_id, row.id, commit=True)
+            await session.refresh(row)
     else:
         await session.flush()
     return row
 
 
+async def _close_label_queue_cases(
+    session: AsyncSession,
+    tenant_id: UUID,
+    case_type_id: UUID,
+    *,
+    commit: bool = True,
+) -> int:
+    """Close active queue statuses for a label-only type."""
+    active = (
+        "proposed",
+        "open",
+        "waiting_customer",
+        "waiting_operator",
+    )
+    rows = list(
+        (
+            await session.execute(
+                select(Case).where(
+                    Case.tenant_id == tenant_id,
+                    Case.case_type_id == case_type_id,
+                    Case.status.in_(active),
+                )
+            )
+        ).scalars()
+    )
+    now = datetime.utcnow()
+    for case in rows:
+        case.status = "closed"
+        case.updated_at = now
+        session.add(case)
+    if rows and commit:
+        await session.commit()
+    elif rows:
+        await session.flush()
+    return len(rows)
+
+
 async def delete_case_type(
     session: AsyncSession, tenant_id: UUID, type_id: UUID, *, commit: bool = True
-) -> None:
+) -> dict[str, Any]:
+    """Hard-delete when unused; otherwise archive (disable) and clear the queue.
+
+    Cases keep their `case_type_id` for history, so a hard delete is impossible
+    while cases exist — we disable the type and close open queue rows.
+    """
+    from sqlalchemy import func
+
     row = await get_case_type(session, tenant_id, type_id)
+    if row.module_slug:
+        raise HTTPException(
+            status_code=400,
+            detail="Module case types cannot be deleted. Turn them off instead.",
+        )
+    case_count = int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(Case)
+                .where(Case.tenant_id == tenant_id, Case.case_type_id == type_id)
+            )
+        ).scalar_one()
+    )
     bindings = (
         await session.execute(
             select(CaseTypeBinding).where(
@@ -352,11 +438,25 @@ async def delete_case_type(
     ).scalars().all()
     for binding in bindings:
         await session.delete(binding)
-    await session.delete(row)
+
+    if case_count == 0:
+        await session.delete(row)
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
+        return {"ok": True, "archived": False, "cases": 0}
+
+    row.enabled = False
+    row.follow_up_mode = "label"
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    closed = await _close_label_queue_cases(session, tenant_id, type_id, commit=False)
     if commit:
         await session.commit()
     else:
         await session.flush()
+    return {"ok": True, "archived": True, "cases": case_count, "closed": closed}
 
 
 async def list_bindings(
@@ -509,6 +609,7 @@ async def list_cases(
     status: str | None = None,
     case_type_id: UUID | None = None,
     q: str | None = None,
+    include_labels: bool = True,
     limit: int | None = None,
     offset: int | None = None,
 ) -> list[tuple[Case, CaseType]]:
@@ -524,6 +625,8 @@ async def list_cases(
         stmt = stmt.where(Case.status == status)
     if case_type_id:
         stmt = stmt.where(Case.case_type_id == case_type_id)
+    if not include_labels:
+        stmt = stmt.where(CaseType.follow_up_mode != "label")
     if q and q.strip():
         needle = f"%{q.strip()}%"
         stmt = stmt.where(
@@ -539,13 +642,14 @@ async def list_cases(
 
 
 async def case_stats(session: AsyncSession, tenant_id: UUID) -> dict[str, int]:
-    """Case counts per status for the hub queue pills (tenant-scoped)."""
+    """Case counts per status for the hub queue pills (excludes label-only types)."""
     from sqlalchemy import func
 
     rows = (
         await session.execute(
             select(Case.status, func.count())
-            .where(Case.tenant_id == tenant_id)
+            .join(CaseType, Case.case_type_id == CaseType.id)
+            .where(Case.tenant_id == tenant_id, CaseType.follow_up_mode != "label")
             .group_by(Case.status)
         )
     ).all()
@@ -774,6 +878,36 @@ async def create_case(
             }
 
     mode = case_type.create_mode
+    follow_up = getattr(case_type, "follow_up_mode", None) or "track"
+    if follow_up not in CASE_FOLLOW_UP_MODES:
+        follow_up = "track"
+
+    # Label-only types stamp the thread and leave the queue immediately.
+    if follow_up == "label":
+        case = Case(
+            tenant_id=tenant_id,
+            case_type_id=case_type.id,
+            signal_id=signal.id,
+            contact_id=signal.contact_id or signal.assurance_contact_id,
+            project_id=project_id,
+            title=title.strip() or case_type.name,
+            summary=summary.strip(),
+            payload_json=json.dumps(payload or {}),
+            status="closed",
+            certainty=score,
+            create_mode_used=mode,
+            created_by_type=created_by_type,
+            created_by_id=created_by_id,
+        )
+        session.add(case)
+        await session.commit()
+        await session.refresh(case)
+        return {
+            "case": serialize_case(case, case_type),
+            "bindings": 0,
+            "label_only": True,
+        }
+
     if actor == "operator":
         status = "open"
         ask_operator = False

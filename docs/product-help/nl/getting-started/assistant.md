@@ -13,8 +13,8 @@ Bokito is je eigen assistent binnen het platform. Hij is geen agent van de works
 
 ## Vraag iets over de pagina waar je bent
 
-1. Kies de Bokito-knop rechtsonder op een pagina.
-2. Stel je vraag. Bokito krijgt het scherm mee waar je naar kijkt, dus "wat betekent deze status?" werkt zonder dat je uitlegt waar je bent.
+1. Kies de Bokito-knop rechtsonder op een pagina — ook op de Workspaces-hub en Account in het Bokito-portal.
+2. Stel je vraag. Bokito krijgt het scherm mee waar je naar kijkt (bijvoorbeeld de Workspaces-hub wanneer je een workspace kiest), dus "wat betekent deze status?" werkt zonder dat je uitlegt waar je bent.
 3. Antwoorden komen uit de producthelp. Bokito linkt naar het artikel dat hij gebruikte, zodat je de hele pagina kunt lezen.
 
 ## Geef werk door aan een agent
@@ -39,8 +39,8 @@ Werk doorgeven vraagt geen owner- of adminrol. Agents inrichten wel — zie [Gov
 
 ## Vind je gesprekken in een andere workspace
 
-1. Open het accountmenu en kies **Workspaces**.
-2. Onder **Recente gesprekken met Bokito** staan je helpergesprekken uit alle workspaces waar je lid van bent.
+1. Open het accountmenu en kies **Workspaces**, of open **Workspaces** in de zijbalk van het Bokito-portal (die lijst blijft op de hub — hij springt niet naar je laatste workspace).
+2. Onder **Recente gesprekken met Bokito** staan je helpergesprekken uit alle workspaces waar je lid van bent. De Bokito-knop staat ook op deze hub.
 3. Kies er een; Bokito schakelt naar die workspace en opent het gesprek daar.
 
 Elk gesprek blijft in de workspace waar je het voerde. Wat Bokito over *jou* onthoudt — je rol, hoe je antwoorden prettig vindt — reist met je mee tussen workspaces. Bedrijfsgegevens niet.

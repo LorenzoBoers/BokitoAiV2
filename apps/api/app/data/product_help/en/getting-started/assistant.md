@@ -13,8 +13,8 @@ Bokito is your own assistant inside the platform. It is not one of the workspace
 
 ## Ask about the page you are on
 
-1. Choose the Bokito button in the bottom-right corner of any page.
-2. Ask your question. Bokito receives the screen you are viewing, so "what does this status mean?" works without explaining where you are.
+1. Choose the Bokito button in the bottom-right corner of any page — including the Workspaces hub and Account on the Bokito portal.
+2. Ask your question. Bokito receives the screen you are viewing (for example the Workspaces hub when you are choosing a workspace), so "what does this status mean?" works without explaining where you are.
 3. Answers are grounded in the product help. Bokito links to the article it used, so you can read the full page.
 
 ## Hand work to an agent
@@ -39,8 +39,8 @@ Handing work over does not need an owner or admin role. Configuring agents does 
 
 ## Find your chats in another workspace
 
-1. Open the account menu and choose **Workspaces**.
-2. Under **Recent chats with Bokito** you see your helper chats from every workspace you belong to.
+1. Open the account menu and choose **Workspaces**, or open **Workspaces** in the Bokito portal sidebar (that list always stays on the hub — it does not jump into your last workspace).
+2. Under **Recent chats with Bokito** you see your helper chats from every workspace you belong to. The Bokito button is also available on this hub.
 3. Choose one; Bokito switches to that workspace and opens the chat there.
 
 Each chat stays inside the workspace where you had it. What Bokito remembers about *you* — your role, how you like answers — follows you between workspaces. Company data does not.

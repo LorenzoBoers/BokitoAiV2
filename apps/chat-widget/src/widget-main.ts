@@ -595,7 +595,6 @@ const WIDGET_CSS = `
 .bk-header-info{flex:1;min-width:0;}
 .bk-header-name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bk-header-status{font-size:12px;opacity:.88;display:flex;align-items:center;gap:6px;margin-top:2px;}
-.bk-header-ai-disclosure{font-size:10px;opacity:.75;margin-top:3px;line-height:1.3;}
 .bk-header-status::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
 .bk-header-status[data-reach="away"]::before{background:#FBBF24;}
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
@@ -787,7 +786,7 @@ const WIDGET_CSS = `
 .bk-inputbar{padding:10px 12px;border-top:1px solid var(--bk-border-light);background:var(--bk-bg);flex-shrink:0;}
 .bk-inputbar-inner{display:flex;align-items:center;gap:8px;background:var(--bk-bg-surface);border-radius:var(--bk-radius);border:1.5px solid var(--bk-border);padding:8px 10px 8px 14px;transition:border-color var(--bk-transition);}
 .bk-inputbar-inner:focus-within{border-color:var(--bk-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--bk-primary) 16%,transparent);}
-.bk-textarea{flex:1;background:transparent;border:none;outline:none;resize:none;font-family:var(--bk-font);font-size:14px;color:var(--bk-text);line-height:1.5;max-height:120px;min-height:20px;overflow-y:auto;}
+.bk-textarea{flex:1;background:transparent;border:none;outline:none;resize:none;font-family:var(--bk-font);font-size:14px;color:var(--bk-text);line-height:1.5;max-height:200px;min-height:20px;overflow-y:auto;}
 .bk-textarea::placeholder{color:var(--bk-text-muted);}
 .bk-send-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:var(--bk-primary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--bk-on-primary);flex-shrink:0;transition:background var(--bk-transition),transform var(--bk-transition);}
 .bk-send-btn:hover{background:var(--bk-primary-dark);}
@@ -795,10 +794,12 @@ const WIDGET_CSS = `
 .bk-send-btn:disabled{opacity:.4;cursor:not-allowed;}
 .bk-send-btn svg{width:16px;height:16px;}
 .bk-record-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.bk-record-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background var(--bk-transition),transform var(--bk-transition);}
+.bk-record-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background var(--bk-transition),transform var(--bk-transition),color var(--bk-transition),border-color var(--bk-transition);}
 .bk-record-btn svg{width:16px;height:16px;}
 .bk-record-start{background:var(--bk-bg-surface);color:var(--bk-text-muted);border:1.5px solid var(--bk-border);}
 .bk-record-start:hover{color:var(--bk-primary);border-color:var(--bk-primary);}
+.bk-record-start--listening{background:#16a34a;color:#fff;border-color:#16a34a;box-shadow:0 0 0 3px color-mix(in srgb,#16a34a 22%,transparent);}
+.bk-record-start--listening:hover{background:#15803d;border-color:#15803d;color:#fff;}
 .bk-record-cancel{background:rgba(0,0,0,.12);color:#1a1a1a;}
 .bk-record-cancel:hover{background:rgba(0,0,0,.2);}
 .bk-record-confirm{background:var(--bk-primary);color:var(--bk-on-primary);}
@@ -954,7 +955,6 @@ const WIDGET_CHROME = {
     csatComment: 'Anything we could do better? (optional)',
     csatSend: 'Send',
     poweredBy: 'Powered by',
-    aiDisclosure: 'You are chatting with AI. A teammate can take over when needed.',
     aiError: 'The AI could not generate a reply. Try again.',
     transcribing: 'Transcribing…',
     deleteConfirm: 'Remove this conversation from your list?',
@@ -966,6 +966,10 @@ const WIDGET_CHROME = {
     uploadFailed: 'Upload failed. Try again.',
     micUnavailable: 'Microphone unavailable. Check the browser permission.',
     noSpeech: 'No speech recognized. Try again.',
+    dictateStart: 'Dictate',
+    dictateConfirm: 'Confirm dictation',
+    dictateHoldHint: 'Hold to talk, or click to start. Release or click the check to confirm.',
+    dictateConfirmHint: 'Click or release to confirm the text into the message box.',
   },
   nl: {
     openChat: 'Chat openen',
@@ -1034,7 +1038,6 @@ const WIDGET_CHROME = {
     csatComment: 'Wat kunnen we beter doen? (optioneel)',
     csatSend: 'Versturen',
     poweredBy: 'Mogelijk gemaakt door',
-    aiDisclosure: 'Je chat met AI. Een medewerker kan overnemen wanneer nodig.',
     aiError: 'De AI kon geen antwoord genereren. Probeer het opnieuw.',
     transcribing: 'Transcriberen…',
     deleteConfirm: 'Dit gesprek uit je lijst verwijderen?',
@@ -1046,6 +1049,10 @@ const WIDGET_CHROME = {
     uploadFailed: 'Upload mislukt. Probeer het opnieuw.',
     micUnavailable: 'Microfoon niet beschikbaar. Controleer de browsertoestemming.',
     noSpeech: 'Geen spraak herkend. Probeer het opnieuw.',
+    dictateStart: 'Dicteren',
+    dictateConfirm: 'Dicteren bevestigen',
+    dictateHoldHint: 'Houd ingedrukt om te praten, of klik om te starten. Laat los of klik op het vinkje om te bevestigen.',
+    dictateConfirmHint: 'Klik of laat los om de tekst in het berichtvak te zetten.',
   },
 }
 
@@ -1082,6 +1089,12 @@ class BokitoChatWidget extends HTMLElement {
   #recordActionsWrap; #recordStartBtn; #recordCancelBtn; #recordConfirmBtn;
   #mediaRecorder = null; #recordChunks = []; #speechRecognition = null; #recordedTranscript = ''; #recordStream = null;
   #recordMimeType = 'audio/webm';
+  /** 'speech' (Web Speech → textarea) | 'recorder' (MediaRecorder + transcribe) | null */
+  #voiceMode = null;
+  #dictationListening = false;
+  #dictationBase = '';
+  #dictationInterim = '';
+  #micHold = { pointerId: null, startedAt: 0, wasListening: false };
   #sounds = {};
   #audioCtx = null;
   #windowCloseTimer = null;
@@ -1679,8 +1692,6 @@ class BokitoChatWidget extends HTMLElement {
     });
     const poweredLabel = root.querySelector('.bk-window-powered span');
     if (poweredLabel) poweredLabel.textContent = this.#chrome('poweredBy');
-    const disclosure = root.querySelector('.bk-header-ai-disclosure');
-    if (disclosure) disclosure.textContent = this.#chrome('aiDisclosure');
     if (this.#thinkingLabel && this.#thinkingEl?.style.display === 'none') {
       this.#thinkingLabel.textContent = this.#chrome('working');
     }
@@ -1723,7 +1734,6 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-header-info">
             <div class="bk-header-name"></div>
             <div class="bk-header-status" data-reach="available">Available</div>
-            <div class="bk-header-ai-disclosure"></div>
           </div>
           <div class="bk-header-actions">
             <div class="bk-chat-actions">
@@ -2068,8 +2078,7 @@ class BokitoChatWidget extends HTMLElement {
 
     this.#textarea.addEventListener('input', () => {
       this.#markUserTyping();
-      this.#textarea.style.height = 'auto';
-      this.#textarea.style.height = Math.min(this.#textarea.scrollHeight, 120) + 'px';
+      this.#resizeComposer();
       this.#updateSendBtnState();
     });
 
@@ -2080,7 +2089,16 @@ class BokitoChatWidget extends HTMLElement {
     });
 
     this.#sendBtn.addEventListener('click', () => this.#sendMessage());
-    this.#recordStartBtn?.addEventListener('click', () => this.#startRecording());
+    this.#recordStartBtn?.addEventListener('pointerdown', (e) => this.#onMicPointerDown(e));
+    this.#recordStartBtn?.addEventListener('pointerup', (e) => this.#onMicPointerUp(e));
+    this.#recordStartBtn?.addEventListener('pointercancel', (e) => this.#onMicPointerUp(e));
+    this.#recordStartBtn?.addEventListener('click', (e) => {
+      // Recorder mode keeps a simple click-to-start; speech uses pointer hold/toggle.
+      if (this.#voiceMode === 'recorder') {
+        e.preventDefault();
+        this.#startRecording();
+      }
+    });
     this.#recordCancelBtn?.addEventListener('click', () => this.#cancelRecording());
     this.#recordConfirmBtn?.addEventListener('click', () => this.#confirmRecording());
 
@@ -3881,15 +3899,164 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #transcribePath() {
-    // No default: the core livechat API has no transcribe endpoint, so voice
-    // input is only offered when the agent config provides an explicit path.
+    // No default: the core livechat API has no transcribe endpoint, so the
+    // MediaRecorder path is only offered when the agent config sets a path.
     return livechatStreamSegment(this.#agentConfig?.transcribe_path, null);
+  }
+
+  #speechRecognitionAvailable() {
+    return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   }
 
   #syncVoiceAvailability() {
     if (!this.#recordStartBtn) return;
+    const speech = this.#speechRecognitionAvailable();
     const hasRecorder = typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
-    this.#recordStartBtn.hidden = !(hasRecorder && this.#transcribePath());
+    const recorder = hasRecorder && !!this.#transcribePath();
+    this.#voiceMode = speech ? 'speech' : recorder ? 'recorder' : null;
+    this.#recordStartBtn.hidden = !this.#voiceMode;
+    if (this.#voiceMode === 'speech') {
+      this.#recordStartBtn.title = this.#chrome('dictateHoldHint');
+      this.#recordStartBtn.setAttribute('aria-label', this.#chrome('dictateStart'));
+      if (!this.#dictationListening) {
+        this.#recordStartBtn.innerHTML = ICONS.mic;
+        this.#recordStartBtn.classList.remove('bk-record-start--listening');
+      }
+    } else if (this.#voiceMode === 'recorder') {
+      this.#recordStartBtn.title = this.#chrome('dictateStart');
+      this.#recordStartBtn.setAttribute('aria-label', this.#chrome('dictateStart'));
+      this.#recordStartBtn.innerHTML = ICONS.mic;
+      this.#recordStartBtn.classList.remove('bk-record-start--listening');
+    }
+  }
+
+  #resizeComposer() {
+    if (!this.#textarea) return;
+    this.#textarea.style.height = 'auto';
+    this.#textarea.style.height = Math.min(this.#textarea.scrollHeight, 200) + 'px';
+  }
+
+  #setSpeechListeningUi(on) {
+    this.#dictationListening = on;
+    if (!this.#recordStartBtn) return;
+    this.#recordStartBtn.classList.toggle('bk-record-start--listening', on);
+    this.#recordStartBtn.innerHTML = on ? ICONS.check : ICONS.mic;
+    this.#recordStartBtn.setAttribute('aria-label', on ? this.#chrome('dictateConfirm') : this.#chrome('dictateStart'));
+    this.#recordStartBtn.title = on ? this.#chrome('dictateConfirmHint') : this.#chrome('dictateHoldHint');
+    this.#recordStartBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (this.#textarea) this.#textarea.readOnly = on;
+  }
+
+  #applyDictationDisplay() {
+    if (!this.#textarea) return;
+    const base = this.#dictationBase;
+    const interim = this.#dictationInterim.trim();
+    this.#textarea.value = interim ? (base ? `${base} ${interim}` : interim) : base;
+    this.#resizeComposer();
+    this.#updateSendBtnState();
+  }
+
+  #onMicPointerDown(e) {
+    if (this.#voiceMode !== 'speech' || !this.#recordStartBtn || e.button !== 0) return;
+    e.preventDefault();
+    try { this.#recordStartBtn.setPointerCapture(e.pointerId); } catch {}
+    this.#micHold = {
+      pointerId: e.pointerId,
+      startedAt: Date.now(),
+      wasListening: this.#dictationListening,
+    };
+    if (!this.#dictationListening) this.#startSpeechDictation();
+  }
+
+  #onMicPointerUp(e) {
+    if (this.#voiceMode !== 'speech') return;
+    if (this.#micHold.pointerId !== e.pointerId) return;
+    const heldFor = Date.now() - this.#micHold.startedAt;
+    const wasListening = this.#micHold.wasListening;
+    this.#micHold.pointerId = null;
+    try { this.#recordStartBtn?.releasePointerCapture(e.pointerId); } catch {}
+    const HOLD_MS = 280;
+    if (heldFor >= HOLD_MS) {
+      this.#confirmSpeechDictation();
+      return;
+    }
+    if (wasListening) this.#confirmSpeechDictation();
+  }
+
+  #startSpeechDictation() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition || !this.#textarea) {
+      this.#showError(this.#chrome('micUnavailable'));
+      return;
+    }
+    try {
+      if (this.#speechRecognition) {
+        try { this.#speechRecognition.abort(); } catch {}
+        this.#speechRecognition = null;
+      }
+      this.#dictationBase = this.#textarea.value;
+      this.#dictationInterim = '';
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = document.documentElement.lang || navigator.language || 'en-US';
+      rec.onresult = (event) => {
+        let interim = '';
+        let finalChunk = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const row = event.results[i];
+          const piece = row[0]?.transcript || '';
+          if (row.isFinal) finalChunk += piece;
+          else interim += piece;
+        }
+        if (finalChunk.trim()) {
+          const base = this.#dictationBase.trimEnd();
+          this.#dictationBase = base ? `${base} ${finalChunk.trim()}` : finalChunk.trim();
+          this.#dictationInterim = '';
+        } else {
+          this.#dictationInterim = interim;
+        }
+        this.#applyDictationDisplay();
+      };
+      rec.onerror = () => {
+        this.#confirmSpeechDictation();
+      };
+      rec.onend = () => {
+        // Browser ended the session (silence); commit whatever we have.
+        if (this.#dictationListening) this.#confirmSpeechDictation();
+      };
+      this.#speechRecognition = rec;
+      rec.start();
+      this.#setSpeechListeningUi(true);
+      this.#applyDictationDisplay();
+    } catch (err) {
+      console.warn('[Bokito] Speech recognition unavailable:', err);
+      this.#showError(this.#chrome('micUnavailable'));
+      this.#setSpeechListeningUi(false);
+    }
+  }
+
+  #confirmSpeechDictation() {
+    const pending = this.#dictationInterim.trim();
+    if (pending) {
+      const base = this.#dictationBase.trimEnd();
+      this.#dictationBase = base ? `${base} ${pending}` : pending;
+    }
+    this.#dictationInterim = '';
+    // Clear listening before stop() so onend does not re-enter.
+    const rec = this.#speechRecognition;
+    this.#speechRecognition = null;
+    this.#dictationListening = false;
+    if (rec) {
+      try { rec.stop(); } catch {}
+    }
+    if (this.#textarea) {
+      this.#textarea.value = this.#dictationBase;
+      this.#textarea.readOnly = false;
+    }
+    this.#setSpeechListeningUi(false);
+    this.#resizeComposer();
+    this.#updateSendBtnState();
   }
 
   /** Mutable bag for incremental SSE (`evt.t`) → one streaming AI bubble. */

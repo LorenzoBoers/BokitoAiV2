@@ -73,6 +73,10 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
       typeof raw.email_connection_id === 'number' && raw.email_connection_id > 0
         ? raw.email_connection_id
         : null,
+    channelAccountId:
+      typeof raw.channel_account_id === 'string' && raw.channel_account_id.length > 0
+        ? raw.channel_account_id
+        : null,
     graphConversationId: asString(raw.graph_conversation_id ?? raw.external_id),
     emailSubject: asString(raw.email_subject ?? raw.subject, '(No subject)'),
     lastMessagePreview: asString(raw.last_message_preview),
@@ -626,6 +630,9 @@ export async function replyToSignalThread(
   if (input.bcc?.trim()) body.bcc = input.bcc.trim()
   if (input.sendAfterSeconds && input.sendAfterSeconds > 0) {
     body.send_after_seconds = input.sendAfterSeconds
+  }
+  if (input.channelAccountId?.trim()) {
+    body.channel_account_id = input.channelAccountId.trim()
   }
   const payload = await apiPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
   return normalizeSignalMessage(payload)

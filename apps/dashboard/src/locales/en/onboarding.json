@@ -1,0 +1,91 @@
+{
+  "title": "Set up your workspace",
+  "subtitle": "A few choices so Bokito matches how you work. You can change everything later.",
+  "memberTitle": "Welcome",
+  "memberSubtitle": "Choose your language and how you want to be notified.",
+  "progress": "Step {{current}} of {{total}}",
+  "back": "Back",
+  "next": "Continue",
+  "finish": "Finish setup",
+  "skip": "Later",
+  "saving": "Saving…",
+  "loadError": "Could not load setup. Try again.",
+  "saveError": "Could not save. Try again.",
+  "logout": "Sign out",
+  "steps": {
+    "intake": "About you",
+    "languages": "Languages",
+    "notifications": "Notifications",
+    "govern": "Autonomy",
+    "agent": "Your agent",
+    "channel": "Channel"
+  },
+  "intake": {
+    "title": "Tell us a bit about you",
+    "subtitle": "This helps tailor setup. It is not shared outside your workspace.",
+    "source": "How did you find Bokito?",
+    "sources": {
+      "search": "Search",
+      "referral": "Referral",
+      "social": "Social media",
+      "partner": "Partner or agency",
+      "other": "Other"
+    },
+    "orgSize": "Organization size",
+    "sizes": {
+      "1": "Just me",
+      "2-10": "2–10 people",
+      "11-50": "11–50 people",
+      "51-200": "51–200 people",
+      "200+": "200+ people"
+    },
+    "useCase": "Primary use",
+    "useCases": {
+      "inbox": "Shared inbox",
+      "support": "Customer support",
+      "sales": "Sales and outreach",
+      "ops": "Operations",
+      "agency": "Agency / clients",
+      "other": "Other"
+    }
+  },
+  "languages": {
+    "title": "Languages",
+    "subtitle": "Your interface language, and the language agents use when writing for the team.",
+    "uiLabel": "Your interface",
+    "uiEn": "English",
+    "uiNl": "Nederlands",
+    "workspaceLabel": "Organization / AI language",
+    "workspaceHint": "Used for operator chats, summaries and setup."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Desktop alerts for the moments that need you. You can refine this later under Settings.",
+    "desktop": "Desktop",
+    "email": "Email",
+    "hint": "Browser push can be enabled later under Settings → Notifications."
+  },
+  "govern": {
+    "title": "How much should agents do on their own?",
+    "subtitle": "You can change this anytime in Govern."
+  },
+  "agent": {
+    "title": "Name your first agent",
+    "subtitle": "This is the lead assistant for your workspace. Pick a name and icon.",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. Alex",
+    "iconLabel": "Icon",
+    "initials": "Initials",
+    "icon": "Icon"
+  },
+  "channel": {
+    "title": "Connect a channel (optional)",
+    "subtitle": "Create a Bokito address or connect a mailbox so customer mail can arrive. You can skip and do this from Setup.",
+    "openChannels": "Open channels",
+    "later": "Skip for now"
+  },
+  "done": {
+    "title": "You are ready",
+    "body": "Next we will show you around the app."
+  }
+}

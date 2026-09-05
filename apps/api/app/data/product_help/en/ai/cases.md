@@ -11,9 +11,11 @@ related: workstreams,communication,widget,projects,integrations
 
 A case is a labelled piece of work on a conversation, not the conversation itself. The **Cases** page in the sidebar (under Control) holds the queue of open cases and the catalog of intake types. Cases replace the old conversation tags: agents classify inbound messages against your type catalog and open a case instead of a tag.
 
+Each type has a **follow-up** mode: **Label only** stamps the conversation and never enters the queue (Spam or abuse uses this by default), **Track in queue** opens a queue item without a required route, and **Route to work** expects a workstream or project binding.
+
 ## Work the case queue
 
-1. Open **Cases**. The **Queue** tab lists every case with its type, title, conversation subject, age and status.
+1. Open **Cases**. The **Queue** tab lists follow-up cases with their type, title, conversation subject, age and status. Label-only stamps stay on the thread and out of this list.
 2. Use the status pills — **Needs you**, **Open**, **Waiting**, **Linked** and **Done** — to focus on what needs a decision first. The search field matches title, summary and type name; type chips narrow to one intake type.
 3. Click a row for the detail panel: change the status, edit the title or summary, or link the case to a workstream or project.
 4. Choose **Open thread** to jump to the conversation in [Messages](/docs/inbox/communication). Closing a case never closes the conversation — they live independently.
@@ -22,10 +24,10 @@ A case is a labelled piece of work on a conversation, not the conversation itsel
 ## Add an intake type
 
 1. Open **Cases**, then the **Types** tab.
-2. Choose **New type** and give it a name (for example Billing question).
+2. Choose **New type**, give it a name (for example Billing question), and pick **Follow-up**: Label only, Track in queue, or Route to work.
 3. Describe precisely when the type applies — agents follow that description when they classify incoming messages, so also say when it does not apply.
 4. Leave the type on. Turn the switch off when agents should stop opening that type.
-5. Bind it on a workstream or project next — a type with no binding stays on the conversation as a status label only.
+5. For Route types, bind the type on a workstream or project next. Deleting a type that already has cases archives it (turns it off and closes open queue rows) instead of breaking history.
 
 ## Bind a type to a workstream
 
@@ -48,7 +50,7 @@ A case is a labelled piece of work on a conversation, not the conversation itsel
 
 ## Keep several cases on one thread
 
-1. Open a conversation in **Messages**. The side panel lists **Cases**.
+1. Open a conversation in **Messages**. The side panel lists **Cases**. Label-only types show a **Label** chip; active queue cases keep their status badge.
 2. Choose **Add Bug report** or **Add Feature request** when a second intent appears in the same chat.
 3. Each case keeps its own status and workstream link. Do not dump two issues into one case.
 

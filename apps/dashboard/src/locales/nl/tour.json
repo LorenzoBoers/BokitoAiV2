@@ -52,8 +52,9 @@
   },
   "finish": {
     "title": "Samen inrichten met je assistent",
-    "body": "De snelste manier om Bokito in te richten is een gesprek. Je assistent interviewt je over je bedrijf en zet samen met jou kanalen, agents, kennis en KPI's op.",
+    "body": "De snelste manier om Bokito in te richten is een gesprek. Je assistent interviewt je over je bedrijf en zet samen met jou kanalen, agents en kennis op.",
     "cta": "Start de setupchat",
+    "communication": "Open Communicatie",
     "setupGuide": "Open setupgids",
     "later": "Ik verken het zelf"
   },

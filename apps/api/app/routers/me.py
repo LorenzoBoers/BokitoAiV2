@@ -24,6 +24,8 @@ class PreferencesPatch(BaseModel):
     # First-run tour state (intro_done, completed, dismissed, version, ...).
     # Shallow-merged so future tour keys need no API change.
     tour: dict | None = None
+    # Invited members: personal language/notifications wizard finished.
+    personal_wizard_completed: bool | None = None
     # Communication hub folder defaults: which sub-view a channel/tag opens on,
     # plus which tags stay pinned in the Tags sidebar section.
     # Shape: {
@@ -126,6 +128,7 @@ async def get_my_preferences(
     return {
         "ui_language": lang,
         "tour": _tour_state(stored),
+        "personal_wizard_completed": bool(stored.get("personal_wizard_completed")),
         "inbox_folders": _inbox_folders_state(stored),
         "default_landing": _default_landing_state(stored),
         "default_outbound_connection_id": _outbound_connection_id(stored),
@@ -161,6 +164,8 @@ async def patch_my_preferences(
         if len(cleaned) > 20:
             raise HTTPException(status_code=400, detail="tour state too large")
         stored["tour"] = cleaned
+    if body.personal_wizard_completed is not None:
+        stored["personal_wizard_completed"] = bool(body.personal_wizard_completed)
     if body.inbox_folders is not None:
         current = _inbox_folders_state(stored)
         merged = {**current, **body.inbox_folders}
@@ -227,6 +232,7 @@ async def patch_my_preferences(
     return {
         "ui_language": stored_lang if stored_lang in ("en", "nl") else platform_default_ui_language(),
         "tour": _tour_state(stored),
+        "personal_wizard_completed": bool(stored.get("personal_wizard_completed")),
         "inbox_folders": _inbox_folders_state(stored),
         "default_landing": _default_landing_state(stored),
         "default_outbound_connection_id": _outbound_connection_id(stored),

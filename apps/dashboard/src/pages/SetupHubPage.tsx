@@ -155,7 +155,8 @@ export default function SetupHubPage() {
           defaultValue: 'Turn on check-in',
         }),
         description: t('setupGuidePage.core.watch.description', {
-          defaultValue: 'Let the assistant watch the workspace and tell you when something needs you.',
+          defaultValue:
+            'The check-in starts paused. Turn it on so the assistant watches the workspace and tells you when something needs you.',
         }),
         done: watchDone,
         icon: CalendarClock,

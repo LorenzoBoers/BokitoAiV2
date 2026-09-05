@@ -49,6 +49,7 @@ class CaseTypeCreateBody(BaseModel):
     slug: str = ""
     description: str = ""
     create_mode: str = "ask_customer"
+    follow_up_mode: str = "track"
     ask_threshold: int = 6
     auto_threshold: int = 9
     requires_verification: bool = False
@@ -62,6 +63,7 @@ class CaseTypePatchBody(BaseModel):
     name: str | None = None
     description: str | None = None
     create_mode: str | None = None
+    follow_up_mode: str | None = None
     ask_threshold: int | None = None
     auto_threshold: int | None = None
     requires_verification: bool | None = None
@@ -106,6 +108,7 @@ async def create_type(
         slug=body.slug,
         description=body.description,
         create_mode=body.create_mode,
+        follow_up_mode=body.follow_up_mode,
         ask_threshold=body.ask_threshold,
         auto_threshold=body.auto_threshold,
         requires_verification=body.requires_verification,
@@ -138,8 +141,7 @@ async def delete_type(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    await svc.delete_case_type(session, auth.tenant.id, type_id)
-    return {"ok": True}
+    return await svc.delete_case_type(session, auth.tenant.id, type_id)
 
 
 @router.get("/bindings")
@@ -200,10 +202,15 @@ async def list_cases(
     status: str | None = None,
     case_type_id: UUID | None = None,
     q: str | None = None,
+    include_labels: bool = True,
     limit: int | None = None,
     offset: int | None = None,
 ):
-    """List cases for the hub queue, filterable by type, status and text."""
+    """List cases for the hub queue, filterable by type, status and text.
+
+    Hub queue should pass ``include_labels=false`` so label-only stamps
+    (no follow-up) stay out of Open / Waiting pills.
+    """
     rows = await svc.list_cases(
         session,
         auth.tenant.id,
@@ -211,6 +218,7 @@ async def list_cases(
         status=status,
         case_type_id=case_type_id,
         q=q,
+        include_labels=include_labels,
         limit=limit,
         offset=offset,
     )

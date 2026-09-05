@@ -27,6 +27,8 @@ import { appScopedGet } from '../../lib/api'
 import { appRoutes } from '../../api/routes/app.routes'
 import { getTourState, patchTourState } from '../../lib/tour-api'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
+import { consumeTourPendingAfterWizard } from '../../lib/tour-handoff'
+import { getOnboardingWizard } from '../../lib/onboarding-wizard-api'
 import { TOUR_STEPS, TOUR_VERSION, WELCOME_PILLARS } from './tour-steps'
 
 type TourPhase = 'idle' | 'welcome' | 'steps' | 'finish'
@@ -72,19 +74,26 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [stepIndex, setStepIndex] = useState(0)
   const autoChecked = useRef(false)
 
-  // Auto-start for brand-new users: no persisted tour state yet and the
-  // workspace onboarding checklist is still incomplete.
+  // Auto-start only after the first-run wizard (or when the wizard just finished
+  // and set a session handoff). Never interrupt an incomplete owner wizard.
   useEffect(() => {
     if (!token || autoChecked.current) return
     autoChecked.current = true
     let cancelled = false
     void (async () => {
       try {
+        const pending = consumeTourPendingAfterWizard()
+        if (pending) {
+          if (!cancelled) setPhase('welcome')
+          return
+        }
         const tour = await getTourState(token)
         const seen =
           (tour.intro_done || tour.dismissed || tour.completed) &&
           (tour.version ?? 0) >= TOUR_VERSION
         if (seen) return
+        const wizard = await getOnboardingWizard(token)
+        if (wizard.needs_wizard || wizard.needs_personal_wizard) return
         const onboarding = await appScopedGet<{ completed: boolean }>(
           appRoutes.onboarding.status,
           token,
@@ -145,7 +154,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const finishExplore = useCallback(() => {
     persist({ completed: true })
     setPhase('idle')
-    navigate('/settings/setup')
+    navigate('/communication/inbox/open')
   }, [persist, navigate])
 
   const finishWithAssistant = useCallback(() => {
@@ -156,10 +165,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
     navigate(`${dest}${dest.includes('?') ? '&' : '?'}autosend=1`)
   }, [persist, navigate, t, i18n.resolvedLanguage])
 
-  const finishWithSetupGuide = useCallback(() => {
+  const finishWithCommunication = useCallback(() => {
     persist({ completed: true })
     setPhase('idle')
-    navigate('/settings/setup')
+    navigate('/communication/inbox/open')
   }, [persist, navigate])
 
   const value = useMemo<TourContextValue>(
@@ -184,7 +193,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
       {phase === 'finish' ? (
         <FinishScreen
           onAssistant={finishWithAssistant}
-          onSetupGuide={finishWithSetupGuide}
+          onCommunication={finishWithCommunication}
           onExplore={finishExplore}
         />
       ) : null}
@@ -506,11 +515,11 @@ function StepOverlay({
 
 function FinishScreen({
   onAssistant,
-  onSetupGuide,
+  onCommunication,
   onExplore,
 }: {
   onAssistant: () => void
-  onSetupGuide: () => void
+  onCommunication: () => void
   onExplore: () => void
 }) {
   const { t } = useTranslation('tour')
@@ -552,10 +561,10 @@ function FinishScreen({
             </button>
             <button
               type="button"
-              onClick={onSetupGuide}
+              onClick={onCommunication}
               className="rounded-lg border border-border/60 px-3.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
-              {t('finish.setupGuide')}
+              {t('finish.communication')}
             </button>
             <button
               type="button"

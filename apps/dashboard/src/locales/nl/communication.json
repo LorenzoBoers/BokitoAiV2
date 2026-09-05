@@ -50,6 +50,8 @@
     "tabHintReply": "De klant ziet dit",
     "tabHintNote": "Alleen je team ziet dit",
     "tabHintAgent": "Intern metagesprek met deze agent. De klant ziet het niet. Het eerste bericht start de sessie.",
+    "sendFrom": "Versturen vanaf",
+    "sendFromHint": "Verstuur vanaf deze mailbox. Wisselen verplaatst het gesprek hiernaartoe.",
     "templates": "Sjablonen",
     "writeWithAi": "Schrijven met AI",
     "writeWithAiShort": "Schrijven",
@@ -68,6 +70,9 @@
     "aiError": "Kon geen concept genereren.",
     "dictationStart": "Dicteren",
     "dictationStop": "Dicteren stoppen",
+    "dictationConfirm": "Dicteren bevestigen",
+    "dictationHoldHint": "Houd ingedrukt om te praten, of klik om te starten. Laat los of klik op het vinkje om te bevestigen.",
+    "dictationConfirmHint": "Klik of laat los om de tekst in het invoerveld te zetten.",
     "dictationListening": "Luisteren...",
     "dictationHearing": "Gehoord: {{text}}",
     "notePlaceholder": "Intern bericht (niet zichtbaar voor de klant)...",
@@ -514,6 +519,11 @@
     "loadError": "Kon je setupchecklist niet laden.",
     "retry": "Opnieuw",
     "steps": {
+      "wizard": {
+        "title": "Rond de eerste setup af",
+        "description": "Talen, meldingen, autonomie en je eerste agent — een korte geleide route.",
+        "cta": "Open setupwizard"
+      },
       "email": {
         "title": "Koppel je kanalen",
         "description": "Maak een Bokito-adres aan en stuur mail ernaartoe, of koppel Gmail of Outlook om je eigen mailbox te gebruiken.",
@@ -537,7 +547,7 @@
       },
       "watching": {
         "title": "Laat de assistent waken",
-        "description": "De uurlijkse check-in wekt de assistent. Die schrijft alleen in Communicatie als iets jou nodig heeft.",
+        "description": "De uurlijkse check-in wekt de assistent. Die start gepauzeerd; zet hem aan zodat hij alleen in Communicatie schrijft als iets jou nodig heeft.",
         "cta": "Check-in aanzetten",
         "enabling": "Bezig met aanzetten…",
         "enabled": "Check-in staat aan. De assistent waakt op de achtergrond.",
@@ -950,6 +960,8 @@
     },
     "roleAi": "AI",
     "roleTeam": "Team",
+    "aiAgent": "AI-agent",
+    "sentToCustomer": "Verstuurd naar de klant",
     "sending": "Verzenden",
     "copyId": "Bericht-ID kopiëren",
     "copyBody": "Tekst kopiëren",

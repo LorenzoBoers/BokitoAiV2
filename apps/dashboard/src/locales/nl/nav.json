@@ -176,6 +176,8 @@
     "manageTypes": "Intake-types instellen",
     "openWorkstream": "Werkstroom",
     "addType": "{{name}} toevoegen",
+    "labelChip": "Label",
+    "addLabelHint": "Stempelt het gesprek; opent geen wachtrij-item.",
     "typesTitle": "Intake-types",
     "typesHint": "Types labelen werk dat op een gesprek landt. Koppel ze aan een werkstroom of project zodat agents weten waar ze naartoe moeten.",
     "newTypePlaceholder": "Naam nieuw type",
@@ -245,7 +247,7 @@
       "dismiss": "Afwijzen",
       "reopen": "Heropenen"
     },
-    "typesIntro": "Types vormen de intent-catalogus. Schrijf een scherpe omschrijving van wanneer een type van toepassing is (en wanneer niet), zodat agents goed classificeren. Koppel een type aan een werkstroom of project wanneer opvolging nodig is; laat het los om het alleen als label te gebruiken.",
+    "typesIntro": "Types vormen de intent-catalogus. Kies Label (alleen stempel), Volgen (wachtrij zonder route) of Routeren (koppel aan werkstroom of project). Schrijf een scherpe omschrijving zodat agents goed classificeren.",
     "newType": "Nieuw type",
     "newTypeHint": "Omschrijf precies wanneer dit type van toepassing is, zodat agents inkomende berichten goed classificeren.",
     "typesEmptyTitle": "Nog geen intake-types",
@@ -253,6 +255,14 @@
     "enabledToggle": "Ingeschakeld",
     "descriptionLabel": "Omschrijving (wanneer wel, wanneer niet)",
     "descriptionPlaceholder": "bijv. Klant vraagt expliciet om een terugbetaling. Niet voor algemene factuurvragen.",
+    "followUpLabel": "Opvolging",
+    "followUpLabelHint": "Alleen-label signalen stempelen het gesprek en verschijnen nooit in de Open-wachtrij.",
+    "followUpRouteHint": "Koppel dit type aan een werkstroom of project zodat nieuwe signalen automatisch kunnen routeren.",
+    "followUpModes": {
+      "label": "Alleen label",
+      "track": "Volgen in wachtrij",
+      "route": "Routeren naar werk"
+    },
     "modeLabel": "Aanmaakmodus",
     "audienceLabel": "Doelgroep",
     "modes": {
@@ -266,7 +276,9 @@
       "internal": "Intern",
       "both": "Beide"
     },
-    "noBinding": "Alleen label — geen opvolging",
+    "noBinding": "In wachtrij — geen route",
+    "noRouteYet": "Nog geen route",
+    "labelNoQueue": "Nooit in wachtrij",
     "boundWorkstreams": "{{count}} werkstroom/-stromen",
     "boundProjects": "{{count}} project(en)",
     "bindHint": "Routering configureer je waar het werk gebeurt: open een werkstroom of project om daar types te accepteren.",
@@ -274,7 +286,9 @@
     "deleteType": "Verwijderen",
     "deleteTypeTitle": "Intake-type verwijderen",
     "deleteTypeLabel": "dit type",
-    "deleteTypeImpact": "Bestaande signalen behouden hun geschiedenis; koppelingen op werkstromen en projecten worden verwijderd.",
+    "deleteTypeImpact": "Als er al signalen dit type gebruiken, wordt het gearchiveerd (uitgeschakeld) en open wachtrij-rijen gesloten. Koppelingen op werkstromen en projecten verdwijnen. Ongebruikte types worden verwijderd.",
+    "typeDeleted": "Type verwijderd.",
+    "typeArchived": "Type gearchiveerd. Bestaande signalen blijven op gesprekken; open wachtrij-rijen zijn gesloten.",
     "moduleTypeNoDelete": "Moduletypes kunnen hier niet worden verwijderd.",
     "manageInCases": "Intake-types beheer je op de pagina Signalen.",
     "openCases": "Signalen openen"
@@ -990,7 +1004,7 @@
       },
       "watch": {
         "title": "Zet check-in aan",
-        "description": "Laat de assistent de workspace in de gaten houden en je waarschuwen als iets aandacht nodig heeft."
+        "description": "De check-in start gepauzeerd. Zet hem aan zodat de assistent de workspace in de gaten houdt en je waarschuwt als iets aandacht nodig heeft."
       }
     },
     "later": {
@@ -1559,6 +1573,13 @@
     "signature": "Handtekening",
     "routing": "Routing",
     "makePrimary": "Primaire afzender maken",
+    "rename": "Hernoemen",
+    "renameTitle": "Kanaal hernoemen",
+    "renameBody": "Kies een korte naam voor {{address}}. Laat leeg om het adres te gebruiken.",
+    "renameLabel": "Weergavenaam",
+    "renameHint": "Deze naam zie je in Communicatie en op de reply-knop.",
+    "renameSave": "Naam opslaan",
+    "renameSaved": "Kanaal hernoemd",
     "remove": "Verwijderen",
     "actionsFor": "Acties voor {{email}}",
     "close": "Sluiten",

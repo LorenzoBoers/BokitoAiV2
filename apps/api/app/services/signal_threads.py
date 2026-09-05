@@ -170,6 +170,7 @@ def serialize_thread(
         "id": str(signal.id),
         "organisation_id": str(signal.tenant_id),
         "email_connection_id": email_conn_id,
+        "channel_account_id": str(signal.channel_account_id) if signal.channel_account_id else None,
         "connection_id": str(signal.connection_id) if signal.connection_id else None,
         "graph_conversation_id": signal.external_id or "",
         "email_subject": signal.subject,
@@ -1475,6 +1476,47 @@ async def _defer_open_reply_suggestions(
                 session.add(notif)
 
 
+async def _rebind_email_account_for_reply(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    channel_account_id: UUID,
+    user_id: UUID,
+    actor_role: str,
+) -> None:
+    """Bind an email thread to a chosen mailbox before outbound delivery.
+
+    Cross-channel hops (WhatsApp/widget) are refused. Visibility and send
+    capability are enforced so members cannot escape ACL via reply.
+    """
+    from app.services.channel_registry import account_can_send
+    from app.services.channel_visibility import is_account_visible_to
+
+    if signal.channel != "email":
+        raise HTTPException(
+            status_code=400,
+            detail="channel_account_id is only valid on email threads",
+        )
+
+    result = await session.execute(
+        select(ChannelAccount).where(
+            ChannelAccount.id == channel_account_id,
+            ChannelAccount.tenant_id == signal.tenant_id,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if account is None or not is_account_visible_to(account, user_id=user_id, role=actor_role):
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if account.channel != "email":
+        raise HTTPException(status_code=400, detail="Selected channel is not an email mailbox")
+    if not account.is_enabled or not account_can_send(account):
+        raise HTTPException(status_code=409, detail="Selected mailbox cannot send")
+
+    if signal.channel_account_id != account.id:
+        signal.channel_account_id = account.id
+        session.add(signal)
+
+
 async def reply_to_thread(
     session: AsyncSession,
     tenant_id: UUID,
@@ -1492,10 +1534,22 @@ async def reply_to_thread(
     cc: str | None = None,
     bcc: str | None = None,
     send_after_seconds: int | None = None,
+    channel_account_id: UUID | None = None,
+    actor_role: str = "member",
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
         return None
+
+    if channel_account_id is not None and direction == "outbound":
+        await _rebind_email_account_for_reply(
+            session,
+            signal,
+            channel_account_id=channel_account_id,
+            user_id=user_id,
+            actor_role=actor_role,
+        )
+
     now = datetime.utcnow()
     # Soft undo / scheduled send: persist the message without delivering it;
     # the scheduler tick delivers once `send_after` passes, and the cancel

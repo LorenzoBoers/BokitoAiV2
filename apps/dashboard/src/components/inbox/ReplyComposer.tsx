@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Clock, Mic, MicOff, Paperclip, Quote, Send, Square, StickyNote } from 'lucide-react'
+import { Check, ChevronDown, Clock, Paperclip, Quote, Send, Square, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ComposerCard } from '../ui/ComposerCard'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { AiMark } from '../ai/AiMark'
+import ProviderLogo from '../email/ProviderLogo'
 import { useMembers } from '../../hooks/useMembers'
 import { useSpeechDictation } from '../../hooks/useSpeechDictation'
 import {
@@ -20,6 +21,9 @@ import {
 } from '../ui/dropdown-menu'
 import type { ComposerSurface, ComposerTab } from '../../lib/message-composer'
 import type { MessageAttachment } from '../../lib/inbox-api'
+import { listChannels, type ChannelRow } from '../../lib/channels-api'
+import type { Provider } from '../../lib/email-oauth'
+import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import {
   activeMentionQuery,
   filterMentionItems,
@@ -32,6 +36,7 @@ import { parseComposerDraft, serializeComposerDraft } from '../../lib/inbox-ops'
 import { SNOOZE_PRESETS } from '../../lib/snooze'
 import { uploadAttachment } from '../../lib/uploads-api'
 import ComposerWriteAssist from './ComposerWriteAssist'
+import { DictationMicButton } from './DictationMicButton'
 import MentionPopover from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
 import MessageAttachments from './MessageAttachments'
@@ -46,7 +51,7 @@ type Props = {
     action: 'send' | 'send_and_close' | 'send_and_pending',
     attachments?: MessageAttachment[],
     snoozeMinutes?: number,
-    extras?: { cc?: string; bcc?: string },
+    extras?: { cc?: string; bcc?: string; channelAccountId?: string },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   /** Send into the active agent meta session (no customer delivery). */
@@ -80,6 +85,8 @@ type Props = {
   suggestedCc?: string | null
   /** Last inbound customer text; Quote inserts it as a cited block. */
   lastInboundText?: string | null
+  /** Bound mailbox UUID for email threads (default From). */
+  channelAccountId?: string | null
 }
 
 const draftStorageKey = (persistKey: string) => `inbox.draft.${persistKey}`
@@ -124,9 +131,14 @@ export default function ReplyComposer({
   replyDisabledNotice,
   suggestedCc,
   lastInboundText,
+  channelAccountId: boundChannelAccountId,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
+  const [emailChannels, setEmailChannels] = useState<ChannelRow[]>([])
+  const [selectedChannelAccountId, setSelectedChannelAccountId] = useState<string | null>(
+    boundChannelAccountId ?? null,
+  )
   const [uncontrolledTab, setUncontrolledTab] = useState<ComposerTab>(surface.defaultTab)
   const [dictationInterim, setDictationInterim] = useState('')
   const mode: ComposerMode =
@@ -180,6 +192,53 @@ export default function ReplyComposer({
     [mentionItems, mentionQuery],
   )
   const mentionOpen = mentionQuery !== null && mentionMatches.length > 0
+
+  useEffect(() => {
+    setSelectedChannelAccountId(boundChannelAccountId ?? null)
+  }, [boundChannelAccountId])
+
+  useEffect(() => {
+    if (!token || surface.channel !== 'email') {
+      setEmailChannels([])
+      return
+    }
+    let cancelled = false
+    void listChannels(token)
+      .then((rows) => {
+        if (cancelled) return
+        const mailboxes = rows.filter(
+          (row) =>
+            row.channel === 'email' &&
+            row.isEnabled &&
+            row.capabilities.includes('send') &&
+            (row.kind === 'email_mailbox' || row.kind === 'email_relay'),
+        )
+        setEmailChannels(mailboxes)
+        setSelectedChannelAccountId((prev) => {
+          if (prev && mailboxes.some((row) => row.id === prev)) return prev
+          if (boundChannelAccountId && mailboxes.some((row) => row.id === boundChannelAccountId)) {
+            return boundChannelAccountId
+          }
+          return mailboxes[0]?.id ?? null
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setEmailChannels([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, surface.channel, boundChannelAccountId])
+
+  const selectedMailbox = useMemo(
+    () => emailChannels.find((row) => row.id === selectedChannelAccountId) ?? null,
+    [emailChannels, selectedChannelAccountId],
+  )
+  const canPickMailbox = surface.channel === 'email' && emailChannels.length > 1
+  const replyTabLabel =
+    surface.channel === 'email' && selectedMailbox
+      ? mailboxDisplayLabel(selectedMailbox.displayName || selectedMailbox.label, selectedMailbox.address)
+      : t('composer.tabReply')
 
   const refreshMentionState = (value: string, caret: number) => {
     const next = activeMentionQuery(value, caret)
@@ -252,10 +311,30 @@ export default function ReplyComposer({
     })
     setDictationInterim('')
   }
+  const dictationInterimRef = useRef('')
+  dictationInterimRef.current = dictationInterim
   const dictation = useSpeechDictation({
     onFinal: appendDictation,
     onInterim: setDictationInterim,
   })
+  const confirmDictation = () => {
+    const pending = dictationInterimRef.current.trim()
+    if (pending) appendDictation(pending)
+    else setDictationInterim('')
+    dictation.stop()
+  }
+  // Show committed text plus live interim so the field grows and operators can
+  // follow what SpeechRecognition is still refining.
+  const composerValue = useMemo(() => {
+    if (!dictation.listening || !dictationInterim.trim()) return displayBody
+    return displayBody ? `${displayBody} ${dictationInterim}` : dictationInterim
+  }, [displayBody, dictation.listening, dictationInterim])
+
+  useLayoutEffect(() => {
+    if (!dictation.listening) return
+    const el = textareaRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [composerValue, dictation.listening])
 
   useEffect(() => {
     // Never steal focus from an in-flight agent chat when a draft arrives.
@@ -305,8 +384,12 @@ export default function ReplyComposer({
         // Customer reply: never treat structured mentions as agent invokes.
         const replyText = stripMentionMarkup(text)
         const extras =
-          surface.channel === 'email' && (cc.trim() || bcc.trim())
-            ? { cc: cc.trim() || undefined, bcc: bcc.trim() || undefined }
+          surface.channel === 'email'
+            ? {
+                cc: cc.trim() || undefined,
+                bcc: bcc.trim() || undefined,
+                channelAccountId: selectedChannelAccountId || undefined,
+              }
             : undefined
         await onReply(replyText, action, payload, snoozeMinutes, extras)
       }
@@ -407,19 +490,89 @@ export default function ReplyComposer({
       <div className="mx-auto w-full max-w-[860px]">
         <div className="mb-1.5 flex items-center gap-1">
           {showReplyTab ? (
-            <button
-              type="button"
-              onClick={() => setMode('reply')}
-              title={replyTooltip}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                isReply
-                  ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
-                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-              }`}
-            >
-              <ChannelGlyph channel={surface.channel} size={12} />
-              {t('composer.tabReply')}
-            </button>
+            canPickMailbox ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isReply) setMode('reply')
+                    }}
+                    title={t('composer.sendFromHint', {
+                      defaultValue: 'Send from this mailbox. Switching moves the conversation here.',
+                    })}
+                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                      isReply
+                        ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
+                        : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                    }`}
+                  >
+                    {selectedMailbox ? (
+                      <ProviderLogo
+                        provider={selectedMailbox.provider as Provider}
+                        className="h-3 w-3 shrink-0 object-contain"
+                      />
+                    ) : (
+                      <ChannelGlyph channel={surface.channel} size={12} />
+                    )}
+                    <span className="max-w-[10rem] truncate">{replyTabLabel}</span>
+                    <ChevronDown size={11} className="shrink-0 opacity-70" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                    {t('composer.sendFrom', { defaultValue: 'Send from' })}
+                  </p>
+                  {emailChannels.map((row) => {
+                    const label = mailboxDisplayLabel(row.displayName || row.label, row.address)
+                    const active = row.id === selectedChannelAccountId
+                    return (
+                      <DropdownMenuItem
+                        key={row.id}
+                        className="gap-2 text-xs"
+                        onSelect={() => {
+                          setSelectedChannelAccountId(row.id)
+                          setMode('reply')
+                        }}
+                      >
+                        <ProviderLogo
+                          provider={row.provider as Provider}
+                          className="h-3.5 w-3.5 shrink-0 object-contain"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-text-heading">{label}</span>
+                          {row.address && label !== row.address ? (
+                            <span className="block truncate text-[10px] text-text-muted">{row.address}</span>
+                          ) : null}
+                        </span>
+                        {active ? <Check size={12} className="shrink-0 text-accent" /> : null}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMode('reply')}
+                title={replyTooltip}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                  isReply
+                    ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
+                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                }`}
+              >
+                {selectedMailbox ? (
+                  <ProviderLogo
+                    provider={selectedMailbox.provider as Provider}
+                    className="h-3 w-3 shrink-0 object-contain"
+                  />
+                ) : (
+                  <ChannelGlyph channel={surface.channel} size={12} />
+                )}
+                <span className="max-w-[12rem] truncate">{replyTabLabel}</span>
+              </button>
+            )
           ) : null}
           {showNoteTab ? (
             <button
@@ -577,8 +730,10 @@ export default function ReplyComposer({
           ref={textareaRef}
           id="inbox-reply-composer"
           mode={isNote || isAgent ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
-          value={displayBody}
+          value={composerValue}
+          readOnly={dictation.listening}
           onChange={(e) => {
+            if (dictation.listening) return
             const el = e.currentTarget
             const edit = applyDisplayEdit(body, el.value)
             setBody(edit.raw)
@@ -596,13 +751,11 @@ export default function ReplyComposer({
             refreshMentionState(el.value, el.selectionStart ?? el.value.length)
           }}
           onBlur={() => setMentionQuery(null)}
-          highlighter={<MentionHighlight raw={body} />}
+          highlighter={dictation.listening ? undefined : <MentionHighlight raw={body} />}
           disabled={disabled || busy}
           placeholder={
             dictation.listening
-              ? dictationInterim
-                ? t('composer.dictationHearing', { text: dictationInterim })
-                : t('composer.dictationListening')
+              ? t('composer.dictationListening')
               : isAgent
                 ? t('composer.agentPlaceholder', {
                     name: agentModeName || t('agentSession.title'),
@@ -639,48 +792,26 @@ export default function ReplyComposer({
             className="hidden"
             onChange={(e) => void onPickFiles(e.target.files)}
           />
-          {!isNote && !isAgent ? (
-            <>
-              {showWriteAssist && threadIdForAi ? (
-                <ComposerWriteAssist
-                  threadId={threadIdForAi}
-                  body={body}
-                  disabled={saving || disabled || busy}
-                  onApply={(text) => {
-                    setBody(text)
-                    requestAnimationFrame(() => textareaRef.current?.focus())
-                  }}
-                />
-              ) : null}
-              {dictation.supported ? (
-                <button
-                  type="button"
-                  disabled={saving || disabled || busy}
-                  title={
-                    dictation.listening
-                      ? t('composer.dictationStop')
-                      : t('composer.dictationStart')
-                  }
-                  aria-pressed={dictation.listening}
-                  aria-label={
-                    dictation.listening
-                      ? t('composer.dictationStop')
-                      : t('composer.dictationStart')
-                  }
-                  onClick={() => {
-                    if (!dictation.listening) setMode('reply')
-                    dictation.toggle()
-                  }}
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
-                    dictation.listening
-                      ? 'bg-accent/15 text-accent ring-1 ring-accent/30'
-                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
-                  }`}
-                >
-                  {dictation.listening ? <MicOff size={14} /> : <Mic size={14} />}
-                </button>
-              ) : null}
-            </>
+          {!isNote && !isAgent && showWriteAssist && threadIdForAi ? (
+            <ComposerWriteAssist
+              threadId={threadIdForAi}
+              body={body}
+              disabled={saving || disabled || busy}
+              onApply={(text) => {
+                setBody(text)
+                requestAnimationFrame(() => textareaRef.current?.focus())
+              }}
+            />
+          ) : null}
+          {dictation.supported ? (
+            <DictationMicButton
+              listening={dictation.listening}
+              disabled={saving || disabled || busy || (isAgent && agentStreaming)}
+              onStart={() => {
+                dictation.start()
+              }}
+              onConfirm={confirmDictation}
+            />
           ) : null}
           <button
             type="button"

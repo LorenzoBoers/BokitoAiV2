@@ -409,7 +409,7 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
 /**
  * Communication hub inner rail.
  *
- * Fixed top: New chat + Inbox.
+ * Fixed top: New chat + Inbox + Decisions.
  * Scrollable middle: Agents / Channels (user order).
  * Anchored bottom: Settings.
  *
@@ -535,27 +535,30 @@ export default function MessagesHubNav() {
                     </NavLink>
                   )
                 })}
-                {/* Decisions: the human gate lives inside All communication as a
-                    purple sub-view — it is a queue over the same threads. */}
-                <NavLink
-                  to={decisionsPath()}
-                  title={t('support.decisions.hint')}
-                  className={() =>
-                    cn(
-                      'nav-row nav-sub-row flex items-center gap-2 rounded-lg border px-3 py-1 text-[12px] font-medium',
-                      activeLeaf?.type === 'decisions'
-                        ? 'border-ai/35 bg-ai/12 text-ai-ink'
-                        : 'border-transparent text-ai-ink hover:border-ai/30 hover:bg-ai/10',
-                    )
-                  }
-                >
-                  <Scale size={12} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
-                  <NavCountBadge count={counts.agentsAttention} placement="inline" />
-                </NavLink>
               </>
             }
           />
+        </section>
+
+        {/* Decisions sits as its own top-level leaf — human gate, peer to All
+            communication — not nested under inbox status queues. */}
+        <section className="space-y-0.5">
+          <NavLink
+            to={decisionsPath()}
+            title={t('support.decisions.hint')}
+            className={() =>
+              cn(
+                'nav-row flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
+                activeLeaf?.type === 'decisions'
+                  ? 'border-ai/40 bg-ai/12 text-ai-ink'
+                  : 'border-transparent text-ai-ink hover:border-ai/30 hover:bg-ai/10',
+              )
+            }
+          >
+            <Scale size={14} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
+            <NavCountBadge count={counts.agentsAttention} placement="inline" />
+          </NavLink>
         </section>
 
         {visibleSections.map((section) => {

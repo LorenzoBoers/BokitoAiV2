@@ -47,8 +47,15 @@ Een Bokito-adres ontvangt en verstuurt; het synchroniseert niet, dus het toont g
 
 1. Kies **Kanaal toevoegen** en daarna **E-mail**.
 2. Kies **Gmail** of **Outlook** om de inlogprompt van de provider te openen.
-3. Terug in de lijst open je het rijmenu voor **Nu synchroniseren**, **Mappen**, **Handtekening**, **Routing**, **Primaire afzender maken** of **Verwijderen**.
+3. Terug in de lijst open je het rijmenu voor **Hernoemen**, **Nu synchroniseren**, **Mappen**, **Handtekening**, **Routing**, **Primaire afzender maken** of **Verwijderen**.
 4. Staat er **Actie nodig** op de statusbadge, kies dan **Opnieuw koppelen** voordat je verstuurt.
+
+## Hernoem een kanaal
+
+1. Open **Kanalen**.
+2. Open het rijmenu van de mailbox of het Bokito-adres en kies **Hernoemen**.
+3. Typ een korte weergavenaam (bijvoorbeeld **Support**) en kies **Naam opslaan**. Laat het veld leeg om weer het adres te gebruiken.
+4. De naam verschijnt in de kanalenlijst, in de Communicatie-zijbalk en op het reply-tabblad wanneer je vanaf die mailbox verstuurt.
 
 Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 

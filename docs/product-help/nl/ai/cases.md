@@ -11,21 +11,23 @@ related: workstreams,communication,widget,projects,integrations
 
 Een signaal is een gelabeld stuk werk op een gesprek, niet het gesprek zelf. De pagina **Signalen** in de zijbalk (onder Besturing) bevat de wachtrij met open signalen en de catalogus met intake-types. Signalen vervangen de oude gesprekkentags: agents classificeren binnenkomende berichten tegen je typecatalogus en openen een signaal in plaats van een tag.
 
+Elk type heeft een **opvolging**-modus: **Alleen label** stempelt het gesprek en komt nooit in de wachtrij (Spam of misbruik gebruikt dit standaard), **Volgen in wachtrij** opent een wachtrij-item zonder verplichte route, en **Routeren naar werk** verwacht een koppeling naar werkstroom of project.
+
 ## Werk de signaalwachtrij weg
 
-1. Open **Signalen**. Het tabblad **Wachtrij** toont elk signaal met type, titel, gespreksonderwerp, leeftijd en status.
-2. Gebruik de statuspillen — **Jij aan zet**, **Open**, **Wachten**, **Gekoppeld** en **Klaar** — om te beginnen bij wat een beslissing nodig heeft. Het zoekveld zoekt op titel, samenvatting en typenaam; type-chips filteren op één intake-type.
+1. Open **Signalen**. Het tabblad **Wachtrij** toont opvolg-signalen met type, titel, gespreksonderwerp, leeftijd en status. Alleen-label stempels blijven op het gesprek en buiten deze lijst.
+2. Gebruik de statuspillen — **Voor jou**, **Open**, **Wachtend**, **Gekoppeld** en **Klaar** — om te beginnen bij wat een beslissing nodig heeft. Het zoekveld zoekt op titel, samenvatting en typenaam; type-chips filteren op één intake-type.
 3. Klik op een rij voor het detailpaneel: wijzig de status, pas titel of samenvatting aan, of koppel het signaal aan een werkstroom of project.
-4. Kies **Open gesprek** om naar het gesprek in [Communicatie](/docs/inbox/communication) te springen. Een signaal sluiten sluit nooit het gesprek — ze staan los van elkaar.
+4. Kies **Gesprek openen** om naar het gesprek in [Communicatie](/docs/inbox/communication) te springen. Een signaal sluiten sluit nooit het gesprek — ze staan los van elkaar.
 5. Beweeg door de rijen met **J**/**K** en open er een met **Enter**.
 
 ## Voeg een intake-type toe
 
 1. Open **Signalen** en daarna het tabblad **Types**.
-2. Kies **Nieuw type** en geef het een naam (bijvoorbeeld Factuurvraag).
+2. Kies **Nieuw type**, geef het een naam (bijvoorbeeld Factuurvraag), en kies **Opvolging**: Alleen label, Volgen in wachtrij of Routeren naar werk.
 3. Omschrijf precies wanneer het type van toepassing is — agents volgen die omschrijving bij het classificeren van binnenkomende berichten, dus benoem ook wanneer het niet geldt.
 4. Laat het type aan. Zet de schakelaar uit wanneer agents dat type niet meer mogen openen.
-5. Koppel het daarna aan een werkstroom of project — een type zonder koppeling blijft alleen als statuslabel op het gesprek.
+5. Koppel Route-types daarna aan een werkstroom of project. Een type verwijderen dat al signalen heeft archiveert het (uitzetten en open wachtrij-rijen sluiten) in plaats van geschiedenis te breken.
 
 ## Koppel een type aan een werkstroom
 
@@ -48,7 +50,7 @@ Een signaal is een gelabeld stuk werk op een gesprek, niet het gesprek zelf. De 
 
 ## Houd meerdere signalen op één gesprek
 
-1. Open een gesprek in **Berichten**. Het zijpaneel toont **Signalen**.
+1. Open een gesprek in **Berichten**. Het zijpaneel toont **Signalen**. Alleen-label types tonen een **Label**-chip; actieve wachtrij-signalen houden hun statusbadge.
 2. Kies **Bug report toevoegen** of **Feature request toevoegen** wanneer er een tweede intentie in dezelfde chat verschijnt.
 3. Elk signaal houdt een eigen status en werkstroomkoppeling. Stop twee issues niet in één signaal.
 

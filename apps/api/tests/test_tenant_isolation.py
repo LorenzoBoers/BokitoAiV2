@@ -195,13 +195,21 @@ async def test_onboarding_status_endpoint(client: AsyncClient):
     assert resp.status_code == 200
     data = resp.json()
     step_ids = [step["id"] for step in data["steps"]]
-    # Communication-first activation order, then profile and team.
-    assert step_ids == ["email", "assistant", "first_decision", "watching", "company", "team"]
+    # Wizard first, then Communication-first activation, then profile and team.
+    assert step_ids == [
+        "wizard",
+        "email",
+        "assistant",
+        "first_decision",
+        "watching",
+        "company",
+        "team",
+    ]
     assert data["completed"] is False
     by_id = {step["id"]: step["done"] for step in data["steps"]}
-    # Only the hourly check-in is on from day one. A signup has no email channel
-    # until the workspace creates a relay address or connects a mailbox.
-    assert by_id["watching"] is True
+    # Check-in is seeded paused; wizard is required for new workspaces.
+    assert by_id["watching"] is False
+    assert by_id["wizard"] is False
     assert all(
         by_id[key] is False
         for key in ("email", "company", "assistant", "first_decision", "team")
