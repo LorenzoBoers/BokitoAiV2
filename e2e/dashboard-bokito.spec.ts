@@ -36,6 +36,7 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/communication/new')
     await expect(page.getByText('New conversation').first()).toBeVisible({ timeout: 20000 })
+    await page.getByRole('button', { name: /^Agent$/i }).click()
     await expect(page.getByText('To:')).toBeVisible({ timeout: 20000 })
     await expect(page.getByText(/Assistant|Company agent/).first()).toBeVisible({ timeout: 20000 })
   })
