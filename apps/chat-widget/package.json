@@ -7,6 +7,9 @@
     "build": "vite build",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "@bokito/shared": "*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "~5.7.0",

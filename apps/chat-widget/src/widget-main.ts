@@ -10,6 +10,7 @@
  *           defer></script>
  */
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
+import { appendSpeechChunk, consumeSpeechResults, speechWaveSvgHtml } from '@bokito/shared'
 import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, apiGroupUrl, gatewayWebSocketUrl, livechatHttpUrl, normalizeApiOrigin, normalizeLivechatApiBase } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
 import { applyBrandToHost, parseHexColor } from './brand'
@@ -798,8 +799,13 @@ const WIDGET_CSS = `
 .bk-record-btn svg{width:16px;height:16px;}
 .bk-record-start{background:var(--bk-bg-surface);color:var(--bk-text-muted);border:1.5px solid var(--bk-border);}
 .bk-record-start:hover{color:var(--bk-primary);border-color:var(--bk-primary);}
-.bk-record-start--listening{background:#16a34a;color:#fff;border-color:#16a34a;box-shadow:0 0 0 3px color-mix(in srgb,#16a34a 22%,transparent);}
+.bk-record-start--listening{position:relative;background:#16a34a;color:#fff;border-color:#16a34a;box-shadow:0 0 0 3px color-mix(in srgb,#16a34a 22%,transparent);}
 .bk-record-start--listening:hover{background:#15803d;border-color:#15803d;color:#fff;}
+.bk-record-start--listening .bk-speech-wave{display:block;width:16px;height:16px;transition:opacity .15s ease;}
+.bk-record-start--listening .bk-speech-check{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s ease;pointer-events:none;}
+.bk-record-start--listening .bk-speech-check svg{width:16px;height:16px;}
+.bk-record-start--listening:hover .bk-speech-wave{opacity:0;}
+.bk-record-start--listening:hover .bk-speech-check{opacity:1;}
 .bk-record-cancel{background:rgba(0,0,0,.12);color:#1a1a1a;}
 .bk-record-cancel:hover{background:rgba(0,0,0,.2);}
 .bk-record-confirm{background:var(--bk-primary);color:var(--bk-on-primary);}
@@ -817,6 +823,10 @@ const WIDGET_CSS = `
 @keyframes bk-record-pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 color-mix(in srgb,var(--bk-primary) 35%,transparent);}25%{transform:scale(1.06);box-shadow:0 0 0 6px color-mix(in srgb,var(--bk-primary) 15%,transparent);}50%{transform:scale(.98);box-shadow:0 0 0 2px color-mix(in srgb,var(--bk-primary) 25%,transparent);}75%{transform:scale(1.04);box-shadow:0 0 0 8px color-mix(in srgb,var(--bk-primary) 8%,transparent);}}
 .bk-record-btn:active{transform:scale(.92);}
 .bk-record-confirm--recording:active{animation:none;transform:scale(.92);}
+@media (prefers-reduced-motion:reduce){
+  .bk-wave-bar{animation:none;}
+  .bk-record-confirm--recording{animation:none;}
+}
 .bk-attach-btn{width:30px;height:30px;border-radius:var(--bk-radius-sm);background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--bk-text-muted);flex-shrink:0;transition:color var(--bk-transition),background var(--bk-transition);}
 .bk-attach-btn:hover{color:var(--bk-primary);background:var(--bk-primary-light);}
 .bk-attach-btn svg{width:17px;height:17px;}
@@ -968,8 +978,8 @@ const WIDGET_CHROME = {
     noSpeech: 'No speech recognized. Try again.',
     dictateStart: 'Dictate',
     dictateConfirm: 'Confirm dictation',
-    dictateHoldHint: 'Hold to talk, or click to start. Release or click the check to confirm.',
-    dictateConfirmHint: 'Click or release to confirm the text into the message box.',
+    dictateHoldHint: 'Hold to talk, or click to start. Release or click the check (on hover) to confirm.',
+    dictateConfirmHint: 'Hover for the check, then click or release to confirm.',
   },
   nl: {
     openChat: 'Chat openen',
@@ -1051,8 +1061,8 @@ const WIDGET_CHROME = {
     noSpeech: 'Geen spraak herkend. Probeer het opnieuw.',
     dictateStart: 'Dicteren',
     dictateConfirm: 'Dicteren bevestigen',
-    dictateHoldHint: 'Houd ingedrukt om te praten, of klik om te starten. Laat los of klik op het vinkje om te bevestigen.',
-    dictateConfirmHint: 'Klik of laat los om de tekst in het berichtvak te zetten.',
+    dictateHoldHint: 'Houd ingedrukt om te praten, of klik om te starten. Laat los of klik op het vinkje (bij hover) om te bevestigen.',
+    dictateConfirmHint: 'Beweeg over de knop voor het vinkje; klik of laat los om te bevestigen.',
   },
 }
 
@@ -1094,6 +1104,8 @@ class BokitoChatWidget extends HTMLElement {
   #dictationListening = false;
   #dictationBase = '';
   #dictationInterim = '';
+  #dictationClosed = true;
+  #dictationNextFinalIndex = 0;
   #micHold = { pointerId: null, startedAt: 0, wasListening: false };
   #sounds = {};
   #audioCtx = null;
@@ -1112,10 +1124,12 @@ class BokitoChatWidget extends HTMLElement {
   #sendQueue = [];
   #activeSend = null;
   #isResponding = false;
-  #bundleIdleMs = 900;
+  #bundleIdleMs = 400;
+  #bundleIdleAfterInterruptMs = 400;
   #timestampClusterWindowMs = 300000;
   #staleSuppressGraceMs = 500;
   #bundleTimer = null;
+  #bundleFlushForced = false;
   #processingWatchdogTimer = null;
   #processingTimeoutMs = 30000;
   #lastProcessingActivityAt = 0;
@@ -1128,6 +1142,14 @@ class BokitoChatWidget extends HTMLElement {
   #activeTurnId = 0;
   #suppressedAiQuota = 0;
   #lastAbortAt = 0;
+  /** 'sse' | 'ws' | null — only one paint source drives the live bubble per turn. */
+  #streamPaintSource = null;
+  #scrollPinnedToBottom = true;
+  #scrollRaf = null;
+  #ssePaintRaf = null;
+  #ssePaintState = null;
+  #ssePaintSendMeta = null;
+  #ssePaintPending = false;
   _toolDisplayNames = {};
   #idleWatcher = null; #proactiveBubbles = null; #proactiveDismissTimer = null;
   #proactivePending = null; #shownProactiveSuggestions = [];
@@ -1564,7 +1586,8 @@ class BokitoChatWidget extends HTMLElement {
     this.#nonBlockingSend = this.dataset.nonBlockingSend !== 'false';
     this.#processingTimeoutMs = Number(this.dataset.processingTimeoutMs || 30000);
     this.#typingIdleMs = Number(this.dataset.typingIdleMs || 700);
-    this.#bundleIdleMs = Number(this.dataset.bundleIdleMs || 900);
+    this.#bundleIdleMs = Number(this.dataset.bundleIdleMs || 400);
+    this.#bundleIdleAfterInterruptMs = Number(this.dataset.bundleIdleAfterInterruptMs || this.#bundleIdleMs || 400);
     this.#timestampClusterWindowMs = Number(this.dataset.timestampClusterWindowMs || 300000);
     this.#staleSuppressGraceMs = Number(this.dataset.staleSuppressGraceMs || 500);
     // Open shadow root: styles stay fully scoped, but E2E tooling (Playwright)
@@ -2089,6 +2112,9 @@ class BokitoChatWidget extends HTMLElement {
     });
 
     this.#sendBtn.addEventListener('click', () => this.#sendMessage());
+    this.#messageList?.addEventListener('scroll', () => {
+      this.#scrollPinnedToBottom = this.#isScrolledNearBottom();
+    }, { passive: true });
     this.#recordStartBtn?.addEventListener('pointerdown', (e) => this.#onMicPointerDown(e));
     this.#recordStartBtn?.addEventListener('pointerup', (e) => this.#onMicPointerUp(e));
     this.#recordStartBtn?.addEventListener('pointercancel', (e) => this.#onMicPointerUp(e));
@@ -3573,8 +3599,16 @@ class BokitoChatWidget extends HTMLElement {
       cancelAnimationFrame(this.#deltaRaf);
       this.#deltaRaf = null;
     }
+    if (this.#ssePaintRaf) {
+      cancelAnimationFrame(this.#ssePaintRaf);
+      this.#ssePaintRaf = null;
+    }
     this.#deltaQueue = [];
     this.#pendingFinalMsg = null;
+    this.#ssePaintState = null;
+    this.#ssePaintSendMeta = null;
+    this.#ssePaintPending = false;
+    this.#streamPaintSource = null;
     if (this.#streamingMsgEl) {
       this.#streamingMsgEl.remove();
       this.#streamingMsgEl = null;
@@ -3586,6 +3620,7 @@ class BokitoChatWidget extends HTMLElement {
 
   #queueBundledSend(text = '', attachments = []) {
     const trimmed = (text || '').trim();
+    const interrupted = Boolean(this.#activeSend);
     if (this.#activeSend?.text) this.#pendingBundleTextParts.push(this.#activeSend.text);
     if (this.#activeSend?.attachments?.length) this.#pendingBundleAttachments.push(...this.#activeSend.attachments);
     if (this.#sendQueue.length) {
@@ -3598,8 +3633,11 @@ class BokitoChatWidget extends HTMLElement {
     if (trimmed) this.#pendingBundleTextParts.push(trimmed);
     if (attachments.length) this.#pendingBundleAttachments.push(...attachments);
     if (this.#activeSend) this.#cancelActiveResponse('superseded');
+    // Explicit Send must flush even while the visitor keeps typing.
+    this.#bundleFlushForced = true;
     clearTimeout(this.#bundleTimer);
-    this.#bundleTimer = setTimeout(() => this.#flushBundledSend(), this.#bundleIdleMs);
+    const settleMs = interrupted ? this.#bundleIdleAfterInterruptMs : this.#bundleIdleMs;
+    this.#bundleTimer = setTimeout(() => this.#flushBundledSend({ force: true }), settleMs);
   }
 
   #markUserTyping() {
@@ -3609,25 +3647,30 @@ class BokitoChatWidget extends HTMLElement {
       this.#isUserTyping = false;
       if (this.#sendQueue.length) this.#drainSendQueue();
       if ((this.#pendingBundleTextParts.length || this.#pendingBundleAttachments.length) && !this.#bundleTimer) {
-        this.#bundleTimer = setTimeout(() => this.#flushBundledSend(), this.#typingIdleMs);
+        this.#bundleTimer = setTimeout(() => this.#flushBundledSend({ force: this.#bundleFlushForced }), this.#typingIdleMs);
       }
     }, this.#typingIdleMs);
-    if (this.#nonBlockingSend && this.#activeSend) this.#cancelActiveResponse('typing');
-    if (this.#pendingBundleTextParts.length || this.#pendingBundleAttachments.length) {
+    // Typing alone must never abort a live reply — only Send / Stop do.
+    if ((this.#pendingBundleTextParts.length || this.#pendingBundleAttachments.length) && !this.#bundleFlushForced) {
       clearTimeout(this.#bundleTimer);
-      this.#bundleTimer = setTimeout(() => this.#flushBundledSend(), Math.max(this.#bundleIdleMs, this.#typingIdleMs));
+      this.#bundleTimer = setTimeout(
+        () => this.#flushBundledSend({ force: false }),
+        Math.max(this.#bundleIdleMs, this.#typingIdleMs),
+      );
     }
   }
 
-  #flushBundledSend() {
+  #flushBundledSend({ force = false } = {}) {
     clearTimeout(this.#bundleTimer);
     this.#bundleTimer = null;
-    if (this.#isUserTyping) {
-      this.#bundleTimer = setTimeout(() => this.#flushBundledSend(), this.#typingIdleMs);
+    if (!force && this.#isUserTyping) {
+      this.#bundleTimer = setTimeout(() => this.#flushBundledSend({ force: false }), this.#typingIdleMs);
       return;
     }
-    const text = this.#pendingBundleTextParts.join('\n');
+    const parts = this.#pendingBundleTextParts.map((p) => String(p || '').trim()).filter(Boolean);
+    const text = parts.join('\n\n');
     const attachments = [...this.#pendingBundleAttachments];
+    this.#bundleFlushForced = false;
     if (!text && !attachments.length) {
       this.#pendingBundleTextParts = [];
       this.#pendingBundleAttachments = [];
@@ -3857,6 +3900,11 @@ class BokitoChatWidget extends HTMLElement {
     this.#pendingAttachments = [];
     this.#renderPreviewStrip();
     this.#updateSendBtnState();
+    try {
+      this.#textarea.focus({ preventScroll: true });
+    } catch {
+      this.#textarea.focus();
+    }
   }
 
   async #sendMessageWithContent(text, attachments = []) {
@@ -3940,7 +3988,10 @@ class BokitoChatWidget extends HTMLElement {
     this.#dictationListening = on;
     if (!this.#recordStartBtn) return;
     this.#recordStartBtn.classList.toggle('bk-record-start--listening', on);
-    this.#recordStartBtn.innerHTML = on ? ICONS.check : ICONS.mic;
+    this.#recordStartBtn.innerHTML = on
+      ? `${speechWaveSvgHtml()}
+        <span class="bk-speech-check" aria-hidden="true">${ICONS.check}</span>`
+      : ICONS.mic;
     this.#recordStartBtn.setAttribute('aria-label', on ? this.#chrome('dictateConfirm') : this.#chrome('dictateStart'));
     this.#recordStartBtn.title = on ? this.#chrome('dictateConfirmHint') : this.#chrome('dictateHoldHint');
     this.#recordStartBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -3996,26 +4047,30 @@ class BokitoChatWidget extends HTMLElement {
       }
       this.#dictationBase = this.#textarea.value;
       this.#dictationInterim = '';
+      this.#dictationClosed = false;
+      this.#dictationNextFinalIndex = 0;
       const rec = new SpeechRecognition();
       rec.continuous = true;
       rec.interimResults = true;
       rec.lang = document.documentElement.lang || navigator.language || 'en-US';
       rec.onresult = (event) => {
-        let interim = '';
-        let finalChunk = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (this.#dictationClosed) return;
+        const mapped = Array.from({ length: event.results.length }, (_, i) => {
           const row = event.results[i];
-          const piece = row[0]?.transcript || '';
-          if (row.isFinal) finalChunk += piece;
-          else interim += piece;
+          return {
+            isFinal: Boolean(row?.isFinal),
+            transcript: row?.[0]?.transcript || '',
+          };
+        });
+        const { nextFinalIndex, finalChunk, interim } = consumeSpeechResults(
+          mapped,
+          this.#dictationNextFinalIndex,
+        );
+        this.#dictationNextFinalIndex = nextFinalIndex;
+        if (finalChunk) {
+          this.#dictationBase = appendSpeechChunk(this.#dictationBase, finalChunk);
         }
-        if (finalChunk.trim()) {
-          const base = this.#dictationBase.trimEnd();
-          this.#dictationBase = base ? `${base} ${finalChunk.trim()}` : finalChunk.trim();
-          this.#dictationInterim = '';
-        } else {
-          this.#dictationInterim = interim;
-        }
+        this.#dictationInterim = interim;
         this.#applyDictationDisplay();
       };
       rec.onerror = () => {
@@ -4037,13 +4092,13 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #confirmSpeechDictation() {
+    // Close before stop() so Chrome's trailing final does not double-append.
+    this.#dictationClosed = true;
     const pending = this.#dictationInterim.trim();
     if (pending) {
-      const base = this.#dictationBase.trimEnd();
-      this.#dictationBase = base ? `${base} ${pending}` : pending;
+      this.#dictationBase = appendSpeechChunk(this.#dictationBase, pending);
     }
     this.#dictationInterim = '';
-    // Clear listening before stop() so onend does not re-enter.
     const rec = this.#speechRecognition;
     this.#speechRecognition = null;
     this.#dictationListening = false;
@@ -4126,31 +4181,57 @@ class BokitoChatWidget extends HTMLElement {
     if (!state.msgId && evt.id != null) state.msgId = evt.id;
     state.fullContent += chunk;
     if (sendMeta && this.#activeSend !== sendMeta) return;
-    if (!state.streamEl) {
-      if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('writing');
-      const el = document.createElement('div');
-      el.className = 'bk-msg bk-msg--ai bk-msg--streaming';
-      const createdAt = new Date().toISOString();
-      el.innerHTML = `<div class="bk-msg-bubble"></div><div class="bk-msg-time">${formatTime(createdAt)}</div>`;
-      el.dataset.createdAt = String(createdAt);
-      el.dataset.createdAtMs = String(this.#toEpochMs(createdAt) ?? Date.now());
-      el.dataset.senderGroup = 'ai';
-      this.#messageList.appendChild(el);
-      state.streamEl = el;
-      this.#recomputeDaySeparators();
-      this.#recomputeMessageTimestampVisibility();
-    }
-    const bubble = state.streamEl?.querySelector('.bk-msg-bubble');
-    if (bubble) bubble.textContent = state.fullContent;
-    this.#scrollToBottom();
+    // SSE owns the live bubble for this turn — ignore WS deltas.
+    this.#streamPaintSource = 'sse';
+    this.#ssePaintState = state;
+    this.#ssePaintSendMeta = sendMeta;
+    this.#ssePaintPending = true;
+    this.#scheduleSsePaint();
+  }
+
+  #scheduleSsePaint() {
+    if (this.#ssePaintRaf) return;
+    this.#ssePaintRaf = requestAnimationFrame(() => {
+      this.#ssePaintRaf = null;
+      if (!this.#ssePaintPending) return;
+      this.#ssePaintPending = false;
+      const state = this.#ssePaintState;
+      const sendMeta = this.#ssePaintSendMeta;
+      if (!state) return;
+      if (sendMeta && this.#activeSend !== sendMeta) return;
+      if (!state.streamEl) {
+        if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('writing');
+        const el = document.createElement('div');
+        el.className = 'bk-msg bk-msg--ai bk-msg--streaming';
+        const createdAt = new Date().toISOString();
+        el.innerHTML = `<div class="bk-msg-bubble"></div><div class="bk-msg-time">${formatTime(createdAt)}</div>`;
+        el.dataset.createdAt = String(createdAt);
+        el.dataset.createdAtMs = String(this.#toEpochMs(createdAt) ?? Date.now());
+        el.dataset.senderGroup = 'ai';
+        this.#messageList.appendChild(el);
+        state.streamEl = el;
+        this.#streamingMsgEl = el;
+        this.#recomputeDaySeparators();
+        this.#recomputeMessageTimestampVisibility();
+      }
+      const bubble = state.streamEl?.querySelector('.bk-msg-bubble');
+      if (bubble) bubble.textContent = state.fullContent;
+      this.#scrollToBottom();
+    });
   }
 
   #sseDiscardPartialBubble(state) {
     if (state.streamEl?.parentNode) state.streamEl.remove();
+    if (this.#streamingMsgEl === state.streamEl) {
+      this.#streamingMsgEl = null;
+      this.#streamingMsgId = null;
+    }
     state.streamEl = null;
     state.fullContent = '';
     state.msgId = null;
     state.hadTokenChunks = false;
+    this.#streamPaintSource = null;
+    this.#ssePaintPending = false;
   }
 
   /** Keep the live status line visible until the agent starts writing. */
@@ -4162,23 +4243,49 @@ class BokitoChatWidget extends HTMLElement {
 
   /** After stream ends: markdown + remove streaming class, or #appendMessage if no chunks arrived. */
   #sseFinalizeAssistantMessage(state, sendMeta) {
+    if (this.#ssePaintRaf) {
+      cancelAnimationFrame(this.#ssePaintRaf);
+      this.#ssePaintRaf = null;
+    }
+    this.#ssePaintPending = false;
     const raw = state.fullContent ?? '';
     const trimmed = raw.trim();
     if (!trimmed) {
       if (state.streamEl?.parentNode) state.streamEl.remove();
+      if (this.#streamingMsgEl === state.streamEl) {
+        this.#streamingMsgEl = null;
+        this.#streamingMsgId = null;
+      }
+      this.#streamPaintSource = null;
       return false;
     }
     if (sendMeta && this.#activeSend !== sendMeta) {
       if (state.streamEl?.parentNode) state.streamEl.remove();
+      this.#streamPaintSource = null;
       return false;
     }
     const finalId = state.msgId ?? `stream-${Date.now()}`;
     if (state.streamEl) {
       this.#playSound('incoming');
       const bubble = state.streamEl.querySelector('.bk-msg-bubble');
-      if (bubble) bubble.innerHTML = MarkdownRenderer.render(raw);
-      state.streamEl.classList.remove('bk-msg--streaming');
+      const prevHeight = bubble ? bubble.offsetHeight : 0;
+      if (bubble) {
+        if (prevHeight > 0) bubble.style.minHeight = `${prevHeight}px`;
+        bubble.innerHTML = MarkdownRenderer.render(raw);
+      }
+      const el = state.streamEl;
+      requestAnimationFrame(() => {
+        el.classList.remove('bk-msg--streaming');
+        if (bubble) {
+          requestAnimationFrame(() => {
+            bubble.style.minHeight = '';
+          });
+        }
+      });
       this.#renderedMsgIds.add(finalId);
+      this.#streamingMsgEl = null;
+      this.#streamingMsgId = null;
+      this.#streamPaintSource = null;
       this.#recomputeDaySeparators();
       this.#recomputeMessageTimestampVisibility();
       this.#scrollToBottom();
@@ -4193,6 +4300,7 @@ class BokitoChatWidget extends HTMLElement {
       };
       this.#appendMessage(finalObj);
       this.#renderedMsgIds.add(finalObj.id);
+      this.#streamPaintSource = null;
     }
     return true;
   }
@@ -4532,7 +4640,7 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#pollTimer) { clearInterval(this.#pollTimer); this.#pollTimer = null; }
   }
 
-  // Animate streaming deltas 2 chars per frame (~120 chars/sec at 60fps) for visible typewriter effect
+  // Animate streaming deltas a few chars per frame for a visible typewriter effect
   #drainDeltaQueue() {
     if (this.#deltaRaf) return;
     const step = () => {
@@ -4590,7 +4698,16 @@ class BokitoChatWidget extends HTMLElement {
     this.#renderedMsgIds.add(obj.id);
     if (this.#streamingMsgEl) {
       const bubble = this.#streamingMsgEl.querySelector('.bk-msg-bubble');
-      if (bubble) bubble.innerHTML = MarkdownRenderer.render(obj.message_content);
+      const prevHeight = bubble ? bubble.offsetHeight : 0;
+      if (bubble) {
+        if (prevHeight > 0) bubble.style.minHeight = `${prevHeight}px`;
+        bubble.innerHTML = MarkdownRenderer.render(obj.message_content);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (bubble) bubble.style.minHeight = '';
+          });
+        });
+      }
       const finalizedAt = obj.created_at || new Date().toISOString();
       this.#streamingMsgEl.dataset.createdAt = String(finalizedAt);
       this.#streamingMsgEl.dataset.createdAtMs = String(this.#toEpochMs(finalizedAt) ?? Date.now());
@@ -4601,6 +4718,7 @@ class BokitoChatWidget extends HTMLElement {
     }
     if (this.#deltaRaf) { cancelAnimationFrame(this.#deltaRaf); this.#deltaRaf = null; }
     this.#deltaQueue = [];
+    this.#streamPaintSource = null;
     if (this.#nonBlockingSend && this.#activeSend) this.#finishAssistantTurn('streaming_delta');
     else if (this.#sm.state === 'processing') this.#sm.transition('active');
     this.#recomputeDaySeparators();
@@ -4624,6 +4742,9 @@ class BokitoChatWidget extends HTMLElement {
         const delta = obj.delta || '';
         if (!delta) break;
         if (!this.#activeSend && (this.#suppressedAiQuota > 0 || (Date.now() - this.#lastAbortAt) <= this.#staleSuppressGraceMs)) break;
+        // When HTTP SSE already paints this turn, ignore WS deltas to avoid double typewriter.
+        if (this.#streamPaintSource === 'sse') break;
+        this.#streamPaintSource = 'ws';
         // Ensure streaming bubble exists
         if (!this.#streamingMsgEl) {
           this.#thinkingEl.style.display = 'none';
@@ -4853,8 +4974,21 @@ class BokitoChatWidget extends HTMLElement {
     this.#scrollToBottom();
   }
 
-  #scrollToBottom() {
-    requestAnimationFrame(() => { this.#messageList.scrollTop = this.#messageList.scrollHeight; });
+  #isScrolledNearBottom(thresholdPx = 80) {
+    const el = this.#messageList;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= thresholdPx;
+  }
+
+  #scrollToBottom({ force = false } = {}) {
+    if (!force && !this.#scrollPinnedToBottom && !this.#isScrolledNearBottom()) return;
+    this.#scrollPinnedToBottom = true;
+    if (this.#scrollRaf) return;
+    this.#scrollRaf = requestAnimationFrame(() => {
+      this.#scrollRaf = null;
+      if (!this.#messageList) return;
+      this.#messageList.scrollTop = this.#messageList.scrollHeight;
+    });
   }
 
   /* ── CSAT (conversation rating) ─────────────────────────────── */

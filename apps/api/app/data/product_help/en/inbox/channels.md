@@ -29,9 +29,10 @@ Use this when your provider has no Gmail or Outlook OAuth card (for example Host
 2. Under **Mailbox login**, enter **Email address** and **Password** (prefer an app password). Open **Username differs from email address** only when the login name is different.
 3. Under **Provider**, pick a preset (**Gmail**, **Outlook / Microsoft 365**, **Yahoo**, **iCloud**, **Zoho**) to fill hosts and ports, or **Custom** for your own hosting. Bokito may suggest a preset from the email domain.
 4. Check **Incoming mail (IMAP)** (server, port, encryption), then optionally **Outgoing mail uses the same server as incoming**, then **Outgoing mail (SMTP)** (server, port, encryption). Open **Need help finding server settings?** for ports and firewall tips.
-5. Choose **Connect and verify**. Bokito logs in to IMAP and SMTP; on success the row appears in **Channels** and Inbox mail syncs into Communication. Replies send through SMTP from this address.
+5. Under **How far back should we sync?**, pick **7**, **30** (recommended), **90**, or **1 year**.
+6. Choose **Connect and sync**. Bokito logs in to IMAP and SMTP, imports that history, and only then shows the row in **Channels** as **Active**. Replies send through SMTP from this address.
 
-If verify fails with a network error, outbound ports 993, 587 or 465 may be blocked on the server that runs the API or workers.
+If connect fails with a network error, outbound ports 993, 587 or 465 may be blocked on the server that runs the API. A failed first sync does not leave a half-connected row.
 
 ## Create a Bokito address
 
@@ -46,9 +47,12 @@ A Bokito address receives and sends; it has no sync, so it shows no folders or l
 ## Connect Gmail or Outlook
 
 1. Choose **Add channel**, then **Email**.
-2. Choose **Gmail** or **Outlook** to open the provider's sign-in prompt.
-3. Back in the list, open the row menu for **Rename**, **Sync now**, **Folders**, **Signature**, **Routing**, **Make primary sender**, or **Remove**.
-4. If the state badge reads **Action needed**, choose **Reconnect** before you try to send.
+2. Choose **Gmail** or **Outlook**.
+3. Pick **How far back should we sync?** (**7**, **30** recommended, **90**, or **1 year**), then **Continue with Gmail** or **Continue with Outlook**.
+4. Sign in at the provider. Bokito runs the first sync before the channel shows as **Active** — success only means install finished.
+5. Back in the list, open the row menu for **Rename**, **Folders**, **Signature**, **Routing**, **Make primary sender**, or **Remove**. Day-to-day sync runs automatically; **Retry sync** appears only when a mailbox has a sync problem.
+
+If the state badge reads **Action needed**, choose **Reconnect** (or fix settings and retry) before you try to send.
 
 ## Rename a channel
 
@@ -61,11 +65,11 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 
 ## Read a channel's state and checks
 
-1. Look at the state badge on the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused** or **Error**.
+1. Look at the state badge on the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused** or **Error**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
 2. When any channel still needs setup, a yellow notice appears above the list. Channels in **Setup required**, **Action needed** or **Error** open their **Checks** panel automatically.
-3. The chips next to the badge show what the channel can do: **Receive**, **Send**, **Sync**. A channel can show **Send** and still be blocked until every required check is OK.
+3. The chips next to the badge show what the channel can do: **Receive**, **Send**, **Sync**. Day-to-day sync runs automatically; **Retry sync** appears only when a mailbox has a sync problem.
 4. Click the arrow at the start of the row to open **Checks**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
-5. For a mailbox, **History** in the same panel sets how far back mail is backfilled when it (re)connects.
+5. For a mailbox, **History** in the same panel is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
 6. Use the toggle to pause a channel. A paused channel keeps its history but receives nothing new.
 
 In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked.

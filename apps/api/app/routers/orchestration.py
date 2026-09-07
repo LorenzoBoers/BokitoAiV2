@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +18,7 @@ from app.models.agent import AgentRun, RunEvent
 from app.models.orchestration import AgentTask, TaskArtifact
 from app.services.orchestration.dispatcher import (
     cancel_agent_task,
+    complete_agent_task,
     create_agent_task,
     resume_agent_task,
     serialize_agent_task,
@@ -35,6 +37,13 @@ class AgentTaskCreate(BaseModel):
     agent_id: UUID | None = None
     signal_id: UUID | None = None
     success_criteria_json: str = "{}"
+    assignee_kind: Literal["agent", "human"] = "agent"
+    assignee_user_id: UUID | None = None
+    scheduled_for: datetime | None = None
+    origin: str = "manual"
+    kind: str = "job"
+    # Only agent tasks may auto-start; human follow-ups stay on the Agenda.
+    auto_start: bool | None = None
 
 
 @router.get("/tasks")
@@ -42,12 +51,32 @@ async def list_tasks(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     signal_id: UUID | None = None,
+    open_only: bool = False,
 ):
     query = select(AgentTask).where(AgentTask.tenant_id == auth.tenant.id)
     if signal_id is not None:
         query = query.where(AgentTask.signal_id == signal_id)
+    if open_only or signal_id is not None:
+        # Thread follow-ups: prefer open human/scheduled work and raise the cap
+        # so agent job history does not bury them.
+        from sqlalchemy import or_
+
+        query = query.where(
+            AgentTask.status.notin_(("completed", "cancelled", "rejected", "failed"))
+        )
+        if signal_id is not None:
+            query = query.where(
+                or_(
+                    AgentTask.assignee_kind == "human",
+                    AgentTask.scheduled_for.is_not(None),
+                    AgentTask.status == "awaiting_human",
+                )
+            )
+        limit = 100
+    else:
+        limit = 50
     rows = (
-        await session.execute(query.order_by(AgentTask.created_at.desc()).limit(50))
+        await session.execute(query.order_by(AgentTask.created_at.desc()).limit(limit))
     ).scalars().all()
     return [serialize_agent_task(t) for t in rows]
 
@@ -58,6 +87,12 @@ async def create_task(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    is_human = body.assignee_kind == "human"
+    auto_start = body.auto_start
+    if auto_start is None:
+        auto_start = not is_human and body.scheduled_for is None
+    if is_human:
+        auto_start = False
     task = await create_agent_task(
         session,
         auth.tenant.id,
@@ -69,7 +104,12 @@ async def create_task(
         signal_id=body.signal_id,
         success_criteria_json=body.success_criteria_json,
         created_by=auth.user.id,
-        auto_start=True,
+        auto_start=auto_start,
+        kind=body.kind,
+        origin=body.origin,
+        assignee_kind=body.assignee_kind,
+        assignee_user_id=body.assignee_user_id or (auth.user.id if is_human else None),
+        scheduled_for=body.scheduled_for,
     )
     await session.refresh(task)
     return serialize_agent_task(task)
@@ -110,6 +150,16 @@ async def run_task(
     if not await enqueue_agent_task_segment(str(auth.tenant.id), str(task.id)):
         await run_agent_task_segment(session, auth.tenant.id, task.id)
     return {"ok": True}
+
+
+@router.post("/tasks/{task_id}/complete")
+async def complete_task(
+    task_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    task = await complete_agent_task(session, auth.tenant.id, task_id)
+    return serialize_agent_task(task)
 
 
 @router.post("/tasks/{task_id}/cancel")

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -37,7 +37,6 @@ import {
   getConnectionSignature,
   listRoutingRules,
   saveConnectionSignature,
-  syncMailboxes,
   updateRoutingRule,
   type RoutingRuleApi,
 } from '../lib/email-api'
@@ -142,7 +141,6 @@ export default function InboxSettings() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [pageAlert, setPageAlert] = useState<InboxSettingsAlert | null>(null)
-  const [syncingAll, setSyncingAll] = useState(false)
 
   const [signatureTarget, setSignatureTarget] = useState<MailboxTarget | null>(null)
   const [signatureHtml, setSignatureHtml] = useState('')
@@ -173,11 +171,6 @@ export default function InboxSettings() {
   useEffect(() => {
     void refreshChannels()
   }, [refreshChannels])
-
-  const hasSyncable = useMemo(
-    () => channels.some((row) => row.capabilities.includes('sync')),
-    [channels],
-  )
 
   const mailboxTarget = useCallback(
     (row: ChannelRow): MailboxTarget | null => {
@@ -296,24 +289,6 @@ export default function InboxSettings() {
     },
     [token, applyRow, t],
   )
-
-  const handleSyncAll = useCallback(async () => {
-    if (!token || syncingAll) return
-    setSyncingAll(true)
-    try {
-      const result = await syncMailboxes(token)
-      toast.success(
-        result.synced > 0
-          ? t('channelsPage.syncedCount', { count: result.synced })
-          : t('channelsPage.syncedNone'),
-      )
-      await refreshChannels()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('channelsPage.couldNotSync')))
-    } finally {
-      setSyncingAll(false)
-    }
-  }, [token, syncingAll, refreshChannels, t])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!token || !deleteTarget) return
@@ -590,15 +565,6 @@ export default function InboxSettings() {
           description={t('channelsPage.listDescription')}
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={syncingAll || !hasSyncable}
-                onClick={() => void handleSyncAll()}
-              >
-                <RefreshCw size={14} className={syncingAll ? 'animate-spin' : undefined} />
-                {syncingAll ? t('channelsPage.syncing') : t('channelsPage.syncNow')}
-              </Button>
               <Button size="sm" onClick={() => setAddOpen(true)}>
                 <Plus size={14} />
                 {t('channelsPage.addChannel')}

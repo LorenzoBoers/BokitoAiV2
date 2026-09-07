@@ -156,11 +156,14 @@ channels:
     - apps/dashboard/src/components/inbox/ChannelStateBadge.tsx
     - apps/dashboard/src/components/inbox/WhatsAppConnectForm.tsx
     - apps/dashboard/src/components/inbox/SmtpImapConnectForm.tsx
+    - apps/dashboard/src/components/inbox/MailboxSyncWindowField.tsx
     - apps/dashboard/src/lib/channel-surface.ts
     - apps/dashboard/src/components/inbox/FoldersAndTagsManager.tsx
     - apps/api/app/services/channel_registry.py
     - apps/api/app/services/email_relay.py
     - apps/api/app/services/smtp_imap.py
+    - apps/api/app/services/oauth_flow.py
+    - apps/api/app/services/email_sync.py
     - apps/api/app/routers/channels.py
   screenshots:
     - mailbox-status

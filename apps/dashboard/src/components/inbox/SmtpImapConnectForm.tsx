@@ -14,6 +14,9 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboxPath } from '../../lib/messages-paths'
 import { cn } from '../../lib/utils'
 import ConnectStepRail from './ConnectStepRail'
+import MailboxSyncWindowField, {
+  DEFAULT_INSTALL_SYNC_WINDOW_DAYS,
+} from './MailboxSyncWindowField'
 
 type SmtpMode = 'starttls' | 'ssl'
 type PresetId = 'custom' | 'gmail' | 'outlook' | 'yahoo' | 'icloud' | 'zoho'
@@ -131,6 +134,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
   const [smtpMode, setSmtpMode] = useState<SmtpMode>('starttls')
   const [sameHost, setSameHost] = useState(false)
   const [tipsOpen, setTipsOpen] = useState(false)
+  const [syncWindowDays, setSyncWindowDays] = useState(DEFAULT_INSTALL_SYNC_WINDOW_DAYS)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
@@ -196,6 +200,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
         smtpPort: Number(smtpPort) || (smtpMode === 'ssl' ? 465 : 587),
         smtpSsl: smtpMode === 'ssl',
         smtpStarttls: smtpMode === 'starttls',
+        syncWindowDays,
       })
       createdId = account.id
       await verifySmtpImapAccount(token, account.id)
@@ -217,6 +222,8 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
         setError(t('channelsPage.email.smtp.networkError'))
       } else if (lower.includes('login') || lower.includes('password') || lower.includes('auth')) {
         setError(t('channelsPage.email.smtp.authError'))
+      } else if (lower.includes('sync')) {
+        setError(msg || t('channelsPage.email.smtp.syncError'))
       } else {
         setError(msg || t('channelsPage.email.smtp.couldNotConnect'))
       }
@@ -236,6 +243,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
     smtpPort,
     smtpMode,
     sameHost,
+    syncWindowDays,
     onConnected,
     t,
   ])
@@ -500,6 +508,13 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               </ol>
             ) : null}
           </div>
+
+          <MailboxSyncWindowField
+            value={syncWindowDays}
+            onChange={setSyncWindowDays}
+            disabled={busy}
+            id="smtp-imap-sync-window"
+          />
 
           {error ? <p className="text-xs text-status-error">{error}</p> : null}
 

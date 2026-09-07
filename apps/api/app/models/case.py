@@ -36,6 +36,8 @@ class CaseType(SQLModel, table=True):
     # label = stamp only (never queue); track = queue without route;
     # route = expect workstream/project bindings.
     follow_up_mode: str = "track"
+    # When true, opening/linking a case also opens one human AgentTask on the ledger.
+    follow_up_task: bool = False
     ask_threshold: int = 6
     auto_threshold: int = 9
     requires_verification: bool = False

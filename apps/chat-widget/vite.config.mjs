@@ -3,6 +3,11 @@ import { resolve } from 'node:path'
 
 export default defineConfig({
   publicDir: 'public',
+  resolve: {
+    alias: {
+      '@bokito/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),
+    },
+  },
   server: {
     port: 8787,
     open: '/chat-standalone.html',

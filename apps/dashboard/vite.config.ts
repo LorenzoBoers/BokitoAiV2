@@ -60,6 +60,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), chatWidgetDevPlugin()],
+    resolve: {
+      alias: {
+        '@bokito/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      },
+    },
     build: {
       rollupOptions: {
         output: {

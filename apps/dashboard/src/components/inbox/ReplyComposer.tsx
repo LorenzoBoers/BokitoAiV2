@@ -9,7 +9,7 @@ import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { AiMark } from '../ai/AiMark'
 import ProviderLogo from '../email/ProviderLogo'
 import { useMembers } from '../../hooks/useMembers'
-import { useSpeechDictation } from '../../hooks/useSpeechDictation'
+import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDictation'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -305,10 +305,7 @@ export default function ReplyComposer({
   }, [persistKey])
 
   const appendDictation = (chunk: string) => {
-    setBody((prev) => {
-      const base = prev.trimEnd()
-      return base ? `${base} ${chunk}` : chunk
-    })
+    setBody((prev) => appendSpeechChunk(prev, chunk))
     setDictationInterim('')
   }
   const dictationInterimRef = useRef('')
@@ -318,10 +315,12 @@ export default function ReplyComposer({
     onInterim: setDictationInterim,
   })
   const confirmDictation = () => {
+    // stop() closes the recognition session first so a trailing final cannot
+    // re-append the same phrase we are about to commit from interim.
     const pending = dictationInterimRef.current.trim()
+    dictation.stop()
     if (pending) appendDictation(pending)
     else setDictationInterim('')
-    dictation.stop()
   }
   // Show committed text plus live interim so the field grows and operators can
   // follow what SpeechRecognition is still refining.
@@ -355,7 +354,7 @@ export default function ReplyComposer({
   const isNote = mode === 'note'
   const isAgent = mode === 'agent'
   const isReply = mode === 'reply'
-  const busy = saving || agentStreaming
+  const busy = saving
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
 
@@ -364,7 +363,6 @@ export default function ReplyComposer({
     snoozeMinutes?: number,
   ) => {
     if (isReply && replyBlocked) return
-    if (isAgent && agentStreaming) return
     const text = body.trim()
     if (!text && attachments.length === 0) return
     const payload = attachments.length ? attachments : undefined
@@ -377,6 +375,7 @@ export default function ReplyComposer({
         setDraftRestored(false)
         writeStoredDraft(persistKey, '')
         await onAgentMessage(text)
+        requestAnimationFrame(() => textareaRef.current?.focus())
         return
       } else if (isNote) {
         await onNote(text, payload)
@@ -806,7 +805,7 @@ export default function ReplyComposer({
           {dictation.supported ? (
             <DictationMicButton
               listening={dictation.listening}
-              disabled={saving || disabled || busy || (isAgent && agentStreaming)}
+              disabled={saving || disabled}
               onStart={() => {
                 dictation.start()
               }}
@@ -822,7 +821,7 @@ export default function ReplyComposer({
           >
             <Paperclip size={14} />
           </button>
-          <div className="flex h-8 shrink-0 overflow-hidden rounded-xl">
+          <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-xl">
             {isAgent && agentStreaming ? (
               <button
                 type="button"
@@ -833,8 +832,7 @@ export default function ReplyComposer({
                 <Square size={13} />
                 <span className="text-[11px] font-medium">{t('directChat.stop', { defaultValue: 'Stop' })}</span>
               </button>
-            ) : (
-              <>
+            ) : null}
             <button
               type="button"
               disabled={(!body.trim() && attachments.length === 0) || busy || disabled || uploading}
@@ -899,8 +897,6 @@ export default function ReplyComposer({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
-              </>
-            )}
           </div>
         </ComposerCard>
         )}

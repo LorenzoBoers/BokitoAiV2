@@ -15,7 +15,7 @@ describe('mergeSessionLiveMessages', () => {
       text: '',
       thinking: '',
       active: false,
-      optimisticUser: null,
+      optimisticUsers: [],
     }
     expect(mergeSessionLiveMessages(base, stream)).toEqual(base)
   })
@@ -25,12 +25,14 @@ describe('mergeSessionLiveMessages', () => {
       text: 'Hello',
       thinking: '',
       active: true,
-      optimisticUser: {
-        id: 'local-1',
-        role: 'user',
-        content: 'ping',
-        created_at: '2026-01-01T00:00:01Z',
-      },
+      optimisticUsers: [
+        {
+          id: 'local-1',
+          role: 'user',
+          content: 'ping',
+          created_at: '2026-01-01T00:00:01Z',
+        },
+      ],
     }
     const merged = mergeSessionLiveMessages(base, stream)
     expect(merged).toHaveLength(3)

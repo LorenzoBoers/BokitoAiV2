@@ -98,8 +98,9 @@ async def test_mock_connect_shows_connected_and_sync_skips(client: AsyncClient, 
     sync = await client.post("/api/email/sync", headers=headers)
     assert sync.status_code == 200
     statuses = {r["status"] for r in sync.json()["results"]}
-    assert "mock_skipped" in statuses
+    assert "ok" in statuses or "fresh" in statuses
     assert "error" not in statuses
+    assert "mock_skipped" not in statuses
     # No last_error may appear after syncing a mock mailbox.
     accounts_after = await client.get("/api/email/accounts", headers=headers)
     assert _mine(accounts_after.json())["status"] == "connected"

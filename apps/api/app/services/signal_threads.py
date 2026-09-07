@@ -2137,6 +2137,9 @@ async def resolve_message_decision(
                 description=f"Created from a decision on this conversation ({who}).",
                 signal_id=signal.id,
                 created_by=user_id,
+                origin="conversation",
+                assignee_kind="human",
+                assignee_user_id=user_id,
                 trigger_type="decision",
                 auto_start=False,
             )

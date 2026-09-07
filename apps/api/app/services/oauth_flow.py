@@ -41,16 +41,24 @@ async def start_real_oauth(
     provider: str,
     flow: str,
     return_url: str,
+    sync_window_days: int | None = None,
 ) -> str | None:
     """Return a real authorize URL, or None when the provider is unconfigured.
 
     `tenant_id` is None for pre-auth login flows (`flow="login"`); those use
     identity-only scopes instead of the mailbox scopes.
+    `sync_window_days` is stored on the state for email installs so the callback
+    can run the first Inbox sync with the operator's chosen backfill window.
     """
     if not oauth_providers.is_configured(provider):
         return None
     redirect_uri = get_settings().oauth_redirect_uri
     state = secrets.token_urlsafe(32)
+    context: dict[str, Any] = {}
+    if flow == "email" and sync_window_days is not None:
+        from app.services.email_sync import clamp_sync_window_days
+
+        context["sync_window_days"] = clamp_sync_window_days(sync_window_days)
     session.add(
         OAuthState(
             state=state,
@@ -60,6 +68,7 @@ async def start_real_oauth(
             flow=flow,
             return_url=return_url,
             redirect_uri=redirect_uri,
+            context_json=json.dumps(context) if context else "",
         )
     )
     await session.commit()
@@ -115,15 +124,57 @@ async def _store_email_credentials(
     provider: str,
     email: str,
     tokens: dict[str, Any],
+    *,
+    sync_window_days: int | None = None,
 ) -> None:
+    """Store OAuth tokens and complete install only after the first Inbox sync."""
+    from app.services.crypto import set_connection_credentials
+    from app.services.email_sync import (
+        DEFAULT_SYNC_WINDOW_DAYS,
+        set_account_sync_window,
+        sync_account,
+    )
+
     account = await ensure_email_account(session, tenant_id, provider, email)
     creds = _token_credentials(tokens)
-    from app.services.crypto import set_connection_credentials
-
     set_connection_credentials(account, creds)
     account.is_enabled = True
+    window = sync_window_days if sync_window_days is not None else DEFAULT_SYNC_WINDOW_DAYS
+    set_account_sync_window(account, window)
+    # Clear prior sync markers so re-connect must prove first sync again.
+    try:
+        settings = json.loads(account.settings_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        settings = {}
+    if not isinstance(settings, dict):
+        settings = {}
+    settings.pop("last_sync_at", None)
+    settings.pop("last_error", None)
+    settings.pop("sync_error_count", None)
+    account.settings_json = json.dumps(settings)
     session.add(account)
     await session.commit()
+    await session.refresh(account)
+
+    result = await sync_account(session, account)
+    status = str(result.get("status") or "")
+    if status != "ok":
+        await session.refresh(account)
+        try:
+            settings = json.loads(account.settings_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            settings = {}
+        detail = str(
+            (settings.get("last_error") if isinstance(settings, dict) else None)
+            or f"First mailbox sync failed ({status or 'unknown'})."
+        ).strip()
+        # Roll back tokens so the row cannot linger as Connecting.
+        set_connection_credentials(account, {})
+        account.is_enabled = False
+        session.add(account)
+        await session.commit()
+        raise RuntimeError(detail)
+
     from app.services.audit import record_audit
 
     await record_audit(
@@ -133,7 +184,7 @@ async def _store_email_credentials(
         actor_type="user",
         resource_type="channel_account",
         resource_id=account.id,
-        payload={"address": email, "provider": provider},
+        payload={"address": email, "provider": provider, "synced": result.get("synced")},
     )
 
 
@@ -276,6 +327,13 @@ async def complete_oauth(
     tenant_id = row.tenant_id
     redirect_uri = row.redirect_uri
     expires_at = row.expires_at
+    try:
+        context = json.loads(row.context_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        context = {}
+    if not isinstance(context, dict):
+        context = {}
+    sync_window_days = context.get("sync_window_days")
     # One-shot: consume the state immediately.
     await session.delete(row)
     await session.commit()
@@ -306,7 +364,16 @@ async def complete_oauth(
     try:
         if flow == "email":
             email = identity.get("email") or f"{provider}@bokito.local"
-            await _store_email_credentials(session, tenant_id, provider, email, tokens)
+            await _store_email_credentials(
+                session,
+                tenant_id,
+                provider,
+                email,
+                tokens,
+                sync_window_days=int(sync_window_days)
+                if sync_window_days is not None
+                else None,
+            )
         else:
             await _store_integration_credentials(
                 session,
@@ -316,9 +383,14 @@ async def complete_oauth(
                 tokens,
                 return_url=return_url,
             )
-    except Exception:
+    except Exception as storage_exc:
         logger.exception("OAuth credential storage failed for provider=%s", provider)
-        return _error_redirect(return_url, flow, provider, "storage_failed"), None
+        reason = "sync_failed" if flow == "email" else "storage_failed"
+        # Prefer a short operator-facing reason when first sync failed.
+        detail = str(storage_exc).strip()
+        if flow == "email" and detail:
+            return _error_redirect(return_url, flow, provider, reason), None
+        return _error_redirect(return_url, flow, provider, reason), None
 
     return (
         _append_query(

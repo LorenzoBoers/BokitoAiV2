@@ -243,7 +243,7 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
         sync_state, sync_detail = "warn", _iso(last_sync) or ""
     else:
         sync_state, sync_detail = "ok", _iso(last_sync) or ""
-    checks.append(_check("last_sync", sync_state, detail=sync_detail, action="sync_now"))
+    checks.append(_check("last_sync", sync_state, detail=sync_detail, action="retry_sync"))
 
     if ctx.last_error:
         checks.append(
@@ -251,17 +251,23 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
                 "sync_errors",
                 "fail" if error_count >= SYNC_ERROR_LIMIT or network_fail else "warn",
                 detail=ctx.last_error,
-                action="sync_now" if not network_fail else "reconnect",
+                action="retry_sync" if not network_fail else "reconnect",
                 fail_state="action_required" if network_fail else "error",
             )
         )
     else:
         checks.append(_check("sync_errors", "ok"))
 
+    # Manual sync is not a day-to-day control — only offer retry when broken.
+    sync_broken = bool(ctx.last_error) or sync_state in ("pending", "warn", "fail")
+    actions = ["reconnect", "pause", "remove"]
+    if sync_broken and connected:
+        actions.insert(0, "retry_sync")
+
     return ChannelFacts(
         capabilities=("receive", "send", "sync"),
         checks=checks,
-        actions=["sync_now", "reconnect", "pause", "remove"],
+        actions=actions,
     )
 
 

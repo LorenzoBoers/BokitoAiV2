@@ -1,8 +1,13 @@
 /**
  * Client-side hold-to-talk / toggle dictation via the Web Speech API.
  * Falls back gracefully when the browser has no speech recognition.
+ *
+ * Commit/dedupe rules live in `@bokito/shared` so the chat-widget stays aligned.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { appendSpeechChunk, consumeSpeechResults } from '@bokito/shared'
+
+export { appendSpeechChunk } from '@bokito/shared'
 
 type SpeechRecognitionLike = {
   continuous: boolean
@@ -42,12 +47,16 @@ export function useSpeechDictation(opts: {
   const [listening, setListening] = useState(false)
   const [supported] = useState(() => speechDictationSupported())
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  /** When true, ignore further recognition events (set before stop/abort). */
+  const closedRef = useRef(true)
   const onFinalRef = useRef(opts.onFinal)
   const onInterimRef = useRef(opts.onInterim)
   onFinalRef.current = opts.onFinal
   onInterimRef.current = opts.onInterim
 
   const stop = useCallback(() => {
+    // Close first so a late final (same text as the last interim) is ignored.
+    closedRef.current = true
     const rec = recognitionRef.current
     recognitionRef.current = null
     try {
@@ -56,6 +65,7 @@ export function useSpeechDictation(opts: {
       // already stopped
     }
     setListening(false)
+    onInterimRef.current?.('')
   }, [])
 
   const start = useCallback(() => {
@@ -66,23 +76,33 @@ export function useSpeechDictation(opts: {
     rec.continuous = true
     rec.interimResults = true
     rec.lang = opts.lang || (typeof navigator !== 'undefined' ? navigator.language : 'en-US')
+    let nextFinalIndex = 0
+    closedRef.current = false
     rec.onresult = (event) => {
-      let interim = ''
-      let finalChunk = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (closedRef.current) return
+      const mapped = Array.from({ length: event.results.length }, (_, i) => {
         const row = event.results[i]
-        const piece = row[0]?.transcript ?? ''
-        if (row.isFinal) finalChunk += piece
-        else interim += piece
-      }
-      if (finalChunk.trim()) onFinalRef.current(finalChunk.trim())
-      if (interim.trim()) onInterimRef.current?.(interim.trim())
+        return {
+          isFinal: Boolean(row?.isFinal),
+          transcript: row?.[0]?.transcript ?? '',
+        }
+      })
+      const { nextFinalIndex: next, finalChunk, interim } = consumeSpeechResults(
+        mapped,
+        nextFinalIndex,
+      )
+      nextFinalIndex = next
+      if (finalChunk) onFinalRef.current(finalChunk)
+      onInterimRef.current?.(interim)
     }
     rec.onerror = () => {
+      closedRef.current = true
       setListening(false)
       recognitionRef.current = null
+      onInterimRef.current?.('')
     }
     rec.onend = () => {
+      closedRef.current = true
       setListening(false)
       recognitionRef.current = null
     }
@@ -92,6 +112,7 @@ export function useSpeechDictation(opts: {
       setListening(true)
       return true
     } catch {
+      closedRef.current = true
       setListening(false)
       recognitionRef.current = null
       return false

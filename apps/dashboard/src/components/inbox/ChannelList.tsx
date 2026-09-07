@@ -38,6 +38,7 @@ import { BrandMark } from '../integrations/BrandMark'
 import AgentBindingPicker from '../settings/AgentBindingPicker'
 import ChannelVisibilityPicker from '../settings/ChannelVisibilityPicker'
 import { ChannelCapabilityChips, ChannelStateBadge } from './ChannelStateBadge'
+import { CHANNEL_SYNC_WINDOW_OPTIONS } from './MailboxSyncWindowField'
 import { formatAppDateTime } from '../../lib/app-locale'
 import type { ChannelCheck, ChannelCheckState, ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
@@ -86,9 +87,6 @@ function ChannelIcon({ row }: { row: ChannelRow }) {
 }
 
 const ISO_DETAIL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
-
-/** Backfill windows offered per sync channel; 0 means no limit. */
-const SYNC_WINDOW_OPTIONS = [7, 30, 90, 365, 0]
 
 function CheckLine({ check }: { check: ChannelCheck }) {
   const { t, i18n } = useTranslation('nav')
@@ -242,6 +240,14 @@ export default function ChannelList({
         const busy = busyId === row.id
         const canSync = row.capabilities.includes('sync')
         const needsReconnect = row.actions.includes('reconnect') && row.state === 'action_required'
+        // Manual sync is recovery-only — never a day-to-day control.
+        const needsRetrySync =
+          canSync &&
+          (row.actions.includes('retry_sync') ||
+            row.actions.includes('sync_now') ||
+            row.state === 'error' ||
+            row.state === 'degraded' ||
+            (row.state === 'connecting' && Boolean(row.lastError)))
         const lastActivity = row.lastEventAt ?? row.lastSyncAt
         return (
           <li key={row.id} className="px-4 py-3">
@@ -281,6 +287,9 @@ export default function ChannelList({
                       : t('channelsPage.noActivityYet')}
                   </span>
                 </div>
+                {needsRetrySync && row.lastError ? (
+                  <p className="mt-1 text-xs text-status-error">{row.lastError}</p>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -300,6 +309,17 @@ export default function ChannelList({
                   >
                     <Wifi size={13} />
                     {t('channelsPage.reconnect')}
+                  </button>
+                ) : null}
+                {needsRetrySync ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onSync(row)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-status-warning/40 bg-status-warning/10 px-2.5 py-1 text-xs font-medium text-text-heading transition-colors hover:bg-status-warning/20 disabled:opacity-60"
+                  >
+                    <RefreshCw size={13} className={busy ? 'animate-spin' : undefined} />
+                    {busy ? t('channelsPage.syncing') : t('channelsPage.retrySync')}
                   </button>
                 ) : null}
                 <DropdownMenu>
@@ -323,10 +343,10 @@ export default function ChannelList({
                       <PenLine size={13} />
                       {t('channelsPage.rename')}
                     </DropdownMenuItem>
-                    {canSync ? (
+                    {needsRetrySync ? (
                       <DropdownMenuItem className="gap-2 text-xs" disabled={busy} onSelect={() => onSync(row)}>
                         <RefreshCw size={13} />
-                        {t('channelsPage.syncNow')}
+                        {t('channelsPage.retrySync')}
                       </DropdownMenuItem>
                     ) : null}
                     {row.address ? (
@@ -412,6 +432,9 @@ export default function ChannelList({
                       <h4 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                         {t('channelsPage.history')}
                       </h4>
+                      <p className="mt-1 text-[11px] leading-snug text-text-muted">
+                        {t('channelsPage.historyAdvancedHint')}
+                      </p>
                       <select
                         value={String(row.syncWindowDays)}
                         disabled={busy}
@@ -419,7 +442,7 @@ export default function ChannelList({
                         aria-label={t('channelsPage.historyAria')}
                         className="mt-2 rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-1 text-xs text-text-primary outline-none focus:border-accent/60"
                       >
-                        {SYNC_WINDOW_OPTIONS.map((days) => (
+                        {CHANNEL_SYNC_WINDOW_OPTIONS.map((days) => (
                           <option key={days} value={days}>
                             {days === 0
                               ? t('channelsPage.everything')

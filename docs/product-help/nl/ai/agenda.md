@@ -16,9 +16,9 @@ Agenda is wanneer agents wakker worden, en waar gekoppelde kalenders afspraken t
 ![Agenda-weekweergave](/api/docs/assets/agenda/week.png)
 *Week toont geplande wakes en kalenderafspraken per dag.*
 
-1. Open **Agenda**. **Week** toont geplande runs en kalenderafspraken per dag.
-2. Wissel naar **Lijst** voor dezelfde planning als feed. Filter met **Alles**, **Wakes** of **Kalender**.
-3. Vandaag is gemarkeerd zodat je ziet wat als volgende afgaat.
+1. Open **Agenda**. **Week** toont geplande runs, opvolgtaken en kalenderafspraken per dag.
+2. Wissel naar **Lijst** voor dezelfde planning als feed. Filter met **Alles**, **Wakes**, **Opvolging** of **Kalender**.
+3. Vandaag is gemarkeerd zodat je ziet wat als volgende afgaat. Opvolgtaken tonen **Klaar** zodat je menselijk werk kunt afronden zonder de Agenda te verlaten.
 
 ## Sync Google of Outlook Calendar
 
@@ -53,6 +53,14 @@ Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starte
 4. Heartbeats checken workspace-docs op een timer. On-demand chatruns horen in Activiteit, niet hier.
 
 Als de gekoppelde agent is gearchiveerd, faalt de wake tot je een andere agent kiest.
+
+## Rond een menselijke opvolging af
+
+1. Open **Agenda** en filter op **Opvolging**, of blijf op **Alles**.
+2. Klik op een opvolgchip om het gekoppelde gesprek in Berichten te openen, of kies **Klaar** om die af te ronden.
+3. Dezelfde open opvolging staat ook onder **Opvolging** in het zijpaneel van het gesprek, met dezelfde **Klaar**-knop.
+
+Opvolging is een `AgentTask` op de werk-ledger (vaak toegewezen aan een persoon). Dat zijn geen agent-wakes — wakes blijven onder **Wakes**.
 
 ## Laat agents hun eigen opvolging plannen
 

@@ -13,6 +13,7 @@ import {
   type MessageAttachment,
 } from '../../lib/inbox-api'
 import { getContactThreads } from '../../lib/contacts-api'
+import { listCasesForSignal, type CaseRow } from '../../lib/cases-api'
 import { MessageTimelineItem, EventClusterTimelineItem, formatHourMinute } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer, { type ComposerMode } from './ReplyComposer'
@@ -25,6 +26,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
+import { Input } from '../ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -299,80 +309,149 @@ const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
 }
 
 /**
- * Compact chips row under the thread header: priority selector plus the AI
- * triage badge. Classification lives on cases (`ThreadCasesList` in the
- * context panels), not on free-form tags.
+ * Compact chips row under the thread header: priority, cases on this
+ * conversation, optional AI triage, and the channel agent (right-aligned).
  */
 function ThreadMetaRow({
+  signalId,
   priority,
   saving,
   onPatch,
   triage,
+  agentId,
+  agentName,
 }: {
+  signalId: string
   priority: string
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
   triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
+  agentId?: string | null
+  agentName?: string | null
 }) {
-  const { t } = useTranslation('communication')
+  const { t } = useTranslation(['communication', 'nav'])
+  const [cases, setCases] = useState<CaseRow[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    void listCasesForSignal(signalId)
+      .then((rows) => {
+        if (!cancelled) setCases(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setCases([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [signalId])
 
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
-  const priorityLabel = t(priorityMeta.labelKey)
+  const priorityLabel = t(priorityMeta.labelKey, { ns: 'communication' })
+  const showAgent = Boolean(agentId || agentName)
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border/40 bg-bg-elevated px-3 py-1 shrink-0">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={saving}
-            aria-label={t('threadChrome.setPriority')}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
-              priority === 'normal'
-                ? 'border-border/60 text-text-muted hover:border-border hover:text-text-secondary'
-                : 'border-border/60 bg-bg-surface text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            <Flag size={10} />
-            <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
-            {priorityLabel}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-36">
-          {Object.entries(PRIORITY_META).map(([value, meta]) => (
-            <DropdownMenuItem
-              key={value}
-              className="gap-2 text-xs"
-              onSelect={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
+    <div className="flex items-center gap-2 border-b border-border/40 bg-bg-elevated px-3 py-1 shrink-0">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={saving}
+              aria-label={t('threadChrome.setPriority', { ns: 'communication' })}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
+                priority === 'normal'
+                  ? 'border-border/60 text-text-muted hover:border-border hover:text-text-secondary'
+                  : 'border-border/60 bg-bg-surface text-text-secondary hover:text-text-primary'
+              }`}
             >
-              <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-              {t(meta.labelKey)}
-              {value === priority ? <span className="ml-auto text-accent">•</span> : null}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <Flag size={10} />
+              <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
+              {priorityLabel}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-36">
+            {Object.entries(PRIORITY_META).map(([value, meta]) => (
+              <DropdownMenuItem
+                key={value}
+                className="gap-2 text-xs"
+                onSelect={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                {t(meta.labelKey, { ns: 'communication' })}
+                {value === priority ? <span className="ml-auto text-accent">•</span> : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      {triage && (triage.category || triage.certainty != null) ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] text-ai-ink">
-              <Sparkles size={10} className="text-ai-ink" />
-              {triage.category ? <span className="capitalize">{triage.category}</span> : null}
-              {triage.urgency != null ? (
-                <span className="text-text-muted">{t('triage.urgency', { value: triage.urgency })}</span>
-              ) : null}
-              {triage.certainty != null ? (
-                <span className="text-text-muted">{t('triage.certainty', { value: triage.certainty })}</span>
-              ) : null}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs text-xs">
-            {triage.summary?.trim() || t('triage.summaryFallback')}
-          </TooltipContent>
-        </Tooltip>
+        {cases.map((row) => {
+          const labelOnly = (row.case_type?.follow_up_mode ?? 'track') === 'label'
+          const name = row.title || row.case_type?.name || row.case_type?.slug || row.id
+          const active = !labelOnly && ['proposed', 'open', 'waiting_customer', 'waiting_operator', 'linked'].includes(row.status)
+          return (
+            <Link
+              key={row.id}
+              to="/cases"
+              title={
+                labelOnly
+                  ? t('cases.labelChip', { ns: 'nav', defaultValue: 'Label' })
+                  : t(`casesPage.statuses.${row.status}`, {
+                      ns: 'nav',
+                      defaultValue: row.status.replace(/_/g, ' '),
+                    })
+              }
+              className={`inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[11px] transition-colors hover:border-accent/40 ${
+                labelOnly
+                  ? 'border-border/60 text-text-muted'
+                  : active
+                    ? 'border-accent/40 bg-accent/5 text-accent'
+                    : 'border-border/60 text-text-secondary'
+              }`}
+            >
+              <Tag size={10} className="shrink-0 opacity-70" />
+              <span className="truncate">{name}</span>
+            </Link>
+          )
+        })}
+
+        {triage && (triage.category || triage.certainty != null) ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] text-ai-ink">
+                <Sparkles size={10} className="text-ai-ink" />
+                {triage.category ? <span className="capitalize">{triage.category}</span> : null}
+                {triage.urgency != null ? (
+                  <span className="text-text-muted">
+                    {t('triage.urgency', { ns: 'communication', value: triage.urgency })}
+                  </span>
+                ) : null}
+                {triage.certainty != null ? (
+                  <span className="text-text-muted">
+                    {t('triage.certainty', { ns: 'communication', value: triage.certainty })}
+                  </span>
+                ) : null}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs text-xs">
+              {triage.summary?.trim() || t('triage.summaryFallback', { ns: 'communication' })}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+      </div>
+
+      {showAgent ? (
+        <Link
+          to={agentId ? `/agents/${agentId}` : '/agents'}
+          className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-ai/30 bg-ai/10 px-2 py-0.5 text-[11px] font-medium text-ai-ink hover:border-ai/50 hover:bg-ai/15"
+          title={t('threadChrome.agentHandling', { ns: 'communication' })}
+        >
+          <Bot size={11} />
+          <span className="max-w-[9rem] truncate">
+            {agentName || t('listItem.agent', { ns: 'communication' })}
+          </span>
+        </Link>
       ) : null}
-
     </div>
   )
 }
@@ -878,6 +957,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [detail?.thread.contactEmail, membersById])
 
   const [creatingTask, setCreatingTask] = useState(false)
+  const [followUpOpen, setFollowUpOpen] = useState(false)
+  const [followUpTitle, setFollowUpTitle] = useState('')
+  const [followUpWhen, setFollowUpWhen] = useState<'today' | 'tomorrow' | 'next_week' | 'none'>('today')
   const [projectPickerOpen, setProjectPickerOpen] = useState(false)
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
@@ -925,31 +1007,73 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [token, detail, t])
 
+  const openFollowUpPlanner = useCallback(() => {
+    if (!detail) return
+    setFollowUpTitle(
+      detail.thread.emailSubject ||
+        t('threadChrome.followUp', { name: detail.thread.contactName || 'thread' }),
+    )
+    setFollowUpWhen('today')
+    setFollowUpOpen(true)
+  }, [detail, t])
+
+  const scheduledForIso = useCallback((when: 'today' | 'tomorrow' | 'next_week' | 'none'): string | null => {
+    const at = new Date()
+    if (when === 'none') return null
+    if (when === 'today') {
+      at.setHours(9, 0, 0, 0)
+      // If 09:00 already passed, keep due now (awaiting_human) by clearing schedule.
+      if (at.getTime() < Date.now()) return null
+      return at.toISOString()
+    }
+    if (when === 'tomorrow') {
+      at.setDate(at.getDate() + 1)
+      at.setHours(9, 0, 0, 0)
+      return at.toISOString()
+    }
+    // next_week
+    at.setDate(at.getDate() + 7)
+    at.setHours(9, 0, 0, 0)
+    return at.toISOString()
+  }, [])
+
   const handleCreateTaskFromThread = useCallback(async () => {
     if (!detail || creatingTask) return
+    const title = followUpTitle.trim()
+    if (!title) return
     setCreatingTask(true)
     try {
       const task = await createAgentTask({
-        title: detail.thread.emailSubject || t('threadChrome.followUp', { name: detail.thread.contactName || 'thread' }),
+        title,
         description: t('threadChrome.taskDescription', {
           who: detail.thread.contactEmail || detail.thread.contactName || t('threadChrome.unknownContact'),
         }),
         signal_id: String(detail.thread.id),
+        assignee_kind: 'human',
+        origin: 'conversation',
+        scheduled_for: scheduledForIso(followUpWhen),
+        auto_start: false,
       })
+      setFollowUpOpen(false)
       toast.success(t('threadChrome.taskCreated', { title: task.title }), {
         description: t('threadChrome.taskCreatedHint'),
         action: {
           label: t('threadChrome.openAgenda'),
-          onClick: () => navigate('/agenda'),
+          onClick: () => navigate('/agenda?view=list&source=tasks'),
         },
       })
+      window.dispatchEvent(
+        new CustomEvent('bokito:agent-tasks-changed', {
+          detail: { signalId: String(detail.thread.id) },
+        }),
+      )
       onRefresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('threadChrome.taskCreateError'))
     } finally {
       setCreatingTask(false)
     }
-  }, [detail, creatingTask, t, navigate])
+  }, [detail, creatingTask, followUpTitle, followUpWhen, scheduledForIso, t, navigate, onRefresh])
 
   const threadIdString = detail ? String(detail.thread.id) : null
 
@@ -1037,7 +1161,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   const handleAgentMessage = useCallback(
     async (bodyText: string) => {
-      if (!token || !threadIdString || agentStreaming) return
+      if (!token || !threadIdString) return
       const text = stripMentionMarkup(bodyText).trim()
       if (!text) return
       let sessionId = activeSessionId
@@ -1070,7 +1194,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       threadIdString,
       activeSessionId,
       detail?.thread.agentId,
-      agentStreaming,
       sendAgentSessionMessage,
       loadSessionMessages,
       onRefresh,
@@ -1365,16 +1488,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               : ''}
           </p>
         </div>
-        {!isInternalThread(thread) && (thread.agentId || thread.agentName) ? (
-          <Link
-            to={thread.agentId ? `/agents/${thread.agentId}` : '/agents'}
-            className="flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40 hover:text-accent"
-            title={t('threadChrome.agentHandling')}
-          >
-            <Bot size={11} />
-            {thread.agentName || t('listItem.agent')}
-          </Link>
-        ) : null}
         {detail.csat ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1601,10 +1714,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   <DropdownMenuItem
                     className="gap-2"
                     disabled={creatingTask}
-                    onClick={() => void handleCreateTaskFromThread()}
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      queueMicrotask(() => openFollowUpPlanner())
+                    }}
                   >
                     <ListPlus size={13} />
-                    {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
+                    {t('threadChrome.createTask')}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem className="gap-2" onClick={() => setProjectPickerOpen(true)}>
@@ -1679,9 +1795,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
       {!isInternalThread(thread) ? (
         <ThreadMetaRow
+          signalId={String(thread.id)}
           priority={thread.priority}
           saving={saving}
           onPatch={onPatch}
+          agentId={thread.agentId}
+          agentName={thread.agentName}
           triage={{
             category: thread.category,
             urgency: thread.urgency,
@@ -1695,16 +1814,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       thread.status !== 'closed' &&
       thread.status !== 'spam' &&
       thread.status !== 'pending' &&
-      (thread.suggestedActions?.includes('create_task') || thread.hasOpenDecision) ? (
+      thread.suggestedActions?.includes('create_task') ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated px-3 py-1.5">
           <button
             type="button"
             disabled={creatingTask}
-            onClick={() => void handleCreateTaskFromThread()}
+            onClick={() => openFollowUpPlanner()}
             className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
           >
             <ListPlus size={11} />
-            {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
+            {t('threadChrome.createTask')}
           </button>
         </div>
       ) : null}
@@ -1940,6 +2059,62 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
         />
       ) : null}
+      <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('threadChrome.planFollowUpTitle')}</DialogTitle>
+            <DialogDescription>{t('threadChrome.planFollowUpHint')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-text-muted">{t('threadChrome.planFollowUpTitleLabel')}</span>
+              <Input
+                value={followUpTitle}
+                onChange={(e) => setFollowUpTitle(e.target.value)}
+                autoFocus
+              />
+            </label>
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-text-muted">{t('threadChrome.planFollowUpWhen')}</span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    ['today', 'planFollowUpToday'],
+                    ['tomorrow', 'planFollowUpTomorrow'],
+                    ['next_week', 'planFollowUpNextWeek'],
+                    ['none', 'planFollowUpNoDate'],
+                  ] as const
+                ).map(([value, key]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFollowUpWhen(value)}
+                    className={
+                      followUpWhen === value
+                        ? 'rounded-md border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-left text-xs font-medium text-accent'
+                        : 'rounded-md border border-border/60 bg-bg-surface px-2.5 py-1.5 text-left text-xs text-text-secondary hover:border-accent/30'
+                    }
+                  >
+                    {t(`threadChrome.${key}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setFollowUpOpen(false)}>
+              {t('threadChrome.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+            <Button
+              type="button"
+              disabled={creatingTask || !followUpTitle.trim()}
+              onClick={() => void handleCreateTaskFromThread()}
+            >
+              {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <AddToProjectDialog
         open={projectPickerOpen}
         onClose={() => setProjectPickerOpen(false)}

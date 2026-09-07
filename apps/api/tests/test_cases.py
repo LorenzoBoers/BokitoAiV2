@@ -615,3 +615,128 @@ async def test_case_binding_map_lists_unbound_types(client: AsyncClient, session
     block = await case_binding_map_block(session_override, tenant.id)
     assert "bug_report → none" in block
     assert "one case per distinct intent" in block
+
+
+@pytest.mark.asyncio
+async def test_case_follow_up_task_opens_once(client: AsyncClient, session_override):
+    from app.models.orchestration import AgentTask
+
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    signal = await _signal(session_override, tenant.id, subject="Need a call back")
+    row = await create_case_type(
+        session_override,
+        tenant.id,
+        name="Callback",
+        slug="callback-follow-up",
+        create_mode="manual_only",
+        follow_up_mode="track",
+        follow_up_task=True,
+    )
+    first = await create_case(
+        session_override,
+        tenant.id,
+        case_type_id=row.id,
+        signal_id=signal.id,
+        title="Call the customer",
+        actor="operator",
+        created_by_type="user",
+        created_by_id=str(tenant.id),  # placeholder; assignee may be null
+    )
+    assert first["case"]["status"] == "open"
+
+    tasks = (
+        await session_override.execute(
+            select(AgentTask).where(
+                AgentTask.tenant_id == tenant.id,
+                AgentTask.signal_id == signal.id,
+                AgentTask.origin == "case",
+            )
+        )
+    ).scalars().all()
+    assert len(tasks) == 1
+    assert tasks[0].assignee_kind == "human"
+    assert tasks[0].status == "awaiting_human"
+
+    # Re-open path via link must not duplicate.
+    from app.services.cases import maybe_open_case_follow_up_task, get_case
+
+    case, case_type = await get_case(session_override, tenant.id, UUID(first["case"]["id"]))
+    await maybe_open_case_follow_up_task(session_override, tenant.id, case, case_type)
+    tasks_after = (
+        await session_override.execute(
+            select(AgentTask).where(
+                AgentTask.tenant_id == tenant.id,
+                AgentTask.signal_id == signal.id,
+                AgentTask.origin == "case",
+            )
+        )
+    ).scalars().all()
+    assert len(tasks_after) == 1
+
+    complete = await client.post(
+        f"/api/orchestration/tasks/{tasks[0].id}/complete",
+        headers=headers,
+    )
+    assert complete.status_code == 200, complete.text
+    assert complete.json()["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_case_follow_up_task_on_status_open(client: AsyncClient, session_override):
+    """Approving ask_operator cases goes through update_case — must open the task."""
+    from app.models.orchestration import AgentTask
+    from app.services.cases import update_case
+
+    tenant = await _tenant(session_override)
+    signal = await _signal(session_override, tenant.id, subject="Waiting approval")
+    row = await create_case_type(
+        session_override,
+        tenant.id,
+        name="Needs approve",
+        slug="needs-approve-follow-up",
+        create_mode="ask_operator",
+        follow_up_mode="track",
+        follow_up_task=True,
+    )
+    created = await create_case(
+        session_override,
+        tenant.id,
+        case_type_id=row.id,
+        signal_id=signal.id,
+        title="Approve me",
+        actor="agent",
+        certainty=9,
+    )
+    assert created["case"]["status"] == "waiting_operator"
+    before = (
+        await session_override.execute(
+            select(AgentTask).where(
+                AgentTask.tenant_id == tenant.id,
+                AgentTask.signal_id == signal.id,
+                AgentTask.origin == "case",
+            )
+        )
+    ).scalars().all()
+    assert before == []
+
+    await update_case(
+        session_override,
+        tenant.id,
+        UUID(created["case"]["id"]),
+        {"status": "open"},
+    )
+    after = (
+        await session_override.execute(
+            select(AgentTask).where(
+                AgentTask.tenant_id == tenant.id,
+                AgentTask.signal_id == signal.id,
+                AgentTask.origin == "case",
+            )
+        )
+    ).scalars().all()
+    assert len(after) == 1
+    assert after[0].assignee_kind == "human"
+    import json
+
+    assert json.loads(after[0].context_json or "{}").get("case_id") == created["case"]["id"]

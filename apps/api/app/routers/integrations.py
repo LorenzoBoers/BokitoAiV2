@@ -815,6 +815,7 @@ async def platform_oauth_start(
     provider: str = Query(...),
     return_url: str = Query(...),
     project_id: str | None = Query(default=None),
+    sync_window_days: int | None = Query(default=None),
 ):
     del project_id
     if provider not in PROVIDER_BY_SLUG:
@@ -832,6 +833,14 @@ async def platform_oauth_start(
     else:
         flow = "integration"
 
+    from app.services.email_sync import DEFAULT_SYNC_WINDOW_DAYS, clamp_sync_window_days
+
+    window = (
+        clamp_sync_window_days(sync_window_days)
+        if sync_window_days is not None
+        else DEFAULT_SYNC_WINDOW_DAYS
+    )
+
     real_url = await start_real_oauth(
         session,
         tenant_id=auth.tenant.id,
@@ -839,6 +848,7 @@ async def platform_oauth_start(
         provider=provider,
         flow=flow,
         return_url=return_url,
+        sync_window_days=window if flow == "email" else None,
     )
     if real_url:
         return {"authorize_url": real_url, "provider": provider}
@@ -858,7 +868,12 @@ async def platform_oauth_start(
     elif provider == "outlook":
         email = auth.user.email or "outlook@bokito.local"
         await ensure_email_account(
-            session, auth.tenant.id, "outlook", email, seed_mock_credentials=True
+            session,
+            auth.tenant.id,
+            "outlook",
+            email,
+            seed_mock_credentials=True,
+            sync_window_days=window,
         )
         authorize_url = mock_authorize_url(
             return_url, {"oauth_provider": "outlook", "oauth_status": "connected"}
@@ -866,7 +881,12 @@ async def platform_oauth_start(
     elif provider == "gmail":
         email = auth.user.email or "gmail@bokito.local"
         await ensure_email_account(
-            session, auth.tenant.id, "gmail", email, seed_mock_credentials=True
+            session,
+            auth.tenant.id,
+            "gmail",
+            email,
+            seed_mock_credentials=True,
+            sync_window_days=window,
         )
         authorize_url = mock_authorize_url(
             return_url, {"oauth_provider": "gmail", "oauth_status": "connected"}

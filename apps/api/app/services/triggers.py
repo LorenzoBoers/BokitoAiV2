@@ -627,6 +627,88 @@ async def agenda_occurrences(
             await events_as_agenda_items(session, tenant_id, start=start, end=end)
         )
 
+    # Ledger tasks: planned (scheduled_for) and human follow-ups awaiting action.
+    # Always included — agent filter only narrows wakes; tasks stay operator-visible.
+    from app.models.orchestration import AgentTask
+    from sqlalchemy import and_, or_
+
+    today_start = datetime(now.year, now.month, now.day)
+    today_in_window = start.date() <= now.date() <= end.date()
+    task_rows = (
+        await session.execute(
+            select(AgentTask).where(
+                AgentTask.tenant_id == tenant_id,
+                AgentTask.status.notin_(
+                    ("completed", "cancelled", "failed", "rejected")
+                ),
+                or_(
+                    and_(
+                        AgentTask.scheduled_for.is_not(None),
+                        AgentTask.scheduled_for >= start,
+                        AgentTask.scheduled_for <= end,
+                    ),
+                    and_(
+                        AgentTask.assignee_kind == "human",
+                        AgentTask.status == "awaiting_human",
+                        or_(
+                            AgentTask.scheduled_for.is_(None),
+                            AgentTask.scheduled_for <= end,
+                        ),
+                    ),
+                ),
+            )
+        )
+    ).scalars().all()
+
+    seen_task_ids: set[str] = set()
+    for task in task_rows:
+        tid = str(task.id)
+        if tid in seen_task_ids:
+            continue
+        seen_task_ids.add(tid)
+        at = task.scheduled_for
+        status = "planned"
+        if task.assignee_kind == "human" and task.status == "awaiting_human":
+            if at is None:
+                at = max(today_start, start) if today_in_window else None
+                status = "awaiting_human"
+            elif at < now:
+                status = "overdue"
+            else:
+                status = "awaiting_human"
+        if at is None or at < start or at > end:
+            # Due-now / overdue human tasks surface on today (clamped into the
+            # visible window), not on the window's first calendar day.
+            if status in ("awaiting_human", "overdue") and today_in_window:
+                at = max(today_start, start)
+                if at > end:
+                    continue
+            else:
+                continue
+        items.append(
+            {
+                "id": f"task:{task.id}",
+                "trigger_id": None,
+                "task_id": tid,
+                "source": "task",
+                "name": task.title,
+                "kind": "task",
+                "signal_id": str(task.signal_id) if task.signal_id else None,
+                "agent_id": str(task.assignee_agent_id) if task.assignee_agent_id else None,
+                "agent_role": "",
+                "agent_name": None,
+                "instructions": task.description or "",
+                "enabled": True,
+                "at": _iso(at),
+                "status": status,
+                "run_id": None,
+                "assignee_kind": task.assignee_kind,
+                "assignee_user_id": (
+                    str(task.assignee_user_id) if task.assignee_user_id else None
+                ),
+            }
+        )
+
     items.sort(key=lambda item: item["at"] or "")
     return items
 

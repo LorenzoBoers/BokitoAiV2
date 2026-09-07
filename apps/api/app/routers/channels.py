@@ -51,6 +51,8 @@ class AccountCreateBody(BaseModel):
     # Slack: fallback channel for decision notifications when the assignee
     # has no DM target (settings_json.notify_channel_id).
     notify_channel_id: str = ""
+    # Mailbox install backfill window (days). 0 = unlimited; omitted = default 30.
+    sync_window_days: int | None = None
 
 
 def _serialize_account(row: ChannelAccount) -> dict:
@@ -143,12 +145,14 @@ async def create_account(
 
     if body.channel == "email" and body.provider == "smtp_imap":
         from app.services.smtp_imap import SmtpImapError, normalize_credentials
+        from app.services.email_sync import clamp_sync_window_days, DEFAULT_SYNC_WINDOW_DAYS
 
         form_email = str(
             (body.credentials or {}).get("email") or body.address or ""
         ).strip()
         try:
-            # Store without verified_at; POST .../verify stamps it after live check.
+            # Store without verified_at; POST .../verify stamps it after live
+            # check + first Inbox sync.
             credentials = normalize_credentials(
                 {**credentials, "email": form_email or credentials.get("username")}
             )
@@ -162,6 +166,12 @@ async def create_account(
             {"id": "inbox", "display_name": "Inbox", "is_selected": True},
         ]
         settings["sync_cursors"] = {}
+        window = (
+            body.sync_window_days
+            if body.sync_window_days is not None
+            else DEFAULT_SYNC_WINDOW_DAYS
+        )
+        settings["sync_window_days"] = clamp_sync_window_days(window)
 
     inbound_secret = settings["inbound_secret"]
     from app.services.crypto import encrypt_credentials_blob
@@ -198,7 +208,13 @@ async def verify_account(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Live-verify SMTP/IMAP credentials and stamp verified_at on success."""
+    """Live-verify SMTP/IMAP, run the first Inbox sync, then mark connect complete.
+
+    Success means credentials work *and* the mailbox has a completed first sync
+    (``last_sync_at``). Operators must not see a "Connecting" row after a green toast.
+    On sync failure, ``verified_at`` is cleared so a half-connected row cannot linger;
+    the dashboard deletes the account when this endpoint returns an error.
+    """
     auth.require_role("owner", "admin")
     account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
     if account.provider != "smtp_imap":
@@ -207,6 +223,7 @@ async def verify_account(
             detail="Only SMTP/IMAP mailboxes support verify.",
         )
     from app.services.crypto import get_connection_credentials, set_connection_credentials
+    from app.services.email_sync import sync_account
     from app.services.smtp_imap import SmtpImapError, verify_mailbox
 
     creds = get_connection_credentials(account)
@@ -218,7 +235,32 @@ async def verify_account(
     session.add(account)
     await session.commit()
     await session.refresh(account)
-    return {**_serialize_account(account), "verified": True}
+
+    result = await sync_account(session, account)
+    await session.refresh(account)
+    status = str(result.get("status") or "")
+    if status != "ok":
+        settings = json.loads(account.settings_json or "{}")
+        if not isinstance(settings, dict):
+            settings = {}
+        detail = str(
+            settings.get("last_error")
+            or f"First mailbox sync failed ({status or 'unknown'})."
+        ).strip()
+        # Roll back verified_at so the row does not sit in "connecting".
+        rolled = get_connection_credentials(account)
+        rolled["verified_at"] = ""
+        set_connection_credentials(account, rolled)
+        session.add(account)
+        await session.commit()
+        raise HTTPException(status_code=400, detail=detail)
+
+    return {
+        **_serialize_account(account),
+        "verified": True,
+        "synced": int(result.get("synced") or 0),
+        "sync_status": status,
+    }
 
 
 @router.delete("/accounts/{account_id}")
@@ -384,9 +426,11 @@ async def patch_channel(
     account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
     settings = account_settings(account)
     if body.sync_window_days is not None:
-        if body.sync_window_days < 0 or body.sync_window_days > 3650:
+        from app.services.email_sync import clamp_sync_window_days, MAX_SYNC_WINDOW_DAYS
+
+        if body.sync_window_days < 0 or body.sync_window_days > MAX_SYNC_WINDOW_DAYS:
             raise HTTPException(status_code=400, detail="Backfill window out of range")
-        settings["sync_window_days"] = int(body.sync_window_days)
+        settings["sync_window_days"] = clamp_sync_window_days(body.sync_window_days)
     if body.label is not None:
         label = body.label.strip()
         if label:

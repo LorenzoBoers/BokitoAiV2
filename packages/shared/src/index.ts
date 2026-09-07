@@ -122,3 +122,11 @@ export interface RunConfigJson {
     doc_map?: string
   }
 }
+
+export {
+  appendSpeechChunk,
+  consumeSpeechResults,
+  speechWaveSvgHtml,
+  SPEECH_WAVE_BARS,
+  type SpeechResultLike,
+} from './speech-dictation'

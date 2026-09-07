@@ -24,6 +24,7 @@ import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { ThreadCasesList } from './ThreadCasesList'
+import { ThreadFollowUpsList } from './ThreadFollowUpsList'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
   const email = (address || '').trim().toLowerCase()
@@ -490,8 +491,9 @@ export default function ContactPanel({
       </div>
 
       {currentThreadId ? (
-        <div className="border-t border-border/40 px-4 py-3">
+        <div className="border-t border-border/40 px-4 py-3 space-y-4">
           <ThreadCasesList signalId={String(currentThreadId)} />
+          <ThreadFollowUpsList signalId={String(currentThreadId)} />
         </div>
       ) : null}
 

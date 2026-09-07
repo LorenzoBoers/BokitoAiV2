@@ -24,7 +24,7 @@ Each type has a **follow-up** mode: **Label only** stamps the conversation and n
 ## Add an intake type
 
 1. Open **Cases**, then the **Types** tab.
-2. Choose **New type**, give it a name (for example Billing question), and pick **Follow-up**: Label only, Track in queue, or Route to work.
+2. Choose **New type**, give it a name (for example Billing question), and pick **Follow-up**: Label only, Track in queue, or Route to work. Optionally turn on **Open a follow-up task** so a human Agenda task is created when the case opens or links.
 3. Describe precisely when the type applies — agents follow that description when they classify incoming messages, so also say when it does not apply.
 4. Leave the type on. Turn the switch off when agents should stop opening that type.
 5. For Route types, bind the type on a workstream or project next. Deleting a type that already has cases archives it (turns it off and closes open queue rows) instead of breaking history.
@@ -50,7 +50,7 @@ Each type has a **follow-up** mode: **Label only** stamps the conversation and n
 
 ## Keep several cases on one thread
 
-1. Open a conversation in **Messages**. The side panel lists **Cases**. Label-only types show a **Label** chip; active queue cases keep their status badge.
+1. Open a conversation in **Messages**. The side panel lists **Cases** and **Follow-ups**. Label-only types show a **Label** chip; active queue cases keep their status badge. Open follow-up tasks can be marked **Done** inline.
 2. Choose **Add Bug report** or **Add Feature request** when a second intent appears in the same chat.
 3. Each case keeps its own status and workstream link. Do not dump two issues into one case.
 

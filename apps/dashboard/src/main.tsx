@@ -9,6 +9,7 @@ import { ValidationProvider } from './context/ValidationContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
 import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
+import { TooltipProvider } from './components/ui/tooltip'
 import App from './App'
 import i18n from './i18n'
 import { PLATFORM_DEFAULT_LANGUAGE } from './lib/api.config'
@@ -71,26 +72,28 @@ const router = createBrowserRouter([
     path: '*',
     element: (
       <ThemeProvider>
-        <AuthProvider>
-          <WorkspaceProvider>
-            <IntegrationBrandProvider>
-              <NotificationProvider>
-                <ValidationProvider>
-                  <App />
-                  <Toaster
-                    richColors
-                    closeButton
-                    position="top-right"
-                    toastOptions={{
-                      duration: 3400,
-                      className: 'shadow-overlay',
-                    }}
-                  />
-                </ValidationProvider>
-              </NotificationProvider>
-            </IntegrationBrandProvider>
-          </WorkspaceProvider>
-        </AuthProvider>
+        <TooltipProvider delayDuration={150}>
+          <AuthProvider>
+            <WorkspaceProvider>
+              <IntegrationBrandProvider>
+                <NotificationProvider>
+                  <ValidationProvider>
+                    <App />
+                    <Toaster
+                      richColors
+                      closeButton
+                      position="top-right"
+                      toastOptions={{
+                        duration: 3400,
+                        className: 'shadow-overlay',
+                      }}
+                    />
+                  </ValidationProvider>
+                </NotificationProvider>
+              </IntegrationBrandProvider>
+            </WorkspaceProvider>
+          </AuthProvider>
+        </TooltipProvider>
       </ThemeProvider>
     ),
   },

@@ -201,6 +201,23 @@
     }
   }
 
+  /* Dictation mic: SVG bars share geometry with @bokito/shared SPEECH_WAVE_BARS. */
+  .dictation-wave-bar {
+    transform-origin: center bottom;
+    animation: dictation-wave-pulse 0.8s ease-in-out infinite;
+  }
+  @keyframes dictation-wave-pulse {
+    0%,
+    100% {
+      transform: scaleY(0.4);
+      opacity: 0.8;
+    }
+    50% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+
   /* Interactive cards/rows: subtle lift + shadow deepening on hover. */
   .hover-lift {
     transition:
@@ -553,6 +570,7 @@
     .pulse-dot::after,
     .thinking-shimmer-text,
     .thinking-wave-bar,
+    .dictation-wave-bar,
     .agent-live-dot {
       animation: none;
     }

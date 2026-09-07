@@ -33,7 +33,8 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not**, then **Save changes**. The model itself is set on the agent page.
 2. Under **Availability**, set **Team hours** with **From**, **Until** and **Timezone**. Choose **Save availability**. Outside those hours chat stays open. The widget shows the team as away and visitors can ask for a callback instead of a live handoff.
 3. Turn on **Pre-chat form** when you want a name and email before the first message. Those visitors become real [contacts](/docs/inbox/contacts) instead of anonymous website visitors.
-4. In the chat composer, visitors can dictate with the microphone when the browser supports speech recognition (same pattern on the website widget and the in-app assistant): hold to talk or click to start; the button turns green with a check to confirm. The message box grows as spoken text appears.
+4. In the chat composer, visitors can dictate with the microphone when the browser supports speech recognition (same pattern on the website widget and the in-app assistant): hold to talk or click to start; while listening the button shows a green glow and animated wave bars, with a check on hover to confirm. Commit/dedupe rules and wave geometry are shared via `@bokito/shared` with the Messages composer.
+5. Visitors can send another message while the assistant is still replying. The widget stops the unfinished answer, keeps both visitor messages on screen, and starts a new reply that covers them together. Typing alone does not stop the assistant — only Send or Stop does. After Send, the message box stays focused so the next line is ready.
 
 The website widget follows the visitor's system light or dark setting. There is no theme switcher in the widget. Preview Light and Dark on this page only to check contrast.
 

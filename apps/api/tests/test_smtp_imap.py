@@ -201,3 +201,167 @@ def test_registry_smtp_imap_not_verified():
     credentials = next(c for c in row["checks"] if c["id"] == "credentials")
     assert credentials["state"] == "fail"
     assert row["state"] == "action_required"
+
+
+@pytest.mark.asyncio
+async def test_verify_runs_first_sync_before_success(client):
+    """Connect succeeds only after credentials verify *and* first Inbox sync."""
+    import json
+    from datetime import datetime
+    from unittest.mock import AsyncMock, patch
+
+    from httpx import AsyncClient
+
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    assert isinstance(client, AsyncClient)
+    login = await client.post(
+        "/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    created = await client.post(
+        "/api/channels/accounts",
+        json={
+            "channel": "email",
+            "provider": "smtp_imap",
+            "address": "imap-sync@example.com",
+            "sync_window_days": 90,
+            "credentials": {
+                "email": "imap-sync@example.com",
+                "username": "imap-sync@example.com",
+                "password": "secret",
+                "imap_host": "imap.example.com",
+                "imap_port": 993,
+                "imap_ssl": True,
+                "smtp_host": "smtp.example.com",
+                "smtp_port": 587,
+                "smtp_ssl": False,
+                "smtp_starttls": True,
+            },
+        },
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    account_id = created.json()["id"]
+
+    listed_before = await client.get("/api/channels", headers=headers)
+    row_before = next(c for c in listed_before.json()["channels"] if c["id"] == account_id)
+    assert row_before["sync_window_days"] == 90
+
+    async def fake_verify(creds: dict):
+        out = dict(creds)
+        out["verified_at"] = "2026-09-07T12:00:00+00:00"
+        return out
+
+    async def fake_sync(session, account):
+        settings = json.loads(account.settings_json or "{}")
+        if not isinstance(settings, dict):
+            settings = {}
+        settings["last_sync_at"] = datetime.utcnow().isoformat()
+        settings.pop("last_error", None)
+        account.settings_json = json.dumps(settings)
+        session.add(account)
+        await session.commit()
+        return {"account_id": str(account.id), "synced": 3, "status": "ok"}
+
+    with (
+        patch("app.services.smtp_imap.verify_mailbox", new=AsyncMock(side_effect=fake_verify)),
+        patch("app.services.email_sync.sync_account", new=AsyncMock(side_effect=fake_sync)),
+    ):
+        verified = await client.post(
+            f"/api/channels/accounts/{account_id}/verify",
+            headers=headers,
+        )
+    assert verified.status_code == 200, verified.text
+    body = verified.json()
+    assert body["verified"] is True
+    assert body["synced"] == 3
+
+    listed = await client.get("/api/channels", headers=headers)
+    assert listed.status_code == 200
+    row = next(c for c in listed.json()["channels"] if c["id"] == account_id)
+    assert row["state"] == "active"
+    assert next(c for c in row["checks"] if c["id"] == "last_sync")["state"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_verify_rolls_back_when_first_sync_fails(client):
+    """Failed first sync must not leave a verified / Connecting mailbox."""
+    import json
+    from unittest.mock import AsyncMock, patch
+
+    from httpx import AsyncClient
+
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    assert isinstance(client, AsyncClient)
+    login = await client.post(
+        "/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    created = await client.post(
+        "/api/channels/accounts",
+        json={
+            "channel": "email",
+            "provider": "smtp_imap",
+            "address": "imap-fail@example.com",
+            "credentials": {
+                "email": "imap-fail@example.com",
+                "username": "imap-fail@example.com",
+                "password": "secret",
+                "imap_host": "imap.example.com",
+                "imap_port": 993,
+                "imap_ssl": True,
+                "smtp_host": "smtp.example.com",
+                "smtp_port": 587,
+                "smtp_ssl": False,
+                "smtp_starttls": True,
+            },
+        },
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    account_id = created.json()["id"]
+
+    async def fake_verify(creds: dict):
+        out = dict(creds)
+        out["verified_at"] = "2026-09-07T12:00:00+00:00"
+        return out
+
+    async def fake_sync(session, account):
+        settings = json.loads(account.settings_json or "{}")
+        if not isinstance(settings, dict):
+            settings = {}
+        settings["last_error"] = "IMAP fetch failed during first sync."
+        settings["sync_error_count"] = 1
+        account.settings_json = json.dumps(settings)
+        session.add(account)
+        await session.commit()
+        return {"account_id": str(account.id), "synced": 0, "status": "error"}
+
+    with (
+        patch("app.services.smtp_imap.verify_mailbox", new=AsyncMock(side_effect=fake_verify)),
+        patch("app.services.email_sync.sync_account", new=AsyncMock(side_effect=fake_sync)),
+    ):
+        failed = await client.post(
+            f"/api/channels/accounts/{account_id}/verify",
+            headers=headers,
+        )
+    assert failed.status_code == 400
+    err_body = failed.json()
+    detail = str(
+        err_body.get("detail")
+        or (err_body.get("error") or {}).get("message")
+        or err_body.get("message")
+        or err_body
+    ).lower()
+    assert "first sync" in detail or "imap fetch" in detail
+
+    listed = await client.get("/api/channels", headers=headers)
+    row = next(c for c in listed.json()["channels"] if c["id"] == account_id)
+    # Not verified → credentials fail → action_required, never connecting.
+    assert row["state"] != "connecting"
+    assert row["state"] == "action_required"
+    assert next(c for c in row["checks"] if c["id"] == "credentials")["state"] == "fail"

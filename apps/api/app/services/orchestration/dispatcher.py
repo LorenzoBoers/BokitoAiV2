@@ -25,6 +25,15 @@ def _parse_json(raw: str | None) -> dict[str, Any]:
         return {}
 
 
+def _naive_utc(value: datetime | None) -> datetime | None:
+    """Normalize tz-aware ISO input to the naive-UTC convention used in the DB."""
+    if value is None or value.tzinfo is None:
+        return value
+    from datetime import timezone
+
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 async def create_agent_task(
     session: AsyncSession,
     tenant_id: UUID,
@@ -46,6 +55,8 @@ async def create_agent_task(
     assignee_kind: str = "agent",
     assignee_user_id: UUID | None = None,
     scheduled_for: datetime | None = None,
+    context: dict[str, Any] | None = None,
+    post_system_note: bool | None = None,
 ) -> AgentTask:
     if workstream_id:
         ws = (
@@ -59,7 +70,17 @@ async def create_agent_task(
         if not project_id and ws.project_id:
             project_id = ws.project_id
 
-    if not signal_id:
+    if signal_id is not None:
+        from app.models.signal import Signal
+
+        owned = (
+            await session.execute(
+                select(Signal.id).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if owned is None:
+            raise HTTPException(status_code=404, detail="Thread not found")
+    elif not signal_id:
         agent_name = "Agent"
         if agent_id:
             agent = (
@@ -78,12 +99,16 @@ async def create_agent_task(
         )
         signal_id = signal.id
 
+    scheduled_for = _naive_utc(scheduled_for)
     is_human = assignee_kind == "human"
     is_dormant = scheduled_for is not None and scheduled_for > datetime.utcnow()
     # Human tasks that are due now surface as human work immediately;
     # scheduled tasks (either kind) stay queued until the scheduler tick
     # promotes them at scheduled_for.
     status = "awaiting_human" if is_human and not is_dormant else "queued"
+    ctx: dict[str, Any] = {"agent_id": str(agent_id) if agent_id else None}
+    if context:
+        ctx.update(context)
     task = AgentTask(
         tenant_id=tenant_id,
         project_id=project_id,
@@ -99,7 +124,7 @@ async def create_agent_task(
         assignee_agent_id=None if is_human else agent_id,
         assignee_user_id=assignee_user_id if is_human else None,
         scheduled_for=scheduled_for,
-        context_json=json.dumps({"agent_id": str(agent_id) if agent_id else None}),
+        context_json=json.dumps(ctx),
         success_criteria_json=success_criteria_json,
         trigger_type=trigger_type,
         trigger_id=trigger_id,
@@ -108,7 +133,14 @@ async def create_agent_task(
     session.add(task)
     await session.flush()
 
-    if description:
+    # Human follow-ups from conversation/case stay on the ledger — do not spam
+    # the thread timeline unless the caller explicitly asks for a note.
+    should_note = post_system_note
+    if should_note is None:
+        should_note = bool(description) and not (
+            is_human and origin in ("conversation", "case", "decision")
+        )
+    if should_note and description:
         from app.models.signal import SignalMessage
 
         session.add(
@@ -158,37 +190,90 @@ async def process_due_scheduled_tasks(
     rows = (await session.execute(select(AgentTask).where(*conditions))).scalars().all()
     woken = 0
     for task in rows:
-        # Clear the schedule first so a crashed wake never double-fires.
-        task.scheduled_for = None
         task.updated_at = now
         if task.assignee_kind == "human":
+            # Keep scheduled_for for Agenda display; only flip status so a
+            # crashed notify cannot leave the task invisible forever.
             task.status = "awaiting_human"
             session.add(task)
             await session.commit()
-            from app.models.notification import Notification
+            if task.assignee_user_id:
+                from app.models.notification import Notification
 
-            session.add(
-                Notification(
-                    tenant_id=task.tenant_id,
-                    user_id=task.assignee_user_id,
-                    kind="task_due",
-                    title=task.title,
-                    body=(task.description or task.title)[:500],
-                    payload_json=json.dumps({"task_id": str(task.id)}),
+                session.add(
+                    Notification(
+                        tenant_id=task.tenant_id,
+                        user_id=task.assignee_user_id,
+                        kind="task_due",
+                        title=task.title,
+                        body=(task.description or task.title)[:500],
+                        payload_json=json.dumps({"task_id": str(task.id)}),
+                    )
                 )
-            )
-            await session.commit()
+                await session.commit()
         else:
+            # Promote to running before clearing the schedule so a crash after
+            # clear cannot leave the task stuck in queued forever.
+            task.status = "running"
+            due_at = task.scheduled_for
+            task.scheduled_for = None
             session.add(task)
             await session.commit()
             from app.services.orchestration.queue import enqueue_agent_task_segment
 
-            if not await enqueue_agent_task_segment(str(task.tenant_id), str(task.id)):
-                from app.services.orchestration.runner import run_agent_task_segment
+            enqueued = await enqueue_agent_task_segment(str(task.tenant_id), str(task.id))
+            if not enqueued:
+                try:
+                    from app.services.orchestration.runner import run_agent_task_segment
 
-                await run_agent_task_segment(session, task.tenant_id, task.id)
+                    await run_agent_task_segment(session, task.tenant_id, task.id)
+                except Exception:
+                    # Restore a due stamp so the next scheduler tick retries.
+                    task = (
+                        await session.execute(
+                            select(AgentTask).where(AgentTask.id == task.id)
+                        )
+                    ).scalar_one_or_none()
+                    if task and task.status == "running":
+                        task.status = "queued"
+                        task.scheduled_for = due_at or now
+                        session.add(task)
+                        await session.commit()
+                    raise
         woken += 1
     return woken
+
+
+async def complete_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUID) -> AgentTask:
+    """Mark a human follow-up done. Agent jobs must use cancel, not complete."""
+    task = (
+        await session.execute(
+            select(AgentTask).where(AgentTask.id == task_id, AgentTask.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.status in ("completed", "cancelled", "rejected"):
+        return task
+    if task.assignee_kind != "human":
+        raise HTTPException(
+            status_code=400,
+            detail="Only human follow-ups can be completed; cancel agent tasks instead",
+        )
+    if task.status not in ("awaiting_human", "queued", "paused"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot complete a task in status {task.status}",
+        )
+    now = datetime.utcnow()
+    task.status = "completed"
+    task.completed_at = now
+    task.updated_at = now
+    task.scheduled_for = None
+    session.add(task)
+    await session.commit()
+    await session.refresh(task)
+    return task
 
 
 async def cancel_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUID) -> AgentTask:
@@ -238,6 +323,11 @@ async def resume_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
     ).scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    if task.assignee_kind == "human":
+        raise HTTPException(
+            status_code=400,
+            detail="Human follow-ups cannot be resumed as agent runs; complete them instead",
+        )
     if task.status not in ("paused", "awaiting_human", "queued"):
         raise HTTPException(status_code=400, detail=f"Cannot resume task in status {task.status}")
     was_human_gate = task.pause_reason == "human_gate"

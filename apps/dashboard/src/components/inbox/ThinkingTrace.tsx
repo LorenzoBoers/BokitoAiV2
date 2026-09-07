@@ -135,8 +135,15 @@ export function AgentStreamBubble({ streamText, active = false }: { streamText: 
       >
         <AiMark size={13} />
       </span>
-      <div className="min-w-0 max-w-[82%] rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-        <ChatMarkdown content={trimmed} />
+      <div
+        className="min-w-0 max-w-[82%] rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary"
+        style={active ? { minHeight: '1.5em' } : undefined}
+      >
+        {active ? (
+          <p className="whitespace-pre-wrap break-words">{trimmed}</p>
+        ) : (
+          <ChatMarkdown content={trimmed} />
+        )}
         {active ? <span aria-hidden className="stream-caret" /> : null}
       </div>
     </div>

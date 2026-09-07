@@ -22,6 +22,7 @@ export type CaseTypeRow = {
   description: string
   create_mode: CaseCreateMode
   follow_up_mode: CaseFollowUpMode
+  follow_up_task?: boolean
   ask_threshold: number
   auto_threshold: number
   requires_verification: boolean
@@ -128,6 +129,7 @@ export async function createCaseType(body: {
   description?: string
   create_mode?: CaseCreateMode
   follow_up_mode?: CaseFollowUpMode
+  follow_up_task?: boolean
   ask_threshold?: number
   auto_threshold?: number
   requires_verification?: boolean
@@ -145,6 +147,7 @@ export async function patchCaseType(
       | 'description'
       | 'create_mode'
       | 'follow_up_mode'
+      | 'follow_up_task'
       | 'enabled'
       | 'ask_threshold'
       | 'auto_threshold'

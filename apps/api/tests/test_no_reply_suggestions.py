@@ -522,3 +522,6 @@ async def test_create_task_option_opens_agenda_task(client: AsyncClient, session
     task = await session_override.get(AgentTask, UUID(task_id))
     assert task is not None
     assert task.signal_id == signal.id
+    assert task.assignee_kind == "human"
+    assert task.origin == "conversation"
+    assert task.status == "awaiting_human"

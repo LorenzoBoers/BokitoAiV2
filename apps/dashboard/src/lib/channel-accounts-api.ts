@@ -157,6 +157,8 @@ export type SmtpImapCredentials = {
   smtpSsl: boolean
   smtpStarttls: boolean
   displayName?: string
+  /** Install backfill window in days (default 30). */
+  syncWindowDays?: number
 }
 
 export async function createSmtpImapAccount(
@@ -170,6 +172,7 @@ export async function createSmtpImapAccount(
       provider: 'smtp_imap',
       address: payload.email,
       display_name: payload.displayName?.trim() || payload.email,
+      sync_window_days: payload.syncWindowDays ?? 30,
       credentials: {
         email: payload.email,
         username: payload.username,

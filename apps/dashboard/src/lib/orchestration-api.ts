@@ -30,10 +30,15 @@ export type TaskArtifact = {
   created_at: string
 }
 
-export async function listAgentTasks(opts?: { signalId?: string }): Promise<AgentTask[]> {
-  const path = opts?.signalId
-    ? `${appRoutes.orchestration.tasks}?signal_id=${encodeURIComponent(opts.signalId)}`
-    : appRoutes.orchestration.tasks
+export async function listAgentTasks(opts?: {
+  signalId?: string
+  openOnly?: boolean
+}): Promise<AgentTask[]> {
+  const params = new URLSearchParams()
+  if (opts?.signalId) params.set('signal_id', opts.signalId)
+  if (opts?.openOnly) params.set('open_only', 'true')
+  const qs = params.toString()
+  const path = qs ? `${appRoutes.orchestration.tasks}?${qs}` : appRoutes.orchestration.tasks
   return apiGet<AgentTask[]>(path)
 }
 
@@ -45,12 +50,22 @@ export async function createAgentTask(body: {
   agent_id?: string
   signal_id?: string
   success_criteria_json?: string
+  assignee_kind?: 'agent' | 'human'
+  assignee_user_id?: string
+  scheduled_for?: string | null
+  origin?: string
+  kind?: string
+  auto_start?: boolean
 }): Promise<AgentTask> {
   return apiPost<AgentTask>(appRoutes.orchestration.tasks, body)
 }
 
 export async function getAgentTask(taskId: string): Promise<AgentTask> {
   return apiGet<AgentTask>(appRoutes.orchestration.task(taskId))
+}
+
+export async function completeAgentTask(taskId: string): Promise<AgentTask> {
+  return apiPost<AgentTask>(appRoutes.orchestration.taskComplete(taskId), {})
 }
 
 export async function cancelAgentTask(taskId: string): Promise<AgentTask> {
@@ -169,6 +184,10 @@ export type AgendaItem = {
   /** Thread the trigger posts its results into, when it has one. */
   signal_id?: string | null
   source?: string | null
+  /** Ledger task id when source is "task". */
+  task_id?: string | null
+  assignee_kind?: string | null
+  assignee_user_id?: string | null
   provider?: string | null
   provider_label?: string | null
   calendar_id?: string | null

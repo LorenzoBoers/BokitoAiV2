@@ -24,7 +24,7 @@ Elk type heeft een **opvolging**-modus: **Alleen label** stempelt het gesprek en
 ## Voeg een intake-type toe
 
 1. Open **Signalen** en daarna het tabblad **Types**.
-2. Kies **Nieuw type**, geef het een naam (bijvoorbeeld Factuurvraag), en kies **Opvolging**: Alleen label, Volgen in wachtrij of Routeren naar werk.
+2. Kies **Nieuw type**, geef het een naam (bijvoorbeeld Factuurvraag), en kies **Opvolging**: Alleen label, Volgen in wachtrij of Routeren naar werk. Zet optioneel **Open een opvolgtaak** aan zodat er een menselijke Agendataak ontstaat wanneer het signaal opent of koppelt.
 3. Omschrijf precies wanneer het type van toepassing is — agents volgen die omschrijving bij het classificeren van binnenkomende berichten, dus benoem ook wanneer het niet geldt.
 4. Laat het type aan. Zet de schakelaar uit wanneer agents dat type niet meer mogen openen.
 5. Koppel Route-types daarna aan een werkstroom of project. Een type verwijderen dat al signalen heeft archiveert het (uitzetten en open wachtrij-rijen sluiten) in plaats van geschiedenis te breken.
@@ -50,7 +50,7 @@ Elk type heeft een **opvolging**-modus: **Alleen label** stempelt het gesprek en
 
 ## Houd meerdere signalen op één gesprek
 
-1. Open een gesprek in **Berichten**. Het zijpaneel toont **Signalen**. Alleen-label types tonen een **Label**-chip; actieve wachtrij-signalen houden hun statusbadge.
+1. Open een gesprek in **Berichten**. Het zijpaneel toont **Signalen** en **Opvolging**. Alleen-label types tonen een **Label**-chip; actieve wachtrij-signalen houden hun statusbadge. Open opvolgtaken kun je inline op **Klaar** zetten.
 2. Kies **Bug report toevoegen** of **Feature request toevoegen** wanneer er een tweede intentie in dezelfde chat verschijnt.
 3. Elk signaal houdt een eigen status en werkstroomkoppeling. Stop twee issues niet in één signaal.
 

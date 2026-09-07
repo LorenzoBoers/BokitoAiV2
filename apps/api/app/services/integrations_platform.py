@@ -894,15 +894,24 @@ async def list_github_connections(session: AsyncSession, tenant_id: UUID) -> lis
     return rows
 
 
-def _seed_mock_creds_if_missing(account: ChannelAccount) -> None:
+def _seed_mock_creds_if_missing(
+    account: ChannelAccount,
+    *,
+    sync_window_days: int | None = None,
+) -> None:
     """Give a Dev/mock OAuth mailbox placeholder credentials so it reads as connected.
 
     Never overwrites real tokens and never runs in production. Sync and send
     recognize the ``mock`` flag and short-circuit instead of calling provider APIs.
     Called from the local OAuth mock path for gmail/outlook (not only provider=mock).
+    Install completes as Active: stamps ``last_sync_at`` so the list never sits on Connecting.
     """
     if get_settings().is_production:
         return
+    from datetime import datetime
+
+    from app.services.email_sync import DEFAULT_SYNC_WINDOW_DAYS, clamp_sync_window_days
+
     creds = get_connection_credentials(account)
     if isinstance(creds, dict) and creds.get("access_token"):
         return
@@ -919,6 +928,12 @@ def _seed_mock_creds_if_missing(account: ChannelAccount) -> None:
     if account.provider == "mock":
         settings["dev_mailbox"] = True
         settings["label"] = settings.get("label") or "Dev mailbox"
+    settings["sync_window_days"] = clamp_sync_window_days(
+        sync_window_days if sync_window_days is not None else DEFAULT_SYNC_WINDOW_DAYS
+    )
+    settings["last_sync_at"] = datetime.utcnow().isoformat()
+    settings.pop("last_error", None)
+    settings.pop("sync_error_count", None)
     account.settings_json = json.dumps(settings)
 
 
@@ -929,6 +944,7 @@ async def ensure_email_account(
     email: str,
     *,
     seed_mock_credentials: bool = False,
+    sync_window_days: int | None = None,
 ) -> ChannelAccount:
     result = await session.execute(
         select(ChannelAccount).where(
@@ -942,7 +958,7 @@ async def ensure_email_account(
         existing.provider = provider
         existing.is_enabled = True
         if seed_mock_credentials:
-            _seed_mock_creds_if_missing(existing)
+            _seed_mock_creds_if_missing(existing, sync_window_days=sync_window_days)
         session.add(existing)
         await session.commit()
         await session.refresh(existing)
@@ -955,7 +971,7 @@ async def ensure_email_account(
         is_enabled=True,
     )
     if seed_mock_credentials:
-        _seed_mock_creds_if_missing(account)
+        _seed_mock_creds_if_missing(account, sync_window_days=sync_window_days)
     session.add(account)
     await session.commit()
     await session.refresh(account)

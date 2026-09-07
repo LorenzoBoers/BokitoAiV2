@@ -29,9 +29,10 @@ Gebruik dit als je provider geen Gmail- of Outlook-OAuth-kaart heeft (bijvoorbee
 2. Onder **Mailbox-login**: vul **E-mailadres** en **Wachtwoord** in (liever een app-wachtwoord). Open **Gebruikersnaam wijkt af van e-mailadres** alleen als de loginnaam anders is.
 3. Onder **Provider**: kies een preset (**Gmail**, **Outlook / Microsoft 365**, **Yahoo**, **iCloud**, **Zoho**) om hosts en poorten in te vullen, of **Custom** voor eigen hosting. Bokito kan een preset voorstellen op basis van het e-maildomein.
 4. Controleer **Inkomende mail (IMAP)** (server, poort, versleuteling), daarna optioneel **Uitgaande mail gebruikt dezelfde server als inkomend**, en dan **Uitgaande mail (SMTP)** (server, poort, versleuteling). Open **Hulp nodig bij serverinstellingen?** voor poorten en firewalltips.
-5. Kies **Koppelen en controleren**. Bokito logt in op IMAP en SMTP; bij succes verschijnt de rij in **Kanalen** en synchroniseert Inbox-mail naar Communicatie. Antwoorden gaan via SMTP vanaf dit adres.
+5. Onder **Hoe ver terug synchroniseren?** kies **7**, **30** (aanbevolen), **90** of **1 jaar**.
+6. Kies **Koppelen en synchroniseren**. Bokito logt in op IMAP en SMTP, haalt die geschiedenis op, en toont de rij in **Kanalen** pas als **Actief** als die eerste sync slaagt. Antwoorden gaan via SMTP vanaf dit adres.
 
-Faalt de controle met een netwerkfout, dan zijn uitgaande poorten 993, 587 of 465 mogelijk geblokkeerd op de server die de API of workers draait.
+Faalt koppelen met een netwerkfout, dan zijn uitgaande poorten 993, 587 of 465 mogelijk geblokkeerd op de server die de API draait. Een mislukte eerste sync laat geen half-gekoppelde rij achter.
 
 ## Maak een Bokito-adres aan
 
@@ -46,9 +47,12 @@ Een Bokito-adres ontvangt en verstuurt; het synchroniseert niet, dus het toont g
 ## Koppel Gmail of Outlook
 
 1. Kies **Kanaal toevoegen** en daarna **E-mail**.
-2. Kies **Gmail** of **Outlook** om de inlogprompt van de provider te openen.
-3. Terug in de lijst open je het rijmenu voor **Hernoemen**, **Nu synchroniseren**, **Mappen**, **Handtekening**, **Routing**, **Primaire afzender maken** of **Verwijderen**.
-4. Staat er **Actie nodig** op de statusbadge, kies dan **Opnieuw koppelen** voordat je verstuurt.
+2. Kies **Gmail** of **Outlook**.
+3. Kies **Hoe ver terug synchroniseren?** (**7**, **30** aanbevolen, **90** of **1 jaar**), daarna **Doorgaan met Gmail** of **Doorgaan met Outlook**.
+4. Meld je aan bij de provider. Bokito draait de eerste sync voordat het kanaal **Actief** toont — succes betekent dat de installatie klaar is.
+5. Terug in de lijst open je het rijmenu voor **Hernoemen**, **Mappen**, **Handtekening**, **Routing**, **Primaire afzender maken** of **Verwijderen**. Dagelijkse sync loopt automatisch; **Sync opnieuw proberen** verschijnt alleen bij een syncprobleem.
+
+Staat er **Actie nodig** op de statusbadge, kies dan **Opnieuw koppelen** (of pas de configuratie aan en probeer opnieuw) voordat je verstuurt.
 
 ## Hernoem een kanaal
 
@@ -61,11 +65,11 @@ Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 
 ## Lees de status en controles van een kanaal
 
-1. Bekijk de statusbadge op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd** of **Fout**.
+1. Bekijk de statusbadge op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd** of **Fout**. **Verbinden** hoort alleen tijdens een installatie die nog loopt — na een geslaagde koppeling zie je **Actief**.
 2. Als een kanaal nog niet klaar is, verschijnt een gele melding boven de lijst. Kanalen met **Instellen nodig**, **Actie nodig** of **Fout** openen hun **Controles** automatisch.
-3. De labels ernaast tonen wat het kanaal kan: **Ontvangen**, **Verzenden**, **Sync**. Een kanaal kan **Verzenden** tonen en toch geblokkeerd zijn tot elke verplichte controle OK is.
+3. De labels ernaast tonen wat het kanaal kan: **Ontvangen**, **Verzenden**, **Sync**. Dagelijkse sync loopt automatisch; **Sync opnieuw proberen** verschijnt alleen bij een syncprobleem.
 4. Klik op het pijltje vooraan de rij om **Controles** te openen. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
-5. Bij een mailbox bepaalt **Geschiedenis** in hetzelfde paneel hoe ver terug mail wordt bijgehaald bij (opnieuw) koppelen.
+5. Bij een mailbox staat **Geschiedenis** in hetzelfde paneel voor latere backfills na opnieuw koppelen. Hoe ver terug bij de eerste installatie kies je tijdens **Kanaal toevoegen**.
 6. Gebruik de schakelaar om een kanaal te pauzeren. Een gepauzeerd kanaal houdt zijn historie maar ontvangt niets nieuws.
 
 In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** als er al een kanaal is dat nog niet klaar is, of **Mailbox koppelen** als er nog geen kanaal is.

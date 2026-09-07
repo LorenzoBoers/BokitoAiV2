@@ -89,6 +89,195 @@ async def test_agenda_excludes_on_demand_runs(session_override: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_create_agent_task_accepts_aware_scheduled_for(session_override: AsyncSession):
+    from datetime import timezone
+
+    from app.models.signal import Signal
+    from app.services.orchestration.dispatcher import create_agent_task
+
+    tenant, _agent = await _tenant_and_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="email",
+        subject="Aware schedule",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    aware = datetime.now(timezone.utc) + timedelta(days=1)
+    task = await create_agent_task(
+        session_override,
+        tenant.id,
+        title="Tomorrow call",
+        signal_id=signal.id,
+        assignee_kind="human",
+        scheduled_for=aware,
+        auto_start=False,
+        origin="conversation",
+    )
+    assert task.scheduled_for is not None
+    assert task.scheduled_for.tzinfo is None
+    assert task.status == "queued"
+
+
+@pytest.mark.asyncio
+async def test_complete_rejects_agent_tasks(session_override: AsyncSession):
+    from app.models.signal import Signal
+    from app.services.orchestration.dispatcher import complete_agent_task, create_agent_task
+    from fastapi import HTTPException
+
+    tenant, agent = await _tenant_and_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="agent",
+        subject="Agent job",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    task = await create_agent_task(
+        session_override,
+        tenant.id,
+        title="Agent work",
+        signal_id=signal.id,
+        agent_id=agent.id,
+        assignee_kind="agent",
+        auto_start=False,
+    )
+    try:
+        await complete_agent_task(session_override, tenant.id, task.id)
+        raise AssertionError("expected HTTPException")
+    except HTTPException as exc:
+        assert exc.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_human_follow_up_skips_system_note(session_override: AsyncSession):
+    from app.models.signal import Signal, SignalMessage
+    from app.services.orchestration.dispatcher import create_agent_task
+
+    tenant, _agent = await _tenant_and_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="email",
+        subject="Quiet follow-up",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    await create_agent_task(
+        session_override,
+        tenant.id,
+        title="Call back",
+        description="Should not post as system note",
+        signal_id=signal.id,
+        assignee_kind="human",
+        origin="conversation",
+        auto_start=False,
+    )
+    notes = (
+        await session_override.execute(
+            select(SignalMessage).where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.kind == "system_note",
+            )
+        )
+    ).scalars().all()
+    assert notes == []
+
+
+@pytest.mark.asyncio
+async def test_create_task_rejects_foreign_signal(session_override: AsyncSession):
+    from uuid import uuid4
+
+    from app.services.orchestration.dispatcher import create_agent_task
+    from fastapi import HTTPException
+
+    tenant, _agent = await _tenant_and_agent(session_override)
+    try:
+        await create_agent_task(
+            session_override,
+            tenant.id,
+            title="Nope",
+            signal_id=uuid4(),
+            assignee_kind="human",
+            auto_start=False,
+        )
+        raise AssertionError("expected HTTPException")
+    except HTTPException as exc:
+        assert exc.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_agenda_includes_planned_and_human_tasks(session_override: AsyncSession):
+    from app.models.signal import Signal
+    from app.services.orchestration.dispatcher import complete_agent_task, create_agent_task
+
+    tenant, _agent = await _tenant_and_agent(session_override)
+    now = datetime.utcnow()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="email",
+        subject="Follow up thread",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    scheduled = await create_agent_task(
+        session_override,
+        tenant.id,
+        title="Call customer Friday",
+        signal_id=signal.id,
+        assignee_kind="human",
+        scheduled_for=now + timedelta(hours=2),
+        auto_start=False,
+        origin="conversation",
+    )
+    due_now = await create_agent_task(
+        session_override,
+        tenant.id,
+        title="Reply to invoice question",
+        signal_id=signal.id,
+        assignee_kind="human",
+        auto_start=False,
+        origin="conversation",
+    )
+    assert due_now.status == "awaiting_human"
+
+    items = await agenda_occurrences(
+        session_override,
+        tenant.id,
+        start=now - timedelta(hours=1),
+        end=now + timedelta(days=1),
+    )
+    task_items = [i for i in items if i.get("source") == "task"]
+    ids = {i.get("task_id") for i in task_items}
+    assert str(scheduled.id) in ids
+    assert str(due_now.id) in ids
+    assert all(i.get("kind") == "task" for i in task_items)
+
+    completed = await complete_agent_task(session_override, tenant.id, due_now.id)
+    assert completed.status == "completed"
+    items_after = await agenda_occurrences(
+        session_override,
+        tenant.id,
+        start=now - timedelta(hours=1),
+        end=now + timedelta(days=1),
+    )
+    assert str(due_now.id) not in {i.get("task_id") for i in items_after if i.get("source") == "task"}
+    # scheduled human task still visible
+    assert str(scheduled.id) in {i.get("task_id") for i in items_after if i.get("source") == "task"}
+
+
+@pytest.mark.asyncio
 async def test_stale_running_runs_closed_by_repair(session_override: AsyncSession):
     tenant, agent = await _tenant_and_agent(session_override)
     now = datetime.utcnow()

@@ -16,9 +16,9 @@ Agenda is when agents wake up, and where connected calendars show meetings. Open
 ![Agenda week view](/api/docs/assets/agenda/week.png)
 *Week shows planned wakes and calendar events on each day.*
 
-1. Open **Agenda**. **Week** shows planned runs and calendar events on each day.
-2. Switch to **List** for the same schedule as a feed. Filter with **All items**, **Wakes** or **Calendar**.
-3. Today is highlighted so you can see what fires next.
+1. Open **Agenda**. **Week** shows planned runs, follow-up tasks and calendar events on each day.
+2. Switch to **List** for the same schedule as a feed. Filter with **All items**, **Wakes**, **Follow-ups** or **Calendar**.
+3. Today is highlighted so you can see what fires next. Follow-ups show a **Done** control so you can complete human work without leaving Agenda.
 
 ## Sync Google or Outlook Calendar
 
@@ -54,7 +54,13 @@ Leave **Enabled** on. Disabled items stay on the agenda but never fire.
 
 If the linked agent is archived, the wake fails until you pick another agent.
 
-## Let agents schedule their own follow-ups
+## Complete a human follow-up
+
+1. Open **Agenda** and filter with **Follow-ups**, or stay on **All items**.
+2. Click a follow-up chip to open the linked conversation in Messages, or choose **Done** to mark it complete.
+3. The same open follow-ups also appear under **Follow-ups** in the conversation side panel, with the same **Done** control.
+
+Follow-ups are `AgentTask` ledger items (often assigned to a person). They are not agent wakes — wakes still live under **Wakes**.
 
 Agents can plan work themselves: in any conversation, ask an agent to "check this again on Friday" or "remind the team to review the proposal".
 

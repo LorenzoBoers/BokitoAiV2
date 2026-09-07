@@ -10,6 +10,9 @@ import { BrandMark } from '../integrations/BrandMark'
 import WhatsAppConnectForm from './WhatsAppConnectForm'
 import SlackConnectForm from './SlackConnectForm'
 import SmtpImapConnectForm from './SmtpImapConnectForm'
+import MailboxSyncWindowField, {
+  DEFAULT_INSTALL_SYNC_WINDOW_DAYS,
+} from './MailboxSyncWindowField'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
@@ -25,7 +28,7 @@ import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { cn } from '../../lib/utils'
 import type { Provider } from '../../lib/email-oauth'
 
-type Choice = 'menu' | 'email' | 'relay' | 'whatsapp' | 'slack' | 'smtp_imap'
+type Choice = 'menu' | 'email' | 'oauth_history' | 'relay' | 'whatsapp' | 'slack' | 'smtp_imap'
 
 const EMAIL_LOGOS = ['outlook', 'gmail', 'smtp_imap'] as const
 
@@ -173,6 +176,8 @@ export default function AddChannelDialog({
   const [choice, setChoice] = useState<Choice>('menu')
   const [connectBusy, setConnectBusy] = useState<'outlook' | 'gmail' | null>(null)
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [oauthProvider, setOauthProvider] = useState<'outlook' | 'gmail' | null>(null)
+  const [syncWindowDays, setSyncWindowDays] = useState(DEFAULT_INSTALL_SYNC_WINDOW_DAYS)
   const [relayOptions, setRelayOptions] = useState<RelayOptions | null>(null)
   const [prefix, setPrefix] = useState('')
   const [relayBusy, setRelayBusy] = useState(false)
@@ -185,6 +190,8 @@ export default function AddChannelDialog({
     setChoice('menu')
     setConnectBusy(null)
     setConnectError(null)
+    setOauthProvider(null)
+    setSyncWindowDays(DEFAULT_INSTALL_SYNC_WINDOW_DAYS)
     setRelayError(null)
     setCreatedAddress(null)
     setPrefix('')
@@ -205,13 +212,19 @@ export default function AddChannelDialog({
     }
   }, [open, token, createdAddress])
 
+  const beginOauth = useCallback((next: 'outlook' | 'gmail') => {
+    setOauthProvider(next)
+    setConnectError(null)
+    setChoice('oauth_history')
+  }, [])
+
   const connectMailbox = useCallback(
     async (next: 'outlook' | 'gmail') => {
       if (!token || connectBusy) return
       setConnectBusy(next)
       setConnectError(null)
       try {
-        const url = await startOAuthConnection(token, next)
+        const url = await startOAuthConnection(token, next, undefined, syncWindowDays)
         if (!url.trim()) {
           setConnectError(t('channelsPage.noAuthorizeUrl'))
           setConnectBusy(null)
@@ -223,7 +236,7 @@ export default function AddChannelDialog({
         setConnectBusy(null)
       }
     },
-    [token, connectBusy, t],
+    [token, connectBusy, syncWindowDays, t],
   )
 
   const createRelay = useCallback(async () => {
@@ -253,35 +266,45 @@ export default function AddChannelDialog({
   }, [createdAddress, t])
 
   const goBack = () => {
-    setChoice(choice === 'relay' || choice === 'smtp_imap' ? 'email' : 'menu')
+    if (choice === 'oauth_history') {
+      setChoice('email')
+      setOauthProvider(null)
+      setConnectBusy(null)
+    } else {
+      setChoice(choice === 'relay' || choice === 'smtp_imap' ? 'email' : 'menu')
+    }
     setConnectError(null)
   }
 
   const title =
     choice === 'email'
       ? t('channelsPage.option.email')
-      : choice === 'relay'
-        ? t('channelsPage.option.relay')
-        : choice === 'smtp_imap'
-          ? t('channelsPage.email.imap')
-          : choice === 'whatsapp'
-            ? t('channelsPage.option.whatsapp')
-            : choice === 'slack'
-              ? t('channelsPage.option.slack')
-              : t('channelsPage.addChannel')
+      : choice === 'oauth_history' && oauthProvider
+        ? t(`channelsPage.email.${oauthProvider}`)
+        : choice === 'relay'
+          ? t('channelsPage.option.relay')
+          : choice === 'smtp_imap'
+            ? t('channelsPage.email.imap')
+            : choice === 'whatsapp'
+              ? t('channelsPage.option.whatsapp')
+              : choice === 'slack'
+                ? t('channelsPage.option.slack')
+                : t('channelsPage.addChannel')
 
   const description =
     choice === 'email'
       ? t('channelsPage.email.pickDescription')
-      : choice === 'relay'
-        ? t('channelsPage.option.relayHint')
-        : choice === 'smtp_imap'
-          ? t('channelsPage.email.smtp.dialogDescription')
-          : choice === 'whatsapp'
-            ? t('whatsappCard.dialogDescription')
-            : choice === 'slack'
-              ? t('slackCard.dialogDescription')
-              : t('channelsPage.addChannelDescription')
+      : choice === 'oauth_history'
+        ? t('channelsPage.oauthInstallDescription')
+        : choice === 'relay'
+          ? t('channelsPage.option.relayHint')
+          : choice === 'smtp_imap'
+            ? t('channelsPage.email.smtp.dialogDescription')
+            : choice === 'whatsapp'
+              ? t('whatsappCard.dialogDescription')
+              : choice === 'slack'
+                ? t('slackCard.dialogDescription')
+                : t('channelsPage.addChannelDescription')
 
   const relaysLeft = relayOptions ? relayOptions.maxRelays - relayOptions.used : null
   const preview = relayOptions
@@ -376,17 +399,13 @@ export default function AddChannelDialog({
                   {(['gmail', 'outlook'] as const).map((option) => (
                     <ProviderCard
                       key={option}
-                      onClick={() => void connectMailbox(option)}
+                      onClick={() => beginOauth(option)}
                       disabled={connectBusy !== null}
                       icon={
                         <ProviderLogo provider={option as Provider} className="h-5 w-5 object-contain" />
                       }
                       title={t(`channelsPage.email.${option}`)}
-                      hint={
-                        connectBusy === option
-                          ? t('channelsPage.connecting')
-                          : t('channelsPage.email.oauthShort')
-                      }
+                      hint={t('channelsPage.email.oauthShort')}
                     />
                   ))}
                   <ProviderCard
@@ -412,6 +431,33 @@ export default function AddChannelDialog({
                   />
                 </div>
                 {connectError ? <p className="text-xs text-status-error">{connectError}</p> : null}
+              </div>
+            ) : null}
+
+            {choice === 'oauth_history' && oauthProvider ? (
+              <div className="space-y-4">
+                <MailboxSyncWindowField
+                  value={syncWindowDays}
+                  onChange={setSyncWindowDays}
+                  disabled={connectBusy !== null}
+                  id="oauth-sync-window"
+                />
+                <p className="text-[12px] leading-snug text-text-muted">
+                  {t('channelsPage.oauthInstallProgress')}
+                </p>
+                {connectError ? <p className="text-xs text-status-error">{connectError}</p> : null}
+                <div className="flex justify-end">
+                  <Button
+                    disabled={connectBusy !== null}
+                    onClick={() => void connectMailbox(oauthProvider)}
+                  >
+                    {connectBusy
+                      ? t('channelsPage.connecting')
+                      : t('channelsPage.oauthContinue', {
+                          provider: t(`channelsPage.email.${oauthProvider}`),
+                        })}
+                  </Button>
+                </div>
               </div>
             ) : null}
 

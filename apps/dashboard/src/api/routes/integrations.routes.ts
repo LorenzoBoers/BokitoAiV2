@@ -89,10 +89,27 @@ export const integrationsRoutes = {
       aiConfig: (connectionId: number) => `/email/connections/${connectionId}/ai-config`,
     },
     oauth: {
-      start: (provider: string, encodedReturnUrl: string) =>
-        `/email/oauth/start?provider=${provider}&return_url=${encodedReturnUrl}`,
-      outlookStart: (encodedReturnUrl: string) => `/email/outlook/oauth/start?return_url=${encodedReturnUrl}`,
-      googleStart: (encodedReturnUrl: string) => `/email/google/oauth/start?return_url=${encodedReturnUrl}`,
+      start: (provider: string, encodedReturnUrl: string, syncWindowDays?: number) => {
+        const windowQs =
+          typeof syncWindowDays === 'number' && Number.isFinite(syncWindowDays)
+            ? `&sync_window_days=${encodeURIComponent(String(syncWindowDays))}`
+            : ''
+        return `/email/oauth/start?provider=${provider}&return_url=${encodedReturnUrl}${windowQs}`
+      },
+      outlookStart: (encodedReturnUrl: string, syncWindowDays?: number) => {
+        const windowQs =
+          typeof syncWindowDays === 'number' && Number.isFinite(syncWindowDays)
+            ? `&sync_window_days=${encodeURIComponent(String(syncWindowDays))}`
+            : ''
+        return `/email/outlook/oauth/start?return_url=${encodedReturnUrl}${windowQs}`
+      },
+      googleStart: (encodedReturnUrl: string, syncWindowDays?: number) => {
+        const windowQs =
+          typeof syncWindowDays === 'number' && Number.isFinite(syncWindowDays)
+            ? `&sync_window_days=${encodeURIComponent(String(syncWindowDays))}`
+            : ''
+        return `/email/google/oauth/start?return_url=${encodedReturnUrl}${windowQs}`
+      },
     },
     send: '/email/send',
     sync: '/email/sync',

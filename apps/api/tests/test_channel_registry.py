@@ -59,6 +59,20 @@ def test_mailbox_with_credentials_is_connecting_until_first_sync():
     row = resolve_channel(account)
     assert row["state"] == "connecting"
     assert row["capabilities"] == ["receive", "send", "sync"]
+    assert "retry_sync" in row["actions"]
+    assert "sync_now" not in row["actions"]
+
+
+def test_mailbox_active_hides_manual_sync_action():
+    account = _mailbox(
+        None,
+        credentials_json=json.dumps({"access_token": "tok"}),
+        settings_json=json.dumps({"last_sync_at": datetime.utcnow().isoformat()}),
+    )
+    row = resolve_channel(account)
+    assert row["state"] == "active"
+    assert "retry_sync" not in row["actions"]
+    assert "sync_now" not in row["actions"]
 
 
 def test_mailbox_sync_error_is_degraded_not_broken():
@@ -72,6 +86,7 @@ def test_mailbox_sync_error_is_degraded_not_broken():
     row = resolve_channel(account)
     assert row["state"] == "degraded"
     assert row["last_error"] == "Graph 503"
+    assert "retry_sync" in row["actions"]
 
 
 def test_mailbox_repeated_sync_errors_are_an_error():

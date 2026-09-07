@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
-import { Bot, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listAgents } from '../../lib/agents-api'
 import type { InboxThread } from '../../lib/inbox-api'
@@ -129,35 +128,15 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isExternal ? (
-          <>
-            {thread.agentId || thread.agentName ? (
-              <Link
-                to={thread.agentId ? `/agents/${thread.agentId}` : '/agents'}
-                className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-ai/20 bg-ai/5 px-2.5 py-1.5 text-left transition-colors hover:border-ai/40"
-              >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-ai/25 bg-ai/10 text-ai-ink">
-                  <Bot size={12} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                    {t('sidePanel.handling', { ns: 'communication' })}
-                  </span>
-                  <span className="block truncate text-[12px] font-medium text-text-heading">
-                    {thread.agentName || t('sidePanel.agent', { ns: 'communication' })}
-                  </span>
-                </span>
-              </Link>
-            ) : null}
-            <ContactPanel
-              contactId={thread.contactId}
-              fallbackName={thread.contactName}
-              fallbackEmail={thread.contactEmail}
-              currentThreadId={thread.id}
-              threadSubject={thread.emailSubject}
-              threadPreview={thread.lastMessagePreview}
-              onUpdated={onThreadUpdated}
-            />
-          </>
+          <ContactPanel
+            contactId={thread.contactId}
+            fallbackName={thread.contactName}
+            fallbackEmail={thread.contactEmail}
+            currentThreadId={thread.id}
+            threadSubject={thread.emailSubject}
+            threadPreview={thread.lastMessagePreview}
+            onUpdated={onThreadUpdated}
+          />
         ) : (
           <AgentContextPanel thread={thread} agent={contextAgent} onThreadUpdated={onThreadUpdated} />
         )}

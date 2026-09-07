@@ -237,10 +237,11 @@ export async function startOAuthConnection(
   token: string,
   provider: OAuthProvider,
   returnUrlOverride?: string,
+  syncWindowDays?: number,
 ): Promise<string> {
   const returnUrl = returnUrlOverride?.trim() || buildEmailOAuthReturnUrl()
   const encodedReturnUrl = encodeURIComponent(returnUrl)
-  const genericPath = integrationsRoutes.email.oauth.start(provider, encodedReturnUrl)
+  const genericPath = integrationsRoutes.email.oauth.start(provider, encodedReturnUrl, syncWindowDays)
   try {
     const payload = await apiGet<{ authorize_url?: string; authorizeUrl?: string }>(genericPath, token)
     const url = asString(payload.authorize_url ?? payload.authorizeUrl)
@@ -250,7 +251,7 @@ export async function startOAuthConnection(
   } catch (error) {
     if (provider === 'outlook') {
       const payload = await apiGet<{ authorize_url?: string; authorizeUrl?: string }>(
-        integrationsRoutes.email.oauth.outlookStart(encodedReturnUrl),
+        integrationsRoutes.email.oauth.outlookStart(encodedReturnUrl, syncWindowDays),
         token,
       )
       const url = asString(payload.authorize_url ?? payload.authorizeUrl)
@@ -261,7 +262,7 @@ export async function startOAuthConnection(
 
     if (provider === 'gmail') {
       const payload = await apiGet<{ authorize_url?: string; authorizeUrl?: string }>(
-        integrationsRoutes.email.oauth.googleStart(encodedReturnUrl),
+        integrationsRoutes.email.oauth.googleStart(encodedReturnUrl, syncWindowDays),
         token,
       )
       const url = asString(payload.authorize_url ?? payload.authorizeUrl)

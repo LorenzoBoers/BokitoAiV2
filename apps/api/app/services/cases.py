@@ -91,6 +91,7 @@ def serialize_case_type(row: CaseType) -> dict[str, Any]:
         "description": row.description,
         "create_mode": row.create_mode,
         "follow_up_mode": getattr(row, "follow_up_mode", None) or "track",
+        "follow_up_task": bool(getattr(row, "follow_up_task", False)),
         "ask_threshold": row.ask_threshold,
         "auto_threshold": row.auto_threshold,
         "requires_verification": row.requires_verification,
@@ -260,6 +261,7 @@ async def create_case_type(
     description: str = "",
     create_mode: str = "ask_customer",
     follow_up_mode: str = "track",
+    follow_up_task: bool = False,
     ask_threshold: int = 6,
     auto_threshold: int = 9,
     requires_verification: bool = False,
@@ -294,6 +296,7 @@ async def create_case_type(
         description=description,
         create_mode=create_mode,
         follow_up_mode=follow_up_mode,
+        follow_up_task=bool(follow_up_task),
         ask_threshold=max(0, min(11, int(ask_threshold))),
         auto_threshold=max(0, min(11, int(auto_threshold))),
         requires_verification=requires_verification,
@@ -334,6 +337,8 @@ async def update_case_type(
         if patch["follow_up_mode"] not in CASE_FOLLOW_UP_MODES:
             raise HTTPException(status_code=400, detail="Invalid follow_up_mode")
         row.follow_up_mode = patch["follow_up_mode"]
+    if "follow_up_task" in patch and patch["follow_up_task"] is not None:
+        row.follow_up_task = bool(patch["follow_up_task"])
     if "ask_threshold" in patch and patch["ask_threshold"] is not None:
         row.ask_threshold = max(0, min(11, int(patch["ask_threshold"])))
     if "auto_threshold" in patch and patch["auto_threshold"] is not None:
@@ -778,6 +783,75 @@ async def _ask_operator_decision(
     )
 
 
+async def maybe_open_case_follow_up_task(
+    session: AsyncSession,
+    tenant_id: UUID,
+    case: Case,
+    case_type: CaseType,
+) -> str | None:
+    """Open one human ledger task when the case type asks for follow-up work.
+
+    Dedupes on context_json.case_id so reopen/link never stacks duplicates.
+    """
+    if not bool(getattr(case_type, "follow_up_task", False)):
+        return None
+    if case.status not in ("open", "linked"):
+        return None
+
+    from app.models.orchestration import AgentTask
+    from app.services.orchestration.dispatcher import create_agent_task
+
+    existing = (
+        await session.execute(
+            select(AgentTask).where(
+                AgentTask.tenant_id == tenant_id,
+                AgentTask.signal_id == case.signal_id,
+                AgentTask.status.notin_(("completed", "cancelled", "rejected", "failed")),
+            )
+        )
+    ).scalars().all()
+    for task in existing:
+        try:
+            ctx = json.loads(task.context_json or "{}")
+        except json.JSONDecodeError:
+            ctx = {}
+        if str(ctx.get("case_id") or "") == str(case.id):
+            return str(task.id)
+
+    assignee_user_id: UUID | None = None
+    if case.created_by_type == "user" and case.created_by_id:
+        try:
+            assignee_user_id = UUID(str(case.created_by_id))
+        except ValueError:
+            assignee_user_id = None
+    if assignee_user_id is None:
+        signal = (
+            await session.execute(
+                select(Signal).where(Signal.id == case.signal_id, Signal.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if signal is not None and signal.assigned_user_id:
+            assignee_user_id = signal.assigned_user_id
+
+    task = await create_agent_task(
+        session,
+        tenant_id,
+        title=(case.title or case_type.name)[:120],
+        description=case.summary or f"Follow-up for case {case_type.name}",
+        signal_id=case.signal_id,
+        project_id=case.project_id,
+        origin="case",
+        assignee_kind="human",
+        assignee_user_id=assignee_user_id,
+        created_by=assignee_user_id,
+        auto_start=False,
+        kind="job",
+        context={"case_id": str(case.id)},
+        post_system_note=False,
+    )
+    return str(task.id)
+
+
 async def link_case(
     session: AsyncSession,
     tenant_id: UUID,
@@ -816,6 +890,7 @@ async def link_case(
     session.add(case)
     await session.commit()
     await session.refresh(case)
+    await maybe_open_case_follow_up_task(session, tenant_id, case, _case_type)
     return case
 
 
@@ -992,6 +1067,8 @@ async def create_case(
             created_by_id=created_by_id,
         )
         extra["linked"] = True
+    elif status in ("open", "linked"):
+        await maybe_open_case_follow_up_task(session, tenant_id, case, case_type)
     return {"case": serialize_case(case, case_type), **extra}
 
 
@@ -1001,7 +1078,8 @@ async def update_case(
     case_id: UUID,
     patch: dict[str, Any],
 ) -> Case:
-    case, _case_type = await get_case(session, tenant_id, case_id)
+    case, case_type = await get_case(session, tenant_id, case_id)
+    prev_status = case.status
     if "title" in patch and patch["title"] is not None:
         case.title = str(patch["title"]).strip()
     if "summary" in patch and patch["summary"] is not None:
@@ -1019,4 +1097,6 @@ async def update_case(
     session.add(case)
     await session.commit()
     await session.refresh(case)
+    if case.status in ("open", "linked") and prev_status not in ("open", "linked"):
+        await maybe_open_case_follow_up_task(session, tenant_id, case, case_type)
     return case

@@ -306,6 +306,7 @@ function CaseTypeEditor({
   const [followUpMode, setFollowUpMode] = useState<CaseFollowUpMode>(row.follow_up_mode ?? 'track')
   const [audience, setAudience] = useState<CaseTypeRow['audience']>(row.audience)
   const [requiresVerification, setRequiresVerification] = useState(row.requires_verification)
+  const [followUpTask, setFollowUpTask] = useState(Boolean(row.follow_up_task))
   const [saving, setSaving] = useState(false)
 
   const dirty =
@@ -313,7 +314,8 @@ function CaseTypeEditor({
     createMode !== row.create_mode ||
     followUpMode !== (row.follow_up_mode ?? 'track') ||
     audience !== row.audience ||
-    requiresVerification !== row.requires_verification
+    requiresVerification !== row.requires_verification ||
+    followUpTask !== Boolean(row.follow_up_task)
 
   const save = async () => {
     setSaving(true)
@@ -322,6 +324,7 @@ function CaseTypeEditor({
         description,
         create_mode: createMode,
         follow_up_mode: followUpMode,
+        follow_up_task: followUpMode === 'label' ? false : followUpTask,
         audience,
         requires_verification: requiresVerification,
       })
@@ -412,6 +415,12 @@ function CaseTypeEditor({
           {t('cases.needsVerify', { defaultValue: 'needs confirmation' })}
         </label>
       </div>
+      {followUpMode !== 'label' ? (
+        <label className="flex items-center gap-2 text-xs text-text-secondary">
+          <Switch checked={followUpTask} onCheckedChange={setFollowUpTask} />
+          {t('casesPage.followUpTaskToggle')}
+        </label>
+      ) : null}
       {followUpMode === 'label' ? (
         <p className="text-[11px] text-text-muted">
           {t('casesPage.followUpLabelHint', {

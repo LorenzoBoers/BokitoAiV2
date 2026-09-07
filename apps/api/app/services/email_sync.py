@@ -59,6 +59,19 @@ MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 # (or when a cursor is invalidated). Per-account override via
 # settings_json["sync_window_days"]; 0 means no limit.
 DEFAULT_SYNC_WINDOW_DAYS = 30
+# Presets offered during mailbox install (UI + OAuth). 0 = everything is
+# still allowed via advanced settings, but not as an install default.
+INSTALL_SYNC_WINDOW_DAYS = (7, 30, 90, 365)
+MAX_SYNC_WINDOW_DAYS = 3650
+
+
+def clamp_sync_window_days(value: Any, *, default: int = DEFAULT_SYNC_WINDOW_DAYS) -> int:
+    """Normalize a backfill window to 0..MAX (0 = unlimited)."""
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0, min(days, MAX_SYNC_WINDOW_DAYS))
 
 # Standard folder set offered in "Select folders to sync". Each selected
 # folder is polled with its own cursor (settings_json["sync_cursors"]).
@@ -96,11 +109,22 @@ def account_sync_folders(settings: dict[str, Any]) -> list[dict[str, Any]]:
 
 def account_sync_window_days(settings: dict[str, Any]) -> int:
     """Backfill window in days for a mailbox (0 = unlimited)."""
+    return clamp_sync_window_days(
+        settings.get("sync_window_days", DEFAULT_SYNC_WINDOW_DAYS)
+    )
+
+
+def set_account_sync_window(account: ChannelAccount, days: int) -> dict[str, Any]:
+    """Persist the install/backfill window on mailbox settings (in-memory)."""
     try:
-        value = int(settings.get("sync_window_days", DEFAULT_SYNC_WINDOW_DAYS))
-    except (TypeError, ValueError):
-        return DEFAULT_SYNC_WINDOW_DAYS
-    return max(0, min(value, 3650))
+        settings = json.loads(account.settings_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        settings = {}
+    if not isinstance(settings, dict):
+        settings = {}
+    settings["sync_window_days"] = clamp_sync_window_days(days)
+    account.settings_json = json.dumps(settings)
+    return settings
 
 
 # Grace window so mail arriving just before connect is still treated as live.
@@ -1049,7 +1073,18 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
             return {"account_id": str(account.id), "synced": 0, "status": "no_credentials"}
         if creds.get("mock"):
             # Dev mailbox connected via the mock OAuth flow: nothing to poll.
-            return {"account_id": str(account.id), "synced": 0, "status": "mock_skipped"}
+            # Still stamp last_sync_at so install completes as Active (not Connecting).
+            settings = json.loads(account.settings_json or "{}")
+            if not isinstance(settings, dict):
+                settings = {}
+            settings = ensure_ai_live_since(settings)
+            settings["last_sync_at"] = datetime.utcnow().isoformat()
+            settings.pop("last_error", None)
+            settings.pop("sync_error_count", None)
+            account.settings_json = json.dumps(settings)
+            session.add(account)
+            await session.commit()
+            return {"account_id": str(account.id), "synced": 0, "status": "ok"}
 
     settings = json.loads(account.settings_json or "{}")
     if not isinstance(settings, dict):

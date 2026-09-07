@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -843,7 +843,14 @@ async def _email_oauth_response(
     provider: str,
     return_url: str,
     email: str,
+    *,
+    sync_window_days: int | None = None,
 ) -> dict[str, str]:
+    from app.services.email_sync import DEFAULT_SYNC_WINDOW_DAYS, clamp_sync_window_days
+
+    window = clamp_sync_window_days(
+        sync_window_days if sync_window_days is not None else DEFAULT_SYNC_WINDOW_DAYS
+    )
     # Real provider OAuth when configured; otherwise the dev mock flow that
     # creates a local mailbox and redirects straight back with success params.
     real_url = await start_real_oauth(
@@ -853,6 +860,7 @@ async def _email_oauth_response(
         provider=provider,
         flow="email",
         return_url=return_url,
+        sync_window_days=window,
     )
     if real_url:
         return {"authorize_url": real_url}
@@ -863,9 +871,14 @@ async def _email_oauth_response(
         )
     # Dev-only mock connect: seed placeholder credentials so the mailbox shows
     # as connected in the UI (sync/send recognize the mock flag and skip the
-    # real provider APIs).
+    # real provider APIs). Stamps last_sync_at so install lands as Active.
     await ensure_email_account(
-        session, tenant_id, provider, email, seed_mock_credentials=True
+        session,
+        tenant_id,
+        provider,
+        email,
+        seed_mock_credentials=True,
+        sync_window_days=window,
     )
     return {
         "authorize_url": mock_authorize_url(
@@ -881,12 +894,19 @@ async def email_oauth_start(
     session: Annotated[AsyncSession, Depends(get_session)],
     provider: str,
     return_url: str,
+    sync_window_days: int | None = Query(default=None),
 ):
     if provider not in ("outlook", "gmail"):
         raise HTTPException(status_code=400, detail="Unsupported email provider")
     email = auth.user.email or f"{provider}@bokito.local"
     return await _email_oauth_response(
-        session, auth.tenant.id, auth.user.id, provider, return_url, email
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        provider,
+        return_url,
+        email,
+        sync_window_days=sync_window_days,
     )
 
 
@@ -895,10 +915,17 @@ async def outlook_oauth_start(
     auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
     return_url: str,
+    sync_window_days: int | None = Query(default=None),
 ):
     email = auth.user.email or "outlook@bokito.local"
     return await _email_oauth_response(
-        session, auth.tenant.id, auth.user.id, "outlook", return_url, email
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        "outlook",
+        return_url,
+        email,
+        sync_window_days=sync_window_days,
     )
 
 
@@ -907,8 +934,15 @@ async def google_oauth_start(
     auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
     return_url: str,
+    sync_window_days: int | None = Query(default=None),
 ):
     email = auth.user.email or "gmail@bokito.local"
     return await _email_oauth_response(
-        session, auth.tenant.id, auth.user.id, "gmail", return_url, email
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        "gmail",
+        return_url,
+        email,
+        sync_window_days=sync_window_days,
     )

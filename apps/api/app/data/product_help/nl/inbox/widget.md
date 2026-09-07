@@ -33,7 +33,8 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 1. Open **Stem en uren**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in, en kies **Wijzigingen opslaan**. Het model zelf zet je op de agentpagina.
 2. Onder **Beschikbaarheid** zet je **Teambereikbaarheid** met **Van**, **Tot** en **Tijdzone**. Kies **Beschikbaarheid opslaan**. Buiten die uren blijft chat open. De widget toont het team als afwezig en bezoekers kunnen een terugbelverzoek vragen in plaats van een live overdracht.
 3. Zet **Vooraf-formulier** aan wanneer je naam en e-mail wilt vóór het eerste bericht. Die bezoekers worden echte [contacten](/docs/inbox/contacts) in plaats van anonieme websitebezoekers.
-4. In de chatcomposer kunnen bezoekers dicteren met de microfoon als de browser spraakherkenning ondersteunt (zelfde patroon op de websitewidget en de in-app-assistent): houd ingedrukt om te praten of klik om te starten; de knop wordt groen met een vinkje om te bevestigen. Het berichtvak groeit mee met de gesproken tekst.
+4. In de chatcomposer kunnen bezoekers dicteren met de microfoon als de browser spraakherkenning ondersteunt (zelfde patroon op de websitewidget en de in-app-assistent): houd ingedrukt om te praten of klik om te starten; tijdens luisteren toont de knop een groene glow en golfbalken, met een vinkje bij hover om te bevestigen. Commit-/dedupe-regels en golfgeometrie delen Messages en de widget via `@bokito/shared`.
+5. Bezoekers kunnen opnieuw versturen terwijl de assistent nog antwoordt. De widget stopt het onvoltooide antwoord, houdt beide bezoekersberichten zichtbaar, en start een nieuw antwoord dat ze samen meeneemt. Alleen typen stopt de assistent niet — wel Versturen of Stop. Na Versturen blijft het berichtvak gefocust voor de volgende regel.
 
 De websitewidget volgt het lichte of donkere systeemthema van de bezoeker. Er zit geen thema-schakelaar in de widget. Light en Dark op deze pagina zijn alleen om contrast te controleren.
 

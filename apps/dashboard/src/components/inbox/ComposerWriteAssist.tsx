@@ -2,7 +2,7 @@
  * Compose-with-AI menu for the customer reply composer: intent → draft,
  * quick rewrite actions on existing text, plus demoted saved replies.
  */
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -20,6 +20,7 @@ import {
   listSavedReplies,
   type SavedReplyRow,
 } from '../../lib/signals-api'
+import { appendSpeechChunk, useSpeechDictation } from '../../hooks/useSpeechDictation'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { DictationMicButton } from './DictationMicButton'
 
 export type ComposeAiAction =
   | 'compose'
@@ -105,6 +107,41 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
   const [intent, setIntent] = useState('')
   const [busy, setBusy] = useState(false)
   const [savedReplies, setSavedReplies] = useState<SavedReplyRow[] | null>(null)
+  const [dictationInterim, setDictationInterim] = useState('')
+  const dictationInterimRef = useRef('')
+  dictationInterimRef.current = dictationInterim
+  const intentRef = useRef(intent)
+  intentRef.current = intent
+
+  const appendDictation = useCallback((chunk: string) => {
+    setIntent((prev) => appendSpeechChunk(prev, chunk))
+    setDictationInterim('')
+  }, [])
+
+  const dictation = useSpeechDictation({
+    onFinal: appendDictation,
+    onInterim: setDictationInterim,
+  })
+
+  const confirmDictation = useCallback(() => {
+    const pending = dictationInterimRef.current.trim()
+    dictation.stop()
+    if (pending) appendDictation(pending)
+    else setDictationInterim('')
+  }, [appendDictation, dictation])
+
+  useEffect(() => {
+    if (open) return
+    if (!dictation.listening) return
+    confirmDictation()
+    // Only flush when the menu closes; do not re-run on confirm identity churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open is the trigger
+  }, [open])
+
+  const intentDisplay = useMemo(() => {
+    if (!dictation.listening || !dictationInterim.trim()) return intent
+    return intent ? `${intent} ${dictationInterim}` : dictationInterim
+  }, [dictation.listening, dictationInterim, intent])
 
   const loadSavedReplies = async () => {
     if (!token || savedReplies !== null) return
@@ -117,6 +154,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
 
   const run = async (action: ComposeAiAction) => {
     if (!token || busy) return
+    if (dictation.listening) confirmDictation()
     if (action !== 'compose' && !body.trim()) {
       toast.error(t('composer.aiNeedText'))
       return
@@ -126,7 +164,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
     }
     setBusy(true)
     try {
-      const instruction = buildInstruction(action, body, intent)
+      const instruction = buildInstruction(action, body, intentRef.current)
       const draft = await draftThreadReply(token, threadId, instruction)
       if (!draft.trim()) {
         toast.error(t('composer.aiEmpty'))
@@ -189,19 +227,43 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
             {t('composer.aiIntentLabel')}
           </p>
-          <textarea
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-            rows={2}
-            placeholder={t('composer.aiIntentPlaceholder')}
-            className="w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 px-2.5 py-1.5 text-[12px] text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                void run('compose')
+          <div className="relative">
+            <textarea
+              value={intentDisplay}
+              readOnly={dictation.listening}
+              onChange={(e) => {
+                if (dictation.listening) return
+                setIntent(e.target.value)
+              }}
+              rows={2}
+              placeholder={
+                dictation.listening
+                  ? t('composer.dictationListening')
+                  : t('composer.aiIntentPlaceholder')
               }
-            }}
-          />
+              className="w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-1.5 pl-2.5 pr-10 text-[12px] text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  void run('compose')
+                }
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+            {dictation.supported ? (
+              <div className="absolute bottom-1.5 right-1.5">
+                <DictationMicButton
+                  size="sm"
+                  listening={dictation.listening}
+                  disabled={busy || disabled}
+                  onStart={() => {
+                    dictation.start()
+                  }}
+                  onConfirm={confirmDictation}
+                />
+              </div>
+            ) : null}
+          </div>
           <button
             type="button"
             disabled={busy || disabled}

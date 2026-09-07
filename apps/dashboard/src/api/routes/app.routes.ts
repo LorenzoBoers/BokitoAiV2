@@ -133,6 +133,7 @@ export const appRoutes = {
     tasks: '/orchestration/tasks',
     task: (id: string) => `/orchestration/tasks/${id}`,
     taskCancel: (id: string) => `/orchestration/tasks/${id}/cancel`,
+    taskComplete: (id: string) => `/orchestration/tasks/${id}/complete`,
     taskResume: (id: string) => `/orchestration/tasks/${id}/resume`,
     taskArtifacts: (id: string) => `/orchestration/tasks/${id}/artifacts`,
     runEvents: (runId: string) => `/orchestration/runs/${runId}/events`,

@@ -27,6 +27,7 @@ import {
 import {
   listAgendaOccurrences,
   listTriggers,
+  completeAgentTask,
   type AgendaItem,
   type Trigger,
 } from '../lib/orchestration-api'
@@ -41,7 +42,8 @@ import { pickClosestThreadBySubject, triggerThreadPath } from '../lib/agenda-thr
 import { translateDecisionText } from '../lib/activity-labels'
 import { agendaStatusLabel } from '../lib/status-labels'
 import { cn } from '../lib/utils'
-import { listThreads } from '../lib/inbox-api'
+import { getThread, listThreads } from '../lib/inbox-api'
+import { threadHubPath } from '../lib/message-composer'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 
 type ViewTab = 'week' | 'list' | 'automations'
@@ -59,17 +61,36 @@ const KIND_LABELS: Record<string, string> = {
   heartbeat: 'Check-in',
   webhook: 'Incoming',
   calendar: 'Calendar',
+  task: 'Follow-up',
 }
 
-type SourceFilter = 'all' | 'wakes' | 'calendar'
+type SourceFilter = 'all' | 'wakes' | 'calendar' | 'tasks'
 
 function parseSourceFilter(raw: string | null): SourceFilter {
-  if (raw === 'wakes' || raw === 'calendar') return raw
+  if (raw === 'wakes' || raw === 'calendar' || raw === 'tasks') return raw
   return 'all'
 }
 
 function isCalendarItem(item: AgendaItem): boolean {
   return item.kind === 'calendar' || item.source === 'calendar'
+}
+
+function isTaskItem(item: AgendaItem): boolean {
+  return item.source === 'task' || Boolean(item.task_id) || item.kind === 'task'
+}
+
+function isWakeItem(item: AgendaItem): boolean {
+  return !isCalendarItem(item) && !isTaskItem(item)
+}
+
+function itemIsClickable(item: AgendaItem): boolean {
+  return (
+    isCalendarItem(item) ||
+    isTaskItem(item) ||
+    Boolean(item.run_id) ||
+    Boolean(item.trigger_id) ||
+    Boolean(item.signal_id)
+  )
 }
 
 function startOfDay(d: Date): Date {
@@ -109,8 +130,12 @@ function statusStyle(status: string, kind?: string): string {
   if (kind === 'calendar' || status === 'calendar') {
     return 'border-sky-500/35 bg-sky-500/8 text-text-heading'
   }
+  if (kind === 'task') {
+    return 'border-ai/35 bg-ai/8 text-ai-ink'
+  }
   const s = status.toLowerCase()
   if (s === 'planned') return 'border-border/60 bg-bg-elevated text-text'
+  if (s === 'awaiting_human' || s === 'overdue') return 'border-status-warning/40 bg-status-warning/10 text-status-warning'
   if (s === 'running' || s === 'active') return 'border-accent/40 bg-accent/10 text-accent'
   if (s === 'failed' || s === 'error') return 'border-status-error/40 bg-status-error/10 text-status-error'
   return 'border-status-success/40 bg-status-success/10 text-status-success'
@@ -119,44 +144,70 @@ function statusStyle(status: string, kind?: string): string {
 function AgendaChip({
   item,
   onClick,
+  onComplete,
   showDate,
 }: {
   item: AgendaItem
   onClick?: () => void
+  onComplete?: () => void
   showDate?: boolean
 }) {
   const { t, i18n } = useTranslation('nav')
   const at = parseAt(item.at)
+  const task = isTaskItem(item)
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
+    <div
       className={cn(
         'w-full rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors',
         statusStyle(item.status, item.kind),
-        onClick ? 'hover:border-accent/60' : 'cursor-default',
         !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium tabular-nums">
-          {showDate ? `${formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })} ` : ''}
-          {formatTime(at, i18n.language)}
-        </span>
-        <span className="rounded border border-current/30 px-1 py-px text-[9px] uppercase tracking-wide opacity-80">
-          {t(`agendaPage.kinds.${item.kind}`, { defaultValue: KIND_LABELS[item.kind] ?? item.kind })}
-        </span>
-      </div>
-      <p className="mt-0.5 truncate font-medium">{translateDecisionText(item.name, t) || item.name}</p>
-      {item.agent_name ? <p className="truncate opacity-75">{item.agent_name}</p> : null}
-      {isCalendarItem(item) && item.provider_label ? (
-        <p className="truncate opacity-75">{item.provider_label}</p>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!onClick}
+        className={cn('w-full text-left', onClick ? 'hover:opacity-90' : 'cursor-default')}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium tabular-nums">
+            {showDate ? `${formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })} ` : ''}
+            {formatTime(at, i18n.language)}
+          </span>
+          <span className="rounded border border-current/30 px-1 py-px text-[9px] uppercase tracking-wide opacity-80">
+            {t(`agendaPage.kinds.${item.kind}`, { defaultValue: KIND_LABELS[item.kind] ?? item.kind })}
+          </span>
+        </div>
+        <p className="mt-0.5 truncate font-medium">{translateDecisionText(item.name, t) || item.name}</p>
+        {task && item.assignee_kind === 'human' ? (
+          <p className="truncate opacity-75">
+            {item.assignee_user_id
+              ? t('agendaPage.taskForYou')
+              : t('agendaPage.taskUnassigned', { defaultValue: 'Unassigned' })}
+          </p>
+        ) : item.agent_name ? (
+          <p className="truncate opacity-75">{item.agent_name}</p>
+        ) : null}
+        {isCalendarItem(item) && item.provider_label ? (
+          <p className="truncate opacity-75">{item.provider_label}</p>
+        ) : null}
+        {item.status !== 'planned' && item.status !== 'calendar' ? (
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-75">{agendaStatusLabel(item.status, t)}</p>
+        ) : null}
+      </button>
+      {task && item.task_id && onComplete ? (
+        <button
+          type="button"
+          className="mt-1 w-full rounded-md border border-current/25 px-1.5 py-0.5 text-[10px] font-medium hover:bg-bg-hover/40"
+          onClick={(e) => {
+            e.stopPropagation()
+            onComplete()
+          }}
+        >
+          {t('agendaPage.completeTask')}
+        </button>
       ) : null}
-      {item.status !== 'planned' && item.status !== 'calendar' ? (
-        <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-75">{agendaStatusLabel(item.status, t)}</p>
-      ) : null}
-    </button>
+    </div>
   )
 }
 
@@ -341,8 +392,9 @@ export default function AgendaPage() {
 
   const filtered = useMemo(() => {
     let out = items
-    if (sourceFilter === 'wakes') out = out.filter((i) => !isCalendarItem(i))
+    if (sourceFilter === 'wakes') out = out.filter((i) => isWakeItem(i))
     if (sourceFilter === 'calendar') out = out.filter((i) => isCalendarItem(i))
+    if (sourceFilter === 'tasks') out = out.filter((i) => isTaskItem(i))
     if (kindFilter !== 'all') out = out.filter((i) => i.kind === kindFilter)
     const q = listQuery.trim().toLowerCase()
     if (q) {
@@ -386,6 +438,23 @@ export default function AgendaPage() {
       setCalendarDetailItem(item)
       return
     }
+    if (isTaskItem(item) && item.signal_id) {
+      void (async () => {
+        if (token) {
+          try {
+            const detail = await getThread(token, item.signal_id!)
+            if (detail?.thread) {
+              navigate(threadHubPath(detail.thread))
+              return
+            }
+          } catch {
+            // Fall through to customer inbox deep link.
+          }
+        }
+        navigate(inboxPath('open', String(item.signal_id)))
+      })()
+      return
+    }
     void (async () => {
       // The trigger knows its own thread; only older rows need a subject search.
       const direct = item.status !== 'planned' || item.run_id ? triggerThreadPath(item) : null
@@ -420,6 +489,26 @@ export default function AgendaPage() {
       if (item.trigger_id) openEdit(item)
     })()
   }
+
+  const completeTaskItem = useCallback(
+    async (item: AgendaItem) => {
+      if (!item.task_id) return
+      try {
+        await completeAgentTask(item.task_id)
+        if (item.signal_id) {
+          window.dispatchEvent(
+            new CustomEvent('bokito:agent-tasks-changed', {
+              detail: { signalId: item.signal_id },
+            }),
+          )
+        }
+        setReloadKey((k) => k + 1)
+      } catch (err) {
+        setError(formatApiErrorMessage(err, t('agendaPage.completeTaskError')))
+      }
+    },
+    [t],
+  )
 
   const openEdit = (item: AgendaItem) => {
     if (!item.trigger_id) return
@@ -566,6 +655,7 @@ export default function AgendaPage() {
               <SelectContent>
                 <SelectItem value="all">{t('agendaPage.allSources')}</SelectItem>
                 <SelectItem value="wakes">{t('agendaPage.sourceWakes')}</SelectItem>
+                <SelectItem value="tasks">{t('agendaPage.sourceTasks')}</SelectItem>
                 <SelectItem value="calendar">{t('agendaPage.sourceCalendar')}</SelectItem>
               </SelectContent>
             </Select>
@@ -582,7 +672,7 @@ export default function AgendaPage() {
                 ))}
               </SelectContent>
             </Select>
-            {sourceFilter !== 'calendar' ? (
+            {sourceFilter !== 'calendar' && sourceFilter !== 'tasks' ? (
               <Select value={kindFilter} onValueChange={handleKindFilterChange}>
                 <SelectTrigger className="h-8 w-[130px] text-xs">
                   <SelectValue placeholder={t('agendaPage.allTypes')} />
@@ -590,7 +680,7 @@ export default function AgendaPage() {
                 <SelectContent>
                   <SelectItem value="all">{t('agendaPage.allTypes')}</SelectItem>
                   {Object.keys(KIND_LABELS)
-                    .filter((value) => value !== 'calendar')
+                    .filter((value) => value !== 'calendar' && value !== 'task')
                     .map((value) => (
                       <SelectItem key={value} value={value}>
                         {t(`agendaPage.kinds.${value}`, { defaultValue: KIND_LABELS[value] })}
@@ -671,9 +761,10 @@ export default function AgendaPage() {
                         ...item,
                         agent_name: resolveAgendaAgentName(item, agents, triggers, items) || item.agent_name,
                       }}
-                      onClick={
-                        isCalendarItem(item) || item.run_id || item.trigger_id
-                          ? () => openItem(item)
+                      onClick={itemIsClickable(item) ? () => openItem(item) : undefined}
+                      onComplete={
+                        isTaskItem(item) && item.task_id && item.assignee_kind === 'human'
+                          ? () => void completeTaskItem(item)
                           : undefined
                       }
                     />
@@ -721,66 +812,85 @@ export default function AgendaPage() {
                     const at = parseAt(item.at)
                     const agentLabel = resolveAgendaAgentName(item, agents, triggers, items)
                     const agentId = resolveAgendaAgentId(item, triggers, items, agents)
+                    const clickable = itemIsClickable(item)
                     return (
-                      <button
+                      <div
                         key={item.id}
-                        type="button"
-                        disabled={
-                          !isCalendarItem(item) && !item.trigger_id && !(item.run_id && item.agent_id)
-                        }
-                        onClick={
-                          isCalendarItem(item) || item.run_id || item.trigger_id
-                            ? () => openItem(item)
-                            : undefined
-                        }
                         className={cn(
-                          'flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-left text-sm transition-colors',
-                          isCalendarItem(item) || item.run_id || item.trigger_id
-                            ? 'hover:border-accent/60'
-                            : 'cursor-default',
-                          !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
+                          'flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-sm transition-colors',
                           isCalendarItem(item) ? 'border-sky-500/30' : '',
+                          isTaskItem(item) ? 'border-ai/30' : '',
+                          !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
                         )}
                       >
-                        <span className="w-12 shrink-0 font-medium tabular-nums text-text-heading">
-                          {formatTime(at, i18n.language)}
-                        </span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
-                          {t(`agendaPage.kinds.${item.kind}`, { defaultValue: KIND_LABELS[item.kind] ?? item.kind })}
-                        </Badge>
-                        <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
-                          {translateDecisionText(item.name, t) || item.name}
-                        </span>
-                        {agentLabel ? (
-                          <span
-                            className={`hidden shrink-0 text-xs sm:inline ${agentId ? 'text-accent hover:underline' : 'text-text-muted'}`}
-                            onClick={
-                              agentId
-                                ? (event) => {
-                                    event.stopPropagation()
-                                    navigate(`/agents/${agentId}`)
-                                  }
-                                : undefined
-                            }
-                          >
-                            {agentLabel}
-                          </span>
-                        ) : item.provider_label ? (
-                          <span className="hidden shrink-0 text-xs text-text-muted sm:inline">
-                            {item.provider_label}
-                          </span>
-                        ) : null}
-                        <span
+                        <button
+                          type="button"
+                          disabled={!clickable}
+                          onClick={clickable ? () => openItem(item) : undefined}
                           className={cn(
-                            'shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide',
-                            statusStyle(item.status, item.kind),
+                            'flex min-w-0 flex-1 items-center gap-3 text-left',
+                            clickable ? 'hover:opacity-90' : 'cursor-default',
                           )}
                         >
-                          {item.status === 'calendar'
-                            ? t('agendaPage.kinds.calendar')
-                            : agendaStatusLabel(item.status, t)}
-                        </span>
-                      </button>
+                          <span className="w-12 shrink-0 font-medium tabular-nums text-text-heading">
+                            {formatTime(at, i18n.language)}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            {t(`agendaPage.kinds.${item.kind}`, {
+                              defaultValue: KIND_LABELS[item.kind] ?? item.kind,
+                            })}
+                          </Badge>
+                          <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
+                            {translateDecisionText(item.name, t) || item.name}
+                          </span>
+                          {isTaskItem(item) && item.assignee_kind === 'human' ? (
+                            <span className="hidden shrink-0 text-xs text-text-muted sm:inline">
+                              {item.assignee_user_id
+                                ? t('agendaPage.taskForYou')
+                                : t('agendaPage.taskUnassigned', { defaultValue: 'Unassigned' })}
+                            </span>
+                          ) : agentLabel ? (
+                            <span
+                              className={`hidden shrink-0 text-xs sm:inline ${agentId ? 'text-accent hover:underline' : 'text-text-muted'}`}
+                              onClick={
+                                agentId
+                                  ? (event) => {
+                                      event.stopPropagation()
+                                      navigate(`/agents/${agentId}`)
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {agentLabel}
+                            </span>
+                          ) : item.provider_label ? (
+                            <span className="hidden shrink-0 text-xs text-text-muted sm:inline">
+                              {item.provider_label}
+                            </span>
+                          ) : null}
+                          <span
+                            className={cn(
+                              'shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide',
+                              statusStyle(item.status, item.kind),
+                            )}
+                          >
+                            {item.status === 'calendar'
+                              ? t('agendaPage.kinds.calendar')
+                              : agendaStatusLabel(item.status, t)}
+                          </span>
+                        </button>
+                        {isTaskItem(item) && item.task_id && item.assignee_kind === 'human' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 shrink-0 text-[11px]"
+                            onClick={() => void completeTaskItem(item)}
+                          >
+                            {t('agendaPage.completeTask')}
+                          </Button>
+                        ) : null}
+                      </div>
                     )
                   })}
                 </div>

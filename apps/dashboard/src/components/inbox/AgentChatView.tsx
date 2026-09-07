@@ -21,7 +21,7 @@ import { ComposerCard } from '../ui/ComposerCard'
 import { ChatTranscriptSkeleton } from '../ui/skeleton'
 import { useMembers } from '../../hooks/useMembers'
 import { useMentionDraft } from '../../hooks/useMentionDraft'
-import { useSpeechDictation } from '../../hooks/useSpeechDictation'
+import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDictation'
 import MentionPopover from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
 import { DictationMicButton } from './DictationMicButton'
@@ -360,10 +360,7 @@ export function AgentChatView({
   dictationInterimRef.current = dictationInterim
   const setMentionRaw = mention.setRaw
   const appendDictation = useCallback((chunk: string) => {
-    setMentionRaw((prev) => {
-      const base = String(prev).trimEnd()
-      return base ? `${base} ${chunk}` : chunk
-    })
+    setMentionRaw((prev) => appendSpeechChunk(String(prev), chunk))
     setDictationInterim('')
   }, [setMentionRaw])
   const dictation = useSpeechDictation({
@@ -372,9 +369,9 @@ export function AgentChatView({
   })
   const confirmDictation = useCallback(() => {
     const pending = dictationInterimRef.current.trim()
+    dictation.stop()
     if (pending) appendDictation(pending)
     else setDictationInterim('')
-    dictation.stop()
   }, [appendDictation, dictation])
   const composerValue = useMemo(() => {
     if (!dictation.listening || !dictationInterim.trim()) return mention.display
@@ -390,6 +387,29 @@ export function AgentChatView({
   const abortRef = useRef<AbortController | null>(null)
   const streamingRef = useRef(false)
   const autoSentRef = useRef(false)
+  const pendingPartsRef = useRef<string[]>([])
+  const flushTimerRef = useRef<number | null>(null)
+  const scrollPinnedRef = useRef(true)
+  const runStreamRef = useRef<(content: string) => Promise<void>>(async () => {})
+
+  const SETTLE_MS = 400
+
+  const focusComposer = useCallback(() => {
+    const el = composerRef.current
+    if (!el) return
+    try {
+      el.focus({ preventScroll: true })
+    } catch {
+      el.focus()
+    }
+  }, [composerRef])
+
+  const clearFlushTimer = () => {
+    if (flushTimerRef.current != null) {
+      window.clearTimeout(flushTimerRef.current)
+      flushTimerRef.current = null
+    }
+  }
 
   const loadMessages = useCallback(async () => {
     if (!token || !conversationId) {
@@ -422,7 +442,8 @@ export function AgentChatView({
 
   useEffect(() => {
     const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el || !scrollPinnedRef.current) return
+    el.scrollTop = el.scrollHeight
   }, [messages, stream.text, stream.thinking, gatewayStream.streamText, gatewayStream.thinkingText])
 
   const activeStreamText = stream.active ? stream.text : gatewayStream.streamText
@@ -434,26 +455,38 @@ export function AgentChatView({
     composerRef.current?.focus()
   }, [conversationId])
 
-  const send = useCallback(
-    async (contentOverride?: string) => {
-      const content = (contentOverride ?? mention.raw).trim()
-      if (!content || !token || !conversationId || streamingRef.current) return
-      mention.setRaw('')
-      setError(null)
+  const stopStreaming = useCallback(() => {
+    clearFlushTimer()
+    pendingPartsRef.current = []
+    abortRef.current?.abort()
+    if (token && conversationId) {
+      void bokitoCancelConversation(token, conversationId).catch(() => {})
+    }
+  }, [token, conversationId])
 
-      const optimistic: ChatMessage = {
-        id: `local-${Date.now()}`,
-        role: 'user',
-        content,
-        created_at: new Date().toISOString(),
+  const scheduleFlush = useCallback(() => {
+    clearFlushTimer()
+    flushTimerRef.current = window.setTimeout(() => {
+      flushTimerRef.current = null
+      if (streamingRef.current) {
+        scheduleFlush()
+        return
       }
-      setMessages((prev) => [...prev, optimistic])
-      onSent?.()
+      const parts = pendingPartsRef.current.map((p) => p.trim()).filter(Boolean)
+      if (!parts.length || !token || !conversationId) return
+      pendingPartsRef.current = []
+      void runStreamRef.current(parts.join('\n\n'))
+    }, SETTLE_MS)
+  }, [token, conversationId])
+
+  const runStream = useCallback(
+    async (content: string) => {
+      if (!token || !conversationId || !content.trim()) return
+      setError(null)
       setStream({ text: '', thinking: '', active: true })
       streamingRef.current = true
       const controller = new AbortController()
       abortRef.current = controller
-
       try {
         await bokitoStreamMessage(
           token,
@@ -485,9 +518,46 @@ export function AgentChatView({
         }
         void refreshSessions()
         onRefreshThreads?.()
+        if (pendingPartsRef.current.length) scheduleFlush()
       }
     },
-    [mention, token, conversationId, refreshSessions, onRefreshThreads, onSent],
+    [token, conversationId, refreshSessions, onRefreshThreads, t, scheduleFlush],
+  )
+  runStreamRef.current = runStream
+
+  const send = useCallback(
+    async (contentOverride?: string) => {
+      const content = (contentOverride ?? mention.raw).trim()
+      if (!content || !token || !conversationId) return
+      mention.setRaw('')
+      setError(null)
+      focusComposer()
+
+      const optimistic: ChatMessage = {
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        role: 'user',
+        content,
+        created_at: new Date().toISOString(),
+      }
+      setMessages((prev) => [...prev, optimistic])
+      onSent?.()
+      scrollPinnedRef.current = true
+
+      pendingPartsRef.current.push(content)
+
+      if (streamingRef.current) {
+        abortRef.current?.abort()
+        void bokitoCancelConversation(token, conversationId).catch(() => {})
+        scheduleFlush()
+        return
+      }
+
+      clearFlushTimer()
+      const parts = pendingPartsRef.current.map((p) => p.trim()).filter(Boolean)
+      pendingPartsRef.current = []
+      await runStream(parts.join('\n\n'))
+    },
+    [mention, token, conversationId, onSent, focusComposer, scheduleFlush, runStream],
   )
 
   useEffect(() => {
@@ -505,13 +575,6 @@ export function AgentChatView({
     if (messages.length > 0) return
     void send(initialMessage)
   }, [initialMessage, hasLoadedOnce, loadingMessages, messages.length, send])
-
-  const stopStreaming = () => {
-    abortRef.current?.abort()
-    if (token && conversationId) {
-      void bokitoCancelConversation(token, conversationId).catch(() => {})
-    }
-  }
 
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     mention.onKeyDown(e, () => void send())
@@ -623,7 +686,15 @@ export function AgentChatView({
       </>
       )}
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto"
+        onScroll={() => {
+          const el = scrollRef.current
+          if (!el) return
+          scrollPinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 80
+        }}
+      >
         <div className="mx-auto w-full max-w-[820px] px-4 py-6">
           {loadingMessages && messages.length === 0 ? (
             <ChatTranscriptSkeleton />
@@ -693,10 +764,10 @@ export function AgentChatView({
             }
             className="border-border/60 bg-bg-surface"
           >
-            {dictation.supported && !stream.active ? (
+            {dictation.supported ? (
               <DictationMicButton
                 listening={dictation.listening}
-                disabled={stream.active}
+                disabled={false}
                 onStart={() => {
                   dictation.start()
                 }}
@@ -707,17 +778,16 @@ export function AgentChatView({
               <button type="button" onClick={stopStreaming} title={t('directChat.stop')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-bg-hover text-text-primary transition-colors hover:bg-bg-hover/80">
                 <Square size={13} />
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void send()}
-                disabled={!mention.raw.trim()}
-                title={`${t('directChat.send')} — ${t('composer.hintChat')}`}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-              >
-                <ArrowUp size={14} />
-              </button>
-            )}
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={!mention.raw.trim()}
+              title={`${t('directChat.send')} — ${t('composer.hintChat')}`}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+            >
+              <ArrowUp size={14} />
+            </button>
           </ComposerCard>
         </div>
       </div>

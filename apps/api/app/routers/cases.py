@@ -50,6 +50,7 @@ class CaseTypeCreateBody(BaseModel):
     description: str = ""
     create_mode: str = "ask_customer"
     follow_up_mode: str = "track"
+    follow_up_task: bool = False
     ask_threshold: int = 6
     auto_threshold: int = 9
     requires_verification: bool = False
@@ -64,6 +65,7 @@ class CaseTypePatchBody(BaseModel):
     description: str | None = None
     create_mode: str | None = None
     follow_up_mode: str | None = None
+    follow_up_task: bool | None = None
     ask_threshold: int | None = None
     auto_threshold: int | None = None
     requires_verification: bool | None = None
@@ -109,6 +111,7 @@ async def create_type(
         description=body.description,
         create_mode=body.create_mode,
         follow_up_mode=body.follow_up_mode,
+        follow_up_task=body.follow_up_task,
         ask_threshold=body.ask_threshold,
         auto_threshold=body.auto_threshold,
         requires_verification=body.requires_verification,

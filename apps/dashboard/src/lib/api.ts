@@ -102,10 +102,12 @@ async function readJsonResponse<T>(res: Response, path: string): Promise<T> {
     } catch {
       const unreachable =
         res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504;
-      err = {
-        message: unreachable
+      const localDevHint =
+        import.meta.env.DEV
           ? 'API not reachable. Start FastAPI on http://127.0.0.1:8000 (see docs/AI-OS-DEV.md).'
-          : text || 'Unknown error',
+          : 'The API is temporarily unavailable. Try again in a moment.';
+      err = {
+        message: unreachable ? localDevHint : text || 'Unknown error',
       };
     }
     throw new Error(`HTTP ${res.status} ${formatHttpError(path, err)}`);
