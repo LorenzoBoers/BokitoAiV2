@@ -124,11 +124,18 @@ async def test_schedule_task_dormant_until_due(session_override: AsyncSession, m
 
 @pytest.mark.asyncio
 async def test_schedule_task_for_human(session_override: AsyncSession):
+    from app.models.auth import Membership, User
     from app.models.orchestration import AgentTask
     from app.services.orchestration import dispatcher
 
     tenant, agent = await _tenant_and_agent(session_override)
-    ctx = _ctx(session_override, tenant, agent)
+    user = User(email=f"human-{uuid4().hex[:8]}@test.local", password_hash="x", display_name="Human")
+    session_override.add(user)
+    await session_override.commit()
+    await session_override.refresh(user)
+    session_override.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
+    await session_override.commit()
+    ctx = ToolContext(session=session_override, tenant_id=tenant.id, user_id=user.id, agent=agent)
 
     # Due-now human task surfaces immediately as human work.
     result = await _schedule_task(
@@ -145,6 +152,7 @@ async def test_schedule_task_for_human(session_override: AsyncSession):
     )
     assert result["status"] == "queued"
     task = await session_override.get(AgentTask, UUID(result["task_id"]))
+    assert task.assignee_user_id == user.id
     task.scheduled_for = datetime.utcnow() - timedelta(minutes=1)
     session_override.add(task)
     await session_override.commit()
@@ -161,3 +169,4 @@ async def test_schedule_task_for_human(session_override: AsyncSession):
         )
     ).scalar_one()
     assert notif.title == "Check bank export Friday"
+    assert notif.user_id == user.id

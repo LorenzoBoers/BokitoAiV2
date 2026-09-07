@@ -2230,7 +2230,14 @@ async def _schedule_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         if tool_input.get("agent_id")
         else (ctx.agent.id if ctx.agent else None)
     )
-    user_id = _UUID(str(tool_input["user_id"])) if tool_input.get("user_id") else None
+    # Explicit user_id wins; for human work default to the operator who invoked
+    # the tool so promotion can notify someone.
+    if tool_input.get("user_id"):
+        user_id = _UUID(str(tool_input["user_id"]))
+    elif assignee == "human":
+        user_id = ctx.user_id
+    else:
+        user_id = None
     task = await create_agent_task(
         ctx.session,
         ctx.tenant_id,
