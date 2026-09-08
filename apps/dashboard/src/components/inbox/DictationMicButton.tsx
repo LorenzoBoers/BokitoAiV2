@@ -7,7 +7,6 @@ import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { Check, Mic } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SPEECH_WAVE_BARS } from '@bokito/shared'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { cn } from '../../lib/utils'
 
 const HOLD_MS = 280
@@ -95,44 +94,41 @@ export function DictationMicButton({
   const tip = listening ? t('composer.dictationConfirmHint') : t('composer.dictationHoldHint')
   const dim = size === 'sm' ? 'h-7 w-7' : 'h-8 w-8'
 
+  // Native title only — no Radix Tooltip. Agent chat is a lazy route chunk;
+  // a Tooltip here previously crashed the whole page when Provider context
+  // did not match across chunks.
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          disabled={disabled}
-          aria-pressed={listening}
-          aria-label={label}
-          onPointerDown={onPointerDown}
-          onPointerUp={finishPointer}
-          onPointerCancel={finishPointer}
-          className={cn(
-            'group relative flex shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-40',
-            dim,
-            listening
-              ? 'border-status-success bg-status-success text-white shadow-[0_0_0_3px_rgb(var(--color-status-success)/0.22)] hover:bg-[rgb(21_128_61)]'
-              : 'border-border/60 bg-bg-surface text-text-muted hover:border-accent/50 hover:text-accent',
-            className,
-          )}
-        >
-          {listening ? (
-            <>
-              <DictationWave className="transition-opacity group-hover:opacity-0" />
-              <Check
-                size={size === 'sm' ? 13 : 14}
-                strokeWidth={2.5}
-                className="pointer-events-none absolute opacity-0 transition-opacity group-hover:opacity-100"
-                aria-hidden
-              />
-            </>
-          ) : (
-            <Mic size={size === 'sm' ? 13 : 14} />
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[220px] text-center">
-        {tip}
-      </TooltipContent>
-    </Tooltip>
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={listening}
+      aria-label={label}
+      title={tip}
+      onPointerDown={onPointerDown}
+      onPointerUp={finishPointer}
+      onPointerCancel={finishPointer}
+      className={cn(
+        'group relative flex shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-40',
+        dim,
+        listening
+          ? 'border-status-success bg-status-success text-white shadow-[0_0_0_3px_rgb(var(--color-status-success)/0.22)] hover:bg-[rgb(21_128_61)]'
+          : 'border-border/60 bg-bg-surface text-text-muted hover:border-accent/50 hover:text-accent',
+        className,
+      )}
+    >
+      {listening ? (
+        <>
+          <DictationWave className="transition-opacity group-hover:opacity-0" />
+          <Check
+            size={size === 'sm' ? 13 : 14}
+            strokeWidth={2.5}
+            className="pointer-events-none absolute opacity-0 transition-opacity group-hover:opacity-100"
+            aria-hidden
+          />
+        </>
+      ) : (
+        <Mic size={size === 'sm' ? 13 : 14} />
+      )}
+    </button>
   )
 }

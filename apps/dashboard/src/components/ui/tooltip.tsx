@@ -5,20 +5,28 @@ import { cn } from '../../lib/utils'
 const TooltipProvider = TooltipPrimitive.Provider
 
 /**
- * Always mount a Provider with each Root. A single app-level Provider is still
- * fine (and preferred for shared delay), but agent chat / composer controls can
- * render before or outside that tree in some route layouts — missing Provider
- * previously crashed `/communication/agent/...` with Radix's context error.
+ * Always mount a Provider with each Root.
+ *
+ * Lazy route chunks can end up with a separate module instance of
+ * `@radix-ui/react-tooltip` than the app shell. An ambient Provider in
+ * `main.tsx` then does not satisfy Root in the route chunk — Radix throws
+ * "'Tooltip' must be used within 'TooltipProvider'" and React Router shows
+ * its default error page on `/communication/agent/...`.
+ *
+ * Provider + Root from the same import in this file keeps context local.
  */
 function Tooltip({
   delayDuration = 150,
+  children,
   ...props
 }: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Root> & {
   delayDuration?: number
 }) {
   return (
     <TooltipPrimitive.Provider delayDuration={delayDuration}>
-      <TooltipPrimitive.Root {...props} />
+      <TooltipPrimitive.Root delayDuration={delayDuration} {...props}>
+        {children}
+      </TooltipPrimitive.Root>
     </TooltipPrimitive.Provider>
   )
 }

@@ -72,7 +72,12 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules')) {
               if (id.includes('@sentry')) return 'sentry'
               if (id.includes('i18next')) return 'i18n-vendor'
-              if (/node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+              // Keep React + Radix primitives in one chunk so Provider/Root
+              // context never splits across lazy route bundles.
+              if (
+                /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id) ||
+                id.includes('@radix-ui/')
+              ) {
                 return 'react-vendor'
               }
               return undefined

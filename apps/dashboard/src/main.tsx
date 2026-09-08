@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, isRouteErrorResponse, RouterProvider, useRouteError } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -64,12 +64,40 @@ try {
   // Ignore private-mode storage failures.
 }
 
+function RouteErrorFallback() {
+  const error = useRouteError()
+  const message = isRouteErrorResponse(error)
+    ? `${error.status} ${error.statusText}`
+    : error instanceof Error
+      ? error.message
+      : i18n.t('errorBoundary.body', { ns: 'nav' })
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg-primary p-6">
+      <div className="max-w-md space-y-4 text-center">
+        <h1 className="text-lg font-semibold text-text-heading">
+          {i18n.t('errorBoundary.title', { ns: 'nav' })}
+        </h1>
+        <p className="text-sm text-text-muted">{message}</p>
+        <button
+          type="button"
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
+          onClick={() => window.location.assign('/')}
+        >
+          {i18n.t('errorBoundary.refresh', { ns: 'nav' })}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Data router (single splat route around the app) so router-data hooks such
 // as useBlocker (unsaved-changes guard) work; App keeps its descendant
 // <Routes> for the actual route table.
 const router = createBrowserRouter([
   {
     path: '*',
+    errorElement: <RouteErrorFallback />,
     element: (
       <ThemeProvider>
         <TooltipProvider delayDuration={150}>
