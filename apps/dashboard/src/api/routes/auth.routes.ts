@@ -14,6 +14,7 @@ export const authRoutes = {
   },
   sso: {
     microsoftStart: '/microsoft/start',
+    googleStart: '/google/start',
   },
   proxy: {
     login: '/login',
@@ -31,6 +32,7 @@ export const authRoutes = {
     me: '/auth/me',
     logout: '/auth/logout',
     microsoftStart: '/auth/microsoft/start',
+    googleStart: '/auth/google/start',
   },
   meWithTenantQuery(tenantSubdomain: string): string {
     const q = `tenant_subdomain=${encodeURIComponent(tenantSubdomain)}`

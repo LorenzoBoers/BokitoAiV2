@@ -10,7 +10,7 @@ Bokito may engage the following sub-processors to deliver the service. Customers
 | Hosting provider (e.g. Hostinger / VPS) | Application + database hosting | All tenant data at rest | Configure for EU where possible |
 | Anthropic | LLM inference (platform keys) | Prompt/context may include message content | US / SCCs or DPF as applicable; BYOK alternative |
 | OpenAI | LLM / embeddings (platform or BYOK) | Prompt/context, embeddings | US / SCCs or DPF; BYOK alternative |
-| Google | Gmail / Google Calendar OAuth | Tokens, mailbox/calendar sync | Google terms + SCCs/DPF |
+| Google | Gmail / Google Calendar OAuth; Google SSO (identity) | Tokens, mailbox/calendar sync; sign-in identity | Google terms + SCCs/DPF |
 | Microsoft | Outlook / Calendar / Entra SSO | Tokens, mailbox/calendar, identity | Microsoft terms + SCCs/DPF |
 | Sentry | Error monitoring | Stack traces; PII scrubbing enabled (`send_default_pii=False`) | Per Sentry DPA |
 | Resend / SMTP provider | Transactional email | Recipient email, invite/reset content | Per provider DPA |

@@ -1,22 +1,7 @@
 import { Loader2 } from 'lucide-react';
+import { describeSsoError } from './sso-errors';
 
-/** Map `sso_error` reasons from the OAuth callback redirect to user-facing copy. */
-export function describeSsoError(reason: string): string {
-  switch (reason) {
-    case 'no_email':
-      return 'Microsoft did not share an email address for this account. Use an account with a verified email.';
-    case 'provisioning_failed':
-      return 'We could not set up your account after Microsoft sign-in. Please try again or contact support.';
-    case 'token_exchange_failed':
-      return 'Microsoft sign-in could not be completed. Please try again.';
-    case 'state_expired':
-      return 'The sign-in request expired. Please try again.';
-    case 'access_denied':
-      return 'Microsoft sign-in was cancelled.';
-    default:
-      return 'Microsoft sign-in failed. Please try again.';
-  }
-}
+export { describeSsoError };
 
 function MicrosoftLogo() {
   return (

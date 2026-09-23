@@ -59,6 +59,11 @@ MICROSOFT_SSO_SCOPES = [
     "profile",
     "https://graph.microsoft.com/User.Read",
 ]
+GOOGLE_SSO_SCOPES = [
+    "openid",
+    "email",
+    "profile",
+]
 _GITHUB_SCOPES = ["repo", "read:user", "user:email"]
 _MONEYBIRD_SCOPES = ["sales_invoices", "documents", "estimates", "bank", "settings"]
 
@@ -147,20 +152,28 @@ def build_authorize_url(
 ) -> str:
     client_id, _ = _credentials(provider)
     key = _credential_key(provider)
+    effective_scopes = scopes if scopes is not None else _scopes(provider)
+    # Identity-only scopes mean platform SSO — no offline refresh / forced consent.
+    is_sso = scopes is not None and set(effective_scopes).issubset(
+        {"openid", "email", "profile", "https://graph.microsoft.com/User.Read"}
+    )
     params: dict[str, str] = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "state": state,
-        "scope": " ".join(scopes or _scopes(provider)),
+        "scope": " ".join(effective_scopes),
     }
     if key == GITHUB:
         params["allow_signup"] = "false"
     else:
         params["response_type"] = "code"
     if key == GOOGLE:
-        params["access_type"] = "offline"
-        params["prompt"] = "consent"
-        params["include_granted_scopes"] = "true"
+        if is_sso:
+            params["prompt"] = prompt or "select_account"
+        else:
+            params["access_type"] = "offline"
+            params["prompt"] = prompt or "consent"
+            params["include_granted_scopes"] = "true"
     if key == MICROSOFT:
         params["response_mode"] = "query"
         if prompt:

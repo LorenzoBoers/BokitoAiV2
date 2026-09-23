@@ -76,6 +76,9 @@ async def start_real_oauth(
     prompt = None
     if flow == "login" and provider == oauth_providers.MICROSOFT:
         scopes = oauth_providers.MICROSOFT_SSO_SCOPES
+    elif flow == "login" and provider == oauth_providers.GOOGLE:
+        scopes = oauth_providers.GOOGLE_SSO_SCOPES
+        prompt = "select_account"
     if flow == "email" and provider == oauth_providers.MICROSOFT:
         prompt = "select_account"
     return oauth_providers.build_authorize_url(

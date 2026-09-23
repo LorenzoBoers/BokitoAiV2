@@ -1,4 +1,4 @@
-"""Cycle 29: Sign in with Microsoft (platform SSO)."""
+"""Platform SSO: Sign in with Microsoft / Google."""
 
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
@@ -23,14 +23,27 @@ def _configure_microsoft():
     )
 
 
+def _configure_google():
+    settings = get_settings()
+    return patch.multiple(
+        settings,
+        google_oauth_client_id="google-client-id",
+        google_oauth_client_secret="google-secret",
+    )
+
+
 async def _seed_login_state(
-    session: AsyncSession, *, state: str = "sso-state-1", expired: bool = False
+    session: AsyncSession,
+    *,
+    state: str = "sso-state-1",
+    expired: bool = False,
+    provider: str = "outlook",
 ) -> OAuthState:
     row = OAuthState(
         state=state,
         tenant_id=None,
         user_id=None,
-        provider="outlook",
+        provider=provider,
         flow="login",
         return_url="http://test/app",
         redirect_uri="http://test/api/integrations/oauth/callback",
@@ -46,6 +59,8 @@ async def _seed_login_state(
 async def test_sso_start_unconfigured_returns_503(client: AsyncClient):
     res = await client.get("/api/auth/microsoft/start", params={"return_url": "http://test/app"})
     assert res.status_code == 503
+    google = await client.get("/api/auth/google/start", params={"return_url": "http://test/app"})
+    assert google.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -70,6 +85,36 @@ async def test_sso_start_uses_identity_scopes(client: AsyncClient, session_overr
         await session_override.execute(select(OAuthState).where(OAuthState.state == state_value))
     ).scalar_one()
     assert row.flow == "login"
+    assert row.tenant_id is None
+
+
+@pytest.mark.asyncio
+async def test_google_sso_start_uses_identity_scopes(
+    client: AsyncClient, session_override: AsyncSession
+):
+    with _configure_google():
+        res = await client.get(
+            "/api/auth/google/start", params={"return_url": "http://test/app"}
+        )
+    assert res.status_code == 200
+    authorize_url = res.json()["authorize_url"]
+    assert "accounts.google.com" in authorize_url
+    query = parse_qs(urlparse(authorize_url).query)
+    scope = query["scope"][0]
+    assert "openid" in scope
+    assert "email" in scope
+    assert "profile" in scope
+    assert "gmail.modify" not in scope
+    assert "gmail.send" not in scope
+    assert query.get("prompt") == ["select_account"]
+    assert "access_type" not in query
+
+    state_value = query["state"][0]
+    row = (
+        await session_override.execute(select(OAuthState).where(OAuthState.state == state_value))
+    ).scalar_one()
+    assert row.flow == "login"
+    assert row.provider == "gmail"
     assert row.tenant_id is None
 
 
@@ -122,6 +167,46 @@ async def test_sso_callback_new_user_provisions_and_logs_in(
     body = refreshed.json()
     assert body["user"]["email"] == "bjorn@accountancy.se"
     assert body["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_google_sso_callback_new_user_provisions_and_logs_in(
+    client: AsyncClient, session_override: AsyncSession
+):
+    await _seed_login_state(
+        session_override, state="google-sso-new", provider="gmail"
+    )
+
+    with (
+        patch(
+            "app.services.oauth_flow.oauth_providers.exchange_code",
+            new=AsyncMock(return_value={"access_token": "gat"}),
+        ),
+        patch(
+            "app.services.oauth_flow.oauth_providers.fetch_identity",
+            new=AsyncMock(
+                return_value={"email": "Casper@Bokito.ai", "name": "Casper"}
+            ),
+        ),
+    ):
+        res = await client.get(
+            "/api/integrations/oauth/callback",
+            params={"state": "google-sso-new", "code": "g-code"},
+            follow_redirects=False,
+        )
+    assert res.status_code == 302
+    assert "sso=connected" in res.headers["location"]
+    assert "bokito_refresh_token=" in res.headers.get("set-cookie", "")
+
+    user = (
+        await session_override.execute(select(User).where(User.email == "casper@bokito.ai"))
+    ).scalar_one()
+    assert user.email_verified is True
+    assert user.password_hash == ""
+
+    refreshed = await client.post("/api/auth/refresh")
+    assert refreshed.status_code == 200
+    assert refreshed.json()["user"]["email"] == "casper@bokito.ai"
 
 
 @pytest.mark.asyncio

@@ -48,11 +48,11 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 3. Vul een platte-teksthandtekening in. Regelafbrekingen blijven staan. Wanneer de agent namens zichzelf mailt, voegt Bokito altijd een korte regel “Beantwoord door een AI-agent · Powered by Bokito AI” toe met een link naar [bokito.ai](https://bokito.ai).
 4. Sla op. Goedkeuringen voor deze agent gebruiken die standaard tot je op de kaart een andere Send as kiest.
 
-## Stel initialen of icoon in
+## Stel naam of icoon in
 
 1. Open een bedrijfsagent.
-2. Op de kaart **Visuele identiteit** kies **Bewerken**.
-3. Kies **Initialen** of **Icoon**, en sla op. Agents gebruiken altijd het platform-AI-violet — er is geen eigen kleur- of fotokiezer.
+2. Kies **Bewerken** naast de agentnaam.
+3. Pas de **naam** aan, kies **Initialen** of **Icoon**, en sla op. Agents gebruiken altijd het platform-AI-violet — er is geen eigen kleur- of fotokiezer.
 
 Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Berichten en de webchat-headerbubble van de antwoordingende agent.
 

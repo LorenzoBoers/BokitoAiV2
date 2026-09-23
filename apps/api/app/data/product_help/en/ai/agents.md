@@ -49,11 +49,11 @@ New chats in Communication require a **company agent**. If none are available fo
 4. Save. Approvals for this agent use that default until you pick another Send as on the card.
 
 
-## Set initials or icon
+## Set name or icon
 
 1. Open a company agent.
-2. On the **Visual identity** card, choose **Edit**.
-3. Pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker.
+2. Choose **Edit** next to the agent name.
+3. Change the **name**, pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker.
 
 The same look shows on the Agents library, agent detail, Messages, and the webchat header bubble for the answering agent.
 

@@ -469,6 +469,35 @@ async def microsoft_sso_start(
     return {"authorize_url": authorize_url}
 
 
+@router.get("/google/start", dependencies=[Depends(rate_limit("auth-sso", limit=20))])
+async def google_sso_start(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    return_url: str = "",
+):
+    """Public entry point for "Sign in with Google".
+
+    Returns the Google authorize URL; the browser is redirected there and comes
+    back through the shared OAuth callback, which mints the session cookie.
+    Uses identity scopes only (no Gmail mailbox access).
+    """
+    from app.services.oauth_flow import start_real_oauth
+
+    authorize_url = await start_real_oauth(
+        session,
+        tenant_id=None,
+        user_id=None,
+        provider="gmail",
+        flow="login",
+        return_url=return_url or settings.public_app_url,
+    )
+    if not authorize_url:
+        raise HTTPException(
+            status_code=503,
+            detail="Google sign-in is not configured on this server.",
+        )
+    return {"authorize_url": authorize_url}
+
+
 @router.post("/staff-login", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-login", limit=10))])
 async def staff_login(
     body: StaffLoginRequest,

@@ -5,8 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { persistUiLanguage } from '../lib/language-preference';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { APP_VERSION } from '../lib/app-version';
-import { startMicrosoftSso } from '../lib/api';
+import { startGoogleSso, startMicrosoftSso } from '../lib/api';
 import { MicrosoftSignInButton } from '../components/auth/MicrosoftSignInButton';
+import { GoogleSignInButton } from '../components/auth/GoogleSignInButton';
 
 function slugify(value: string): string {
   return value
@@ -32,11 +33,11 @@ export default function Signup() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSsoLoading, setIsSsoLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState<'microsoft' | 'google' | null>(null);
 
   async function handleMicrosoftSignIn() {
     setError('');
-    setIsSsoLoading(true);
+    setSsoLoading('microsoft');
     try {
       const returnUrl = `${window.location.origin}/login`;
       const { authorize_url } = await startMicrosoftSso(returnUrl);
@@ -48,7 +49,25 @@ export default function Signup() {
           ? t('loginPage.microsoftNotConfigured')
           : t('loginPage.microsoftStartFailed')
       );
-      setIsSsoLoading(false);
+      setSsoLoading(null);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError('');
+    setSsoLoading('google');
+    try {
+      const returnUrl = `${window.location.origin}/login`;
+      const { authorize_url } = await startGoogleSso(returnUrl);
+      window.location.assign(authorize_url);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      setError(
+        message.includes('503') || message.toLowerCase().includes('not configured')
+          ? t('loginPage.googleNotConfigured')
+          : t('loginPage.googleStartFailed')
+      );
+      setSsoLoading(null);
     }
   }
 
@@ -251,11 +270,20 @@ export default function Signup() {
               <span className="text-xs text-text-muted">{t('loginPage.or')}</span>
               <div className="flex-1 h-px bg-border" />
             </div>
-            <MicrosoftSignInButton
-              onClick={() => void handleMicrosoftSignIn()}
-              isLoading={isSsoLoading}
-              label={t('signupPage.microsoft')}
-            />
+            <div className="space-y-2">
+              <GoogleSignInButton
+                onClick={() => void handleGoogleSignIn()}
+                isLoading={ssoLoading === 'google'}
+                disabled={ssoLoading !== null && ssoLoading !== 'google'}
+                label={t('signupPage.google')}
+              />
+              <MicrosoftSignInButton
+                onClick={() => void handleMicrosoftSignIn()}
+                isLoading={ssoLoading === 'microsoft'}
+                disabled={ssoLoading !== null && ssoLoading !== 'microsoft'}
+                label={t('signupPage.microsoft')}
+              />
+            </div>
           </div>
 
           <div className="mt-4 text-center">

@@ -25,6 +25,28 @@ Result: "Sign in with Microsoft" works on `/login` and `/signup`
 (`GET /api/auth/microsoft/start`), and Outlook mailbox connect works from
 Settings > Channels. Until set, SSO start returns 503 (no silent mock in prod).
 
+## 1b. Google Cloud OAuth (SSO login + Gmail mailbox)
+
+One Google OAuth web client serves both platform SSO and Gmail mailbox connect
+(same pattern as Microsoft).
+
+1. Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client ID
+   (Web application), or reuse the existing Gmail client.
+2. Authorized redirect URI:
+   `https://app.bokito.ai/api/integrations/oauth/callback`
+   (and local `http://127.0.0.1:8000/api/integrations/oauth/callback` for
+   development).
+3. OAuth consent screen: include `openid`, `email`, `profile`. Gmail mailbox
+   connect also needs Gmail scopes (`gmail.modify`, `gmail.send`) — those are
+   restricted and may require verification when the app is in production.
+4. On the VPS, set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`
+   in `/opt/bokito/.env.prod` and restart api + worker.
+
+Result: "Sign in with Google" works on `/login` and `/signup`
+(`GET /api/auth/google/start`, identity scopes only). Gmail mailbox connect
+continues to use the same client with mailbox scopes. Until set, Google SSO
+start returns 503.
+
 ## 2. Björn Lundén MCP (Swedish BLA)
 
 - Optional: set `BJORN_LUNDEN_MCP_URL` in `/opt/bokito/.env.prod` only when
@@ -75,8 +97,9 @@ GitHub mock repo/branch fallbacks are disabled, mock OAuth endpoints return
 ## 6. Verification after configuring
 
 1. `https://api.bokito.ai/api/health` returns ok.
-2. `/login` shows "Sign in with Microsoft"; completing it lands in a fresh
-   workspace with the email-first onboarding checklist.
+2. `/login` shows "Sign in with Google" and "Sign in with Microsoft";
+   completing either lands in a fresh workspace with the email-first
+   onboarding checklist.
 3. Settings > Channels > Connect Outlook completes OAuth and the mailbox
    syncs selected folders (Inbox/Sent, per-folder cursors).
 4. Send a test email to the connected mailbox; a suggest-mode agent should

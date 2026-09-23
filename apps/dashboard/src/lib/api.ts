@@ -339,6 +339,12 @@ export async function startMicrosoftSso(returnUrl: string): Promise<{ authorize_
   return readJsonResponse<{ authorize_url: string }>(res, authRoutes.errorContext.microsoftStart);
 }
 
+export async function startGoogleSso(returnUrl: string): Promise<{ authorize_url: string }> {
+  const url = `${AUTH_API_BASE}${authRoutes.sso.googleStart}?return_url=${encodeURIComponent(returnUrl)}`;
+  const res = await fetchWithTimeout(url, { method: 'GET', credentials: 'include' });
+  return readJsonResponse<{ authorize_url: string }>(res, authRoutes.errorContext.googleStart);
+}
+
 export async function authLogin(email: string, password: string): Promise<AuthSessionResponse> {
   const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.proxy.login), {
     method: 'POST',
