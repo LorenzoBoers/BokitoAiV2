@@ -18,31 +18,73 @@ branch_labels = None
 depends_on = None
 
 
+def _columns(conn, table: str) -> set[str]:
+    inspector = sa.inspect(conn)
+    if table not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns(table)}
+
+
+def _add(table: str, column: sa.Column) -> None:
+    if column.name not in _columns(op.get_bind(), table):
+        op.add_column(table, column)
+
+
+def _indexes(conn, table: str) -> set[str]:
+    inspector = sa.inspect(conn)
+    if table not in inspector.get_table_names():
+        return set()
+    return {index["name"] for index in inspector.get_indexes(table) if index.get("name")}
+
+
+def _fks(conn, table: str) -> set[str]:
+    inspector = sa.inspect(conn)
+    if table not in inspector.get_table_names():
+        return set()
+    return {fk["name"] for fk in inspector.get_foreign_keys(table) if fk.get("name")}
+
+
 def upgrade() -> None:
-    op.add_column(
+    # Shape columns may already exist on SQLite via create_all/schema_patch,
+    # but Postgres only gets them through this revision.
+    _add(
+        "agents",
+        sa.Column("audience", sa.String(), nullable=False, server_default="internal"),
+    )
+    _add(
+        "agents",
+        sa.Column("acts_for_user", sa.Boolean(), nullable=False, server_default=sa.false()),
+    )
+    if "ix_agents_acts_for_user" not in _indexes(op.get_bind(), "agents"):
+        op.create_index("ix_agents_acts_for_user", "agents", ["acts_for_user"])
+    _add(
         "agents",
         sa.Column("default_channels_json", sa.Text(), nullable=False, server_default="[]"),
     )
-    op.add_column(
+    _add(
         "agents",
         sa.Column("default_signal_types_json", sa.Text(), nullable=False, server_default="[]"),
     )
-    op.add_column(
+    _add(
         "channel_accounts",
         sa.Column("default_agent_id", sa.Uuid(), nullable=True),
     )
-    op.create_index(
-        "ix_channel_accounts_default_agent_id",
-        "channel_accounts",
-        ["default_agent_id"],
-    )
-    op.create_foreign_key(
-        "fk_channel_accounts_default_agent_id_agents",
-        "channel_accounts",
-        "agents",
-        ["default_agent_id"],
-        ["id"],
-    )
+    if "ix_channel_accounts_default_agent_id" not in _indexes(op.get_bind(), "channel_accounts"):
+        op.create_index(
+            "ix_channel_accounts_default_agent_id",
+            "channel_accounts",
+            ["default_agent_id"],
+        )
+    if "fk_channel_accounts_default_agent_id_agents" not in _fks(
+        op.get_bind(), "channel_accounts"
+    ):
+        op.create_foreign_key(
+            "fk_channel_accounts_default_agent_id_agents",
+            "channel_accounts",
+            "agents",
+            ["default_agent_id"],
+            ["id"],
+        )
     op.execute(
         """
         UPDATE channel_accounts
@@ -71,15 +113,30 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_channel_accounts_default_agent_id_agents",
-        "channel_accounts",
-        type_="foreignkey",
-    )
-    op.drop_index(
-        "ix_channel_accounts_default_agent_id",
-        table_name="channel_accounts",
-    )
-    op.drop_column("channel_accounts", "default_agent_id")
-    op.drop_column("agents", "default_signal_types_json")
-    op.drop_column("agents", "default_channels_json")
+    if "fk_channel_accounts_default_agent_id_agents" in _fks(op.get_bind(), "channel_accounts"):
+        op.drop_constraint(
+            "fk_channel_accounts_default_agent_id_agents",
+            "channel_accounts",
+            type_="foreignkey",
+        )
+    if "ix_channel_accounts_default_agent_id" in _indexes(op.get_bind(), "channel_accounts"):
+        op.drop_index(
+            "ix_channel_accounts_default_agent_id",
+            table_name="channel_accounts",
+        )
+    existing_channels = _columns(op.get_bind(), "channel_accounts")
+    if "default_agent_id" in existing_channels:
+        op.drop_column("channel_accounts", "default_agent_id")
+    existing_agents = _columns(op.get_bind(), "agents")
+    for column in (
+        "default_signal_types_json",
+        "default_channels_json",
+        "acts_for_user",
+        "audience",
+    ):
+        if column in existing_agents:
+            if column == "acts_for_user" and "ix_agents_acts_for_user" in _indexes(
+                op.get_bind(), "agents"
+            ):
+                op.drop_index("ix_agents_acts_for_user", table_name="agents")
+            op.drop_column("agents", column)
