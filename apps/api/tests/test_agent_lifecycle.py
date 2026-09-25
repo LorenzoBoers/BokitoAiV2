@@ -156,12 +156,16 @@ async def test_archive_agent_hides_it_from_the_list(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_default_assistant_cannot_be_archived(client: AsyncClient):
-    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
-    agents = await _list_agents(client, owner)
-    assistant = next(a for a in agents if a["slug"] == "assistant")
+async def test_bokito_helper_cannot_be_archived(client: AsyncClient, session_override):
+    from app.models.auth import Tenant
+    from app.services.personal_assistant import ensure_personal_assistant
+    from sqlalchemy import select
 
-    r = await client.delete(f"/api/workforce/agents/{assistant['id']}", headers=owner)
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    tenant = (await session_override.execute(select(Tenant))).scalars().first()
+    helper = await ensure_personal_assistant(session_override, tenant.id, commit=True)
+
+    r = await client.delete(f"/api/workforce/agents/{helper.id}", headers=owner)
     assert r.status_code == 409
 
 

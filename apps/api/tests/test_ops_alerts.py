@@ -103,7 +103,8 @@ async def test_ops_alert_alerts_again_after_cooldown(session_override):
     assert again == 2
 
 
-async def test_ops_alert_respects_disabled_desktop_pref(session_override):
+async def test_ops_alert_always_reaches_admins(session_override):
+    """Ops categories are not user-toggleable: owners/admins always get desktop."""
     session = session_override
     tenant, owner, admin, _ = await _tenant_with_admins(session)
 
@@ -127,9 +128,9 @@ async def test_ops_alert_respects_disabled_desktop_pref(session_override):
     created = await notify_tenant_admins(
         session, tenant.id, category=OPS_RUN_FAILED, title="Run failed: prefs", body="a"
     )
-    assert created == 1
+    assert created == 2
     rows = await _notifications(session, tenant.id)
-    assert {row.user_id for row in rows} == {admin.id}
+    assert {row.user_id for row in rows} == {owner.id, admin.id}
 
 
 async def test_alert_run_failure_builds_payload(session_override):

@@ -73,8 +73,9 @@ async def lead_assistant(session: AsyncSession, tenant_id: UUID) -> Agent | None
                 Agent.kind == "company",
                 Agent.role == "assistant",
                 Agent.is_active == True,  # noqa: E712
+                Agent.acts_for_user.is_(False),
             )
-            .order_by(Agent.created_at)
+            .order_by(Agent.is_lead.desc(), Agent.created_at)
             .limit(1)
         )
     ).scalars().first()

@@ -57,10 +57,6 @@ async def test_lead_agent_transfer_and_archive_guard(client: AsyncClient):
     created = r.json()
     new_agent_id = (created.get("agent") or created)["id"]
 
-    # The lead cannot be archived while it holds the label.
-    r = await client.delete(f"/api/workforce/agents/{lead['id']}", headers=owner)
-    assert r.status_code == 409
-
     # Transfer the lead label.
     r = await client.patch(f"/api/workforce/agents/{new_agent_id}/lead", headers=owner)
     assert r.status_code == 200, r.text
@@ -73,7 +69,7 @@ async def test_lead_agent_transfer_and_archive_guard(client: AsyncClient):
     assert len(leads) == 1
     assert leads[0]["id"] == new_agent_id
 
-    # The previous lead can now be archived.
+    # The previous lead can be archived (only the Bokito helper is protected).
     r = await client.delete(f"/api/workforce/agents/{lead['id']}", headers=owner)
     assert r.status_code == 200, r.text
 

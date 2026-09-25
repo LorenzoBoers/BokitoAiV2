@@ -17,7 +17,6 @@ from app.services.livechat_compat import (
     decode_widget_session_token,
 )
 from app.services.personal_assistant import (
-    PERSONAL_ASSISTANT_KIND,
     PERSONAL_THREAD_SOURCE,
     TOOL_ALLOWLIST,
     ensure_personal_assistant,
@@ -83,12 +82,13 @@ async def test_tenant_has_exactly_one_platform_helper(client: AsyncClient, sessi
     first = await ensure_personal_assistant(session_override, tenant.id, commit=True)
     second = await ensure_personal_assistant(session_override, tenant.id, commit=True)
     assert first.id == second.id
-    assert first.kind == PERSONAL_ASSISTANT_KIND
+    assert first.kind == "company"
+    assert first.acts_for_user is True
 
     rows = (
         await session_override.execute(
             select(Agent).where(
-                Agent.tenant_id == tenant.id, Agent.kind == PERSONAL_ASSISTANT_KIND
+                Agent.tenant_id == tenant.id, Agent.acts_for_user.is_(True)
             )
         )
     ).scalars().all()

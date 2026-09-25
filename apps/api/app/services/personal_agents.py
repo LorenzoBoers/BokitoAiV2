@@ -32,6 +32,8 @@ async def allowed_company_agents(
             Agent.tenant_id == tenant_id,
             Agent.kind == "company",
             Agent.is_active.is_(True),
+            # Bokito (acts_for_user) is the in-app helper, not a company chat target.
+            Agent.acts_for_user.is_(False),
         )
     )
     agents = list(result.scalars().all())

@@ -18,11 +18,13 @@ describe('notification rows', () => {
     expect(next[0]?.channels.email).toBe(true)
   })
 
-  it('keeps only the three ping triggers and pauses desktop', () => {
+  it('keeps ping triggers plus digests and pauses desktop', () => {
     const defaults = restoreDefaultNotificationRows()
     expect(defaults.map((row) => row.id).sort()).toEqual([
       'assigned-to-me',
       'decisions',
+      'digest-daily',
+      'digest-weekly',
       'mentions',
     ])
     const paused = pauseAllDesktop(defaults)

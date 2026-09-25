@@ -7,8 +7,8 @@ export type NotificationPrefRow = {
 }
 
 /**
- * Three ping triggers only: decision needed, mentioned, assigned.
- * Channel choice (desktop / email / push) stays; everything else is silent in-thread.
+ * Ping triggers (decision / mentioned / assigned) plus opt-in email digests.
+ * Channel choice (desktop / email / push) stays; ops/handoff alerts always fire.
  */
 export const DEFAULT_NOTIFICATION_ROWS: NotificationPrefRow[] = [
   {
@@ -25,6 +25,16 @@ export const DEFAULT_NOTIFICATION_ROWS: NotificationPrefRow[] = [
     id: 'decisions',
     label: 'When a decision needs you',
     channels: { desktop: true, email: false, push: true },
+  },
+  {
+    id: 'digest-daily',
+    label: 'Daily email digest',
+    channels: { desktop: false, email: false, push: false },
+  },
+  {
+    id: 'digest-weekly',
+    label: 'Weekly email digest',
+    channels: { desktop: false, email: false, push: false },
   },
 ]
 

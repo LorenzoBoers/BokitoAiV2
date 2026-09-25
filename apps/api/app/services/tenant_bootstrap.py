@@ -115,6 +115,7 @@ async def ensure_front_desk(
         chat_access="everyone",
         system_prompt=ONBOARDING_SYSTEM_PROMPT,
         is_active=True,
+        is_lead=True,
     )
     session.add(agent)
     if commit:

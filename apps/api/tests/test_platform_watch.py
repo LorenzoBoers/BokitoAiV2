@@ -45,7 +45,7 @@ async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_o
 
     assistant = (
         await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
         )
     ).scalar_one()
     trigger = (
@@ -76,7 +76,7 @@ async def test_ensure_does_not_enable_existing_heartbeat(
     ).scalar_one()
     assistant = (
         await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
         )
     ).scalar_one()
     existing = Trigger(
@@ -111,7 +111,7 @@ async def test_backfill_migrates_legacy_operations_thread(
     ).scalar_one()
     assistant = (
         await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
         )
     ).scalar_one()
     legacy = Signal(
@@ -183,7 +183,7 @@ async def test_set_platform_watch_toggles(client: AsyncClient, session_override:
     ).scalar_one()
     assistant = (
         await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
         )
     ).scalar_one()
     off = await set_platform_watch(session_override, tenant.id, False)
@@ -205,7 +205,7 @@ async def test_heartbeat_findings_land_in_agent_channel(
     ).scalar_one()
     agent = (
         await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
         )
     ).scalar_one()
     first = await set_platform_watch(session_override, tenant.id, True)

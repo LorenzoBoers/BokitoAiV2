@@ -28,8 +28,9 @@ async def _lead_candidate(session: AsyncSession, tenant_id: UUID) -> Agent | Non
             Agent.kind == "company",
             Agent.role == "assistant",
             Agent.is_active.is_(True),
+            Agent.acts_for_user.is_(False),
         )
-        .order_by(Agent.created_at)
+        .order_by(Agent.is_lead.desc(), Agent.created_at)
         .limit(1)
     )
     agent = result.scalars().first()
@@ -41,6 +42,7 @@ async def _lead_candidate(session: AsyncSession, tenant_id: UUID) -> Agent | Non
             Agent.tenant_id == tenant_id,
             Agent.kind == "company",
             Agent.is_active.is_(True),
+            Agent.acts_for_user.is_(False),
         )
         .order_by(Agent.created_at)
         .limit(1)
@@ -60,6 +62,7 @@ async def get_lead_agent(session: AsyncSession, tenant_id: UUID) -> Agent | None
             Agent.kind == "company",
             Agent.is_lead.is_(True),
             Agent.is_active.is_(True),
+            Agent.acts_for_user.is_(False),
         )
         .order_by(Agent.created_at)
         .limit(1)
@@ -80,6 +83,8 @@ async def set_lead_agent(
     agent = result.scalar_one_or_none()
     if not agent or agent.kind != "company":
         raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.acts_for_user:
+        raise HTTPException(status_code=409, detail="The Bokito helper cannot be the lead agent")
     if not agent.is_active:
         raise HTTPException(status_code=409, detail="A paused agent cannot become the lead agent")
 

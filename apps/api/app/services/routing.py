@@ -31,7 +31,8 @@ async def resolve_agent_for_channel(
     contact_id: UUID | None = None,
 ) -> Agent | None:
     """Pick the channel account's default, then the customer-facing front desk."""
-    del channel, contact_id  # selection no longer varies by channel/contact hierarchy
+    del contact_id  # contact-level routing was retired with legacy bindings
+    account: ChannelAccount | None = None
     if channel_account_id:
         account = (
             await session.execute(
@@ -41,10 +42,22 @@ async def resolve_agent_for_channel(
                 )
             )
         ).scalar_one_or_none()
-        if account and account.default_agent_id:
-            selected = await _agent_by_id(session, tenant_id, account.default_agent_id)
-            if selected:
-                return selected
+    elif channel:
+        account = (
+            await session.execute(
+                select(ChannelAccount)
+                .where(
+                    ChannelAccount.tenant_id == tenant_id,
+                    ChannelAccount.channel == channel,
+                )
+                .order_by(ChannelAccount.created_at)
+                .limit(1)
+            )
+        ).scalars().first()
+    if account and account.default_agent_id:
+        selected = await _agent_by_id(session, tenant_id, account.default_agent_id)
+        if selected:
+            return selected
 
     result = await session.execute(
         select(Agent)
@@ -52,9 +65,10 @@ async def resolve_agent_for_channel(
             Agent.tenant_id == tenant_id,
             Agent.kind == "company",
             Agent.is_active.is_(True),
+            Agent.acts_for_user.is_(False),
             Agent.audience == "customers",
         )
-        .order_by(Agent.created_at)
+        .order_by(Agent.is_lead.desc(), Agent.created_at)
         .limit(1)
     )
     return result.scalars().first()

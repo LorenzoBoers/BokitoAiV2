@@ -23,7 +23,11 @@ from app.services.transactional_mail import send_mail
 logger = logging.getLogger(__name__)
 
 DEFAULT_CHANNELS = {"desktop": True, "email": False, "push": True, "slack": False}
+# User-toggleable rows in Notification Settings.
 NOTIFICATION_CATEGORIES = {"assigned-to-me", "mentions", "decisions"}
+# Email digests: opt-in only (email off until the user enables it).
+DIGEST_CATEGORIES = {"digest-daily", "digest-weekly"}
+DIGEST_DEFAULT_CHANNELS = {"desktop": False, "email": False, "push": False, "slack": False}
 
 
 async def notification_channels(
@@ -32,14 +36,20 @@ async def notification_channels(
     """The user's enabled channels for a notification category.
 
     Channels: `desktop` (in-app bell + device push), `email`, and `slack`
-    (decision DMs). Unknown categories and missing/corrupt pref rows fall back
-    to the default (desktop on, everything else off) so notification behavior
-    never silently vanishes.
+    (decision DMs). Preference categories (assigned/mentions/decisions) and
+    digest rows honour stored toggles. System categories (ops, handoff,
+    billing, …) always deliver desktop so operational alerts never vanish.
     """
     from app.models.notification import UserNotificationPreference
 
-    if category not in NOTIFICATION_CATEGORIES:
-        return {"desktop": False, "email": False, "push": False, "slack": False}
+    fallback = (
+        DIGEST_DEFAULT_CHANNELS
+        if category in DIGEST_CATEGORIES
+        else DEFAULT_CHANNELS
+    )
+    # System alerts (not in the prefs UI) ignore stored toggles.
+    if category not in NOTIFICATION_CATEGORIES and category not in DIGEST_CATEGORIES:
+        return dict(DEFAULT_CHANNELS)
 
     result = await session.execute(
         select(UserNotificationPreference).where(
@@ -49,21 +59,21 @@ async def notification_channels(
     )
     row = result.scalar_one_or_none()
     if not row or not row.prefs_json.strip():
-        return dict(DEFAULT_CHANNELS)
+        return dict(fallback)
     try:
         rows = json.loads(row.prefs_json)
     except json.JSONDecodeError:
-        return dict(DEFAULT_CHANNELS)
+        return dict(fallback)
     for pref in rows if isinstance(rows, list) else []:
         if isinstance(pref, dict) and pref.get("id") == category:
             channels = pref.get("channels") or {}
             return {
-                "desktop": bool(channels.get("desktop", DEFAULT_CHANNELS["desktop"])),
-                "email": bool(channels.get("email", DEFAULT_CHANNELS["email"])),
-                "push": bool(channels.get("push", DEFAULT_CHANNELS["push"])),
+                "desktop": bool(channels.get("desktop", fallback["desktop"])),
+                "email": bool(channels.get("email", fallback["email"])),
+                "push": bool(channels.get("push", fallback["push"])),
                 "slack": False,
             }
-    return dict(DEFAULT_CHANNELS)
+    return dict(fallback)
 
 
 async def decision_bell_status(
