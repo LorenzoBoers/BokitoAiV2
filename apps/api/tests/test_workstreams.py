@@ -1,5 +1,6 @@
 """Tests for the Workstream engine: CRUD, linear runs, wait/gate/deadline."""
 
+import json
 import os
 from datetime import datetime, timedelta
 

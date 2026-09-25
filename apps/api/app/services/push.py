@@ -22,7 +22,7 @@ from app.models.auth import Membership
 from app.models.usage import PushSubscription
 
 if TYPE_CHECKING:
-    from app.models.notification import DecisionRequest
+    from app.models.notification import DecisionRequest, Notification
     from app.models.signal import Signal, SignalMessage
 
 logger = logging.getLogger(__name__)
