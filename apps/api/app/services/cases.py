@@ -26,61 +26,28 @@ from app.models.case import (
 from app.models.orchestra import Workstream
 from app.models.project import Project
 from app.models.signal import Signal
+from app.modules.catalog import PLATFORM_SIGNAL_TYPE_SEEDS
 from app.services.customer_verify import thread_assurance_valid
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
-
-PLATFORM_CASE_TYPES: tuple[dict[str, Any], ...] = (
-    {
-        "slug": "complaint",
-        "name": "Complaint",
-        "description": "A customer is unhappy and wants this recorded.",
-        "create_mode": "ask_customer",
-        "follow_up_mode": "track",
-        "ask_threshold": 6,
-        "auto_threshold": 11,
-        "audience": "customer",
-        "sort_order": 10,
-    },
-    {
-        "slug": "bug_report",
-        "name": "Bug report",
-        "description": "Something is broken and should be looked at.",
-        "create_mode": "ask_customer",
-        "follow_up_mode": "track",
-        "ask_threshold": 6,
-        "auto_threshold": 9,
-        "audience": "both",
-        "sort_order": 20,
-    },
-    {
-        "slug": "feature_request",
-        "name": "Feature request",
-        "description": "A request for a new capability.",
-        "create_mode": "ask_customer",
-        "follow_up_mode": "track",
-        "ask_threshold": 6,
-        "auto_threshold": 11,
-        "audience": "both",
-        "sort_order": 30,
-    },
-    {
-        "slug": "spam_abuse",
-        "name": "Spam or abuse",
-        "description": "Unwanted or abusive inbound that should be closed quickly.",
-        "create_mode": "auto",
-        "follow_up_mode": "label",
-        "ask_threshold": 3,
-        "auto_threshold": 7,
-        "audience": "internal",
-        "sort_order": 40,
-    },
-)
-
+_LEGACY_CASE_STATUS_MAP = {
+    "linked": "open",
+    "waiting_customer": "waiting",
+    "waiting_operator": "waiting",
+    "closed": "done",
+    "cancelled": "done",
+    "dismissed": "done",
+}
 
 def slugify(value: str) -> str:
     text = _SLUG_RE.sub("-", (value or "").strip().lower()).strip("-")
     return text[:64] or "case"
+
+
+def normalize_case_status(value: str | None) -> str:
+    """Return the canonical operator lifecycle for old and new rows."""
+    status = str(value or "open")
+    return _LEGACY_CASE_STATUS_MAP.get(status, status)
 
 
 def serialize_case_type(row: CaseType) -> dict[str, Any]:
@@ -90,11 +57,15 @@ def serialize_case_type(row: CaseType) -> dict[str, Any]:
         "name": row.name,
         "description": row.description,
         "create_mode": row.create_mode,
+        "send_mode": getattr(row, "send_mode", "draft"),
+        "autonomy_level": getattr(row, "autonomy_level", "approval"),
         "follow_up_mode": getattr(row, "follow_up_mode", None) or "track",
-        "follow_up_task": bool(getattr(row, "follow_up_task", False)),
         "ask_threshold": row.ask_threshold,
         "auto_threshold": row.auto_threshold,
         "requires_verification": row.requires_verification,
+        "default_project_id": (
+            str(row.default_project_id) if getattr(row, "default_project_id", None) else None
+        ),
         "allow_project_link": row.allow_project_link,
         "audience": row.audience,
         "enabled": row.enabled,
@@ -137,13 +108,40 @@ def serialize_case(row: Case, case_type: CaseType | None = None) -> dict[str, An
         "title": row.title,
         "summary": row.summary,
         "payload": payload if isinstance(payload, dict) else {},
-        "status": row.status,
+        "status": (
+            normalize_case_status(row.status)
+            if normalize_case_status(row.status) in CASE_STATUSES
+            else "open"
+        ),
         "certainty": row.certainty,
         "create_mode_used": row.create_mode_used,
         "created_by_type": row.created_by_type,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
+
+
+async def enrich_case_run(
+    session: AsyncSession, tenant_id: UUID, row: Case, payload: dict[str, Any]
+) -> dict[str, Any]:
+    """Add the current playbook step without changing the Case persistence model."""
+    if not row.workstream_run_id:
+        payload["current_step_name"] = None
+        return payload
+    from app.models.orchestra import WorkstreamRun, WorkstreamStep
+
+    current_name = (
+        await session.execute(
+            select(WorkstreamStep.name)
+            .join(WorkstreamRun, WorkstreamRun.current_step_id == WorkstreamStep.id)
+            .where(
+                WorkstreamRun.id == row.workstream_run_id,
+                WorkstreamRun.tenant_id == tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    payload["current_step_name"] = current_name
+    return payload
 
 
 async def ensure_platform_case_types(
@@ -157,7 +155,7 @@ async def ensure_platform_case_types(
     by_slug = {row.slug: row for row in existing_rows}
     now = datetime.utcnow()
     changed = False
-    for spec in PLATFORM_CASE_TYPES:
+    for spec in PLATFORM_SIGNAL_TYPE_SEEDS:
         mode = str(spec.get("follow_up_mode") or "track")
         if mode not in CASE_FOLLOW_UP_MODES:
             mode = "track"
@@ -260,11 +258,13 @@ async def create_case_type(
     slug: str = "",
     description: str = "",
     create_mode: str = "ask_customer",
+    send_mode: str = "draft",
+    autonomy_level: str = "approval",
     follow_up_mode: str = "track",
-    follow_up_task: bool = False,
     ask_threshold: int = 6,
     auto_threshold: int = 9,
     requires_verification: bool = False,
+    default_project_id: UUID | None = None,
     allow_project_link: str = "optional",
     audience: str = "both",
     enabled: bool = True,
@@ -278,6 +278,10 @@ async def create_case_type(
         raise HTTPException(status_code=400, detail="Invalid create_mode")
     if follow_up_mode not in CASE_FOLLOW_UP_MODES:
         raise HTTPException(status_code=400, detail="Invalid follow_up_mode")
+    if send_mode not in ("draft", "ask", "send"):
+        raise HTTPException(status_code=400, detail="Invalid send_mode")
+    if autonomy_level not in ("manual", "approval", "auto"):
+        raise HTTPException(status_code=400, detail="Invalid autonomy_level")
     if audience not in CASE_AUDIENCES:
         raise HTTPException(status_code=400, detail="Invalid audience")
     if allow_project_link not in CASE_PROJECT_LINK:
@@ -295,11 +299,13 @@ async def create_case_type(
         name=name.strip() or slug,
         description=description,
         create_mode=create_mode,
+        send_mode=send_mode,
+        autonomy_level=autonomy_level,
         follow_up_mode=follow_up_mode,
-        follow_up_task=bool(follow_up_task),
         ask_threshold=max(0, min(11, int(ask_threshold))),
         auto_threshold=max(0, min(11, int(auto_threshold))),
         requires_verification=requires_verification,
+        default_project_id=default_project_id,
         allow_project_link=allow_project_link,
         audience=audience,
         enabled=enabled,
@@ -314,6 +320,23 @@ async def create_case_type(
     else:
         await session.flush()
     return row
+
+
+async def _resolve_project(
+    session: AsyncSession, tenant_id: UUID, raw: Any
+) -> UUID | None:
+    """Validate an optional project id inside this tenant."""
+    if not raw:
+        return None
+    project_id = raw if isinstance(raw, UUID) else UUID(str(raw))
+    project = (
+        await session.execute(
+            select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project.id
 
 
 async def update_case_type(
@@ -333,18 +356,27 @@ async def update_case_type(
         if patch["create_mode"] not in CASE_CREATE_MODES:
             raise HTTPException(status_code=400, detail="Invalid create_mode")
         row.create_mode = patch["create_mode"]
+    if "send_mode" in patch and patch["send_mode"] is not None:
+        if patch["send_mode"] not in ("draft", "ask", "send"):
+            raise HTTPException(status_code=400, detail="Invalid send_mode")
+        row.send_mode = patch["send_mode"]
+    if "autonomy_level" in patch and patch["autonomy_level"] is not None:
+        if patch["autonomy_level"] not in ("manual", "approval", "auto"):
+            raise HTTPException(status_code=400, detail="Invalid autonomy_level")
+        row.autonomy_level = patch["autonomy_level"]
     if "follow_up_mode" in patch and patch["follow_up_mode"] is not None:
         if patch["follow_up_mode"] not in CASE_FOLLOW_UP_MODES:
             raise HTTPException(status_code=400, detail="Invalid follow_up_mode")
         row.follow_up_mode = patch["follow_up_mode"]
-    if "follow_up_task" in patch and patch["follow_up_task"] is not None:
-        row.follow_up_task = bool(patch["follow_up_task"])
     if "ask_threshold" in patch and patch["ask_threshold"] is not None:
         row.ask_threshold = max(0, min(11, int(patch["ask_threshold"])))
     if "auto_threshold" in patch and patch["auto_threshold"] is not None:
         row.auto_threshold = max(0, min(11, int(patch["auto_threshold"])))
     if "requires_verification" in patch and patch["requires_verification"] is not None:
         row.requires_verification = bool(patch["requires_verification"])
+    if "default_project_id" in patch:
+        raw = patch["default_project_id"]
+        row.default_project_id = await _resolve_project(session, tenant_id, raw)
     if "allow_project_link" in patch and patch["allow_project_link"] is not None:
         if patch["allow_project_link"] not in CASE_PROJECT_LINK:
             raise HTTPException(status_code=400, detail="Invalid allow_project_link")
@@ -378,13 +410,8 @@ async def _close_label_queue_cases(
     *,
     commit: bool = True,
 ) -> int:
-    """Close active queue statuses for a label-only type."""
-    active = (
-        "proposed",
-        "open",
-        "waiting_customer",
-        "waiting_operator",
-    )
+    """Finish active queue rows for a label-only type."""
+    active = ("open", "waiting")
     rows = list(
         (
             await session.execute(
@@ -398,7 +425,7 @@ async def _close_label_queue_cases(
     )
     now = datetime.utcnow()
     for case in rows:
-        case.status = "closed"
+        case.status = "done"
         case.updated_at = now
         session.add(case)
     if rows and commit:
@@ -646,28 +673,10 @@ async def list_cases(
     return list((await session.execute(stmt)).all())
 
 
-async def case_stats(session: AsyncSession, tenant_id: UUID) -> dict[str, int]:
-    """Case counts per status for the hub queue pills (excludes label-only types)."""
-    from sqlalchemy import func
-
-    rows = (
-        await session.execute(
-            select(Case.status, func.count())
-            .join(CaseType, Case.case_type_id == CaseType.id)
-            .where(Case.tenant_id == tenant_id, CaseType.follow_up_mode != "label")
-            .group_by(Case.status)
-        )
-    ).all()
-    counts = {status: 0 for status in CASE_STATUSES}
-    for status, count in rows:
-        counts[status] = int(count)
-    return counts
-
-
 async def signal_subjects(
     session: AsyncSession, tenant_id: UUID, signal_ids: list[UUID]
 ) -> dict[str, str]:
-    """Bulk lookup of thread subjects for hub queue rows (avoids N+1)."""
+    """Bulk lookup of thread subjects for cross-surface signal search."""
     if not signal_ids:
         return {}
     rows = (
@@ -762,7 +771,7 @@ async def _ask_operator_decision(
             }
         )
     options.append({"id": "reject", "label": "Dismiss", "action_type": "update_case",
-                    "payload": {"case_id": str(case.id), "status": "cancelled"}})
+                    "payload": {"case_id": str(case.id), "status": "done"}})
     await create_decision(
         session,
         tenant_id,
@@ -783,75 +792,6 @@ async def _ask_operator_decision(
     )
 
 
-async def maybe_open_case_follow_up_task(
-    session: AsyncSession,
-    tenant_id: UUID,
-    case: Case,
-    case_type: CaseType,
-) -> str | None:
-    """Open one human ledger task when the case type asks for follow-up work.
-
-    Dedupes on context_json.case_id so reopen/link never stacks duplicates.
-    """
-    if not bool(getattr(case_type, "follow_up_task", False)):
-        return None
-    if case.status not in ("open", "linked"):
-        return None
-
-    from app.models.orchestration import AgentTask
-    from app.services.orchestration.dispatcher import create_agent_task
-
-    existing = (
-        await session.execute(
-            select(AgentTask).where(
-                AgentTask.tenant_id == tenant_id,
-                AgentTask.signal_id == case.signal_id,
-                AgentTask.status.notin_(("completed", "cancelled", "rejected", "failed")),
-            )
-        )
-    ).scalars().all()
-    for task in existing:
-        try:
-            ctx = json.loads(task.context_json or "{}")
-        except json.JSONDecodeError:
-            ctx = {}
-        if str(ctx.get("case_id") or "") == str(case.id):
-            return str(task.id)
-
-    assignee_user_id: UUID | None = None
-    if case.created_by_type == "user" and case.created_by_id:
-        try:
-            assignee_user_id = UUID(str(case.created_by_id))
-        except ValueError:
-            assignee_user_id = None
-    if assignee_user_id is None:
-        signal = (
-            await session.execute(
-                select(Signal).where(Signal.id == case.signal_id, Signal.tenant_id == tenant_id)
-            )
-        ).scalar_one_or_none()
-        if signal is not None and signal.assigned_user_id:
-            assignee_user_id = signal.assigned_user_id
-
-    task = await create_agent_task(
-        session,
-        tenant_id,
-        title=(case.title or case_type.name)[:120],
-        description=case.summary or f"Follow-up for case {case_type.name}",
-        signal_id=case.signal_id,
-        project_id=case.project_id,
-        origin="case",
-        assignee_kind="human",
-        assignee_user_id=assignee_user_id,
-        created_by=assignee_user_id,
-        auto_start=False,
-        kind="job",
-        context={"case_id": str(case.id)},
-        post_system_note=False,
-    )
-    return str(task.id)
-
-
 async def link_case(
     session: AsyncSession,
     tenant_id: UUID,
@@ -863,7 +803,7 @@ async def link_case(
     created_by_type: str = "user",
     created_by_id: str = "",
 ) -> Case:
-    case, _case_type = await get_case(session, tenant_id, case_id)
+    case, _ = await get_case(session, tenant_id, case_id)
     if target_kind == "project":
         case.project_id = target_id
     elif target_kind == "workstream":
@@ -871,6 +811,8 @@ async def link_case(
         if auto_start_run:
             from app.services.workstreams import start_run
 
+            # start_run deduplicates by (tenant, workstream, signal), including
+            # when another case on this conversation resolves to the playbook.
             run = await start_run(
                 session,
                 tenant_id,
@@ -878,6 +820,7 @@ async def link_case(
                 input_kind="case",
                 input_text=case.summary or case.title,
                 input_ref=str(case.id),
+                signal_id=case.signal_id,
                 triggered_by_type=created_by_type,
                 triggered_by_id=created_by_id,
             )
@@ -885,12 +828,11 @@ async def link_case(
             case.project_id = case.project_id or run.project_id
     else:
         raise HTTPException(status_code=400, detail="Invalid target_kind")
-    case.status = "linked"
+    case.status = "open"
     case.updated_at = datetime.utcnow()
     session.add(case)
     await session.commit()
     await session.refresh(case)
-    await maybe_open_case_follow_up_task(session, tenant_id, case, _case_type)
     return case
 
 
@@ -924,7 +866,8 @@ async def create_case(
 
     score = 10 if certainty is None and actor == "operator" else int(certainty or 0)
     score = max(0, min(10, score))
-    project_id = project_id or signal.project_id
+    # Explicit project beats the thread's; the type's default is the fallback.
+    project_id = project_id or signal.project_id or case_type.default_project_id
 
     if case_type.requires_verification and actor != "operator":
         if not thread_assurance_valid(signal):
@@ -937,7 +880,7 @@ async def create_case(
                 title=title.strip() or case_type.name,
                 summary=summary.strip(),
                 payload_json=json.dumps(payload or {}),
-                status="waiting_customer",
+                status="waiting",
                 certainty=score,
                 create_mode_used=case_type.create_mode,
                 created_by_type=created_by_type,
@@ -968,7 +911,7 @@ async def create_case(
             title=title.strip() or case_type.name,
             summary=summary.strip(),
             payload_json=json.dumps(payload or {}),
-            status="closed",
+            status="done",
             certainty=score,
             create_mode_used=mode,
             created_by_type=created_by_type,
@@ -983,32 +926,26 @@ async def create_case(
             "label_only": True,
         }
 
+    # A certain read files the signal; an unsure read becomes a confirm chip on
+    # the thread (`proposed`), so the operator accepts or dismisses it where they
+    # are already reading instead of in a decision card.
+    certain = case_type.auto_threshold < 11 and score >= case_type.auto_threshold
     if actor == "operator":
         status = "open"
         ask_operator = False
     elif mode == "manual_only":
+        # The type says people file this one; an agent may only propose it.
         status = "proposed"
         ask_operator = False
     elif mode == "ask_operator":
-        status = "waiting_operator"
+        status = "waiting"
         ask_operator = True
     elif mode == "auto":
-        if case_type.auto_threshold >= 11 or score < case_type.auto_threshold:
-            status = "waiting_operator"
-            ask_operator = True
-        else:
-            status = "open"
-            ask_operator = False
+        status = "open" if certain else "proposed"
+        ask_operator = False
     else:  # ask_customer
-        if score < case_type.ask_threshold:
-            status = "proposed"
-            ask_operator = False
-        elif case_type.auto_threshold < 11 and score >= case_type.auto_threshold:
-            status = "open"
-            ask_operator = False
-        else:
-            status = "proposed"
-            ask_operator = False
+        status = "open" if certain or score >= case_type.ask_threshold else "proposed"
+        ask_operator = False
 
     case = Case(
         tenant_id=tenant_id,
@@ -1034,8 +971,10 @@ async def create_case(
     )
     extra: dict[str, Any] = {"bindings": len(bindings)}
 
-    if ask_operator or (actor != "operator" and len(bindings) > 1):
-        case.status = "waiting_operator"
+    # A proposal waits for the operator on the thread, so it never turns into a
+    # routing decision card before it is accepted.
+    if ask_operator or (actor != "operator" and status != "proposed" and len(bindings) > 1):
+        case.status = "waiting"
         session.add(case)
         await session.commit()
         await _ask_operator_decision(
@@ -1051,7 +990,12 @@ async def create_case(
         extra["asked_operator"] = True
         return {"case": serialize_case(case, case_type), **extra}
 
-    if actor != "operator" and status == "proposed":
+    if status == "proposed":
+        # Nothing routes and no run starts until a person accepts the proposal.
+        extra["proposed"] = True
+        return {"case": serialize_case(case, case_type), **extra}
+
+    if actor != "operator" and status == "open" and mode in ("manual_only", "ask_customer"):
         extra["asked_customer"] = True
         return {"case": serialize_case(case, case_type), **extra}
 
@@ -1067,9 +1011,33 @@ async def create_case(
             created_by_id=created_by_id,
         )
         extra["linked"] = True
-    elif status in ("open", "linked"):
-        await maybe_open_case_follow_up_task(session, tenant_id, case, case_type)
     return {"case": serialize_case(case, case_type), **extra}
+
+
+async def _route_accepted_case(
+    session: AsyncSession,
+    tenant_id: UUID,
+    case: Case,
+    *,
+    created_by_type: str = "user",
+    created_by_id: str = "",
+) -> Case:
+    """Route a just-accepted proposal the way a certain read would have routed it."""
+    bindings = await resolve_case_bindings(
+        session, tenant_id, case.case_type_id, project_id=case.project_id
+    )
+    if len(bindings) == 1 and bindings[0].auto_link and not case.workstream_id:
+        return await link_case(
+            session,
+            tenant_id,
+            case.id,
+            target_kind=bindings[0].target_kind,
+            target_id=bindings[0].target_id,
+            auto_start_run=bindings[0].auto_start_run,
+            created_by_type=created_by_type,
+            created_by_id=created_by_id,
+        )
+    return case
 
 
 async def update_case(
@@ -1078,16 +1046,17 @@ async def update_case(
     case_id: UUID,
     patch: dict[str, Any],
 ) -> Case:
-    case, case_type = await get_case(session, tenant_id, case_id)
-    prev_status = case.status
+    case, _ = await get_case(session, tenant_id, case_id)
+    was_proposed = case.status == "proposed"
     if "title" in patch and patch["title"] is not None:
         case.title = str(patch["title"]).strip()
     if "summary" in patch and patch["summary"] is not None:
         case.summary = str(patch["summary"])
     if "status" in patch and patch["status"] is not None:
-        if patch["status"] not in CASE_STATUSES:
+        normalized_status = normalize_case_status(str(patch["status"]))
+        if normalized_status not in CASE_STATUSES:
             raise HTTPException(status_code=400, detail="Invalid status")
-        case.status = patch["status"]
+        case.status = normalized_status
     if "project_id" in patch:
         raw = patch["project_id"]
         case.project_id = UUID(str(raw)) if raw else None
@@ -1097,6 +1066,6 @@ async def update_case(
     session.add(case)
     await session.commit()
     await session.refresh(case)
-    if case.status in ("open", "linked") and prev_status not in ("open", "linked"):
-        await maybe_open_case_follow_up_task(session, tenant_id, case, case_type)
+    if was_proposed and case.status == "open":
+        case = await _route_accepted_case(session, tenant_id, case)
     return case

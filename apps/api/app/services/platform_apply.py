@@ -120,6 +120,8 @@ async def apply_agent_change(
 async def apply_workstream_change(
     session: AsyncSession, tenant_id: UUID, change_kind: str, after: dict[str, Any], before: dict[str, Any]
 ) -> dict[str, Any]:
+    from app.services.workstreams import replace_steps
+
     if change_kind == "delete":
         ws_id = after.get("workstream_id") or before.get("workstream_id")
         result = await session.execute(
@@ -146,8 +148,16 @@ async def apply_workstream_change(
             ws.description = after["description"]
         if "enabled" in after:
             ws.enabled = bool(after["enabled"])
+        if "autonomy_level" in after:
+            ws.autonomy_level = str(after["autonomy_level"])
+        if "steps" in after:
+            await replace_steps(session, tenant_id, ws.id, list(after["steps"] or []))
         await session.flush()
-        return {"workstream_id": str(ws.id), "status": "updated"}
+        return {
+            "workstream_id": str(ws.id),
+            "status": "updated",
+            "steps_count": len(after.get("steps") or []) if "steps" in after else None,
+        }
 
     name = after.get("name", "Workstream")
     ws = Workstream(
@@ -158,6 +168,8 @@ async def apply_workstream_change(
     )
     session.add(ws)
     await session.flush()
+    if after.get("steps"):
+        await replace_steps(session, tenant_id, ws.id, list(after["steps"]))
     canvas = await sync_entity_to_canvas(
         session,
         tenant_id,
@@ -167,7 +179,12 @@ async def apply_workstream_change(
         x=float(after.get("x", 400)),
         y=float(after.get("y", 300)),
     )
-    return {"workstream_id": str(ws.id), "status": "created", "canvas": canvas}
+    return {
+        "workstream_id": str(ws.id),
+        "status": "created",
+        "steps_count": len(after.get("steps") or []),
+        "canvas": canvas,
+    }
 
 
 async def apply_mcp_server_change(
@@ -476,6 +493,10 @@ async def apply_change_to_domain(
         return await apply_case_type_change(session, tenant_id, ck, after, before)
     if rt == "case_type_binding":
         return await apply_case_type_binding_change(session, tenant_id, ck, after, before)
+    if rt == "project":
+        return await apply_project_change(session, tenant_id, ck, after, before)
+    if rt == "trigger":
+        return await apply_trigger_change(session, tenant_id, ck, after, before)
     return {"status": "applied", "resource_type": rt, "payload": after}
 
 
@@ -615,9 +636,102 @@ async def apply_autonomy_posture_change(
         return {"status": "tenant_not_found"}
     settings = tenant_settings(tenant)
     settings["autonomy_posture"] = posture
+    # Posture change resets explicit per-category overrides to the preset.
+    settings.pop("tool_allowances", None)
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
     return {"status": "applied", "posture": posture}
+
+
+async def apply_project_change(
+    session: AsyncSession,
+    tenant_id: UUID,
+    change_kind: str,
+    after: dict[str, Any],
+    before: dict[str, Any],
+) -> dict[str, Any]:
+    from app.services.projects import create_project, serialize_project
+
+    if change_kind != "create":
+        return {"status": "unsupported", "change_kind": change_kind}
+    name = str(after.get("name") or "").strip()
+    if not name:
+        return {"status": "invalid", "error": "name required"}
+    slug = str(after.get("slug") or name).strip().lower().replace(" ", "-")
+    description = str(after.get("description") or "")
+    autonomous_scope = str(after.get("autonomous_scope") or "project")
+    try:
+        row = await create_project(
+            session,
+            tenant_id,
+            name=name,
+            slug=slug,
+            autonomous_scope=autonomous_scope,
+            description=description,
+        )
+    except Exception as exc:  # noqa: BLE001 — surface to Govern
+        return {"status": "error", "error": str(exc)}
+    after["project_id"] = row.get("id") if isinstance(row, dict) else None
+    return row if isinstance(row, dict) else {"status": "applied", "project": serialize_project(row)}
+
+
+async def apply_trigger_change(
+    session: AsyncSession,
+    tenant_id: UUID,
+    change_kind: str,
+    after: dict[str, Any],
+    before: dict[str, Any],
+) -> dict[str, Any]:
+    from datetime import datetime
+    from uuid import UUID as _UUID
+
+    from app.services.triggers import create_trigger, serialize_trigger
+
+    if change_kind not in ("create", "update"):
+        return {"status": "unsupported", "change_kind": change_kind}
+    name = str(after.get("name") or "Wake").strip()
+    instructions = str(after.get("instructions") or "").strip()
+    if not instructions:
+        return {"status": "invalid", "error": "instructions required"}
+    cron_expr = str(after.get("cron") or "") or ""
+    interval = after.get("every_minutes")
+    at_raw = after.get("at")
+    run_at: datetime | None = None
+    if at_raw:
+        try:
+            run_at = datetime.fromisoformat(str(at_raw).replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            return {"status": "invalid", "error": "at must be ISO datetime"}
+    if cron_expr:
+        kind = "cron"
+    elif interval:
+        kind = "interval"
+    elif run_at:
+        kind = "once"
+    else:
+        return {"status": "invalid", "error": "pass at, cron, or every_minutes"}
+    agent_id = None
+    if after.get("agent_id"):
+        try:
+            agent_id = _UUID(str(after["agent_id"]))
+        except ValueError:
+            return {"status": "invalid", "error": "agent_id must be a UUID"}
+    try:
+        trigger = await create_trigger(
+            session,
+            tenant_id,
+            name=name,
+            kind=kind,
+            cron_expr=cron_expr,
+            interval_minutes=int(interval) if interval else 0,
+            agent_id=agent_id,
+            instructions=instructions,
+            run_at=run_at,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "error": str(exc)}
+    after["trigger_id"] = str(getattr(trigger, "id", "") or "")
+    return serialize_trigger(trigger)
 
 
 async def rollback_change_to_domain(

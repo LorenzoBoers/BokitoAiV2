@@ -35,6 +35,7 @@ import { applyDisplayEdit, applyMentionAtDisplay, displayFromRaw } from '../../l
 import { parseComposerDraft, serializeComposerDraft } from '../../lib/inbox-ops'
 import { SNOOZE_PRESETS } from '../../lib/snooze'
 import { uploadAttachment } from '../../lib/uploads-api'
+import { parseComposerVerb, composerVerbHelp } from '../../lib/composer-verbs'
 import ComposerWriteAssist from './ComposerWriteAssist'
 import { DictationMicButton } from './DictationMicButton'
 import MentionPopover from './MentionPopover'
@@ -73,6 +74,8 @@ type Props = {
   /** Controlled mode from the thread (agent sticky while session active). */
   mode?: ComposerMode
   onModeChange?: (mode: ComposerMode) => void
+  /** Slash verbs (/assign, /signal, …). Return true when handled. */
+  onVerb?: (verb: import('../../lib/composer-verbs').ParsedComposerVerb) => Promise<boolean> | boolean
   /** Active meta agent label for the agent tab. */
   agentModeName?: string | null
   /** Stable id (thread id) to persist unsent drafts across thread switches. */
@@ -126,6 +129,7 @@ export default function ReplyComposer({
   onMentionInserted,
   mode: modeProp,
   onModeChange,
+  onVerb,
   agentModeName,
   persistKey,
   replyDisabledNotice,
@@ -365,6 +369,26 @@ export default function ReplyComposer({
     if (isReply && replyBlocked) return
     const text = body.trim()
     if (!text && attachments.length === 0) return
+
+    const verb = parseComposerVerb(text)
+    if (verb && onVerb) {
+      try {
+        const handled = await onVerb(verb)
+        if (handled) {
+          setBody('')
+          setAttachments([])
+          setDraftRestored(false)
+          writeStoredDraft(persistKey, '')
+          return
+        }
+        toast.message(composerVerbHelp())
+        return
+      } catch (err) {
+        toast.error(formatApiErrorMessage(err, t('composer.sendError')))
+        return
+      }
+    }
+
     const payload = attachments.length ? attachments : undefined
     try {
       if (isAgent) {

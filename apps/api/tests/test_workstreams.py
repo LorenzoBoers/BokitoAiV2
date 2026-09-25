@@ -44,26 +44,44 @@ async def test_workstream_crud_and_steps(client: AsyncClient):
         headers=headers,
         json={
             "steps": [
-                {"name": "Collect data", "kind": "agent", "goal": "Collect the client data."},
-                {"name": "Wait for client", "kind": "wait", "wait_kind": "input"},
-                {"name": "File", "kind": "agent", "goal": "File the declaration."},
+                {"name": "Notify", "kind": "send_message", "goal": "We started."},
+                {"name": "Collect data", "kind": "agent_task", "goal": "Collect the client data."},
+                {"name": "Wait for client", "kind": "wait_for_reply"},
+                {"name": "Approve", "kind": "ask_decision"},
+                {"name": "Record", "kind": "call_tool", "config": {"tool_name": "set_thread_tags"}},
+                {"name": "Follow up", "kind": "schedule", "deadline_hours": 24},
             ]
         },
     )
     assert replaced.status_code == 200
     steps = replaced.json()["steps"]
-    assert [s["position"] for s in steps] == [0, 1, 2]
+    assert [s["position"] for s in steps] == list(range(6))
+    assert [s["kind"] for s in steps] == [
+        "send_message",
+        "agent_task",
+        "wait_for_reply",
+        "ask_decision",
+        "call_tool",
+        "schedule",
+    ]
 
     detail = await client.get(f"{API}/{ws_id}", headers=headers)
     assert detail.status_code == 200
-    assert detail.json()["steps_count"] == 3
+    assert detail.json()["steps_count"] == 6
+
+    legacy = await client.put(
+        f"{API}/{ws_id}/steps",
+        headers=headers,
+        json={"steps": [{"name": "Legacy", "kind": "agent"}]},
+    )
+    assert legacy.status_code == 400
 
     # Replace keeps ids for surviving steps and drops removed ones.
     kept = steps[0]
     replaced2 = await client.put(
         f"{API}/{ws_id}/steps",
         headers=headers,
-        json={"steps": [{"id": kept["id"], "name": "Collect data v2", "kind": "agent"}]},
+        json={"steps": [{"id": kept["id"], "name": "Collect data v2", "kind": "agent_task"}]},
     )
     assert replaced2.status_code == 200
     after = replaced2.json()["steps"]
@@ -94,6 +112,57 @@ async def test_run_requires_steps_and_enabled(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_signal_gets_one_run_per_playbook(session_override):
+    from app.models.auth import Tenant
+    from app.models.orchestra import Workstream, WorkstreamStep
+    from app.models.signal import Signal
+    from app.services.workstreams import start_run
+
+    tenant = Tenant(slug="one-run-per-signal", name="One run")
+    session_override.add(tenant)
+    await session_override.flush()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="test",
+        subject="Tracked conversation",
+    )
+    workstream = Workstream(tenant_id=tenant.id, name="Tracked playbook")
+    session_override.add(signal)
+    session_override.add(workstream)
+    await session_override.flush()
+    session_override.add(
+        WorkstreamStep(
+            tenant_id=tenant.id,
+            workstream_id=workstream.id,
+            name="Wait",
+            kind="wait_for_reply",
+        )
+    )
+    await session_override.commit()
+
+    first = await start_run(
+        session_override,
+        tenant.id,
+        workstream.id,
+        input_kind="signal",
+        input_ref=str(signal.id),
+        signal_id=signal.id,
+        advance=False,
+    )
+    second = await start_run(
+        session_override,
+        tenant.id,
+        workstream.id,
+        input_kind="signal",
+        input_ref=str(signal.id),
+        signal_id=signal.id,
+        advance=False,
+    )
+    assert second.id == first.id
+
+
+@pytest.mark.asyncio
 async def test_linear_run_completes_with_worklog(client: AsyncClient):
     headers = await _login(client)
     ws_id = await _make_workstream(
@@ -101,8 +170,8 @@ async def test_linear_run_completes_with_worklog(client: AsyncClient):
         headers,
         "Two step flow",
         [
-            {"name": "Analyze", "kind": "agent", "goal": "Analyze the input."},
-            {"name": "Report", "kind": "agent", "goal": "Write the report."},
+            {"name": "Analyze", "kind": "agent_task", "goal": "Analyze the input."},
+            {"name": "Report", "kind": "agent_task", "goal": "Write the report."},
         ],
     )
 
@@ -142,9 +211,9 @@ async def test_wait_step_parks_and_resume_continues(client: AsyncClient):
         headers,
         "Wait flow",
         [
-            {"name": "Prepare", "kind": "agent", "goal": "Prepare the request."},
-            {"name": "Wait for client", "kind": "wait", "wait_kind": "input"},
-            {"name": "Finish", "kind": "agent", "goal": "Process the client answer."},
+            {"name": "Prepare", "kind": "agent_task", "goal": "Prepare the request."},
+            {"name": "Wait for client", "kind": "wait_for_reply", "wait_kind": "input"},
+            {"name": "Finish", "kind": "agent_task", "goal": "Process the client answer."},
         ],
     )
 
@@ -174,9 +243,9 @@ async def test_gate_step_raises_decision_and_cancel(client: AsyncClient):
         headers,
         "Gated flow",
         [
-            {"name": "Draft", "kind": "agent", "goal": "Draft the output."},
-            {"name": "Approval", "kind": "gate"},
-            {"name": "Send", "kind": "agent", "goal": "Send it."},
+            {"name": "Draft", "kind": "agent_task", "goal": "Draft the output."},
+            {"name": "Approval", "kind": "ask_decision"},
+            {"name": "Send", "kind": "agent_task", "goal": "Send it."},
         ],
     )
 
@@ -217,7 +286,7 @@ async def test_deadline_sweep_continues_and_fails(session_override):
                 workstream_id=ws.id,
                 position=0,
                 name="Wait",
-                kind="wait",
+                kind="wait_for_reply",
                 wait_kind="input",
                 deadline_hours=1,
                 on_deadline=on_deadline,
@@ -229,7 +298,7 @@ async def test_deadline_sweep_continues_and_fails(session_override):
                 workstream_id=ws.id,
                 position=1,
                 name="After",
-                kind="agent",
+                kind="agent_task",
                 goal="Continue after the wait.",
             )
         )
@@ -269,14 +338,24 @@ async def test_deadline_sweep_continues_and_fails(session_override):
             select(WorkstreamRun).where(WorkstreamRun.id == run_fail.id)
         )
     ).scalar_one()
+    assert refreshed_fail.status == "waiting"
+    # The default permits two automatic retries before asking a human.
+    for _ in range(2):
+        refreshed_fail.wait_until = datetime.utcnow() - timedelta(minutes=5)
+        session_override.add(refreshed_fail)
+        await session_override.commit()
+        await process_due_run_deadlines(session_override)
+        await session_override.refresh(refreshed_fail)
     assert refreshed_fail.status == "failed"
-    # Failure is never silent: a decision offers retry/cancel.
+    # Failure is never silent: the source thread gets all three choices.
     decisions = (
         await session_override.execute(
             select(DecisionRequest).where(DecisionRequest.tenant_id == tenant.id)
         )
     ).scalars().all()
-    assert any("failed" in d.title.lower() for d in decisions)
+    stalled = next(d for d in decisions if "stalled" in d.title.lower())
+    labels = {option["label"] for option in json.loads(stalled.options_json)}
+    assert labels == {"Retry", "Skip step", "Stop playbook"}
 
 
 async def _make_project(client: AsyncClient, headers: dict, slug: str) -> str:
@@ -538,7 +617,12 @@ async def test_module_template_install_and_runtime_integrity(
 
     detail = await client.get(f"{API}/{ws['id']}", headers=headers)
     steps = detail.json()["steps"]
-    assert [s["kind"] for s in steps] == ["agent", "wait", "gate", "agent"]
+    assert [s["kind"] for s in steps] == [
+        "agent_task",
+        "wait_for_reply",
+        "ask_decision",
+        "agent_task",
+    ]
 
     # Second list marks it as already installed.
     listed2 = await client.get(
@@ -572,7 +656,7 @@ async def test_promote_completed_run_creates_task(client: AsyncClient):
         client,
         headers,
         "Promotable flow",
-        [{"name": "Do work", "kind": "agent", "goal": "Do the work."}],
+        [{"name": "Do work", "kind": "agent_task", "goal": "Do the work."}],
     )
     run = await client.post(f"{API}/{ws_id}/runs", headers=headers, json={})
     body = run.json()

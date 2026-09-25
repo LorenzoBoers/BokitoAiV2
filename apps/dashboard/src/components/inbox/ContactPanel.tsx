@@ -24,7 +24,6 @@ import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { ThreadCasesList } from './ThreadCasesList'
-import { ThreadFollowUpsList } from './ThreadFollowUpsList'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
   const email = (address || '').trim().toLowerCase()
@@ -302,8 +301,13 @@ export default function ContactPanel({
 
   return (
     <div className="flex flex-col">
+      <div className="border-b border-border/40 px-4 pb-1 pt-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+          {t('sidePanel.who', { defaultValue: 'Who' })}
+        </h2>
+      </div>
       {/* Identity card */}
-      <div className="border-b border-border/40 px-4 pb-3 pt-4">
+      <div className="border-b border-border/40 px-4 pb-3 pt-3">
         <div className="flex items-start gap-2.5">
           <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
           <div className="min-w-0 flex-1">
@@ -490,15 +494,8 @@ export default function ContactPanel({
         ) : null}
       </div>
 
-      {currentThreadId ? (
-        <div className="border-t border-border/40 px-4 py-3 space-y-4">
-          <ThreadCasesList signalId={String(currentThreadId)} />
-          <ThreadFollowUpsList signalId={String(currentThreadId)} />
-        </div>
-      ) : null}
-
-      {/* Previous conversations */}
-      <div className="px-4 py-3">
+      {/* Previous conversations (Who — history with this person) */}
+      <div className="border-b border-border/40 px-4 py-3">
         <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
           {t('contactPanel.previous')}
         </h3>
@@ -561,6 +558,21 @@ export default function ContactPanel({
           </div>
         )}
       </div>
+
+      {currentThreadId ? (
+        <div className="px-4 py-3 space-y-4">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+            {t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
+          </h2>
+          <ThreadCasesList signalId={String(currentThreadId)} />
+          <nav className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]" aria-label="Conversation work">
+            <Link to="/agents" className="font-medium text-accent hover:underline">Agents</Link>
+            <Link to="/workstreams" className="font-medium text-accent hover:underline">Playbooks</Link>
+            <Link to="/projects" className="font-medium text-accent hover:underline">Projects</Link>
+            <Link to="/knowledge" className="font-medium text-accent hover:underline">Knowledge</Link>
+          </nav>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -295,7 +295,7 @@ async def test_mailbox_disconnect_detaches_referencing_rows(
     and kept, per-mailbox rules and bindings are removed."""
     from app.models.agent import Agent
     from app.models.channel import ChannelBinding
-    from app.models.email_routing import EmailRoutingRule
+    from app.models.learning import InboxRule
     from app.models.signal import Signal
 
     headers = await _login(client)
@@ -330,11 +330,14 @@ async def test_mailbox_disconnect_detaches_referencing_rows(
         subject="Disconnect FK check",
         channel_account_id=account.id,
     )
-    rule = EmailRoutingRule(
+    rule = InboxRule(
         tenant_id=tenant_id,
         channel_account_id=account.id,
-        condition_type="sender_domain",
-        condition_value="example.com",
+        match_type="sender_domain",
+        match_value="example.com",
+        action="route",
+        source="routing",
+        status="active",
     )
     binding = ChannelBinding(
         tenant_id=tenant_id,
@@ -362,7 +365,7 @@ async def test_mailbox_disconnect_detaches_referencing_rows(
     assert (
         (
             await session_override.execute(
-                select(EmailRoutingRule).where(EmailRoutingRule.id == rule_id)
+                select(InboxRule).where(InboxRule.id == rule_id)
             )
         )
         .scalars()

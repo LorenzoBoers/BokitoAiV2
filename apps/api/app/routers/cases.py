@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,11 +49,13 @@ class CaseTypeCreateBody(BaseModel):
     slug: str = ""
     description: str = ""
     create_mode: str = "ask_customer"
+    send_mode: str = "draft"
+    autonomy_level: str = "approval"
     follow_up_mode: str = "track"
-    follow_up_task: bool = False
     ask_threshold: int = 6
     auto_threshold: int = 9
     requires_verification: bool = False
+    default_project_id: UUID | None = None
     allow_project_link: str = "optional"
     audience: str = "both"
     enabled: bool = True
@@ -64,15 +66,30 @@ class CaseTypePatchBody(BaseModel):
     name: str | None = None
     description: str | None = None
     create_mode: str | None = None
+    send_mode: str | None = None
+    autonomy_level: str | None = None
     follow_up_mode: str | None = None
-    follow_up_task: bool | None = None
     ask_threshold: int | None = None
     auto_threshold: int | None = None
     requires_verification: bool | None = None
+    default_project_id: UUID | None = None
     allow_project_link: str | None = None
     audience: str | None = None
     enabled: bool | None = None
     sort_order: int | None = None
+
+
+class SignalPolicyBody(BaseModel):
+    """Workspace policy for the signal catalog."""
+
+    accept_roles: str | None = None
+    backlog_threshold: int | None = None
+
+
+class BacklogPromoteBody(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    follow_up_mode: str = "track"
 
 
 class BindingCreateBody(BaseModel):
@@ -110,11 +127,13 @@ async def create_type(
         slug=body.slug,
         description=body.description,
         create_mode=body.create_mode,
+        send_mode=body.send_mode,
+        autonomy_level=body.autonomy_level,
         follow_up_mode=body.follow_up_mode,
-        follow_up_task=body.follow_up_task,
         ask_threshold=body.ask_threshold,
         auto_threshold=body.auto_threshold,
         requires_verification=body.requires_verification,
+        default_project_id=body.default_project_id,
         allow_project_link=body.allow_project_link,
         audience=body.audience,
         enabled=body.enabled,
@@ -197,6 +216,85 @@ async def delete_binding(
     return {"ok": True}
 
 
+@router.get("/policy")
+async def get_signal_policy(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Who may accept signals, and how often a pattern must recur to be offered."""
+    from app.services.signal_catalog import may_accept_signals, signal_policy
+
+    return {
+        **signal_policy(auth.tenant),
+        "may_accept": may_accept_signals(auth.tenant, auth.role),
+    }
+
+
+@router.put("/policy")
+async def put_signal_policy(
+    body: SignalPolicyBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    from app.services.signal_catalog import update_signal_policy
+
+    policy = await update_signal_policy(
+        session,
+        auth.tenant,
+        accept_roles=body.accept_roles,
+        backlog_threshold=body.backlog_threshold,
+    )
+    return {**policy, "may_accept": True}
+
+
+@router.get("/backlog")
+async def list_signal_backlog(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Patterns interpretation keeps seeing that no type covers yet."""
+    from app.services.signal_catalog import read_backlog, signal_policy
+
+    return {
+        "items": read_backlog(auth.tenant),
+        "threshold": signal_policy(auth.tenant)["backlog_threshold"],
+    }
+
+
+@router.post("/backlog/{key}/promote")
+async def promote_signal_backlog(
+    key: str,
+    body: BacklogPromoteBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Turn a recurring unknown pattern into a real signal type."""
+    auth.require_role("owner", "admin")
+    from app.services.signal_catalog import promote_backlog_entry
+
+    row = await promote_backlog_entry(
+        session,
+        auth.tenant,
+        key,
+        name=body.name,
+        description=body.description,
+        follow_up_mode=body.follow_up_mode,
+    )
+    return svc.serialize_case_type(row)
+
+
+@router.delete("/backlog/{key}")
+async def dismiss_signal_backlog(
+    key: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    from app.services.signal_catalog import dismiss_backlog_entry
+
+    removed = await dismiss_backlog_entry(session, auth.tenant, key)
+    return {"ok": True, "removed": removed}
+
+
 @router.get("")
 async def list_cases(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -209,11 +307,7 @@ async def list_cases(
     limit: int | None = None,
     offset: int | None = None,
 ):
-    """List cases for the hub queue, filterable by type, status and text.
-
-    Hub queue should pass ``include_labels=false`` so label-only stamps
-    (no follow-up) stay out of Open / Waiting pills.
-    """
+    """Search typed signals for cross-surface filters and command results."""
     rows = await svc.list_cases(
         session,
         auth.tenant.id,
@@ -231,18 +325,10 @@ async def list_cases(
     items = []
     for case, case_type in rows:
         item = svc.serialize_case(case, case_type)
+        await svc.enrich_case_run(session, auth.tenant.id, case, item)
         item["signal_subject"] = subjects.get(str(case.signal_id), "")
         items.append(item)
     return {"items": items}
-
-
-@router.get("/stats")
-async def get_case_stats(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Case counts per status, for the hub queue pills."""
-    return {"counts": await svc.case_stats(session, auth.tenant.id)}
 
 
 @router.post("")
@@ -276,7 +362,9 @@ async def get_case(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     case, case_type = await svc.get_case(session, auth.tenant.id, case_id)
-    return svc.serialize_case(case, case_type)
+    return await svc.enrich_case_run(
+        session, auth.tenant.id, case, svc.serialize_case(case, case_type)
+    )
 
 
 @router.patch("/{case_id}")
@@ -286,11 +374,24 @@ async def patch_case(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    # Accepting a proposed signal is a workspace-policy call: some workspaces
+    # let every member confirm, others keep it with owners and admins.
+    if body.status == "open":
+        from app.services.signal_catalog import may_accept_signals
+
+        current, _ = await svc.get_case(session, auth.tenant.id, case_id)
+        if current.status == "proposed" and not may_accept_signals(auth.tenant, auth.role):
+            raise HTTPException(
+                status_code=403,
+                detail="Only owners and admins may accept signals in this workspace.",
+            )
     case = await svc.update_case(
         session, auth.tenant.id, case_id, body.model_dump(exclude_unset=True)
     )
     case, case_type = await svc.get_case(session, auth.tenant.id, case.id)
-    return svc.serialize_case(case, case_type)
+    return await svc.enrich_case_run(
+        session, auth.tenant.id, case, svc.serialize_case(case, case_type)
+    )
 
 
 @router.post("/{case_id}/link")
@@ -311,7 +412,9 @@ async def link_case(
         created_by_id=str(auth.user.id),
     )
     case, case_type = await svc.get_case(session, auth.tenant.id, case.id)
-    return svc.serialize_case(case, case_type)
+    return await svc.enrich_case_run(
+        session, auth.tenant.id, case, svc.serialize_case(case, case_type)
+    )
 
 
 @signal_cases_router.get("/{signal_id}/cases")
@@ -322,4 +425,11 @@ async def list_signal_cases(
 ):
     """Cases attached to one conversation."""
     rows = await svc.list_cases(session, auth.tenant.id, signal_id=signal_id)
-    return {"items": [svc.serialize_case(case, case_type) for case, case_type in rows]}
+    items = []
+    for case, case_type in rows:
+        items.append(
+            await svc.enrich_case_run(
+                session, auth.tenant.id, case, svc.serialize_case(case, case_type)
+            )
+        )
+    return {"items": items}

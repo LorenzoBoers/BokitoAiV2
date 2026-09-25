@@ -20,7 +20,6 @@ import {
   type ReplyInput,
   type ThreadId,
 } from '../lib/inbox-api'
-import { notifySignalTagsChanged } from '../lib/signals-api'
 
 function escapeHtml(input: string): string {
   return input
@@ -202,9 +201,6 @@ export function useThreadDetail(
         const updated = await patchThread(token, threadId, input)
         if (updated) {
           setRawDetail((prev) => (prev ? { ...prev, thread: updated } : prev))
-          if (input.tags !== undefined) {
-            notifySignalTagsChanged()
-          }
         }
       } catch (err) {
         throw err instanceof Error ? err : new Error('Could not update thread.')

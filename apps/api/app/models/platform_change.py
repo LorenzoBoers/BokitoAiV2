@@ -26,6 +26,8 @@ PLATFORM_RESOURCE_TYPES = frozenset(
         "persona_review",
         "case_type",
         "case_type_binding",
+        "project",
+        "trigger",
     }
 )
 

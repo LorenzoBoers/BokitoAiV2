@@ -200,30 +200,14 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
 
   return (
     <div className="flex flex-col">
-      <ThreadProjectPicker
-        threadId={thread.id}
-        projectId={thread.projectId ?? null}
-        onUpdated={onThreadUpdated}
-      />
-      <div className="border-b border-border/40 px-4 py-3">
-        <ThreadCasesList signalId={String(thread.id)} />
+      <div className="border-b border-border/40 px-4 pb-1 pt-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+          {t('sidePanel.who', { ns: 'communication', defaultValue: 'Who' })}
+        </h2>
       </div>
 
-      {loadFailed && !loading ? (
-        <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 px-3 py-2">
-          <span className="text-[11px] text-text-secondary">{t('agentContext.loadFailed')}</span>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="shrink-0 text-[11px] font-medium text-accent hover:underline"
-          >
-            {t('agentContext.retry')}
-          </button>
-        </div>
-      ) : null}
-
       {/* Identity */}
-      <div className="border-b border-border/40 px-4 pb-3 pt-4">
+      <div className="border-b border-border/40 px-4 pb-3 pt-3">
         <SectionHeading title={t('agentContext.agent')} />
         {agent && agentId ? (
           <Link
@@ -300,6 +284,37 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             <span className="min-w-0 truncate">{formatAgentModelLine(model, provider, t)}</span>
           </p>
         ) : null}
+      </div>
+
+      {loadFailed && !loading ? (
+        <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 px-3 py-2">
+          <span className="text-[11px] text-text-secondary">{t('agentContext.loadFailed')}</span>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+          >
+            {t('agentContext.retry')}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="border-b border-border/40 px-4 py-3 space-y-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+          {t('sidePanel.thisConversation', { ns: 'communication', defaultValue: 'This conversation' })}
+        </h2>
+        <ThreadProjectPicker
+          threadId={thread.id}
+          projectId={thread.projectId ?? null}
+          onUpdated={onThreadUpdated}
+        />
+        <ThreadCasesList signalId={String(thread.id)} />
+        <nav className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]" aria-label="Conversation work">
+          <Link to="/agents" className="font-medium text-accent hover:underline">Agents</Link>
+          <Link to="/workstreams" className="font-medium text-accent hover:underline">Playbooks</Link>
+          <Link to="/projects" className="font-medium text-accent hover:underline">Projects</Link>
+          <Link to="/knowledge" className="font-medium text-accent hover:underline">Knowledge</Link>
+        </nav>
       </div>
 
       {loading ? (

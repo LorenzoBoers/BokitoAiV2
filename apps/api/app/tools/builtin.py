@@ -1101,6 +1101,7 @@ async def _snapshot_before(
             }
     if resource_type == "workstream" and after.get("workstream_id"):
         from app.models.orchestra import Workstream
+        from app.services.workstreams import list_steps, serialize_step
 
         row = (
             await ctx.session.execute(
@@ -1116,6 +1117,10 @@ async def _snapshot_before(
                 "name": row.name,
                 "description": row.description,
                 "enabled": row.enabled,
+                "steps": [
+                    serialize_step(step)
+                    for step in await list_steps(ctx.session, ctx.tenant_id, row.id)
+                ],
             }
     if resource_type == "case_type" and after.get("case_type_id"):
         from app.models.case import CaseType
@@ -1332,6 +1337,8 @@ register_tool(
         },
         handler=_send_reply,
         audience="both",
+        consequential=True,
+        gated=True,
     )
 )
 
@@ -1770,11 +1777,40 @@ register_tool(
 register_tool(
     ToolSpec(
         name="create_workstream",
-        description="Create an orchestration workstream.",
+        description="Propose a playbook with an ordered list of canonical steps.",
         category="agents",
         input_schema={
             "type": "object",
-            "properties": {"name": {"type": "string"}, "description": {"type": "string"}},
+            "properties": {
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "send_message",
+                                    "agent_task",
+                                    "wait_for_reply",
+                                    "ask_decision",
+                                    "call_tool",
+                                    "schedule",
+                                ],
+                            },
+                            "goal": {"type": "string"},
+                            "agent_id": {"type": "string"},
+                            "deadline_hours": {"type": "integer"},
+                            "on_deadline": {"type": "string"},
+                            "config": {"type": "object"},
+                        },
+                        "required": ["name", "kind"],
+                    },
+                },
+            },
             "required": ["name"],
         },
         handler=_make_platform_handler(
@@ -1787,7 +1823,7 @@ register_tool(
 register_tool(
     ToolSpec(
         name="update_workstream",
-        description="Update a workstream (name, status, enabled).",
+        description="Propose updating a playbook, including replacing its ordered steps.",
         category="agents",
         input_schema={
             "type": "object",
@@ -1796,6 +1832,33 @@ register_tool(
                 "name": {"type": "string"},
                 "description": {"type": "string"},
                 "enabled": {"type": "boolean"},
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "name": {"type": "string"},
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "send_message",
+                                    "agent_task",
+                                    "wait_for_reply",
+                                    "ask_decision",
+                                    "call_tool",
+                                    "schedule",
+                                ],
+                            },
+                            "goal": {"type": "string"},
+                            "agent_id": {"type": "string"},
+                            "deadline_hours": {"type": "integer"},
+                            "on_deadline": {"type": "string"},
+                            "config": {"type": "object"},
+                        },
+                        "required": ["name", "kind"],
+                    },
+                },
             },
             "required": ["workstream_id"],
         },
@@ -2372,5 +2435,241 @@ register_tool(
         handler=_schedule_wake,
         mutating=True,
         gated=True,
+    )
+)
+
+
+async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    name = str(tool_input.get("name") or "").strip()
+    if not name:
+        return {"error": "name is required"}
+    slug = str(tool_input.get("slug") or name).strip().lower().replace(" ", "-")
+    return await _platform_change(
+        ctx,
+        resource_type="project",
+        change_kind="create",
+        summary=f"Create project {name}",
+        after={
+            "name": name,
+            "slug": slug,
+            "description": str(tool_input.get("description") or ""),
+            "autonomous_scope": str(tool_input.get("autonomous_scope") or "project"),
+        },
+        tool_name="create_project",
+    )
+
+
+async def _upsert_trigger(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Propose creating/updating an Agenda trigger via PlatformChange."""
+    instructions = str(tool_input.get("instructions") or "").strip()
+    if not instructions:
+        return {"error": "instructions is required"}
+    name = str(tool_input.get("name") or "Wake").strip()
+    return await _platform_change(
+        ctx,
+        resource_type="trigger",
+        change_kind="create",
+        summary=f"Upsert trigger {name}",
+        after={
+            "name": name,
+            "instructions": instructions,
+            "agent_id": tool_input.get("agent_id"),
+            "at": tool_input.get("at"),
+            "cron": tool_input.get("cron"),
+            "every_minutes": tool_input.get("every_minutes"),
+        },
+        tool_name="upsert_trigger",
+    )
+
+
+async def _set_posture(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Propose changing workspace autonomy posture. Always asks (Govern)."""
+    from app.tools.policy import AUTONOMY_POSTURES, resolve_posture
+
+    posture = str(tool_input.get("posture") or "").strip()
+    if posture not in AUTONOMY_POSTURES:
+        return {"error": f"Invalid posture: {posture}. Use manual, assisted, or autonomous."}
+    tenant = await _get_tenant(ctx)
+    previous = resolve_posture(tenant)
+    # Force ask: propose without yolo so a person always confirms posture changes.
+    return await _platform_change(
+        ctx,
+        resource_type="autonomy_posture",
+        change_kind="update",
+        summary=f"Change autonomy posture from {previous} to {posture}",
+        after={"posture": posture},
+        before={"posture": previous},
+        tool_name="set_posture",
+    )
+
+
+register_tool(
+    ToolSpec(
+        name="create_project",
+        description=(
+            "Propose creating a Project (container for signals and conversations). "
+            "Goes through Govern like other structural changes."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "slug": {"type": "string"},
+                "description": {"type": "string"},
+                "autonomous_scope": {"type": "string"},
+            },
+            "required": ["name"],
+        },
+        handler=_create_project,
+        mutating=True,
+        gated=True,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="upsert_trigger",
+        description=(
+            "Propose creating an Agenda trigger (one-off or recurring wake). "
+            "Same effect as schedule_wake but always via PlatformChange for Govern visibility."
+        ),
+        category="triggers",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "instructions": {"type": "string"},
+                "agent_id": {"type": "string"},
+                "at": {"type": "string"},
+                "cron": {"type": "string"},
+                "every_minutes": {"type": "integer"},
+            },
+            "required": ["instructions"],
+        },
+        handler=_upsert_trigger,
+        mutating=True,
+        gated=True,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="set_posture",
+        description=(
+            "Propose changing the workspace autonomy posture (manual | assisted | autonomous). "
+            "Always requires human confirmation in Govern — never applied silently."
+        ),
+        category="govern",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "posture": {
+                    "type": "string",
+                    "enum": ["manual", "assisted", "autonomous"],
+                },
+            },
+            "required": ["posture"],
+        },
+        handler=_set_posture,
+        mutating=True,
+        gated=True,
+    )
+)
+
+
+async def _dispatch_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Hand a signal brief to a workbench (GitHub / Cursor / …). Stub until adapters ship."""
+    from uuid import UUID as _UUID
+
+    from app.models.workbench import WorkJob
+    from app.services.workbench import JobSpec, get_adapter
+
+    provider = str(tool_input.get("provider") or "github_copilot")
+    adapter = get_adapter(provider)
+    if adapter is None:
+        return {"error": f"No workbench adapter for provider={provider}"}
+    repo_url = str(tool_input.get("repo_url") or "").strip()
+    if not repo_url:
+        return {"error": "repo_url is required"}
+    brief = str(tool_input.get("brief") or tool_input.get("goal") or "").strip()
+    if not brief:
+        return {"error": "brief is required"}
+    spec = JobSpec(
+        repo_url=repo_url,
+        ref=str(tool_input.get("ref") or "main"),
+        brief=brief,
+        context_packet={
+            "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
+            "case_id": tool_input.get("case_id"),
+            "project_id": tool_input.get("project_id"),
+            "acceptance": tool_input.get("acceptance"),
+        },
+        options={
+            "create_pull_request": bool(tool_input.get("create_pull_request", True)),
+        },
+    )
+    handle = await adapter.start(spec)
+    job = WorkJob(
+        tenant_id=ctx.tenant_id,
+        signal_id=ctx.signal_id,
+        case_id=_UUID(str(tool_input["case_id"])) if tool_input.get("case_id") else None,
+        project_id=_UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
+        workbench_connection_id=(
+            _UUID(str(tool_input["workbench_connection_id"]))
+            if tool_input.get("workbench_connection_id")
+            else None
+        ),
+        agent_id=ctx.agent.id if ctx.agent else None,
+        provider=provider,
+        state="queued",
+        external_ids_json=json.dumps(handle.external_ids),
+        summary=brief[:500],
+        brief_json=json.dumps({"brief": brief, "repo_url": repo_url, "ref": spec.ref}),
+    )
+    ctx.session.add(job)
+    await ctx.session.commit()
+    await ctx.session.refresh(job)
+    return {
+        "job_id": str(job.id),
+        "provider": provider,
+        "state": job.state,
+        "external_ids": handle.external_ids,
+        "note": "Workbench dispatch stub — wire provider credentials in Connections.",
+    }
+
+
+register_tool(
+    ToolSpec(
+        name="dispatch_work",
+        description=(
+            "Hand coding work to a connected workbench (GitHub Copilot, Cursor Cloud Agents, "
+            "Anthropic Managed Agents, OpenAI Agents). Bokito decides and gates; the external "
+            "tool does the coding. Results come back as thread messages."
+        ),
+        category="integrations",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "provider": {
+                    "type": "string",
+                    "enum": ["github_copilot", "cursor", "anthropic", "openai", "mcp"],
+                },
+                "repo_url": {"type": "string"},
+                "ref": {"type": "string"},
+                "brief": {"type": "string"},
+                "goal": {"type": "string"},
+                "case_id": {"type": "string"},
+                "project_id": {"type": "string"},
+                "workbench_connection_id": {"type": "string"},
+                "acceptance": {"type": "string"},
+                "create_pull_request": {"type": "boolean"},
+            },
+            "required": ["repo_url", "brief"],
+        },
+        handler=_dispatch_work,
+        mutating=True,
+        gated=True,
+        consequential=True,
     )
 )

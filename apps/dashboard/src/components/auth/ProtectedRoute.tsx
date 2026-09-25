@@ -20,7 +20,7 @@ export default function ProtectedRoute() {
     if (tenantSubdomain && !hasTenantAccess(tenantSubdomain)) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-bg-surface p-6 text-center shadow-xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-bg-surface p-6 text-center shadow-overlay">
             <p className="text-sm text-status-error">You do not have access to this workspace.</p>
           </div>
         </div>

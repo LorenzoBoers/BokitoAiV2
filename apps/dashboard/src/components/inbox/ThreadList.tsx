@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Filter, Tag, X } from 'lucide-react'
+import { Filter, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { listScrollStorageKey } from '../../lib/inbox-ops'
@@ -45,12 +45,6 @@ type Props = {
   onPriorityFilter?: (value: string | null) => void
   channelFilter?: string | null
   onChannelFilter?: (value: string | null) => void
-  /** Tag folder this list belongs to (`/communication/tag/{tag}`), if any. */
-  activeTag?: string | null
-  /** Open a tag's folder; omit to make tag chips non-interactive. */
-  onTagOpen?: (tag: string) => void
-  /** Leave the tag folder (back to all communication). */
-  onLeaveTag?: () => void
   /** Visible scope when the list is filtered by agent or project. */
   scopeLabel?: string | null
   onClearScope?: () => void
@@ -109,9 +103,6 @@ export default function ThreadList({
   onPriorityFilter,
   channelFilter = null,
   onChannelFilter,
-  activeTag = null,
-  onTagOpen,
-  onLeaveTag,
   scopeLabel = null,
   onClearScope,
   total = null,
@@ -239,25 +230,6 @@ export default function ThreadList({
         </div>
       ) : null}
 
-      {activeTag ? (
-        <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
-          <Tag size={11} className="shrink-0 text-accent" />
-          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-text-heading">
-            {activeTag}
-          </span>
-          {onLeaveTag ? (
-            <button
-              type="button"
-              aria-label={t('threadList.clearLabelFilter')}
-              onClick={onLeaveTag}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
-            >
-              <X size={11} />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
       <div
         ref={scrollRef}
         title={
@@ -326,8 +298,6 @@ export default function ThreadList({
               checked={bulkSelectedIds?.has(String(thread.id))}
               onToggleChecked={onToggleBulkSelect}
               selectionActive={selectionActive}
-              onTagClick={onTagOpen}
-              activeTag={activeTag}
               assigneeName={
                 thread.assignedToUserId != null
                   ? memberNames.get(String(thread.assignedToUserId)) ?? null

@@ -1,7 +1,13 @@
 import { workstreamsRoutes } from '../api/routes'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
-export type WorkstreamStepKind = 'agent' | 'wait' | 'gate'
+export type WorkstreamStepKind =
+  | 'send_message'
+  | 'agent_task'
+  | 'wait_for_reply'
+  | 'ask_decision'
+  | 'call_tool'
+  | 'schedule'
 export type WorkstreamWaitKind = 'input' | 'event' | 'time'
 export type WorkstreamOnDeadline = 'continue' | 'remind_then_continue' | 'fail'
 export type WorkstreamRunStatus =
@@ -16,6 +22,7 @@ export type WorkstreamInputKind = 'manual' | 'queue_item' | 'signal' | 'trigger'
 export type WorkstreamRow = {
   id: string
   project_id: string | null
+  signal_id: string | null
   name: string
   description: string
   enabled: boolean

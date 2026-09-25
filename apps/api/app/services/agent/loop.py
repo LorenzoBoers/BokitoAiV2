@@ -17,7 +17,6 @@ from app.services.agent.tools import (
     get_tool_definitions,
 )
 from app.tools.registry import audience_for_trust, filter_tools_for_audience
-from app.services.personal_assistant import PERSONAL_ASSISTANT_KIND
 from app.services.workspace import build_workspace_context, hybrid_search
 
 
@@ -391,7 +390,7 @@ class AgentLoop:
                 parts.append(operator)
             # The personal assistant is the one agent that carries memory of
             # the person across workspaces.
-            if self.agent is not None and self.agent.kind == PERSONAL_ASSISTANT_KIND:
+            if self.agent is not None and self.agent.acts_for_user:
                 from app.services.user_memory import user_memory_block
 
                 memory = await user_memory_block(self.session, self.user_id)
@@ -640,6 +639,10 @@ class AgentLoop:
             call_type=self.usage_call_type,
             agent_id=self.agent.id if self.agent else None,
             run_id=self.run.id if self.run else None,
+            signal_type_id=getattr(self.run, "signal_type_id", None) if self.run else None,
+            workstream_run_id=(
+                getattr(self.run, "workstream_run_id", None) if self.run else None
+            ),
             user_id=self.user_id,
             commit=True,
         )

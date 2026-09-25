@@ -1,15 +1,25 @@
-"""Eval checkpoint execution for orchestration steps."""
+"""Inline evaluation for orchestration steps.
+
+The runner records results in the canonical ``RunEvent`` log. The legacy
+``EvalCheckpoint`` table remains migration history and receives no new rows.
+"""
 
 from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orchestration import EvalCheckpoint
+
+@dataclass(frozen=True)
+class EvalResult:
+    passed: bool
+    eval_kind: str
+    result: dict[str, Any]
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
     try:
@@ -31,7 +41,7 @@ async def run_eval_checkpoint(
     output_text: str,
     context: dict[str, Any],
     retry_count: int = 0,
-) -> EvalCheckpoint:
+) -> EvalResult:
     criteria = _parse_json(criteria_json)
     passed = False
     result: dict[str, Any] = {"eval_kind": eval_kind}
@@ -96,17 +106,6 @@ async def run_eval_checkpoint(
     else:
         passed = bool(output_text.strip())
 
-    row = EvalCheckpoint(
-        tenant_id=tenant_id,
-        agent_task_id=agent_task_id,
-        run_id=run_id,
-        step_id=step_id,
-        eval_kind=eval_kind,
-        criteria_json=criteria_json,
-        result_json=json.dumps(result),
-        passed=passed,
-        retry_count=retry_count,
-    )
-    session.add(row)
-    await session.flush()
-    return row
+    # Preserve the call signature while the runner owns durable event logging.
+    del agent_task_id, run_id, step_id, retry_count
+    return EvalResult(passed=passed, eval_kind=eval_kind, result=result)

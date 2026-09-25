@@ -35,7 +35,7 @@ class WorkstreamPatchBody(BaseModel):
 class StepBody(BaseModel):
     id: UUID | None = None
     name: str
-    kind: str = "agent"
+    kind: str = "agent_task"
     goal: str = ""
     agent_id: UUID | None = None
     agent_role: str = ""
@@ -54,6 +54,7 @@ class RunStartBody(BaseModel):
     input_kind: str = "manual"
     input_text: str = ""
     input_ref: str = ""
+    signal_id: UUID | None = None
 
 
 class RunResumeBody(BaseModel):
@@ -242,6 +243,7 @@ async def start_run(
         input_kind=body.input_kind,
         input_text=body.input_text,
         input_ref=body.input_ref,
+        signal_id=body.signal_id,
         triggered_by_type="user",
         triggered_by_id=str(auth.user.id),
     )

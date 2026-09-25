@@ -269,12 +269,10 @@ workstreams:
 cases:
   section: ai
   routes:
-    - /cases
-    - /cases?tab=types
+    - /settings/signals
     - /communication
   code_globs:
-    - apps/dashboard/src/pages/CasesPage.tsx
-    - apps/dashboard/src/components/cases/**
+    - apps/dashboard/src/pages/SignalTypesSettings.tsx
     - apps/dashboard/src/components/inbox/ThreadCasesList.tsx
     - apps/dashboard/src/components/workstreams/CaseBindingsCard.tsx
     - apps/dashboard/src/lib/cases-api.ts
@@ -289,12 +287,10 @@ agenda:
   section: ai
   routes:
     - /agenda
-    - /agenda?view=automations
   code_globs:
     - apps/dashboard/src/pages/AgendaPage.tsx
     - apps/dashboard/src/components/agenda/**
   screenshots:
-    - automations
     - week
 
 govern:

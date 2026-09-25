@@ -84,6 +84,9 @@ class ToolSpec:
     # none | verified. Customer reads that need a magic-link stay at verified.
     min_assurance: str = "none"
     sensitivity: str = "none"
+    # Money movement, contracts and similar irreversible effects always ask,
+    # regardless of posture, agent passport, or per-tool overrides.
+    consequential: bool = False
 
     def definition(self) -> dict[str, Any]:
         return {

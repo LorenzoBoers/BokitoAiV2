@@ -3,8 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Bell, BellRing, Monitor } from 'lucide-react'
-import { listChannelAccounts } from '../lib/channel-accounts-api'
-import { isChannelParked } from '../lib/channel-surface'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
@@ -40,20 +38,7 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
-  // Slack toggles only make sense with a connected workspace, and disappear
-  // entirely while the channel is parked platform-wide.
-  const slackAvailable = !isChannelParked('slack')
-  const gridCols = slackAvailable
-    ? 'grid-cols-[1fr_84px_84px_84px]'
-    : 'grid-cols-[1fr_84px_84px]'
-  const [slackConnected, setSlackConnected] = useState(false)
-
-  useEffect(() => {
-    if (!token || !slackAvailable) return
-    listChannelAccounts(token)
-      .then((accounts) => setSlackConnected(accounts.some((a) => a.channel === 'slack' && a.isEnabled)))
-      .catch(() => setSlackConnected(false))
-  }, [token, slackAvailable])
+  const gridCols = 'grid-cols-[1fr_84px_84px_84px]'
 
   // Fade the "Saved" confirmation shortly after the last successful save.
   useEffect(() => {
@@ -191,15 +176,12 @@ export default function NotificationSettings() {
         </div>
       )
     }
-    const gatedOnSlack = channel === 'slack' && !slackConnected
     return (
       <div className="flex justify-center">
         <Switch
-          checked={gatedOnSlack ? false : Boolean(row.channels[channel])}
-          disabled={gatedOnSlack}
+          checked={Boolean(row.channels[channel])}
           onCheckedChange={(checked) => updateChannel(row.id, channel, checked)}
           aria-label={`${t(`notificationsPage.rows.${row.id}`)} ${label}`}
-          title={gatedOnSlack ? t('notificationsPage.slackFirst') : undefined}
         />
       </div>
     )
@@ -241,17 +223,7 @@ export default function NotificationSettings() {
           <span>{t('notificationsPage.notifyMe')}</span>
           <span className="text-center">{t('notificationsPage.inApp')}</span>
           <span className="text-center">{t('notificationsPage.email')}</span>
-          {slackAvailable ? (
-            <span className="text-center">
-              {slackConnected ? (
-                t('notificationsPage.slack')
-              ) : (
-                <Link to="/settings/channels" className="normal-case tracking-normal text-accent hover:underline">
-                  {t('notificationsPage.slackColumnHint')}
-                </Link>
-              )}
-            </span>
-          ) : null}
+          <span className="text-center">{t('notificationsPage.push')}</span>
         </div>
 
         {rows.map((row) => (
@@ -264,7 +236,7 @@ export default function NotificationSettings() {
             </p>
             {channelCell(row, 'desktop', t('notificationsPage.inApp'))}
             {channelCell(row, 'email', t('notificationsPage.email'))}
-            {slackAvailable ? channelCell(row, 'slack', t('notificationsPage.slack')) : null}
+            {channelCell(row, 'push', t('notificationsPage.push'))}
           </div>
         ))}
       </Card>
@@ -308,15 +280,6 @@ export default function NotificationSettings() {
           </p>
           <p className="text-xs text-text-secondary">
             {t('notificationsPage.channelsBody')}
-            {slackAvailable && !slackConnected ? (
-              <>
-                {' '}
-                <Link to="/settings/channels" className="text-accent hover:underline">
-                  {t('notificationsPage.connectSlack')}
-                </Link>{' '}
-                {t('notificationsPage.enableSlack')}
-              </>
-            ) : null}
           </p>
           <p className="text-xs text-text-secondary">
             {t('notificationsPage.budgetHint')}{' '}

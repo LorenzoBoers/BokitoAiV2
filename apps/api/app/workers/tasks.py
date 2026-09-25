@@ -46,6 +46,46 @@ async def startup(ctx):
     await init_db()
 
 
+async def _interpret_inbound_message(session, tenant_id: UUID, signal: Signal) -> None:
+    """Classify the newest inbound message before the reply path runs.
+
+    Cheap deterministic noise (no inbound message, automated mail, a teammate
+    writing into a shared inbox) is skipped so the LLM is not spent on it; the
+    reply path reaches the same verdict a few lines later.
+    """
+    msg = (
+        await session.execute(
+            select(SignalMessage)
+            .where(SignalMessage.signal_id == signal.id, SignalMessage.direction == "inbound")
+            .order_by(SignalMessage.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if msg is None:
+        return
+
+    from app.services.automated_mail import classify_automated_email
+    from app.services.workspace_members import find_member_by_email
+
+    try:
+        msg_meta = json.loads(msg.metadata_json or "{}")
+    except json.JSONDecodeError:
+        msg_meta = {}
+    sender = msg.from_address or signal.contact_email or ""
+    headers = msg_meta.get("auto_headers") if isinstance(msg_meta, dict) else None
+    if classify_automated_email(sender, headers=headers)["automated"]:
+        return
+    if msg.author_user_id or await find_member_by_email(session, tenant_id, sender):
+        return
+
+    from app.services.interpretation import interpret_inbound
+
+    await interpret_inbound(session, tenant_id, signal.id)
+    # apply_triage commits its own changes; refresh so the reply path below
+    # reads the interpreted thread (priority, project, summary).
+    await session.refresh(signal)
+
+
 async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
     """Run the assistant loop on a new inbound signal (email, widget, webhook, ...)."""
     from app.models.auth import Tenant
@@ -60,6 +100,11 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         signal = signal_result.scalar_one_or_none()
         if not signal:
             return {"skipped": True}
+
+        # INTERPRETATION runs first, on every inbound message: category, intent,
+        # and typed signals (Cases) exist before any reply path decides what to
+        # do — and still happen when AI is paused or replies are off.
+        await _interpret_inbound_message(session, UUID(tenant_id), signal)
 
         if signal.ai_paused:
             return {"skipped": True, "reason": "ai_paused"}
@@ -399,20 +444,6 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
         )
         await session.commit()
-
-        # Interpretation pass after the reply loop: category, urgency, intent
-        # (implementation_request / bug_report feed the queue chips). Failures
-        # are non-fatal — the reply already went out.
-        try:
-            from app.services.interpretation import triage_signal
-
-            await triage_signal(session, UUID(tenant_id), signal.id)
-        except Exception:  # noqa: BLE001
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "Triage failed for signal %s", signal_id, exc_info=True
-            )
 
         return {"processed": True, "signal_id": signal_id, "delivery": delivery}
 

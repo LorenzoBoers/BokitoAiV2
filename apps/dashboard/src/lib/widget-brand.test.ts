@@ -35,4 +35,11 @@ describe('widget brand contrast', () => {
     expect(relativeLuminance(lifted)).toBeGreaterThan(relativeLuminance(slate))
     expect(markColor(slate, 'dark')).toMatch(/^rgb\(/)
   })
+
+  it('lifts near-black brands on light chrome so the launcher mark is not mud', () => {
+    const electric = parseHexColor('#001eff')!
+    const lifted = productAccent(electric, 'light')
+    expect(relativeLuminance(lifted)).toBeGreaterThan(relativeLuminance(electric))
+    expect(relativeLuminance(lifted)).toBeGreaterThan(0.2)
+  })
 })

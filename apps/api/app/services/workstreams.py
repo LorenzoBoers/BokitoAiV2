@@ -1,10 +1,8 @@
-"""Workstream engine: CRUD and the linear run loop.
+"""Workstream engine: CRUD and the ordered playbook run loop.
 
-A run walks the steps in order. Agent steps execute one `AgentRun` each
-(worklog via RunEvents), wait steps park the run until input/event/deadline,
-gate steps raise a `DecisionRequest`. Failures pause with a decision instead
-of failing silently. Completion writes a summary and reports in the agent
-channel.
+A run walks six canonical step kinds in order. Reply and decision steps may
+branch to another step; all other steps continue linearly. Failures pause
+with a decision instead of failing silently.
 """
 
 from __future__ import annotations
@@ -12,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -22,7 +21,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
-from app.models.notification import DecisionRequest
+from app.models.auth import Tenant
+from app.models.case import Case
 from app.models.orchestra import (
     WORKSTREAM_INPUT_KINDS,
     WORKSTREAM_ON_DEADLINE,
@@ -32,6 +32,7 @@ from app.models.orchestra import (
     WorkstreamRun,
     WorkstreamStep,
 )
+from app.models.signal import Signal, SignalMessage
 
 logger = logging.getLogger(__name__)
 
@@ -70,12 +71,126 @@ def _parse_json(raw: str | None) -> dict[str, Any]:
         return {}
 
 
+async def _step_retry_limit(session: AsyncSession, tenant_id: UUID) -> int:
+    """Workspace retry limit; defaults to two automatic retries."""
+    tenant = await session.get(Tenant, tenant_id)
+    settings = _parse_json(tenant.settings_json if tenant else "{}")
+    raw = settings.get("workstream_step_retry_limit", 2)
+    try:
+        return max(0, min(int(raw), 10))
+    except (TypeError, ValueError):
+        return 2
+
+
+async def _source_signal(
+    session: AsyncSession, tenant_id: UUID, run: WorkstreamRun
+) -> Signal | None:
+    if run.signal_id:
+        return (
+            await session.execute(
+                select(Signal).where(
+                    Signal.id == run.signal_id, Signal.tenant_id == tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+    if not run.input_ref:
+        return None
+    try:
+        ref_id = UUID(run.input_ref)
+    except ValueError:
+        return None
+    if run.input_kind == "signal":
+        return (
+            await session.execute(
+                select(Signal).where(Signal.id == ref_id, Signal.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+    if run.input_kind == "case":
+        case = (
+            await session.execute(
+                select(Case).where(Case.id == ref_id, Case.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if case:
+            return (
+                await session.execute(
+                    select(Signal).where(
+                        Signal.id == case.signal_id, Signal.tenant_id == tenant_id
+                    )
+                )
+            ).scalar_one_or_none()
+    return None
+
+
+async def _set_source_case_status(
+    session: AsyncSession, tenant_id: UUID, run: WorkstreamRun, status: str
+) -> None:
+    if run.input_kind != "case":
+        return
+    rows = list(
+        (
+            await session.execute(
+                select(Case).where(
+                    Case.tenant_id == tenant_id,
+                    Case.workstream_run_id == run.id,
+                )
+            )
+        ).scalars()
+    )
+    if rows:
+        now = datetime.utcnow()
+        for case in rows:
+            if case.status != status:
+                case.status = status
+                case.updated_at = now
+                session.add(case)
+        return
+    if not run.input_ref:
+        return
+    try:
+        case_id = UUID(run.input_ref)
+    except ValueError:
+        return
+    case = (
+        await session.execute(
+            select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if case and case.status != status:
+        case.status = status
+        case.updated_at = datetime.utcnow()
+        session.add(case)
+
+
 def _parse_ids(raw: str | None) -> list[str]:
     try:
         data = json.loads(raw or "[]")
         return [str(v) for v in data] if isinstance(data, list) else []
     except json.JSONDecodeError:
         return []
+
+
+def _render_template(value: Any, fields: dict[str, Any]) -> Any:
+    """Recursively replace `{field}` tokens while preserving unknown tokens."""
+    if isinstance(value, str):
+        return re.sub(
+            r"\{([A-Za-z_][A-Za-z0-9_.-]*)\}",
+            lambda match: str(fields.get(match.group(1), match.group(0))),
+            value,
+        )
+    if isinstance(value, list):
+        return [_render_template(item, fields) for item in value]
+    if isinstance(value, dict):
+        return {key: _render_template(item, fields) for key, item in value.items()}
+    return value
+
+
+def _template_fields(run: WorkstreamRun) -> dict[str, Any]:
+    fields = _parse_json(run.context_json)
+    fields.update(_parse_json(run.input_text) if run.input_text.strip().startswith("{") else {})
+    fields.setdefault("input", run.input_text)
+    fields.setdefault("signal_id", str(run.signal_id) if run.signal_id else "")
+    return fields
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +238,7 @@ def serialize_run(run: WorkstreamRun, *, workstream_name: str | None = None) -> 
         "id": str(run.id),
         "workstream_id": str(run.workstream_id),
         "project_id": str(run.project_id) if run.project_id else None,
+        "signal_id": str(run.signal_id) if run.signal_id else None,
         "status": run.status,
         "input_kind": run.input_kind,
         "input_ref": run.input_ref,
@@ -196,7 +312,7 @@ async def list_steps(
 
 
 def _validate_step_payload(payload: dict[str, Any]) -> None:
-    kind = payload.get("kind", "agent")
+    kind = payload.get("kind", "agent_task")
     if kind not in WORKSTREAM_STEP_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid step kind: {kind}")
     wait_kind = payload.get("wait_kind", "input")
@@ -205,9 +321,9 @@ def _validate_step_payload(payload: dict[str, Any]) -> None:
     on_deadline = payload.get("on_deadline", "continue")
     if on_deadline not in WORKSTREAM_ON_DEADLINE:
         raise HTTPException(status_code=400, detail=f"Invalid on_deadline: {on_deadline}")
-    if kind == "wait" and wait_kind == "time" and int(payload.get("deadline_hours") or 0) < 1:
+    if kind == "schedule" and int(payload.get("deadline_hours") or 0) < 1:
         raise HTTPException(
-            status_code=400, detail="Time waits need deadline_hours of at least 1."
+            status_code=400, detail="Schedule steps need deadline_hours of at least 1."
         )
     if not str(payload.get("name") or "").strip():
         raise HTTPException(status_code=400, detail="Step name is required.")
@@ -238,7 +354,7 @@ async def replace_steps(
             seen.add(sid)
         row.position = position
         row.name = str(payload.get("name") or "").strip()
-        row.kind = payload.get("kind", "agent")
+        row.kind = payload.get("kind", "agent_task")
         row.goal = str(payload.get("goal") or "")
         agent_id = payload.get("agent_id")
         row.agent_id = UUID(str(agent_id)) if agent_id else None
@@ -329,7 +445,7 @@ async def ensure_default_workstream(
             workstream_id=ws.id,
             position=0,
             name="Assess and execute",
-            kind="agent",
+            kind="agent_task",
             goal=DEFAULT_STEP_GOAL,
         )
     )
@@ -441,6 +557,7 @@ async def start_run(
     input_kind: str = "manual",
     input_text: str = "",
     input_ref: str = "",
+    signal_id: UUID | None = None,
     triggered_by_type: str = "user",
     triggered_by_id: str = "",
     advance: bool = True,
@@ -460,10 +577,25 @@ async def start_run(
         raise HTTPException(
             status_code=400, detail="Add at least one step before running this workstream."
         )
+    if signal_id is not None:
+        existing = (
+            await session.execute(
+                select(WorkstreamRun)
+                .where(
+                    WorkstreamRun.tenant_id == tenant_id,
+                    WorkstreamRun.workstream_id == ws.id,
+                    WorkstreamRun.signal_id == signal_id,
+                )
+                .order_by(WorkstreamRun.started_at)
+            )
+        ).scalars().first()
+        if existing is not None:
+            return existing
     run = WorkstreamRun(
         tenant_id=tenant_id,
         workstream_id=ws.id,
         project_id=ws.project_id,
+        signal_id=signal_id,
         status="running",
         input_kind=input_kind,
         input_ref=input_ref,
@@ -621,11 +753,22 @@ async def _execute_agent_step(
 
     snapshot = resolve_runtime_snapshot(agent)
     runtime_agent = apply_snapshot_to_agent(agent, snapshot)
+    signal_type_id = None
+    if run.input_kind == "case" and run.input_ref:
+        from app.models.case import Case
+
+        try:
+            case = await session.get(Case, UUID(run.input_ref))
+        except ValueError:
+            case = None
+        if case and case.tenant_id == tenant_id:
+            signal_type_id = case.case_type_id
     agent_run = AgentRun(
         tenant_id=tenant_id,
         agent_id=agent.id,
         project_id=run.project_id,
         workstream_run_id=run.id,
+        signal_type_id=signal_type_id,
         step_id=step.id,
         status="running",
         trigger_type="workstream",
@@ -683,77 +826,220 @@ async def _execute_agent_step(
     agent.runtime_status = "standby"
     session.add(agent)
     await session.flush()
+    signal = await _source_signal(session, tenant_id, run)
+    if signal:
+        from app.gateway.publish import publish_signal_message
+
+        now = datetime.utcnow()
+        message = SignalMessage(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            kind="run",
+            direction="internal",
+            role="assistant",
+            author_agent_id=agent.id,
+            subject=f"{ws.name}: {step.name}",
+            body_text=text[:8000],
+            body_preview=text[:200],
+            metadata_json=json.dumps(
+                {
+                    "workstream_id": str(ws.id),
+                    "workstream_run_id": str(run.id),
+                    "agent_run_id": str(agent_run.id),
+                    "step_id": str(step.id),
+                    "status": "completed",
+                }
+            ),
+            received_at=now,
+        )
+        session.add(message)
+        signal.last_message_at = now
+        signal.updated_at = now
+        signal.has_unread = True
+        session.add(signal)
+        await session.flush()
+        await publish_signal_message(signal, message)
     return text
+
+
+async def _execute_tool_step(
+    session: AsyncSession,
+    tenant_id: UUID,
+    run: WorkstreamRun,
+    step: WorkstreamStep,
+) -> str:
+    """Execute a configured platform tool with run fields available to templates."""
+    from app.tools import execute_tool
+
+    config = _parse_json(step.config_json)
+    tool_name = str(config.get("tool_name") or "").strip()
+    if not tool_name:
+        raise RuntimeError("Call tool step requires config.tool_name")
+    arguments = _render_template(config.get("arguments") or {}, _template_fields(run))
+    if not isinstance(arguments, dict):
+        raise RuntimeError("Call tool step config.arguments must be an object")
+    agent = await _resolve_step_agent(session, tenant_id, step)
+    result = await execute_tool(
+        session,
+        tenant_id,
+        None,
+        tool_name,
+        arguments,
+        signal_id=run.signal_id,
+        agent=agent,
+        project_id=run.project_id,
+        approved=True,
+        surface="workstream",
+    )
+    if result.get("error"):
+        raise RuntimeError(str(result["error"]))
+    return json.dumps(result, default=str)[:6000]
+
+
+async def _execute_send_message_step(
+    session: AsyncSession,
+    tenant_id: UUID,
+    run: WorkstreamRun,
+    step: WorkstreamStep,
+) -> str:
+    """Send a templated message back into the tracked signal."""
+    from app.tools import execute_tool
+
+    if run.signal_id is None:
+        raise RuntimeError("Send message step requires a signal-backed run")
+    config = _parse_json(step.config_json)
+    body = str(config.get("message") or step.goal or "").strip()
+    if not body:
+        raise RuntimeError("Send message step requires config.message or a goal")
+    rendered = str(_render_template(body, _template_fields(run)))
+    agent = await _resolve_step_agent(session, tenant_id, step)
+    result = await execute_tool(
+        session,
+        tenant_id,
+        None,
+        "send_reply",
+        {"signal_id": str(run.signal_id), "body_text": rendered, "send_as": "agent"},
+        signal_id=run.signal_id,
+        agent=agent,
+        project_id=run.project_id,
+        approved=True,
+        surface="workstream",
+    )
+    if result.get("error"):
+        raise RuntimeError(str(result["error"]))
+    return rendered
 
 
 async def _raise_gate_decision(
     session: AsyncSession, tenant_id: UUID, ws: Workstream, run: WorkstreamRun, step: WorkstreamStep
 ) -> None:
-    from app.services.signal_decisions import append_decision_to_signal
+    from app.services.signal_decisions import create_decision
 
     payload = {"run_id": str(run.id), "step_id": str(step.id)}
     outputs = _step_outputs(run)
     last = str(outputs[-1].get("text") or "")[:1000] if outputs else ""
-    decision = DecisionRequest(
-        tenant_id=tenant_id,
-        project_id=run.project_id,
-        title=f"Approval: {step.name} ({ws.name})",
-        summary=step.goal.strip() or last or "Review and approve to continue this workstream run.",
-        status="awaiting_human",
-        options_json=json.dumps(
-            [
-                {
-                    "id": "approve",
-                    "label": "Continue",
-                    "action_type": "workstream_continue",
-                    "payload": payload,
-                },
-                {
-                    "id": "reject",
-                    "label": "Cancel run",
-                    "action_type": "workstream_cancel",
-                    "payload": payload,
-                },
-            ]
-        ),
+    signal = await _source_signal(session, tenant_id, run)
+    options = [
+        {
+            "id": str(option.get("id") or f"option_{index + 1}"),
+            "label": str(option.get("label") or f"Option {index + 1}"),
+            "action_type": "workstream_continue",
+            "payload": {
+                **payload,
+                "next_step_id": option.get("next_step_id"),
+                "next_step_name": option.get("next_step_name"),
+                "next_step_position": option.get("next_step_position"),
+            },
+        }
+        for index, option in enumerate(
+            _parse_json(step.config_json).get("options")
+            or [{"id": "approve", "label": "Continue"}]
+        )
+    ]
+    options.append(
+        {
+            "id": "cancel",
+            "label": "Stop playbook",
+            "action_type": "workstream_cancel",
+            "payload": payload,
+        }
     )
-    session.add(decision)
-    await session.flush()
-    await append_decision_to_signal(session, tenant_id, decision, project_id=run.project_id)
+    await create_decision(
+        session,
+        tenant_id,
+        project_id=run.project_id,
+        title=step.name,
+        summary=step.goal.strip() or last or "Review and approve to continue this workstream run.",
+        options=options,
+        user_id=signal.assigned_user_id if signal else None,
+        signal_id=signal.id if signal else None,
+        source_type="workstream_gate",
+        source_id=str(run.id),
+    )
 
 
 async def _raise_failure_decision(
     session: AsyncSession, tenant_id: UUID, ws: Workstream, run: WorkstreamRun, error: str
 ) -> None:
-    from app.services.signal_decisions import append_decision_to_signal
+    from app.services.signal_decisions import create_decision
 
     payload = {"run_id": str(run.id)}
-    decision = DecisionRequest(
-        tenant_id=tenant_id,
+    if run.current_step_id:
+        payload["step_id"] = str(run.current_step_id)
+    signal = await _source_signal(session, tenant_id, run)
+    decision, _ = await create_decision(
+        session,
+        tenant_id,
         project_id=run.project_id,
-        title=f"Run failed: {ws.name}",
-        summary=f"The workstream run failed: {error[:500]}. Retry the current step or cancel the run.",
-        status="awaiting_human",
-        options_json=json.dumps(
-            [
-                {
-                    "id": "retry",
-                    "label": "Retry",
-                    "action_type": "workstream_retry",
-                    "payload": payload,
-                },
-                {
-                    "id": "cancel",
-                    "label": "Cancel run",
-                    "action_type": "workstream_cancel",
-                    "payload": payload,
-                },
-            ]
+        title=f"Playbook stalled: {ws.name}",
+        summary=(
+            f"Step failed after retries: {error[:500]}. "
+            "Retry the step, skip it, or stop the playbook."
         ),
+        options=[
+            {
+                "id": "retry",
+                "label": "Retry",
+                "action_type": "workstream_retry",
+                "payload": payload,
+            },
+            {
+                "id": "skip",
+                "label": "Skip step",
+                "action_type": "workstream_skip_step",
+                "payload": payload,
+            },
+            {
+                "id": "cancel",
+                "label": "Stop playbook",
+                "action_type": "workstream_cancel",
+                "payload": payload,
+            },
+        ],
+        user_id=signal.assigned_user_id if signal else None,
+        signal_id=signal.id if signal else None,
+        source_type="workstream_failure",
+        source_id=str(run.id),
     )
-    session.add(decision)
-    await session.flush()
-    await append_decision_to_signal(session, tenant_id, decision, project_id=run.project_id)
+    await _set_source_case_status(session, tenant_id, run, "waiting")
+    if signal and signal.assigned_user_id:
+        from app.services.notification_mail import (
+            notification_channels,
+            send_notification_mail,
+            thread_link,
+        )
+
+        channels = await notification_channels(
+            session, tenant_id, signal.assigned_user_id, "decisions"
+        )
+        if channels["email"]:
+            await send_notification_mail(
+                session,
+                signal.assigned_user_id,
+                subject=decision.title,
+                text=f"{decision.summary}\n\nOpen: {thread_link(signal.id)}",
+                tenant_id=tenant_id,
+            )
 
 
 def _worklog_lines(run: WorkstreamRun) -> str:
@@ -912,6 +1198,7 @@ async def _complete_run(
     run.updated_at = run.completed_at
     session.add(run)
     await session.flush()
+    await _set_source_case_status(session, tenant_id, run, "done")
     await _sync_queue_item(session, tenant_id, run)
     await _announce_completion(session, tenant_id, ws, run)
 
@@ -962,7 +1249,7 @@ async def advance_run(
             await session.commit()
             return {"completed": True}
 
-        if step.kind == "wait":
+        if step.kind in ("wait_for_reply", "schedule"):
             run.status = "waiting"
             run.wait_until = (
                 datetime.utcnow() + timedelta(hours=step.deadline_hours)
@@ -972,25 +1259,48 @@ async def advance_run(
             run.reminded_at = None
             run.updated_at = datetime.utcnow()
             session.add(run)
+            await _set_source_case_status(session, tenant_id, run, "waiting")
             await session.commit()
-            return {"waiting": True, "wait_kind": step.wait_kind}
+            return {"waiting": True, "wait_kind": "reply" if step.kind == "wait_for_reply" else "time"}
 
-        if step.kind == "gate":
+        if step.kind == "ask_decision":
             run.status = "awaiting_gate"
             run.updated_at = datetime.utcnow()
             session.add(run)
+            await _set_source_case_status(session, tenant_id, run, "waiting")
             await _raise_gate_decision(session, tenant_id, ws, run, step)
             await session.commit()
             return {"awaiting_gate": True, "step_id": str(step.id)}
 
-        # Agent step.
         try:
-            text = await _execute_agent_step(session, tenant_id, ws, run, step)
+            if step.kind == "agent_task":
+                text = await _execute_agent_step(session, tenant_id, ws, run, step)
+            elif step.kind == "send_message":
+                text = await _execute_send_message_step(session, tenant_id, run, step)
+            elif step.kind == "call_tool":
+                text = await _execute_tool_step(session, tenant_id, run, step)
+            else:
+                raise RuntimeError(f"Unsupported step kind: {step.kind}")
         except Exception as exc:  # noqa: BLE001 — a failed run must never be silent
             logger.exception("Workstream run %s failed on step %s", run.id, step.id)
             await session.rollback()
             run = await get_run(session, tenant_id, run_id)
             ws = await get_workstream(session, tenant_id, run.workstream_id)
+            context = _parse_json(run.context_json)
+            retries = context.get("step_retries")
+            if not isinstance(retries, dict):
+                retries = {}
+            retry_count = int(retries.get(str(step.id)) or 0)
+            retry_limit = await _step_retry_limit(session, tenant_id)
+            if retry_count < retry_limit:
+                retries[str(step.id)] = retry_count + 1
+                context["step_retries"] = retries
+                run.context_json = json.dumps(context)
+                run.error = str(exc)[:1000]
+                run.updated_at = datetime.utcnow()
+                session.add(run)
+                await session.commit()
+                continue
             run.status = "failed"
             run.error = str(exc)[:1000]
             run.updated_at = datetime.utcnow()
@@ -1007,6 +1317,12 @@ async def advance_run(
             return {"failed": True, "error": str(exc)}
 
         outputs = _step_outputs(run)
+        context = _parse_json(run.context_json)
+        retries = context.get("step_retries")
+        if isinstance(retries, dict) and str(step.id) in retries:
+            retries.pop(str(step.id), None)
+            context["step_retries"] = retries
+            run.context_json = json.dumps(context)
         agent_id = None
         if step.agent_id:
             agent_id = str(step.agent_id)
@@ -1014,6 +1330,7 @@ async def advance_run(
             {
                 "step_id": str(step.id),
                 "name": step.name,
+                "kind": step.kind,
                 "text": text[:6000],
                 "agent_id": agent_id,
             }
@@ -1035,6 +1352,9 @@ async def resume_run(
     run_id: UUID,
     *,
     input_text: str = "",
+    next_step_id: UUID | None = None,
+    next_step_name: str = "",
+    next_step_position: int | None = None,
     advance: bool = True,
 ) -> WorkstreamRun:
     """Resume a waiting or gated run past its current step.
@@ -1063,7 +1383,57 @@ async def resume_run(
             )
         ).scalar_one_or_none()
         if step is not None:
-            nxt = await _next_step(session, tenant_id, run, step)
+            branch_id = next_step_id
+            branch_name = next_step_name
+            branch_position = next_step_position
+            if branch_id is None and step.kind == "wait_for_reply" and input_text.strip():
+                config = _parse_json(step.config_json)
+                for branch in config.get("reply_branches") or []:
+                    if not isinstance(branch, dict):
+                        continue
+                    contains = str(branch.get("contains") or "").strip().lower()
+                    if contains and contains in input_text.lower():
+                        try:
+                            branch_id = UUID(str(branch.get("next_step_id")))
+                        except (TypeError, ValueError):
+                            branch_id = None
+                        branch_name = str(branch.get("next_step_name") or "")
+                        raw_position = branch.get("next_step_position")
+                        branch_position = int(raw_position) if raw_position is not None else None
+                        break
+            nxt = None
+            if branch_id is not None:
+                nxt = (
+                    await session.execute(
+                        select(WorkstreamStep).where(
+                            WorkstreamStep.id == branch_id,
+                            WorkstreamStep.workstream_id == run.workstream_id,
+                            WorkstreamStep.tenant_id == tenant_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+            if nxt is None and branch_name.strip():
+                nxt = (
+                    await session.execute(
+                        select(WorkstreamStep).where(
+                            WorkstreamStep.workstream_id == run.workstream_id,
+                            WorkstreamStep.tenant_id == tenant_id,
+                            WorkstreamStep.name == branch_name.strip(),
+                        )
+                    )
+                ).scalars().first()
+            if nxt is None and branch_position is not None:
+                nxt = (
+                    await session.execute(
+                        select(WorkstreamStep).where(
+                            WorkstreamStep.workstream_id == run.workstream_id,
+                            WorkstreamStep.tenant_id == tenant_id,
+                            WorkstreamStep.position == branch_position,
+                        )
+                    )
+                ).scalar_one_or_none()
+            if nxt is None:
+                nxt = await _next_step(session, tenant_id, run, step)
             run.current_step_id = nxt.id if nxt else None
 
     run.status = "running"
@@ -1072,6 +1442,7 @@ async def resume_run(
     run.reminded_at = None
     run.updated_at = datetime.utcnow()
     session.add(run)
+    await _set_source_case_status(session, tenant_id, run, "open")
     await session.commit()
     if advance:
         from app.services.orchestration.queue import enqueue_workstream_run_advance
@@ -1079,6 +1450,48 @@ async def resume_run(
         if not await enqueue_workstream_run_advance(str(tenant_id), str(run.id)):
             await advance_run(session, tenant_id, run.id)
         await session.refresh(run)
+    return run
+
+
+async def skip_step_run(session: AsyncSession, tenant_id: UUID, run_id: UUID) -> WorkstreamRun:
+    """Skip the current step after a failure decision and continue the playbook."""
+    run = await get_run(session, tenant_id, run_id)
+    if run.status not in ("waiting", "awaiting_gate", "failed"):
+        raise HTTPException(
+            status_code=400, detail=f"Cannot skip a step on a run in status {run.status}"
+        )
+    if run.current_step_id is not None:
+        step = (
+            await session.execute(
+                select(WorkstreamStep).where(WorkstreamStep.id == run.current_step_id)
+            )
+        ).scalar_one_or_none()
+        if step is not None:
+            nxt = await _next_step(session, tenant_id, run, step)
+            run.current_step_id = nxt.id if nxt else None
+            outputs = _step_outputs(run)
+            outputs.append(
+                {
+                    "step_id": str(step.id),
+                    "name": step.name,
+                    "kind": step.kind,
+                    "text": "Skipped after failure decision",
+                }
+            )
+            _append_context(run, "step_outputs", outputs)
+    run.status = "running"
+    run.error = ""
+    run.wait_until = None
+    run.reminded_at = None
+    run.updated_at = datetime.utcnow()
+    session.add(run)
+    await _set_source_case_status(session, tenant_id, run, "open")
+    await session.commit()
+    from app.services.orchestration.queue import enqueue_workstream_run_advance
+
+    if not await enqueue_workstream_run_advance(str(tenant_id), str(run.id)):
+        await advance_run(session, tenant_id, run.id)
+    await session.refresh(run)
     return run
 
 
@@ -1091,6 +1504,7 @@ async def cancel_run(session: AsyncSession, tenant_id: UUID, run_id: UUID) -> Wo
     run.completed_at = datetime.utcnow()
     run.updated_at = run.completed_at
     session.add(run)
+    await _set_source_case_status(session, tenant_id, run, "done")
     await _sync_queue_item(session, tenant_id, run)
     await session.commit()
     return run
@@ -1141,8 +1555,25 @@ async def process_due_run_deadlines(session: AsyncSession) -> int:
             session.add(run)
             await session.commit()
             continue
-        on_deadline = step.on_deadline if step.wait_kind != "time" else "continue"
+        on_deadline = step.on_deadline if step.kind == "wait_for_reply" else "continue"
         if on_deadline == "fail":
+            context = _parse_json(run.context_json)
+            retries = context.get("step_retries")
+            if not isinstance(retries, dict):
+                retries = {}
+            retry_count = int(retries.get(str(step.id)) or 0)
+            retry_limit = await _step_retry_limit(session, run.tenant_id)
+            if retry_count < retry_limit:
+                retries[str(step.id)] = retry_count + 1
+                context["step_retries"] = retries
+                run.context_json = json.dumps(context)
+                run.wait_until = now + timedelta(hours=max(1, step.deadline_hours))
+                run.reminded_at = None
+                run.updated_at = now
+                session.add(run)
+                await session.commit()
+                woken += 1
+                continue
             run.status = "failed"
             run.error = f"Deadline passed while waiting on step '{step.name}'."
             run.updated_at = now

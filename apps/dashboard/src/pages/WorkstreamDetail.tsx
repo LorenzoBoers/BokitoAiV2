@@ -57,6 +57,7 @@ type StepDraft = {
   wait_kind: WorkstreamWaitKind
   deadline_hours: number
   on_deadline: WorkstreamOnDeadline
+  config_text: string
 }
 
 let draftKeySeq = 0
@@ -70,13 +71,14 @@ function emptyStep(): StepDraft {
     id: null,
     key: nextDraftKey(),
     name: '',
-    kind: 'agent',
+    kind: 'agent_task',
     goal: '',
     agent_id: '',
     agent_role: '',
     wait_kind: 'input',
     deadline_hours: 0,
     on_deadline: 'continue',
+    config_text: '{}',
   }
 }
 
@@ -136,6 +138,7 @@ export default function WorkstreamDetail() {
           wait_kind: s.wait_kind,
           deadline_hours: s.deadline_hours,
           on_deadline: s.on_deadline,
+          config_text: JSON.stringify(s.config ?? {}, null, 2),
         })),
       )
       setStepsDirty(false)
@@ -232,18 +235,26 @@ export default function WorkstreamDetail() {
       toast.error(t('workstreamsPage.stepNameRequired'))
       return
     }
+    let configs: Record<string, unknown>[]
+    try {
+      configs = steps.map((step) => JSON.parse(step.config_text || '{}') as Record<string, unknown>)
+    } catch {
+      toast.error(t('workstreamsPage.configInvalid'))
+      return
+    }
     setSavingSteps(true)
     try {
-      const payload: WorkstreamStepInput[] = steps.map((s) => ({
+      const payload: WorkstreamStepInput[] = steps.map((s, index) => ({
         id: s.id,
         name: s.name.trim(),
         kind: s.kind,
         goal: s.goal,
-        agent_id: s.kind === 'agent' && s.agent_id ? s.agent_id : null,
+        agent_id: ['agent_task', 'send_message', 'call_tool'].includes(s.kind) && s.agent_id ? s.agent_id : null,
         agent_role: s.agent_role,
         wait_kind: s.wait_kind,
         deadline_hours: s.deadline_hours,
         on_deadline: s.on_deadline,
+        config: configs[index],
       }))
       const savedSteps = await replaceWorkstreamSteps(workstream.id, payload)
       setSteps(
@@ -258,6 +269,7 @@ export default function WorkstreamDetail() {
           wait_kind: s.wait_kind,
           deadline_hours: s.deadline_hours,
           on_deadline: s.on_deadline,
+          config_text: JSON.stringify(s.config ?? {}, null, 2),
         })),
       )
       setStepsDirty(false)
@@ -395,9 +407,12 @@ export default function WorkstreamDetail() {
                             className={selectClass}
                             aria-label={t('workstreamsPage.stepKind')}
                           >
-                            <option value="agent">{t('workstreamsPage.kinds.agent')}</option>
-                            <option value="wait">{t('workstreamsPage.kinds.wait')}</option>
-                            <option value="gate">{t('workstreamsPage.kinds.gate')}</option>
+                            <option value="send_message">{t('workstreamsPage.kinds.send_message')}</option>
+                            <option value="agent_task">{t('workstreamsPage.kinds.agent_task')}</option>
+                            <option value="wait_for_reply">{t('workstreamsPage.kinds.wait_for_reply')}</option>
+                            <option value="ask_decision">{t('workstreamsPage.kinds.ask_decision')}</option>
+                            <option value="call_tool">{t('workstreamsPage.kinds.call_tool')}</option>
+                            <option value="schedule">{t('workstreamsPage.kinds.schedule')}</option>
                           </select>
                           {isAdmin ? (
                             <span className="flex items-center gap-0.5">
@@ -437,21 +452,23 @@ export default function WorkstreamDetail() {
                           ) : null}
                         </div>
 
-                        {step.kind !== 'wait' ? (
+                        {!['wait_for_reply', 'schedule'].includes(step.kind) ? (
                           <Textarea
                             value={step.goal}
                             disabled={!isAdmin}
                             onChange={(e) => updateStep(step.key, { goal: e.target.value })}
                             placeholder={
-                              step.kind === 'gate'
+                              step.kind === 'ask_decision'
                                 ? t('workstreamsPage.gateGoalPlaceholder')
+                                : step.kind === 'send_message'
+                                  ? t('workstreamsPage.messagePlaceholder')
                                 : t('workstreamsPage.goalPlaceholder')
                             }
                             className="mt-2 min-h-[64px] text-sm"
                           />
                         ) : null}
 
-                        {step.kind === 'agent' ? (
+                        {['agent_task', 'send_message', 'call_tool'].includes(step.kind) ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
                             <span>{t('workstreamsPage.agentLabel')}</span>
                             <select
@@ -471,24 +488,9 @@ export default function WorkstreamDetail() {
                           </div>
                         ) : null}
 
-                        {step.kind === 'wait' ? (
+                        {['wait_for_reply', 'schedule'].includes(step.kind) ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                            <span>{t('workstreamsPage.waitFor')}</span>
-                            <select
-                              value={step.wait_kind}
-                              disabled={!isAdmin}
-                              onChange={(e) =>
-                                updateStep(step.key, {
-                                  wait_kind: e.target.value as WorkstreamWaitKind,
-                                })
-                              }
-                              className={selectClass}
-                              aria-label={t('workstreamsPage.waitFor')}
-                            >
-                              <option value="input">{t('workstreamsPage.waitKinds.input')}</option>
-                              <option value="event">{t('workstreamsPage.waitKinds.event')}</option>
-                              <option value="time">{t('workstreamsPage.waitKinds.time')}</option>
-                            </select>
+                            {step.kind === 'wait_for_reply' ? <span>{t('workstreamsPage.waitForReplyHint')}</span> : null}
                             <span>{t('workstreamsPage.deadlineHours')}</span>
                             <Input
                               type="number"
@@ -502,25 +504,40 @@ export default function WorkstreamDetail() {
                               }
                               className="h-8 w-20 text-xs"
                             />
-                            <span>{t('workstreamsPage.onDeadline')}</span>
-                            <select
-                              value={step.on_deadline}
-                              disabled={!isAdmin}
-                              onChange={(e) =>
-                                updateStep(step.key, {
-                                  on_deadline: e.target.value as WorkstreamOnDeadline,
-                                })
-                              }
-                              className={selectClass}
-                              aria-label={t('workstreamsPage.onDeadline')}
-                            >
-                              <option value="continue">{t('workstreamsPage.onDeadlineOptions.continue')}</option>
-                              <option value="remind_then_continue">
-                                {t('workstreamsPage.onDeadlineOptions.remind_then_continue')}
-                              </option>
-                              <option value="fail">{t('workstreamsPage.onDeadlineOptions.fail')}</option>
-                            </select>
+                            {step.kind === 'wait_for_reply' ? (
+                              <>
+                                <span>{t('workstreamsPage.onDeadline')}</span>
+                                <select
+                                  value={step.on_deadline}
+                                  disabled={!isAdmin}
+                                  onChange={(e) =>
+                                    updateStep(step.key, {
+                                      on_deadline: e.target.value as WorkstreamOnDeadline,
+                                    })
+                                  }
+                                  className={selectClass}
+                                  aria-label={t('workstreamsPage.onDeadline')}
+                                >
+                                  <option value="continue">{t('workstreamsPage.onDeadlineOptions.continue')}</option>
+                                  <option value="remind_then_continue">
+                                    {t('workstreamsPage.onDeadlineOptions.remind_then_continue')}
+                                  </option>
+                                  <option value="fail">{t('workstreamsPage.onDeadlineOptions.fail')}</option>
+                                </select>
+                              </>
+                            ) : null}
                           </div>
+                        ) : null}
+
+                        {['wait_for_reply', 'ask_decision', 'call_tool'].includes(step.kind) ? (
+                          <Textarea
+                            value={step.config_text}
+                            disabled={!isAdmin}
+                            onChange={(e) => updateStep(step.key, { config_text: e.target.value })}
+                            placeholder={t(`workstreamsPage.configPlaceholders.${step.kind}`)}
+                            className="mt-2 min-h-[72px] font-mono text-xs"
+                            aria-label={t('workstreamsPage.configLabel')}
+                          />
                         ) : null}
                       </div>
                     ))

@@ -13,7 +13,7 @@ Bokito biedt vier developer-oppervlakken. Allemaal vallen ze onder dezelfde tena
 
 | Oppervlak | Gebruik het om | Gids |
 | --- | --- | --- |
-| REST-API v1 | Signals lezen en externe events de inbox in duwen | [Signals-API](/docs/developers/api-signals) |
+| REST-API v1 | Gesprekken lezen en externe signalen naar Communicatie sturen | [Signals-API](/docs/developers/api-signals) |
 | Webhooks | Genotificeerd worden wanneer signals of beslissingen wijzigen | [Webhooks](/docs/developers/webhooks) |
 | MCP-endpoint | Workspacetools aanroepen vanuit MCP-clients zoals Cursor | [MCP-endpoint](/docs/developers/mcp-endpoint) |
 | Chatwidget | Bokito-chat op je eigen site embedden | [Widget embedden](/docs/developers/widget-embed) |
@@ -40,6 +40,8 @@ Scopes beperken wat een token mag. Details in [Authenticatie](/docs/developers/a
 
 ## Ontwerpnotities
 
-- Het REST-oppervlak is bewust klein: signals erin, signals eruit. Rijker gedrag (tools draaien, kennis bevragen) loopt via het MCP-endpoint, dat dezelfde governed tools aanbiedt als interne agents gebruiken.
+- De zeven publieke Bokito-objecten zijn Gesprek, Signaal, Draaiboek, Project, Contact, Agent en Beslissing. Gesprek/Signaal REST is de eerste stabiele v1-resource; bestaande geauthenticeerde routers dekken Draaiboeken, Projecten, Contacten, Agents en Beslissingen voor het dashboard.
+- Webhooks publiceren lifecycle-events en het MCP-endpoint biedt governed acties rond dezelfde objecten. Voor rijker gedrag is MCP het voorkeursoppervlak, zonder een grote dubbele REST-API te maken.
+- LLM-gebruik wordt gemeten per model, agent en startende gebruiker. Runmetadata schrijft gebruik ook toe aan Signaaltype en Draaiboekrun wanneer die context bekend is. Werkspacelidmaatschap vormt de seat-grens.
 - Alles is tenant-scoped via het token. Cross-tenant-toegang bestaat niet.
 - Rate limits gelden per client-IP; zie [Rate limits](/docs/developers/rate-limits).

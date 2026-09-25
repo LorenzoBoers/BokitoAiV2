@@ -1,4 +1,4 @@
-"""Tag registry: catalog, create/rename/delete, curated AI tagging, folder prefs."""
+"""Conversation label compatibility and curated AI tagging."""
 
 import json
 
@@ -33,82 +33,6 @@ async def _ingest(client: AsyncClient, headers: dict[str, str], subject: str) ->
 
 
 @pytest.mark.asyncio
-async def test_tag_catalog_counts(client: AsyncClient, session_override):
-    headers = await _auth_headers(client)
-    first = await _ingest(client, headers, "Billing question")
-    second = await _ingest(client, headers, "Another billing question")
-
-    await client.patch(f"/api/signals/{first}", headers=headers, json={"tags": ["billing", "vip"]})
-    await client.patch(f"/api/signals/{second}", headers=headers, json={"tags": ["billing"]})
-    # Closed threads count in total but not in open.
-    await client.patch(f"/api/signals/{second}", headers=headers, json={"status": "closed"})
-
-    catalog = await client.get("/api/signals/tags", headers=headers)
-    assert catalog.status_code == 200
-    rows = {row["tag"]: row for row in catalog.json()["items"]}
-    assert rows["billing"]["total"] == 2
-    assert rows["billing"]["open"] == 1
-    assert rows["vip"]["total"] == 1
-
-
-@pytest.mark.asyncio
-async def test_tag_rename_and_delete_bulk(client: AsyncClient, session_override):
-    headers = await _auth_headers(client)
-    first = await _ingest(client, headers, "Invoice issue")
-    second = await _ingest(client, headers, "Invoice reminder")
-
-    await client.patch(f"/api/signals/{first}", headers=headers, json={"tags": ["facturen"]})
-    await client.patch(f"/api/signals/{second}", headers=headers, json={"tags": ["facturen", "vip"]})
-
-    renamed = await client.patch(
-        "/api/signals/tags/facturen", headers=headers, json={"new_tag": "billing"}
-    )
-    assert renamed.status_code == 200
-    assert renamed.json()["changed"] == 2
-
-    detail = await client.get(f"/api/signals/{second}", headers=headers)
-    assert sorted(detail.json()["thread"]["tags"]) == ["billing", "vip"]
-
-    deleted = await client.delete("/api/signals/tags/vip", headers=headers)
-    assert deleted.status_code == 200
-    assert deleted.json()["changed"] == 1
-
-    catalog = await client.get("/api/signals/tags", headers=headers)
-    tags = {row["tag"] for row in catalog.json()["items"]}
-    assert "billing" in tags
-    assert "vip" not in tags
-    assert "facturen" not in tags
-
-
-@pytest.mark.asyncio
-async def test_tag_created_in_settings_is_usable_before_any_thread(
-    client: AsyncClient, session_override
-):
-    headers = await _auth_headers(client)
-    created = await client.post(
-        "/api/signals/tags",
-        headers=headers,
-        json={"name": "  Refund Request ", "description": "Customer asks money back"},
-    )
-    assert created.status_code == 200
-    assert created.json()["tag"] == "refund request"
-
-    catalog = await client.get("/api/signals/tags", headers=headers)
-    row = next(r for r in catalog.json()["items"] if r["tag"] == "refund request")
-    assert row["total"] == 0
-    assert row["description"] == "Customer asks money back"
-
-    # The registry — not thread usage — is the AI vocabulary.
-    from app.models.auth import Tenant
-    from app.services.signal_tags import allowed_tag_names
-
-    tenant = (
-        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
-    ).scalar_one()
-    assert "refund request" in await allowed_tag_names(session_override, tenant.id)
-
-
-@pytest.mark.asyncio
 async def test_thread_tags_are_normalized_and_registered(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     signal_id = await _ingest(client, headers, "Mixed case tags")
@@ -121,10 +45,8 @@ async def test_thread_tags_are_normalized_and_registered(client: AsyncClient, se
     assert patched.status_code == 200
     assert patched.json()["tags"] == ["billing", "vip"]
 
-    catalog = await client.get("/api/signals/tags", headers=headers)
-    rows = {row["tag"]: row for row in catalog.json()["items"]}
-    assert rows["billing"]["registered"] is True
-    assert rows["vip"]["registered"] is True
+    detail = await client.get(f"/api/signals/{signal_id}", headers=headers)
+    assert sorted(detail.json()["thread"]["tags"]) == ["billing", "vip"]
 
 
 @pytest.mark.asyncio
@@ -307,6 +229,7 @@ async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_o
             "inbox_folders": {
                 "default_queue": "mine",
                 "channel_defaults": {"channel:email:12": "closed", "bogus": "not-a-queue"},
+                # Retired preference is ignored instead of reviving tag folders.
                 "sidebar_tags": ["Billing", "vip", "billing", "  ", 12],
             }
         },
@@ -316,8 +239,7 @@ async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_o
     assert body["default_queue"] == "mine"
     # Invalid queue values are dropped, valid overrides kept.
     assert body["channel_defaults"] == {"channel:email:12": "closed"}
-    # Tags are lowercased, trimmed, and de-duplicated.
-    assert body["sidebar_tags"] == ["billing", "vip"]
+    assert "sidebar_tags" not in body
 
     invalid = await client.patch(
         "/api/me/preferences",

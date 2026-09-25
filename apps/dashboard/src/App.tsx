@@ -77,7 +77,7 @@ const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const HelpHubPage = lazy(() => import('./pages/HelpHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
-const CasesPage = lazy(() => import('./pages/CasesPage'))
+const SignalTypesSettings = lazy(() => import('./pages/SignalTypesSettings'))
 
 // Control plane hub
 const Workspaces = lazy(() => import('./pages/Workspaces'))
@@ -330,7 +330,7 @@ export default function App() {
             <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<DirectCommunication />} />
 
-            {/* Decisions — sole exception queue for open DecisionRequests */}
+            {/* Hidden open-decision filter used by thread deep links; not a sidebar leaf. */}
             <Route path="/communication/decisions" element={<Communication />} />
             <Route path="/communication/decisions/t/:threadId" element={<Communication />} />
 
@@ -356,12 +356,6 @@ export default function App() {
             <Route path="/communication/channel/:channelKey/t/:threadId" element={<Communication />} />
             <Route path="/communication/channel/:channelKey/:queue" element={<Communication />} />
             <Route path="/communication/channel/:channelKey/:queue/t/:threadId" element={<Communication />} />
-
-            {/* Tags (cross-channel folders with the same sub-queues) */}
-            <Route path="/communication/tag/:tag" element={<Communication />} />
-            <Route path="/communication/tag/:tag/t/:threadId" element={<Communication />} />
-            <Route path="/communication/tag/:tag/:queue" element={<Communication />} />
-            <Route path="/communication/tag/:tag/:queue/t/:threadId" element={<Communication />} />
 
             {/* Legacy hub routes */}
             <Route path="/communication/chat" element={<LegacyConversationRedirect />} />
@@ -392,7 +386,10 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
-          <Route path="/cases" element={<CasesPage />} />
+          {/* Cases hub retired: a typed signal lives on its conversation. The
+              type catalog moved to Settings. */}
+          <Route path="/cases" element={<Navigate to="/settings/signals" replace />} />
+          <Route path="/cases/*" element={<Navigate to="/settings/signals" replace />} />
           <Route path="/learn" element={<LearnPage />} />
           <Route path="/learn/:slug" element={<LearnPage />} />
           <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />
@@ -437,6 +434,7 @@ export default function App() {
             <Route path="/settings/teams" element={<Navigate to="/settings/members" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
+            <Route path="/settings/signals" element={<SignalTypesSettings />} />
             <Route path="/settings/help-centers" element={<Navigate to="/knowledge" replace />} />
             <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/connections" />} />
             <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
@@ -473,7 +471,7 @@ export default function App() {
           <Route path="/inbox/*" element={<LegacyInboxRedirect />} />
           <Route path="/inbox" element={<LegacyInboxRedirect />} />
           <Route path="/govern" element={<RedirectPreserveSearch to="/settings/govern" />} />
-          <Route path="/automations" element={<Navigate to="/agenda?view=automations" replace />} />
+          <Route path="/automations" element={<Navigate to="/agenda" replace />} />
           <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
           <Route path="/integrations" element={<RedirectPreserveSearch to="/connections" />} />
           <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/connections" />} />

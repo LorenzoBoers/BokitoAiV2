@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { PINNED_TABS, TAB_GROUPS, TAB_PATHS, tabFromPath } from './navigation'
+import {
+  PINNED_TABS,
+  TAB_GROUPS,
+  TAB_PATHS,
+  tabFromPath,
+  titleForTab,
+} from './navigation'
 
 describe('navigation', () => {
   it('pins Overview above Control', () => {
@@ -9,20 +15,22 @@ describe('navigation', () => {
     expect(control?.tabs).not.toContain('overview')
   })
 
-  it('has a Work group with projects and workstreams', () => {
+  it('has a Work group with projects and playbooks', () => {
     const work = TAB_GROUPS.find((g) => g.label === 'Work')
     expect(work?.tabs).toEqual(['projects', 'workstreams'])
+    expect(titleForTab('workstreams')).toBe('Playbooks')
   })
 
-  it('lists cases under Control with its own path', () => {
+  it('keeps Control to the two conversation-first destinations', () => {
     const control = TAB_GROUPS.find((g) => g.label === 'Control')
-    expect(control?.tabs).toContain('cases')
-    expect(TAB_PATHS.cases).toBe('/cases')
+    expect(control?.tabs).toEqual(['communication', 'agenda'])
+    expect(TAB_PATHS).not.toHaveProperty('cases')
+    expect(TAB_PATHS).not.toHaveProperty('activity')
   })
 
-  it('resolves the cases tab from /cases paths', () => {
-    expect(tabFromPath('/cases')).toBe('cases')
-    expect(tabFromPath('/cases?tab=types')).toBe('cases')
+  it('no longer resolves a rail tab for the retired /cases hub', () => {
+    expect(tabFromPath('/cases')).toBeNull()
+    expect(tabFromPath('/settings/signals')).toBe('settings')
     expect(tabFromPath('/workstreams')).toBe('workstreams')
     expect(tabFromPath('/projects')).toBe('projects')
   })

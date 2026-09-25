@@ -13,7 +13,9 @@ import {
   type MessageAttachment,
 } from '../../lib/inbox-api'
 import { getContactThreads } from '../../lib/contacts-api'
-import { listCasesForSignal, type CaseRow } from '../../lib/cases-api'
+import { listCasesForSignal, listCaseTypes, createCase, type CaseRow } from '../../lib/cases-api'
+import { composerVerbHelp, type ParsedComposerVerb } from '../../lib/composer-verbs'
+import { patchSignalThread } from '../../lib/signals-api'
 import { MessageTimelineItem, EventClusterTimelineItem, formatHourMinute } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer, { type ComposerMode } from './ReplyComposer'
@@ -388,11 +390,12 @@ function ThreadMetaRow({
         {cases.map((row) => {
           const labelOnly = (row.case_type?.follow_up_mode ?? 'track') === 'label'
           const name = row.title || row.case_type?.name || row.case_type?.slug || row.id
-          const active = !labelOnly && ['proposed', 'open', 'waiting_customer', 'waiting_operator', 'linked'].includes(row.status)
+          const active = !labelOnly && ['proposed', 'open', 'waiting'].includes(row.status)
+          // The signal lives on this conversation; there is no separate hub to
+          // open, so the chip reads as state rather than navigation.
           return (
-            <Link
+            <span
               key={row.id}
-              to="/cases"
               title={
                 labelOnly
                   ? t('cases.labelChip', { ns: 'nav', defaultValue: 'Label' })
@@ -401,7 +404,7 @@ function ThreadMetaRow({
                       defaultValue: row.status.replace(/_/g, ' '),
                     })
               }
-              className={`inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[11px] transition-colors hover:border-accent/40 ${
+              className={`inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[11px] ${
                 labelOnly
                   ? 'border-border/60 text-text-muted'
                   : active
@@ -411,7 +414,7 @@ function ThreadMetaRow({
             >
               <Tag size={10} className="shrink-0 opacity-70" />
               <span className="truncate">{name}</span>
-            </Link>
+            </span>
           )
         })}
 
@@ -1111,6 +1114,70 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   useEffect(() => {
     void loadSessionMessages(activeSessionId)
   }, [loadSessionMessages, activeSessionId])
+
+  const handleComposerVerb = useCallback(
+    async (verb: ParsedComposerVerb): Promise<boolean> => {
+      if (!token || !threadIdString) return false
+      if (verb.verb === 'signal') {
+        const types = await listCaseTypes().catch(() => [])
+        const q = verb.arg.trim().toLowerCase()
+        if (!q) {
+          toast.message(
+            types.map((t) => t.name).join(', ') ||
+              t('cases.manageTypes', { ns: 'nav', defaultValue: 'Set up signal types' }),
+          )
+          return true
+        }
+        const match = types.find(
+          (row) =>
+            row.enabled &&
+            (row.name.toLowerCase() === q ||
+              row.slug.toLowerCase() === q ||
+              row.name.toLowerCase().includes(q)),
+        )
+        if (!match) {
+          toast.error(t('cases.createTypeError', { ns: 'nav', defaultValue: 'Unknown signal type.' }))
+          return true
+        }
+        await createCase({ case_type_id: match.id, signal_id: threadIdString })
+        toast.success(match.name)
+        return true
+      }
+      if (verb.verb === 'assign') {
+        const q = verb.arg.trim().toLowerCase()
+        const members = Object.values(membersById)
+        const me = members.find((m) => m.email?.toLowerCase() === user?.email?.toLowerCase())
+        let target = !q || q === 'me' || q === 'mij' ? me : undefined
+        if (!target && q) {
+          target = members.find(
+            (m) =>
+              m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q),
+          )
+        }
+        if (!target) {
+          toast.error(t('actions.bulkFailed', { ns: 'communication', defaultValue: 'Could not assign.' }))
+          return true
+        }
+        await patchSignalThread(token, threadIdString, { assignedToUserId: target.id })
+        toast.success(target.name || target.email || String(target.id))
+        return true
+      }
+      if (verb.verb === 'approve') {
+        toast.message(
+          t('composer.verbApproveHint', {
+            defaultValue: 'Open the decision card in the thread to approve.',
+          }),
+        )
+        return true
+      }
+      if (verb.verb === 'playbook' || verb.verb === 'project' || verb.verb === 'schedule' || verb.verb === 'workbench') {
+        toast.message(composerVerbHelp())
+        return true
+      }
+      return false
+    },
+    [token, threadIdString, membersById, user?.email, t],
+  )
 
   const startSessionWith = useCallback(
     async (agentId: string | null) => {
@@ -2007,6 +2074,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           agentStreaming={agentStreaming}
           mode={composerMode}
           onModeChange={setComposerMode}
+          onVerb={handleComposerVerb}
           agentModeName={activeSession?.agentName ?? thread.agentName ?? null}
           onMentionInserted={(item) => void handleMentionInserted(item)}
           saving={saving || agentStreaming}

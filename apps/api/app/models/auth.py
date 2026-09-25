@@ -5,6 +5,19 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 
+WORKSPACE_ROLES = frozenset({"owner", "admin", "member"})
+
+
+def canonical_workspace_role(role: str | None) -> str:
+    """Soft-map legacy membership labels to Owner, Admin, or Member."""
+    normalized = (role or "").strip().lower()
+    if normalized in WORKSPACE_ROLES:
+        return normalized
+    if normalized in {"administrator", "manager", "superadmin", "super_admin"}:
+        return "admin"
+    return "member"
+
+
 def user_numeric_id(user_id: uuid.UUID) -> int:
     """Derive a stable positive integer id from a UUID.
 

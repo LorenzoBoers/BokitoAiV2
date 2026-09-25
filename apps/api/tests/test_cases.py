@@ -108,8 +108,11 @@ async def test_agent_mode_and_certainty_gates(client: AsyncClient, session_overr
         certainty=4,
         actor="agent",
     )
+    # Below the ask threshold the read is unsure: it becomes a confirm chip on
+    # the thread instead of work, and nothing is asked of the customer yet.
     assert low["case"]["status"] == "proposed"
-    assert low.get("asked_customer") is True
+    assert low.get("proposed") is True
+    assert low.get("asked_customer") is None
 
     mid = await create_case(
         session_override,
@@ -120,7 +123,7 @@ async def test_agent_mode_and_certainty_gates(client: AsyncClient, session_overr
         certainty=7,
         actor="agent",
     )
-    assert mid["case"]["status"] == "proposed"
+    assert mid["case"]["status"] == "open"
 
     high = await create_case(
         session_override,
@@ -142,7 +145,7 @@ async def test_agent_mode_and_certainty_gates(client: AsyncClient, session_overr
         certainty=10,
         actor="agent",
     )
-    assert always_ask["case"]["status"] == "proposed"
+    assert always_ask["case"]["status"] == "open"
 
     auto = await create_case(
         session_override,
@@ -153,7 +156,7 @@ async def test_agent_mode_and_certainty_gates(client: AsyncClient, session_overr
         certainty=8,
         actor="agent",
     )
-    assert auto["case"]["status"] == "closed"
+    assert auto["case"]["status"] == "done"
     assert auto.get("label_only") is True
     assert spam.follow_up_mode == "label"
 
@@ -186,7 +189,7 @@ async def test_zero_one_n_bindings_and_input_kind(client: AsyncClient, session_o
     steps = await client.put(
         f"/api/workstreams/{ws_id}/steps",
         headers=headers,
-        json={"steps": [{"name": "Triage", "kind": "agent", "goal": "Triage the case."}]},
+        json={"steps": [{"name": "Triage", "kind": "agent_task", "goal": "Triage the case."}]},
     )
     assert steps.status_code == 200
     await create_binding(
@@ -209,7 +212,7 @@ async def test_zero_one_n_bindings_and_input_kind(client: AsyncClient, session_o
         actor="agent",
     )
     assert linked.get("linked") is True
-    assert linked["case"]["status"] == "linked"
+    assert linked["case"]["status"] == "open"
     assert linked["case"]["workstream_id"] == ws_id
     run_id = linked["case"]["workstream_run_id"]
     assert run_id
@@ -239,7 +242,7 @@ async def test_zero_one_n_bindings_and_input_kind(client: AsyncClient, session_o
         certainty=10,
         actor="agent",
     )
-    assert asked["case"]["status"] == "waiting_operator"
+    assert asked["case"]["status"] == "waiting"
     assert asked.get("asked_operator") is True
     decisions = (
         await session_override.execute(
@@ -337,7 +340,7 @@ async def test_verify_required_without_assurance_waits(client: AsyncClient, sess
         actor="agent",
     )
     assert result["status"] == "needs_verification"
-    assert result["case"]["status"] == "waiting_customer"
+    assert result["case"]["status"] == "waiting"
 
     signal.assurance_level = "verified"
     signal.assurance_email = "a@example.com"
@@ -355,7 +358,7 @@ async def test_verify_required_without_assurance_waits(client: AsyncClient, sess
         certainty=8,
         actor="agent",
     )
-    assert opened["case"]["status"] == "proposed"
+    assert opened["case"]["status"] == "open"
 
 
 @pytest.mark.asyncio
@@ -411,7 +414,7 @@ async def test_cases_posture_and_external_follows_type_mode(client: AsyncClient,
         trust="external",
     )
     assert result.get("status") != "awaiting_human"
-    assert result.get("case", {}).get("status") == "proposed"
+    assert result.get("case", {}).get("status") == "open"
     assert result.get("asked_customer") is True
 
 
@@ -495,7 +498,7 @@ async def test_ask_operator_creates_decision_and_status_update(client: AsyncClie
         trust="external",
     )
     assert result.get("asked_operator") is True
-    assert result["case"]["status"] == "waiting_operator"
+    assert result["case"]["status"] == "waiting"
     decision = (
         await session_override.execute(
             select(DecisionRequest).where(DecisionRequest.source_id == result["case"]["id"])
@@ -514,11 +517,11 @@ async def test_ask_operator_creates_decision_and_status_update(client: AsyncClie
 
 
 @pytest.mark.asyncio
-async def test_hub_list_filters_and_stats(client: AsyncClient, session_override):
-    """`GET /api/cases` filters (case_type_id, q) and `GET /api/cases/stats`."""
+async def test_case_list_filters_and_type_retirement(client: AsyncClient, session_override):
+    """Cross-surface case search remains while the dedicated hub is retired."""
     headers = await _login(client)
     tenant = await _tenant(session_override)
-    signal = await _signal(session_override, tenant.id, subject="Hub filter thread")
+    signal = await _signal(session_override, tenant.id, subject="Signal filter thread")
     bug = await _type_by_slug(session_override, tenant.id, "bug_report")
     feature = await _type_by_slug(session_override, tenant.id, "feature_request")
 
@@ -540,20 +543,13 @@ async def test_hub_list_filters_and_stats(client: AsyncClient, session_override)
     items = by_type.json()["items"]
     assert items
     assert all(row["case_type_id"] == str(bug.id) for row in items)
-    # Hub rows carry the thread subject for the queue list.
-    assert any(row["signal_subject"] == "Hub filter thread" for row in items)
+    assert any(row["signal_subject"] == "Signal filter thread" for row in items)
 
     by_text = await client.get("/api/cases?q=checkout", headers=headers)
     assert by_text.status_code == 200
     titles = [row["title"] for row in by_text.json()["items"]]
     assert "Checkout crash" in titles
     assert "CSV export" not in titles
-
-    stats = await client.get("/api/cases/stats", headers=headers)
-    assert stats.status_code == 200
-    counts = stats.json()["counts"]
-    assert counts["open"] >= 2
-    assert set(counts) >= {"proposed", "open", "waiting_customer", "waiting_operator", "linked", "closed", "cancelled"}
 
     spam = await _type_by_slug(session_override, tenant.id, "spam_abuse")
     spam_case = await client.post(
@@ -562,14 +558,11 @@ async def test_hub_list_filters_and_stats(client: AsyncClient, session_override)
         json={"case_type_id": str(spam.id), "signal_id": str(signal.id), "title": "Junk mail"},
     )
     assert spam_case.status_code == 200
-    assert spam_case.json()["case"]["status"] == "closed"
+    assert spam_case.json()["case"]["status"] == "done"
 
-    hub_no_labels = await client.get("/api/cases?include_labels=false", headers=headers)
-    assert hub_no_labels.status_code == 200
-    assert all(row["title"] != "Junk mail" for row in hub_no_labels.json()["items"])
-
-    stats_after = await client.get("/api/cases/stats", headers=headers)
-    assert stats_after.json()["counts"]["closed"] == counts.get("closed", 0)
+    active_only = await client.get("/api/cases?include_labels=false", headers=headers)
+    assert active_only.status_code == 200
+    assert all(row["title"] != "Junk mail" for row in active_only.json()["items"])
 
     unused = await client.post(
         "/api/cases/types",
@@ -618,10 +611,9 @@ async def test_case_binding_map_lists_unbound_types(client: AsyncClient, session
 
 
 @pytest.mark.asyncio
-async def test_case_follow_up_task_opens_once(client: AsyncClient, session_override):
+async def test_tracked_case_does_not_open_follow_up_task(client: AsyncClient, session_override):
     from app.models.orchestration import AgentTask
 
-    headers = await _login(client)
     tenant = await _tenant(session_override)
     signal = await _signal(session_override, tenant.id, subject="Need a call back")
     row = await create_case_type(
@@ -631,7 +623,6 @@ async def test_case_follow_up_task_opens_once(client: AsyncClient, session_overr
         slug="callback-follow-up",
         create_mode="manual_only",
         follow_up_mode="track",
-        follow_up_task=True,
     )
     first = await create_case(
         session_override,
@@ -654,37 +645,12 @@ async def test_case_follow_up_task_opens_once(client: AsyncClient, session_overr
             )
         )
     ).scalars().all()
-    assert len(tasks) == 1
-    assert tasks[0].assignee_kind == "human"
-    assert tasks[0].status == "awaiting_human"
-
-    # Re-open path via link must not duplicate.
-    from app.services.cases import maybe_open_case_follow_up_task, get_case
-
-    case, case_type = await get_case(session_override, tenant.id, UUID(first["case"]["id"]))
-    await maybe_open_case_follow_up_task(session_override, tenant.id, case, case_type)
-    tasks_after = (
-        await session_override.execute(
-            select(AgentTask).where(
-                AgentTask.tenant_id == tenant.id,
-                AgentTask.signal_id == signal.id,
-                AgentTask.origin == "case",
-            )
-        )
-    ).scalars().all()
-    assert len(tasks_after) == 1
-
-    complete = await client.post(
-        f"/api/orchestration/tasks/{tasks[0].id}/complete",
-        headers=headers,
-    )
-    assert complete.status_code == 200, complete.text
-    assert complete.json()["status"] == "completed"
+    assert tasks == []
 
 
 @pytest.mark.asyncio
-async def test_case_follow_up_task_on_status_open(client: AsyncClient, session_override):
-    """Approving ask_operator cases goes through update_case — must open the task."""
+async def test_opening_case_does_not_create_agenda_task(client: AsyncClient, session_override):
+    """Human gates stay in the thread; opening a signal never creates AgentTask."""
     from app.models.orchestration import AgentTask
     from app.services.cases import update_case
 
@@ -697,7 +663,6 @@ async def test_case_follow_up_task_on_status_open(client: AsyncClient, session_o
         slug="needs-approve-follow-up",
         create_mode="ask_operator",
         follow_up_mode="track",
-        follow_up_task=True,
     )
     created = await create_case(
         session_override,
@@ -708,7 +673,7 @@ async def test_case_follow_up_task_on_status_open(client: AsyncClient, session_o
         actor="agent",
         certainty=9,
     )
-    assert created["case"]["status"] == "waiting_operator"
+    assert created["case"]["status"] == "waiting"
     before = (
         await session_override.execute(
             select(AgentTask).where(
@@ -735,8 +700,98 @@ async def test_case_follow_up_task_on_status_open(client: AsyncClient, session_o
             )
         )
     ).scalars().all()
-    assert len(after) == 1
-    assert after[0].assignee_kind == "human"
-    import json
+    assert after == []
 
-    assert json.loads(after[0].context_json or "{}").get("case_id") == created["case"]["id"]
+
+@pytest.mark.asyncio
+async def test_signal_policy_and_backlog_promotion(client: AsyncClient, session_override):
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+
+    default = await client.get("/api/cases/policy", headers=headers)
+    assert default.status_code == 200
+    assert default.json()["accept_roles"] == "admins"
+    assert default.json()["backlog_threshold"] == 3
+    assert default.json()["may_accept"] is True
+
+    saved = await client.put(
+        "/api/cases/policy",
+        headers=headers,
+        json={"accept_roles": "members", "backlog_threshold": 2},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["accept_roles"] == "members"
+
+    # An unmatched pattern is counted, never turned into a type on its own.
+    from app.services.signal_catalog import record_unknown
+
+    for _ in range(2):
+        await record_unknown(
+            session_override,
+            tenant.id,
+            name="Warranty claim",
+            sentence="A customer claims warranty on a delivered product.",
+            example="My heat pump broke after two months.",
+        )
+    backlog = await client.get("/api/cases/backlog", headers=headers)
+    assert backlog.status_code == 200
+    entry = backlog.json()["items"][0]
+    assert entry["count"] == 2
+    assert entry["ready"] is True
+
+    promoted = await client.post(
+        f"/api/cases/backlog/{entry['key']}/promote",
+        headers=headers,
+        json={"follow_up_mode": "track"},
+    )
+    assert promoted.status_code == 200
+    assert promoted.json()["name"] == "Warranty claim"
+    assert promoted.json()["follow_up_mode"] == "track"
+    assert (await client.get("/api/cases/backlog", headers=headers)).json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_unsure_signal_waits_for_confirmation_before_routing(
+    client: AsyncClient, session_override
+):
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    signal = await _signal(session_override, tenant.id, subject="Unsure")
+    row = await create_case_type(
+        session_override,
+        tenant.id,
+        name="Refund request",
+        slug="refund-request-confirm",
+        create_mode="auto",
+        follow_up_mode="route",
+    )
+    ws = await client.post("/api/workstreams", headers=headers, json={"name": "Refunds"})
+    assert ws.status_code == 200
+    await create_binding(
+        session_override,
+        tenant.id,
+        case_type_id=row.id,
+        target_kind="workstream",
+        target_id=UUID(ws.json()["id"]),
+        auto_link=True,
+    )
+
+    unsure = await create_case(
+        session_override,
+        tenant.id,
+        case_type_id=row.id,
+        signal_id=signal.id,
+        title="Maybe a refund",
+        certainty=5,
+        actor="agent",
+    )
+    assert unsure["case"]["status"] == "proposed"
+    assert unsure["case"]["workstream_id"] is None
+
+    from app.services.cases import update_case
+
+    accepted = await update_case(
+        session_override, tenant.id, UUID(unsure["case"]["id"]), {"status": "open"}
+    )
+    assert accepted.status == "open"
+    assert str(accepted.workstream_id) == ws.json()["id"]

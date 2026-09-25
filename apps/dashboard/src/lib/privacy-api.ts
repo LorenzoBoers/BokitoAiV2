@@ -2,6 +2,7 @@ import { apiGet, apiPatch, apiPost } from './api'
 import { appRoutes } from '../api/routes'
 
 export type PrivacySettings = {
+  workspace_retention_days: number
   retention_messages_days: number
   retention_calendar_days: number
   retention_audit_days: number

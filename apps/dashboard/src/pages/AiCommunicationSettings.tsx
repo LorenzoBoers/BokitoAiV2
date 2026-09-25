@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import ProviderLogo from '../components/email/ProviderLogo'
-import ChannelBindingsPanel from '../components/settings/ChannelBindingsPanel'
+import ChannelDefaultAgentsPanel from '../components/settings/ChannelDefaultAgentsPanel'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import {
@@ -672,7 +672,7 @@ export default function AiCommunicationSettings() {
             {t('ai.communication.whoAnswersDescription')}
           </p>
         </div>
-        <ChannelBindingsPanel />
+        <ChannelDefaultAgentsPanel />
       </section>
 
       <PageRelatedLinks

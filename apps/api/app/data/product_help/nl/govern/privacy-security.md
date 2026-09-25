@@ -1,7 +1,7 @@
 ---
 title: Privacy en beveiliging
 intro: Bewaartermijnen, verzoeken van betrokkenen en AI-datagebruik staan onder Vertrouwen en privacy.
-description: Stel bewaartermijnen in, bepaal of AI berichtteksten mag gebruiken, en exporteer of wis persoonsgegevens voor een e-mailadres.
+description: Stel één bewaartermijn voor de workspace in, bepaal of AI berichtteksten mag gebruiken, en exporteer of wis persoonsgegevens voor een e-mailadres.
 keywords: privacy, beveiliging, bewaartermijn, AVG, GDPR, inzage, export, wissen, trust, subverwerkers
 sort: 40
 related: govern,autonomy,communication
@@ -19,8 +19,8 @@ Owners en admins beheren bewaartermijnen en verzoeken van betrokkenen via **Inst
 
 ## Bewaartermijn en AI-tekstgebruik instellen
 
-1. Stel **Bewaartermijn berichten (dagen)** in (standaard 365). Oudere berichtteksten worden dagelijks gepurged; de thread-schil kan blijven.
-2. Stel **Bewaartermijn agenda (dagen)** in (standaard 365) voor gesynchroniseerde agenda-items.
+1. Stel **Bewaartermijn workspace (dagen)** in (standaard 365). Eén termijn geldt voor berichten, gesynchroniseerde agenda-items en auditgegevens.
+2. Oudere gegevens die onder het beleid vallen worden door de bewaartaak gepurged; de thread-schil kan blijven.
 3. Zet **AI mag berichtteksten gebruiken** aan of uit. Uit = inbox-AI die volledige tekst nodig heeft blijft uit.
 4. Verlaat het veld om op te slaan. Wijzigingen gelden alleen voor deze workspace.
 

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Bot,
+  Brain,
   CalendarDays,
   CircleHelp,
   Clock,
@@ -19,6 +20,7 @@ import {
   User,
   UserPlus,
   Users,
+  Workflow,
 } from 'lucide-react'
 import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
@@ -34,11 +36,18 @@ import { composeEmailPath, newAgentPath, newContactPath } from '../../lib/compos
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { listRecentPages } from '../../lib/recent-pages'
-import { listSignalThreads } from '../../lib/signals-api'
+import { listSignalThreads, patchSignalThread } from '../../lib/signals-api'
 import { listContacts, type ContactRow } from '../../lib/contacts-api'
-import type { InboxThread } from '../../lib/inbox-api'
+import { listInboxMembers, type InboxThread } from '../../lib/inbox-api'
 import { searchWorkspace, type WorkspaceSearchHit } from '../../lib/workspace-api'
 import { humanizeKnowledgeTitle } from '../../lib/knowledge-title'
+import { listCases, type CaseRow } from '../../lib/cases-api'
+import { listAgents } from '../../lib/agents-api'
+import type { RuntimeAgent } from '../../lib/workforce-api'
+import { listProjects, type ProjectRow } from '../../lib/projects-api'
+import { listWorkstreams, startWorkstreamRun, type WorkstreamRow } from '../../lib/workstreams-api'
+import { parseComposerVerb } from '../../lib/composer-verbs'
+import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
 
 type PaletteItem = {
@@ -60,7 +69,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const { activeConnections } = useMailboxConnections()
   const mailboxReady = activeConnections.length > 0
   const { toggleMode, isDark } = useTheme()
@@ -71,6 +80,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [threadResults, setThreadResults] = useState<InboxThread[]>([])
   const [contactResults, setContactResults] = useState<ContactRow[]>([])
   const [docResults, setDocResults] = useState<WorkspaceSearchHit[]>([])
+  const [caseResults, setCaseResults] = useState<CaseRow[]>([])
+  const [agents, setAgents] = useState<RuntimeAgent[]>([])
+  const [projects, setProjects] = useState<ProjectRow[]>([])
+  const [workstreams, setWorkstreams] = useState<WorkstreamRow[]>([])
   const [recent, setRecent] = useState(() => listRecentPages())
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -82,6 +95,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       setThreadResults([])
       setContactResults([])
       setDocResults([])
+      setCaseResults([])
       return
     }
     let cancelled = false
@@ -107,12 +121,37 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .catch(() => {
           if (!cancelled) setDocResults([])
         })
+      void listCases({ q, includeLabels: true, limit: 8 })
+        .then((rows) => {
+          if (!cancelled) setCaseResults(rows)
+        })
+        .catch(() => {
+          if (!cancelled) setCaseResults([])
+        })
     }, 200)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
   }, [token, query])
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    void Promise.all([
+      listAgents().catch(() => [] as RuntimeAgent[]),
+      listProjects().catch(() => [] as ProjectRow[]),
+      listWorkstreams().catch(() => [] as WorkstreamRow[]),
+    ]).then(([nextAgents, nextProjects, nextWorkstreams]) => {
+      if (cancelled) return
+      setAgents(nextAgents)
+      setProjects(nextProjects)
+      setWorkstreams(nextWorkstreams)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const catalog = useMemo(() => {
     const navTabs = [...PINNED_TABS, ...TAB_GROUPS.flatMap((group) => group.tabs)]
@@ -306,6 +345,34 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => navigate('/agenda'),
       },
       {
+        id: 'action-open-agent',
+        label: t('palette.openAgent'),
+        group: t('palette.groupActions'),
+        icon: Bot,
+        run: () => navigate('/agents'),
+      },
+      {
+        id: 'action-open-playbook',
+        label: t('palette.openPlaybook'),
+        group: t('palette.groupActions'),
+        icon: Workflow,
+        run: () => navigate('/workstreams'),
+      },
+      {
+        id: 'action-open-project',
+        label: t('palette.openProject'),
+        group: t('palette.groupActions'),
+        icon: FolderKanban,
+        run: () => navigate('/projects'),
+      },
+      {
+        id: 'action-open-knowledge',
+        label: t('palette.openKnowledge'),
+        group: t('palette.groupActions'),
+        icon: Brain,
+        run: () => navigate('/knowledge'),
+      },
+      {
         id: 'action-govern-drafts',
         label: t('palette.openGovernDrafts'),
         group: t('palette.groupActions'),
@@ -348,6 +415,78 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const remoteItems = useMemo<PaletteItem[]>(() => {
     const q = query.trim()
     const extras: PaletteItem[] = []
+    const threadId = /\/t\/([^/?]+)/.exec(pathname)?.[1]
+    const commandText = /^(open|assign|start|schedule)(?:\s+(.*))?$/i.exec(q)
+    const parsedVerb = parseComposerVerb(
+      commandText
+        ? `/${commandText[1]!.toLowerCase() === 'start' ? 'playbook' : commandText[1]!.toLowerCase()} ${commandText[2] ?? ''}`
+        : q,
+    )
+    if (threadId && commandText?.[1].toLowerCase() === 'open') {
+      extras.push({
+        id: 'verb-open-thread',
+        label: t('palette.openCurrentConversation', { defaultValue: 'Open current conversation' }),
+        hint: threadId,
+        group: t('palette.groupActions'),
+        icon: Inbox,
+        run: () => navigate(pathname),
+      })
+    } else if (threadId && parsedVerb?.verb === 'assign') {
+      extras.push({
+        id: 'verb-assign-thread',
+        label: t('palette.assignCurrentConversation', { defaultValue: 'Assign current conversation' }),
+        hint: parsedVerb.arg || user?.name || user?.email || undefined,
+        group: t('palette.groupActions'),
+        icon: UserPlus,
+        run: () => {
+          if (!token) return
+          void listInboxMembers(token).then((members) => {
+            const wanted = parsedVerb.arg.trim().toLowerCase()
+            const target = members.find((member) =>
+              wanted
+                ? member.name.toLowerCase().includes(wanted) || member.email.toLowerCase() === wanted
+                : member.email.toLowerCase() === user?.email?.toLowerCase(),
+            )
+            if (!target) {
+              toast.error(t('palette.memberNotFound', { defaultValue: 'Member not found' }))
+              return
+            }
+            void patchSignalThread(token, decodeURIComponent(threadId), { assignedToUserId: target.id })
+              .then(() => toast.success(target.name || target.email))
+              .catch(() => toast.error(t('palette.commandFailed', { defaultValue: 'Command failed' })))
+          })
+        },
+      })
+    } else if (threadId && parsedVerb?.verb === 'playbook') {
+      const wanted = parsedVerb.arg.toLowerCase()
+      const match = workstreams.find((row) => row.name.toLowerCase().includes(wanted))
+      if (match) {
+        extras.push({
+          id: `verb-start-${match.id}`,
+          label: t('palette.startPlaybook', { name: match.name, defaultValue: `Start ${match.name}` }),
+          hint: parsedVerb.arg,
+          group: t('palette.groupActions'),
+          icon: Workflow,
+          run: () => {
+            void startWorkstreamRun(match.id, {
+              input_kind: 'signal',
+              input_ref: decodeURIComponent(threadId),
+            })
+              .then((run) => navigate(`/workstreams/runs/${encodeURIComponent(run.id)}`))
+              .catch(() => toast.error(t('palette.commandFailed', { defaultValue: 'Command failed' })))
+          },
+        })
+      }
+    } else if (threadId && parsedVerb?.verb === 'schedule') {
+      extras.push({
+        id: 'verb-schedule-thread',
+        label: t('palette.scheduleCurrentConversation', { defaultValue: 'Schedule from this conversation' }),
+        hint: parsedVerb.arg,
+        group: t('palette.groupActions'),
+        icon: CalendarDays,
+        run: () => navigate(talkToAssistantPath(`Schedule "${parsedVerb.arg}" for conversation ${decodeURIComponent(threadId)}.`)),
+      })
+    }
     if (q.length >= 2) {
       extras.push({
         id: 'threads-view-all',
@@ -398,6 +537,59 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       icon: User,
       run: () => navigate(`/contacts/${contact.id}`),
     }))
+    const organisations: PaletteItem[] = [...new Map(
+      contactResults
+        .filter((contact) => contact.company)
+        .map((contact) => [contact.company!.toLowerCase(), contact]),
+    ).values()].map((contact) => ({
+      id: `organisation-${contact.company}`,
+      label: contact.company!,
+      hint: t('palette.organisation', { defaultValue: 'Organisation' }),
+      group: t('palette.groupContacts'),
+      icon: Users,
+      run: () => navigate(`/contacts?company=${encodeURIComponent(contact.company!)}`),
+    }))
+    const signals: PaletteItem[] = caseResults.map((item) => ({
+      id: `signal-${item.id}`,
+      label: item.title || item.summary || item.case_type?.name || t('palette.signal', { defaultValue: 'Signal' }),
+      hint: item.case_type?.name,
+      group: t('palette.groupThreads'),
+      icon: Inbox,
+      run: () => navigate(item.signal_id ? inboxPath('open', item.signal_id) : `/settings/signals?q=${encodeURIComponent(q)}`),
+    }))
+    const matchingAgents: PaletteItem[] = agents
+      .filter((item) => `${item.name} ${item.role_name ?? ''} ${item.purpose ?? ''}`.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 5)
+      .map((item) => ({
+        id: `agent-${item.id}`,
+        label: item.name,
+        hint: item.role_name || item.purpose || undefined,
+        group: t('palette.groupActions'),
+        icon: Bot,
+        run: () => navigate(`/agents/${item.id}`),
+      }))
+    const matchingProjects: PaletteItem[] = projects
+      .filter((item) => `${item.name} ${item.description ?? ''}`.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 5)
+      .map((item) => ({
+        id: `project-${item.id}`,
+        label: item.name,
+        hint: item.description,
+        group: t('palette.groupActions'),
+        icon: FolderKanban,
+        run: () => navigate(`/projects/${item.id}`),
+      }))
+    const matchingWorkstreams: PaletteItem[] = workstreams
+      .filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 5)
+      .map((item) => ({
+        id: `workstream-${item.id}`,
+        label: item.name,
+        hint: item.description,
+        group: t('palette.groupActions'),
+        icon: Workflow,
+        run: () => navigate(`/workstreams/${item.id}`),
+      }))
     const docs: PaletteItem[] = docResults
       .filter((hit) => hit.doc_id)
       .map((hit) => ({
@@ -408,8 +600,44 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         icon: FileText,
         run: () => navigate(`/knowledge/${hit.doc_id}`),
       }))
-    return [...extras, ...threads, ...contacts, ...docs]
-  }, [threadResults, contactResults, docResults, navigate, t, query, inboxComm])
+    const askBokito: PaletteItem[] = q && !q.startsWith('/')
+      ? [{
+          id: 'ask-bokito',
+          label: t('palette.askBokito', { defaultValue: 'Ask Bokito' }),
+          hint: q,
+          group: t('palette.groupActions'),
+          icon: Brain,
+          run: () => navigate(talkToAssistantPath(q)),
+        }]
+      : []
+    return [
+      ...extras,
+      ...threads,
+      ...contacts,
+      ...organisations,
+      ...signals,
+      ...matchingWorkstreams,
+      ...matchingAgents,
+      ...matchingProjects,
+      ...docs,
+      ...askBokito,
+    ]
+  }, [
+    threadResults,
+    contactResults,
+    docResults,
+    caseResults,
+    agents,
+    projects,
+    workstreams,
+    navigate,
+    pathname,
+    t,
+    query,
+    inboxComm,
+    token,
+    user,
+  ])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()

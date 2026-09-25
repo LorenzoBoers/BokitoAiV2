@@ -197,7 +197,6 @@
     "openInbox": "Back to Open",
     "openAgents": "Open Agents",
     "openAgenda": "Open Agenda",
-    "clearLabelFilter": "Leave this tag folder",
     "scopeAgent": "Conversations for {{name}}",
     "scopeProject": "Conversations in {{name}}",
     "scopeAgentFallback": "this agent",
@@ -916,8 +915,7 @@
     "needsDecision": "Needs decision",
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}h",
-    "daysAgo": "{{count}}d",
-    "openTagFolder": "Open tag {{tag}}"
+    "daysAgo": "{{count}}d"
   },
   "snooze": {
     "1h": "1 hour",
@@ -1040,15 +1038,6 @@
       "sender": "Sender"
     }
   },
-  "tags": {
-    "addLabel": "Add tag",
-    "searchPlaceholder": "Search or create a tag…",
-    "createNamed": "Create tag \"{{tag}}\"",
-    "createError": "Could not create that tag.",
-    "loading": "Loading tags…",
-    "noneYet": "No tags yet. Type a name to create one.",
-    "removeLabel": "Remove tag {{tag}}"
-  },
   "triage": {
     "urgency": "urgency {{value}}",
     "certainty": "certainty {{value}}%",
@@ -1057,7 +1046,9 @@
   "sidePanel": {
     "contact": "Contact",
     "agent": "Agent",
-    "handling": "Handling"
+    "handling": "Handling",
+    "who": "Who",
+    "thisConversation": "This conversation"
   },
   "actions": {
     "takeoverError": "Could not change Inbox AI.",

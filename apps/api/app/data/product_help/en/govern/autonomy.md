@@ -9,7 +9,7 @@ related: govern,agents,inbox-ai
 
 # Set autonomy posture
 
-Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/govern). Pick a preset, then override individual tools when needed.
+Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/govern) and forms the ceiling for policies below it.
 
 ## Pick a preset
 
@@ -18,14 +18,14 @@ Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/
 
 1. Open **Settings**, then **Govern**, then **Policy**. The card is **How much agents can do**.
 2. Choose **Manual** (agents draft, you apply), **Assisted** (low-risk actions go through, the rest asks), or **Autonomous** (agents act within allowances).
-3. The setting saves as you pick it. Per-resource overrides on the same page still win.
+3. The setting saves as you pick it. A per-type or playbook policy may be stricter, never broader.
 
-## Tune the sliders after the preset
+## Set the three layers
 
 1. Stay on Govern, then **Policy**.
-2. Under **Allowance sliders**, set each category to **Deny**, **Ask first** or **Allow**. Messaging, Integrations and Handoff are the ones operators change first.
-3. Override one tool when the category is too broad. Per-agent overrides on the agent page still win.
-4. **Ask first** is what creates a [decision](/docs/ai/decisions) card in the thread.
+2. Set the workspace posture first, then a stricter policy on a Signal type or Playbook where needed.
+3. On each agent, use the tool allowlist to decide which tools it can call. There are no per-tool autonomy overrides.
+4. **Ask first** creates a [decision](/docs/ai/decisions) card in the thread.
 
 ## Start conservative
 

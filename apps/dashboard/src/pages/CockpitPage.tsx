@@ -62,6 +62,7 @@ import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { humanizeLabel } from '../lib/labels'
 import { agendaKindLabel } from '../lib/status-labels'
+import OverviewFourBlocks from '../components/cockpit/OverviewFourBlocks'
 
 function timeAgo(iso: string, t: (key: string, opts?: { count: number }) => string): string {
   const date = new Date(iso)
@@ -130,7 +131,7 @@ function PlatformWatchCard() {
           {t('cockpitPage.watchAsk')}
         </Link>
         <Link
-          to="/agenda?view=automations"
+          to="/agenda"
           className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
         >
           {t('cockpitPage.watchOpenAgenda')}
@@ -263,7 +264,7 @@ function StatCard({
   )
 }
 
-export default function CockpitPage() {
+function LegacyCockpitPage() {
   const { t, i18n } = useTranslation(['nav', 'communication'])
   const { token, user } = useAuth()
   const { activeConnections } = useMailboxConnections()
@@ -943,6 +944,40 @@ export default function CockpitPage() {
           </div>
         </section>
       </div>
+    </PageContent>
+  )
+}
+
+export default function CockpitPage() {
+  const { t, i18n } = useTranslation('nav')
+  const { user } = useAuth()
+  const greetingName = greetingFirstName(user?.name)
+  const bucket = greetingBucket()
+  const greetingKey = greetingName
+    ? bucket === 'morning'
+      ? 'cockpitPage.greetingMorning'
+      : bucket === 'afternoon'
+        ? 'cockpitPage.greetingAfternoon'
+        : 'cockpitPage.greetingEvening'
+    : bucket === 'morning'
+      ? 'cockpitPage.greetingMorningPlain'
+      : bucket === 'afternoon'
+        ? 'cockpitPage.greetingAfternoonPlain'
+        : 'cockpitPage.greetingEveningPlain'
+
+  return (
+    <PageContent width="xl">
+      <ContentHeader
+        title={t('tabs.overview.title', { defaultValue: 'Overview' })}
+        subtitle={`${t(greetingKey, { name: greetingName })} · ${formatAppDate(new Date(), i18n.language, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        })}`}
+        meta={<ConnectionStatus />}
+      />
+      <CockpitTabs />
+      <OverviewFourBlocks />
     </PageContent>
   )
 }

@@ -444,6 +444,7 @@ def resolve_channel(
         "last_sync_at": _iso(settings.get("last_sync_at")),
         "last_error": ctx.last_error,
         "ai_mode": resolve_ai_mode(tenant, account, account.channel),
+        "default_agent_id": str(account.default_agent_id) if account.default_agent_id else None,
         "visibility": account_visibility(account),
         "created_at": account.created_at.isoformat(),
         "sync_window_days": account_sync_window_days(settings),

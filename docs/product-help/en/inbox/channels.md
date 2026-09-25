@@ -50,7 +50,7 @@ A Bokito address receives and sends; it has no sync, so it shows no folders or l
 2. Choose **Gmail** or **Outlook**.
 3. Pick **How far back should we sync?** (**7**, **30** recommended, **90**, or **1 year**), then **Continue with Gmail** or **Continue with Outlook**.
 4. Sign in at the provider. Bokito runs the first sync before the channel shows as **Active** — success only means install finished.
-5. Back in the list, open the row menu for **Rename**, **Folders**, **Signature**, **Routing**, **Make primary sender**, or **Remove**. Day-to-day sync runs automatically; **Retry sync** appears only when a mailbox has a sync problem.
+5. Back in the list, open the row menu for **Rename**, **Folders**, **Signature**, **Make primary sender**, or **Remove**. Day-to-day sync runs automatically; **Retry sync** appears only when a mailbox has a sync problem.
 
 If the state badge reads **Action needed**, choose **Reconnect** (or fix settings and retry) before you try to send.
 
@@ -74,12 +74,11 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 
 In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked.
 
-## Set a signature and routing
+## Set a signature and default agent
 
 1. Open the row menu of a mailbox, then **Signature**. Outbound mail from that mailbox appends it. After send, Communication shows that same signature in the thread bubble (what the customer received).
-2. Open **Routing**. The page is **Routing rules**. Choose **Add rule**. Rules run top to bottom; the first match wins. Drag to reorder.
-3. Set **Condition type** to **Sender domain**, **Subject contains** or **Mailbox**, then **Assign to** a person (or **Do not assign**) and optional **Labels**. Turn **Rule is active** on.
-4. Use the **Agent** column on the row to send a channel's new conversations to a specific agent. Without a route the **default agent** handles new threads. Set one email channel as **Primary** if you have several.
+2. Use the **Agent** column on the row to send a channel's new conversations to a specific agent. Without a channel binding, the workspace default agent handles new threads.
+3. Set one email channel as **Primary** if you have several. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
 ## Connect WhatsApp
 
@@ -98,7 +97,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 
 1. Scroll to **Folders** on the same page.
 2. Every channel and agent folder in Communication has the same sub-views: **Open**, **Mine**, **Unassigned** and **Closed**. Sub-views appear only after you click the folder. Pick the **Default sub-view** a folder opens on, and override it per channel or assistant below.
-3. Classifying conversations no longer happens with tags here: intake types live on the [Cases page](/docs/ai/cases), and a conversation shows its cases in the side panel.
+3. Classifying conversations no longer happens with tags here: manage Signal Types under **Settings**, and review the signals under **This conversation** in Communication. See [How Signals work](/docs/ai/cases).
 
 ## What to do next
 

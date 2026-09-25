@@ -26,7 +26,7 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 ## AI: de workforce
 
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
-- **Werkstromen** — herhaalbare stappenprocessen die agents uitvoeren. Zie [Werkstromen](/docs/ai/workstreams).
+- **Draaiboeken** — herhaalbare stappenprocessen die agents uitvoeren. Zie [Draaiboeken](/docs/ai/workstreams).
 - **Kennis** — documenten, skills en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
 
 ## Modules: geïnstalleerde werkplekken
@@ -36,7 +36,7 @@ Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) verschijnen hier als eige
 ## Organisatie: koppelingen en controleruimte
 
 - **Koppelingen** — geïnstalleerde modules, partnerlogins, custom MCP en marketplace. Zie [Integraties](/docs/integrations/integrations).
-- **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan op [Werkstromen](/docs/ai/workstreams); zie [Signalen](/docs/ai/cases).
+- **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).
 
 Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat boven Besturing in de rail — zie [Overview](/docs/getting-started/cockpit).
 
@@ -46,7 +46,7 @@ Persoonlijke schermen — **Profiel** (inclusief startpagina: Communicatie of Ov
 
 1. Druk `Ctrl+K` (Windows) of `Cmd+K` (Mac) vanaf elke ingelogde pagina.
 2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Inbox-wachtrijen**, **Kennis** en **Instellingen**.
-3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen** en **Hulp openen**.
+3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Agent openen**, **Draaiboek openen**, **Project openen**, **Kennis openen**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen** en **Hulp openen**.
 4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
 Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen, niet om inboxfilters te zetten.

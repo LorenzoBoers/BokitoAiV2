@@ -33,6 +33,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { labelKey: 'settings.links.emailMessages', to: '/settings/channels', hintKey: 'settings.hints.emailMessages' },
       { labelKey: 'settings.links.chatWidget', to: WEBSITE_WIDGET_PATH, match: '/ai/assistant', hintKey: 'settings.hints.chatWidget' },
       { labelKey: 'settings.links.inboxAi', to: '/settings/communication', match: '/settings/communication', hintKey: 'settings.hints.inboxAi' },
+      { labelKey: 'settings.links.signalTypes', to: '/settings/signals', hintKey: 'settings.hints.signalTypes' },
     ],
   },
   {

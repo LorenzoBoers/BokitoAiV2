@@ -8,9 +8,8 @@ mailbox, the embeddable web widget, a Slack workspace). It replaces the old
 address, an anonymous widget visitor, a Slack user). Contacts enable
 OpenClaw-style pairing/allowlist controls for inbound messages.
 
-`ChannelBinding` deterministically routes inbound threads to an agent
-(OpenClaw `agents.mapping` style): most specific match wins
-(contact > channel account > channel), then priority.
+Each channel account may select one default agent. A conversation-level agent
+pin takes precedence.
 """
 
 import uuid
@@ -37,10 +36,14 @@ class ChannelAccount(SQLModel, table=True):
     sync_cursor: str = ""
     credentials_json: str = Field(default="{}")
     settings_json: str = Field(default="{}")
+    default_agent_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="agents.id", index=True
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ChannelBinding(SQLModel, table=True):
+    """Legacy routing rows retained for migration compatibility; not used."""
     __tablename__ = "channel_bindings"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -88,5 +91,8 @@ class Contact(SQLModel, table=True):
     phone: str = ""
     notes: str = ""
     metadata_json: str = Field(default="{}")
+    merged_into_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contacts.id", index=True
+    )
     last_seen_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

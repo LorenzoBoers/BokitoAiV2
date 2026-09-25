@@ -86,6 +86,9 @@ async def test_agenda_excludes_on_demand_runs(session_override: AsyncSession):
     assert str(scheduled_run.id) in run_ids
     assert str(email_run.id) not in run_ids
     assert all("Email:" not in (i["name"] or "") for i in items)
+    scheduled_item = next(i for i in items if i.get("run_id") == str(scheduled_run.id))
+    assert scheduled_item["actor_kind"] == "agent"
+    assert scheduled_item["actor_id"] == str(agent.id)
 
 
 @pytest.mark.asyncio
@@ -215,7 +218,7 @@ async def test_create_task_rejects_foreign_signal(session_override: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_agenda_includes_planned_and_human_tasks(session_override: AsyncSession):
+async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSession):
     from app.models.signal import Signal
     from app.services.orchestration.dispatcher import complete_agent_task, create_agent_task
 
@@ -231,7 +234,7 @@ async def test_agenda_includes_planned_and_human_tasks(session_override: AsyncSe
     await session_override.commit()
     await session_override.refresh(signal)
 
-    scheduled = await create_agent_task(
+    await create_agent_task(
         session_override,
         tenant.id,
         title="Call customer Friday",
@@ -258,11 +261,7 @@ async def test_agenda_includes_planned_and_human_tasks(session_override: AsyncSe
         start=now - timedelta(hours=1),
         end=now + timedelta(days=1),
     )
-    task_items = [i for i in items if i.get("source") == "task"]
-    ids = {i.get("task_id") for i in task_items}
-    assert str(scheduled.id) in ids
-    assert str(due_now.id) in ids
-    assert all(i.get("kind") == "task" for i in task_items)
+    assert not [i for i in items if i.get("source") == "task"]
 
     completed = await complete_agent_task(session_override, tenant.id, due_now.id)
     assert completed.status == "completed"
@@ -272,9 +271,7 @@ async def test_agenda_includes_planned_and_human_tasks(session_override: AsyncSe
         start=now - timedelta(hours=1),
         end=now + timedelta(days=1),
     )
-    assert str(due_now.id) not in {i.get("task_id") for i in items_after if i.get("source") == "task"}
-    # scheduled human task still visible
-    assert str(scheduled.id) in {i.get("task_id") for i in items_after if i.get("source") == "task"}
+    assert not [i for i in items_after if i.get("source") == "task"]
 
 
 @pytest.mark.asyncio

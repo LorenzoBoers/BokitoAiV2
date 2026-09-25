@@ -9,41 +9,56 @@ Before implementing any feature, align with the product north star. Full detail:
 
 ## Why we exist
 
-**The inbox, the agents, and the approvals — finally in one system.**
+**Drive the company from the conversation.**
 
-Traditional companies coordinate through human layers: managers route work, inboxes fragment attention, and software mirrors org charts. Bokito unifies customer signals, agent orchestration, and human judgment in one operational flow — with **governed autonomy** you can dial from manual oversight toward *AI runs operations, humans at the exception layer*.
+Bokito is one chat surface for the company. Clients and partners write where they already write (email, WhatsApp, web widget); the company answers in one list next to colleagues and AI agents. Everything that runs in the background is started, watched, and changed from those conversations.
 
-Long-term: an operational **digital twin** the business can run on, observe (Cockpit, Govern), and improve through feedback.
+Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on top: decide what those tools may do, hand them work from a conversation, see the result next to the customer message. Platform changes itself through chat under Govern. Long-term: an operational **digital twin** you can run on, observe (Overview, Govern), and improve through feedback.
+
+## Decision rules
+
+1. **Everything is reachable from a conversation** — pages for browsing; every action also has a chat path
+2. **One object per idea** — Conversation, Signal, Playbook, Project, Contact (+ Organization), Agent, Decision
+3. **Modules add types and playbooks; never screens**
+4. **The system reads first; people correct**
+5. **Autonomy is one dial in Govern** (workspace ceiling; type/playbook may sit below)
+6. **The thread is the log**
+7. **Ask inline; record in Govern**
+8. **Delete the old surface in the same change**
+9. **Hand work to tools people already use** — workbench connections, not an in-app IDE
+
+## Operator vocabulary (Set C)
+
+Conversation/Gesprek · Signal/Signaal · Playbook/Draaiboek · Project · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie.
 
 ## What we are building
 
-A **node-based agentic OS** for AI-driven SMBs. Canonical entities in this repo:
+A **node-based agentic OS** for AI-driven SMBs. Canonical entities:
 
-- **Sensing:** `Signal` / `SignalMessage` — unified Messages hub (external + internal threads)
-- **Orchestration:** `Agent`, `Workstream`, Orchestra, Agenda scheduler; AI OS canvas at `/os`
-- **Knowledge:** `BlueprintBlock`, canvas graph overlay (`os_canvas_nodes` / `os_canvas_edges`)
-- **Decisions:** `DecisionRequest` as messages **in** threads, not a separate list UI
-- **Govern:** `PlatformChange`, `AuditEvent`, apply modes (`draft` | `yolo` | `decision`), **Autonomy Posture** (`manual` | `assisted` | `autonomous`)
-- **Learning:** `Feedback`, `EvalScore`, `ActionPolicy` (heuristic V1)
+- **Sensing:** `Signal` / `SignalMessage` — Communication hub (external + internal threads)
+- **Signals (product):** `Case` / `CaseType` — typed recognition; operator word Signal
+- **Orchestration:** `Agent`, `Workstream` (Playbook), Agenda triggers; AI OS canvas at `/os`
+- **Knowledge:** docs + examples + connected sources
+- **Decisions:** `DecisionRequest` as messages **in** threads
+- **Govern:** `PlatformChange`, `AuditEvent`, apply modes, Autonomy Posture
+- **Learning:** `Feedback`, `EvalScore` (heuristic V1)
 
-**V1 track:** FastAPI `apps/api` + dashboard bokito mode. Prefer Signal and stack APIs over parallel legacy inbox stacks.
-
-Intelligence Stack layers are **conceptual lanes**, not separate rail nav items. Map: [`docs/architecture.md`](docs/architecture.md).
+**V1 track:** FastAPI `apps/api` + dashboard bokito mode. Prefer Signal and stack APIs over parallel legacy stacks.
 
 ## Build phase
 
-The product is in the **initial building phase**. Prefer the cleanest design over backward-compatibility shims. Breaking changes to frontend, backend, and database schema are acceptable when they align with the north star. Do not add migration layers or dual APIs unless explicitly requested.
+Prefer the cleanest design over backward-compatibility shims. Breaking schema/API/UI changes are acceptable when they align with the north star.
 
 ## Principles
 
 | Principle | In practice |
 |-----------|-------------|
-| **Unified ops flow** | Land via Messages; expand to canvas and Govern — one thread model, one decision object |
+| **Chat-first ops** | Land via Communication; expand to canvas and Govern — one thread model, one decision object |
 | **Node-first** | Extend canonical entities; avoid parallel inbox/decision/graph stacks |
 | **Intelligence flow** | Connect features to sensing → … → learning; avoid isolated CRUD |
-| **Governed autonomy** | Tenant **Autonomy Posture** presets dial policy + apply modes; per-resource overrides in Govern |
-| **Learning by default** | Record outcomes (feedback, eval, policy) where feasible |
-| **Human at exceptions** | Inline decisions in Messages; structural review on `/govern` |
+| **Governed autonomy** | Tenant posture ceiling; per-type/playbook dials; consequential tools always ask |
+| **Learning by default** | Corrections as examples; outcomes recorded |
+| **Human at exceptions** | Inline decisions; structural review on `/govern` |
 
 ## Design constraints
 
@@ -61,8 +76,8 @@ The product is in the **initial building phase**. Prefer the cleanest design ove
 5. **Autonomy posture** — Does this respect tenant posture and apply modes?
 6. **Learning hook** — What outcome is captured?
 7. **Trust** — Permissions, audit, rollback for agent mutations?
-8. **UI surface** — Messages, `/os`, `/govern`, Cockpit, or settings — not a duplicate comms/agent hub
-9. **Docs** — Do operators or integrators see or do something different? If yes: look up `docs/product-help/surface-map.yaml`, update the matching `en/` and `nl/` articles, recapture screenshots when that use-case UI changed, run `python apps/api/scripts/dev/sync_product_help.py`. Internal facts go to `BOKITO_KNOWLEDGE.md`.
+8. **UI surface** — Communication, `/os`, `/govern`, Overview, or settings — not a duplicate hub
+9. **Docs** — Operators/integrators see something different? Update `docs/product-help/` EN+NL, recapture screenshots, run `sync_product_help.py`. Internal facts → `BOKITO_KNOWLEDGE.md`.
 
 ## Anti-patterns
 
@@ -72,5 +87,6 @@ The product is in the **initial building phase**. Prefer the cleanest design ove
 - Results with no learning or audit hook
 - Hardcoded API paths outside `apps/dashboard/src/api/routes/`
 - Back-compat shims that duplicate mental models during initial build phase
+- Rebuilding coding tools inside Bokito instead of workbench connections
 
 Operational facts discovered while coding → update [`BOKITO_KNOWLEDGE.md`](BOKITO_KNOWLEDGE.md) (see `bokito-platform-knowledge.mdc`).

@@ -193,10 +193,39 @@ async def notify_decision(
     sent = 0
     for user_id in recipients:
         channels = await notification_channels(session, decision.tenant_id, user_id, "decisions")
-        if not channels["desktop"]:
+        if not channels["push"]:
             continue
         sent += await send_push_to_user(session, decision.tenant_id, user_id, title, body, payload)
     return sent
+
+
+async def notify_notification(session: AsyncSession, notification: "Notification") -> int:
+    """Push assignment and mention notifications to their target user."""
+    category = {
+        "assignment": "assigned-to-me",
+        "mention": "mentions",
+    }.get(notification.kind)
+    if not category or not notification.user_id or notification.status != "unread":
+        return 0
+    from app.services.notification_mail import notification_channels
+
+    channels = await notification_channels(
+        session, notification.tenant_id, notification.user_id, category
+    )
+    if not channels["push"]:
+        return 0
+    try:
+        payload = json.loads(notification.payload_json or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    return await send_push_to_user(
+        session,
+        notification.tenant_id,
+        notification.user_id,
+        notification.title,
+        notification.body[:200],
+        {"kind": notification.kind, **payload},
+    )
 
 
 def _schedule_push_task(coro) -> None:
@@ -243,5 +272,22 @@ def schedule_notify_decision(decision_id: UUID, *, signal_id: UUID | None = None
             ).scalar_one_or_none()
             if decision:
                 await notify_decision(session, decision, signal_id=signal_id)
+
+    _schedule_push_task(_run())
+
+
+def schedule_notify_notification(notification_id: UUID) -> None:
+    async def _run() -> None:
+        from app.db.session import async_session_factory
+        from app.models.notification import Notification
+
+        async with async_session_factory() as session:
+            notification = (
+                await session.execute(
+                    select(Notification).where(Notification.id == notification_id)
+                )
+            ).scalar_one_or_none()
+            if notification:
+                await notify_notification(session, notification)
 
     _schedule_push_task(_run())

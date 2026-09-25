@@ -17,6 +17,7 @@ export type ChannelAccountRow = {
   address: string
   displayName: string
   isEnabled: boolean
+  defaultAgentId: string | null
   visibility: ChannelAccountVisibility
 }
 
@@ -44,8 +45,22 @@ function normalizeAccount(row: unknown): ChannelAccountRow | null {
     address: typeof raw.address === 'string' ? raw.address : '',
     displayName: typeof raw.display_name === 'string' ? raw.display_name : '',
     isEnabled: raw.is_enabled !== false,
+    defaultAgentId: typeof raw.default_agent_id === 'string' ? raw.default_agent_id : null,
     visibility: normalizeVisibility(raw.visibility),
   }
+}
+
+export async function updateChannelDefaultAgent(
+  token: string,
+  accountId: string,
+  defaultAgentId: string | null,
+): Promise<ChannelAccountRow | null> {
+  const raw = await apiPatch<Record<string, unknown>>(
+    appRoutes.channelAccounts.byId(accountId),
+    { default_agent_id: defaultAgentId },
+    token,
+  )
+  return normalizeAccount(raw)
 }
 
 export async function updateChannelAccountVisibility(

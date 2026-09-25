@@ -36,6 +36,9 @@ class WorkspaceDoc(SQLModel, table=True):
     # Markdown body (frontmatter stripped into frontmatter_json).
     content: str = ""
     frontmatter_json: str = Field(default="{}")
+    # Internal knowledge is available to company agents. Non-internal pages
+    # remain stored/indexed but are excluded from agent retrieval.
+    internal: bool = Field(default=True, index=True)
     is_pinned: bool = False
     sort_order: int = 0
     created_by_type: str = Field(default="user")  # user | agent | system
@@ -97,4 +100,5 @@ class DocChunk(SQLModel, table=True):
     content: str = ""
     embedding_json: str = Field(default="[]")
     metadata_json: str = Field(default="{}")
+    internal: bool = Field(default=True, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)

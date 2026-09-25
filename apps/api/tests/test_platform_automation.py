@@ -60,7 +60,7 @@ async def test_workstream_gate_decision_resumes_run(session_override):
         workstream_id=workstream.id,
         name="Review",
         position=0,
-        kind="gate",
+        kind="ask_decision",
     )
     session_override.add(gate)
     await session_override.commit()

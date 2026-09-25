@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import type { Workspace, WorkspaceInvite } from '../types/custom-db';
+import type { Workspace, WorkspaceInvite } from '../types/workspace';
 import { appRoutes } from '../api/routes/app.routes';
 import { appScopedDelete, appScopedGet, appScopedPost } from '../lib/api';
 import { resolveTenantSubdomainFromHost } from '../lib/host-routing';

@@ -13,7 +13,6 @@ import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
-import { agentRoleLabel } from '../lib/agent-role-label'
 import { formatAgentModelLine } from '../lib/model-label'
 import { activityTerminalPath, agentChatPath, decisionsPath } from '../lib/messages-paths'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
@@ -94,19 +93,6 @@ function AgentLibraryCard({
 }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
-  const roleLabel = agentRoleLabel(agent.role_name || agent.role_slug, t)
-  const genericRole = new Set([
-    t('workforce.agents.types.orchestrator').trim().toLowerCase(),
-    t('workforce.agents.types.po').trim().toLowerCase(),
-    t('workforce.agents.types.worker').trim().toLowerCase(),
-  ])
-  const nameLower = (agent.name ?? '').trim().toLowerCase()
-  const roleLower = roleLabel.trim().toLowerCase()
-  const showRole =
-    roleLabel.trim().length > 0 &&
-    roleLower !== nameLower &&
-    !nameLower.includes(roleLower) &&
-    !genericRole.has(roleLower)
   const openCount = agent.open_conversations ?? 0
   const decisionCount = agent.awaiting_decision ?? 0
 
@@ -127,20 +113,12 @@ function AgentLibraryCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate font-medium text-text-heading">{agent.name}</p>
-              {agent.is_lead ? (
-                <span
-                  className="shrink-0 text-[10px] font-medium text-text-muted"
-                  title={t('workforce.agents.leadHint')}
-                >
-                  {t('workforce.agents.leadBadgeShort')}
-                </span>
-              ) : null}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className={cn('text-xs font-medium', STATUS_CLASS[agentWorkState(agent)])}>
                 {t(agentStatusI18nKey(agentWorkState(agent)))}
               </span>
-              {showRole ? <span className="text-xs text-text-muted">{roleLabel}</span> : null}
+              {agent.audience ? <span className="text-xs capitalize text-text-muted">{agent.audience}</span> : null}
             </div>
             {openCount > 0 || decisionCount > 0 ? (
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -212,14 +190,13 @@ export default function AiAgents() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'working' | 'default'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'working'>('all')
   const visibleAgents = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return agents.filter((agent) => {
-      if (statusFilter === 'default' && !agent.is_lead) return false
       if (statusFilter === 'working' && agentWorkState(agent) !== 'working') return false
       if (!needle) return true
-      const hay = [agent.name, agent.role_name, agent.role_slug, agent.current_activity_summary]
+      const hay = [agent.name, agent.audience, agent.purpose, agent.current_activity_summary]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -303,7 +280,7 @@ export default function AiAgents() {
               className="h-9 w-full rounded-lg border border-border/60 bg-bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
             />
           </div>
-          {(['all', 'working', 'default'] as const).map((id) => (
+          {(['all', 'working'] as const).map((id) => (
             <button
               key={id}
               type="button"

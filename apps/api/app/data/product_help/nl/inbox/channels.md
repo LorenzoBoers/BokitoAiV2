@@ -50,7 +50,7 @@ Een Bokito-adres ontvangt en verstuurt; het synchroniseert niet, dus het toont g
 2. Kies **Gmail** of **Outlook**.
 3. Kies **Hoe ver terug synchroniseren?** (**7**, **30** aanbevolen, **90** of **1 jaar**), daarna **Doorgaan met Gmail** of **Doorgaan met Outlook**.
 4. Meld je aan bij de provider. Bokito draait de eerste sync voordat het kanaal **Actief** toont — succes betekent dat de installatie klaar is.
-5. Terug in de lijst open je het rijmenu voor **Hernoemen**, **Mappen**, **Handtekening**, **Routing**, **Primaire afzender maken** of **Verwijderen**. Dagelijkse sync loopt automatisch; **Sync opnieuw proberen** verschijnt alleen bij een syncprobleem.
+5. Terug in de lijst open je het rijmenu voor **Hernoemen**, **Mappen**, **Handtekening**, **Primaire afzender maken** of **Verwijderen**. Dagelijkse sync loopt automatisch; **Sync opnieuw proberen** verschijnt alleen bij een syncprobleem.
 
 Staat er **Actie nodig** op de statusbadge, kies dan **Opnieuw koppelen** (of pas de configuratie aan en probeer opnieuw) voordat je verstuurt.
 
@@ -74,12 +74,11 @@ Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 
 In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** als er al een kanaal is dat nog niet klaar is, of **Mailbox koppelen** als er nog geen kanaal is.
 
-## Zet een handtekening en routing
+## Zet een handtekening en standaardagent
 
 1. Open het rijmenu van een mailbox en daarna **Handtekening**. Uitgaande mail vanaf die mailbox voegt die toe. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
-2. Open **Routing**. De pagina heet **Routingregels**. Kies **Regel toevoegen**. Regels lopen van boven naar beneden; de eerste match wint. Versleep om te herordenen.
-3. Zet **Type voorwaarde** op **Afzenderdomein**, **Onderwerp bevat** of **Mailbox**, daarna **Toewijzen aan** een persoon (of **Niet toewijzen**) en optioneel **Labels**. Zet **Regel is actief** aan.
-4. Gebruik de kolom **Agent** op de rij om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder route behandelt de **standaardagent** nieuwe gesprekken. Maak één e-mailkanaal **Primair** als je er meerdere hebt.
+2. Gebruik de kolom **Agent** op de rij om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder kanaalkoppeling behandelt de standaardagent nieuwe gesprekken.
+3. Maak één e-mailkanaal **Primair** als je er meerdere hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
 
 ## Koppel WhatsApp
 
@@ -98,7 +97,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 
 1. Scroll naar **Mappen** op dezelfde pagina.
 2. Elke kanaal- en agentmap in Communicatie heeft dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten**. Submappen verschijnen pas als je op de map klikt. Kies de **Standaard submap** waarmee een map opent, en wijk daar per kanaal of assistent van af.
-3. Gesprekken classificeren gaat niet meer met tags op deze pagina: intake-types staan op de pagina [Signalen](/docs/ai/cases), en een gesprek toont zijn signalen in het zijpaneel.
+3. Gesprekken classificeren gaat niet meer met tags op deze pagina: beheer **Signaaltypes** onder **Instellingen** en bekijk signalen onder **Dit gesprek** in Communicatie. Zie [Hoe Signalen werken](/docs/ai/cases).
 
 ## Wat nu
 

@@ -78,15 +78,18 @@ export function productAccent(rgb: Rgb, theme: BrandTheme): Rgb {
     if (lum < 0.4) return lightenRgb(rgb, 0.22)
     return rgb
   }
-  // Light theme: very light brands need darkening for borders/text.
+  // Light theme: near-black brands read as mud on white launcher chrome;
+  // very light brands need darkening for borders/text.
+  if (lum < 0.2) return lightenRgb(rgb, 0.4)
+  if (lum < 0.35) return lightenRgb(rgb, 0.2)
   if (lum > 0.72) return darkenRgb(rgb, 0.28)
   if (lum > 0.58) return darkenRgb(rgb, 0.12)
   return rgb
 }
 
 /**
- * Icon/mark color that stays visible on the dark launcher and header avatar
- * surfaces (those are never solid brand fills).
+ * Icon/mark color that stays visible on launcher and header avatar chrome
+ * (those are surface fills, not solid brand).
  */
 export function markColor(rgb: Rgb, theme: BrandTheme): string {
   return rgbCss(productAccent(rgb, theme))
@@ -116,10 +119,14 @@ export function applyBrandToHost(host: HTMLElement, color: string, rgb: Rgb | nu
       `rgba(${Math.round(accent.r)},${Math.round(accent.g)},${Math.round(accent.b)},0.14)`,
     )
     host.style.setProperty('--bk-on-primary', onBrandColor(accent))
-    // Mark/logo color is always the lifted accent so the monkey stays readable
-    // on dark launcher/header chrome even when the seed brand is muddy.
+    // Mark stays the readable accent for header/avatar chrome; launcher icon
+    // follows theme CSS (--bk-on-primary on light solid fill, accent on dark).
     host.style.setProperty('--bk-mark', markColor(parsed, theme))
-    host.style.setProperty('--bk-launcher-icon', markColor(parsed, theme))
+    if (theme === 'light') {
+      host.style.setProperty('--bk-launcher-icon', onBrandColor(accent))
+    } else {
+      host.style.setProperty('--bk-launcher-icon', markColor(parsed, theme))
+    }
   } else {
     host.style.setProperty('--bk-primary', seed)
     host.style.setProperty('--bk-primary-dark', seed)

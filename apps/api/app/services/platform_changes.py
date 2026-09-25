@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 from uuid import UUID
 
@@ -40,6 +40,8 @@ RESOURCE_SCOPE: dict[tuple[str, str], str] = {
     ("agent_passport", "update"): "platform:agent:update",
 }
 
+ROLLBACK_WINDOW_DAYS = 30
+
 
 def _enforce_agent_scope(agent: Agent | None, resource_type: str, change_kind: str) -> None:
     if agent is None:
@@ -50,6 +52,12 @@ def _enforce_agent_scope(agent: Agent | None, resource_type: str, change_kind: s
 
 
 def serialize_change(row: PlatformChange, *, signal_id: UUID | None = None) -> dict[str, Any]:
+    applied_at = row.resolved_at or row.created_at
+    rollback_deadline = applied_at + timedelta(days=ROLLBACK_WINDOW_DAYS)
+    can_rollback = (
+        row.status in ("accepted", "applied_yolo")
+        and datetime.utcnow() <= rollback_deadline
+    )
     return {
         "id": str(row.id),
         "resource_type": row.resource_type,
@@ -68,6 +76,8 @@ def serialize_change(row: PlatformChange, *, signal_id: UUID | None = None) -> d
         "signal_id": str(signal_id) if signal_id else None,
         "created_at": row.created_at.isoformat(),
         "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None,
+        "rollback_deadline": rollback_deadline.isoformat(),
+        "can_rollback": can_rollback,
     }
 
 
@@ -393,6 +403,12 @@ async def rollback_platform_change(
         raise HTTPException(status_code=404, detail="Change not found")
     if change.status not in ("accepted", "applied_yolo"):
         raise HTTPException(status_code=400, detail=f"Cannot rollback status {change.status}")
+    applied_at = change.resolved_at or change.created_at
+    if datetime.utcnow() > applied_at + timedelta(days=ROLLBACK_WINDOW_DAYS):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Changes can only be reverted within {ROLLBACK_WINDOW_DAYS} days",
+        )
 
     rolled_back = await rollback_change_to_domain(session, tenant_id, change)
     rollback_row = PlatformChange(

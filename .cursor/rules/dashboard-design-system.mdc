@@ -1,0 +1,76 @@
+---
+description: Dashboard UI surface recipe — keep light/dark hierarchy simple and reusable
+globs: apps/dashboard/src/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# Dashboard design system
+
+Canonical tokens live in `apps/dashboard/src/index.css`. Theme is `html[data-theme=light|dark]` (not `.dark`).
+
+## Surface ladder (both themes)
+
+| Token | Use for |
+|-------|---------|
+| `bg-bg` / `app-atmosphere` | App chrome / page canvas |
+| `bg-bg-sidebar` | Rail / section nav |
+| `bg-bg-canvas` | Rare; prefer surface for main sheets |
+| `bg-bg-surface` | Cards, dialogs, main panels |
+| `bg-bg-elevated` | Insets inside a surface (chips, sublists) |
+| `bg-bg-hover` | Hover / selected rows |
+| `bg-bg-input` | Form fields |
+
+Light mode keeps **one shared gray canvas** (`bg` = `sidebar` = `canvas`) and reserves **white** for `surface`. Do not invent extra gray steps or multi-layer glows.
+
+## The only card recipe
+
+Use one of:
+
+- React: `<Card>` / `<CardHeader>` / `<CardContent>` from `components/ui/card.tsx`
+- CSS: `.panel`
+
+Recipe: `bg-bg-surface` + `border border-border/60` + `rounded-xl` + `box-shadow: var(--shadow-card)`.
+
+Inside a card: `.panel-inset` or `bg-bg-elevated` + `border-border/40` — **no second card shadow**.
+
+Interactive cards: `<Card interactive>` or `.panel` + `.hover-lift`.
+
+## Borders
+
+- `/40` — soft dividers, table rows, card header lines
+- `/60` — cards, dialogs, dropdowns (default)
+- full `border-border` — strong input edges only when needed
+
+## Elevation
+
+| Class / token | When |
+|---------------|------|
+| `shadow-card` / `.panel` | Cards and shell sheets |
+| `shadow-overlay` | Dialogs, popovers, command palette |
+| `.btn-elevated` | Buttons (uses `--shadow-btn`) |
+| `.shadow-inset-highlight` | Inputs, tab lists |
+| `.shadow-chip-active` | Selected nav chips |
+
+Do **not** hand-roll `shadow-xl` / `shadow-lg` / raw `rgba(255,255,255,…)` insets. Do **not** stack 3+ custom box-shadows for light mode.
+
+## Buttons
+
+Use `components/ui/button.tsx` variants only:
+
+- Primary actions → `default` (accent)
+- Secondary chrome → `secondary` / `outline` / `subtle`
+- Quiet → `ghost`
+- AI actions → `ai`
+
+No one-off `bg-black`, `bg-text-heading`, or solid dark slabs for CTAs in light mode.
+
+## Radius nesting
+
+`rounded-2xl` (shell) → `rounded-xl` (card) → `rounded-lg` (input/inner) → `rounded-md` (chip) → `rounded-full` (pill).
+
+## Anti-patterns
+
+- Duplicating the card string instead of `<Card>` / `.panel`
+- Light-only special-case shadows or gradients on random pages
+- Transparent `bg-bg-surface/80` without `backdrop-blur`
+- Legacy: `bg-surface-raised`, `border-border-subtle`, `bg-surface-muted`

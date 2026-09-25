@@ -59,7 +59,7 @@ export default function InboxShortcutHelp({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between gap-3">

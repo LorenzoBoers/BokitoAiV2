@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { ValidationError } from '../types/custom-db';
+import type { ValidationError } from '../types/workspace';
 
 interface ValidationContextValue {
   errors: ValidationError[];

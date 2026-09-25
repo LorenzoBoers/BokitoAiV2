@@ -17,6 +17,8 @@ from app.dependencies import AuthContext, get_current_auth, tenant_settings
 from app.models.agent import Agent
 from app.models.api_token import ApiToken
 from app.models.auth import Tenant
+from app.models.case import CaseType
+from app.models.orchestra import Workstream
 from app.services.audit import record_audit, search_audit, serialize_audit
 from app.services.platform_changes import (
     accept_platform_change,
@@ -51,6 +53,10 @@ class ToolOverrideUpdate(BaseModel):
     tool_name: str
     # null/empty mode clears the override
     mode: str | None = None
+
+
+class AutonomyScopeUpdate(BaseModel):
+    autonomy_level: str
 
 
 class TokenCreate(BaseModel):
@@ -117,6 +123,80 @@ async def update_posture(
     await session.commit()
     await session.refresh(tenant)
     return _allowance_state(tenant)
+
+
+@router.get("/autonomy-scopes")
+async def list_autonomy_scopes(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    case_types = (
+        await session.execute(
+            select(CaseType)
+            .where(CaseType.tenant_id == auth.tenant.id, CaseType.enabled.is_(True))
+            .order_by(CaseType.name)
+        )
+    ).scalars().all()
+    workstreams = (
+        await session.execute(
+            select(Workstream)
+            .where(Workstream.tenant_id == auth.tenant.id, Workstream.enabled.is_(True))
+            .order_by(Workstream.name)
+        )
+    ).scalars().all()
+    return {
+        "case_types": [
+            {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
+            for row in case_types
+        ],
+        "workstreams": [
+            {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
+            for row in workstreams
+        ],
+    }
+
+
+@router.patch("/autonomy-scopes/{scope_kind}/{scope_id}")
+async def update_autonomy_scope(
+    scope_kind: str,
+    scope_id: UUID,
+    body: AutonomyScopeUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    if body.autonomy_level not in ("manual", "approval", "auto"):
+        raise HTTPException(status_code=400, detail="Invalid autonomy level")
+    model = CaseType if scope_kind == "case_type" else Workstream if scope_kind == "workstream" else None
+    if model is None:
+        raise HTTPException(status_code=400, detail="Invalid autonomy scope")
+    row = (
+        await session.execute(
+            select(model).where(model.id == scope_id, model.tenant_id == auth.tenant.id)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Autonomy scope not found")
+    previous = row.autonomy_level
+    row.autonomy_level = body.autonomy_level
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action=f"govern:{scope_kind}_autonomy_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type=scope_kind,
+        resource_id=str(row.id),
+        outcome="applied",
+        summary=f"Autonomy for {row.name} changed from {previous} to {body.autonomy_level}",
+        before={"autonomy_level": previous},
+        after={"autonomy_level": body.autonomy_level},
+        commit=False,
+    )
+    await session.commit()
+    return {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
 
 
 @router.get("/allowances")

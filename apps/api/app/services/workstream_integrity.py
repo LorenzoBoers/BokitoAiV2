@@ -98,7 +98,7 @@ async def check_run_readiness(
 
     lead_available = await _has_active_agent(session, tenant_id)
     for step in steps:
-        if step.kind != "agent":
+        if step.kind not in ("agent_task", "send_message", "call_tool"):
             continue
         if step.agent_id is not None:
             if not await _has_active_agent(session, tenant_id, agent_id=step.agent_id):

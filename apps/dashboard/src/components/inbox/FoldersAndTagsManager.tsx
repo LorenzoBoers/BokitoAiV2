@@ -24,8 +24,8 @@ const QUEUE_LABEL_KEYS: Record<SubQueue, string> = {
  * - Default sub-view: which queue a channel or agent folder opens on
  *   (global default + per-folder override, roams via /me/preferences).
  *
- * The former tag vocabulary was superseded by Cases: classification is
- * managed as intake types on `/cases?tab=types`.
+ * The former tag vocabulary was superseded by Signals: classification is
+ * managed as signal types on `/settings/signals`.
  */
 export default function FoldersAndTagsManager() {
   const { t } = useTranslation('nav')
@@ -110,7 +110,7 @@ export default function FoldersAndTagsManager() {
     'h-7 rounded-md border border-border bg-bg-surface px-2 text-xs text-text-primary focus:border-accent/50 focus:outline-none'
 
   return (
-    <Card id="tags" className="overflow-hidden p-0">
+    <Card id="folders" className="overflow-hidden p-0">
       <div className="border-b border-border/60 px-4 py-3">
         <p className="text-sm font-medium text-text-heading">{t('foldersTags.title')}</p>
         <p className="text-xs text-text-secondary">{t('foldersTags.description')}</p>
@@ -171,15 +171,15 @@ export default function FoldersAndTagsManager() {
 
       <div className="px-4 py-3">
         <p className="text-[13px] font-medium text-text-heading">
-          {t('foldersTags.casesTitle', { defaultValue: 'Classification moved to Cases' })}
+          {t('foldersTags.casesTitle', { defaultValue: 'Classification moved to Signals' })}
         </p>
         <p className="text-xs text-text-secondary">
           {t('foldersTags.casesDescription', {
             defaultValue:
               'Free-form tags were replaced by intake types: one catalog that agents and operators classify conversations with.',
           })}{' '}
-          <Link to="/cases?tab=types" className="font-medium text-accent hover:underline">
-            {t('casesPage.openCases', { defaultValue: 'Open Cases' })}
+          <Link to="/settings/signals" className="font-medium text-accent hover:underline">
+            {t('casesPage.openTypes', { defaultValue: 'Open signal types' })}
           </Link>
         </p>
       </div>

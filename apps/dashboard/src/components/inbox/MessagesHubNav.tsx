@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
-  Activity,
   Bot,
   ChevronRight,
   Inbox,
   Plus,
-  Scale,
   Settings,
   Users,
 } from 'lucide-react'
@@ -24,8 +22,6 @@ import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
   inboxPath,
-  activityTerminalPath,
-  decisionsPath,
   leafFromPath,
   leafKey,
   newConversationPath,
@@ -42,7 +38,7 @@ function navLinkClass(isActive: boolean) {
   return cn(
     'nav-row flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
     isActive
-      ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_8px_18px_-14px_rgba(15,23,42,0.4)]'
+      ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-chip-active'
       : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
   )
 }
@@ -342,9 +338,6 @@ type AgentsSectionProps = {
 }
 
 function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: AgentsSectionProps) {
-  const location = useLocation()
-  const activityTerminalActive = location.pathname === '/activity' || location.pathname.startsWith('/activity/')
-  const locationSearch = location.search
   return (
     <div className="space-y-0.5">
       {loading ? (
@@ -367,8 +360,6 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
       ) : null}
       {agents.map((agent) => {
         const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
-        const activityActive =
-          activityTerminalActive && new URLSearchParams(locationSearch).get('agent') === agent.id
         return (
           <SidebarFolder
             key={agent.id}
@@ -383,22 +374,6 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
                 label={t('support.composeToAgent')}
               />
             }
-            extra={
-              <NavLink
-                to={activityTerminalPath(agent.id)}
-                title={t('support.agents.activityHint')}
-                className={() =>
-                  cn(
-                    'nav-row nav-sub-row flex items-center gap-2 rounded-lg border px-3 py-1 text-[12px] font-medium',
-                    activityActive
-                      ? 'border-border/60 bg-bg-hover/85 text-text-heading'
-                      : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
-                  )
-                }
-              >
-                <span className="min-w-0 flex-1 truncate">{t('support.agents.activity')}</span>
-              </NavLink>
-            }
           />
         )
       })}
@@ -409,9 +384,13 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
 /**
  * Communication hub inner rail.
  *
- * Fixed top: New chat + Inbox + Decisions.
+ * Fixed top: New chat + Inbox.
  * Scrollable middle: Agents / Channels (user order).
- * Anchored bottom: Settings.
+ * Anchored bottom: Contacts + Settings.
+ *
+ * Decisions and agent runs are deliberately absent: both live inside the
+ * thread that produced them. Decisions are reachable with the "Needs decision"
+ * list filter on Communication.
  *
  * Personal Bokito helper history stays in the in-app widget only — not listed
  * here as channels.
@@ -492,8 +471,8 @@ export default function MessagesHubNav() {
               cn(
                 'nav-row flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
                 isActive
-                  ? 'border-accent/40 bg-accent/10 text-text-heading'
-                  : 'border-border/60 bg-bg-elevated/70 text-text-primary hover:border-accent/50 hover:bg-bg-hover/70',
+                  ? 'border-accent/35 bg-accent/12 text-accent'
+                  : 'border-border/50 bg-bg-surface text-text-primary shadow-inset-highlight hover:border-accent/40 hover:bg-accent/5',
               )
             }
           >
@@ -540,26 +519,8 @@ export default function MessagesHubNav() {
           />
         </section>
 
-        {/* Decisions sits as its own top-level leaf — human gate, peer to All
-            communication — not nested under inbox status queues. */}
-        <section className="space-y-0.5">
-          <NavLink
-            to={decisionsPath()}
-            title={t('support.decisions.hint')}
-            className={() =>
-              cn(
-                'nav-row flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
-                activeLeaf?.type === 'decisions'
-                  ? 'border-ai/40 bg-ai/12 text-ai-ink'
-                  : 'border-transparent text-ai-ink hover:border-ai/30 hover:bg-ai/10',
-              )
-            }
-          >
-            <Scale size={14} className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
-            <NavCountBadge count={counts.agentsAttention} placement="inline" />
-          </NavLink>
-        </section>
+        {/* No Decisions leaf: a decision is a card in the thread that raised
+            it. Operators find them with the "Needs decision" list filter. */}
 
         {visibleSections.map((section) => {
           const gear = SECTION_GEAR[section]
@@ -584,18 +545,10 @@ export default function MessagesHubNav() {
         })}
       </div>
 
-      {/* Pinned bottom: platform-wide views that are not communication folders. */}
+      {/* Pinned bottom: platform-wide views that are not communication folders.
+          Agent runs and the activity terminal are not listed — agent work shows
+          up in the thread it belongs to. */}
       <div className="mt-2 shrink-0 space-y-0.5 border-t border-border/40 pt-2">
-        <NavLink
-          to={activityTerminalPath()}
-          title={t('support.activity.hint')}
-          className={({ isActive }) =>
-            navLinkClass(isActive && !new URLSearchParams(location.search).get('agent'))
-          }
-        >
-          <Activity size={14} className="shrink-0 text-text-muted" />
-          <span className="min-w-0 flex-1 truncate">{t('support.activity.label')}</span>
-        </NavLink>
         <NavLink
           to="/contacts"
           title={t('support.contacts.hint')}

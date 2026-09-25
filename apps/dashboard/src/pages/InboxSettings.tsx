@@ -14,14 +14,12 @@ import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import SignatureEditor from '../components/inbox/SignatureEditor'
-import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
 import FoldersAndTagsManager from '../components/inbox/FoldersAndTagsManager'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import ChannelList from '../components/inbox/ChannelList'
 import AddChannelDialog from '../components/inbox/AddChannelDialog'
 import { BrandMark } from '../components/integrations/BrandMark'
-import type { RoutingRule } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import {
@@ -32,13 +30,8 @@ import {
 } from '../lib/email-oauth'
 import { cn } from '../lib/utils'
 import {
-  createRoutingRule,
-  deleteRoutingRule,
   getConnectionSignature,
-  listRoutingRules,
   saveConnectionSignature,
-  updateRoutingRule,
-  type RoutingRuleApi,
 } from '../lib/email-api'
 import {
   deleteChannel,
@@ -52,33 +45,6 @@ import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../l
 import { formatAppDateTime } from '../lib/app-locale'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
-
-function mapRuleToComponent(rule: RoutingRuleApi): RoutingRule {
-  return {
-    id: rule.id,
-    mailbox_connection_id: rule.mailbox_id,
-    condition_type: rule.condition_type,
-    condition_value: rule.condition_value,
-    assign_to_user_id: rule.assign_to_user_id,
-    labels: rule.labels,
-    priority: rule.priority,
-    active: rule.is_active,
-    created_at: rule.created_at,
-    updated_at: rule.updated_at,
-  }
-}
-
-function mapRuleToApi(rule: RoutingRule): Omit<RoutingRuleApi, 'id' | 'created_at' | 'updated_at'> {
-  return {
-    mailbox_id: rule.mailbox_connection_id,
-    priority: rule.priority,
-    condition_type: rule.condition_type,
-    condition_value: rule.condition_value,
-    assign_to_user_id: rule.assign_to_user_id,
-    labels: rule.labels,
-    is_active: rule.active,
-  }
-}
 
 function formatLastSync(lastSyncAt: string | null, neverLabel: string, language?: string | null): string {
   if (!lastSyncAt) return neverLabel
@@ -144,8 +110,6 @@ export default function InboxSettings() {
 
   const [signatureTarget, setSignatureTarget] = useState<MailboxTarget | null>(null)
   const [signatureHtml, setSignatureHtml] = useState('')
-  const [routingTarget, setRoutingTarget] = useState<MailboxTarget | null>(null)
-  const [routingRules, setRoutingRules] = useState<RoutingRule[]>([])
   const [folderTarget, setFolderTarget] = useState<MailboxTarget | null>(null)
   const [folders, setFolders] = useState<MailboxFolder[]>([])
   const [foldersLoading, setFoldersLoading] = useState(false)
@@ -338,74 +302,6 @@ export default function InboxSettings() {
     [token, signatureTarget, t],
   )
 
-  const handleRouting = useCallback(
-    async (row: ChannelRow) => {
-      // Canonical routing lives in Inbox automations (Signals InboxRule).
-      // Legacy per-mailbox RoutingRulesManager remains available via hash deep-link
-      // only while dual-write still mirrors EmailRoutingRule → InboxRule.
-      const el = document.getElementById('inbox-automations')
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        toast.message(
-          t('channelsPage.routingUseAutomations', {
-            defaultValue: 'Use Automations below to route messages. Per-mailbox rules still sync there.',
-          }),
-        )
-        return
-      }
-      if (!token) return
-      const target = mailboxTarget(row)
-      if (!target) {
-        toast.error(t('channelsPage.routingLoadError'))
-        return
-      }
-      try {
-        const rows = await listRoutingRules(token, target.connectionId)
-        setRoutingRules(rows.map(mapRuleToComponent))
-        setRoutingTarget(target)
-      } catch (err) {
-        toast.error(formatApiErrorMessage(err, t('channelsPage.routingLoadError')))
-      }
-    },
-    [token, mailboxTarget, t],
-  )
-
-  const handleSaveRoutingRules = useCallback(
-    async (rules: RoutingRule[]) => {
-      if (!token || !routingTarget) return
-      try {
-        const current = await listRoutingRules(token, routingTarget.connectionId)
-        const currentById = new Map(current.map((item) => [item.id, item]))
-        const nextById = new Map(rules.filter((item) => item.id > 0).map((item) => [item.id, item]))
-
-        for (const rule of rules) {
-          if (currentById.has(rule.id)) {
-            await updateRoutingRule(token, rule.id, {
-              priority: rule.priority,
-              condition_type: rule.condition_type,
-              condition_value: rule.condition_value,
-              assign_to_user_id: rule.assign_to_user_id,
-              labels: rule.labels,
-              is_active: rule.active,
-            })
-          } else {
-            await createRoutingRule(token, mapRuleToApi(rule))
-          }
-        }
-        for (const existing of current) {
-          if (!nextById.has(existing.id)) {
-            await deleteRoutingRule(token, existing.id)
-          }
-        }
-        setRoutingTarget(null)
-        toast.success(t('channelsPage.routingSaved'))
-      } catch (err) {
-        toast.error(formatApiErrorMessage(err, t('channelsPage.routingSaveError')))
-      }
-    },
-    [token, routingTarget, t],
-  )
-
   const handleFolders = useCallback(
     async (row: ChannelRow) => {
       if (!token) return
@@ -590,7 +486,6 @@ export default function InboxSettings() {
             onSyncWindowChange={(row, days) => void handleSyncWindowChange(row, days)}
             onFolders={(row) => void handleFolders(row)}
             onSignature={(row) => void handleSignature(row)}
-            onRouting={(row) => void handleRouting(row)}
             onVisibilityChanged={() => void refreshChannels()}
             onAddChannel={() => setAddOpen(true)}
           />
@@ -625,7 +520,7 @@ export default function InboxSettings() {
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[420px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-xl">
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[420px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
             <Dialog.Title className="mb-2 text-lg font-semibold text-text-heading">
               {t('channelsPage.removeTitle')}
             </Dialog.Title>
@@ -662,7 +557,7 @@ export default function InboxSettings() {
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-bg-surface p-5 shadow-xl">
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
             <Dialog.Title className="mb-1 text-base font-semibold text-text-heading">
               {t('channelsPage.foldersTitle')}
             </Dialog.Title>
@@ -735,19 +630,6 @@ export default function InboxSettings() {
           initialSignature={signatureHtml}
           onSave={(signature) => void handleSaveSignature(signature)}
           mailboxEmail={signatureTarget.address}
-        />
-      ) : null}
-
-      {routingTarget ? (
-        <RoutingRulesManager
-          open
-          onOpenChange={(open) => {
-            if (!open) setRoutingTarget(null)
-          }}
-          mailboxId={routingTarget.connectionId}
-          mailboxEmail={routingTarget.address}
-          rules={routingRules}
-          onSaveRules={(rules) => void handleSaveRoutingRules(rules)}
         />
       ) : null}
 

@@ -148,9 +148,6 @@ async def publish_signal_message(
             "message": serialize_message(message, decision=decision),
         },
     )
-    from app.services.push import schedule_notify_thread_message
-
-    schedule_notify_thread_message(signal.id, message.id)
 
 
 async def publish_thread_update(signal: "Signal") -> None:
@@ -253,6 +250,10 @@ async def publish_notification(tenant_id: Any, *, notification_id: Any, kind: st
         "notification",
         {"notification_id": str(notification_id), "kind": kind, "title": title},
     )
+    if kind in ("assignment", "mention"):
+        from app.services.push import schedule_notify_notification
+
+        schedule_notify_notification(notification_id)
 
 
 async def publish_presence(tenant_id: Any, *, user_id: UUID | None, device: str, online: bool) -> None:

@@ -1,24 +1,24 @@
 ---
 title: Zo werkt Agenda
-intro: Alles wat op een klok of een inbound event moet gebeuren, plan je hier, naast gesynchroniseerde kalenderafspraken.
-description: Plan agent-wakes, sync Google- of Outlook-kalenders in dezelfde weekweergave, pauzeer automatiseringen of start ze nu.
-keywords: agenda, planner, automatiseringen, cron, webhook, heartbeat, google calendar, outlook calendar
+intro: Geplande en voorbije trigger-momenten vormen één tijdlijn, met de verantwoordelijke agent of persoon op elk item.
+description: Bekijk de trigger-tijdlijn, plan agent-wakes en toon gekoppelde kalenderafspraken ernaast.
+keywords: agenda, trigger-tijdlijn, schema's, cron, webhook, heartbeat, google calendar, outlook calendar
 sort: 50
 related: agents,projects,communication,agent-runs,integrations,workstreams
 ---
 
 # Zo werkt Agenda
 
-Agenda is wanneer agents wakker worden, en waar gekoppelde kalenders afspraken tonen. Open die om een wake te hangen, Google of Outlook te syncen, een automatisering te pauzeren of te zien wat als volgende afgaat.
+Agenda is de tijdlijn van planningstriggers. Die combineert aankomende momenten met voorbije uitvoeringen en noemt de verantwoordelijke agent of persoon.
 
-## Bekijk de week
+## Bekijk de trigger-tijdlijn
 
 ![Agenda-weekweergave](/api/docs/assets/agenda/week.png)
 *Week toont geplande wakes en kalenderafspraken per dag.*
 
-1. Open **Agenda**. **Week** toont geplande runs, opvolgtaken en kalenderafspraken per dag.
-2. Wissel naar **Lijst** voor dezelfde planning als feed. Filter met **Alles**, **Wakes**, **Opvolging** of **Kalender**.
-3. Vandaag is gemarkeerd zodat je ziet wat als volgende afgaat. Opvolgtaken tonen **Klaar** zodat je menselijk werk kunt afronden zonder de Agenda te verlaten.
+1. Open **Agenda**. **Tijdlijn** toont de vorige zeven dagen en de volgende drie weken.
+2. Elk moment toont status en actor: **Agent** voor een geplande run of **Persoon** voor een menselijk event. Kies een moment om de run, het gesprek, de kalenderafspraak of het schema te openen.
+3. Filter met **Alles**, **Wakes** of **Kalender**. Kies **Week** wanneer een dagrooster handiger is.
 
 ## Sync Google of Outlook Calendar
 
@@ -42,33 +42,13 @@ Agents met kalendertools kunnen aankomende afspraken tonen (met vaste ids) en ni
 
 Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starten nooit.
 
-## Pauzeer of start een automatisering
-
-![Agenda-automatiseringen](/api/docs/assets/agenda/automations.png)
-*Pauzeer, bewerk of start een automatisering nu.*
-
-1. Open **Automatiseringen**. Het paneel toont je triggers (schema's, herhalingen, check-ins, inkomende hooks). Een lege lijst biedt **Automatisering maken**. Een lege weekdag biedt **Plannen**. Het typefilter blijft in de URL als `kind`.
-2. **Pauzeer**, bewerk, of **Nu uitvoeren**.
-3. Een trigger kan een agent of een [werkstroom](/docs/ai/workstreams) als doel hebben; een werkstroom-trigger start een volledige run met de trigger-payload als input. Gebruik **Open Werkstromen** om de werkstromen zelf te beheren.
-4. Heartbeats checken workspace-docs op een timer. On-demand chatruns horen in Activiteit, niet hier.
-
-Als de gekoppelde agent is gearchiveerd, faalt de wake tot je een andere agent kiest.
-
-## Rond een menselijke opvolging af
-
-1. Open **Agenda** en filter op **Opvolging**, of blijf op **Alles**.
-2. Klik op een opvolgchip om het gekoppelde gesprek in Berichten te openen, of kies **Klaar** om die af te ronden.
-3. Dezelfde open opvolging staat ook onder **Opvolging** in het zijpaneel van het gesprek, met dezelfde **Klaar**-knop.
-
-Opvolging is een `AgentTask` op de werk-ledger (vaak toegewezen aan een persoon). Dat zijn geen agent-wakes — wakes blijven onder **Wakes**.
-
 ## Laat agents hun eigen opvolging plannen
 
 Agents kunnen zelf werk plannen: vraag in een gesprek aan een agent om "dit vrijdag opnieuw te checken" of "het team te herinneren aan het voorstel".
 
-1. De agent gebruikt zijn planningstools om een wake te maken (eenmalig, cron, of elke N minuten) voor zichzelf of een collega-agent, of om een taak voor later te plannen — ook taken toegewezen aan een persoon.
+1. De agent gebruikt zijn planningstools om een wake te maken (eenmalig, cron, of elke N minuten) voor zichzelf of een collega-agent.
 2. Afhankelijk van je [autonomie-houding](/docs/govern/autonomy) wordt de planning direct gemaakt of verschijnt die eerst als beslissingskaart in Berichten ter goedkeuring.
-3. Goedgekeurde wakes verschijnen op de Agenda als elke andere planning; geplande taken worden wakker op het ingestelde moment. Een taak voor een persoon verschijnt als notificatie zodra die actueel is.
+3. Goedgekeurde wakes verschijnen op de Agenda-tijdlijn. Gespreksopvolging blijft in het gesprek en de werk-ledger; Agenda is daar geen inbox voor.
 
 ## Wat daarna
 

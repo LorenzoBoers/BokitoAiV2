@@ -7,6 +7,8 @@ from sqlalchemy import select
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
+from app.models.case import CaseType
+from app.models.orchestra import Workstream
 from app.services.audit import search_audit
 from app.tools import execute_tool
 from app.tools.policy import resolve_tool_mode, tenant_allowances
@@ -37,6 +39,29 @@ async def test_passports_endpoint_lists_agents(client: AsyncClient, session_over
     assistant = next(a for a in items if a["role"] == "assistant")
     assert assistant["autonomy_level"] == "approval"
     assert assistant["allowed_tools"] == []  # empty = all default tools
+
+
+@pytest.mark.asyncio
+async def test_autonomy_scopes_list_and_update(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    case_type = CaseType(tenant_id=tenant.id, slug="support", name="Support")
+    workstream = Workstream(tenant_id=tenant.id, name="Resolve support")
+    session_override.add_all([case_type, workstream])
+    await session_override.commit()
+
+    listed = await client.get("/api/govern/autonomy-scopes", headers=headers)
+    assert listed.status_code == 200
+    assert any(row["id"] == str(case_type.id) for row in listed.json()["case_types"])
+    assert any(row["id"] == str(workstream.id) for row in listed.json()["workstreams"])
+
+    updated = await client.patch(
+        f"/api/govern/autonomy-scopes/case_type/{case_type.id}",
+        headers=headers,
+        json={"autonomy_level": "auto"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["autonomy_level"] == "auto"
 
 
 @pytest.mark.asyncio

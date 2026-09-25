@@ -1,14 +1,11 @@
 import { casesRoutes } from '../api/routes'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
-export type CaseStatus =
-  | 'proposed'
-  | 'open'
-  | 'waiting_customer'
-  | 'waiting_operator'
-  | 'linked'
-  | 'closed'
-  | 'cancelled'
+/**
+ * `proposed` sits before the lifecycle: an unsure read the operator still has to
+ * accept on the thread. Accepted work moves through open -> waiting -> done.
+ */
+export type CaseStatus = 'proposed' | 'open' | 'waiting' | 'done'
 
 export type CaseCreateMode = 'ask_customer' | 'ask_operator' | 'auto' | 'manual_only'
 
@@ -22,10 +19,11 @@ export type CaseTypeRow = {
   description: string
   create_mode: CaseCreateMode
   follow_up_mode: CaseFollowUpMode
-  follow_up_task?: boolean
   ask_threshold: number
   auto_threshold: number
   requires_verification: boolean
+  /** Project every case of this type lands in when the thread has none. */
+  default_project_id: string | null
   allow_project_link: 'never' | 'optional' | 'required'
   audience: 'customer' | 'internal' | 'both'
   enabled: boolean
@@ -54,6 +52,7 @@ export type CaseRow = {
   project_id: string | null
   workstream_id: string | null
   workstream_run_id: string | null
+  current_step_name: string | null
   title: string
   summary: string
   status: CaseStatus
@@ -63,8 +62,6 @@ export type CaseRow = {
   /** Thread subject, only present on hub list responses. */
   signal_subject?: string
 }
-
-export type CaseStats = Record<CaseStatus, number>
 
 export type DeleteCaseTypeResult = {
   ok: boolean
@@ -93,11 +90,6 @@ export async function listCases(opts?: {
   const path = params.size > 0 ? casesRoutes.listQuery(params) : casesRoutes.list
   const res = await apiGet<{ items: CaseRow[] }>(path)
   return res.items ?? []
-}
-
-export async function getCaseStats(): Promise<CaseStats> {
-  const res = await apiGet<{ counts: CaseStats }>(casesRoutes.stats)
-  return res.counts
 }
 
 export async function getCase(caseId: string): Promise<CaseRow> {
@@ -129,10 +121,10 @@ export async function createCaseType(body: {
   description?: string
   create_mode?: CaseCreateMode
   follow_up_mode?: CaseFollowUpMode
-  follow_up_task?: boolean
   ask_threshold?: number
   auto_threshold?: number
   requires_verification?: boolean
+  default_project_id?: string | null
   audience?: CaseTypeRow['audience']
 }): Promise<CaseTypeRow> {
   return apiPost<CaseTypeRow>(casesRoutes.types, body)
@@ -147,11 +139,11 @@ export async function patchCaseType(
       | 'description'
       | 'create_mode'
       | 'follow_up_mode'
-      | 'follow_up_task'
       | 'enabled'
       | 'ask_threshold'
       | 'auto_threshold'
       | 'requires_verification'
+      | 'default_project_id'
       | 'audience'
     >
   >,
@@ -160,7 +152,8 @@ export async function patchCaseType(
 }
 
 export async function deleteCaseType(typeId: string): Promise<DeleteCaseTypeResult> {
-  return apiDelete<DeleteCaseTypeResult>(casesRoutes.typeById(typeId))
+  const res = await apiDelete<DeleteCaseTypeResult>(casesRoutes.typeById(typeId))
+  return res || { ok: true, archived: false, cases: 0 }
 }
 
 export async function listCaseBindings(opts?: {
@@ -190,6 +183,58 @@ export async function createCaseBinding(body: {
 
 export async function deleteCaseBinding(bindingId: string): Promise<void> {
   await apiDelete(casesRoutes.bindingById(bindingId))
+}
+
+/** Who may accept a proposed signal on a thread. */
+export type SignalAcceptRoles = 'admins' | 'members'
+
+export type SignalPolicy = {
+  accept_roles: SignalAcceptRoles
+  backlog_threshold: number
+  may_accept: boolean
+}
+
+/** A pattern interpretation keeps seeing that no type covers yet. */
+export type SignalBacklogEntry = {
+  key: string
+  name: string
+  sentence: string
+  examples: string[]
+  count: number
+  first_seen: string | null
+  last_seen: string | null
+  /** Seen at least `backlog_threshold` times — ready to become a type. */
+  ready: boolean
+}
+
+export async function getSignalPolicy(): Promise<SignalPolicy> {
+  return apiGet<SignalPolicy>(casesRoutes.policy)
+}
+
+export async function saveSignalPolicy(body: {
+  accept_roles?: SignalAcceptRoles
+  backlog_threshold?: number
+}): Promise<SignalPolicy> {
+  return apiPut<SignalPolicy>(casesRoutes.policy, body)
+}
+
+export async function listSignalBacklog(): Promise<{
+  items: SignalBacklogEntry[]
+  threshold: number
+}> {
+  const res = await apiGet<{ items: SignalBacklogEntry[]; threshold: number }>(casesRoutes.backlog)
+  return { items: res.items ?? [], threshold: res.threshold ?? 3 }
+}
+
+export async function promoteSignalBacklog(
+  key: string,
+  body?: { name?: string; description?: string; follow_up_mode?: CaseFollowUpMode },
+): Promise<CaseTypeRow> {
+  return apiPost<CaseTypeRow>(casesRoutes.backlogPromote(key), body ?? {})
+}
+
+export async function dismissSignalBacklog(key: string): Promise<void> {
+  await apiDelete(casesRoutes.backlogEntry(key))
 }
 
 export async function listCasesForSignal(signalId: string): Promise<CaseRow[]> {

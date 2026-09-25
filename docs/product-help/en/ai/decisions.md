@@ -1,7 +1,7 @@
 ---
 title: Approve and decline decisions
-intro: Agents ask inside the thread when a step needs your judgment. Every open approval shares one Decisions leaf.
-description: Approve, edit or decline decision cards in the thread, from the Decisions queue, Cockpit, or a notification.
+intro: Agents ask inside the thread when a step needs your judgment. Every open approval stays on the conversation that raised it.
+description: Approve, edit or decline decision cards in the thread, from the Needs decision filter, Cockpit, or a notification.
 keywords: decisions, approvals, decision requests, notifications, human in the loop
 sort: 20
 related: communication,agent-runs,autonomy,govern
@@ -9,16 +9,16 @@ related: communication,agent-runs,autonomy,govern
 
 # Approve and decline decisions
 
-A decision request is a message in the thread. Communication has one top-level **Decisions** row that lists every thread with an open card — customer and internal together. You still act on the card inside the thread.
+A decision request is a message in the thread, and that is the only place you answer it. There is no separate Decisions inbox: to see every conversation with an open card — customer and internal together — open **Filters** on the Communication list and choose **Needs decision**.
 
-Automated mail (receipts, newsletters, no-reply senders) does not fill Decisions. The agent notes those quietly on the thread. If tip cards piled up from earlier mail, open [Agents](/docs/ai/agents) and use **Clear tip cards**.
+Automated mail (receipts, newsletters, no-reply senders) does not raise decisions. The agent notes those quietly on the thread. If tip cards piled up from earlier mail, open [Agents](/docs/ai/agents) and use **Clear tip cards**.
 
 ## Find a waiting decision
 
 ![A waiting decision in the thread](/api/docs/assets/decisions/approve.png)
-*Open the thread from Decisions, Cockpit, or a notification.*
+*Open the thread from the Needs decision filter, Cockpit, or a notification.*
 
-1. Open **Communication** → **Decisions**, or open Cockpit **Awaiting decision** / **Needs attention**. Both land on the same list.
+1. Open **Communication**, then **Filters** → **Needs decision**, or open Cockpit **Awaiting decision** / **Needs attention**. Both land on the same list. A **Needs decision** badge marks the rows.
 2. Select a thread and scroll to the decision card. It shows the proposed action and why the agent stopped.
 3. The bell menu in the top bar points at the same card.
 

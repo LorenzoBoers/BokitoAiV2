@@ -44,19 +44,6 @@ export function isSendableMailbox(item: EmailConnection): boolean {
   return item.status === 'active' || item.status === 'connected'
 }
 
-export type RoutingRuleApi = {
-  id: number
-  mailbox_id: number
-  priority: number
-  condition_type: 'sender_domain' | 'subject_contains' | 'mailbox'
-  condition_value: string
-  assign_to_user_id: number | null
-  labels: string[]
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
 export type MailboxAiMode = 'suggest' | 'auto' | 'off'
 
 /** '' = follow the workspace default; 'auto' mirrors the customer's language. */
@@ -301,52 +288,6 @@ export async function getConnectionSignature(token: string, connectionId: number
 
 export async function saveConnectionSignature(token: string, connectionId: number, signatureHtml: string): Promise<void> {
   await apiPut(integrationsRoutes.email.connections.signature(connectionId), { signature_html: signatureHtml }, token)
-}
-
-export async function listRoutingRules(token: string, mailboxId: number): Promise<RoutingRuleApi[]> {
-  const payload = await apiGet<unknown>(integrationsRoutes.email.routingRules.withMailbox(mailboxId), token)
-  const source = Array.isArray(payload)
-    ? payload
-    : payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
-      ? (payload as { items: unknown[] }).items
-      : []
-  return source
-    .map((row) => {
-      if (!row || typeof row !== 'object') return null
-      const raw = row as Record<string, unknown>
-      return {
-        id: asNumber(raw.id),
-        mailbox_id: asNumber(raw.mailbox_id),
-        priority: asNumber(raw.priority, 100),
-        condition_type: asString(raw.condition_type) as RoutingRuleApi['condition_type'],
-        condition_value: asString(raw.condition_value),
-        assign_to_user_id: raw.assign_to_user_id == null ? null : asNumber(raw.assign_to_user_id),
-        labels: Array.isArray(raw.labels) ? raw.labels.filter((label): label is string => typeof label === 'string') : [],
-        is_active: Boolean(raw.is_active),
-        created_at: asString(raw.created_at),
-        updated_at: asString(raw.updated_at),
-      } satisfies RoutingRuleApi
-    })
-    .filter((item): item is RoutingRuleApi => item !== null)
-}
-
-export async function createRoutingRule(
-  token: string,
-  payload: Omit<RoutingRuleApi, 'id' | 'created_at' | 'updated_at'>,
-): Promise<void> {
-  await apiPost(integrationsRoutes.email.routingRules.base, payload, token)
-}
-
-export async function updateRoutingRule(
-  token: string,
-  ruleId: number,
-  payload: Partial<Omit<RoutingRuleApi, 'id' | 'mailbox_id' | 'created_at' | 'updated_at'>>,
-): Promise<void> {
-  await apiPatch(integrationsRoutes.email.routingRules.byId(ruleId), payload, token)
-}
-
-export async function deleteRoutingRule(token: string, ruleId: number): Promise<void> {
-  await apiDelete(integrationsRoutes.email.routingRules.byId(ruleId), token)
 }
 
 const MAILBOX_REPLY_LANGUAGES: MailboxReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']

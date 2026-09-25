@@ -1,3 +1,10 @@
+"""Custom table builder models.
+
+DEAD CODE — the router that served these is no longer mounted. The tables stay
+so existing tenant rows survive until they are migrated onto Contact, Project,
+or typed signal fields; nothing in the product reads them.
+"""
+
 import uuid
 from datetime import datetime
 from typing import Optional

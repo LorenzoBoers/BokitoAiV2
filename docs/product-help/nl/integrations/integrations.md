@@ -9,7 +9,7 @@ related: mcp,models,channels,govern,cases
 
 # Integraties koppelen
 
-Integraties zijn partnerlogins. Een **module** is een preset (Boekhouding) die alleen partners uit de catalogus mag gebruiken. De **Koppelingen**-hub in de zijbalk op `/connections` toont wat geïnstalleerd is: modulekaarten met de logo's van de programma's waarop ze draaien, daarna partnerlogins, daarna custom MCP-servers. **Marketplace** is de ontdek-tab, gesplitst in **Modules** en **Integraties**. Geïnstalleerde modules verschijnen ook als eigen groep in de zijbalk (bijvoorbeeld Boekhouding). Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
+Integraties zijn partnerlogins. Een **module** is één pakket met Signaaltypen, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. De **Koppelingen**-hub in de zijbalk op `/connections` toont geïnstalleerde modulekaarten, partnerlogins en custom MCP-servers. **Marketplace** is de ontdek-tab, gesplitst in **Modules** en **Integraties**. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
 
 ## Zie wat gekoppeld is
 
@@ -38,14 +38,14 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 3. Wijs **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
 4. Bekijk **Wat agents kunnen doen**: elke module-actie toont een korte beschrijving, het universele pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is. Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de exacte MCP-toolnamen van die servers.
 5. Onder **Koppelingen** kies je **Nieuwe registratie** om in één stap te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** voor een login die al op Koppelingen staat. Geplande pakketten (Exact Online, SnelStart) blijven grijs.
-6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Setup afronden**. Status wordt **Geïnstalleerd** en de module verschijnt in de zijbalkgroep **Modules** (zelfde URL).
+6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Setup afronden**. Status wordt **Geïnstalleerd**. Signaaltypen en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
 
 ## Koppel een optionele boekhoudintegratie
 
 ![Module-home](/api/docs/assets/integrations/module-home.png)
 *Modulepagina toont registraties, bronnen en AI-setup op één oppervlak.*
 
-1. Open **Boekhouding** vanuit de zijbalkgroep **Modules**, of via de kaart op **Koppelingen**. De lijst toont alleen attached registraties, niet elke Moneybird-login in de workspace.
+1. Open **Boekhouding** via de kaart op **Koppelingen**. De lijst toont alleen attached registraties, niet elke Moneybird-login in de workspace.
 2. Kies **Nieuwe registratie** om vanuit de module te koppelen (die login wordt automatisch attached), of **Deze koppeling gebruiken** voor een login die al op Koppelingen staat.
 3. Rond setup af met echte credentials (OAuth voor Moneybird, partner key plus administraties voor KING, client id/secret voor Bjorn Lunden). Alleen een willekeurige naam maakt geen werkende koppeling.
 4. Elke rij toont status (**Geverifieerd**, **Credentials nodig**, **Niet geverifieerd** of **Fout**), optionele provider-identiteit, en acties: **Verifiëren**, **Uit module halen** (de login blijft op Koppelingen), **Ontkoppelen**, **Hernoemen** en **Als standaard** (alleen als geverifieerd).
@@ -55,7 +55,7 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 
 ## Stuur boekhoudschrijfacties en agent-toegang
 
-1. Open de Boekhouding-werkplek vanuit de zijbalkgroep **Modules**. De schrijfbanner toont **Schrijven uit — alleen ophalen** of **Schrijven aan — goedgekeurde beslissingen worden uitgevoerd**.
+1. Open Boekhouding vanuit **Koppelingen**. De schrijfbanner toont **Schrijven uit — alleen ophalen** of **Schrijven aan — goedgekeurde beslissingen worden uitgevoerd**.
 2. Gebruik als owner of admin **Schrijven toestaan in deze workspace** om goedgekeurde beslissingen naar het pakket te laten schrijven. Schrijven blijft uit zolang de platformschakelaar ook uit staat, dus goedkeuringen ronden altijd veilig af.
 3. Open op de tab **Setup** van de module het toegangspaneel achter het instellingen-icoon bij een toegewezen agent. Zet **Schrijftoegang** aan zodat die agent boekhoudschrijfacties mag voorstellen; agents zonder deze vlag krijgen alleen leestools.
 4. Kies onder **Administratie-scope** de administraties die de agent mag benaderen. Geen selectie betekent toegang tot alle administraties.
@@ -63,9 +63,9 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 
 ## Installeer een werkstroom-sjabloon
 
-Modules leveren voorgebouwde werkstromen mee — bijvoorbeeld **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding, **Bankreconciliatie** op Bankieren.
+Modules leveren één cataloguspakket met Signaaltypen, voorgebouwde draaiboeken en optioneel een Project. Voorbeelden zijn **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding en **Bankreconciliatie** op Bankieren.
 
-1. Open de modulepagina vanuit de rail-groep **Modules**. Als de module aan staat, toont het paneel **Werkstroom-sjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
+1. Open de modulepagina vanuit **Koppelingen**. Als de module aan staat, toont het paneel **Werkstroom-sjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
 2. Een sjabloon dat nog niet kan draaien, laat zien waarom (moduleverbinding ontbreekt, vereiste agentrol niet toegewezen). Los eerst die vereiste op.
 3. Kies **Installeren**. De werkstroom wordt naar je workspace gekopieerd — jij bent eigenaar en mag de kopie bewerken. **Open werkstroom** brengt je ernaartoe onder [Werkstromen](/docs/ai/workstreams).
 4. Voor elke run van een geïnstalleerd sjabloon controleert Bokito de vereisten opnieuw; een kapotte vereiste pauzeert de run met een beslissing in plaats van stil te falen.

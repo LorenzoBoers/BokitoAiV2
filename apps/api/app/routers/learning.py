@@ -1,8 +1,8 @@
 """LEARNING endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +25,8 @@ class FeedbackBody(BaseModel):
     score: int | None = Field(default=None, ge=1, le=5)
     sentiment: str | None = None
     comment: str = ""
+    correction_key: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.post("/feedback")
@@ -42,8 +44,86 @@ async def create_feedback(
         score=body.score,
         sentiment=body.sentiment,
         comment=body.comment,
+        correction_key=body.correction_key,
+        metadata=body.metadata,
     )
     return {"id": str(row.id), "processed": row.processed}
+
+
+class ModulePackageBody(BaseModel):
+    slug: str
+    name: str
+    manifest: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/modules/save")
+async def save_as_module(
+    body: ModulePackageBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Pragmatic module package: versioned manifest stored as internal knowledge."""
+    import json
+    import re
+
+    from app.services.workspace import get_doc_by_path, upsert_doc
+
+    auth.require_role("owner", "admin")
+    slug = re.sub(r"[^a-z0-9-]+", "-", body.slug.lower()).strip("-")
+    if not slug:
+        raise HTTPException(status_code=400, detail="slug is required")
+    path = f"modules/{slug}.md"
+    existing = await get_doc_by_path(session, auth.tenant.id, path)
+    previous = existing.content if existing else ""
+    content = f"# {body.name}\n\n```json\n{json.dumps(body.manifest, indent=2, sort_keys=True)}\n```"
+    doc = await upsert_doc(
+        session,
+        auth.tenant.id,
+        path=path,
+        content=content,
+        kind="doc",
+        internal=True,
+        created_by_type="user",
+        created_by_id=str(auth.user.id),
+    )
+    return {
+        "slug": slug,
+        "doc_id": str(doc.id),
+        "created": existing is None,
+        "changed": previous != content,
+    }
+
+
+@router.post("/modules/{slug}/diff")
+async def diff_module_package(
+    slug: str,
+    body: ModulePackageBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Return a compact manifest diff; applying remains an explicit save."""
+    import json
+
+    from app.services.workspace import get_doc_by_path
+
+    doc = await get_doc_by_path(session, auth.tenant.id, f"modules/{slug}.md")
+    current: dict[str, Any] = {}
+    if doc:
+        fenced = doc.content.split("```json", 1)
+        if len(fenced) == 2:
+            try:
+                current = json.loads(fenced[1].split("```", 1)[0])
+            except (json.JSONDecodeError, IndexError):
+                current = {}
+    keys = sorted(set(current) | set(body.manifest))
+    return {
+        "slug": slug,
+        "changes": [
+            {"key": key, "before": current.get(key), "after": body.manifest.get(key)}
+            for key in keys
+            if current.get(key) != body.manifest.get(key)
+        ],
+    }
 
 
 @router.post("/process")

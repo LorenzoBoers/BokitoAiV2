@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.services.cockpit import activity_timeline, cockpit_summary, usage_breakdown
+from app.services.cockpit import (
+    activity_timeline,
+    autonomy_trajectory,
+    cockpit_summary,
+    usage_breakdown,
+)
 from app.services.spend_guard import get_spend_config, get_spend_status, update_spend_config
 
 router = APIRouter(prefix="/cockpit", tags=["cockpit"])
@@ -38,6 +43,15 @@ async def usage(
     days: int = Query(30, ge=1, le=365),
 ):
     return await usage_breakdown(session, auth.tenant.id, days=days)
+
+
+@router.get("/trajectory")
+async def trajectory(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    days: int = Query(90, ge=7, le=365),
+):
+    return await autonomy_trajectory(session, auth.tenant.id, days=days)
 
 
 class BudgetBody(BaseModel):

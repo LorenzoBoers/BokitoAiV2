@@ -21,6 +21,9 @@ export const governRoutes = {
   allowances: '/govern/allowances',
   toolOverrides: '/govern/tool-overrides',
   posture: '/govern/posture',
+  autonomyScopes: '/govern/autonomy-scopes',
+  autonomyScope: (kind: string, id: string) =>
+    `/govern/autonomy-scopes/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,
   tokens: '/govern/tokens',
   token: (tokenId: string) => `/govern/tokens/${encodeURIComponent(tokenId)}`,
 }

@@ -34,40 +34,7 @@ export const appRoutes = {
     threads: '/assistant/threads',
   },
   mailStatus: '/mail-status',
-  customTables: {
-    list: '/custom-tables',
-    byId: (id: number) => `/custom-tables/${id}`,
-    fields: (tableId: number) => `/custom-tables/${tableId}/fields`,
-    records: (tableId: number) => `/custom-tables/${tableId}/records`,
-    search: (tableId: number) => `/custom-tables/${tableId}/search`,
-    views: (tableId: number) => `/custom-tables/${tableId}/views`,
-    importCsv: (tableId: number) => `/custom-tables/${tableId}/import/csv`,
-    export: (tableId: number) => `/custom-tables/${tableId}/export`,
-  },
-  customFields: {
-    byId: (fieldId: number) => `/custom-fields/${fieldId}`,
-  },
-  customRecords: {
-    byId: (recordId: number) => `/custom-records/${recordId}`,
-    softDelete: (recordId: number) => `/custom-records/${recordId}/soft-delete`,
-    restore: (recordId: number) => `/custom-records/${recordId}/restore`,
-    duplicate: (recordId: number) => `/custom-records/${recordId}/duplicate`,
-    bulk: '/custom-records/bulk',
-    bulkSoftDelete: '/custom-records/bulk-soft-delete',
-    bulkRestore: '/custom-records/bulk-restore',
-    activity: (recordId: number) => `/custom-records/${recordId}/activity`,
-    comments: (recordId: number) => `/custom-records/${recordId}/comments`,
-  },
-  customViews: {
-    byId: (viewId: number) => `/custom-views/${viewId}`,
-  },
-  recordComments: {
-    byId: (commentId: number) => `/record-comments/${commentId}`,
-  },
-  standardTables: {
-    create: '/standard-tables/create',
-    list: '/standard-tables',
-  },
+  // The custom-table builder routes are gone: that router is no longer mounted.
   workspaceUsers: {
     list: '/workspace-users',
   },
@@ -107,8 +74,6 @@ export const appRoutes = {
       `/signals/${threadId}/messages/${messageId}/resolve`,
     pins: '/signals/pins',
     members: '/signals/members',
-    tags: '/signals/tags',
-    tag: (tag: string) => `/signals/tags/${encodeURIComponent(tag)}`,
     badgeCounts: '/signals/badge-counts',
     dismissNoReplySuggestions: '/signals/dismiss-no-reply-suggestions',
     bulk: '/signals/bulk',

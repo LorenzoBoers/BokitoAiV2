@@ -60,7 +60,12 @@
     /*
      * Elevation tokens (exposed as shadow-card / shadow-card-hover / shadow-overlay).
      * Cards get one soft diffuse shadow + hairline inset highlight; overlays go deeper.
+     * --shadow-inset-highlight / --shadow-chip-active are for inputs, tabs, active chips.
      */
+    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    --shadow-chip-active:
+      0 1px 0 rgba(255, 255, 255, 0.08) inset,
+      0 8px 18px -14px rgba(0, 0, 0, 0.45);
     --shadow-card:
       0 1px 0 rgba(255, 255, 255, 0.03) inset,
       0 10px 24px -18px rgba(0, 0, 0, 0.5);
@@ -73,25 +78,30 @@
   :root[data-theme='light'] {
     color-scheme: light;
     /*
-     * Light theme: clean near-white base (hue 225 kept, saturation dialed down).
-     * White cards separate from the canvas through layered soft shadows rather
-     * than gray fills or heavy borders.
+     * Light theme — simple paper system (matches dark ladder, fewer steps).
+     * One cool gray canvas; white is reserved for cards / main sheets.
+     * Depth = one soft shadow + border/60 — not multi-layer glow stacks.
+     *
+     *   bg / sidebar / canvas   #F4F6F9   shared page chrome
+     *   bg-surface              #FFFFFF   cards, dialogs, main panels
+     *   bg-elevated / input     #F1F4F8   inset controls, chips
+     *   bg-hover                #E8ECF2
      */
-    --color-bg: 247 249 252;
-    --color-bg-root: 247 249 252;
-    --color-bg-sidebar: 244 246 250;
-    --color-bg-canvas: 252 253 255;
+    --color-bg: 244 246 249;
+    --color-bg-root: 244 246 249;
+    --color-bg-sidebar: 244 246 249;
+    --color-bg-canvas: 244 246 249;
     --color-bg-surface: 255 255 255;
-    --color-bg-elevated: 248 250 253;
-    --color-bg-hover: 241 244 250;
+    --color-bg-elevated: 241 244 248;
+    --color-bg-hover: 232 236 242;
     --color-bg-input: 255 255 255;
-    --color-border: 228 233 242;
-    --color-border-light: 208 216 230;
+    --color-border: 220 225 234;
+    --color-border-light: 205 212 224;
     --color-border-focus: 13 148 136;
-    --color-text-primary: 35 47 74;
-    --color-text-secondary: 95 108 138;
-    --color-text-muted: 122 136 165;
-    --color-text-heading: 17 24 39;
+    --color-text-primary: 30 41 59;
+    --color-text-secondary: 100 116 139;
+    --color-text-muted: 128 140 160;
+    --color-text-heading: 15 23 42;
     --color-accent: 13 148 136;
     --color-accent-hover: 11 127 117;
     --color-accent-dark: 9 107 99;
@@ -101,23 +111,29 @@
     --color-ai-ink: 76 29 149;
     --color-ai-fg: 255 255 255;
     --shadow-btn:
-      0 1px 0 rgba(255, 255, 255, 0.9) inset,
-      0 1px 2px rgba(16, 24, 40, 0.08),
-      0 6px 14px -4px rgba(16, 24, 40, 0.18);
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 1px 2px rgba(15, 23, 42, 0.06);
     --color-status-success: 22 163 113;
     --color-status-warning: 217 119 6;
     --color-status-error: 220 38 38;
     --color-status-info: 37 99 235;
-    --body-bg: #f7f9fc;
-    --body-glow-top: rgba(13, 148, 136, 0.07);
-    --body-glow-bottom: rgba(13, 148, 136, 0.03);
+    --body-bg: #f4f6f9;
+    --body-glow-top: rgba(13, 148, 136, 0.045);
+    --body-glow-bottom: rgba(13, 148, 136, 0.02);
+    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+    --shadow-chip-active:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 1px 2px rgba(15, 23, 42, 0.05);
+    /* One soft elevation — recognizable and easy to reuse. */
     --shadow-card:
-      0 1px 2px rgba(16, 24, 40, 0.04),
-      0 4px 12px -4px rgba(16, 24, 40, 0.06);
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 2px 8px -2px rgba(15, 23, 42, 0.06);
     --shadow-card-hover:
-      0 2px 4px rgba(16, 24, 40, 0.05),
-      0 12px 24px -8px rgba(16, 24, 40, 0.1);
-    --shadow-overlay: 0 24px 60px -20px rgba(16, 24, 40, 0.25);
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 8px 20px -6px rgba(15, 23, 42, 0.1);
+    --shadow-overlay:
+      0 4px 16px rgba(15, 23, 42, 0.08),
+      0 16px 40px -12px rgba(15, 23, 42, 0.16);
   }
 
   * {
@@ -176,12 +192,19 @@
 @layer components {
   /*
    * THE card recipe. Solid surface, one border weight, one radius, one shadow.
-   * Radius nesting rule: shell panel 2xl (16) > cards xl (12) > inner panels /
+   * Use `.panel` or `<Card>` — do not hand-roll shadows/borders for new UI.
+   * Radius nesting: shell panel 2xl (16) > cards xl (12) > inner panels /
    * inputs lg (8) > chips md (6) > pills full. Children always one step
    * smaller than their parent.
    */
   .panel {
-    @apply bg-bg-surface border border-border/60 rounded-xl shadow-card;
+    @apply bg-bg-surface border border-border/60 rounded-xl;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Flat inset region inside a panel (filters, sublists) — no second shadow. */
+  .panel-inset {
+    @apply rounded-lg border border-border/40 bg-bg-elevated;
   }
 
   /* Blinking caret at the end of a streaming AI reply. */
@@ -226,7 +249,7 @@
       border-color 150ms ease;
   }
   .hover-lift:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: var(--shadow-card-hover);
   }
 
@@ -346,6 +369,12 @@
   .btn-elevated {
     box-shadow: var(--shadow-btn);
   }
+  .shadow-inset-highlight {
+    box-shadow: var(--shadow-inset-highlight);
+  }
+  .shadow-chip-active {
+    box-shadow: var(--shadow-chip-active);
+  }
   @keyframes ai-glow {
     0%,
     100% {
@@ -438,26 +467,24 @@
   }
 
   .featurebase-shell-panel {
-    @apply rounded-2xl border border-border/60 shadow-[0_22px_56px_-34px_rgba(4,8,20,0.6)];
-    background-color: rgb(var(--color-bg-canvas));
+    @apply rounded-2xl border border-border/60;
+    background-color: rgb(var(--color-bg-surface));
+    box-shadow: var(--shadow-card);
   }
 
-  :root[data-theme='light'] .featurebase-shell-panel {
-    border-color: rgb(var(--color-border) / 0.6);
-    background-color: rgb(var(--color-bg-surface));
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.95) inset,
-      0 28px 50px -34px rgba(15, 23, 42, 0.18),
-      0 8px 18px -14px rgba(30, 41, 59, 0.14);
+  :root[data-theme='dark'] .featurebase-shell-panel {
+    background-color: rgb(var(--color-bg-canvas));
+    box-shadow: 0 22px 56px -34px rgba(4, 8, 20, 0.6);
   }
 
   :root[data-theme='light'] .featurebase-main {
-    background: linear-gradient(
-      180deg,
-      rgba(248, 251, 255, 0.92) 0%,
-      rgba(244, 248, 253, 0.8) 44%,
-      rgba(242, 246, 252, 0.45) 100%
-    );
+    background: transparent;
+  }
+
+  :root[data-theme='light'] .app-atmosphere {
+    background-image:
+      radial-gradient(900px 420px at 12% -8%, var(--body-glow-top), transparent 62%),
+      radial-gradient(720px 380px at 100% 110%, var(--body-glow-bottom), transparent 55%);
   }
 
   .attention-glow {

@@ -13,7 +13,7 @@ Bokito exposes four developer surfaces. All of them are governed by the same ten
 
 | Surface | Use it to | Guide |
 | --- | --- | --- |
-| REST API v1 | Read signals and push external events into the inbox | [Signals API](/docs/developers/api-signals) |
+| REST API v1 | Read conversations and push external signals into Communication | [Signals API](/docs/developers/api-signals) |
 | Webhooks | Get notified when signals or decisions change | [Webhooks](/docs/developers/webhooks) |
 | MCP endpoint | Call workspace tools from MCP clients like Cursor | [MCP endpoint](/docs/developers/mcp-endpoint) |
 | Chat widget | Embed Bokito chat on your own site | [Widget embed](/docs/developers/widget-embed) |
@@ -40,6 +40,8 @@ Scopes restrict what a token may do. Details in [Authentication](/docs/developer
 
 ## Design notes
 
-- The REST surface is intentionally small: signals in, signals out. Most richer behavior (running tools, querying knowledge) goes through the MCP endpoint, which exposes the same governed tools internal agents use.
+- Bokito's seven public objects are Conversation, Signal, Playbook, Project, Contact, Agent and Decision. Conversation/Signal REST is the first stable v1 resource; existing authenticated routers cover Playbooks, Projects, Contacts, Agents and Decisions for the dashboard.
+- Webhooks publish lifecycle events, and the MCP endpoint exposes governed actions around the same objects. It is the preferred integration surface for richer behavior instead of duplicating a large REST API.
+- LLM usage is metered by model, agent and initiating user. Run metadata also attributes usage to Signal Type and Playbook run when that context is known. Workspace membership is the seat boundary.
 - Everything is tenant-scoped by the token. There is no cross-tenant access.
 - Rate limits apply per client IP; see [Rate limits](/docs/developers/rate-limits).

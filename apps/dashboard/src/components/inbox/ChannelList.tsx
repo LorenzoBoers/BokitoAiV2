@@ -126,7 +126,6 @@ export type ChannelListProps = {
   onSyncWindowChange: (row: ChannelRow, days: number) => void
   onFolders: (row: ChannelRow) => void
   onSignature: (row: ChannelRow) => void
-  onRouting: (row: ChannelRow) => void
   onVisibilityChanged: (row: ChannelRow) => void
   onAddChannel: () => void
 }
@@ -134,7 +133,7 @@ export type ChannelListProps = {
 /**
  * Every channel as one kind of row: name, state, capabilities, and a
  * disclosure with the granular checks behind that state. Kind-specific depth
- * (folders, signature, routing, widget design) opens from the row.
+ * (folders, signature, widget design) opens from the row.
  */
 export default function ChannelList({
   channels,
@@ -149,7 +148,6 @@ export default function ChannelList({
   onSyncWindowChange,
   onFolders,
   onSignature,
-  onRouting,
   onVisibilityChanged,
   onAddChannel,
 }: ChannelListProps) {
@@ -367,10 +365,6 @@ export default function ChannelList({
                           <PenLine size={13} />
                           {t('channelsPage.signature')}
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onRouting(row)}>
-                          <SettingsIcon size={13} />
-                          {t('channelsPage.routing')}
-                        </DropdownMenuItem>
                         {!row.isPrimary ? (
                           <DropdownMenuItem
                             className="gap-2 text-xs"
@@ -497,7 +491,7 @@ export default function ChannelList({
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-xl">
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
             <Dialog.Title className="mb-1 text-lg font-semibold text-text-heading">
               {t('channelsPage.renameTitle')}
             </Dialog.Title>

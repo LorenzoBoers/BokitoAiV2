@@ -1,9 +1,8 @@
 """The personal Bokito assistant: every user's helper inside the platform.
 
 One agent row per tenant, seeded and owned by the platform rather than the
-tenant. It is not a company agent, so it never shows up as a chat target or
-as a folder in the Messages Agents section — members reach it through the
-widget launcher and its own rail section.
+tenant. It uses the same shape as other agents; ``acts_for_user`` identifies
+the Bokito system function.
 
 Division of labour with tenant agents:
 
@@ -13,8 +12,7 @@ Division of labour with tenant agents:
   find a feature, cite the product help, set something up within that
   person's own permissions, and hand real execution to a tenant agent.
 
-``kind`` is ``personal_assistant``, deliberately distinct from the retired
-``personal`` kind that :mod:`app.services.personal_agents` keeps deactivating.
+Legacy ``kind=personal_assistant`` rows are normalized on startup.
 """
 
 from __future__ import annotations
@@ -23,7 +21,7 @@ import json
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
@@ -136,7 +134,11 @@ async def get_personal_assistant(session: AsyncSession, tenant_id: UUID) -> Agen
         select(Agent)
         .where(
             Agent.tenant_id == tenant_id,
-            Agent.kind == PERSONAL_ASSISTANT_KIND,
+            or_(
+                Agent.acts_for_user.is_(True),
+                Agent.kind == PERSONAL_ASSISTANT_KIND,
+                Agent.role == PERSONAL_ASSISTANT_ROLE,
+            ),
         )
         .order_by(Agent.created_at)
         .limit(1)
@@ -159,8 +161,8 @@ async def ensure_personal_assistant(
         agent = Agent(
             tenant_id=tenant_id,
             name=PERSONAL_ASSISTANT_NAME,
-            role=PERSONAL_ASSISTANT_ROLE,
-            kind=PERSONAL_ASSISTANT_KIND,
+            role="assistant",
+            kind="company",
             slug=PERSONAL_ASSISTANT_SLUG,
             chat_access="everyone",
             runtime_status="standby",
@@ -169,6 +171,8 @@ async def ensure_personal_assistant(
             autonomy_level="approval",
             settings_json=_settings_json(),
             is_lead=False,
+            acts_for_user=True,
+            audience="internal",
         )
         session.add(agent)
     else:
@@ -181,6 +185,18 @@ async def ensure_personal_assistant(
             changed = True
         if not agent.is_active:
             agent.is_active = True
+            changed = True
+        if not getattr(agent, "acts_for_user", False):
+            agent.acts_for_user = True
+            changed = True
+        if getattr(agent, "audience", None) != "internal":
+            agent.audience = "internal"
+            changed = True
+        if agent.kind != "company":
+            agent.kind = "company"
+            changed = True
+        if agent.role == PERSONAL_ASSISTANT_ROLE:
+            agent.role = "assistant"
             changed = True
         if changed:
             agent.updated_at = datetime.utcnow()

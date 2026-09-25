@@ -22,7 +22,7 @@ export const PAGE_GUIDE_BACK: Record<PageGuideSlug, string> = {
   communication: '/communication/inbox/open',
   contacts: '/contacts',
   agenda: '/agenda',
-  cases: '/cases',
+  cases: '/settings/signals',
   agents: '/agents',
   projects: '/projects',
   knowledge: '/knowledge',
@@ -55,7 +55,6 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
     { to: '/ai/assistant/external/installation', labelKey: 'pageGuides.related.widget' },
   ],
   agenda: [
-    { to: '/agenda?view=automations', labelKey: 'pageGuides.related.automations' },
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
     { to: '/projects', labelKey: 'pageGuides.related.projects' },
     { to: '/communication/runs/all', labelKey: 'pageGuides.related.agentRuns' },
@@ -72,7 +71,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
   projects: [
     { to: '/workstreams', labelKey: 'pageGuides.related.workstreams' },
-    { to: '/cases', labelKey: 'pageGuides.related.cases' },
+    { to: '/settings/signals', labelKey: 'pageGuides.related.cases' },
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
   ],

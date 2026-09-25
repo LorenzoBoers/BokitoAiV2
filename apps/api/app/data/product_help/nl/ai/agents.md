@@ -9,15 +9,15 @@ related: govern,knowledge,communication,agenda
 
 # Zo werken Agents
 
-Agents zijn de AI-werkers van deze workspace. Open **Agents** om er een toe te voegen, een brief te wijzigen of een chat te starten. Leden praten met bestaande agents vanuit Communicatie. Setup vereist minstens één actieve bedrijfsagent. Eén daarvan is de **standaardagent**: nieuwe kanalen en niet-toegewezen werk gebruiken die agent tot je iemand anders kiest.
+Agents zijn de AI-werkers van deze workspace. Elke agent heeft één vorm: naam, doel, doelgroep, model, toegestane tools, eigenaar en optionele standaarden. Bokito is de systeemagent die namens de ingelogde gebruiker handelt en staat niet in de werkersbibliotheek.
 
 ## Blader door de bibliotheek
 
 ![Agentbibliotheek](/api/docs/assets/agents/library.png)
 *Elke agent is een kaart. De standaardagent staat rustig als Standaard gemarkeerd.*
 
-1. Open **Agents**. Bedrijfsagents staan als kaarten. De standaardagent toont een rustig label **Standaard**. Op elke kaart kun je **open** gesprekken en threads die een **beslissing** nodig hebben zien — open de kaart en scroll naar **Openstaande gesprekken**, of spring naar Communicatie voor die agent. Zoeken en de pillen **Alles**, **Bezig** en **Standaard** beperken het raster.
-2. Kies **Nieuwe agent**. Kies een start (**Klantensupport**, **Teamassistent** of **Projectlead**), vul een **Naam** in, kies een **Rol** (de regel eronder legt uit wat die doet), een **Model**, optioneel een **Project**, optioneel **Instructies**, en daarna **Agent aanmaken**.
+1. Open **Agents**. Bedrijfsagents staan als kaarten met hun doelgroep. Op elke kaart zie je open gesprekken en threads die een beslissing nodig hebben. Zoeken en de pillen **Alles** en **Bezig** beperken het raster.
+2. Kies **Nieuwe agent**. Vul een **Naam** in, kies de **Doelgroep**, selecteer een **Model**, beschrijf het **Doel** en kies **Agent aanmaken**.
 3. Open een kaart voor instructies, model en chattoegang. Gebruik **Chat met deze agent** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links op de detailpagina. Gerelateerde instellingen (Inbox AI, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
 
 Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.** Ze kunnen nog steeds chatten vanuit Communicatie.
@@ -29,11 +29,11 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 ## Brief een agent
 
 ![Agentdetail](/api/docs/assets/agents/agent-brief.png)
-*Wijzig rol, instructies, model en tools.*
+*Wijzig doel, doelgroep, model en toegestane tools.*
 
-1. Open de agent. Wijzig **Naam** en **Instructies**, en sla op.
-2. Onder **Tools en toestemmingen** laat je **Autonomieniveau** op **Workspace-standaard**, of zet **Handmatig — altijd vragen**, **Goedkeuring — begrensde acties** of **Automatisch — zelfstandig handelen**. Een korte regel onder de keuze zegt wat dat betekent. Open **Workspace-houding** om de standaard te wijzigen. **Toegestane tools** zonder selectie betekent alle tools, nog steeds begrensd door [Govern](/docs/govern/govern).
-3. Om te wijzigen wie niet-toegewezen werk behandelt, gebruik **Gebruik als standaardagent** onder de naam (alleen beheerders). **Archiveren** (onder het ···-menu) haalt de agent uit de lijst; run-geschiedenis blijft. Je kunt de huidige standaard niet archiveren tot een andere agent standaard is.
+1. Open de agent. Wijzig **Naam**, **Doel**, **Doelgroep** en **Model**.
+2. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
+3. Kies in **Communicatie-instellingen** per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Archiveren** verbergt de agent en wist de kanaalstandaarden; run-geschiedenis blijft.
 
 ## Beperk wie mag chatten
 

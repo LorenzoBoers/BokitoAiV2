@@ -441,6 +441,23 @@ export default function DirectCommunication() {
           </SplitPane>
         ) : null}
       </SplitRow>
+      {selectedThread && showContextPanel ? (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label={t('directChat.closeContextPanel')}
+            onClick={toggleContextPanel}
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-2xl border-t border-border/60 bg-bg-surface shadow-overlay sm:inset-y-0 sm:left-auto sm:w-[min(100%,20rem)] sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0">
+            <AgentThreadPanel
+              thread={selectedThread}
+              onClose={toggleContextPanel}
+              onThreadUpdated={() => void refreshThreads()}
+            />
+          </div>
+        </div>
+      ) : null}
       <InboxShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
     </div>
   )

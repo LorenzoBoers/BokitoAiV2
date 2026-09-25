@@ -197,7 +197,6 @@
     "openInbox": "Terug naar Open",
     "openAgents": "Agents openen",
     "openAgenda": "Agenda openen",
-    "clearLabelFilter": "Deze tagmap verlaten",
     "scopeAgent": "Gesprekken van {{name}}",
     "scopeProject": "Gesprekken in {{name}}",
     "scopeAgentFallback": "deze agent",
@@ -916,8 +915,7 @@
     "needsDecision": "Wacht op beslissing",
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}u",
-    "daysAgo": "{{count}}d",
-    "openTagFolder": "Tag {{tag}} openen"
+    "daysAgo": "{{count}}d"
   },
   "snooze": {
     "1h": "1 uur",
@@ -1040,15 +1038,6 @@
       "sender": "Afzender"
     }
   },
-  "tags": {
-    "addLabel": "Tag toevoegen",
-    "searchPlaceholder": "Tag zoeken of aanmaken…",
-    "createNamed": "Tag \"{{tag}}\" aanmaken",
-    "createError": "Die tag kon niet worden aangemaakt.",
-    "loading": "Tags laden…",
-    "noneYet": "Nog geen tags. Typ een naam om er een aan te maken.",
-    "removeLabel": "Tag {{tag}} verwijderen"
-  },
   "triage": {
     "urgency": "urgentie {{value}}",
     "certainty": "zekerheid {{value}}%",
@@ -1057,7 +1046,9 @@
   "sidePanel": {
     "contact": "Contact",
     "agent": "Agent",
-    "handling": "Behandelt"
+    "handling": "Behandelt",
+    "who": "Wie",
+    "thisConversation": "Dit gesprek"
   },
   "actions": {
     "takeoverError": "Kon Inbox AI niet wijzigen.",

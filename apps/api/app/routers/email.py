@@ -17,7 +17,6 @@ from app.dependencies import AuthContext, get_current_auth, require_verified_ema
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.models.channel import ChannelAccount
-from app.models.email_routing import ROUTING_CONDITION_TYPES, EmailRoutingRule
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.integrations_platform import ensure_email_account, mock_authorize_url
 from app.services.oauth_flow import start_real_oauth
@@ -560,6 +559,7 @@ async def disconnect_email_connection(
     from sqlalchemy import delete as sa_delete, update as sa_update
 
     from app.models.channel import ChannelBinding
+    from app.models.learning import InboxRule
 
     await session.execute(
         sa_update(Signal)
@@ -567,7 +567,7 @@ async def disconnect_email_connection(
         .values(channel_account_id=None)
     )
     await session.execute(
-        sa_delete(EmailRoutingRule).where(EmailRoutingRule.channel_account_id == account.id)
+        sa_delete(InboxRule).where(InboxRule.channel_account_id == account.id)
     )
     await session.execute(
         sa_delete(ChannelBinding).where(ChannelBinding.channel_account_id == account.id)
@@ -623,199 +623,6 @@ async def save_ai_config(
             raise HTTPException(status_code=400, detail="Invalid reply_language")
     await _save_account_settings(session, account, {"ai_config": ai_config})
     return {"ok": True, "ai_config": ai_config}
-
-
-# --- Routing rules (deterministic inbound assignment/labeling) ---
-
-
-class RoutingRuleBody(BaseModel):
-    mailbox_id: int | None = None
-    priority: int = 100
-    condition_type: str = "sender_domain"
-    condition_value: str = ""
-    assign_to_user_id: int | None = None
-    labels: list[str] | None = None
-    is_active: bool = True
-
-
-class RoutingRulePatch(BaseModel):
-    priority: int | None = None
-    condition_type: str | None = None
-    condition_value: str | None = None
-    assign_to_user_id: int | None = None
-    labels: list[str] | None = None
-    is_active: bool | None = None
-
-
-def _serialize_rule(rule: EmailRoutingRule, mailbox_id: int) -> dict[str, Any]:
-    try:
-        labels = json.loads(rule.labels_json or "[]")
-    except (json.JSONDecodeError, TypeError):
-        labels = []
-    return {
-        "id": user_numeric_id(rule.id),
-        "mailbox_id": mailbox_id,
-        "priority": rule.priority,
-        "condition_type": rule.condition_type,
-        "condition_value": rule.condition_value,
-        "assign_to_user_id": rule.assign_to_user_id,
-        "labels": labels if isinstance(labels, list) else [],
-        "is_active": rule.is_active,
-        "created_at": rule.created_at.isoformat(),
-        "updated_at": rule.updated_at.isoformat(),
-    }
-
-
-async def _get_rule_by_numeric(
-    session: AsyncSession, tenant_id: UUID, rule_id: int
-) -> EmailRoutingRule | None:
-    result = await session.execute(
-        select(EmailRoutingRule).where(EmailRoutingRule.tenant_id == tenant_id)
-    )
-    for rule in result.scalars().all():
-        if user_numeric_id(rule.id) == rule_id:
-            return rule
-    return None
-
-
-@router.get("/routing-rules")
-async def list_routing_rules(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    mailbox_id: int | None = None,
-):
-    account = None
-    if mailbox_id is not None:
-        account = await _get_account_by_numeric(session, auth.tenant.id, mailbox_id)
-        if not account:
-            return {"items": []}
-    stmt = select(EmailRoutingRule).where(EmailRoutingRule.tenant_id == auth.tenant.id)
-    if account is not None:
-        stmt = stmt.where(EmailRoutingRule.channel_account_id == account.id)
-    stmt = stmt.order_by(EmailRoutingRule.priority)
-    result = await session.execute(stmt)
-    rules = list(result.scalars().all())
-    numeric_cache: dict[UUID, int] = {}
-    items = []
-    for rule in rules:
-        if rule.channel_account_id not in numeric_cache:
-            numeric_cache[rule.channel_account_id] = user_numeric_id(rule.channel_account_id)
-        items.append(_serialize_rule(rule, numeric_cache[rule.channel_account_id]))
-    return {"items": items}
-
-
-@router.post("/routing-rules")
-async def create_routing_rule(
-    body: RoutingRuleBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    if body.mailbox_id is None:
-        raise HTTPException(status_code=400, detail="mailbox_id required")
-    account = await _get_account_by_numeric(session, auth.tenant.id, body.mailbox_id)
-    if not account:
-        raise HTTPException(status_code=404, detail="Mailbox not found")
-    if body.condition_type not in ROUTING_CONDITION_TYPES:
-        raise HTTPException(status_code=400, detail="Invalid condition_type")
-    rule = EmailRoutingRule(
-        tenant_id=auth.tenant.id,
-        channel_account_id=account.id,
-        priority=body.priority,
-        condition_type=body.condition_type,
-        condition_value=body.condition_value.strip(),
-        assign_to_user_id=body.assign_to_user_id,
-        labels_json=json.dumps(body.labels or []),
-        is_active=body.is_active,
-    )
-    session.add(rule)
-    await session.flush()
-    # Dual-write into the canonical Signals rules model (InboxRule action=route).
-    from app.models.learning import InboxRule
-
-    session.add(
-        InboxRule(
-            tenant_id=auth.tenant.id,
-            match_type=body.condition_type,
-            match_value=body.condition_value.strip().lower(),
-            action="route",
-            status="active" if body.is_active else "paused",
-            source="routing",
-            channel_account_id=account.id,
-            priority=body.priority,
-            assign_to_user_id=body.assign_to_user_id,
-            labels_json=json.dumps(body.labels or []),
-            legacy_routing_rule_id=rule.id,
-        )
-    )
-    await session.commit()
-    await session.refresh(rule)
-    return _serialize_rule(rule, body.mailbox_id)
-
-
-@router.patch("/routing-rules/{rule_id}")
-async def update_routing_rule(
-    rule_id: int,
-    body: RoutingRulePatch,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    rule = await _get_rule_by_numeric(session, auth.tenant.id, rule_id)
-    if not rule:
-        raise HTTPException(status_code=404, detail="Routing rule not found")
-    if body.priority is not None:
-        rule.priority = body.priority
-    if body.condition_type is not None:
-        if body.condition_type not in ROUTING_CONDITION_TYPES:
-            raise HTTPException(status_code=400, detail="Invalid condition_type")
-        rule.condition_type = body.condition_type
-    if body.condition_value is not None:
-        rule.condition_value = body.condition_value.strip()
-    if body.assign_to_user_id is not None:
-        rule.assign_to_user_id = body.assign_to_user_id
-    if body.labels is not None:
-        rule.labels_json = json.dumps(body.labels)
-    if body.is_active is not None:
-        rule.is_active = body.is_active
-    rule.updated_at = datetime.utcnow()
-    session.add(rule)
-    from app.models.learning import InboxRule
-
-    mirror = await session.execute(
-        select(InboxRule).where(InboxRule.legacy_routing_rule_id == rule.id)
-    )
-    inbox_rule = mirror.scalar_one_or_none()
-    if inbox_rule:
-        inbox_rule.priority = rule.priority
-        inbox_rule.match_type = rule.condition_type
-        inbox_rule.match_value = (rule.condition_value or "").strip().lower()
-        inbox_rule.assign_to_user_id = rule.assign_to_user_id
-        inbox_rule.labels_json = rule.labels_json
-        inbox_rule.status = "active" if rule.is_active else "paused"
-        inbox_rule.updated_at = datetime.utcnow()
-        session.add(inbox_rule)
-    await session.commit()
-    await session.refresh(rule)
-    return _serialize_rule(rule, user_numeric_id(rule.channel_account_id))
-
-
-@router.delete("/routing-rules/{rule_id}")
-async def delete_routing_rule(
-    rule_id: int,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    rule = await _get_rule_by_numeric(session, auth.tenant.id, rule_id)
-    if not rule:
-        raise HTTPException(status_code=404, detail="Routing rule not found")
-    from app.models.learning import InboxRule
-    from sqlalchemy import delete as sa_delete
-
-    await session.execute(
-        sa_delete(InboxRule).where(InboxRule.legacy_routing_rule_id == rule.id)
-    )
-    await session.delete(rule)
-    await session.commit()
-    return {"ok": True}
 
 
 # --- Inbound sync (poll connected Gmail/Outlook mailboxes) ---

@@ -1,6 +1,6 @@
 /**
  * Map Communication hub leaves to `GET /api/signals` filters and check whether
- * an open thread still belongs under the active channel/tag leaf.
+ * an open thread still belongs under the active channel leaf.
  *
  * Inbox-only UI chips (channelFilter) must never wipe a leaf-scoped `channel`.
  */
@@ -96,16 +96,6 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     }
-    case 'tag':
-      return {
-        filters: {
-          folder: 'inbox',
-          view: leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all',
-          tag: leaf.tag,
-        },
-        mode: 'customer',
-        variant: 'customer',
-      }
     case 'agent':
       // The `activity` sub-view is the agent's work log: internal run threads
       // scoped to this agent. Chat sub-queues are handled by DirectCommunication.
@@ -178,12 +168,4 @@ export function threadFitsChannelLeaf(
   }
   const expected = signalChannelForNavKey(leaf.channelKey)
   return expected != null && channel === expected
-}
-
-/** Does this thread belong under the active tag leaf? */
-export function threadFitsTagLeaf(
-  thread: Pick<InboxThread, 'tags'>,
-  leaf: Extract<HubLeaf, { type: 'tag' }>,
-): boolean {
-  return thread.tags.includes(leaf.tag)
 }

@@ -1,4 +1,12 @@
-"""INTERPRETATION layer: LLM triage of inbound signals."""
+"""INTERPRETATION layer: LLM triage of inbound signals.
+
+Timing: this runs on every inbound message *before* the reply path
+(`workers.tasks.process_inbound_signal` calls `interpret_inbound` first), so a
+conversation is read and typed even when AI replies are off or a human has
+taken over. Certain matches file a Case; unsure matches land as `proposed` and
+show a confirm chip on the thread; patterns no type covers go to the backlog in
+`services.signal_catalog` — triage never invents a type.
+"""
 
 from __future__ import annotations
 
@@ -44,7 +52,6 @@ async def _create_cases_from_triage(
                 select(Case.case_type_id).where(
                     Case.tenant_id == tenant_id,
                     Case.signal_id == signal_id,
-                    Case.status != "cancelled",
                 )
             )
         ).scalars()
@@ -72,6 +79,35 @@ async def _create_cases_from_triage(
             # Triage must never fail the ingest pipeline over one case.
             logger.warning("triage case create failed for type %s", slug, exc_info=True)
             continue
+
+
+async def _record_unknown_signal(
+    session: AsyncSession,
+    tenant_id: UUID,
+    raw: object,
+    *,
+    fallback_quote: str = "",
+) -> None:
+    """Count one sighting of a pattern no CaseType covers (never creates a type)."""
+    if not isinstance(raw, dict):
+        return
+    name = str(raw.get("name") or "").strip()
+    if not name:
+        return
+    from app.services.agent.style import strip_emoji
+    from app.services.signal_catalog import record_unknown
+
+    quote = str(raw.get("quote") or "").strip() or (fallback_quote or "")[:200]
+    try:
+        await record_unknown(
+            session,
+            tenant_id,
+            name=strip_emoji(name),
+            sentence=strip_emoji(str(raw.get("sentence") or "")),
+            example=strip_emoji(quote),
+        )
+    except Exception:  # noqa: BLE001 — the backlog must never fail ingest
+        logger.warning("backlog record failed for %s", name, exc_info=True)
 
 
 async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> dict:
@@ -112,12 +148,18 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         f"{case_types_line}"
         '"intent":"question|implementation_request|bug_report|feedback|complaint|other",'
         '"sentiment":"positive|neutral|negative",'
+        '"unknown_signal":{"name":"2-4 word name for the kind of request this is, '
+        'only when NO type above fits","sentence":"one sentence describing when a '
+        'type like this applies","quote":"short quote from the message"},'
         '"summary":"one sentence","certainty":0-100,"priority":"normal|high|urgent"}\n'
         "intent guide: implementation_request = the sender asks for a new feature, "
         "change, or piece of work; bug_report = something is broken or behaving "
         "wrong; feedback = opinions or suggestions without a direct ask.\n"
         "case_types guide: only include a type when the message clearly matches its "
         "description; when in doubt, leave the list empty.\n"
+        "unknown_signal guide: fill this only when the message asks for something "
+        "recurring that none of the types above covers. Never invent a type slug; "
+        "leave unknown_signal out for small talk, thanks, or one-off questions.\n"
         f"{PLAIN_STYLE}\n\n"
         f"Subject: {detail.get('subject')}\nFrom: {detail.get('contact_email')}\n\n{body}"
     )
@@ -190,8 +232,8 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
     )
 
     # Catalog hits become Cases (typed intake), not tags. The type's own
-    # create_mode + thresholds decide whether this auto-opens, asks the
-    # customer, or waits for an operator.
+    # create_mode + thresholds decide whether this auto-opens (certain) or
+    # lands as `proposed` with a confirm chip on the thread (unsure).
     if proposed_slugs:
         await _create_cases_from_triage(
             session,
@@ -202,7 +244,12 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
             summary=summary,
             certainty=certainty,
         )
-
+    else:
+        # Nothing in the catalog fits: count the pattern in the backlog so an
+        # owner can turn it into a type once it recurs. Never a new type here.
+        await _record_unknown_signal(
+            session, tenant_id, parsed.get("unknown_signal"), fallback_quote=body
+        )
     # Work-shaped intent on a project thread: surface an "add to queue" chip.
     if signal.project_id and intent in ("implementation_request", "bug_report"):
         try:
@@ -218,3 +265,24 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
     from app.services.signals import serialize_signal
 
     return serialize_signal(signal)
+
+
+async def interpret_inbound(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID
+) -> dict | None:
+    """Interpret one inbound message before any reply is drafted.
+
+    Called first in the inbound pipeline, so category, intent and typed signals
+    exist even when AI replies are off, the channel cannot send, or a human has
+    taken the thread over. Failures are swallowed: reading must never block the
+    conversation.
+    """
+    try:
+        return await triage_signal(session, tenant_id, signal_id)
+    except Exception:  # noqa: BLE001
+        logger.warning("Interpretation failed for signal %s", signal_id, exc_info=True)
+        try:
+            await session.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        return None

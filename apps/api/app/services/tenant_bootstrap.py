@@ -85,21 +85,62 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
 ]
 
 
+async def ensure_front_desk(
+    session: AsyncSession, tenant_id: UUID, *, commit: bool = False
+) -> Agent:
+    """Ensure the workspace has its customer-facing default agent."""
+    from sqlalchemy import select
+
+    existing = (
+        await session.execute(
+            select(Agent)
+            .where(
+                Agent.tenant_id == tenant_id,
+                Agent.kind == "company",
+                Agent.acts_for_user.is_(False),
+                Agent.audience == "customers",
+            )
+            .order_by(Agent.created_at)
+            .limit(1)
+        )
+    ).scalars().first()
+    if existing:
+        return existing
+    agent = Agent(
+        tenant_id=tenant_id,
+        name="Front desk",
+        role="assistant",
+        slug="front-desk",
+        audience="customers",
+        chat_access="everyone",
+        system_prompt=ONBOARDING_SYSTEM_PROMPT,
+        is_active=True,
+    )
+    session.add(agent)
+    if commit:
+        await session.commit()
+        await session.refresh(agent)
+    else:
+        await session.flush()
+    return agent
+
+
+async def ensure_front_desks(session: AsyncSession) -> int:
+    """Startup backfill for the customer-facing default agent."""
+    from sqlalchemy import select
+
+    tenant_ids = list((await session.execute(select(Tenant.id))).scalars().all())
+    for tenant_id in tenant_ids:
+        await ensure_front_desk(session, tenant_id, commit=False)
+    if tenant_ids:
+        await session.commit()
+    return len(tenant_ids)
+
+
 async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # Persona lives in the persona.md workspace doc (DEFAULT_DOCS below);
     # inbox policy lives in Tenant.settings_json (services/channel_ai.py).
-    session.add(
-        Agent(
-            tenant_id=tenant_id,
-            name="Assistant",
-            role="assistant",
-            slug="assistant",
-            chat_access="everyone",
-            runtime_status="standby",
-            system_prompt=ONBOARDING_SYSTEM_PROMPT,
-            is_lead=True,
-        )
-    )
+    front_desk = await ensure_front_desk(session, tenant_id, commit=False)
     # Platform furniture, not a tenant agent: every member's own Bokito helper.
     await ensure_personal_assistant(session, tenant_id, commit=False)
     for path, kind, content in DEFAULT_DOCS:
@@ -119,7 +160,9 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # Email stays empty until someone connects a mailbox or creates a Bokito
     # relay address. The website chat is the one channel that works the moment
     # the widget is embedded, so it gets a row to carry state and an off switch.
-    await ensure_widget_channel(session, tenant_id, commit=False)
+    widget = await ensure_widget_channel(session, tenant_id, commit=False)
+    widget.default_agent_id = front_desk.id
+    session.add(widget)
     await seed_default_triggers(session, tenant_id)
     from app.services.cases import ensure_platform_case_types
 

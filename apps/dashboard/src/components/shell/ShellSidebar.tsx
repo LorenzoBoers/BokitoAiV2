@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Fragment } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
@@ -25,13 +25,6 @@ import {
 } from '../../lib/tenant-branding'
 import ConnectionStatus from './ConnectionStatus'
 import ThemeModeToggle from './ThemeModeToggle'
-import { useIntegrationCatalog } from '../../hooks/useIntegrationCatalog'
-import {
-  moduleIsOn,
-  moduleNavIcon,
-  moduleWorkspacePath,
-  type IntegrationModuleRow,
-} from '../../lib/integration-modules'
 
 const BOKITO_MARK_FILTER_DARK =
   'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
@@ -61,14 +54,6 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const { isDark } = useTheme()
   const { currentWorkspace } = useWorkspace()
   const { counts } = useOptionalNavBadges()
-  const { modules } = useIntegrationCatalog()
-  const installedModules = useMemo(
-    () =>
-      modules.filter(
-        (m) => m.status !== 'coming_soon' && moduleIsOn(m) && m.user_accessible !== false,
-      ),
-    [modules],
-  )
   const brandName = workspaceBrandName(currentWorkspace)
   const brandIconUrl = resolveBrandIconUrl(currentWorkspace)
   const brandMarkSrc = brandIconUrl || DEFAULT_BRAND_MARK
@@ -282,22 +267,6 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                   </div>
                 ) : null}
               </section>
-              {group.label === 'AI' && installedModules.length > 0 ? (
-                <section key="installed-modules">
-                  {!collapsed ? (
-                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                      {t('tabGroups.modules', { defaultValue: 'Modules' })}
-                    </p>
-                  ) : null}
-                  <div className={`mt-0.5 space-y-px ${collapsed ? 'flex flex-col items-center gap-1 space-y-0' : ''}`}>
-                    <InstalledModulesNav
-                      modules={installedModules}
-                      collapsed={collapsed}
-                      onNavigate={onNavigate}
-                    />
-                  </div>
-                </section>
-              ) : null}
               </Fragment>
             )
           })}
@@ -317,52 +286,5 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
         </div>
       </div>
     </div>
-  )
-}
-
-/** Installed module workspaces — own rail group, not nested under AI or Connections. */
-function InstalledModulesNav({
-  modules,
-  collapsed,
-  onNavigate,
-}: {
-  modules: IntegrationModuleRow[]
-  collapsed: boolean
-  onNavigate?: () => void
-}) {
-  const { t } = useTranslation('nav')
-  const { pathname } = useLocation()
-
-  return (
-    <>
-      {modules.map((module) => {
-        const to = moduleWorkspacePath(module)
-        const active = pathname.startsWith(to)
-        const name = t(`integrations.modules.${module.slug}.name`, {
-          defaultValue: module.name,
-        })
-        const Icon = moduleNavIcon(module.slug)
-        return (
-          <NavLink
-            key={module.slug}
-            to={to}
-            onClick={onNavigate}
-            title={name}
-            aria-label={name}
-            data-tour={`nav-module-${module.slug}`}
-            className={`relative flex items-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
-              collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
-            } ${
-              active
-                ? 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
-                : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
-            }`}
-          >
-            <Icon size={15} className="shrink-0" />
-            {!collapsed ? <span className="min-w-0 flex-1 truncate">{name}</span> : null}
-          </NavLink>
-        )
-      })}
-    </>
   )
 }

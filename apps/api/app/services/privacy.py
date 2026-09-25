@@ -30,15 +30,21 @@ def privacy_settings_from_tenant(tenant: Tenant) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raw = {}
     privacy = raw.get("privacy") if isinstance(raw.get("privacy"), dict) else {}
+    workspace_retention_days = int(
+        privacy.get("workspace_retention_days")
+        or privacy.get("retention_messages_days")
+        or DEFAULT_RETENTION_MESSAGES_DAYS
+    )
     return {
+        "workspace_retention_days": workspace_retention_days,
         "retention_messages_days": int(
-            privacy.get("retention_messages_days") or DEFAULT_RETENTION_MESSAGES_DAYS
+            privacy.get("retention_messages_days") or workspace_retention_days
         ),
         "retention_calendar_days": int(
-            privacy.get("retention_calendar_days") or DEFAULT_RETENTION_CALENDAR_DAYS
+            privacy.get("retention_calendar_days") or workspace_retention_days
         ),
         "retention_audit_days": int(
-            privacy.get("retention_audit_days") or DEFAULT_RETENTION_AUDIT_DAYS
+            privacy.get("retention_audit_days") or workspace_retention_days
         ),
         "llm_may_use_message_bodies": bool(
             privacy.get("llm_may_use_message_bodies", True)
@@ -54,6 +60,12 @@ def merge_privacy_settings(tenant: Tenant, updates: dict[str, Any]) -> dict[str,
     if not isinstance(raw, dict):
         raw = {}
     privacy = dict(raw.get("privacy") or {}) if isinstance(raw.get("privacy"), dict) else {}
+    if updates.get("workspace_retention_days") is not None:
+        retention_days = max(30, min(int(updates["workspace_retention_days"]), 3650))
+        privacy["workspace_retention_days"] = retention_days
+        privacy["retention_messages_days"] = retention_days
+        privacy["retention_calendar_days"] = retention_days
+        privacy["retention_audit_days"] = retention_days
     for key in (
         "retention_messages_days",
         "retention_calendar_days",

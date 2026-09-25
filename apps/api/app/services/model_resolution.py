@@ -293,6 +293,8 @@ async def record_usage(
     call_type: str = "chat",
     agent_id: UUID | None = None,
     run_id: UUID | None = None,
+    signal_type_id: UUID | None = None,
+    workstream_run_id: UUID | None = None,
     user_id: UUID | None = None,
     commit: bool = False,
 ) -> UsageLedger:
@@ -317,6 +319,8 @@ async def record_usage(
         cost_cents=legacy_cents,
         agent_id=agent_id,
         run_id=run_id,
+        signal_type_id=signal_type_id,
+        workstream_run_id=workstream_run_id,
         user_id=user_id,
     )
     session.add(entry)

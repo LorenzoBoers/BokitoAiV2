@@ -85,6 +85,13 @@ export interface RuntimeAgent {
   is_active?: boolean
   model?: string
   provider?: string
+  purpose?: string
+  audience?: 'customers' | 'partners' | 'internal'
+  owner_user_id?: string | null
+  tools?: string[]
+  default_channels?: string[]
+  default_signal_types?: string[]
+  acts_for_user?: boolean
   system_prompt?: string
   /** Signature (HTML, derived) appended to outbound replies sent as this agent. */
   email_signature_html?: string

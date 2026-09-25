@@ -22,7 +22,6 @@ from app.routers import (
     channels,
     cockpit,
     app_workspaces,
-    custom_db,
     email,
     github_integrations,
     govern,
@@ -207,7 +206,10 @@ app.include_router(workstreams.router, prefix=api_prefix)
 app.include_router(customer_verify.router, prefix=api_prefix)
 app.include_router(cases.router, prefix=api_prefix)
 app.include_router(cases.signal_cases_router, prefix=api_prefix)
-app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
+# Custom DB builder retired from core — Contact + Project + typed signal fields
+# replace it. The router module and its tables still exist so nothing migrates
+# out from under an existing tenant, but nothing is mounted: /api/app/custom-*
+# returns 404.
 app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")
 
 

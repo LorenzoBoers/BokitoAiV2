@@ -1,52 +1,30 @@
-export type NotificationChannelKey = 'desktop' | 'email' | 'slack'
+export type NotificationChannelKey = 'desktop' | 'email' | 'push'
 
 export type NotificationPrefRow = {
   id: string
   label: string
-  channels: { desktop?: boolean; email?: boolean; slack?: boolean }
+  channels: { desktop?: boolean; email?: boolean; push?: boolean }
 }
 
-/** Only categories the backend actually enforces. Labels stay English for persist. */
+/**
+ * Three ping triggers only: decision needed, mentioned, assigned.
+ * Channel choice (desktop / email / push) stays; everything else is silent in-thread.
+ */
 export const DEFAULT_NOTIFICATION_ROWS: NotificationPrefRow[] = [
   {
     id: 'assigned-to-me',
     label: 'When a conversation is assigned to you',
-    channels: { desktop: true, email: false },
+    channels: { desktop: true, email: false, push: true },
   },
   {
     id: 'mentions',
     label: 'When you are mentioned in conversations',
-    channels: { desktop: true, email: false },
+    channels: { desktop: true, email: false, push: true },
   },
   {
     id: 'decisions',
-    label: 'When an agent needs your decision on an assigned conversation',
-    channels: { desktop: true, email: false, slack: false },
-  },
-  {
-    id: 'ops-run-failed',
-    label: 'When an agent run or trigger fails',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'ops-channel-disconnect',
-    label: 'When a connected channel stops syncing',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'billing-alerts',
-    label: 'When LLM spend reaches 80% or 100% of the budget',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'digest-daily',
-    label: 'Daily email digest (open threads, pending decisions, agent activity)',
-    channels: { email: false },
-  },
-  {
-    id: 'digest-weekly',
-    label: 'Weekly email digest',
-    channels: { email: false },
+    label: 'When a decision needs you',
+    channels: { desktop: true, email: false, push: true },
   },
 ]
 

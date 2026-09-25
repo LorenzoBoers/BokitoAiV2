@@ -29,6 +29,7 @@ SIGNAL_PRIORITIES = ("low", "normal", "high", "urgent")
 SIGNAL_MESSAGE_KINDS = (
     "user_message",
     "agent_message",
+    "run",
     "decision_request",
     "status_update",
     "task_result",
@@ -112,6 +113,10 @@ class Signal(SQLModel, table=True):
     session_closed_at: Optional[datetime] = None
     # Checkout outcome: {"summary": str, "actions": [...], "message_count": int}
     session_outcome_json: str = Field(default="{}")
+
+    # Closed conversations can be curated as learning examples. The transcript
+    # remains the source; this flag only opts it into few-shot retrieval.
+    is_example: bool = Field(default=False, index=True)
 
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)

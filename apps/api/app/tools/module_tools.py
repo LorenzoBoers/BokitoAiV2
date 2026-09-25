@@ -33,6 +33,14 @@ _COMMON_PROPS: dict[str, Any] = {
     },
 }
 
+_MONEY_ACTION_MARKERS = ("payment", "payout", "transfer", "refund", "invoice", "booking")
+
+
+def _is_money_action(verb: str) -> bool:
+    """Financial writes always require the consequential-action gate."""
+    normalized = verb.lower()
+    return any(marker in normalized for marker in _MONEY_ACTION_MARKERS)
+
 
 def _agent_id(ctx: ToolContext):
     return ctx.agent.id if ctx.agent is not None else None
@@ -258,6 +266,7 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
                 handler=_verb_handler(slug, card.verb),
                 mutating=True,
                 gated=True,
+                consequential=_is_money_action(card.verb),
                 audience=audience,
             )
         )

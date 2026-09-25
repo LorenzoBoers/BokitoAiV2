@@ -44,6 +44,21 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "kind": "VARCHAR DEFAULT 'company'",
         "owner_user_id": "VARCHAR",
         "chat_access": "VARCHAR DEFAULT 'nobody'",
+        "acts_for_user": "BOOLEAN DEFAULT 0",
+        "audience": "VARCHAR DEFAULT 'internal'",
+        "default_channels_json": "VARCHAR DEFAULT '[]'",
+        "default_signal_types_json": "VARCHAR DEFAULT '[]'",
+    },
+    "channel_accounts": {
+        "default_agent_id": "VARCHAR",
+    },
+    "case_types": {
+        "fields_schema_json": "VARCHAR DEFAULT '[]'",
+        "show_as_folder": "BOOLEAN DEFAULT 0",
+        "default_project_id": "VARCHAR",
+    },
+    "cases": {
+        "fields_json": "VARCHAR DEFAULT '{}'",
     },
     "signals": {
         "agent_id": "VARCHAR",

@@ -22,7 +22,8 @@ from app.services.transactional_mail import send_mail
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CHANNELS = {"desktop": True, "email": False, "slack": False}
+DEFAULT_CHANNELS = {"desktop": True, "email": False, "push": True, "slack": False}
+NOTIFICATION_CATEGORIES = {"assigned-to-me", "mentions", "decisions"}
 
 
 async def notification_channels(
@@ -36,6 +37,9 @@ async def notification_channels(
     never silently vanishes.
     """
     from app.models.notification import UserNotificationPreference
+
+    if category not in NOTIFICATION_CATEGORIES:
+        return {"desktop": False, "email": False, "push": False, "slack": False}
 
     result = await session.execute(
         select(UserNotificationPreference).where(
@@ -56,7 +60,8 @@ async def notification_channels(
             return {
                 "desktop": bool(channels.get("desktop", DEFAULT_CHANNELS["desktop"])),
                 "email": bool(channels.get("email", DEFAULT_CHANNELS["email"])),
-                "slack": bool(channels.get("slack", DEFAULT_CHANNELS["slack"])),
+                "push": bool(channels.get("push", DEFAULT_CHANNELS["push"])),
+                "slack": False,
             }
     return dict(DEFAULT_CHANNELS)
 

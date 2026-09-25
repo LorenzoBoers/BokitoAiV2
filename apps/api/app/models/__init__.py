@@ -4,10 +4,8 @@ from app.models.auth import Invite, Membership, Session, Tenant, User, UserPrefe
 from app.models.auth_token import AuthToken
 from app.models.oauth_state import OAuthState
 from app.models.channel import ChannelAccount, ChannelBinding, Company, Contact
-from app.models.email_routing import EmailRoutingRule
 from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
-from app.models.outcome import OperationalOutcome
 from app.models.platform_change import PlatformChange
 from app.models.signal import (
     SavedReply,
@@ -23,14 +21,6 @@ from app.models.trigger import Trigger
 from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep
 from app.models.api_token import ApiToken
 from app.models.webhook import WebhookDelivery, WebhookEndpoint
-from app.models.custom_db import (
-    CustomField,
-    CustomRecord,
-    CustomRecordActivity,
-    CustomRecordComment,
-    CustomTable,
-    CustomView,
-)
 from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
 from app.models.project import Project, ProjectAgent
@@ -52,7 +42,8 @@ from app.models.module_install import ModuleInstall
 from app.models.calendar import CalendarEvent
 from app.models.user_memory import UserAssistantMemory
 from app.models.customer_verify import CustomerVerifyToken
-from app.models.case import Case, CaseType, CaseTypeBinding
+from app.models.case import Case, CaseType, CaseTypeBinding, CaseTypeField
+from app.models.workbench import WorkJob
 
 __all__ = [
     "Tenant",
@@ -75,7 +66,6 @@ __all__ = [
     "ChannelBinding",
     "Company",
     "Contact",
-    "EmailRoutingRule",
     "WebhookEndpoint",
     "WebhookDelivery",
     "Agent",
@@ -96,12 +86,6 @@ __all__ = [
     "ProjectResource",
     "UsageLedger",
     "PushSubscription",
-    "CustomTable",
-    "CustomField",
-    "CustomRecord",
-    "CustomView",
-    "CustomRecordActivity",
-    "CustomRecordComment",
     "OsCanvasNode",
     "OsCanvasEdge",
     "Signal",
@@ -113,7 +97,6 @@ __all__ = [
     "Feedback",
     "EvalScore",
     "InboxRule",
-    "OperationalOutcome",
     "PlatformChange",
     "AgentTask",
     "EvalCheckpoint",
@@ -133,4 +116,6 @@ __all__ = [
     "Case",
     "CaseType",
     "CaseTypeBinding",
+    "CaseTypeField",
+    "WorkJob",
 ]

@@ -17,9 +17,6 @@ describe('leaf path round-trips', () => {
     { type: 'channel', channelKey: 'email', queue: 'open' },
     { type: 'channel', channelKey: 'webchat' },
     { type: 'channel', channelKey: 'webchat', queue: 'closed' },
-    { type: 'tag', tag: 'billing' },
-    { type: 'tag', tag: 'billing', queue: 'unassigned' },
-    { type: 'tag', tag: 'follow up' },
   ]
 
   it.each(leaves.map((leaf) => [leafKey(leaf), leaf] as const))('round-trips %s', (_key, leaf) => {
@@ -38,20 +35,12 @@ describe('leaf path round-trips', () => {
     expect(leafPath({ type: 'channel', channelKey: 'webchat', queue: 'open' })).toBe(
       '/communication/channel/webchat/open',
     )
-    expect(leafPath({ type: 'tag', tag: 'billing', queue: 'open' })).toBe(
-      '/communication/tag/billing/open',
-    )
   })
 
   it('drops an unknown queue segment instead of failing', () => {
     expect(leafFromPath('/communication/channel/webchat/bogus')).toEqual({
       type: 'channel',
       channelKey: 'webchat',
-      queue: undefined,
-    })
-    expect(leafFromPath('/communication/tag/billing/bogus')).toEqual({
-      type: 'tag',
-      tag: 'billing',
       queue: undefined,
     })
   })
@@ -63,12 +52,6 @@ describe('leaf path round-trips', () => {
       connectionId: '12',
       queue: undefined,
     })
-  })
-
-  it('encodes tags with special characters', () => {
-    const leaf: HubLeaf = { type: 'tag', tag: 'follow up', queue: 'open' }
-    expect(leafPath(leaf)).toBe('/communication/tag/follow%20up/open')
-    expect(leafFromPath(leafPath(leaf))).toEqual(leaf)
   })
 
   it('keeps sub-queue leaves distinct in leafKey', () => {
@@ -150,12 +133,6 @@ describe('sameLeafScope', () => {
     expect(sameLeafScope({ type: 'decisions' }, { type: 'inbox' })).toBe(false)
   })
 
-  it('matches the same tag regardless of queue', () => {
-    expect(
-      sameLeafScope({ type: 'tag', tag: 'vip', queue: 'closed' }, { type: 'tag', tag: 'vip' }),
-    ).toBe(true)
-    expect(sameLeafScope({ type: 'tag', tag: 'vip' }, { type: 'tag', tag: 'billing' })).toBe(false)
-  })
 })
 
 describe('default queue resolution', () => {
@@ -163,7 +140,6 @@ describe('default queue resolution', () => {
     expect(parseInboxFolderPrefs(null)).toEqual({
       defaultQueue: 'open',
       channelDefaults: {},
-      sidebarTags: [],
     })
     expect(
       parseInboxFolderPrefs({
@@ -173,7 +149,6 @@ describe('default queue resolution', () => {
     ).toEqual({
       defaultQueue: 'mine',
       channelDefaults: { 'channel:email:12': 'closed' },
-      sidebarTags: [],
     })
   })
 
@@ -186,14 +161,12 @@ describe('default queue resolution', () => {
       resolveDefaultQueue(prefs, { type: 'channel', channelKey: 'email', connectionId: '12' }),
     ).toBe('mine')
     expect(resolveDefaultQueue(prefs, { type: 'channel', channelKey: 'webchat' })).toBe('open')
-    expect(resolveDefaultQueue(prefs, { type: 'tag', tag: 'billing' })).toBe('open')
   })
 
   it('scope keys ignore the sub-queue', () => {
     expect(
       folderScopeKey({ type: 'channel', channelKey: 'email', connectionId: '12', queue: 'mine' }),
     ).toBe('channel:email:12')
-    expect(folderScopeKey({ type: 'tag', tag: 'vip', queue: 'open' })).toBe('tag:vip')
     expect(folderScopeKey({ type: 'agent', agentId: 'a1', queue: 'closed' })).toBe('agent:a1')
     expect(folderScopeKey({ type: 'inbox', queue: 'mine' })).toBe('inbox')
   })

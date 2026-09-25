@@ -24,44 +24,10 @@ export interface MailboxConnection {
   updated_at: string;
 }
 
-export type RoutingConditionType = 'sender_domain' | 'subject_contains' | 'mailbox';
-
-export interface RoutingRule {
-  id: number;
-  mailbox_connection_id: number;
-  condition_type: RoutingConditionType;
-  condition_value: string;
-  assign_to_user_id: number | null;
-  labels: string[];
-  priority: number;
-  active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface CreateMailboxConnectionRequest {
   provider: MailboxProvider;
   email_address: string;
   display_name: string;
-}
-
-export interface CreateRoutingRuleRequest {
-  mailbox_connection_id: number;
-  condition_type: RoutingConditionType;
-  condition_value: string;
-  assign_to_user_id?: number;
-  labels?: string[];
-  priority?: number;
-  active?: boolean;
-}
-
-export interface UpdateRoutingRuleRequest {
-  condition_type?: RoutingConditionType;
-  condition_value?: string;
-  assign_to_user_id?: number;
-  labels?: string[];
-  priority?: number;
-  active?: boolean;
 }
 
 export interface SyncStats {
@@ -85,10 +51,4 @@ export const MAILBOX_STATUS_VARIANTS: Record<MailboxStatus, 'success' | 'warning
   token_expired: 'warning',
   needs_auth: 'warning',
   paused: 'neutral',
-};
-
-export const ROUTING_CONDITION_LABELS: Record<RoutingConditionType, string> = {
-  sender_domain: 'Sender domain',
-  subject_contains: 'Subject contains',
-  mailbox: 'Mailbox',
 };

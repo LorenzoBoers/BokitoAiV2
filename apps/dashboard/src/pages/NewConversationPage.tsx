@@ -517,7 +517,7 @@ export default function NewConversationPage() {
                     )}
                   </div>
                   {toPickerOpen ? (
-                    <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
+                    <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
                       <div className="max-h-[280px] overflow-y-auto p-1">
                         {matchingContacts.map((contact) => (
                           <button
@@ -666,7 +666,7 @@ export default function NewConversationPage() {
                 </div>
               )}
               {agentPickerOpen ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
+                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
                   <div className="max-h-[280px] overflow-y-auto p-1">
                     {filteredAgents.map((target) => (
                       <button

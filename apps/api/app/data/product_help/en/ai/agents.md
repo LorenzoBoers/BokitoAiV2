@@ -9,15 +9,15 @@ related: govern,knowledge,communication,agenda
 
 # How Agents works
 
-Agents are the AI workers for this workspace. Open **Agents** to add one, change a brief, or start a chat. Members talk to existing agents from Communication. Setup requires at least one active company agent. One of them is the **default agent**: new channels and unassigned work use that agent until you pick someone else.
+Agents are the AI workers for this workspace. Every agent has one shape: name, purpose, audience, model, allowed tools, owner, and optional defaults. Bokito is the system agent that acts for the signed-in user; it is not part of the worker library.
 
 ## Browse the library
 
 ![Agents library](/api/docs/assets/agents/library.png)
 *Each agent is a card. The default agent is marked quietly as Default.*
 
-1. Open **Agents**. Company agents appear as cards. The default agent shows a quiet **Default** label. Each card can show **open** conversations and threads that **need a decision** — open the card and scroll to **Open conversations**, or jump into Communication for that agent. Search and the pills **All**, **Working** and **Default** narrow the grid.
-2. Choose **New agent**. Pick a starter (**Customer support**, **Team assistant**, or **Project lead**), enter a **Name**, pick a **Role** (the line under the role explains what it does), a **Model**, optional **Project**, optional **Instructions**, then **Create agent**.
+1. Open **Agents**. Company agents appear as cards with their audience. Each card can show **open** conversations and threads that **need a decision**. Search and the pills **All** and **Working** narrow the grid.
+2. Choose **New agent**. Enter a **Name**, choose the **Audience**, select a **Model**, describe the **Purpose**, then choose **Create agent**.
 3. Open a card for instructions, model and chat access. Use **Chat with this agent** to start an internal thread. Agenda and conversations are quiet links on the detail page. Related settings (Inbox AI, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
@@ -29,11 +29,11 @@ New chats in Communication require a **company agent**. If none are available fo
 ## Brief an agent
 
 ![Agent detail](/api/docs/assets/agents/agent-brief.png)
-*Edit role, instructions, model and tools.*
+*Edit purpose, audience, model and allowed tools.*
 
-1. Open the agent. Edit **Name** and **Instructions**, then save.
-2. Under **Tools & permissions**, leave **Autonomy level** on **Workspace default**, or set **Manual — always ask**, **Approval — gated actions**, or **Auto — act independently**. A short line under the control says what that means. Open **Workspace posture** to change the default. **Allowed tools** with nothing selected means all tools, still gated by [Govern](/docs/govern/govern).
-3. To change who handles unassigned work, use **Use as default agent** under the name (admins only). **Archive** (under the ··· menu) hides the agent from the list; run history stays. You cannot archive the current default until another agent is the default.
+1. Open the agent. Edit its **Name**, **Purpose**, **Audience**, and **Model**.
+2. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
+3. In **Communication settings**, choose one default agent for each connected channel. A conversation-level agent pin always wins. **Archive** hides an agent and clears its channel defaults; run history stays.
 
 ## Limit who can chat
 

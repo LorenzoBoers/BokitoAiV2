@@ -19,6 +19,10 @@ class Project(SQLModel, table=True):
     # auto-accepted and analysis auto-starts when enabled.
     autonomous_mode: bool = False
     active_domains_json: str = Field(default="[]")
+    # Default coding workbench used when dispatch does not name a connection.
+    workbench_connection_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="integration_connections.id", index=True
+    )
     # External surfaces (repo, drive, notion, vibecode) live in ProjectResource.
     po_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)

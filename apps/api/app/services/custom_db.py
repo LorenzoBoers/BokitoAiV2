@@ -1,4 +1,8 @@
-"""Custom database service (tables, fields, records, views)."""
+"""Custom database service (tables, fields, records, views).
+
+DEAD CODE — reachable only from `routers/custom_db.py`, which is no longer
+mounted. See that module's docstring.
+"""
 
 import csv
 import io

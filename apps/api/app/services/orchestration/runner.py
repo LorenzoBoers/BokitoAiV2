@@ -243,7 +243,7 @@ async def _execute_agent_segment(
     await _mirror_task_message(
         session,
         task,
-        kind="status_update",
+        kind="run",
         body=f"**{task.title}**\n\n{text}",
         agent_id=agent.id,
         metadata={"run_id": str(run.id), "segment_index": segment_index, "agent_name": agent.name},
@@ -406,7 +406,11 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
             run,
             "eval_result",
             "Evaluation passed" if checkpoint.passed else "Evaluation failed",
-            {"passed": checkpoint.passed, "eval_kind": "rubric"},
+            {
+                "passed": checkpoint.passed,
+                "eval_kind": checkpoint.eval_kind,
+                "result": checkpoint.result,
+            },
         )
         if not checkpoint.passed:
             retries = int(ctx.get("retry_count") or 0)

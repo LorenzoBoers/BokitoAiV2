@@ -92,6 +92,14 @@ def test_module_catalog_has_prepared_modules():
     assert all(c.get("description") for c in cards)
     assert "decision" not in (modules["accounting"].get("capability_summary") or "").lower()
     assert modules["accounting"]["needs_when"]
+    package = modules["accounting"]["package"]
+    assert package["module_slug"] == "accounting"
+    assert {row["slug"] for row in package["signal_types"]} == {"billing_inquiry"}
+    assert {row["slug"] for row in package["playbooks"]} == {
+        "vat-filing-prep",
+        "monthly-close-review",
+    }
+    assert package["project"] is None
     assert modules["banking"]["status"] == "available"
     assert modules["banking"]["provider_slugs"] == ["gocardless_bank"]
     for slug in ("investing", "documents"):

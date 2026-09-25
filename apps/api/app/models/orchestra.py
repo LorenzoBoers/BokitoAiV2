@@ -1,9 +1,8 @@
 """Workstream: the central repeatable-process node.
 
 A Workstream is a tenant-owned, optionally project-bound definition of a
-repeatable process: an ordered list of steps (minimum one). Each step is an
-agent goal, a wait (for input, an event, or time), or a human gate. A
-WorkstreamRun is one execution with a typed input; every agent step produces
+repeatable playbook: an ordered list of six operator-facing step kinds.
+A WorkstreamRun is one execution with a typed input; agent-task steps produce
 an `AgentRun` (worklog via RunEvents) and the run ends with a summary.
 """
 
@@ -13,7 +12,14 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-WORKSTREAM_STEP_KINDS = ("agent", "wait", "gate")
+WORKSTREAM_STEP_KINDS = (
+    "send_message",
+    "agent_task",
+    "wait_for_reply",
+    "ask_decision",
+    "call_tool",
+    "schedule",
+)
 WORKSTREAM_WAIT_KINDS = ("input", "event", "time")
 WORKSTREAM_ON_DEADLINE = ("continue", "remind_then_continue", "fail")
 WORKSTREAM_RUN_STATUSES = (
@@ -46,12 +52,13 @@ class Workstream(SQLModel, table=True):
     # integration connected, agents available).
     module_slug: str = ""
     template_slug: str = ""
+    autonomy_level: str = Field(default="approval")  # manual | approval | auto
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class WorkstreamStep(SQLModel, table=True):
-    """One linear step: agent goal, wait, or human gate."""
+    """One ordered playbook step with optional branch/config metadata."""
 
     __tablename__ = "workstream_steps"
 
@@ -60,8 +67,8 @@ class WorkstreamStep(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     position: int = 0
     name: str
-    kind: str = Field(default="agent")  # agent | wait | gate
-    # Agent steps: the goal prompt for this step.
+    kind: str = Field(default="agent_task")  # see WORKSTREAM_STEP_KINDS
+    # Agent-task goal or operator-facing message/decision prompt.
     goal: str = ""
     # Fixed agent, with role fallback when unset or inactive.
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
@@ -90,6 +97,7 @@ class WorkstreamRun(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     workstream_id: uuid.UUID = Field(foreign_key="workstreams.id", index=True)
     project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
 
     status: str = Field(default="running", index=True)  # see WORKSTREAM_RUN_STATUSES
     # Typed input: what started this run.

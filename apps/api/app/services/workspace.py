@@ -315,6 +315,7 @@ async def hybrid_search(
     top_k: int = 8,
     *,
     source_types: list[str] | None = None,
+    include_external: bool = False,
 ) -> list[dict[str, Any]]:
     from app.services.embeddings import embed_text_with_usage
     from app.services.model_resolution import record_usage, resolve_model_call
@@ -334,6 +335,8 @@ async def hybrid_search(
         )
     query_tokens = _tokens(query)
     stmt = select(DocChunk).where(DocChunk.tenant_id == tenant_id)
+    if not include_external:
+        stmt = stmt.where(DocChunk.internal.is_(True))
     if source_types:
         stmt = stmt.where(DocChunk.source_type.in_(source_types))
     result = await session.execute(stmt)
@@ -371,6 +374,7 @@ async def upsert_source_chunk(
     title: str,
     content: str,
     metadata: dict[str, Any] | None = None,
+    internal: bool = True,
 ) -> DocChunk:
     """Index a non-doc source (email, repo file) as a single chunk."""
     from app.services.embeddings import embed_text_with_usage
@@ -402,6 +406,7 @@ async def upsert_source_chunk(
         chunk.content = content
         chunk.embedding_json = json.dumps(embedding)
         chunk.metadata_json = json.dumps(metadata or {})
+        chunk.internal = internal
     else:
         chunk = DocChunk(
             tenant_id=tenant_id,
@@ -411,6 +416,7 @@ async def upsert_source_chunk(
             content=content,
             embedding_json=json.dumps(embedding),
             metadata_json=json.dumps(metadata or {}),
+            internal=internal,
         )
         session.add(chunk)
     await session.commit()
@@ -434,6 +440,7 @@ def serialize_doc(doc: WorkspaceDoc, *, include_content: bool = True) -> dict[st
         "agent_id": str(doc.agent_id) if getattr(doc, "agent_id", None) else None,
         "title": doc.title,
         "frontmatter": frontmatter,
+        "internal": doc.internal,
         "is_pinned": doc.is_pinned,
         "sort_order": doc.sort_order,
         "created_by_type": doc.created_by_type,
@@ -491,6 +498,7 @@ async def list_docs(
     agent_id: UUID | None = None,
     scope: str | None = None,
     limit: int | None = None,
+    include_external: bool = False,
 ) -> list[WorkspaceDoc]:
     """List knowledge docs with optional scope filters.
 
@@ -499,6 +507,8 @@ async def list_docs(
     skip the org-only default (still filtered by any explicit ids).
     """
     stmt = select(WorkspaceDoc).where(WorkspaceDoc.tenant_id == tenant_id)
+    if not include_external:
+        stmt = stmt.where(WorkspaceDoc.internal.is_(True))
     if project_id is not None:
         stmt = stmt.where(WorkspaceDoc.project_id == project_id)
     elif agent_id is not None:
@@ -522,6 +532,7 @@ def _section_chunk_metadata(doc: WorkspaceDoc, section: DocSection) -> dict[str,
         "kind": doc.kind,
         "path": doc.path,
         "section_status": section.status,
+        "internal": doc.internal,
     }
     if section.heading:
         metadata["heading"] = section.heading
@@ -580,6 +591,7 @@ async def reindex_section(
                 content=part,
                 embedding_json=json.dumps(embedding),
                 metadata_json=json.dumps(metadata),
+                internal=doc.internal,
             )
         )
         count += 1
@@ -618,6 +630,7 @@ async def upsert_doc(
     title: str | None = None,
     project_id: UUID | None = None,
     agent_id: UUID | None = None,
+    internal: bool | None = None,
     created_by_type: str = "user",
     created_by_id: str = "",
     commit: bool = True,
@@ -642,6 +655,8 @@ async def upsert_doc(
             doc.project_id = project_id
         if agent_id is not None:
             doc.agent_id = agent_id
+        if internal is not None:
+            doc.internal = internal
         doc.updated_at = datetime.utcnow()
     else:
         inferred_kind = kind or ("project_doc" if project_id else _infer_kind(norm))
@@ -657,6 +672,7 @@ async def upsert_doc(
             title=title or _title_from(norm, meta, body),
             content=body,
             frontmatter_json=json.dumps(meta),
+            internal=True if internal is None else internal,
             created_by_type=created_by_type,
             created_by_id=created_by_id,
             created_at=now,
@@ -978,6 +994,44 @@ async def build_workspace_context(
         parts.append(
             "## Skills (read the full doc with the read_doc tool before using one)\n" + skills
         )
+    # Human-curated closed conversations are compact few-shot examples. Keep
+    # the prompt bounded and preserve role order without exposing metadata.
+    try:
+        from app.models.signal import Signal, SignalMessage
+
+        examples = (
+            await session.execute(
+                select(Signal)
+                .where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.is_example.is_(True),
+                    Signal.status == "closed",
+                )
+                .order_by(Signal.updated_at.desc())
+                .limit(3)
+            )
+        ).scalars().all()
+        rendered: list[str] = []
+        for example in examples:
+            messages = (
+                await session.execute(
+                    select(SignalMessage)
+                    .where(SignalMessage.signal_id == example.id)
+                    .order_by(SignalMessage.created_at)
+                    .limit(12)
+                )
+            ).scalars().all()
+            turns = [
+                f"{'Customer' if m.direction == 'inbound' else 'Team'}: {m.body_text[:500]}"
+                for m in messages
+                if m.body_text.strip() and m.kind not in ("internal_note", "system_event")
+            ]
+            if turns:
+                rendered.append(f"### {example.subject}\n" + "\n".join(turns))
+        if rendered:
+            parts.append("## Approved examples\n" + "\n\n".join(rendered))
+    except Exception:
+        pass
     try:
         from app.modules.catalog import active_module_skill_prompt
 

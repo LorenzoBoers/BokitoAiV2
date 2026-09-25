@@ -20,7 +20,7 @@ import {
   type AuthSessionResponse,
 } from '../lib/api';
 import { switchStaffTenant as switchStaffTenantRequest } from '../lib/staff-api';
-import { UserRole, PermissionAction } from '../types/custom-db';
+import { UserRole, PermissionAction } from '../types/workspace';
 import {
   clearLocationHashPreservePath,
   consumeDevLocalhostAccessHashFromLocation,

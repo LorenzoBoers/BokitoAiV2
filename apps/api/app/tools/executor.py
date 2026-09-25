@@ -162,8 +162,13 @@ async def execute_tool(
         tenant = tenant_result.scalar_one_or_none()
         if tenant is None:
             return {"error": "Tenant not found"}
+        policy_input = (
+            {**tool_input, "signal_id": str(signal_id)}
+            if signal_id and not tool_input.get("signal_id")
+            else tool_input
+        )
         mode, reason = await resolve_tool_mode(
-            session, tenant, agent, spec, trust=trust, tool_input=tool_input,
+            session, tenant, agent, spec, trust=trust, tool_input=policy_input,
             user_role=user_role,
         )
 

@@ -1,9 +1,4 @@
-"""Deterministic inbound routing: channel/contact/account -> agent.
-
-ChannelBinding rows map inbound threads to agents (OpenClaw agents.mapping
-style). Most specific match wins: contact > channel account > channel-wide.
-Falls back to the tenant's lead agent.
-"""
+"""Deterministic inbound routing: conversation pin -> channel default."""
 
 from __future__ import annotations
 
@@ -13,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.channel import ChannelBinding
+from app.models.channel import ChannelAccount
 from app.models.signal import Signal
 
 
@@ -35,42 +30,38 @@ async def resolve_agent_for_channel(
     channel_account_id: UUID | None = None,
     contact_id: UUID | None = None,
 ) -> Agent | None:
-    """Pick the agent bound to this channel/account/contact, else the assistant."""
+    """Pick the channel account's default, then the customer-facing front desk."""
+    del channel, contact_id  # selection no longer varies by channel/contact hierarchy
+    if channel_account_id:
+        account = (
+            await session.execute(
+                select(ChannelAccount).where(
+                    ChannelAccount.id == channel_account_id,
+                    ChannelAccount.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if account and account.default_agent_id:
+            selected = await _agent_by_id(session, tenant_id, account.default_agent_id)
+            if selected:
+                return selected
+
     result = await session.execute(
-        select(ChannelBinding)
+        select(Agent)
         .where(
-            ChannelBinding.tenant_id == tenant_id,
-            ChannelBinding.enabled.is_(True),
-            ChannelBinding.channel == channel,
+            Agent.tenant_id == tenant_id,
+            Agent.kind == "company",
+            Agent.is_active.is_(True),
+            Agent.audience == "customers",
         )
-        .order_by(ChannelBinding.priority.desc())
+        .order_by(Agent.created_at)
+        .limit(1)
     )
-    bindings = list(result.scalars().all())
-
-    contact_matches = [b for b in bindings if b.contact_id and b.contact_id == contact_id]
-    account_matches = [
-        b
-        for b in bindings
-        if not b.contact_id
-        and b.channel_account_id
-        and b.channel_account_id == channel_account_id
-    ]
-    channel_matches = [b for b in bindings if not b.contact_id and not b.channel_account_id]
-
-    for binding in (*contact_matches, *account_matches, *channel_matches):
-        agent = await _agent_by_id(session, tenant_id, binding.agent_id)
-        if agent:
-            return agent
-
-    # No binding: the tenant's lead agent handles it (company agents only;
-    # personal assistants belong to one user).
-    from app.services.lead_agent import get_lead_agent
-
-    return await get_lead_agent(session, tenant_id)
+    return result.scalars().first()
 
 
 async def resolve_agent_for_signal(session: AsyncSession, signal: Signal) -> Agent | None:
-    """Agent for this thread: a thread-level pin wins, else channel bindings.
+    """Agent for this thread: a thread-level pin wins, else channel default.
 
     ``Signal.agent_id`` is the handling agent of that one conversation (set
     when an agent takes it over, or when it raised the thread). Honouring it

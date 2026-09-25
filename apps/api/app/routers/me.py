@@ -26,12 +26,10 @@ class PreferencesPatch(BaseModel):
     tour: dict | None = None
     # Invited members: personal language/notifications wizard finished.
     personal_wizard_completed: bool | None = None
-    # Communication hub folder defaults: which sub-view a channel/tag opens on,
-    # plus which tags stay pinned in the Tags sidebar section.
+    # Communication hub folder defaults: which sub-view a folder opens on.
     # Shape: {
     #   "default_queue": "open",
     #   "channel_defaults": {"channel:email:12": "mine"},
-    #   "sidebar_tags": ["billing", "vip"],
     # }
     inbox_folders: dict | None = None
     # Post-login / home landing: communication (default) or overview (/cockpit).
@@ -44,9 +42,6 @@ class PreferencesPatch(BaseModel):
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
 INBOX_SUB_QUEUES = ("open", "mine", "unassigned", "closed")
 DEFAULT_LANDINGS = ("communication", "overview")
-MAX_SIDEBAR_TAGS = 40
-MAX_SIDEBAR_TAG_LEN = 40
-
 
 def _default_landing_state(stored: dict) -> str:
     raw = stored.get("default_landing")
@@ -70,28 +65,10 @@ def _tour_state(stored: dict) -> dict:
     return tour if isinstance(tour, dict) else {}
 
 
-def _clean_sidebar_tags(raw) -> list[str]:
-    if not isinstance(raw, list):
-        return []
-    out: list[str] = []
-    seen: set[str] = set()
-    for item in raw:
-        if not isinstance(item, str):
-            continue
-        tag = item.strip().lower()[:MAX_SIDEBAR_TAG_LEN]
-        if not tag or tag in seen:
-            continue
-        seen.add(tag)
-        out.append(tag)
-        if len(out) >= MAX_SIDEBAR_TAGS:
-            break
-    return out
-
-
 def _inbox_folders_state(stored: dict) -> dict:
     raw = stored.get("inbox_folders")
     if not isinstance(raw, dict):
-        return {"default_queue": "open", "channel_defaults": {}, "sidebar_tags": []}
+        return {"default_queue": "open", "channel_defaults": {}}
     default_queue = raw.get("default_queue")
     if default_queue not in INBOX_SUB_QUEUES:
         default_queue = "open"
@@ -106,7 +83,6 @@ def _inbox_folders_state(stored: dict) -> dict:
     return {
         "default_queue": default_queue,
         "channel_defaults": cleaned,
-        "sidebar_tags": _clean_sidebar_tags(raw.get("sidebar_tags")),
     }
 
 
@@ -185,7 +161,6 @@ async def patch_my_preferences(
         stored["inbox_folders"] = {
             "default_queue": default_queue,
             "channel_defaults": cleaned_defaults,
-            "sidebar_tags": _clean_sidebar_tags(merged.get("sidebar_tags")),
         }
     if body.default_landing is not None:
         if body.default_landing not in DEFAULT_LANDINGS:

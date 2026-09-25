@@ -1,4 +1,10 @@
-"""Tenant-scoped operational outcomes (trades, session summaries, errors)."""
+"""Tenant-scoped operational outcomes (trades, session summaries, errors).
+
+Trading-era side table, deliberately not exposed by any router: rows only enter
+through the trading webhook in `services/triggers.py`. Reads are internal
+(learning signals, tenant introspection, thread reference cleanup). New product
+surfaces use Feedback and RunEvent instead.
+"""
 
 import uuid
 from datetime import datetime

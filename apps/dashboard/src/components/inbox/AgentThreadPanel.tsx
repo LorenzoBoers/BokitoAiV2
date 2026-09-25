@@ -113,7 +113,7 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
     <aside className="flex h-full min-h-0 w-full flex-col border-l border-border/60 bg-bg-surface">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-          {isExternal ? t('sidePanel.contact', { ns: 'communication' }) : t('sidePanel.agent', { ns: 'communication' })}
+          {t('sidePanel.who', { ns: 'communication', defaultValue: 'Who' })}
         </span>
         <button
           type="button"

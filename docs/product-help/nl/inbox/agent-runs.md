@@ -1,7 +1,7 @@
 ---
 title: Agent-activiteit volgen
-intro: Geplande scans en afgeronde resultaten staan onder Activiteit — open goedkeuringen staan onder Beslissingen.
-description: Open Activiteit om agentwerk te bekijken zonder het te mengen met klant-Open. Wachtende goedkeuringen gebruiken het blad Beslissingen.
+intro: Geplande scans en afgeronde resultaten staan onder Activiteit — open goedkeuringen staan in het gesprek dat ze stelde.
+description: Open Activiteit om agentwerk te bekijken zonder het te mengen met klant-Open. Wachtende goedkeuringen blijven op hun gesprek.
 keywords: activiteit, agent-runs, gepland, resultaten, wachtrij, inbox, tijdlijn
 sort: 15
 related: communication,decisions,agenda,cockpit
@@ -9,7 +9,7 @@ related: communication,decisions,agenda,cockpit
 
 # Agent-activiteit volgen
 
-Activiteit is de live werktijdlijn van je AI: alles wat agents deden en aan het doen zijn, gestreamd terwijl het gebeurt. Het is een eigen pagina — niet naast de inbox-threadlijst — zodat klantmail niet concurreert met achtergrondwerk. Open goedkeuringen staan onder [Beslissingen](/docs/ai/decisions).
+Activiteit is de live werktijdlijn van je AI: alles wat agents deden en aan het doen zijn, gestreamd terwijl het gebeurt. Het is een eigen pagina — niet naast de inbox-threadlijst — zodat klantmail niet concurreert met achtergrondwerk. Open goedkeuringen staan op hun eigen gesprek — zie [Beslissingen](/docs/ai/decisions).
 
 ## Open de Activiteit-tijdlijn
 
@@ -19,7 +19,7 @@ Activiteit is de live werktijdlijn van je AI: alles wat agents deden en aan het 
 1. Open in Communicatie **Activiteit**, vastgezet onderin de zijbalk naast Contacten. Dat opent de Activiteit-pagina (zelfde chrome als Contacten), geen weergave in de threadlijst.
 2. Lees de tijdlijn: elke rij toont de tijd, wie handelde, de stap en het resultaat — groen voor afgerond werk, rood voor fouten, blauw voor werk in uitvoering. Nieuwe rijen streamen live binnen; **Naar nieuwste** laat de weergave het einde volgen.
 3. Filter met de agent-chips bovenaan of het zoekveld; **Ouder laden** bladert verder terug in de historie.
-4. Klik op een rij om het run-gesprek erachter te openen. Voor items die op een ja of nee wachten, open de rij **Beslissingen** in de Communicatie-zijbalk — dezelfde lijst als Overview **Wacht op beslissing**. Gearchiveerde agents staan niet meer onder [Agents](/docs/ai/agents); wijs Agenda-wakes die nog naar hen wijzen opnieuw toe.
+4. Klik op een rij om het run-gesprek erachter te openen. Voor items die op een ja of nee wachten, open **Filters** → **Wacht op beslissing** boven de Communicatie-lijst — dezelfde lijst als Overview **Wacht op beslissing**. Gearchiveerde agents staan niet meer onder [Agents](/docs/ai/agents); wijs Agenda-wakes die nog naar hen wijzen opnieuw toe.
 
 ## Bekijk het werklog van een agent
 
@@ -30,7 +30,7 @@ Activiteit is de live werktijdlijn van je AI: alles wat agents deden en aan het 
 
 1. Selecteer een run om te lezen wat de agent deed en waarom die stopte.
 2. Wacht er een keuzekaart, gebruik **Goedkeuren**, **Afwijzen**, **Bewerken** of **Escaleren** in het gesprek. Zie [Beslissingen](/docs/ai/decisions).
-3. Ga terug naar **Beslissingen** als je de volgende open goedkeuring nodig hebt.
+3. Ga terug naar **Filters** → **Wacht op beslissing** als je de volgende open goedkeuring nodig hebt.
 
 ## Wat nu
 

@@ -9,7 +9,7 @@ related: communication,agent-runs,decisions,agenda
 
 # Zo werkt Overview
 
-Overview is de ochtendscan. Open die in de linkerrail (boven **Besturing**) om open werk, wachtende beslissingen en wat agents al deden te zien, en spring daarna in het gesprek dat jou nodig heeft. Onder **Instellingen → Profiel** kun je Overview als startpagina na inloggen kiezen; Berichten blijft de standaard.
+Overview is de ochtendscan. Open die in de linkerrail om te zien waar jij nodig bent, welke signalen openstaan, wat loopt en hoe het traject zich ontwikkelt, en spring daarna in het onderliggende gesprek of de run. Onder **Instellingen → Profiel** kun je Overview als startpagina na inloggen kiezen; Communicatie blijft de standaard.
 
 ## Scan de dag op Overview
 
@@ -17,8 +17,8 @@ Overview is de ochtendscan. Open die in de linkerrail (boven **Besturing**) om o
 *Overview toont open werk, beslissingen en recente runs.*
 
 1. Open **Overview** in de linkerrail. Je landt op de scan. De ondertitel begroet je en toont de datum van vandaag. **Bijgewerkt** naast **Vernieuwen** is de laatste geslaagde load.
-2. Lees de ingebouwde kaarten: **Gesprekken 7d**, **Wacht op beslissing**, **Afgehandeld zonder jou**, **Vrijheid van agents**, **Vraagt aandacht**, **Vandaag op de agenda**, **Recente gebeurtenissen** en **Recente contacten**. **Vrijheid van agents** toont **Jij beslist**, **Vraagt eerst** of **Doet het zelf**. Elk cijfer heeft een korte hint. Lege tijd-bespaard-, afgehandeld-zonder-jou- en AI-verbruikkaarten leggen uit wanneer cijfers verschijnen. Als de uurlijkse scan uitstaat, zegt Overview **Uurlijkse inboxscan staat uit**.
-3. Klik een kaart om Berichten, [Agent-runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) of [Contacten](/docs/inbox/contacts) te openen. Bij **Vraagt aandacht** kies je **Open de eerste** om naar het oudste wachtende gesprek te springen. De klok op een rij zet dat gesprek tot morgen 9:00 in Uitgesteld.
+2. Scan de vier vaste blokken: **Jij bent nodig**, **Open signalen per type**, **Lopend** en **Traject**. Traject vergelijkt deze week met vorige week en linkt naar afgeronde runs, Govern-voorstellen en Verbruik.
+3. Klik een rij om het gesprek, de run of een gefilterde lijst te openen. Overview zelf wijzigt geen operationele gegevens.
 
 In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via de [setupgids](/docs/getting-started/setup-guide).
 
@@ -27,8 +27,8 @@ In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via d
 ![Overview-aandachtspunten](/api/docs/assets/cockpit/awaiting-decision.png)
 *Wacht op beslissing springt naar dezelfde lijst als Agent-runs.*
 
-1. Zoek **Wacht op beslissing** op Overview.
-2. Open die. Je landt op dezelfde lijst als [Agent-runs](/docs/inbox/agent-runs).
+1. Zoek het gesprek onder **Jij bent nodig**.
+2. Open het. Je landt op het bijbehorende gesprek in Communicatie.
 3. Handel de beslissing af in het gesprek en keer terug naar Overview.
 
 ## Lees Activiteit

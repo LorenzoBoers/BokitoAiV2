@@ -88,10 +88,12 @@ async def init_db() -> None:
     from app.services.personal_agents import deactivate_personal_agents
     from app.services.personal_assistant import ensure_personal_assistants
     from app.services.platform_watch import ensure_platform_watch
+    from app.services.tenant_bootstrap import ensure_front_desks
 
     async with async_session_factory() as session:
         await seed_model_catalog(session)
         await deactivate_personal_agents(session)
+        await ensure_front_desks(session)
         await ensure_lead_agents(session)
         # Platform-owned Bokito helper per tenant; also refreshes its prompt
         # and passport so a shipped improvement reaches every workspace.

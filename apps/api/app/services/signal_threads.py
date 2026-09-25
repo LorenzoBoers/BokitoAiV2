@@ -2049,6 +2049,46 @@ async def resolve_message_decision(
     if send_as is not None:
         payload_override["send_as"] = send_as
 
+    # Editing an AI draft before approval is explicit learning evidence.
+    if body is not None and user_id:
+        from app.models.learning import Feedback
+        from app.models.notification import DecisionRequest
+
+        decision = await session.get(DecisionRequest, message.decision_id)
+        original = ""
+        if decision:
+            try:
+                options = json.loads(decision.options_json or "[]")
+            except json.JSONDecodeError:
+                options = []
+            chosen = next(
+                (
+                    option
+                    for option in options
+                    if isinstance(option, dict)
+                    and (not option_id or str(option.get("id")) == option_id)
+                ),
+                None,
+            )
+            if chosen:
+                payload = chosen.get("payload")
+                if isinstance(payload, dict):
+                    original = str(payload.get("body_text") or payload.get("body") or "")
+        if original.strip() and original.strip() != body.strip():
+            session.add(
+                Feedback(
+                    tenant_id=tenant_id,
+                    subject_type="draft_edit",
+                    subject_id=str(message.decision_id),
+                    user_id=user_id,
+                    sentiment="down",
+                    comment=body[:2000],
+                    metadata_json=json.dumps(
+                        {"original": original[:2000], "signal_id": str(signal_id)}
+                    ),
+                )
+            )
+
     await resolve_decision_message(
         session,
         tenant_id,

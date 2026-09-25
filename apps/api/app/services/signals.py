@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.gateway.publish import publish_signal_message, publish_thread_update
 from app.models.auth import Membership, User, user_numeric_id
 from app.models.channel import ChannelAccount, Contact
-from app.models.email_routing import EmailRoutingRule
 from app.models.signal import Signal, SignalEvent, SignalMessage
 
 
@@ -67,6 +66,20 @@ async def get_or_create_contact(
         status="approved",
         last_seen_at=datetime.utcnow(),
     )
+    canonical = (
+        await session.execute(
+            select(Contact)
+            .where(
+                Contact.tenant_id == tenant_id,
+                Contact.address == address,
+                Contact.merged_into_id.is_(None),
+            )
+            .order_by(Contact.created_at)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if canonical:
+        contact.merged_into_id = canonical.id
     session.add(contact)
     await session.flush()
     from app.services.companies import link_contact_company
@@ -75,31 +88,15 @@ async def get_or_create_contact(
     return contact
 
 
-def _rule_matches(rule: EmailRoutingRule, *, contact_email: str, subject: str) -> bool:
-    value = (rule.condition_value or "").strip().lower()
-    if rule.condition_type == "mailbox":
-        return True
-    if rule.condition_type == "sender_domain":
-        if not value:
-            return False
-        domain = contact_email.split("@")[-1].lower() if "@" in contact_email else ""
-        needle = value.lstrip("@")
-        return bool(domain) and (domain == needle or contact_email.lower().endswith(needle))
-    if rule.condition_type == "subject_contains":
-        return bool(value) and value in (subject or "").lower()
-    return False
-
-
 async def apply_email_routing(
     session: AsyncSession,
     tenant_id: UUID,
     signal: Signal,
 ) -> None:
-    """Apply active routing rules for the signal's mailbox: merge labels and
-    resolve an assignee. Highest-priority matching rule wins for assignment.
+    """Apply active InboxRule route actions for the signal's mailbox.
 
-    Canonical store is InboxRule (action=route). Falls back to legacy
-    EmailRoutingRule rows that have not been mirrored yet.
+    EmailRoutingRule is retired — InboxRule is the only matcher. Highest-priority
+    matching rule wins for assignment.
     """
     if signal.channel != "email" or not signal.channel_account_id:
         return
@@ -116,44 +113,14 @@ async def apply_email_routing(
         .order_by(InboxRule.priority)
     )
     inbox_rules = list(result.scalars().all())
-    if inbox_rules:
-        labels: list[str] = []
-        assign_numeric: int | None = None
-        for rule in inbox_rules:
-            if not _inbox_route_matches(
-                rule, contact_email=signal.contact_email, subject=signal.subject
-            ):
-                continue
-            try:
-                rule_labels = json.loads(rule.labels_json or "[]")
-            except (json.JSONDecodeError, TypeError):
-                rule_labels = []
-            for label in rule_labels:
-                if isinstance(label, str) and label not in labels:
-                    labels.append(label)
-            if assign_numeric is None and rule.assign_to_user_id is not None:
-                assign_numeric = rule.assign_to_user_id
-        await _apply_routing_effects(
-            session, tenant_id, signal, labels=labels, assign_numeric=assign_numeric
-        )
+    if not inbox_rules:
         return
-
-    result = await session.execute(
-        select(EmailRoutingRule)
-        .where(
-            EmailRoutingRule.tenant_id == tenant_id,
-            EmailRoutingRule.channel_account_id == signal.channel_account_id,
-            EmailRoutingRule.is_active.is_(True),
-        )
-        .order_by(EmailRoutingRule.priority)
-    )
-    rules = list(result.scalars().all())
-    if not rules:
-        return
-    labels = []
-    assign_numeric = None
-    for rule in rules:
-        if not _rule_matches(rule, contact_email=signal.contact_email, subject=signal.subject):
+    labels: list[str] = []
+    assign_numeric: int | None = None
+    for rule in inbox_rules:
+        if not _inbox_route_matches(
+            rule, contact_email=signal.contact_email, subject=signal.subject
+        ):
             continue
         try:
             rule_labels = json.loads(rule.labels_json or "[]")

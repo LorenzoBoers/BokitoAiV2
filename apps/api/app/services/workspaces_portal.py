@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
-from app.models.auth import user_numeric_id
+from app.models.auth import canonical_workspace_role, user_numeric_id
 from app.services.auth import create_invite_token
 from app.services.tenant_bootstrap import (
     bootstrap_tenant,
@@ -304,7 +304,7 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
                 "uuid": str(user.id),
                 "name": user.display_name or user.email,
                 "email": user.email,
-                "role": membership.role,
+                "role": canonical_workspace_role(membership.role),
                 "avatar_url": user.avatar_url,
                 "joined_at": membership.created_at.isoformat() if membership.created_at else None,
             }

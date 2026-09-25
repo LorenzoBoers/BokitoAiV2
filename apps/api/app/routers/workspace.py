@@ -25,6 +25,7 @@ class DocCreateBody(BaseModel):
     title: str | None = None
     project_id: UUID | None = None
     agent_id: UUID | None = None
+    internal: bool = True
 
 
 class DocUpdateBody(BaseModel):
@@ -34,6 +35,7 @@ class DocUpdateBody(BaseModel):
     is_pinned: bool | None = None
     project_id: UUID | None = None
     agent_id: UUID | None = None
+    internal: bool | None = None
 
 
 class SearchBody(BaseModel):
@@ -101,6 +103,7 @@ async def create_workspace_doc(
         title=body.title,
         project_id=body.project_id,
         agent_id=body.agent_id,
+        internal=body.internal,
         created_by_type="user",
         created_by_id=str(auth.user.id),
     )
@@ -276,6 +279,7 @@ async def update_workspace_doc(
             title=body.title,
             project_id=body.project_id if body.project_id is not None else doc.project_id,
             agent_id=body.agent_id if body.agent_id is not None else doc.agent_id,
+            internal=body.internal,
             created_by_type="user",
             created_by_id=str(auth.user.id),
         )

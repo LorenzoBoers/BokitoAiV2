@@ -18,9 +18,14 @@ describe('notification rows', () => {
     expect(next[0]?.channels.email).toBe(true)
   })
 
-  it('pauses every in-app toggle', () => {
-    const paused = pauseAllDesktop(restoreDefaultNotificationRows())
+  it('keeps only the three ping triggers and pauses desktop', () => {
+    const defaults = restoreDefaultNotificationRows()
+    expect(defaults.map((row) => row.id).sort()).toEqual([
+      'assigned-to-me',
+      'decisions',
+      'mentions',
+    ])
+    const paused = pauseAllDesktop(defaults)
     expect(desktopEnabledCount(paused)).toBe(0)
-    expect(paused.find((row) => row.id === 'digest-daily')?.channels.desktop).toBeUndefined()
   })
 })

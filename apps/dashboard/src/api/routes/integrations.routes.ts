@@ -113,11 +113,6 @@ export const integrationsRoutes = {
     },
     send: '/email/send',
     sync: '/email/sync',
-    routingRules: {
-      withMailbox: (mailboxId: number) => `/email/routing-rules?mailbox_id=${mailboxId}`,
-      base: '/email/routing-rules',
-      byId: (ruleId: number) => `/email/routing-rules/${ruleId}`,
-    },
   },
   kb: {
     collections: {

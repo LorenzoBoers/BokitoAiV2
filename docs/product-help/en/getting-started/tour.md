@@ -26,7 +26,7 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 ## AI: the workforce
 
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).
-- **Workstreams** — repeatable step-by-step processes agents execute. See [Workstreams](/docs/ai/workstreams).
+- **Playbooks** — repeatable step-by-step processes agents execute. See [Playbooks](/docs/ai/workstreams).
 - **Knowledge** — docs, skills and memory; equal sibling next to Agents. See [Knowledge](/docs/ai/knowledge).
 
 ## Modules: installed workspaces
@@ -36,7 +36,7 @@ Installed modules (for example **Accounting**) appear here as their own rail ite
 ## Organization: connections and the control room
 
 - **Connections** — installed modules, partner logins, custom MCP and marketplace. See [Integrations](/docs/integrations/integrations).
-- **Settings** — **Email & messages**, inbox AI, chat widget, members, models and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live on [Workstreams](/docs/ai/workstreams); see [Cases](/docs/ai/cases).
+- **Settings** — **Email & messages**, inbox AI, chat widget, members, models and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).
 
 Owners and admins come here; members rarely. See the [setup guide](/docs/getting-started/setup-guide). **Overview** sits above Control in the rail — see [Overview](/docs/getting-started/cockpit).
 
@@ -46,7 +46,7 @@ Personal screens — **Profile** (including start page: Communication or Overvie
 
 1. Press `Ctrl+K` (Windows) or `Cmd+K` (Mac) from any signed-in page.
 2. Type to jump. Results group under **Recent**, **Go to**, **Actions**, **Sessions**, **Threads**, **Contacts**, **Inbox queues**, **Knowledge** and **Settings**.
-3. With an empty query, **Actions** also offers **New chat**, **Talk to an agent**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **Connect mailbox**, **Open setup guide** and **Open help**.
+3. With an empty query, **Actions** also offers **New chat**, **Talk to an agent**, **Open agent**, **Open playbook**, **Open project**, **Open Knowledge**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **Connect mailbox**, **Open setup guide** and **Open help**.
 4. Settings pages appear after you type. You can **Switch to light mode** or **Switch to dark mode** from the palette too.
 
 Communication search in the thread list searches conversations. The palette is for jumping, not for inbox filters.

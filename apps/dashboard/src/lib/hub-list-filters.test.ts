@@ -4,7 +4,6 @@ import {
   mergeHubThreadFilters,
   signalChannelForNavKey,
   threadFitsChannelLeaf,
-  threadFitsTagLeaf,
 } from './hub-list-filters'
 import type { HubLeaf } from './messages-paths'
 
@@ -92,13 +91,5 @@ describe('threadFitsChannelLeaf', () => {
     expect(threadFitsChannelLeaf({ channel: 'email', emailConnectionId: 7 }, leaf)).toBe(true)
     expect(threadFitsChannelLeaf({ channel: 'email', emailConnectionId: 9 }, leaf)).toBe(false)
     expect(threadFitsChannelLeaf({ channel: 'widget', emailConnectionId: 7 }, leaf)).toBe(false)
-  })
-})
-
-describe('threadFitsTagLeaf', () => {
-  it('requires the tag on the thread', () => {
-    const leaf: Extract<HubLeaf, { type: 'tag' }> = { type: 'tag', tag: 'billing', queue: 'open' }
-    expect(threadFitsTagLeaf({ tags: ['billing', 'vip'] }, leaf)).toBe(true)
-    expect(threadFitsTagLeaf({ tags: ['vip'] }, leaf)).toBe(false)
   })
 })

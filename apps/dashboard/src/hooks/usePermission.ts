@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-import { PermissionAction } from '../types/custom-db';
+import { PermissionAction } from '../types/workspace';
 
 /**
  * Hook to check if the current user has permission for a specific action

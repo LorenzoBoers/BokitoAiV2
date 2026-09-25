@@ -67,6 +67,7 @@ def _serialize_account(row: ChannelAccount) -> dict:
         "require_pairing": bool(settings.get("require_pairing")),
         "has_inbound_secret": bool(settings.get("inbound_secret")),
         "visibility": account_visibility(row),
+        "default_agent_id": str(row.default_agent_id) if row.default_agent_id else None,
         "created_at": row.created_at.isoformat(),
     }
 
@@ -319,6 +320,7 @@ class ChannelRow(BaseModel):
     last_sync_at: str | None = None
     last_error: str = ""
     ai_mode: str
+    default_agent_id: str | None = None
     visibility: ChannelVisibility
     created_at: str
     # Initial backfill window in days for sync channels; 0 = everything.
@@ -334,6 +336,7 @@ class ChannelPatchBody(BaseModel):
     is_enabled: bool | None = None
     is_primary: bool | None = None
     sync_window_days: int | None = None
+    default_agent_id: UUID | None = None
 
 
 class ChannelSyncResponse(BaseModel):
@@ -361,7 +364,7 @@ async def _detach_and_delete(session: AsyncSession, account: ChannelAccount) -> 
     from sqlalchemy import delete as sa_delete, update as sa_update
 
     from app.models.channel import ChannelBinding
-    from app.models.email_routing import EmailRoutingRule
+    from app.models.learning import InboxRule
 
     await session.execute(
         sa_update(Signal)
@@ -369,7 +372,7 @@ async def _detach_and_delete(session: AsyncSession, account: ChannelAccount) -> 
         .values(channel_account_id=None)
     )
     await session.execute(
-        sa_delete(EmailRoutingRule).where(EmailRoutingRule.channel_account_id == account.id)
+        sa_delete(InboxRule).where(InboxRule.channel_account_id == account.id)
     )
     await session.execute(
         sa_delete(ChannelBinding).where(ChannelBinding.channel_account_id == account.id)
@@ -442,6 +445,24 @@ async def patch_channel(
             account.display_name = account.address or ""
     if body.is_enabled is not None:
         account.is_enabled = bool(body.is_enabled)
+    if "default_agent_id" in body.model_fields_set:
+        if body.default_agent_id is not None:
+            from app.models.agent import Agent
+
+            selected = (
+                await session.execute(
+                    select(Agent).where(
+                        Agent.id == body.default_agent_id,
+                        Agent.tenant_id == auth.tenant.id,
+                        Agent.kind == "company",
+                        Agent.is_active.is_(True),
+                        Agent.acts_for_user.is_(False),
+                    )
+                )
+            ).scalar_one_or_none()
+            if not selected:
+                raise HTTPException(status_code=400, detail="Default agent is unavailable")
+        account.default_agent_id = body.default_agent_id
     if body.is_primary is not None:
         settings["is_primary"] = bool(body.is_primary)
         if body.is_primary:
@@ -594,6 +615,17 @@ class ContactCreateBody(BaseModel):
     notes: str = ""
 
 
+class ContactMergeBody(BaseModel):
+    source_contact_ids: list[UUID]
+
+
+class ContactSplitBody(BaseModel):
+    signal_ids: list[UUID] = []
+    channel: str
+    address: str
+    display_name: str = ""
+
+
 def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict:
     data = {
         "id": str(row.id),
@@ -606,6 +638,7 @@ def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict
         "title": row.title,
         "phone": row.phone,
         "notes": row.notes,
+        "merged_into_id": str(row.merged_into_id) if row.merged_into_id else None,
         "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
         "created_at": row.created_at.isoformat(),
     }
@@ -645,7 +678,9 @@ async def list_contacts(
     channel: str | None = None,
     search: str | None = None,
 ):
-    stmt = select(Contact).where(Contact.tenant_id == auth.tenant.id)
+    stmt = select(Contact).where(
+        Contact.tenant_id == auth.tenant.id, Contact.merged_into_id.is_(None)
+    )
     if status:
         stmt = stmt.where(Contact.status == status)
     if channel:
@@ -711,6 +746,22 @@ async def create_contact(
         phone=body.phone.strip(),
         notes=body.notes,
     )
+    # Exact normalized addresses are safe to merge automatically across
+    # channels; the new row remains as an identity alias of the canonical person.
+    canonical = (
+        await session.execute(
+            select(Contact)
+            .where(
+                Contact.tenant_id == auth.tenant.id,
+                Contact.address == address,
+                Contact.merged_into_id.is_(None),
+            )
+            .order_by(Contact.created_at)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if canonical:
+        contact.merged_into_id = canonical.id
     session.add(contact)
     await session.flush()
     from app.services.companies import link_contact_company
@@ -851,6 +902,82 @@ async def update_contact(
     session.add(contact)
     await session.commit()
     return _serialize_contact(contact)
+
+
+@router.post("/contacts/{contact_id}/merge")
+async def merge_contacts(
+    contact_id: UUID,
+    body: ContactMergeBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Merge identity aliases into one person and relink their threads."""
+    auth.require_role("owner", "admin")
+    target = await _contact_or_404(session, auth.tenant.id, contact_id)
+    source_ids = {cid for cid in body.source_contact_ids if cid != target.id}
+    sources = (
+        await session.execute(
+            select(Contact).where(
+                Contact.tenant_id == auth.tenant.id, Contact.id.in_(source_ids)
+            )
+        )
+    ).scalars().all()
+    for source in sources:
+        source.merged_into_id = target.id
+        session.add(source)
+        linked = (
+            await session.execute(
+                select(Signal).where(
+                    Signal.tenant_id == auth.tenant.id,
+                    Signal.contact_id == source.id,
+                )
+            )
+        ).scalars().all()
+        for signal in linked:
+            signal.contact_id = target.id
+            session.add(signal)
+    await session.commit()
+    return {"contact_id": str(target.id), "merged": [str(row.id) for row in sources]}
+
+
+@router.post("/contacts/{contact_id}/split")
+async def split_contact(
+    contact_id: UUID,
+    body: ContactSplitBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Create a new person and move selected threads to it."""
+    auth.require_role("owner", "admin")
+    await _contact_or_404(session, auth.tenant.id, contact_id)
+    address = body.address.strip().lower()
+    if body.channel not in CHANNEL_ACCOUNT_CHANNELS or not address:
+        raise HTTPException(status_code=400, detail="Valid channel and address are required")
+    created = Contact(
+        tenant_id=auth.tenant.id,
+        channel=body.channel,
+        address=address,
+        display_name=body.display_name.strip(),
+        status="approved",
+    )
+    session.add(created)
+    await session.flush()
+    if body.signal_ids:
+        rows = (
+            await session.execute(
+                select(Signal).where(
+                    Signal.tenant_id == auth.tenant.id,
+                    Signal.contact_id == contact_id,
+                    Signal.id.in_(body.signal_ids),
+                )
+            )
+        ).scalars().all()
+        for signal in rows:
+            signal.contact_id = created.id
+            session.add(signal)
+    await session.commit()
+    await session.refresh(created)
+    return _serialize_contact(created)
 
 
 # ── companies (CRM) ──────────────────────────────────────────────────

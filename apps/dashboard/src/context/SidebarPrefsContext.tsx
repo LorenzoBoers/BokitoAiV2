@@ -16,7 +16,7 @@ type SidebarPrefsContextValue = {
   setOrder: (order: SidebarSection[]) => void
   setSectionHidden: (section: SidebarSection, hidden: boolean) => void
   setSectionCollapsed: (section: SidebarSection, collapsed: boolean) => void
-  /** Expand/collapse a channel or tag folder's sub-view list (folder scope key). */
+  /** Expand/collapse a channel or agent folder's sub-view list (folder scope key). */
   setLeafExpanded: (scopeKey: string, expanded: boolean) => void
   resetPrefs: () => void
 }

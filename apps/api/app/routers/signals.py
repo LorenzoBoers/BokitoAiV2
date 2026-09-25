@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -14,7 +15,6 @@ from app.dependencies import AuthContext, get_current_auth, require_verified_ema
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.routers.signal_chat import router as chat_router
-from app.services import signal_tags as tag_svc
 from app.services import signal_threads as svc
 from app.services.channel_visibility import visible_channel_account_ids
 from app.services.interpretation import triage_signal
@@ -103,6 +103,10 @@ class SessionStartBody(BaseModel):
     """Inline agent session: which agent to bring into the thread."""
 
     agent_id: UUID | None = None
+
+
+class ExampleBody(BaseModel):
+    use_as_example: bool = True
 
 
 def _num(auth: AuthContext) -> int:
@@ -365,94 +369,6 @@ async def dismiss_no_reply_suggestions(
         auth.user.id,
         also_close_threads=also_close,
     )
-
-
-class TagCreateBody(BaseModel):
-    name: str
-    description: str = ""
-
-
-class TagPatchBody(BaseModel):
-    new_tag: str | None = None
-    description: str | None = None
-
-
-@router.get("/tags")
-async def list_signal_tags(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Tenant tag registry with usage counts (powers the Tags sidebar section,
-    the thread tag picker, and the AI tagging vocabulary)."""
-    return {
-        "items": await tag_svc.catalog(
-            session,
-            auth.tenant.id,
-            visible_account_ids=await visible_channel_account_ids(
-                session, auth.tenant.id, user_id=auth.user.id, role=auth.role
-            ),
-        )
-    }
-
-
-@router.post("/tags")
-async def create_signal_tag(
-    body: TagCreateBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Add a tag to the tenant vocabulary before any thread uses it."""
-    try:
-        row = await tag_svc.create_tag(
-            session,
-            auth.tenant.id,
-            auth.user.id,
-            name=body.name,
-            description=body.description,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"tag": row.name, "description": row.description}
-
-
-def _require_tag_admin(auth: AuthContext) -> None:
-    if not (auth.is_staff or auth.role in ("owner", "admin")):
-        raise HTTPException(status_code=403, detail="Only admins can manage tags")
-
-
-@router.patch("/tags/{tag}")
-async def update_signal_tag(
-    tag: str,
-    body: TagPatchBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Rename a tag across every thread and/or set its AI guidance (admin only)."""
-    _require_tag_admin(auth)
-    if body.new_tag is not None and not body.new_tag.strip():
-        raise HTTPException(status_code=400, detail="new_tag cannot be empty")
-    if body.new_tag is None and body.description is None:
-        raise HTTPException(status_code=400, detail="nothing to update")
-    return await tag_svc.update_tag(
-        session,
-        auth.tenant.id,
-        auth.user.id,
-        tag=tag,
-        new_name=body.new_tag,
-        description=body.description,
-    )
-
-
-@router.delete("/tags/{tag}")
-async def delete_signal_tag(
-    tag: str,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Remove a tag from the vocabulary and from every thread (admin only)."""
-    _require_tag_admin(auth)
-    changed = await tag_svc.delete_tag(session, auth.tenant.id, auth.user.id, tag=tag)
-    return {"changed": changed}
 
 
 @router.get("")
@@ -912,6 +828,47 @@ async def list_agent_candidates(
         is_admin=auth.role in ("owner", "admin"),
     )
     return {"items": items}
+
+
+@router.post("/{signal_id}/example")
+async def mark_conversation_example(
+    signal_id: UUID,
+    body: ExampleBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Opt a closed conversation into or out of few-shot learning."""
+    from app.models.signal import Signal
+    from app.services.audit import record_audit
+
+    signal = (
+        await session.execute(
+            select(Signal).where(
+                Signal.id == signal_id, Signal.tenant_id == auth.tenant.id
+            )
+        )
+    ).scalar_one_or_none()
+    if signal is None:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    if body.use_as_example and signal.status != "closed":
+        raise HTTPException(status_code=409, detail="Only closed conversations can be examples")
+    before = signal.is_example
+    signal.is_example = body.use_as_example
+    session.add(signal)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="signal:example_marked" if body.use_as_example else "signal:example_unmarked",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="signal",
+        resource_id=signal.id,
+        before={"is_example": before},
+        after={"is_example": signal.is_example},
+        commit=False,
+    )
+    await session.commit()
+    return {"signal_id": str(signal.id), "is_example": signal.is_example}
 
 
 @router.post("/{signal_id}/sessions")

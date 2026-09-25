@@ -41,7 +41,7 @@ export default function InboxHeaderSearch() {
         }}
         className={cn(
           'h-9 w-full rounded-full border border-border/60 bg-bg-surface pl-9 pr-16 text-sm text-text-primary',
-          'placeholder:text-text-muted/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+          'placeholder:text-text-muted/80 shadow-inset-highlight',
           'transition-[border-color,box-shadow,background-color] duration-150',
           'focus:outline-none focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',
         )}
@@ -82,7 +82,7 @@ export default function InboxHeaderSearch() {
         </button>
       ) : null}
       {open && saved.length > 0 ? (
-        <div className="absolute left-0 right-0 top-10 z-40 rounded-lg border border-border/60 bg-bg-surface p-1 shadow-lg">
+        <div className="absolute left-0 right-0 top-10 z-40 rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay">
           {saved.map((row) => (
             <button
               key={row.id}

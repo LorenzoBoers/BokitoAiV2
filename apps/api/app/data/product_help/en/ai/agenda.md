@@ -1,24 +1,24 @@
 ---
 title: How Agenda works
-intro: Everything that should happen on a clock or an incoming event is planned here, alongside synced calendar meetings.
-description: Schedule agent wakes, sync Google or Outlook calendars into the same week view, pause automations, or run them now.
-keywords: agenda, scheduler, automations, cron, webhook, heartbeat, google calendar, outlook calendar
+intro: Planned and past trigger occurrences form one timeline, with the responsible agent or person shown on every item.
+description: Review the trigger timeline, schedule agent wakes, and show connected calendar events alongside them.
+keywords: agenda, trigger timeline, schedules, cron, webhook, heartbeat, google calendar, outlook calendar
 sort: 50
 related: agents,projects,communication,agent-runs,integrations,workstreams
 ---
 
 # How Agenda works
 
-Agenda is when agents wake up, and where connected calendars show meetings. Open it to attach a wake, sync Google or Outlook, pause an automation, or see what fires next.
+Agenda is the timeline of schedule triggers. It combines upcoming moments with past occurrences and names the agent or person responsible.
 
-## See the week
+## Review the trigger timeline
 
 ![Agenda week view](/api/docs/assets/agenda/week.png)
 *Week shows planned wakes and calendar events on each day.*
 
-1. Open **Agenda**. **Week** shows planned runs, follow-up tasks and calendar events on each day.
-2. Switch to **List** for the same schedule as a feed. Filter with **All items**, **Wakes**, **Follow-ups** or **Calendar**.
-3. Today is highlighted so you can see what fires next. Follow-ups show a **Done** control so you can complete human work without leaving Agenda.
+1. Open **Agenda**. **Timeline** shows the previous seven days and the next three weeks.
+2. Each occurrence shows its state and actor: **Agent** for a scheduled run or **Person** for a human event. Choose an occurrence to open its run, conversation, calendar event, or schedule.
+3. Filter with **All items**, **Wakes**, or **Calendar**. Choose **Week** when a day grid is more useful.
 
 ## Sync Google or Outlook Calendar
 
@@ -42,31 +42,11 @@ Agents with calendar tools can list upcoming events (with stable ids) and propos
 
 Leave **Enabled** on. Disabled items stay on the agenda but never fire.
 
-## Pause or run an automation
-
-![Agenda automations](/api/docs/assets/agenda/automations.png)
-*Pause, edit or run an automation now.*
-
-1. Open **Automations**. The panel lists your triggers (schedules, repeats, check-ins, incoming hooks). An empty list offers **Create automation**. An empty week day offers **Schedule**. The type filter is kept in the URL as `kind`.
-2. **Pause**, edit, or **Run now**.
-3. A trigger can target an agent or a [workstream](/docs/ai/workstreams); a workstream trigger starts a full run with the trigger payload as input. Use **Open Workstreams** to manage the workstreams themselves.
-4. Heartbeats check workspace docs on a timer. On-demand chat runs belong in Activity, not here.
-
-If the linked agent is archived, the wake fails until you pick another agent.
-
-## Complete a human follow-up
-
-1. Open **Agenda** and filter with **Follow-ups**, or stay on **All items**.
-2. Click a follow-up chip to open the linked conversation in Messages, or choose **Done** to mark it complete.
-3. The same open follow-ups also appear under **Follow-ups** in the conversation side panel, with the same **Done** control.
-
-Follow-ups are `AgentTask` ledger items (often assigned to a person). They are not agent wakes — wakes still live under **Wakes**.
-
 Agents can plan work themselves: in any conversation, ask an agent to "check this again on Friday" or "remind the team to review the proposal".
 
-1. The agent uses its schedule tools to create a wake (once, cron, or every N minutes) for itself or a colleague agent, or to plan a task for later — including tasks assigned to a person.
+1. The agent uses its schedule tools to create a wake (once, cron, or every N minutes) for itself or a colleague agent.
 2. Depending on your [autonomy posture](/docs/govern/autonomy), the schedule is created directly or lands as a decision card in Messages for approval first.
-3. Approved wakes appear on the Agenda like any other schedule; planned tasks wake at their set time. A task assigned to a person surfaces as a notification when it is due.
+3. Approved wakes appear on the Agenda timeline. Conversation follow-ups remain in the conversation and task ledger; Agenda does not act as their inbox.
 
 ## What to do next
 

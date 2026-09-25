@@ -152,6 +152,9 @@ async def resolve_tool_mode(
     """Returns (mode, reason)."""
     from app.tools.decision_copy import is_mcp_discovery_tool, mcp_override_key
 
+    if spec.consequential:
+        return "ask", "consequential"
+
     min_assurance = spec.min_assurance or "none"
     if min_assurance not in ("", "none"):
         pass
@@ -199,6 +202,36 @@ async def resolve_tool_mode(
         override = overrides.get(spec.name)
     if override:
         mode, reason = override, "tool_override"
+
+    # Sending to an external party is additionally governed by the Signal
+    # Type attached to the thread. No type, or draft mode, safely asks.
+    if spec.name == "send_reply":
+        signal_id = None
+        raw_signal_id = (tool_input or {}).get("signal_id")
+        if raw_signal_id:
+            try:
+                signal_id = UUID(str(raw_signal_id))
+            except ValueError:
+                signal_id = None
+        if signal_id:
+            from app.models.case import Case, CaseType
+
+            send_mode = (
+                await session.execute(
+                    select(CaseType.send_mode)
+                    .join(Case, Case.case_type_id == CaseType.id)
+                    .where(
+                        Case.tenant_id == tenant.id,
+                        Case.signal_id == signal_id,
+                        # An unaccepted proposal must not widen what may be sent.
+                        Case.status.in_(("open", "waiting")),
+                    )
+                    .order_by(Case.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none() or "draft"
+            if send_mode in ("draft", "ask"):
+                mode, reason = "ask", f"signal_type:{send_mode}"
 
     # Trust clamp is absolute: external sessions never auto-mutate.
     if trust == "external":

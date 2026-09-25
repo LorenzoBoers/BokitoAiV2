@@ -13,6 +13,10 @@
   "filterEmpty": "No rows match that search.",
   "showAll": "Show all ({{count}})",
   "showFewer": "Show fewer",
+  "sections": {
+    "ledger": "Ledger",
+    "autonomy": "Autonomy"
+  },
   "tabs": {
     "drafts": "Pending reviews",
     "policy": "Policy",
@@ -49,10 +53,12 @@
     "openDrafts": "Open pending reviews",
     "rollback": "Undo",
     "rollbackTitle": "Undo this change?",
-    "rollbackConfirm": "This puts the workspace back to how it was before this change. You can review it again afterwards.",
+    "rollbackConfirm": "This creates and applies a compensating change that restores the previous state. The original ledger entry remains.",
     "cancel": "Cancel",
     "rolledBack": "Change undone",
-    "rollbackError": "Could not undo this change."
+    "rollbackError": "Could not undo this change.",
+    "revertUntil": "Revert available until {{date}}",
+    "revertExpired": "The 30-day revert window has ended"
   },
   "passports": {
     "empty": "No agent access yet. Create an agent first, then set what it may do on the agent page.",
@@ -121,17 +127,31 @@
     "learningNote": "Learning tightened {{category}} from {{from}} to {{to}}.",
     "learningIntro": "Recent automatic tightenings (allow to ask first). Loosening stays a manual edit here."
   },
+  "scopes": {
+    "title": "Type and playbook autonomy",
+    "intro": "Set a ceiling for each Signal type and playbook. These settings stay below the workspace posture.",
+    "types": "Signal types",
+    "playbooks": "Playbooks",
+    "empty": "No active items.",
+    "saved": "Autonomy level updated.",
+    "saveError": "Could not update this autonomy level.",
+    "levels": {
+      "manual": "Manual",
+      "approval": "Ask first",
+      "auto": "Automatic"
+    }
+  },
   "toolCategories": {
     "messaging": { "label": "Messaging", "hint": "Replies, decisions, and thread actions." },
     "workspace": { "label": "Workspace", "hint": "Memory, docs, skill edits, and canvas nodes." },
-    "agents": { "label": "Agents", "hint": "Creating and updating agents and workstreams." },
+    "agents": { "label": "Agents", "hint": "Creating and updating agents and playbooks." },
     "delegation": { "label": "Delegation", "hint": "Handing work to an agent and scheduling tasks." },
     "channels": { "label": "Channels", "hint": "Channel accounts and routing." },
     "triggers": { "label": "Triggers", "hint": "Schedules, check-ins, and incoming triggers." },
     "integrations": { "label": "Integrations", "hint": "External connections and connected tools." },
     "govern": { "label": "Govern", "hint": "Policy and governance changes." },
     "projects": { "label": "Projects", "hint": "Project docs, queue items, and repository work." },
-    "cases": { "label": "Cases", "hint": "Opening and linking typed intake on a conversation." }
+    "cases": { "label": "Signals", "hint": "Opening and linking typed intake on a conversation." }
   },
   "tokens": {
     "title": "App tokens",

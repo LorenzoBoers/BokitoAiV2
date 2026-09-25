@@ -103,7 +103,14 @@ def serialize_runtime_agent(
         "status": status,
         "model": agent.model,
         "provider": agent.provider,
+        "purpose": agent.system_prompt or "",
         "system_prompt": agent.system_prompt or "",
+        "audience": agent.audience,
+        "owner_user_id": str(agent.owner_user_id) if agent.owner_user_id else None,
+        "tools": json.loads(agent.tools_json or "[]"),
+        "default_channels": json.loads(agent.default_channels_json or "[]"),
+        "default_signal_types": json.loads(agent.default_signal_types_json or "[]"),
+        "acts_for_user": bool(agent.acts_for_user),
         "chat_access": agent.chat_access,
         "kind": agent.kind,
         "is_lead": bool(agent.is_lead),
@@ -185,7 +192,11 @@ CREATABLE_AGENT_ROLES = ("assistant", "communication", "builder", "orchestra")
 async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
     result = await session.execute(
         select(Agent)
-        .where(Agent.tenant_id == tenant_id, Agent.kind == "company")
+        .where(
+            Agent.tenant_id == tenant_id,
+            Agent.kind == "company",
+            Agent.acts_for_user.is_(False),
+        )
         .order_by(Agent.updated_at.desc())
     )
     agents = list(result.scalars().all())
@@ -245,7 +256,7 @@ async def update_agent_runtime_status(
 async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> dict[str, Any]:
     """Archive a company agent: hidden from the workforce list, history preserved.
 
-    The lead agent cannot be archived until the lead is transferred.
+    Channel defaults are cleared; existing conversation history stays pinned.
     """
     result = await session.execute(
         select(Agent).where(
@@ -255,14 +266,27 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    if agent.is_lead:
+    if agent.acts_for_user:
         raise HTTPException(
             status_code=409,
-            detail="This is the lead agent. Make another agent the lead first, then archive.",
+            detail="The Bokito system agent cannot be archived.",
         )
+    from sqlalchemy import update
+
+    from app.models.channel import ChannelAccount
+
+    await session.execute(
+        update(ChannelAccount)
+        .where(
+            ChannelAccount.tenant_id == tenant_id,
+            ChannelAccount.default_agent_id == agent.id,
+        )
+        .values(default_agent_id=None)
+    )
     agent.kind = "archived"
     agent.is_active = False
     agent.runtime_status = "standby"
+    agent.is_lead = False
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()
@@ -320,6 +344,11 @@ async def create_agent(
     name: str,
     role: str = "assistant",
     system_prompt: str = "",
+    audience: str = "internal",
+    tools: list[str] | None = None,
+    owner_user_id: UUID | None = None,
+    default_channels: list[str] | None = None,
+    default_signal_types: list[str] | None = None,
     model_slug: str = "",
     chat_access: str = "everyone",
 ) -> dict[str, Any]:
@@ -334,6 +363,8 @@ async def create_agent(
     norm_role = role if role in CREATABLE_AGENT_ROLES else "assistant"
     if chat_access not in ("everyone", "selected", "nobody"):
         chat_access = "nobody"
+    if audience not in ("customers", "partners", "internal"):
+        raise HTTPException(status_code=400, detail="Invalid audience")
 
     slug = ""
     provider_type = ""
@@ -378,7 +409,12 @@ async def create_agent(
         role=norm_role,
         kind="company",
         chat_access=chat_access,
+        audience=audience,
+        owner_user_id=owner_user_id,
         system_prompt=(system_prompt or "").strip(),
+        tools_json=json.dumps(tools or []),
+        default_channels_json=json.dumps(default_channels or []),
+        default_signal_types_json=json.dumps(default_signal_types or []),
         slug=_slugify(clean_name),
         runtime_status="standby",
         is_active=True,
@@ -399,6 +435,11 @@ async def update_agent(
     *,
     name: str | None = None,
     system_prompt: str | None = None,
+    audience: str | None = None,
+    tools: list[str] | None = None,
+    owner_user_id: UUID | None = None,
+    default_channels: list[str] | None = None,
+    default_signal_types: list[str] | None = None,
     email_signature_html: str | None = None,
     email_signature_text: str | None = None,
     reply_send_as: str | None = None,
@@ -421,6 +462,18 @@ async def update_agent(
         agent.name = clean
     if system_prompt is not None:
         agent.system_prompt = system_prompt.strip()
+    if audience is not None:
+        if audience not in ("customers", "partners", "internal"):
+            raise HTTPException(status_code=400, detail="Invalid audience")
+        agent.audience = audience
+    if tools is not None:
+        agent.tools_json = json.dumps(tools)
+    if owner_user_id is not None:
+        agent.owner_user_id = owner_user_id
+    if default_channels is not None:
+        agent.default_channels_json = json.dumps(default_channels)
+    if default_signal_types is not None:
+        agent.default_signal_types_json = json.dumps(default_signal_types)
     settings_touch = (
         email_signature_html is not None
         or email_signature_text is not None

@@ -9,7 +9,7 @@ related: govern,agents,inbox-ai
 
 # Autonomiehouding instellen
 
-Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Govern](/docs/govern/govern). Kies een preset en overschrijf daarna individuele tools als dat nodig is.
+Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Govern](/docs/govern/govern) en vormt het plafond voor het beleid eronder.
 
 ## Kies een preset
 
@@ -18,13 +18,13 @@ Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Gove
 
 1. Open **Instellingen**, daarna **Govern**, daarna **Beleid**. De kaart heet **Hoeveel agents mogen doen**.
 2. Kies **Handmatig** (agents concepten, jij past toe), **Ondersteund** (laag risico gaat door, de rest vraagt), of **Autonoom** (agents handelen binnen toestemmingen).
-3. De instelling slaat op zodra je kiest. Overrides per resource op dezelfde pagina winnen nog steeds.
+3. De instelling slaat op zodra je kiest. Beleid per type of draaiboek mag strenger zijn, nooit ruimer.
 
-## Stem de schuiven na het preset
+## Stel de drie lagen in
 
 1. Blijf op Govern, daarna **Beleid**.
-2. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Berichten, Integraties en Overdracht zijn wat operators het eerst wijzigen.
-3. Overschrijf één tool als de categorie te breed is. Uitzonderingen per agent op de agentpagina winnen nog steeds.
+2. Stel eerst de workspace-houding in en maak daarna waar nodig strenger beleid voor een Signaaltype of Draaiboek.
+3. Gebruik op elke agent de tool-allowlist om te bepalen welke tools die mag aanroepen. Er zijn geen autonomie-overschrijvingen per tool.
 4. **Eerst vragen** maakt de [beslissingskaart](/docs/ai/decisions) in het gesprek.
 
 ## Begin voorzichtig

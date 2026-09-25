@@ -26,6 +26,9 @@ class Feedback(SQLModel, table=True):
     score: Optional[int] = None  # 1-5
     sentiment: Optional[str] = None  # up | down
     comment: str = ""
+    # Structured correction/draft-edit context used to form repeatable examples.
+    correction_key: str = Field(default="", index=True)
+    metadata_json: str = Field(default="{}")
     processed: bool = Field(default=False, index=True)
     processed_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -68,8 +71,6 @@ class InboxRule(SQLModel, table=True):
     priority: int = 100
     assign_to_user_id: Optional[int] = None
     labels_json: str = Field(default="[]")
-    # Link back to legacy email_routing_rules row during dual-write migration.
-    legacy_routing_rule_id: Optional[uuid.UUID] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

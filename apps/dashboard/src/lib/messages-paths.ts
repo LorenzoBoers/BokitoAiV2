@@ -5,17 +5,16 @@
  * column and the conversation pane:
  *
  * - `inbox`     — assignable conversations across channels
- * - `decisions` — sole exception queue for open DecisionRequests (any folder)
+ * - `decisions` — hidden open-decision filter used by deep links
  * - `agent`     — direct chats with a company agent (optional sub-queue)
  * - `runs`      — internal agent activity (updates, results)
  * - `channel`   — threads of one connected channel (email mailbox, webchat, ...)
- * - `tag`       — cross-channel tag folder (optional sub-queue)
  */
 
 export const INBOX_QUEUES = ['all', 'mine', 'open', 'unassigned', 'snoozed', 'closed', 'spam'] as const
 export type InboxQueue = (typeof INBOX_QUEUES)[number]
 
-/** Agent-runs chips only — decisions live on `/communication/decisions`. */
+/** Agent-runs chips only. */
 export const RUNS_QUEUES = ['all', 'updates', 'results'] as const
 export type RunsQueue = (typeof RUNS_QUEUES)[number]
 
@@ -26,7 +25,7 @@ export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'slack', '
 export type ChannelKey = (typeof CHANNEL_KEYS)[number]
 
 /**
- * Uniform sub-folder set nested under every channel, tag, and agent folder
+ * Uniform sub-folder set nested under every channel and agent folder
  * (compact, Front-style work queues). A leaf without a queue shows the folder
  * without a status filter (view "all" / "all_open" depending on surface).
  */
@@ -53,7 +52,6 @@ export type HubLeaf =
   | { type: 'agent'; agentId: string; queue?: AgentQueue }
   | { type: 'runs'; queue: RunsQueue }
   | { type: 'channel'; channelKey: ChannelKey; connectionId?: string; queue?: SubQueue }
-  | { type: 'tag'; tag: string; queue?: SubQueue }
 
 function withThread(base: string, threadId?: string | null): string {
   return threadId ? `${base}/t/${encodeURIComponent(String(threadId))}` : base
@@ -93,12 +91,12 @@ export function activityTerminalPath(agentId?: string | null): string {
     : '/activity'
 }
 
-/** Sole Communication leaf for open DecisionRequests (customer + internal). */
+/** Hidden Communication filter for open DecisionRequests (customer + internal). */
 export function decisionsPath(threadId?: string | null): string {
   return withThread('/communication/decisions', threadId)
 }
 
-/** Open a waiting decision on the unified Decisions leaf. */
+/** Open a waiting decision in its Communication thread. */
 export function attentionThreadPath(thread: {
   id: string | number
   folder?: string | null
@@ -115,16 +113,6 @@ export function channelPath(
     channelKey === 'email' && options.connectionId != null
       ? `/communication/channel/email/${encodeURIComponent(String(options.connectionId))}`
       : `/communication/channel/${channelKey}`
-  if (options.queue) base += `/${options.queue}`
-  return withThread(base, options.threadId)
-}
-
-/** Cross-channel tag folder (`/communication/tag/billing[/open]`). */
-export function tagPath(
-  tag: string,
-  options: { queue?: SubQueue; threadId?: string | null } = {},
-): string {
-  let base = `/communication/tag/${encodeURIComponent(tag)}`
   if (options.queue) base += `/${options.queue}`
   return withThread(base, options.threadId)
 }
@@ -172,8 +160,6 @@ export function leafPath(leaf: HubLeaf, threadId?: string | null): string {
       return agentRunsPath(leaf.queue, threadId)
     case 'channel':
       return channelPath(leaf.channelKey, { connectionId: leaf.connectionId, queue: leaf.queue, threadId })
-    case 'tag':
-      return tagPath(leaf.tag, { queue: leaf.queue, threadId })
   }
 }
 
@@ -251,15 +237,6 @@ export function leafFromPath(pathname: string): HubLeaf | null {
         queue: second && isSubQueue(second) ? second : undefined,
       }
     }
-    case 'tag': {
-      if (!parts[0]) return null
-      const queue = parts[1] ? decodeURIComponent(parts[1]) : undefined
-      return {
-        type: 'tag',
-        tag: decodeURIComponent(parts[0]),
-        queue: queue && isSubQueue(queue) ? queue : undefined,
-      }
-    }
     default:
       return null
   }
@@ -273,7 +250,6 @@ export function sameLeafScope(a: HubLeaf | null, b: HubLeaf): boolean {
   if (a.type === 'channel' && b.type === 'channel') {
     return a.channelKey === b.channelKey && (a.connectionId ?? '') === (b.connectionId ?? '')
   }
-  if (a.type === 'tag' && b.type === 'tag') return a.tag === b.tag
   if (a.type === 'agent' && b.type === 'agent') return a.agentId === b.agentId
   return leafKey(a) === leafKey(b)
 }
@@ -291,7 +267,5 @@ export function leafKey(leaf: HubLeaf): string {
       return `runs:${leaf.queue}`
     case 'channel':
       return `channel:${leaf.channelKey}:${leaf.connectionId ?? ''}${leaf.queue ? `:${leaf.queue}` : ''}`
-    case 'tag':
-      return `tag:${leaf.tag}${leaf.queue ? `:${leaf.queue}` : ''}`
   }
 }

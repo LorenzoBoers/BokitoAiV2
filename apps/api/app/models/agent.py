@@ -16,6 +16,11 @@ class Agent(SQLModel, table=True):
     # (inactive); new agents are always company.
     kind: str = Field(default="company", index=True)  # company
     owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    # One operator-facing shape. ``system_prompt`` is retained as the storage
+    # column; APIs expose it as purpose while older callers may still send it.
+    audience: str = Field(default="internal")  # customers | partners | internal
+    default_channels_json: str = Field(default="[]")
+    default_signal_types_json: str = Field(default="[]")
     # Who may open a direct chat with this company agent.
     chat_access: str = Field(default="nobody")  # everyone | selected | nobody
     # Exactly one active company agent per tenant carries the lead flag; it is
@@ -36,6 +41,9 @@ class Agent(SQLModel, table=True):
     autonomy_level: str = Field(default="approval")  # manual | approval | auto
     # Passport: free-form permission scopes (e.g. ["platform:doc:write"]).
     permission_scopes_json: str = Field(default="[]")
+    # When true, this agent acts for the signed-in user (Bokito assistant).
+    # Ceiling = user role intersect posture. One per workspace; not deletable.
+    acts_for_user: bool = Field(default=False, index=True)
     is_active: bool = True
     slug: str = ""
     # Misc agent settings (e.g. email_signature_html used on outbound replies).
@@ -77,6 +85,9 @@ class AgentRun(SQLModel, table=True):
     step_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_steps.id")
     workstream_run_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="workstream_runs.id", index=True
+    )
+    signal_type_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="case_types.id", index=True
     )
     parent_run_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_runs.id", index=True)
     run_role: str = Field(default="main")  # main | delegate | judge | orchestrator

@@ -244,6 +244,36 @@ async def usage_breakdown(
     }
 
 
+async def autonomy_trajectory(
+    session: AsyncSession, tenant_id: UUID, *, days: int = 90
+) -> dict[str, Any]:
+    """Overview line data from stored learning evaluations."""
+    since = datetime.utcnow() - timedelta(days=days)
+    rows = (
+        await session.execute(
+            select(EvalScore)
+            .where(
+                EvalScore.tenant_id == tenant_id,
+                EvalScore.metric == "autonomy_rate",
+                EvalScore.created_at >= since,
+            )
+            .order_by(EvalScore.created_at)
+        )
+    ).scalars().all()
+    return {
+        "metric": "autonomy_rate",
+        "days": days,
+        "points": [
+            {
+                "at": row.created_at.isoformat(),
+                "value": row.value,
+                "sample_size": row.sample_size,
+            }
+            for row in rows
+        ],
+    }
+
+
 async def activity_timeline(
     session: AsyncSession,
     tenant_id: UUID,

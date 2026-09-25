@@ -3,12 +3,18 @@ from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
+# Calendar is reserved as a first-class Connection kind. Existing Google and
+# Outlook rows may still use ``integration`` until the sync migration lands.
+CALENDAR_CONNECTION_KIND = "calendar"
+CONNECTION_KINDS = ("integration", "workbench", CALENDAR_CONNECTION_KIND)
+
 
 class IntegrationConnection(SQLModel, table=True):
     __tablename__ = "integration_connections"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    kind: str = Field(default="integration", index=True)
     provider: str = Field(index=True)
     display_name: str = ""
     status: str = Field(default="active")

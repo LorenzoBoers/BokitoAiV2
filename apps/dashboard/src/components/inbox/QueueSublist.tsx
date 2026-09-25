@@ -130,7 +130,7 @@ export function SidebarFolder({
         className={cn(
           'nav-row group flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-[13px] font-medium',
           headerActive || (scopeActive && !expanded)
-            ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_8px_18px_-14px_rgba(15,23,42,0.4)]'
+            ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-chip-active'
             : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
         )}
       >

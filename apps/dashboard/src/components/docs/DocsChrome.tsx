@@ -157,7 +157,7 @@ function DocsSearch({ lang }: { lang: string }) {
         className="w-full rounded-full border border-border/70 bg-muted/20 py-2 pl-9 pr-3 text-[13px] outline-none transition-[border-color,box-shadow] focus:border-accent/50 focus:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.15)]"
       />
       {open && results !== null ? (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border bg-background shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border bg-background shadow-overlay">
           {results.length === 0 ? (
             <p className="px-4 py-3 text-[13px] text-muted-foreground">{t('docs.noResults')}</p>
           ) : (

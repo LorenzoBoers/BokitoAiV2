@@ -19,6 +19,8 @@ export type PlatformChangeRow = {
   signal_id: string | null
   created_at: string
   resolved_at: string | null
+  rollback_deadline: string
+  can_rollback: boolean
 }
 
 export type AuditEventRow = {
@@ -75,6 +77,19 @@ export type GovernToolRow = {
 }
 
 export type AllowancesResponse = AllowanceState & { tools: GovernToolRow[] }
+
+export type AutonomyScopeLevel = 'manual' | 'approval' | 'auto'
+
+export type AutonomyScopeRow = {
+  id: string
+  name: string
+  autonomy_level: AutonomyScopeLevel
+}
+
+export type AutonomyScopesResponse = {
+  case_types: AutonomyScopeRow[]
+  workstreams: AutonomyScopeRow[]
+}
 
 export type ApiTokenRow = {
   id: string
@@ -145,6 +160,21 @@ export async function updateAgentPassport(
 
 export async function getAllowances() {
   return governFetch<AllowancesResponse>(governRoutes.allowances)
+}
+
+export async function getAutonomyScopes() {
+  return governFetch<AutonomyScopesResponse>(governRoutes.autonomyScopes)
+}
+
+export async function setAutonomyScope(
+  kind: 'case_type' | 'workstream',
+  id: string,
+  autonomyLevel: AutonomyScopeLevel,
+) {
+  return governFetch<AutonomyScopeRow>(governRoutes.autonomyScope(kind, id), {
+    method: 'PATCH',
+    body: JSON.stringify({ autonomy_level: autonomyLevel }),
+  })
 }
 
 export async function updateAllowances(allowances: Record<string, AllowanceMode>) {

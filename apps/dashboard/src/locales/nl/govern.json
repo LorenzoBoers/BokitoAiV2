@@ -13,6 +13,10 @@
   "filterEmpty": "Geen rijen die bij die zoekopdracht passen.",
   "showAll": "Alles tonen ({{count}})",
   "showFewer": "Minder tonen",
+  "sections": {
+    "ledger": "Ledger",
+    "autonomy": "Autonomie"
+  },
   "tabs": {
     "drafts": "Openstaande concepten",
     "policy": "Beleid",
@@ -49,10 +53,12 @@
     "openDrafts": "Openstaande concepten openen",
     "rollback": "Ongedaan maken",
     "rollbackTitle": "Deze wijziging ongedaan maken?",
-    "rollbackConfirm": "Dit zet de workspace terug naar hoe die was vóór deze wijziging. Je kunt hem daarna opnieuw beoordelen.",
+    "rollbackConfirm": "Dit maakt en past een compenserende wijziging toe die de vorige staat herstelt. De oorspronkelijke ledgerregel blijft bestaan.",
     "cancel": "Annuleren",
     "rolledBack": "Wijziging ongedaan gemaakt",
-    "rollbackError": "Kon deze wijziging niet ongedaan maken."
+    "rollbackError": "Kon deze wijziging niet ongedaan maken.",
+    "revertUntil": "Ongedaan maken mogelijk tot {{date}}",
+    "revertExpired": "De termijn van 30 dagen is verstreken"
   },
   "passports": {
     "empty": "Nog geen agenttoegang. Maak eerst een agent, en stel daarna op de agentpagina in wat die mag doen.",
@@ -121,10 +127,24 @@
     "learningNote": "Learning heeft {{category}} aangescherpt van {{from}} naar {{to}}.",
     "learningIntro": "Recente automatische aanscherpingen (toestaan naar eerst vragen). Losser maken blijft hier een handmatige edit."
   },
+  "scopes": {
+    "title": "Autonomie per type en draaiboek",
+    "intro": "Stel een bovengrens in per Signaaltype en draaiboek. Deze instellingen blijven onder de workspacehouding.",
+    "types": "Signaaltypen",
+    "playbooks": "Draaiboeken",
+    "empty": "Geen actieve items.",
+    "saved": "Autonomieniveau bijgewerkt.",
+    "saveError": "Kon dit autonomieniveau niet bijwerken.",
+    "levels": {
+      "manual": "Handmatig",
+      "approval": "Eerst vragen",
+      "auto": "Automatisch"
+    }
+  },
   "toolCategories": {
     "messaging": { "label": "Berichten", "hint": "Antwoorden, beslissingen en gespreksacties." },
     "workspace": { "label": "Workspace", "hint": "Geheugen, documenten, skill-wijzigingen en canvas-nodes." },
-    "agents": { "label": "Agents", "hint": "Agents en werkstromen aanmaken of bijwerken." },
+    "agents": { "label": "Agents", "hint": "Agents en draaiboeken aanmaken of bijwerken." },
     "delegation": { "label": "Delegeren", "hint": "Werk overdragen aan een agent en taken plannen." },
     "channels": { "label": "Kanalen", "hint": "Kanaalaccounts en routing." },
     "triggers": { "label": "Triggers", "hint": "Planningen, check-ins en inkomende triggers." },

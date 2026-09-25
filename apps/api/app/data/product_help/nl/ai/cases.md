@@ -1,33 +1,25 @@
 ---
 title: Hoe Signalen werken
 intro: Een signaal is getypte intake op een gesprek — één intentie, één signaal, daarna een werkstroom of project als je het koppelt.
-description: Beheer intake-types en de signaalwachtrij op de pagina Signalen, koppel types aan werkstromen, bevestig een bezoeker wanneer dat nodig is, en houd meerdere signalen op één thread.
-keywords: signalen, intake, case, wachtrij, werkstroom, binding, bevestigen, websitechat
+description: Beheer signaaltypes in Instellingen, koppel types aan werkstromen, bevestig een bezoeker wanneer dat nodig is, en houd meerdere signalen op één gesprek.
+keywords: signalen, intake, case, gesprek, werkstroom, binding, bevestigen, websitechat
 sort: 46
 related: workstreams,communication,widget,projects,integrations
 ---
 
 # Hoe Signalen werken
 
-Een signaal is een gelabeld stuk werk op een gesprek, niet het gesprek zelf. De pagina **Signalen** in de zijbalk (onder Besturing) bevat de wachtrij met open signalen en de catalogus met intake-types. Signalen vervangen de oude gesprekkentags: agents classificeren binnenkomende berichten tegen je typecatalogus en openen een signaal in plaats van een tag.
+Een signaal is getypte herkenning op een gesprek, geen apart inboxitem. Signalen blijven op het gesprek waaruit ze komen; beheer de typecatalogus onder **Instellingen** → **Signaaltypes**. Elk binnenkomend bericht wordt tegen deze catalogus gelezen voordat er een antwoord wordt opgesteld, dus herkenning gebeurt ook wanneer AI-antwoorden gepauzeerd zijn.
 
-Elk type heeft een **opvolging**-modus: **Alleen label** stempelt het gesprek en komt nooit in de wachtrij (Spam of misbruik gebruikt dit standaard), **Volgen in wachtrij** opent een wachtrij-item zonder verplichte route, en **Routeren naar werk** verwacht een koppeling naar werkstroom of project.
-
-## Werk de signaalwachtrij weg
-
-1. Open **Signalen**. Het tabblad **Wachtrij** toont opvolg-signalen met type, titel, gespreksonderwerp, leeftijd en status. Alleen-label stempels blijven op het gesprek en buiten deze lijst.
-2. Gebruik de statuspillen — **Voor jou**, **Open**, **Wachtend**, **Gekoppeld** en **Klaar** — om te beginnen bij wat een beslissing nodig heeft. Het zoekveld zoekt op titel, samenvatting en typenaam; type-chips filteren op één intake-type.
-3. Klik op een rij voor het detailpaneel: wijzig de status, pas titel of samenvatting aan, of koppel het signaal aan een werkstroom of project.
-4. Kies **Gesprek openen** om naar het gesprek in [Communicatie](/docs/inbox/communication) te springen. Een signaal sluiten sluit nooit het gesprek — ze staan los van elkaar.
-5. Beweeg door de rijen met **J**/**K** en open er een met **Enter**.
+Elk type heeft een **Uitkomst**: **Alleen label** legt de herkenning vast, **Volgen** houdt die zichtbaar op het gesprek, en **Draaiboek uitvoeren** routeert naar een gekoppelde werkstroom. Een zekere lezing legt het signaal direct vast; een onzekere lezing wordt een bevestigingschip op het gesprek, en een bericht dat bij geen enkel type past wordt geteld onder **Wat we misten** in plaats van dat er een type wordt verzonnen.
 
 ## Voeg een intake-type toe
 
-1. Open **Signalen** en daarna het tabblad **Types**.
-2. Kies **Nieuw type**, geef het een naam (bijvoorbeeld Factuurvraag), en kies **Opvolging**: Alleen label, Volgen in wachtrij of Routeren naar werk. Zet optioneel **Open een opvolgtaak** aan zodat er een menselijke Agendataak ontstaat wanneer het signaal opent of koppelt.
+1. Open **Instellingen** en daarna **Signaaltypes**.
+2. Kies **Nieuw type**, geef het een naam (bijvoorbeeld Factuurvraag), en kies **Uitkomst**: Alleen label, Volgen of Draaiboek uitvoeren.
 3. Omschrijf precies wanneer het type van toepassing is — agents volgen die omschrijving bij het classificeren van binnenkomende berichten, dus benoem ook wanneer het niet geldt.
 4. Laat het type aan. Zet de schakelaar uit wanneer agents dat type niet meer mogen openen.
-5. Koppel Route-types daarna aan een werkstroom of project. Een type verwijderen dat al signalen heeft archiveert het (uitzetten en open wachtrij-rijen sluiten) in plaats van geschiedenis te breken.
+5. Kies voor draaiboektypes de werkstroom die moet draaien, en kies een **Project** wanneer elk signaal van dit type bij hetzelfde project hoort. Een type verwijderen dat al signalen heeft archiveert het in plaats van gespreksgeschiedenis te breken.
 
 ## Koppel een type aan een werkstroom
 
@@ -48,11 +40,19 @@ Elk type heeft een **opvolging**-modus: **Alleen label** stempelt het gesprek en
 2. Installeer het intake-type **Billing inquiry** vanuit de modulelijst **Intake-types** wanneer je dat type in de workspace wilt.
 3. De agent zegt nooit of een account bestaat. De bezoeker krijgt een link, bevestigt, en het gesprek blijft open.
 
-## Houd meerdere signalen op één gesprek
+## Bevestig of voeg signalen toe op een gesprek
 
-1. Open een gesprek in **Berichten**. Het zijpaneel toont **Signalen** en **Opvolging**. Alleen-label types tonen een **Label**-chip; actieve wachtrij-signalen houden hun statusbadge. Open opvolgtaken kun je inline op **Klaar** zetten.
-2. Kies **Bug report toevoegen** of **Feature request toevoegen** wanneer er een tweede intentie in dezelfde chat verschijnt.
-3. Elk signaal houdt een eigen status en werkstroomkoppeling. Stop twee issues niet in één signaal.
+1. Open een gesprek in **Communicatie**. Bekijk onder **Dit gesprek** de signalen die het systeem vond.
+2. Een onzekere lezing leest als "Dit lijkt op Factuurvraag — bevestigen?". Kies **Bevestigen** om er werk van te maken, of **Afwijzen** wanneer de lezing fout was. Er routeert niets en er start geen draaiboek voordat je bevestigt.
+3. Kies **Voeg toe wat we misten** wanneer er een tweede intentie in hetzelfde gesprek verschijnt.
+4. Elk signaal houdt een eigen status en draaiboek- of projectkoppeling. Houd verschillende intenties als verschillende signalen.
+
+## Maak van een gemist patroon een type
+
+1. Open **Instellingen**, daarna **Signaaltypes**, en lees de kaart **Wat we misten**. Die toont verzoeken die bleven binnenkomen zonder passend type, met hoe vaak elk is gezien.
+2. Zet **Stel een nieuw type voor na** op het aantal keren dat je wilt zien voordat een patroon klaarstaat.
+3. Kies **Maak er een type van** om het aan te maken met de voorgestelde naam en omschrijving, en stel daarna de uitkomst in. Kies **Geen type** om het te laten vallen. Agents maken nooit zelf een type aan.
+4. Bepaal met **Een signaal accepteren** op dezelfde pagina wie een voorgesteld signaal mag bevestigen: alleen owners en admins, of iedereen in de workspace. Leden kunnen altijd zelf een signaal toevoegen.
 
 ## Wat nu
 

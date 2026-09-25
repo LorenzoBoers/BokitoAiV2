@@ -67,6 +67,9 @@ def serialize_project(
         "autonomous_scope": project.autonomous_scope or "",
         "autonomous_mode": project.autonomous_mode,
         "active_domains": _parse_json(project.active_domains_json),
+        "workbench_connection_id": (
+            str(project.workbench_connection_id) if project.workbench_connection_id else None
+        ),
         "github_connection_id": str(repo.connection_id) if repo and repo.connection_id else None,
         "github_repo_full_name": repo.external_ref if repo else None,
         "github_default_branch": config.get("default_branch") if repo else None,

@@ -32,7 +32,7 @@ export type SidebarPrefs = {
   hidden: SidebarSection[]
   /** Sections that start collapsed (header still visible). */
   collapsed: SidebarSection[]
-  /** Channel/tag folders whose sub-view list is expanded (folder scope keys). */
+  /** Channel/agent folders whose sub-view list is expanded (folder scope keys). */
   expandedLeaves: string[]
 }
 

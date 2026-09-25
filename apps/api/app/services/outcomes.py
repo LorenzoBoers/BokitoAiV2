@@ -1,4 +1,9 @@
-"""Operational outcome ingestion and feedback mapping."""
+"""Operational outcome ingestion and feedback mapping.
+
+DEPRECATED for new product surfaces. Trading-era OperationalOutcome rows are
+outside the conversation-first model; prefer Feedback and RunEvent. Kept so
+legacy webhooks and tests still compile during the cutover.
+"""
 
 from __future__ import annotations
 

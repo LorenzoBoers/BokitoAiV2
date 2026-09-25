@@ -14,7 +14,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
-from app.models.auth import user_numeric_id
+from app.models.auth import canonical_workspace_role, user_numeric_id
 from app.middleware.rate_limit import rate_limit
 from app.models.auth_token import AuthToken
 from app.models.staff import StaffAccessLog
@@ -154,7 +154,7 @@ def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) ->
         "numeric_id": user_numeric_id(user.id),
         "email": user.email,
         "display_name": user.display_name,
-        "role": role,
+        "role": "admin" if is_staff else canonical_workspace_role(role),
         "is_staff": is_staff,
         "email_verified": user.email_verified,
         "totp_enabled": user.totp_enabled,
@@ -713,7 +713,13 @@ async def accept_invite(
         )
     ).scalar_one_or_none()
     if not existing_membership:
-        session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
+        session.add(
+            Membership(
+                tenant_id=invite.tenant_id,
+                user_id=user.id,
+                role=canonical_workspace_role(invite.role),
+            )
+        )
     user.last_tenant_id = invite.tenant_id
     # Reaching the tokenized link proves control of the invited mailbox.
     user.email_verified = True
@@ -812,7 +818,13 @@ async def workspace_setup_accept_invite(
         )
     ).scalar_one_or_none()
     if not existing_membership:
-        session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
+        session.add(
+            Membership(
+                tenant_id=invite.tenant_id,
+                user_id=user.id,
+                role=canonical_workspace_role(invite.role),
+            )
+        )
     user.last_tenant_id = invite.tenant_id
     invite.accepted_at = datetime.utcnow()
     from app.services.audit import record_audit
@@ -919,7 +931,7 @@ async def _build_memberships(session: AsyncSession, user: User) -> list[dict]:
                 "tenant_id": str(tenant.id),
                 "tenant_slug": tenant.slug,
                 "tenant_name": tenant.name,
-                "role": membership.role,
+                "role": canonical_workspace_role(membership.role),
                 "status": "active",
             }
         )

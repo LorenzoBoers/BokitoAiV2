@@ -1,4 +1,4 @@
-"""Phase 5 wiring: email ai-config, routing rules, and knowledge base."""
+"""Phase 5 wiring: email ai-config and knowledge base."""
 
 import pytest
 from httpx import AsyncClient
@@ -45,41 +45,20 @@ async def test_email_ai_config_roundtrip(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_routing_rules_crud(client: AsyncClient):
+async def test_legacy_routing_rules_endpoint_is_gone(client: AsyncClient):
+    """EmailRoutingRule is retired; InboxRule is the only matcher."""
     headers = _auth(await _login(client))
     mailbox_id = await _mailbox_id(client, headers)
+
+    listed = await client.get(f"{API}/email/routing-rules?mailbox_id={mailbox_id}", headers=headers)
+    assert listed.status_code == 404
 
     created = await client.post(
         f"{API}/email/routing-rules",
         headers=headers,
-        json={
-            "mailbox_id": mailbox_id,
-            "priority": 10,
-            "condition_type": "sender_domain",
-            "condition_value": "acme.com",
-            "labels": ["vip"],
-            "is_active": True,
-        },
+        json={"mailbox_id": mailbox_id, "condition_type": "sender_domain"},
     )
-    assert created.status_code == 200
-    rule_id = created.json()["id"]
-    assert created.json()["labels"] == ["vip"]
-
-    listed = await client.get(f"{API}/email/routing-rules?mailbox_id={mailbox_id}", headers=headers)
-    assert listed.status_code == 200
-    assert any(r["id"] == rule_id for r in listed.json()["items"])
-
-    patched = await client.patch(
-        f"{API}/email/routing-rules/{rule_id}",
-        headers=headers,
-        json={"priority": 5, "is_active": False},
-    )
-    assert patched.status_code == 200
-    assert patched.json()["priority"] == 5
-    assert patched.json()["is_active"] is False
-
-    deleted = await client.delete(f"{API}/email/routing-rules/{rule_id}", headers=headers)
-    assert deleted.status_code == 200
+    assert created.status_code == 404
 
 
 @pytest.mark.asyncio

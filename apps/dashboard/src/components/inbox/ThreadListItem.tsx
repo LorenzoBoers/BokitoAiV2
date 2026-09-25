@@ -29,10 +29,6 @@ type Props = {
   onToggleChecked?: (id: ThreadId, shiftKey?: boolean) => void
   /** True while any thread is selected: keeps all checkboxes visible. */
   selectionActive?: boolean
-  /** Clicking a tag chip opens that tag's folder. */
-  onTagClick?: (tag: string) => void
-  /** Tag folder the list is showing; its chip renders as active. */
-  activeTag?: string | null
   /** Display name of the assigned member (resolved by the parent list). */
   assigneeName?: string | null
   compact?: boolean
@@ -78,8 +74,6 @@ export default function ThreadListItem({
   checked,
   onToggleChecked,
   selectionActive = false,
-  onTagClick,
-  activeTag = null,
   assigneeName = null,
   compact = false,
 }: Props) {
@@ -274,35 +268,14 @@ export default function ThreadListItem({
                   {t('listItem.needsDecision')}
                 </span>
               ) : null}
-              {thread.tags.slice(0, 3).map((tag) =>
-                onTagClick ? (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onTagClick(tag)
-                    }}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    title={t('listItem.openTagFolder', { tag })}
-                    className={cn(
-                      'inline-block rounded px-1.5 py-0.5 text-[11px] transition-colors',
-                      tag === activeTag
-                        ? 'bg-accent/15 text-accent'
-                        : 'bg-bg-surface-hover text-text-secondary hover:bg-accent/10 hover:text-accent',
-                    )}
-                  >
-                    {tag}
-                  </button>
-                ) : (
-                  <span
-                    key={tag}
-                    className="inline-block rounded px-1.5 py-0.5 text-[11px] bg-bg-surface-hover text-text-secondary"
-                  >
-                    {tag}
-                  </span>
-                ),
-              )}
+              {thread.tags.slice(0, 3).map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-block rounded px-1.5 py-0.5 text-[11px] bg-bg-surface-hover text-text-secondary"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           ) : null}
 

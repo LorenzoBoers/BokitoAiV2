@@ -27,6 +27,8 @@ async def submit_feedback(
     score: int | None = None,
     sentiment: str | None = None,
     comment: str = "",
+    correction_key: str = "",
+    metadata: dict[str, Any] | None = None,
 ) -> Feedback:
     row = Feedback(
         tenant_id=tenant_id,
@@ -36,6 +38,8 @@ async def submit_feedback(
         score=score,
         sentiment=sentiment,
         comment=comment,
+        correction_key=correction_key.strip()[:160],
+        metadata_json=json.dumps(metadata or {}),
     )
     session.add(row)
     await session.commit()
@@ -66,13 +70,91 @@ async def process_feedback_batch(session: AsyncSession, tenant_id: UUID, limit: 
         row.processed = True
         row.processed_at = datetime.utcnow()
         processed += 1
+    correction_proposals = await propose_repeated_corrections(session, tenant_id)
     await session.commit()
     return {
         "processed": processed,
         "positive": up,
         "negative": down,
         "avg_score": round(score_sum / score_count, 2) if score_count else None,
+        "correction_proposals": correction_proposals,
     }
+
+
+async def propose_repeated_corrections(
+    session: AsyncSession, tenant_id: UUID
+) -> int:
+    """Three matching corrections propose a Signal Type description edit."""
+    from app.models.case import CaseType
+    from app.models.platform_change import PlatformChange
+
+    since = datetime.utcnow() - timedelta(days=30)
+    grouped = (
+        await session.execute(
+            select(
+                Feedback.correction_key,
+                func.count(Feedback.id),
+                func.max(Feedback.comment),
+            )
+            .where(
+                Feedback.tenant_id == tenant_id,
+                Feedback.correction_key != "",
+                Feedback.created_at >= since,
+            )
+            .group_by(Feedback.correction_key)
+            .having(func.count(Feedback.id) >= 3)
+        )
+    ).all()
+    created = 0
+    for key, count, comment in grouped:
+        # Convention: type:<uuid>:<stable correction label>.
+        parts = str(key).split(":", 2)
+        if len(parts) < 2 or parts[0] != "type":
+            continue
+        try:
+            type_id = UUID(parts[1])
+        except ValueError:
+            continue
+        case_type = await session.get(CaseType, type_id)
+        if case_type is None or case_type.tenant_id != tenant_id:
+            continue
+        duplicate = (
+            await session.execute(
+                select(PlatformChange.id).where(
+                    PlatformChange.tenant_id == tenant_id,
+                    PlatformChange.resource_type == "case_type",
+                    PlatformChange.resource_id == str(type_id),
+                    PlatformChange.status.in_(("draft", "pending_review")),
+                    PlatformChange.summary.contains(str(key)),
+                )
+            )
+        ).first()
+        if duplicate:
+            continue
+        proposed = (comment or parts[-1]).strip()
+        session.add(
+            PlatformChange(
+                tenant_id=tenant_id,
+                resource_type="case_type",
+                resource_id=str(type_id),
+                change_kind="update",
+                status="pending_review",
+                summary=f"Repeated correction {key} ({count} times)",
+                before_json=json.dumps({"description": case_type.description}),
+                after_json=json.dumps(
+                    {
+                        "case_type_id": str(type_id),
+                        "description": (
+                            f"{case_type.description.rstrip()} "
+                            f"Correction guidance: {proposed}"
+                        ).strip(),
+                    }
+                ),
+                proposed_by_type="system",
+            )
+        )
+        created += 1
+    return created
 
 
 async def _pending_change_exists(
@@ -421,6 +503,90 @@ async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool
     return True
 
 
+async def propose_scoped_autonomy_growth(
+    session: AsyncSession, tenant_id: UUID
+) -> int:
+    """Strong outcomes propose, but never apply, per-type/playbook autonomy."""
+    from app.models.case import CaseType
+    from app.models.orchestra import Workstream
+    from app.models.platform_change import PlatformChange
+
+    latest = (
+        await session.execute(
+            select(EvalScore)
+            .where(
+                EvalScore.tenant_id == tenant_id,
+                EvalScore.metric == "autonomy_rate",
+            )
+            .order_by(EvalScore.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if latest is None or latest.value < 80 or latest.sample_size < 10:
+        return 0
+
+    proposals = 0
+    resources: list[tuple[str, Any]] = []
+    resources.extend(
+        ("case_type", row)
+        for row in (
+            await session.execute(
+                select(CaseType).where(
+                    CaseType.tenant_id == tenant_id,
+                    CaseType.enabled.is_(True),
+                    CaseType.autonomy_level == "approval",
+                )
+            )
+        ).scalars().all()
+    )
+    resources.extend(
+        ("workstream", row)
+        for row in (
+            await session.execute(
+                select(Workstream).where(
+                    Workstream.tenant_id == tenant_id,
+                    Workstream.enabled.is_(True),
+                    Workstream.autonomy_level == "approval",
+                )
+            )
+        ).scalars().all()
+    )
+    for resource_type, row in resources:
+        exists = (
+            await session.execute(
+                select(PlatformChange.id).where(
+                    PlatformChange.tenant_id == tenant_id,
+                    PlatformChange.resource_type == resource_type,
+                    PlatformChange.resource_id == str(row.id),
+                    PlatformChange.status.in_(("draft", "pending_review")),
+                )
+            )
+        ).first()
+        if exists:
+            continue
+        key = "case_type_id" if resource_type == "case_type" else "workstream_id"
+        session.add(
+            PlatformChange(
+                tenant_id=tenant_id,
+                resource_type=resource_type,
+                resource_id=str(row.id),
+                change_kind="update",
+                status="pending_review",
+                summary=(
+                    f"Propose auto autonomy for {row.name}: "
+                    f"{latest.value:.0f}% autonomy over {latest.sample_size} actions"
+                ),
+                before_json=json.dumps({"autonomy_level": "approval"}),
+                after_json=json.dumps({key: str(row.id), "autonomy_level": "auto"}),
+                proposed_by_type="system",
+            )
+        )
+        proposals += 1
+    if proposals:
+        await session.commit()
+    return proposals
+
+
 async def suggest_rules_from_feedback(session: AsyncSession, tenant_id: UUID) -> int:
     """Cluster repeated thumbs-down per sender into a suggested mute_ai rule.
 
@@ -693,6 +859,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
     guardrails = await apply_heuristic_guardrails(session, tenant_id)
     allowances = await apply_heuristic_allowance_tighten(session, tenant_id)
     persona_proposed = await propose_persona_review(session, tenant_id)
+    autonomy_proposals = await propose_scoped_autonomy_growth(session, tenant_id)
 
     enqueue_strategy = await _eval_trend_worsened(session, tenant_id, "escalation_rate")
     if await _eval_trend_worsened(session, tenant_id, "resolution_quality"):
@@ -741,6 +908,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         "guardrails": guardrails,
         "allowances": allowances,
         "persona_review_proposed": persona_proposed,
+        "autonomy_proposals": autonomy_proposals,
         "strategy_review_recommended": enqueue_strategy,
         "strategy_workstream_enqueued": workstream_enqueued,
     }

@@ -513,7 +513,7 @@ const WIDGET_CSS = `
   --bk-launcher-close-color: #fff;
 }
 @media (prefers-color-scheme:dark){:host{--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-ai:#8B5CF6;--bk-ai-ink:#C4B5FD;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
-:host([data-theme="light"]){--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7F8FA;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F1F3F6;--bk-border:#E2E6EC;--bk-border-light:#EEF1F5;--bk-popover:#FFFFFF;--bk-ai:#7C3AED;--bk-ai-ink:#5B21B6;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 16%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:none;--bk-launcher-bg:color-mix(in srgb,var(--bk-bg-surface) 90%,var(--bk-primary) 10%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 45%,var(--bk-border));--bk-launcher-shadow:0 8px 28px color-mix(in srgb,var(--bk-primary) 22%,rgba(2,6,23,.1)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 38px color-mix(in srgb,var(--bk-primary) 32%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-text);}
+:host([data-theme="light"]){--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7F8FA;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F1F3F6;--bk-border:#E2E6EC;--bk-border-light:#EEF1F5;--bk-popover:#FFFFFF;--bk-ai:#7C3AED;--bk-ai-ink:#5B21B6;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 10%,#ffffff) 0%,var(--bk-bg) 100%);--bk-header-text:#161022;--bk-window-glow:none;--bk-shadow-sm:0 1px 3px rgba(17,24,39,.08),0 1px 2px rgba(17,24,39,.06);--bk-shadow:0 8px 20px rgba(12,18,32,.12),0 2px 8px rgba(12,18,32,.06);--bk-shadow-lg:0 24px 64px rgba(12,18,32,.14),0 8px 20px rgba(12,18,32,.06);--bk-launcher-bg:var(--bk-primary);--bk-launcher-icon:var(--bk-on-primary,#fff);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 72%,#ffffff);--bk-launcher-shadow:0 10px 28px color-mix(in srgb,var(--bk-primary) 34%,rgba(2,6,23,.12)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 36px color-mix(in srgb,var(--bk-primary) 42%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-on-primary,#fff);}
 :host([data-theme="dark"]){--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-ai:#8B5CF6;--bk-ai-ink:#C4B5FD;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 @keyframes bk-spring-in{0%{transform:scale(.6) translateY(20px);opacity:0}60%{transform:scale(1.04) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
@@ -532,7 +532,9 @@ const WIDGET_CSS = `
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking,.agent-live-dot,.thinking-shimmer-text{animation:none!important;}.thinking-shimmer-text{color:var(--bk-ai-ink);-webkit-text-fill-color:var(--bk-ai-ink);background:none;}}
-.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
+.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
+:host([data-theme="dark"]) .bk-launcher{box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);}
+@media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-launcher{box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);}}
 .bk-launcher:hover{transform:scale(1.06);box-shadow:var(--bk-launcher-shadow-hover);}
 .bk-launcher:active{transform:scale(1.01);cursor:grabbing;}
 .bk-launcher.is-dragging{transition:none;cursor:grabbing;transform:scale(1.04);}
@@ -595,9 +597,6 @@ const WIDGET_CSS = `
 :host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
 .bk-header-info{flex:1;min-width:0;}
 .bk-header-name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bk-header-status{font-size:12px;opacity:.88;display:flex;align-items:center;gap:6px;margin-top:2px;}
-.bk-header-status::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
-.bk-header-status[data-reach="away"]::before{background:#FBBF24;}
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
 .bk-icon-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;transition:background var(--bk-transition);}
 .bk-icon-btn:hover{background:rgba(255,255,255,.25);}
@@ -1166,13 +1165,19 @@ class BokitoChatWidget extends HTMLElement {
   #previewParsedOverrides = null;
 
   static get observedAttributes() {
-    return ['data-preview-overrides'];
+    return ['data-preview-overrides', 'data-theme'];
   }
 
   attributeChangedCallback(name) {
     if (name === 'data-preview-overrides') {
       this.#parsePreviewOverridesAttribute();
       this.#refreshChromeFromThemeAndPreview();
+      return;
+    }
+    if (name === 'data-theme') {
+      // Dashboard (in_app) and preview flip theme without remounting; re-tint
+      // brand marks so light/dark lifting matches the new chrome.
+      if (this.#root) this.#refreshChromeFromThemeAndPreview();
     }
   }
 
@@ -1756,7 +1761,6 @@ class BokitoChatWidget extends HTMLElement {
           </div>
           <div class="bk-header-info">
             <div class="bk-header-name"></div>
-            <div class="bk-header-status" data-reach="available">Available</div>
           </div>
           <div class="bk-header-actions">
             <div class="bk-chat-actions">
@@ -2852,11 +2856,6 @@ class BokitoChatWidget extends HTMLElement {
       banner.style.display = 'none';
       banner.setAttribute('hidden', '');
     }
-    const status = this.#root?.querySelector('.bk-header-status');
-    if (!status) return;
-    const isOpen = this.#surface === 'in_app' || this.#agentConfig?.office_open !== false;
-    status.setAttribute('data-reach', isOpen ? 'available' : 'away');
-    status.textContent = isOpen ? 'Available' : 'Away';
   }
 
   #visitorIdentity() {
@@ -3074,7 +3073,8 @@ class BokitoChatWidget extends HTMLElement {
   #applyAgentTheme(theme) {
     const host = this;
     if (!theme || typeof theme !== 'object') {
-      if (!this.#isPreviewEmbedded()) host.removeAttribute('data-theme');
+      const hostOwnsTheme = this.#isPreviewEmbedded() || this.#surface === 'in_app';
+      if (!hostOwnsTheme) host.removeAttribute('data-theme');
       return;
     }
 
@@ -3098,7 +3098,10 @@ class BokitoChatWidget extends HTMLElement {
 
     const mainColor = theme.main_color || theme.primary_color;
 
-    if (!this.#isPreviewEmbedded()) {
+    // Preview and in-app dashboard own data-theme; agent dark_light_mode must
+    // not steal the host theme (OS prefers-dark would then lift brand wrong).
+    const hostOwnsTheme = this.#isPreviewEmbedded() || this.#surface === 'in_app';
+    if (!hostOwnsTheme) {
       if (theme.dark_light_mode === 'dark' || theme.dark_light_mode === 'light') {
         host.setAttribute('data-theme', theme.dark_light_mode);
       } else {
@@ -3107,7 +3110,7 @@ class BokitoChatWidget extends HTMLElement {
     }
 
     // Brand tokens need the resolved theme (data-theme / prefers-color-scheme)
-    // so marks and accents stay readable on dark chrome.
+    // so marks and accents stay readable on the active chrome.
     if (this.#isValidCssColor(mainColor)) {
       const trimmed = mainColor.trim();
       const rgb = parseHexColor(trimmed) || this.#parseColorToRgbTriplet(trimmed);

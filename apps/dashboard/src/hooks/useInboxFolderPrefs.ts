@@ -13,7 +13,7 @@ import type { HubLeaf, SubQueue } from '../lib/messages-paths'
 let cached: InboxFolderPrefs | null = null
 
 /**
- * Roaming default sub-view (Open / Mine / ...) for channel and tag folders.
+ * Roaming default sub-view (Open / Mine / ...) for channel and agent folders.
  * Reads `/me/preferences` once per session; writes update the cache so the
  * sidebar and settings stay in sync within a tab.
  */
@@ -24,7 +24,6 @@ export function useInboxFolderPrefs() {
     return {
       defaultQueue: base.defaultQueue,
       channelDefaults: base.channelDefaults ?? {},
-      sidebarTags: Array.isArray(base.sidebarTags) ? base.sidebarTags : [],
     }
   })
   const [loaded, setLoaded] = useState(cached != null)

@@ -9,7 +9,7 @@ related: mcp,models,channels,govern,cases
 
 # Connect integrations
 
-Integrations are partner logins. A **module** is a preset (Accounting) that may use only the partners listed on it. The **Connections** hub in the rail at `/connections` shows what is installed: module cards with the partner logos they run on, then your partner logins, then custom MCP servers. **Marketplace** is the discover tab, split into **Modules** and **Integrations**. Installed modules also appear as their own rail group (for example Accounting). Connecting a partner does not give agents tools; install the module and assign an agent first.
+Integrations are partner logins. A **module** is one package of Signal types, playbooks, and an optional Project, plus the tools allowed for its listed partners. The **Connections** hub in the rail at `/connections` shows installed module cards, partner logins, and custom MCP servers. **Marketplace** is the discover tab, split into **Modules** and **Integrations**. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
 
 ## See what is connected
 
@@ -38,14 +38,14 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 3. Assign **at least one AI agent**. Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
 4. Review **What agents can do**: each module action shows a short description, the universal path (`accounting_list_companies`, …), and whether it is **Read** or **Needs approval**. When partners are attached, **Tools from connected MCP servers** lists the exact MCP tool names discovered from those servers.
 5. Under **Connections**, choose **New registration** to connect and attach in one step, or **Use an existing connection** for a login that already lives on Connections. Planned packages (Exact Online, SnelStart) stay greyed out.
-6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installed** and the module appears in the rail **Modules** group (same page URL).
+6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installed**. Its Signal types and playbooks remain available through their existing product surfaces; the module stays in Connections and adds no rail item.
 
 ## Connect an optional accounting integration
 
 ![Module home](/api/docs/assets/integrations/module-home.png)
 *Module page lists registrations, sources and AI setup on one surface.*
 
-1. Open **Accounting** from the rail **Modules** group, or from the card on **Connections**. The list shows only attached registrations, not every Moneybird login in the workspace.
+1. Open **Accounting** from its card on **Connections**. The list shows only attached registrations, not every Moneybird login in the workspace.
 2. Choose **New registration** to connect from the module (that login attaches automatically), or **Use this connection** for a login that already exists on Connections.
 3. Finish setup with real credentials (OAuth for Moneybird, partner key plus administraties for KING, client id/secret for Bjorn Lunden). Empty or random labels alone do not create a working link.
 4. Each row shows status (**Verified**, **Needs credentials**, **Unverified**, or **Error**), optional provider identity, and actions: **Verify**, **Remove from module** (keeps the login on Connections), **Disconnect**, **Rename**, and **Set default** (only when verified).
@@ -55,7 +55,7 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 
 ## Control accounting writes and agent access
 
-1. Open the Accounting workspace from the rail **Modules** group. The write banner shows **Writes disabled — retrieval only** or **Writes enabled — approved decisions execute**.
+1. Open Accounting from **Connections**. The write banner shows **Writes disabled — retrieval only** or **Writes enabled — approved decisions execute**.
 2. As owner or admin, use **Allow writes in this workspace** to let approved decisions write to the package. Writes stay off until the platform switch is also on, so approvals always resolve safely.
 3. On the module **Setup** tab, open the access panel behind the settings icon on an assigned agent. Turn on **Write access** so that agent may propose accounting writes; agents without it get read tools only.
 4. Under **Administration scope**, pick the administrations the agent may address. No selection means access to all administrations.
@@ -63,9 +63,9 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 
 ## Install a workstream template
 
-Modules ship pre-built workstreams — for example **VAT filing preparation** and **Monthly close review** on Accounting, **Bank reconciliation** on Banking.
+Modules ship one catalog package containing Signal types, pre-built playbooks, and optionally a Project. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
 
-1. Open the module page from the rail **Modules** group. When the module is on, the **Workstream templates** panel lists what it ships, with the step count per template.
+1. Open the module page from **Connections**. When the module is on, the **Workstream templates** panel lists what it ships, with the step count per template.
 2. A template that cannot run yet shows why (module connection missing, required agent role not assigned). Fix the requirement first.
 3. Choose **Install**. The workstream is copied to your workspace — you own and can edit the copy. **Open workstream** takes you to it under [Workstreams](/docs/ai/workstreams).
 4. Before every run of an installed template, Bokito re-checks the requirements; a broken requirement pauses the run with a decision instead of failing silently.

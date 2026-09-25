@@ -1,6 +1,8 @@
 import json
+from datetime import datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 from httpx import AsyncClient
 from sqlalchemy import select
 
@@ -10,7 +12,11 @@ from app.models.auth import Tenant
 from app.models.notification import DecisionRequest
 from app.models.platform_change import PlatformChange
 from app.models.workspace import WorkspaceDoc
-from app.services.platform_changes import accept_platform_change, propose_platform_change
+from app.services.platform_changes import (
+    accept_platform_change,
+    propose_platform_change,
+    rollback_platform_change,
+)
 from app.tools import execute_tool
 
 
@@ -120,6 +126,30 @@ async def test_apply_mode_executes_immediately(client: AsyncClient, session_over
     )
     assert meta["mode"] == "apply"
     assert change.status == "applied_yolo"
+
+
+@pytest.mark.asyncio
+async def test_rollback_rejects_changes_older_than_30_days(client: AsyncClient, session_override):
+    await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    from app.models.auth import User
+
+    user = (await session_override.execute(select(User).limit(1))).scalar_one()
+    change = PlatformChange(
+        tenant_id=tenant.id,
+        resource_type="workspace_doc",
+        resource_id="old-doc",
+        status="accepted",
+        summary="Old accepted change",
+        resolved_at=datetime.utcnow() - timedelta(days=31),
+    )
+    session_override.add(change)
+    await session_override.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        await rollback_platform_change(session_override, tenant.id, change.id, user.id)
+    assert exc.value.status_code == 409
+    assert "30 days" in str(exc.value.detail)
 
 
 @pytest.mark.asyncio

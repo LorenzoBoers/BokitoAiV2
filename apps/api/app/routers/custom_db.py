@@ -1,6 +1,10 @@
 """Custom database router (dashboard APP_API_BASE contract).
 
-Staff-gated: not a tenant product surface.
+DEAD CODE — not mounted. `main.py` no longer includes this router: the custom
+table builder is retired in favor of Contact, Project, and typed signal fields.
+Models and tables are kept so existing tenant data is not dropped, but nothing
+in the product reads or writes through here. Delete once the tables are
+migrated out.
 """
 
 import json

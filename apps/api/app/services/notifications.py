@@ -199,7 +199,26 @@ async def resolve_decision(
             if run_id_raw:
                 from app.services.workstreams import resume_run
 
-                await resume_run(session, tenant_id, UUID(str(run_id_raw)))
+                next_step_raw = payload.get("next_step_id")
+                await resume_run(
+                    session,
+                    tenant_id,
+                    UUID(str(run_id_raw)),
+                    next_step_id=UUID(str(next_step_raw)) if next_step_raw else None,
+                    next_step_name=str(payload.get("next_step_name") or ""),
+                    next_step_position=(
+                        int(payload["next_step_position"])
+                        if payload.get("next_step_position") is not None
+                        else None
+                    ),
+                )
+
+        if action_type == "workstream_skip_step":
+            run_id_raw = payload.get("run_id")
+            if run_id_raw:
+                from app.services.workstreams import skip_step_run
+
+                await skip_step_run(session, tenant_id, UUID(str(run_id_raw)))
 
         if action_type == "workstream_cancel":
             run_id_raw = payload.get("run_id")
@@ -232,6 +251,7 @@ async def resolve_decision(
             "orchestration_continue",
             "workstream_continue",
             "workstream_retry",
+            "workstream_skip_step",
             "workstream_cancel",
             "session_checkout",
         ):

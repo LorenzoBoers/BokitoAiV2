@@ -1,7 +1,7 @@
 ---
 title: Privacy and security
 intro: Retention, data subject requests, and AI data use live under Trust and privacy.
-description: Configure message and calendar retention, control whether AI may use message bodies, and export or erase personal data for a subject email.
+description: Configure one workspace retention period, control whether AI may use message bodies, and export or erase personal data for a subject email.
 keywords: privacy, security, retention, GDPR, AVG, DSAR, export, erase, trust, subprocessors
 sort: 40
 related: govern,autonomy,communication
@@ -19,10 +19,10 @@ Owners and admins manage retention and data subject requests under **Settings**,
 
 ## Set retention and AI body use
 
-1. Set **Message retention (days)** (default 365). Older message bodies are purged on a daily job; thread shells can remain.
-2. Set **Calendar retention (days)** (default 365) for synced calendar events.
+1. Set **Workspace retention (days)** (default 365). One period applies to messages, synced calendar events, and audit data.
+2. Older eligible data is purged by the retention job; thread shells can remain.
 3. Toggle **Allow AI to use message bodies**. When off, inbox AI that needs full bodies stays disabled.
-4. Leave a field to save. Changes apply to this workspace only.
+4. Leave the field to save. Changes apply to this workspace only.
 
 ## Export or erase a data subject
 

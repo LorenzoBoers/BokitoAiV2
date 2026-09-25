@@ -16,6 +16,7 @@ router = APIRouter(prefix="/privacy", tags=["privacy"])
 
 
 class PrivacySettingsBody(BaseModel):
+    workspace_retention_days: int | None = Field(default=None, ge=30, le=3650)
     retention_messages_days: int | None = Field(default=None, ge=30, le=3650)
     retention_calendar_days: int | None = Field(default=None, ge=30, le=3650)
     retention_audit_days: int | None = Field(default=None, ge=30, le=3650)

@@ -11,7 +11,6 @@ import {
   leafFromPath,
   leafKey,
   leafPath,
-  tagPath,
   type HubLeaf,
   type RunsQueue,
   type SubQueue,
@@ -20,7 +19,6 @@ import {
   configForLeaf,
   mergeHubThreadFilters,
   threadFitsChannelLeaf,
-  threadFitsTagLeaf,
 } from '../lib/hub-list-filters'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
@@ -81,6 +79,7 @@ import {
 import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
 import { listAgents } from '../lib/agents-api'
 import { listProjects } from '../lib/projects-api'
+import { listCases } from '../lib/cases-api'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
@@ -108,7 +107,7 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
 
 /**
  * Thread-list surface of the Communication hub: renders whichever leaf is
- * active in the sidebar (inbox queue, agent runs, channel, view or label)
+ * active in the sidebar (inbox queue, agent runs, channel, or view)
  * as thread list + conversation + context panel.
  */
 export default function Communication() {
@@ -130,7 +129,32 @@ export default function Communication() {
 
   const projectId = searchParams.get('project_id')?.trim() || undefined
   const agentIdFilter = searchParams.get('agent')?.trim() || undefined
+  const caseTypeId = searchParams.get('case_type_id')?.trim() || undefined
+  const [caseSignalIds, setCaseSignalIds] = useState<ReadonlySet<string> | null>(null)
   const [scopeName, setScopeName] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!caseTypeId) {
+      setCaseSignalIds(null)
+      return
+    }
+    let cancelled = false
+    void listCases({ caseTypeId, includeLabels: false, limit: 500 })
+      .then((rows) => {
+        if (cancelled) return
+        setCaseSignalIds(new Set(
+          rows
+            .filter((row) => row.status !== 'done')
+            .map((row) => row.signal_id),
+        ))
+      })
+      .catch(() => {
+        if (!cancelled) setCaseSignalIds(new Set())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [caseTypeId])
 
   useEffect(() => {
     let cancelled = false
@@ -162,21 +186,6 @@ export default function Communication() {
       ? t('threadList.scopeProject', { name: scopeName || t('threadList.scopeProjectFallback') })
       : null
 
-  // A tag has exactly one surface: its folder under Tags. Clicking a tag chip
-  // in the list navigates there, so the URL, the sidebar, and the list agree.
-  const activeTag = leaf.type === 'tag' ? leaf.tag : null
-
-  const openTagFolder = useCallback(
-    (tag: string) => {
-      navigate(tagPath(tag))
-    },
-    [navigate],
-  )
-
-  const leaveTagFolder = useCallback(() => {
-    navigate(inboxPath(leaf.type === 'tag' ? leaf.queue ?? 'open' : 'open'))
-  }, [leaf, navigate])
-
   const clearScope = useCallback(() => {
     const next = new URLSearchParams(searchParams)
     next.delete('agent')
@@ -199,10 +208,11 @@ export default function Communication() {
     const params = new URLSearchParams()
     if (projectId) params.set('project_id', projectId)
     if (agentIdFilter) params.set('agent', agentIdFilter)
+    if (caseTypeId) params.set('case_type_id', caseTypeId)
     if (quickFilter !== 'all') params.set('filter', quickFilter)
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [projectId, agentIdFilter, quickFilter])
+  }, [projectId, agentIdFilter, caseTypeId, quickFilter])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
   // current browser session (sessionStorage), so it returns on the next visit.
@@ -327,7 +337,7 @@ export default function Communication() {
     }, { replace: true })
   }, [mode, quickFilter, setQuickFilter, setSearchParams])
 
-  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}`
+  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}:${caseTypeId ?? ''}`
 
   useEffect(() => {
     if (leaf.type === 'inbox' && leaf.queue) writeLastInboxQueue(leaf.queue)
@@ -349,10 +359,11 @@ export default function Communication() {
   const filteredThreads = useMemo(() => {
     let next = mode === 'customer' ? applyQuickFilter(threads, quickFilter) : threads
     if (priorityFilter) next = next.filter((thread) => thread.priority === priorityFilter)
+    if (caseSignalIds) next = next.filter((thread) => caseSignalIds.has(String(thread.id)))
     if (leaf.type !== 'inbox') return next
     if (leaf.queue === 'open') return customersOnly(next)
     return customersFirst(next)
-  }, [threads, quickFilter, priorityFilter, leaf, mode])
+  }, [threads, quickFilter, priorityFilter, caseSignalIds, leaf, mode])
 
   const handleToggleBulkSelect = useCallback(
     (id: ThreadId, shiftKey = false) => {
@@ -681,12 +692,8 @@ export default function Communication() {
       return
     }
 
-    // Channel / tag leaves: wrong-scope deep links hop to the thread's hub home.
+    // Channel leaves: wrong-scope deep links hop to the thread's hub home.
     if (leaf.type === 'channel' && !threadFitsChannelLeaf(detail.thread, leaf)) {
-      navigate(`${threadHubPath(detail.thread)}${inboxQuery}`, { replace: true })
-      return
-    }
-    if (leaf.type === 'tag' && !threadFitsTagLeaf(detail.thread, leaf)) {
       navigate(`${threadHubPath(detail.thread)}${inboxQuery}`, { replace: true })
       return
     }
@@ -1317,9 +1324,6 @@ export default function Communication() {
             onPriorityFilter={setPriorityFilter}
             channelFilter={leaf.type === 'inbox' ? channelFilter : undefined}
             onChannelFilter={leaf.type === 'inbox' ? setChannelFilter : undefined}
-            activeTag={activeTag}
-            onTagOpen={mode === 'customer' ? openTagFolder : undefined}
-            onLeaveTag={activeTag ? leaveTagFolder : undefined}
             scopeLabel={scopeLabel}
             onClearScope={agentIdFilter || projectId ? clearScope : undefined}
             total={threadsTotal}
@@ -1491,7 +1495,7 @@ export default function Communication() {
             aria-label={t('split.closeContext')}
             onClick={toggleContactPanel}
           />
-          <div className="absolute inset-y-0 right-0 w-[min(100%,20rem)] overflow-y-auto border-l border-border/60 bg-bg-surface shadow-overlay">
+          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-2xl border-t border-border/60 bg-bg-surface shadow-overlay sm:inset-y-0 sm:left-auto sm:w-[min(100%,20rem)] sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0">
             <AgentThreadPanel
               thread={detail.thread}
               onClose={toggleContactPanel}
@@ -1516,7 +1520,7 @@ export default function Communication() {
           onClick={() => setCustomSnoozeOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-xl"
+            className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay"
             onClick={(event) => event.stopPropagation()}
           >
             <h2 className="text-[13px] font-semibold text-text-heading">{t('snooze.customTitle')}</h2>

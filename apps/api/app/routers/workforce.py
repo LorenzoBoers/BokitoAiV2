@@ -41,15 +41,26 @@ class AgentModelBody(BaseModel):
 
 class AgentCreateBody(BaseModel):
     name: str
-    role: str = "assistant"
+    purpose: str = ""
+    audience: str = "internal"
     system_prompt: str = ""
     model: str = ""
+    tools: list[str] = []
+    owner_user_id: UUID | None = None
+    default_channels: list[str] = []
+    default_signal_types: list[str] = []
     chat_access: str = "everyone"
 
 
 class AgentUpdateBody(BaseModel):
     name: str | None = None
+    purpose: str | None = None
+    audience: str | None = None
     system_prompt: str | None = None
+    tools: list[str] | None = None
+    owner_user_id: UUID | None = None
+    default_channels: list[str] | None = None
+    default_signal_types: list[str] | None = None
     # Plain-text signature appended to outbound replies sent as this agent.
     email_signature_text: str | None = None
     # Legacy HTML field — converted to plain text on write.
@@ -271,8 +282,13 @@ async def create_agent(
         session,
         auth.tenant.id,
         name=body.name,
-        role=body.role,
-        system_prompt=body.system_prompt,
+        role="assistant",
+        system_prompt=body.purpose or body.system_prompt,
+        audience=body.audience,
+        tools=body.tools,
+        owner_user_id=body.owner_user_id,
+        default_channels=body.default_channels,
+        default_signal_types=body.default_signal_types,
         model_slug=body.model,
         chat_access=body.chat_access,
     )
@@ -305,7 +321,12 @@ async def update_agent(
         auth.tenant.id,
         agent_id,
         name=body.name,
-        system_prompt=body.system_prompt,
+        system_prompt=body.purpose if body.purpose is not None else body.system_prompt,
+        audience=body.audience,
+        tools=body.tools,
+        owner_user_id=body.owner_user_id,
+        default_channels=body.default_channels,
+        default_signal_types=body.default_signal_types,
         email_signature_html=body.email_signature_html,
         email_signature_text=body.email_signature_text,
         reply_send_as=body.reply_send_as,
@@ -324,7 +345,11 @@ async def update_agent(
         actor_id=auth.user.id,
         resource_type="agent",
         resource_id=agent_id,
-        after={"name": body.name, "system_prompt_changed": body.system_prompt is not None},
+        after={
+            "name": body.name,
+            "purpose_changed": body.purpose is not None or body.system_prompt is not None,
+            "audience": body.audience,
+        },
     )
     return result
 

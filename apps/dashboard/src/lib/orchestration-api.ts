@@ -175,6 +175,9 @@ export type AgendaItem = {
   agent_id: string | null
   agent_role: string
   agent_name: string | null
+  actor_kind?: 'agent' | 'person'
+  actor_id?: string | null
+  actor_name?: string | null
   instructions: string
   enabled: boolean
   at: string
@@ -184,10 +187,6 @@ export type AgendaItem = {
   /** Thread the trigger posts its results into, when it has one. */
   signal_id?: string | null
   source?: string | null
-  /** Ledger task id when source is "task". */
-  task_id?: string | null
-  assignee_kind?: string | null
-  assignee_user_id?: string | null
   provider?: string | null
   provider_label?: string | null
   calendar_id?: string | null

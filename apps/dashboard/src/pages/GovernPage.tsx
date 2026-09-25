@@ -18,17 +18,20 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import {
   acceptGovernChange,
   getAllowances,
+  getAutonomyScopes,
   listAcceptedChanges,
   listAgentPassports,
   listGovernAudit,
   listGovernChanges,
   rejectGovernChange,
   rollbackGovernChange,
+  setAutonomyScope,
   setPosture,
-  setToolOverride,
   updateAllowances,
   type AllowanceMode,
   type AuditEventRow,
+  type AutonomyScopeLevel,
+  type AutonomyScopeRow,
   type AutonomyPostureId,
   type GovernToolRow,
   type LearningAllowanceNote,
@@ -62,6 +65,7 @@ import {
 
 const ALLOWANCE_OPTIONS: AllowanceMode[] = ['deny', 'ask', 'allow']
 const POSTURE_ORDER: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
+const SCOPE_LEVELS: AutonomyScopeLevel[] = ['manual', 'approval', 'auto']
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending_review: 'secondary',
@@ -147,6 +151,8 @@ export default function GovernPage() {
   const [tools, setTools] = useState<GovernToolRow[]>([])
   const [learningHistory, setLearningHistory] = useState<LearningAllowanceNote[]>([])
   const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
+  const [caseTypeScopes, setCaseTypeScopes] = useState<AutonomyScopeRow[]>([])
+  const [workstreamScopes, setWorkstreamScopes] = useState<AutonomyScopeRow[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -169,8 +175,9 @@ export default function GovernPage() {
       listGovernAudit(),
       listAgentPassports(),
       getAllowances(),
+      getAutonomyScopes(),
     ])
-      .then(([changeResp, historyResp, auditResp, passportResp, allowanceResp]) => {
+      .then(([changeResp, historyResp, auditResp, passportResp, allowanceResp, scopeResp]) => {
         setChanges(changeResp.items)
         if (!tabParam && !readLastGovernTab() && changeResp.items.length > 0) {
           writeLastGovernTab('drafts')
@@ -184,6 +191,8 @@ export default function GovernPage() {
         setTools(allowanceResp.tools)
         setLearningHistory(allowanceResp.learning_history ?? [])
         setPostureState(allowanceResp.posture)
+        setCaseTypeScopes(scopeResp.case_types)
+        setWorkstreamScopes(scopeResp.workstreams)
         setRefreshedAt(new Date())
       })
       .catch((err) => setError(formatApiErrorMessage(err, t('loadError'))))
@@ -289,23 +298,22 @@ export default function GovernPage() {
     }
   }
 
-  async function handleToolOverride(toolName: string, mode: AllowanceMode | null) {
-    setTools((prev) =>
-      prev.map((tool) => (tool.name === toolName ? { ...tool, override: mode } : tool)),
-    )
-    setSavingModes(true)
+  async function handleScopeChange(
+    kind: 'case_type' | 'workstream',
+    row: AutonomyScopeRow,
+    level: AutonomyScopeLevel,
+  ) {
+    if (row.autonomy_level === level || busyId === row.id) return
+    setBusyId(row.id)
     try {
-      await setToolOverride(toolName, mode)
-      toast.success(
-        mode
-          ? t('allowances.toolOverrideSaved', { toolName, mode })
-          : t('allowances.toolOverrideCleared', { toolName }),
-      )
+      const updated = await setAutonomyScope(kind, row.id, level)
+      const setter = kind === 'case_type' ? setCaseTypeScopes : setWorkstreamScopes
+      setter((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      toast.success(t('scopes.saved'))
     } catch (err) {
-      setError(formatApiErrorMessage(err, t('toolOverrideError')))
-      load()
+      setError(formatApiErrorMessage(err, t('scopes.saveError')))
     } finally {
-      setSavingModes(false)
+      setBusyId(null)
     }
   }
 
@@ -405,19 +413,33 @@ export default function GovernPage() {
         <TableRowsSkeleton rows={8} />
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="flex h-auto flex-wrap gap-1">
-            <TabsTrigger value="drafts">
-              {t('tabs.drafts')}
-              {changes.length > 0 ? (
-                <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
-                  {changes.length}
-                </Badge>
-              ) : null}
-            </TabsTrigger>
-            <TabsTrigger value="policy">{t('tabs.policy')}</TabsTrigger>
-            <TabsTrigger value="history">{t('tabs.history')}</TabsTrigger>
-            <TabsTrigger value="passports">{t('tabs.passports')}</TabsTrigger>
-            <TabsTrigger value="audit">{t('tabs.audit')}</TabsTrigger>
+          <TabsList className="flex h-auto w-full flex-wrap items-start justify-start gap-4 p-2">
+            <div className="space-y-1">
+              <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                {t('sections.ledger')}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                <TabsTrigger value="drafts">
+                  {t('tabs.drafts')}
+                  {changes.length > 0 ? (
+                    <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
+                      {changes.length}
+                    </Badge>
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger value="history">{t('tabs.history')}</TabsTrigger>
+                <TabsTrigger value="audit">{t('tabs.audit')}</TabsTrigger>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                {t('sections.autonomy')}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                <TabsTrigger value="policy">{t('tabs.policy')}</TabsTrigger>
+                <TabsTrigger value="passports">{t('tabs.passports')}</TabsTrigger>
+              </div>
+            </div>
           </TabsList>
 
           <TabsContent value="drafts" className="mt-4">
@@ -571,6 +593,57 @@ export default function GovernPage() {
 
             <Card>
               <CardHeader>
+                <CardTitle>{t('scopes.title')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-text-muted">{t('scopes.intro')}</p>
+                {(
+                  [
+                    ['case_type', t('scopes.types'), caseTypeScopes],
+                    ['workstream', t('scopes.playbooks'), workstreamScopes],
+                  ] as const
+                ).map(([kind, title, rows]) => (
+                  <section key={kind} className="space-y-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</h3>
+                    {rows.length === 0 ? (
+                      <p className="text-xs text-text-muted">{t('scopes.empty')}</p>
+                    ) : (
+                      rows.map((row) => (
+                        <div
+                          key={row.id}
+                          className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <span className="text-sm font-medium text-text-heading">{row.name}</span>
+                          <div className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5" role="radiogroup">
+                            {SCOPE_LEVELS.map((level) => (
+                              <button
+                                key={level}
+                                type="button"
+                                role="radio"
+                                aria-checked={row.autonomy_level === level}
+                                disabled={busyId === row.id}
+                                onClick={() => void handleScopeChange(kind, row, level)}
+                                className={cn(
+                                  'rounded-md px-3 py-1 text-xs transition-colors',
+                                  row.autonomy_level === level
+                                    ? 'bg-accent/10 font-medium text-accent'
+                                    : 'text-text-muted hover:text-text-heading',
+                                )}
+                              >
+                                {t(`scopes.levels.${level}`)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </section>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>{t('allowances.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -597,7 +670,6 @@ export default function GovernPage() {
                 ) : null}
                 {categories.map((category) => {
                   const current = allowances[category] ?? 'ask'
-                  const categoryTools = tools.filter((tool) => tool.category === category && tool.gated)
                   return (
                     <div key={category} className="rounded-lg border border-border/60 p-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -643,73 +715,6 @@ export default function GovernPage() {
                       <p className="mt-1.5 text-[11px] text-text-muted">
                         {allowanceModeHint(current, t)}
                       </p>
-                      {categoryTools.length > 0 ? (
-                        <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
-                          {categoryTools.map((tool) => {
-                            const effective = tool.override ?? current
-                            return (
-                              <div
-                                key={tool.name}
-                                className="flex items-center justify-between gap-2"
-                              >
-                                <span
-                                  className="truncate font-mono text-[11px] text-text-secondary"
-                                  title={tool.description}
-                                >
-                                  {tool.name}
-                                  {tool.override ? (
-                                    <span className="ml-1.5 text-[10px] text-accent">
-                                      {t('toolOverride.override')}
-                                    </span>
-                                  ) : null}
-                                </span>
-                                <div className="inline-flex shrink-0 rounded-md border border-border/60 p-0.5">
-                                  {(['inherit', 'deny', 'ask', 'allow'] as const).map((mode) => {
-                                    const isInherit = mode === 'inherit'
-                                    const selected = isInherit ? !tool.override : tool.override === mode
-                                    return (
-                                      <button
-                                        key={mode}
-                                        type="button"
-                                        disabled={savingModes}
-                                        onClick={() =>
-                                          void handleToolOverride(
-                                            tool.name,
-                                            isInherit ? null : (mode as AllowanceMode),
-                                          )
-                                        }
-                                        className={cn(
-                                          'rounded px-2 py-0.5 text-[10px] transition-colors',
-                                          selected
-                                            ? mode === 'deny'
-                                              ? 'bg-destructive/10 font-medium text-destructive'
-                                              : mode === 'allow'
-                                                ? 'bg-accent/10 font-medium text-accent'
-                                                : 'bg-bg-muted font-medium text-text-heading'
-                                            : 'text-text-muted hover:text-text-heading',
-                                        )}
-                                        title={
-                                          isInherit
-                                            ? t('toolOverride.useCategoryDefault', {
-                                                mode: allowanceModeLabel(current, t),
-                                              })
-                                            : t('toolOverride.effectiveNow', {
-                                                mode: allowanceModeLabel(effective, t),
-                                              })
-                                        }
-                                      >
-                                        {isInherit
-                                          ? t('toolOverride.default')
-                                          : allowanceModeLabel(mode, t)}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : null}
                     </div>
                   )
                 })}
@@ -776,6 +781,13 @@ export default function GovernPage() {
                           {formatChangeMeta(row.resource_type, row.change_kind, row.status, t)} · v{row.version} ·{' '}
                           {formatGovernTimestamp(row.resolved_at ?? row.created_at, i18n.language)}
                         </p>
+                        <p className="mt-0.5 text-[11px] text-text-muted">
+                          {row.can_rollback
+                            ? t('history.revertUntil', {
+                                date: formatGovernTimestamp(row.rollback_deadline, i18n.language),
+                              })
+                            : t('history.revertExpired')}
+                        </p>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
                         <Button type="button" size="sm" variant="ghost" onClick={() => copyChangeId(row.id)}>
@@ -786,8 +798,9 @@ export default function GovernPage() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        disabled={busyId === row.id}
+                        disabled={busyId === row.id || !row.can_rollback}
                         onClick={() => requestRollback(row)}
+                        title={!row.can_rollback ? t('history.revertExpired') : undefined}
                       >
                         {t('history.rollback')}
                       </Button>

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.exceptions import TenantMismatchError
-from app.models.auth import Membership, Tenant, User
+from app.models.auth import Membership, Tenant, User, canonical_workspace_role
 from app.services.auth import decode_access_token
 
 
@@ -32,7 +32,7 @@ class AuthContext:
     def role(self) -> str:
         if self.is_staff:
             return "admin"
-        return self.membership.role if self.membership else "member"
+        return canonical_workspace_role(self.membership.role if self.membership else None)
 
     def require_role(self, *roles: str) -> None:
         if self.role not in roles and not self.is_staff:

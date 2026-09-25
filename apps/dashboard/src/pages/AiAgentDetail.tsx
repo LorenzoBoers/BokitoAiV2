@@ -21,9 +21,6 @@ import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
-import { agentAutonomyLevelLabel } from '../lib/labels'
-import { agentRoleLabel } from '../lib/agent-role-label'
-import { permissionScopeLabel } from '../lib/permission-scope-label'
 import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
 import { activityTerminalPath, agentChatPath } from '../lib/messages-paths'
@@ -31,8 +28,8 @@ import { agendaOccurrenceHref, workLogRunsPath } from '../lib/agenda-thread'
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
 import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
-import { archiveAgent, setLeadAgent } from '../lib/workforce-api'
-import { listAgentPassports, updateAgentPassport } from '../lib/govern-api'
+import { archiveAgent } from '../lib/workforce-api'
+import { listAgentPassports } from '../lib/govern-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { listAgendaOccurrences, listTriggers, type AgendaItem } from '../lib/orchestration-api'
@@ -80,8 +77,6 @@ export default function AiAgentDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [archiveBusy, setArchiveBusy] = useState(false)
-  const [leadBusy, setLeadBusy] = useState(false)
-  const [autonomyBusy, setAutonomyBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
@@ -205,39 +200,6 @@ export default function AiAgentDetail() {
     }
   }, [agent, archiveBusy, navigate, t])
 
-  const handleMakeLead = useCallback(async () => {
-    if (!agent || leadBusy) return
-    const confirmed = window.confirm(t('workforce.agents.makeLeadConfirm'))
-    if (!confirmed) return
-    setLeadBusy(true)
-    setActionError(null)
-    try {
-      const result = await setLeadAgent(undefined, agent.id)
-      setAgent(result.agent)
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t('workforce.agents.leadUpdateError'))
-    } finally {
-      setLeadBusy(false)
-    }
-  }, [agent, leadBusy, t])
-
-  const handleAutonomyChange = useCallback(
-    async (level: string) => {
-      if (!agent || autonomyBusy) return
-      setAutonomyBusy(true)
-      setActionError(null)
-      try {
-        const result = await updateAgentPassport(agent.id, { autonomy_level: level })
-        setPassport(result.passport as unknown as AgentPassport)
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : t('workforce.agents.autonomyUpdateError'))
-      } finally {
-        setAutonomyBusy(false)
-      }
-    },
-    [agent, autonomyBusy, t],
-  )
-
   if (!agentId) {
     return <Navigate to={AGENTS_DEFAULT_PATH} replace />
   }
@@ -306,24 +268,9 @@ export default function AiAgentDetail() {
                       </Button>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 text-sm text-text-muted">
-                    {agentRoleLabel(agent.role_name || agent.role_slug, t)}
-                    {agent.is_lead ? (
-                      <span className="text-text-muted"> · {t('workforce.agents.leadBadge')}</span>
-                    ) : null}
+                  <p className="mt-0.5 text-sm capitalize text-text-muted">
+                    {agent.audience ?? 'internal'}
                   </p>
-                  {agent.is_lead ? (
-                    <p className="mt-1 text-[11px] text-text-muted">{t('workforce.agents.isDefaultHint')}</p>
-                  ) : isAdmin && agent.kind !== 'personal' ? (
-                    <button
-                      type="button"
-                      disabled={leadBusy}
-                      onClick={() => void handleMakeLead()}
-                      className="mt-1 text-[11px] font-medium text-text-muted hover:text-accent hover:underline disabled:opacity-50"
-                    >
-                      {t('workforce.agents.setAsDefault')}
-                    </button>
-                  ) : null}
                 </div>
               </div>
               <span
@@ -392,28 +339,14 @@ export default function AiAgentDetail() {
                         <Copy size={14} />
                         {t('workforce.agents.duplicate')}
                       </DropdownMenu.Item>
-                      {!agent.is_lead ? (
-                        <>
-                          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                          <DropdownMenu.Item
-                            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                            onSelect={() => setArchiveConfirmOpen(true)}
-                          >
-                            <Archive size={14} />
-                            {t('workforce.agents.archive')}
-                          </DropdownMenu.Item>
-                        </>
-                      ) : (
-                        <>
-                          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                          <DropdownMenu.Item
-                            disabled
-                            className="flex cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-muted outline-none"
-                          >
-                            {t('workforce.agents.leadArchiveBlocked')}
-                          </DropdownMenu.Item>
-                        </>
-                      )}
+                      <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                      <DropdownMenu.Item
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                        onSelect={() => setArchiveConfirmOpen(true)}
+                      >
+                        <Archive size={14} />
+                        {t('workforce.agents.archive')}
+                      </DropdownMenu.Item>
                     </DropdownMenu.Content>
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
@@ -447,9 +380,9 @@ export default function AiAgentDetail() {
             onCreated={(agentId) => navigate(`/agents/${agentId}`)}
             prefill={{
               name: t('workforce.agents.duplicateName', { name: agent.name }),
-              role: agent.role_slug ?? undefined,
+              audience: agent.audience ?? undefined,
               model: agent.model ?? undefined,
-              systemPrompt: agent.system_prompt ?? undefined,
+              purpose: agent.purpose ?? agent.system_prompt ?? undefined,
             }}
           />
 
@@ -640,60 +573,8 @@ export default function AiAgentDetail() {
                 </Link>
               </Button>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="mt-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                  {t('workforce.agents.autonomyLevel')}
-                </p>
-                {isAdmin ? (
-                  <select
-                    className="mt-1 w-full max-w-[180px] rounded-md border border-border bg-bg-input px-2 py-1.5 text-sm text-text-heading focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
-                    value={
-                      passport?.autonomy_level != null && passport.autonomy_level !== ''
-                        ? String(passport.autonomy_level)
-                        : 'approval'
-                    }
-                    disabled={autonomyBusy}
-                    onChange={(e) => void handleAutonomyChange(e.target.value)}
-                  >
-                    <option value="manual">
-                      {t('workforce.agents.autonomyManual')}
-                    </option>
-                    <option value="approval">
-                      {t('workforce.agents.autonomyApproval')}
-                    </option>
-                    <option value="auto">
-                      {t('workforce.agents.autonomyAuto')}
-                    </option>
-                  </select>
-                ) : (
-                  <p className="mt-1 text-sm font-medium text-text-heading">
-                    {agentAutonomyLevelLabel(
-                      passport?.autonomy_level != null && passport.autonomy_level !== ''
-                        ? String(passport.autonomy_level)
-                        : null,
-                      t,
-                    )}
-                  </p>
-                )}
-                <p className="mt-1.5 text-[11px] text-text-muted">
-                  {t(
-                    {
-                      manual: 'workforce.agents.autonomyManualHint',
-                      approval: 'workforce.agents.autonomyApprovalHint',
-                      auto: 'workforce.agents.autonomyAutoHint',
-                    }[
-                      passport?.autonomy_level != null && passport.autonomy_level !== ''
-                        ? String(passport.autonomy_level)
-                        : 'approval'
-                    ] ?? 'workforce.agents.autonomyApprovalHint',
-                  )}{' '}
-                  <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
-                    {t('workforce.agents.autonomyGovernLink')}
-                  </Link>
-                </p>
-              </div>
-              <div className="sm:col-span-2">
                 <AgentToolsPicker
                   agentId={agent.id}
                   allowedTools={passport?.allowed_tools ?? []}
@@ -703,23 +584,6 @@ export default function AiAgentDetail() {
                   }
                 />
               </div>
-              {passport && passport.permission_scopes.length > 0 ? (
-                <div className="sm:col-span-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                    {t('workforce.agents.permissionScopes')}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {passport.permission_scopes.map((scope) => (
-                      <span
-                        key={scope}
-                        className="rounded-full border border-accent/30 bg-accent/8 px-2 py-0.5 text-[11px] text-accent"
-                      >
-                        {permissionScopeLabel(scope, t)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
           </Card>
 

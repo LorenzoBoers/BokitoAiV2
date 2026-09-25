@@ -385,7 +385,7 @@ def test_mcp_auth_headers_bearer_and_custom():
 async def test_ingest_inbound_applies_routing_rules(client: AsyncClient, session_override):
     from app.channels.base import InboundMessage, ingest_inbound
     from app.models.channel import ChannelAccount
-    from app.models.email_routing import EmailRoutingRule
+    from app.models.learning import InboxRule
 
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
@@ -399,14 +399,16 @@ async def test_ingest_inbound_applies_routing_rules(client: AsyncClient, session
     ).scalars().first()
 
     session_override.add(
-        EmailRoutingRule(
+        InboxRule(
             tenant_id=tenant.id,
             channel_account_id=account.id,
-            condition_type="sender_domain",
-            condition_value="clientfirm.se",
+            match_type="sender_domain",
+            match_value="clientfirm.se",
             labels_json=json.dumps(["administratie"]),
+            action="route",
+            source="routing",
+            status="active",
             priority=1,
-            is_active=True,
         )
     )
     await session_override.commit()

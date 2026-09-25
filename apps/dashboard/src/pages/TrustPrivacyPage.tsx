@@ -144,49 +144,27 @@ export default function TrustPrivacyPage() {
           <p className="text-sm text-text-muted">{t('trustPage.loading')}</p>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="ret-msg">{t('trustPage.retentionMessages')}</Label>
+            <div className="max-w-sm space-y-1.5">
+                <Label htmlFor="ret-workspace">{t('trustPage.retentionWorkspace')}</Label>
                 <Input
-                  id="ret-msg"
+                  id="ret-workspace"
                   type="number"
                   min={30}
                   max={3650}
                   className="h-9"
-                  value={settings.retention_messages_days}
+                  value={settings.workspace_retention_days}
                   disabled={saving}
                   onChange={(e) =>
                     setSettings({
                       ...settings,
-                      retention_messages_days: Number(e.target.value) || 365,
+                      workspace_retention_days: Number(e.target.value) || 365,
                     })
                   }
                   onBlur={() =>
-                    void save({ retention_messages_days: settings.retention_messages_days })
+                    void save({ workspace_retention_days: settings.workspace_retention_days })
                   }
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ret-cal">{t('trustPage.retentionCalendar')}</Label>
-                <Input
-                  id="ret-cal"
-                  type="number"
-                  min={30}
-                  max={3650}
-                  className="h-9"
-                  value={settings.retention_calendar_days}
-                  disabled={saving}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      retention_calendar_days: Number(e.target.value) || 365,
-                    })
-                  }
-                  onBlur={() =>
-                    void save({ retention_calendar_days: settings.retention_calendar_days })
-                  }
-                />
-              </div>
+                <p className="text-xs text-text-muted">{t('trustPage.retentionWorkspaceHint')}</p>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2">
               <div>

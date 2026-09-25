@@ -148,6 +148,7 @@ class ModuleSpec:
             "installed" if enabled else "not_installed"
         )
         is_installed = state == "installed"
+        package = MODULE_PACKAGES.get(self.slug)
         return {
             "slug": self.slug,
             "name": self.name,
@@ -171,6 +172,7 @@ class ModuleSpec:
             "tenant_status": self.tenant_status(
                 connected=live, enabled=is_installed, install_state=state
             ),
+            "package": package.serialize() if package else None,
         }
 
 
@@ -557,7 +559,7 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
             steps=(
                 {
                     "name": "Collect figures",
-                    "kind": "agent",
+                    "kind": "agent_task",
                     "goal": (
                         "Use the accounting module tools (list_documents, "
                         "list_ledger, list_outstanding) to collect the figures "
@@ -568,19 +570,19 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
                 },
                 {
                     "name": "Wait for missing documents",
-                    "kind": "wait",
+                    "kind": "wait_for_reply",
                     "wait_kind": "input",
                     "deadline_hours": 72,
                     "on_deadline": "remind_then_continue",
                 },
                 {
                     "name": "Approve filing summary",
-                    "kind": "gate",
+                    "kind": "ask_decision",
                     "goal": "Review the collected figures before the filing summary is finalized.",
                 },
                 {
                     "name": "Finalize filing summary",
-                    "kind": "agent",
+                    "kind": "agent_task",
                     "goal": (
                         "Write the final VAT filing summary: totals per rate, "
                         "corrections applied, and the amounts to file. Note "
@@ -601,7 +603,7 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
             steps=(
                 {
                     "name": "Review the month",
-                    "kind": "agent",
+                    "kind": "agent_task",
                     "goal": (
                         "Review the month named in the run input with the "
                         "accounting module tools: unmatched bank mutations "
@@ -612,12 +614,12 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
                 },
                 {
                     "name": "Approve close report",
-                    "kind": "gate",
+                    "kind": "ask_decision",
                     "goal": "Confirm the findings before the close report is written.",
                 },
                 {
                     "name": "Write close report",
-                    "kind": "agent",
+                    "kind": "agent_task",
                     "goal": (
                         "Write the monthly close report from the approved "
                         "findings: key numbers, resolved items, and the "
@@ -640,7 +642,7 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
             steps=(
                 {
                     "name": "Match transactions",
-                    "kind": "agent",
+                    "kind": "agent_task",
                     "goal": (
                         "List recent transactions on the linked bank accounts "
                         "(list_transactions) and match them against open items. "
@@ -656,7 +658,8 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
 
 
 def module_workstream_templates(module_slug: str) -> tuple[WorkstreamTemplate, ...]:
-    return WORKSTREAM_TEMPLATES.get(module_slug, ())
+    package = MODULE_PACKAGES.get(module_slug)
+    return package.playbooks if package else ()
 
 
 def get_workstream_template(
@@ -696,6 +699,57 @@ class CaseTypeTemplate:
         }
 
 
+# Platform-owned Signal type seeds use the same catalog as module packages.
+# They are not an installable module, but keeping them here prevents intake
+# defaults and module-provided types from drifting into separate registries.
+PLATFORM_SIGNAL_TYPE_SEEDS: tuple[dict[str, Any], ...] = (
+    {
+        "slug": "complaint",
+        "name": "Complaint",
+        "description": "A customer is unhappy and wants this recorded.",
+        "create_mode": "ask_customer",
+        "follow_up_mode": "track",
+        "ask_threshold": 6,
+        "auto_threshold": 11,
+        "audience": "customer",
+        "sort_order": 10,
+    },
+    {
+        "slug": "bug_report",
+        "name": "Bug report",
+        "description": "Something is broken and should be looked at.",
+        "create_mode": "ask_customer",
+        "follow_up_mode": "track",
+        "ask_threshold": 6,
+        "auto_threshold": 9,
+        "audience": "both",
+        "sort_order": 20,
+    },
+    {
+        "slug": "feature_request",
+        "name": "Feature request",
+        "description": "A request for a new capability.",
+        "create_mode": "ask_customer",
+        "follow_up_mode": "track",
+        "ask_threshold": 6,
+        "auto_threshold": 11,
+        "audience": "both",
+        "sort_order": 30,
+    },
+    {
+        "slug": "spam_abuse",
+        "name": "Spam or abuse",
+        "description": "Unwanted or abusive inbound that should be closed quickly.",
+        "create_mode": "auto",
+        "follow_up_mode": "label",
+        "ask_threshold": 3,
+        "auto_threshold": 7,
+        "audience": "internal",
+        "sort_order": 40,
+    },
+)
+
+
 CASE_TYPE_TEMPLATES: dict[str, tuple[CaseTypeTemplate, ...]] = {
     "accounting": (
         CaseTypeTemplate(
@@ -715,7 +769,8 @@ CASE_TYPE_TEMPLATES: dict[str, tuple[CaseTypeTemplate, ...]] = {
 
 
 def module_case_type_templates(module_slug: str) -> tuple[CaseTypeTemplate, ...]:
-    return CASE_TYPE_TEMPLATES.get(module_slug, ())
+    package = MODULE_PACKAGES.get(module_slug)
+    return package.signal_types if package else ()
 
 
 def get_case_type_template(
@@ -725,6 +780,56 @@ def get_case_type_template(
         if template.slug == template_slug:
             return template
     return None
+
+
+@dataclass(frozen=True)
+class ProjectTemplate:
+    """Optional Project created with a module package."""
+
+    slug: str
+    module_slug: str
+    name: str
+    description: str
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "slug": self.slug,
+            "module_slug": self.module_slug,
+            "name": self.name,
+            "description": self.description,
+        }
+
+
+@dataclass(frozen=True)
+class ModulePackage:
+    """Installable module contents: Signal types, playbooks, optional Project."""
+
+    module_slug: str
+    signal_types: tuple[CaseTypeTemplate, ...]
+    playbooks: tuple[WorkstreamTemplate, ...]
+    project: ProjectTemplate | None = None
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "module_slug": self.module_slug,
+            "signal_types": [item.serialize() for item in self.signal_types],
+            "playbooks": [item.serialize() for item in self.playbooks],
+            "project": self.project.serialize() if self.project else None,
+        }
+
+
+MODULE_PACKAGES: dict[str, ModulePackage] = {
+    module.slug: ModulePackage(
+        module_slug=module.slug,
+        signal_types=CASE_TYPE_TEMPLATES.get(module.slug, ()),
+        playbooks=WORKSTREAM_TEMPLATES.get(module.slug, ()),
+    )
+    for module in MODULES
+}
+
+
+def get_module_package(module_slug: str) -> ModulePackage | None:
+    return MODULE_PACKAGES.get(module_slug)
 
 # Registry tool names are always "{slug}_{verb}"; used to hide module tools
 # when the module is off or the agent is not rostered.

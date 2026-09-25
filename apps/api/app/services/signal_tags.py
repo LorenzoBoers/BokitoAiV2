@@ -1,30 +1,20 @@
-"""Tag registry: one managed tag vocabulary for the Messages hub.
+"""Compatibility helpers for labels stored in ``Signal.tags_json``.
 
-A tag is a `SignalTag` row (tenant-scoped, normalized name, optional
-description). Threads reference tags by name in `Signal.tags_json`, so:
-
-- Operators can create a tag in settings before any thread uses it.
-- Tagging a thread with a new name registers it (`ensure_tags`), so the list
-  never drifts from what is in use.
-- AI triage and agent tools may only apply registered names, and read the
-  descriptions as guidance.
-- Rename and remove rewrite both the registry and every thread, so a tag
-  folder in the sidebar always matches the threads behind it.
+The standalone tag catalog API and management UI are retired. Existing labels
+remain normalized and registered only so migrated rules and agent tools do not
+write unbounded free-form values.
 """
 
-import json
-from datetime import datetime
 from typing import Any, Iterable
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.signal import Signal, SignalTag
+from app.models.signal import SignalTag
 
 MAX_TAG_LEN = 40
 MAX_TAGS_PER_THREAD = 20
-MAX_DESCRIPTION_LEN = 200
 # Vocabulary size handed to the LLM for triage / agent tagging.
 AI_CATALOG_LIMIT = 30
 
@@ -49,14 +39,6 @@ def normalize_tags(values: Iterable[Any] | None) -> list[str]:
         if len(out) >= MAX_TAGS_PER_THREAD:
             break
     return out
-
-
-def _parse_thread_tags(tags_json: str | None) -> list[str]:
-    try:
-        tags = json.loads(tags_json or "[]")
-    except (TypeError, json.JSONDecodeError):
-        return []
-    return [t for t in tags if isinstance(t, str) and t.strip()]
 
 
 async def registry_rows(session: AsyncSession, tenant_id: UUID) -> list[SignalTag]:
@@ -116,239 +98,3 @@ async def ai_catalog_lines(
         description = (row.description or "").strip()
         lines.append(f"{row.name} - {description}" if description else row.name)
     return lines
-
-
-async def usage_counts(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    visible_account_ids: set[UUID] | None = None,
-) -> dict[str, dict[str, int]]:
-    """Thread counts per tag name (customer threads only, ACL aware)."""
-    from app.services.signal_threads import _visibility_predicate
-
-    query = select(Signal.tags_json, Signal.status).where(
-        Signal.tenant_id == tenant_id,
-        Signal.channel.notin_(("internal", "assistant")),
-        Signal.tags_json.isnot(None),
-        Signal.tags_json != "[]",
-    )
-    acl = _visibility_predicate(visible_account_ids)
-    if acl is not None:
-        query = query.where(acl)
-    result = await session.execute(query)
-
-    totals: dict[str, dict[str, int]] = {}
-    for tags_json, status in result.all():
-        for raw in _parse_thread_tags(tags_json):
-            name = normalize_tag(raw)
-            if not name:
-                continue
-            row = totals.setdefault(name, {"total": 0, "open": 0})
-            row["total"] += 1
-            if status == "open":
-                row["open"] += 1
-    return totals
-
-
-async def catalog(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    visible_account_ids: set[UUID] | None = None,
-) -> list[dict[str, Any]]:
-    """Registry entries with usage counts, most used first.
-
-    Tags found on threads but missing from the registry (legacy data) are
-    reported too, so no sidebar folder silently disappears.
-    """
-    counts = await usage_counts(
-        session, tenant_id, visible_account_ids=visible_account_ids
-    )
-    registry = await _registry_by_name(session, tenant_id)
-    names = set(registry) | set(counts)
-    items = [
-        {
-            "tag": name,
-            "description": (registry[name].description if name in registry else ""),
-            "registered": name in registry,
-            "total": counts.get(name, {}).get("total", 0),
-            "open": counts.get(name, {}).get("open", 0),
-        }
-        for name in names
-    ]
-    items.sort(key=lambda row: (-row["total"], row["tag"]))
-    return items
-
-
-async def create_tag(
-    session: AsyncSession,
-    tenant_id: UUID,
-    user_id: UUID,
-    *,
-    name: str,
-    description: str = "",
-) -> SignalTag:
-    normalized = normalize_tag(name)
-    if not normalized:
-        raise ValueError("tag name cannot be empty")
-    existing = (await _registry_by_name(session, tenant_id)).get(normalized)
-    if existing:
-        return existing
-    row = SignalTag(
-        tenant_id=tenant_id,
-        name=normalized,
-        description=(description or "").strip()[:MAX_DESCRIPTION_LEN],
-        created_by_user_id=user_id,
-    )
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return row
-
-
-async def update_tag(
-    session: AsyncSession,
-    tenant_id: UUID,
-    user_id: UUID,
-    *,
-    tag: str,
-    new_name: str | None = None,
-    description: str | None = None,
-) -> dict[str, Any]:
-    """Rename a tag across the registry and every thread, and/or edit its
-    description. Returns `{"tag": final_name, "changed": threads_touched}`."""
-    current = normalize_tag(tag)
-    if not current:
-        return {"tag": "", "changed": 0}
-    registry = await _registry_by_name(session, tenant_id)
-    row = registry.get(current)
-    renamed = normalize_tag(new_name or "") or None
-    if renamed == current:
-        renamed = None
-
-    if description is not None:
-        target = row or (await _ensure_row(session, tenant_id, current, user_id))
-        target.description = description.strip()[:MAX_DESCRIPTION_LEN]
-        target.updated_at = datetime.utcnow()
-        session.add(target)
-        row = target
-
-    changed = 0
-    if renamed:
-        existing_target = registry.get(renamed)
-        if row is not None:
-            if existing_target is not None and existing_target.id != row.id:
-                # Merging into an existing tag: keep the target row.
-                if not (existing_target.description or "").strip():
-                    existing_target.description = row.description
-                    session.add(existing_target)
-                await session.delete(row)
-            else:
-                row.name = renamed
-                row.updated_at = datetime.utcnow()
-                session.add(row)
-        elif existing_target is None:
-            session.add(
-                SignalTag(
-                    tenant_id=tenant_id, name=renamed, created_by_user_id=user_id
-                )
-            )
-        changed = await _rewrite_thread_tags(session, tenant_id, current, renamed)
-
-    await _audit_tag_change(
-        session,
-        tenant_id,
-        user_id,
-        tag=current,
-        renamed=renamed,
-        changed=changed,
-        description_only=renamed is None,
-    )
-    await session.commit()
-    return {"tag": renamed or current, "changed": changed}
-
-
-async def delete_tag(
-    session: AsyncSession, tenant_id: UUID, user_id: UUID, *, tag: str
-) -> int:
-    """Remove a tag from the registry and from every thread."""
-    current = normalize_tag(tag)
-    if not current:
-        return 0
-    row = (await _registry_by_name(session, tenant_id)).get(current)
-    if row is not None:
-        await session.delete(row)
-    changed = await _rewrite_thread_tags(session, tenant_id, current, None)
-    await _audit_tag_change(
-        session, tenant_id, user_id, tag=current, renamed=None, changed=changed
-    )
-    await session.commit()
-    return changed
-
-
-async def _ensure_row(
-    session: AsyncSession, tenant_id: UUID, name: str, user_id: UUID | None
-) -> SignalTag:
-    row = SignalTag(tenant_id=tenant_id, name=name, created_by_user_id=user_id)
-    session.add(row)
-    await session.flush()
-    return row
-
-
-async def _rewrite_thread_tags(
-    session: AsyncSession, tenant_id: UUID, tag: str, renamed: str | None
-) -> int:
-    """Replace or drop `tag` on every thread of the tenant. Returns row count."""
-    result = await session.execute(
-        select(Signal).where(
-            Signal.tenant_id == tenant_id,
-            Signal.tags_json.ilike(f'%"{tag}"%'),
-        )
-    )
-    changed = 0
-    for signal in result.scalars().all():
-        tags = normalize_tags(_parse_thread_tags(signal.tags_json))
-        if tag not in tags:
-            continue
-        next_tags = [t for t in tags if t != tag]
-        if renamed and renamed not in next_tags:
-            next_tags.append(renamed)
-        signal.tags_json = json.dumps(next_tags)
-        signal.updated_at = datetime.utcnow()
-        session.add(signal)
-        changed += 1
-    return changed
-
-
-async def _audit_tag_change(
-    session: AsyncSession,
-    tenant_id: UUID,
-    user_id: UUID,
-    *,
-    tag: str,
-    renamed: str | None,
-    changed: int,
-    description_only: bool = False,
-) -> None:
-    from app.services.audit import record_audit
-
-    if description_only:
-        action, summary = "signal:tag_updated", f"described {tag}"
-    elif renamed:
-        action, summary = "signal:tag_renamed", f"{tag} -> {renamed}"
-    else:
-        action, summary = "signal:tag_deleted", f"removed {tag}"
-    await record_audit(
-        session,
-        tenant_id,
-        action=action,
-        actor_type="user",
-        actor_id=user_id,
-        resource_type="signal_tag",
-        resource_id=tag,
-        summary=summary,
-        before={"tag": tag, "threads": str(changed)},
-        after={"tag": renamed or ""},
-        commit=False,
-    )

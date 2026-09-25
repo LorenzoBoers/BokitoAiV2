@@ -116,6 +116,12 @@ class AgentTask(SQLModel, table=True):
 
 
 class EvalCheckpoint(SQLModel, table=True):
+    """Deprecated evaluation side table.
+
+    Retained for Alembic/history compatibility. New evaluations are emitted as
+    ``RunEvent`` entries and are not written here.
+    """
+
     __tablename__ = "eval_checkpoints"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
