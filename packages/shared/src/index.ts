@@ -129,4 +129,4 @@ export {
   speechWaveSvgHtml,
   SPEECH_WAVE_BARS,
   type SpeechResultLike,
-} from './speech-dictation'
+} from './speech-dictation.js'

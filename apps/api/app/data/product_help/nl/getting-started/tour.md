@@ -33,7 +33,7 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 
 Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) verschijnen hier als eigen rail-items. Zie [Integraties](/docs/integrations/integrations).
 
-## Organisatie: koppelingen en controleruimte
+## Koppelingen en Instellingen
 
 - **Koppelingen** — geïnstalleerde modules, partnerlogins, custom MCP en marketplace. Zie [Integraties](/docs/integrations/integrations).
 - **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).

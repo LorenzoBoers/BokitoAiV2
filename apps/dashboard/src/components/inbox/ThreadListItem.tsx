@@ -95,9 +95,30 @@ export default function ThreadListItem({
   const rawPreview =
     translateMockAgentBody(thread.lastMessagePreview, t) || translateDecisionText(thread.emailSubject, t)
   const secondaryLabel = isDirect
-    ? thread.agentName ?? (thread.agentKind === 'company' ? t('listItem.companyAgent') : t('listItem.assistant'))
+    ? (() => {
+        const preview = translateMockAgentBody(thread.lastMessagePreview, t).trim()
+        if (preview && preview !== primaryLabel) return preview
+        const agentLabel =
+          thread.agentName?.trim() ||
+          (thread.agentKind === 'company' ? t('listItem.companyAgent') : t('listItem.assistant'))
+        // Avatar already identifies the agent; skip a secondary that only repeats the title.
+        if (agentLabel && agentLabel !== primaryLabel) return agentLabel
+        return ''
+      })()
     : isAgentThread
-      ? translateDecisionText(threadSecondaryLine(thread), t)
+      ? (() => {
+          const agentName = (thread.agentName ?? '').trim()
+          const subject = translateDecisionText(threadSecondaryLine(thread), t).trim()
+          const preview = translateMockAgentBody(thread.lastMessagePreview, t).trim()
+          const isRedundant = (value: string) =>
+            !value ||
+            value === primaryLabel ||
+            (agentName.length > 0 && value.toLowerCase() === agentName.toLowerCase())
+          // Prefer the last message; skip a subject/preview that only repeats the agent name.
+          if (!isRedundant(preview)) return preview
+          if (!isRedundant(subject)) return subject
+          return ''
+        })()
       : thread.lastMessageDirection === 'outbound' && rawPreview
         ? `${t('listItem.you')}: ${rawPreview}`
         : rawPreview
@@ -171,6 +192,7 @@ export default function ThreadListItem({
               icon={thread.agentAvatarIcon}
               color={thread.agentAvatarColor}
               imageUrl={thread.agentAvatarImageUrl}
+              decorative
             />
           ) : (
             <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">

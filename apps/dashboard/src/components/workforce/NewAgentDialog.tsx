@@ -123,7 +123,9 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="agent-audience">Audience</Label>
+              <Label htmlFor="agent-audience">
+                {t('workforce.agents.create.audience', { defaultValue: 'Audience' })}
+              </Label>
               <select
                 id="agent-audience"
                 value={audience}
@@ -132,7 +134,9 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
               >
                 {AUDIENCES.map((value) => (
                   <option key={value} value={value}>
-                    {value.charAt(0).toUpperCase() + value.slice(1)}
+                    {t(`workforce.agents.audiences.${value}`, {
+                      defaultValue: value.charAt(0).toUpperCase() + value.slice(1),
+                    })}
                   </option>
                 ))}
               </select>

@@ -22,6 +22,8 @@ function thread(overrides: Partial<InboxThread>): InboxThread {
     contactPhone: '',
     status: 'open',
     snoozedUntil: null,
+    followUpAt: null,
+    followUpTitle: '',
     priority: 'normal',
     assignedToUserId: null,
     tags: [],
@@ -42,6 +44,16 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.tabs).toEqual(['reply', 'note'])
     expect(surface.replyPlaceholder).toContain('Jan Jansen')
     expect(surface.recipientValue).toBe('Jan Jansen')
+  })
+
+  it('humanizes generic website visitor names in chat placeholders', () => {
+    const surface = resolveComposerSurface(
+      thread({ channel: 'widget', contactName: 'Website visitor', contactEmail: 'visitor@web' }),
+      { visitor: 'Websitebezoeker' },
+    )
+    expect(surface.channel).toBe('chat')
+    expect(surface.replyPlaceholderParams?.name).toBe('Websitebezoeker')
+    expect(surface.replyPlaceholder).toContain('Websitebezoeker')
   })
 
   it('falls back to a generic recipient without a contact name', () => {
@@ -106,6 +118,16 @@ describe('resolveComposerSurface (whatsapp)', () => {
     )
     expect(surface.channel).toBe('email')
     expect(surface.includeSignature).toBe(true)
+    expect(surface.defaultTab).toBe('reply')
+  })
+
+  it('defaults noreply addresses to an internal note, not Reply to', () => {
+    const surface = resolveComposerSurface(
+      thread({ channel: 'email', contactEmail: 'donotreply@broker.example', contactName: 'Broker' }),
+    )
+    expect(surface.channel).toBe('email')
+    expect(surface.defaultTab).toBe('note')
+    expect(surface.showRecipient).toBe(false)
   })
 
   it('keeps website chat on chat even when the visitor left an email', () => {

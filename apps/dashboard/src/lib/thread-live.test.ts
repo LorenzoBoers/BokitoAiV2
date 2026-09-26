@@ -21,6 +21,8 @@ function thread(overrides: Partial<InboxThread> = {}): InboxThread {
     contactPhone: '',
     status: 'open',
     snoozedUntil: null,
+    followUpAt: null,
+    followUpTitle: '',
     priority: 'normal',
     assignedToUserId: null,
     tags: [],
@@ -39,7 +41,7 @@ function thread(overrides: Partial<InboxThread> = {}): InboxThread {
     agentName: null,
     agentKind: null,
     ...overrides,
-  }
+  } as InboxThread
 }
 
 function gatewayEvent(data: Record<string, unknown>, event = 'message'): GatewayEvent {

@@ -276,9 +276,11 @@ export default function ReplyComposer({
   const replyBlocked = replyDisabledNotice != null
 
   useEffect(() => {
-    // With replies blocked (e.g. mailbox disconnected) land on Intern instead.
+    // Keep the channel default (usually Reply). When replies are blocked the
+    // Reply tab shows the connect-mailbox notice — do not silently dump the
+    // operator on Intern.
     if (modeProp === undefined) {
-      setUncontrolledTab(replyBlocked && surface.tabs.includes('note') ? 'note' : surface.defaultTab)
+      setUncontrolledTab(surface.defaultTab)
     }
     const stored = parseComposerDraft(readStoredDraft(persistKey))
     setBody(stored.body)
@@ -287,7 +289,7 @@ export default function ReplyComposer({
     setCcBccOpen(Boolean(stored.cc || stored.bcc))
     setDraftRestored(Boolean(stored.body || stored.cc || stored.bcc))
     setAttachments([])
-  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, replyBlocked, surface.tabs, modeProp])
+  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, surface.tabs, modeProp])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {

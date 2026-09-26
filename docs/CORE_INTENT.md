@@ -46,6 +46,8 @@ Apply these to every feature request.
 | Agent | Agent | AI or company agent | `agents` |
 | Decision | Beslissing | Question in the thread | `decision_requests` |
 
+Do **not** add Task as an eighth operator noun. A free "look again later" is a dated next look-at on the Conversation (`Signal.follow_up_at`); typed work is a Signal (Case). Snooze parks the conversation; a look-at stays visible. `AgentTask` remains internal ledger plumbing.
+
 Overview, Govern, and Agents stay English loanwords in the Dutch UI. Communication / Communicatie is the rail hub name (not Messages / Berichten).
 
 ---

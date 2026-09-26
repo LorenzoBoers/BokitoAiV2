@@ -24,6 +24,10 @@ import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { ThreadCasesList } from './ThreadCasesList'
+import { ThreadProjectPicker } from './ThreadProjectPicker'
+import { formatAppDateTime } from '../../lib/app-locale'
+import { patchThread } from '../../lib/inbox-api'
+import { CheckCircle2 } from 'lucide-react'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
   const email = (address || '').trim().toLowerCase()
@@ -48,7 +52,11 @@ type Props = {
   currentThreadId?: ThreadId | null
   threadSubject?: string | null
   threadPreview?: string | null
+  projectId?: string | null
+  followUpAt?: string | null
+  followUpTitle?: string | null
   onUpdated?: () => void
+  onFollowUpCleared?: () => void
 }
 
 function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -79,10 +87,15 @@ export default function ContactPanel({
   currentThreadId,
   threadSubject,
   threadPreview,
+  projectId = null,
+  followUpAt,
+  followUpTitle,
   onUpdated,
+  onFollowUpCleared,
 }: Props) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
+  const [clearingFollowUp, setClearingFollowUp] = useState(false)
   const { members } = useMembers()
   const { activeConnections } = useMailboxConnections()
   const canSendEmail = activeConnections.length > 0
@@ -340,14 +353,20 @@ export default function ContactPanel({
           </div>
         </div>
         <div className="mt-3 space-y-1.5">
-          <FieldRow
-            icon={Mail}
-            value={
-              isPlaceholderContactAddress(contact.address)
-                ? t('contactPanel.widgetVisitor')
-                : contact.address
-            }
-          />
+          {(() => {
+            const headline =
+              humanizeContactName(contact.displayName, contact.address, t('contactPanel.widgetVisitor')) ||
+              (!isPlaceholderContactAddress(contact.address) && contact.address) ||
+              ''
+            const mailValue = isPlaceholderContactAddress(contact.address)
+              ? t('contactPanel.widgetVisitor')
+              : contact.address
+            // Avoid repeating the same email as both title and mail row.
+            const showMail =
+              Boolean(mailValue) &&
+              mailValue.trim().toLowerCase() !== String(headline).trim().toLowerCase()
+            return showMail ? <FieldRow icon={Mail} value={mailValue} /> : null
+          })()}
           <FieldRow icon={Phone} value={contact.phone} />
           {contact.company ? (
             <Link
@@ -502,7 +521,12 @@ export default function ContactPanel({
         {previousThreads.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 px-3 py-3 space-y-1.5">
             <p className="text-[11.5px] text-text-muted">{t('contactPanel.noPrevious')}</p>
-            <p className="text-[11px] text-text-muted/90">{t('contactPanel.noPreviousHint')}</p>
+            <p className="text-[11px] text-text-muted/90">
+              {isGenericVisitorName(contact?.displayName || fallbackName) ||
+              isPlaceholderContactAddress(contact?.address || fallbackEmail)
+                ? t('contactPanel.noPreviousVisitorHint')
+                : t('contactPanel.noPreviousHint')}
+            </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {contact?.address && canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
                 <Link
@@ -512,27 +536,14 @@ export default function ContactPanel({
                   {t('contactPanel.writeEmail')}
                 </Link>
               ) : null}
-              <Link
-                to={inboxPath('open')}
-                className="text-[11px] font-medium text-accent hover:underline"
-              >
-                {t('contactPanel.openCommunication')}
-              </Link>
-              {contactId ? (
-                <Link
-                  to={`/contacts/${contactId}`}
-                  className="text-[11px] font-medium text-accent hover:underline"
-                >
-                  {t('contactPanel.fullProfile')}
-                </Link>
-              ) : (
+              {!contactId ? (
                 <Link
                   to="/contacts"
                   className="text-[11px] font-medium text-accent hover:underline"
                 >
                   {t('contactPanel.openContacts')}
                 </Link>
-              )}
+              ) : null}
             </div>
           </div>
         ) : (
@@ -564,13 +575,54 @@ export default function ContactPanel({
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
             {t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
           </h2>
+          <div className="-mx-4">
+            <ThreadProjectPicker
+              threadId={currentThreadId}
+              projectId={projectId}
+              onUpdated={onUpdated}
+            />
+          </div>
+          {followUpAt ? (
+            <div className="rounded-lg border border-accent/25 bg-accent/5 px-2.5 py-2">
+              <p className="text-[11px] font-medium text-accent">
+                {t('contactPanel.nextLookAt')}
+              </p>
+              <p className="mt-0.5 text-[12.5px] text-text-primary">
+                {followUpTitle || threadSubject || t('threadChrome.whatsNext')}
+              </p>
+              <p className="mt-0.5 text-[10.5px] text-text-muted">
+                {formatAppDateTime(new Date(followUpAt), i18n.language)}
+              </p>
+              <button
+                type="button"
+                disabled={clearingFollowUp || !token}
+                onClick={() => {
+                  if (!token || !currentThreadId) return
+                  setClearingFollowUp(true)
+                  void patchThread(token, currentThreadId, {
+                    followUpAt: null,
+                    followUpTitle: '',
+                  })
+                    .then(() => {
+                      toast.success(t('contactPanel.nextLookAtCleared'))
+                      onFollowUpCleared?.()
+                      onUpdated?.()
+                    })
+                    .catch((err) => {
+                      toast.error(
+                        formatApiErrorMessage(err, t('contactPanel.nextLookAtClearError')),
+                      )
+                    })
+                    .finally(() => setClearingFollowUp(false))
+                }}
+                className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-accent hover:underline disabled:opacity-50"
+              >
+                <CheckCircle2 size={12} />
+                {clearingFollowUp ? t('contactPanel.nextLookAtClearing') : t('contactPanel.nextLookAtDone')}
+              </button>
+            </div>
+          ) : null}
           <ThreadCasesList signalId={String(currentThreadId)} />
-          <nav className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]" aria-label="Conversation work">
-            <Link to="/agents" className="font-medium text-accent hover:underline">Agents</Link>
-            <Link to="/workstreams" className="font-medium text-accent hover:underline">Playbooks</Link>
-            <Link to="/projects" className="font-medium text-accent hover:underline">Projects</Link>
-            <Link to="/knowledge" className="font-medium text-accent hover:underline">Knowledge</Link>
-          </nav>
         </div>
       ) : null}
     </div>

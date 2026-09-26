@@ -35,20 +35,12 @@ describe('resolveAgendaAgentName', () => {
     ).toBe('Platform PO')
   })
 
-  it('fills planned role-only items from a completed sibling or role', () => {
+  it('treats a role slug agent_name as unresolved and maps via role', () => {
     expect(
       resolveAgendaAgentName(
-        { agent_id: null, agent_name: null, trigger_id: 'trig-scan', agent_role: 'orchestrator' },
+        { agent_id: null, agent_name: 'orchestrator', trigger_id: null, agent_role: 'orchestrator' },
         agents,
-        [{ id: 'trig-scan', agent_id: null, agent_role: 'orchestrator' }],
-        [{ trigger_id: 'trig-scan', agent_id: 'agent-1', agent_name: 'Platform PO' }],
-      ),
-    ).toBe('Platform PO')
-    expect(
-      resolveAgendaAgentName(
-        { agent_id: null, agent_name: null, trigger_id: 'trig-scan', agent_role: 'orchestrator' },
-        agents,
-        [{ id: 'trig-scan', agent_id: null, agent_role: 'orchestrator' }],
+        triggers,
       ),
     ).toBe('Platform PO')
   })

@@ -26,6 +26,7 @@ import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
 import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { composeEmailPath, parseComposeIntent } from '../lib/compose-intent'
 import { writeLastInboxQueue } from '../lib/inbox-prefs'
 import { nextUnreadId, parseQuickFilterParam, toggleOrRangeSelect } from '../lib/inbox-ops'
@@ -233,6 +234,9 @@ export default function Communication() {
       return next
     })
   }, [])
+
+  /** One context panel in the DOM — desktop split vs mobile drawer, not both. */
+  const isLgUp = useMediaQuery('(min-width: 1024px)')
 
   const {
     activeConnections,
@@ -1468,7 +1472,7 @@ export default function Communication() {
         </SplitPane>
         {/* Must be a direct SplitPane child: SplitRow ignores anything else
             (a wrapping fragment would silently drop the whole pane). */}
-        {detail && showContactPanel ? (
+        {detail && showContactPanel && isLgUp ? (
           <SplitPane
             id="context"
             defaultWidth={288}
@@ -1487,7 +1491,7 @@ export default function Communication() {
         ) : null}
       </SplitRow>
       {/* Mobile/tablet: same context panel as a slide-over. */}
-      {detail && showContactPanel ? (
+      {detail && showContactPanel && !isLgUp ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"

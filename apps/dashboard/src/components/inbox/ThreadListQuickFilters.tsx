@@ -17,6 +17,7 @@ import type { InboxListQuickFilter } from '../../context/InboxCommunicationConte
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import type { InboxDensity } from '../../lib/inbox-prefs'
 import { cn } from '../../lib/utils'
+import { channelKind } from '../ui/ChannelGlyph'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -146,7 +147,9 @@ export default function ThreadListQuickFilters({
       parts.push(t(`priority.${priorityFilter}`, { defaultValue: priorityFilter }))
     }
     if (channelFilter) {
-      parts.push(t(`composer.channel.${channelFilter}`, { defaultValue: channelFilter }))
+      parts.push(
+        t(`composer.channel.${channelKind(channelFilter)}`, { defaultValue: channelFilter }),
+      )
     }
     return parts
   }, [quickActive, value, assigneeFilter, members, priorityFilter, channelFilter, t])
@@ -230,7 +233,12 @@ export default function ThreadListQuickFilters({
                 const Icon = filter.icon
                 const count = counts[filter.id]
                 return (
-                  <DropdownMenuRadioItem key={filter.id} value={filter.id} className="gap-2">
+                  <DropdownMenuRadioItem
+                    key={filter.id}
+                    value={filter.id}
+                    className="gap-2"
+                    aria-label={t(filter.labelKey)}
+                  >
                     {Icon ? <Icon size={13} className="text-text-muted" /> : null}
                     <span className="flex-1">{t(filter.labelKey)}</span>
                     {count > 0 && filter.id !== 'all' ? (
@@ -296,7 +304,7 @@ export default function ThreadListQuickFilters({
                         <option value="">{t('threadList.filterChannelAll')}</option>
                         {channelOptions.map((channel) => (
                           <option key={channel} value={channel}>
-                            {t(`composer.channel.${channel}`, { defaultValue: channel })}
+                            {t(`composer.channel.${channelKind(channel)}`, { defaultValue: channel })}
                           </option>
                         ))}
                       </select>

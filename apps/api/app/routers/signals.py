@@ -46,6 +46,9 @@ class ThreadPatch(BaseModel):
     project_id: UUID | None = None
     # Set a wake time to snooze (status flips to pending); null clears it.
     snoozed_until: datetime | None = None
+    # Next look-at while the conversation stays open (not snooze, not AgentTask).
+    follow_up_at: datetime | None = None
+    follow_up_title: str | None = None
 
 
 class BulkBody(BaseModel):
@@ -451,6 +454,9 @@ async def patch_signal(
     project_id = updates.pop("project_id", None)
     snoozed_until_set = "snoozed_until" in updates
     snoozed_until = updates.pop("snoozed_until", None)
+    follow_up_at_set = "follow_up_at" in updates
+    follow_up_at = updates.pop("follow_up_at", None)
+    follow_up_title = updates.pop("follow_up_title", None)
     thread = await svc.patch_thread(
         session,
         auth.tenant.id,
@@ -465,6 +471,9 @@ async def patch_signal(
         project_id_set=project_id_set,
         snoozed_until=snoozed_until,
         snoozed_until_set=snoozed_until_set,
+        follow_up_at=follow_up_at,
+        follow_up_at_set=follow_up_at_set,
+        follow_up_title=follow_up_title,
     )
     if not thread:
         raise HTTPException(status_code=404, detail="Signal not found")

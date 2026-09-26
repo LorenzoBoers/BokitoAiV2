@@ -36,7 +36,8 @@ export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> 
   { label: 'Control', tabs: ['communication', 'agenda'] },
   { label: 'Work', tabs: ['projects', 'workstreams'] },
   { label: 'AI', tabs: ['agents', 'knowledge'] },
-  { label: 'Settings', tabs: ['modules', 'settings'] },
+  { label: 'Connections', tabs: ['modules'] },
+  { label: 'Settings', tabs: ['settings'] },
 ]
 
 export const TAB_PATHS: Record<Tab, string> = {

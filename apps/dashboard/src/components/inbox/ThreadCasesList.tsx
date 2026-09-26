@@ -115,7 +115,7 @@ export function ThreadCasesList({ signalId }: Props) {
                 className="h-7 gap-1 px-2 text-[11px]"
               >
                 <Plus size={12} />
-                {t('cases.addMissed', { defaultValue: 'Add what we missed' })}
+                {t('cases.addMissed', { defaultValue: 'Add a signal' })}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">

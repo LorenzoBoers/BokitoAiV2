@@ -191,12 +191,13 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
           {TAB_GROUPS.map((group) => {
             const isGroupCollapsed = collapsedGroups[group.label] ?? false
             const showItems = collapsed || !isGroupCollapsed
+            const showGroupHeader = group.tabs.length > 1
             return (
               <Fragment key={group.label}>
               <section
                 data-tour={group.label === 'AI' ? 'nav-group-ai' : undefined}
               >
-                {!collapsed ? (
+                {!collapsed && showGroupHeader ? (
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.label)}
@@ -210,7 +211,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                     />
                   </button>
                 ) : null}
-                {showItems ? (
+                {showItems || !showGroupHeader ? (
                   <div className={`mt-0.5 space-y-px ${collapsed ? 'flex flex-col items-center gap-1 space-y-0' : ''}`}>
                     {group.tabs.map((tab) => {
                       const Icon = iconForTab(tab)

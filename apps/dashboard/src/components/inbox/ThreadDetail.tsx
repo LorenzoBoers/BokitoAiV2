@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   createInboxRule,
   listInboxMembers,
+  patchThread,
   type ThreadDetail as ThreadDetailType,
   type PatchThreadInput,
   type InboxMember,
@@ -28,15 +29,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
-import { Input } from '../ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -67,13 +59,12 @@ import {
 } from '../../lib/use-agent-session-chat'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
-import { createAgentTask } from '../../lib/orchestration-api'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
-import { createQueueItem } from '../../lib/project-work-api'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
 import { formatAppDateTime } from '../../lib/app-locale'
+import { WhatsNextDialog, scheduledForIso, type FollowUpWhen } from './WhatsNextDialog'
 import { toast } from 'sonner'
 
 type TimelineEntry =
@@ -184,14 +175,16 @@ function AddToProjectDialog({
   open,
   onClose,
   signalId,
-  subject,
+  onLinked,
 }: {
   open: boolean
   onClose: () => void
   signalId: string
-  subject: string
+  subject?: string
+  onLinked?: () => void
 }) {
   const { t } = useTranslation('communication')
+  const { token } = useAuth()
   const [projects, setProjects] = useState<ProjectRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -228,15 +221,12 @@ function AddToProjectDialog({
   if (!open) return null
 
   const pick = async (project: ProjectRow) => {
-    if (busyId) return
+    if (busyId || !token) return
     setBusyId(project.id)
     try {
-      await createQueueItem(project.id, {
-        title: subject || t('addToProject.untitledThread'),
-        body: t('addToProject.taskBody', { subject: subject || signalId }),
-        signal_id: signalId,
-      })
+      await patchThread(token, signalId, { projectId: project.id })
       toast.success(t('addToProject.success', { name: project.name }))
+      onLinked?.()
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('addToProject.error'))
@@ -322,6 +312,8 @@ function ThreadMetaRow({
   triage,
   agentId,
   agentName,
+  onWhatsNext,
+  followUpLabel,
 }: {
   signalId: string
   priority: string
@@ -330,6 +322,9 @@ function ThreadMetaRow({
   triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
   agentId?: string | null
   agentName?: string | null
+  onWhatsNext?: () => void
+  /** When set, replaces the Wat nu button with a clickable look-at chip. */
+  followUpLabel?: string | null
 }) {
   const { t } = useTranslation(['communication', 'nav'])
   const [cases, setCases] = useState<CaseRow[]>([])
@@ -386,6 +381,33 @@ function ThreadMetaRow({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {onWhatsNext ? (
+          followUpLabel ? (
+            <button
+              type="button"
+              onClick={onWhatsNext}
+              className="inline-flex max-w-[14rem] items-center gap-1 truncate rounded-full border border-accent/30 bg-accent/5 px-2 py-0.5 text-[11px] text-accent hover:border-accent/50"
+            >
+              <ListPlus size={10} className="shrink-0" />
+              <span className="truncate">
+                {t('threadChrome.followUpChip', {
+                  ns: 'communication',
+                  title: followUpLabel,
+                })}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onWhatsNext}
+              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+            >
+              <ListPlus size={10} />
+              {t('threadChrome.whatsNext', { ns: 'communication' })}
+            </button>
+          )
+        ) : null}
 
         {cases.map((row) => {
           const labelOnly = (row.case_type?.follow_up_mode ?? 'track') === 'label'
@@ -896,8 +918,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [groups])
 
   const composerSurface = useMemo(
-    () => (detail ? resolveComposerSurface(detail.thread) : null),
-    [detail],
+    () =>
+      detail
+        ? resolveComposerSurface(detail.thread, {
+            visitor: t('contactPanel.widgetVisitor'),
+          })
+        : null,
+    [detail, t],
   )
 
   // CC list of the customer's most recent email; the composer offers it as a
@@ -962,7 +989,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [creatingTask, setCreatingTask] = useState(false)
   const [followUpOpen, setFollowUpOpen] = useState(false)
   const [followUpTitle, setFollowUpTitle] = useState('')
-  const [followUpWhen, setFollowUpWhen] = useState<'today' | 'tomorrow' | 'next_week' | 'none'>('today')
   const [projectPickerOpen, setProjectPickerOpen] = useState(false)
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
@@ -1016,68 +1042,35 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       detail.thread.emailSubject ||
         t('threadChrome.followUp', { name: detail.thread.contactName || 'thread' }),
     )
-    setFollowUpWhen('today')
     setFollowUpOpen(true)
   }, [detail, t])
 
-  const scheduledForIso = useCallback((when: 'today' | 'tomorrow' | 'next_week' | 'none'): string | null => {
-    const at = new Date()
-    if (when === 'none') return null
-    if (when === 'today') {
-      at.setHours(9, 0, 0, 0)
-      // If 09:00 already passed, keep due now (awaiting_human) by clearing schedule.
-      if (at.getTime() < Date.now()) return null
-      return at.toISOString()
-    }
-    if (when === 'tomorrow') {
-      at.setDate(at.getDate() + 1)
-      at.setHours(9, 0, 0, 0)
-      return at.toISOString()
-    }
-    // next_week
-    at.setDate(at.getDate() + 7)
-    at.setHours(9, 0, 0, 0)
-    return at.toISOString()
-  }, [])
-
-  const handleCreateTaskFromThread = useCallback(async () => {
-    if (!detail || creatingTask) return
-    const title = followUpTitle.trim()
-    if (!title) return
-    setCreatingTask(true)
-    try {
-      const task = await createAgentTask({
-        title,
-        description: t('threadChrome.taskDescription', {
-          who: detail.thread.contactEmail || detail.thread.contactName || t('threadChrome.unknownContact'),
-        }),
-        signal_id: String(detail.thread.id),
-        assignee_kind: 'human',
-        origin: 'conversation',
-        scheduled_for: scheduledForIso(followUpWhen),
-        auto_start: false,
-      })
-      setFollowUpOpen(false)
-      toast.success(t('threadChrome.taskCreated', { title: task.title }), {
-        description: t('threadChrome.taskCreatedHint'),
-        action: {
-          label: t('threadChrome.openAgenda'),
-          onClick: () => navigate('/agenda?view=list&source=tasks'),
-        },
-      })
-      window.dispatchEvent(
-        new CustomEvent('bokito:agent-tasks-changed', {
-          detail: { signalId: String(detail.thread.id) },
-        }),
-      )
-      onRefresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('threadChrome.taskCreateError'))
-    } finally {
-      setCreatingTask(false)
-    }
-  }, [detail, creatingTask, followUpTitle, followUpWhen, scheduledForIso, t, navigate, onRefresh])
-
+  const handleSaveReminder = useCallback(
+    async (input: { title: string; when: FollowUpWhen }) => {
+      if (!detail || creatingTask) return
+      setCreatingTask(true)
+      try {
+        await onPatch({
+          followUpAt: scheduledForIso(input.when),
+          followUpTitle: input.title,
+        })
+        setFollowUpOpen(false)
+        toast.success(t('threadChrome.taskCreated', { title: input.title }), {
+          description: t('threadChrome.taskCreatedHint'),
+          action: {
+            label: t('threadChrome.openAgenda'),
+            onClick: () => navigate('/agenda?view=timeline&source=wakes'),
+          },
+        })
+        onRefresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t('threadChrome.taskCreateError'))
+      } finally {
+        setCreatingTask(false)
+      }
+    },
+    [detail, creatingTask, onPatch, t, navigate, onRefresh],
+  )
   const threadIdString = detail ? String(detail.thread.id) : null
 
   const activeSession = useMemo(
@@ -1086,14 +1079,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
   const activeSessionId = activeSession?.id ?? null
 
-  // Prefer Intern when outbound reply cannot send; Agent wins when a meta session runs.
+  // Prefer Reply so a missing mailbox shows the connect notice on the reply tab.
+  // Agent wins when a meta session runs.
   useEffect(() => {
     if (activeSessionId) {
       setComposerMode('agent')
       return
     }
-    setComposerMode(mailboxDisconnected ? 'note' : 'reply')
-  }, [threadId, mailboxDisconnected, activeSessionId])
+    setComposerMode('reply')
+  }, [threadId, activeSessionId])
 
   const loadSessionMessages = useCallback(
     async (sessionId: string | null) => {
@@ -1775,21 +1769,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
                   </DropdownMenuItem>
                 ) : null}
-                {!isInternalThread(thread) &&
-                thread.status !== 'closed' &&
-                thread.status !== 'spam' ? (
-                  <DropdownMenuItem
-                    className="gap-2"
-                    disabled={creatingTask}
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      queueMicrotask(() => openFollowUpPlanner())
-                    }}
-                  >
-                    <ListPlus size={13} />
-                    {t('threadChrome.createTask')}
-                  </DropdownMenuItem>
-                ) : null}
                 <DropdownMenuItem className="gap-2" onClick={() => setProjectPickerOpen(true)}>
                   <FolderPlus size={13} />
                   {t('threadChrome.addToProject')}
@@ -1868,6 +1847,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onPatch={onPatch}
           agentId={thread.agentId}
           agentName={thread.agentName}
+          followUpLabel={
+            thread.followUpAt
+              ? thread.followUpTitle || thread.emailSubject || t('threadChrome.whatsNext')
+              : null
+          }
+          onWhatsNext={
+            thread.status !== 'closed' && thread.status !== 'spam'
+              ? () => openFollowUpPlanner()
+              : undefined
+          }
           triage={{
             category: thread.category,
             urgency: thread.urgency,
@@ -1875,24 +1864,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             summary: thread.aiSummary,
           }}
         />
-      ) : null}
-
-      {!isInternalThread(thread) &&
-      thread.status !== 'closed' &&
-      thread.status !== 'spam' &&
-      thread.status !== 'pending' &&
-      thread.suggestedActions?.includes('create_task') ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated px-3 py-1.5">
-          <button
-            type="button"
-            disabled={creatingTask}
-            onClick={() => openFollowUpPlanner()}
-            className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
-          >
-            <ListPlus size={11} />
-            {t('threadChrome.createTask')}
-          </button>
-        </div>
       ) : null}
 
       <div className="relative flex-1 min-h-0">
@@ -2127,67 +2098,21 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
         />
       ) : null}
-      <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('threadChrome.planFollowUpTitle')}</DialogTitle>
-            <DialogDescription>{t('threadChrome.planFollowUpHint')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-text-muted">{t('threadChrome.planFollowUpTitleLabel')}</span>
-              <Input
-                value={followUpTitle}
-                onChange={(e) => setFollowUpTitle(e.target.value)}
-                autoFocus
-              />
-            </label>
-            <div className="space-y-1.5">
-              <span className="text-xs font-medium text-text-muted">{t('threadChrome.planFollowUpWhen')}</span>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(
-                  [
-                    ['today', 'planFollowUpToday'],
-                    ['tomorrow', 'planFollowUpTomorrow'],
-                    ['next_week', 'planFollowUpNextWeek'],
-                    ['none', 'planFollowUpNoDate'],
-                  ] as const
-                ).map(([value, key]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setFollowUpWhen(value)}
-                    className={
-                      followUpWhen === value
-                        ? 'rounded-md border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-left text-xs font-medium text-accent'
-                        : 'rounded-md border border-border/60 bg-bg-surface px-2.5 py-1.5 text-left text-xs text-text-secondary hover:border-accent/30'
-                    }
-                  >
-                    {t(`threadChrome.${key}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setFollowUpOpen(false)}>
-              {t('threadChrome.cancel', { defaultValue: 'Cancel' })}
-            </Button>
-            <Button
-              type="button"
-              disabled={creatingTask || !followUpTitle.trim()}
-              onClick={() => void handleCreateTaskFromThread()}
-            >
-              {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <WhatsNextDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        signalId={String(thread.id)}
+        defaultTitle={followUpTitle}
+        saving={creatingTask}
+        onSaveReminder={handleSaveReminder}
+        onSignalCreated={onRefresh}
+      />
       <AddToProjectDialog
         open={projectPickerOpen}
         onClose={() => setProjectPickerOpen(false)}
         signalId={String(thread.id)}
         subject={thread.emailSubject ?? ''}
+        onLinked={onRefresh}
       />
     </div>
     </TooltipProvider>

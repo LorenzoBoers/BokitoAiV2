@@ -114,6 +114,8 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
     contactPhone: asString(raw.contact_phone),
     status,
     snoozedUntil: asNullableTimestampString(raw.snoozed_until),
+    followUpAt: asNullableTimestampString(raw.follow_up_at),
+    followUpTitle: asString(raw.follow_up_title),
     priority,
     assignedToUserId:
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0
@@ -413,6 +415,8 @@ export async function patchSignalThread(
   if (patch.priority !== undefined) body.priority = patch.priority
   if (patch.projectId !== undefined) body.project_id = patch.projectId
   if (patch.snoozedUntil !== undefined) body.snoozed_until = patch.snoozedUntil
+  if (patch.followUpAt !== undefined) body.follow_up_at = patch.followUpAt
+  if (patch.followUpTitle !== undefined) body.follow_up_title = patch.followUpTitle
   const payload = await apiPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
   return normalizeSignalThread(payload)
 }

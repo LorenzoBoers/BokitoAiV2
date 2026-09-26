@@ -37,4 +37,13 @@ describe('humanizeContactName', () => {
     )
     expect(humanizeContactName('', 'visitor@web', 'Websitebezoeker')).toBe('Websitebezoeker')
   })
+
+  it('derives a display name from the email local-part when name is missing', () => {
+    expect(humanizeContactName('', 'petra.bakker@example.com', 'Websitebezoeker')).toBe(
+      'Petra Bakker',
+    )
+    expect(humanizeContactName(null, 'jan_de_vries@example.com', 'Websitebezoeker')).toBe(
+      'Jan de Vries',
+    )
+  })
 })

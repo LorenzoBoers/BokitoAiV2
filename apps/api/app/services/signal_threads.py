@@ -182,6 +182,8 @@ def serialize_thread(
         "contact_phone": signal.contact_phone,
         "status": signal.status,
         "snoozed_until": _iso(signal.snoozed_until),
+        "follow_up_at": _iso(signal.follow_up_at),
+        "follow_up_title": signal.follow_up_title or "",
         "priority": signal.priority,
         "assigned_to_user_id": assignee_num,
         "tags": json.loads(signal.tags_json or "[]"),
@@ -532,7 +534,12 @@ async def list_threads(
         )
 
     if channel:
-        query = query.where(Signal.channel == channel)
+        channel_key = channel.strip().lower()
+        widget_aliases = ("widget", "customer_widget", "webchat", "chat", "livechat")
+        if channel_key in widget_aliases:
+            query = query.where(Signal.channel.in_(widget_aliases))
+        else:
+            query = query.where(Signal.channel == channel)
 
     if project_id:
         try:
@@ -1014,6 +1021,9 @@ async def patch_thread(
     project_id_set: bool = False,
     snoozed_until: datetime | None = None,
     snoozed_until_set: bool = False,
+    follow_up_at: datetime | None = None,
+    follow_up_at_set: bool = False,
+    follow_up_title: str | None = None,
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
@@ -1025,6 +1035,12 @@ async def patch_thread(
         signal.snoozed_until = snoozed_until
         if snoozed_until is not None and status is None:
             status = "pending"
+    if follow_up_at_set:
+        signal.follow_up_at = follow_up_at
+        if follow_up_at is None:
+            signal.follow_up_title = ""
+    if follow_up_title is not None:
+        signal.follow_up_title = follow_up_title.strip()[:200]
     if status is not None:
         signal.status = status
         if status != "pending":
@@ -1220,6 +1236,29 @@ async def wake_snoozed_threads(session: AsyncSession) -> int:
         for signal in woken:
             await publish_thread_update(signal)
     return len(woken)
+
+
+async def flag_due_follow_ups(session: AsyncSession) -> int:
+    """Mark conversations unread when their next look-at time has passed."""
+    now = datetime.utcnow()
+    result = await session.execute(
+        select(Signal).where(
+            Signal.follow_up_at.is_not(None),
+            Signal.follow_up_at <= now,
+            Signal.has_unread.is_(False),
+            Signal.status.in_(("open", "pending")),
+        )
+    )
+    due = list(result.scalars().all())
+    for signal in due:
+        signal.has_unread = True
+        signal.updated_at = now
+        session.add(signal)
+    if due:
+        await session.commit()
+        for signal in due:
+            await publish_thread_update(signal)
+    return len(due)
 
 
 BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "snooze")
@@ -2158,32 +2197,21 @@ async def resolve_message_decision(
 
     await session.commit()
 
-    # Approving "create a task" must actually open a follow-up on Agenda,
-    # not only dismiss the card. create_agent_task commits on its own.
+    # Approving "create a task" sets a conversation next look-at (not AgentTask).
     created_task_id: str | None = None
     if user_id and action in ("approved", "approve") and option_id == "create_task":
-        from app.services.orchestration.dispatcher import create_agent_task
-
         sig_result = await session.execute(
             select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
         )
         signal = sig_result.scalar_one_or_none()
         if signal:
             who = signal.contact_email or signal.contact_name or "conversation"
-            task = await create_agent_task(
-                session,
-                tenant_id,
-                title=f"Follow up: {signal.subject or who}"[:120],
-                description=f"Created from a decision on this conversation ({who}).",
-                signal_id=signal.id,
-                created_by=user_id,
-                origin="conversation",
-                assignee_kind="human",
-                assignee_user_id=user_id,
-                trigger_type="decision",
-                auto_start=False,
-            )
-            created_task_id = str(task.id)
+            signal.follow_up_at = datetime.utcnow()
+            signal.follow_up_title = (f"Follow up: {signal.subject or who}")[:120]
+            signal.updated_at = datetime.utcnow()
+            session.add(signal)
+            await session.commit()
+            created_task_id = str(signal.id)
 
     return {
         "ok": True,

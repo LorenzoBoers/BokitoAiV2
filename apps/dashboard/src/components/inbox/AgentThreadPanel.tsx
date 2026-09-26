@@ -135,7 +135,11 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
             currentThreadId={thread.id}
             threadSubject={thread.emailSubject}
             threadPreview={thread.lastMessagePreview}
+            projectId={thread.projectId ?? null}
+            followUpAt={thread.followUpAt}
+            followUpTitle={thread.followUpTitle}
             onUpdated={onThreadUpdated}
+            onFollowUpCleared={onThreadUpdated}
           />
         ) : (
           <AgentContextPanel thread={thread} agent={contextAgent} onThreadUpdated={onThreadUpdated} />

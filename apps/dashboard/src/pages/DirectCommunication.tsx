@@ -15,6 +15,7 @@ import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
 import { AgentChatView, DirectChatEmptyState } from '../components/inbox/AgentChatView'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
 import {
@@ -178,6 +179,8 @@ export default function DirectCommunication() {
       return next
     })
   }, [])
+
+  const isLgUp = useMediaQuery('(min-width: 1024px)')
 
   const basePath = useMemo(() => {
     if (leaf?.type === 'agent') {
@@ -423,7 +426,7 @@ export default function DirectCommunication() {
             <DirectChatEmptyState agentLabel={agentLabel} />
           )}
         </SplitPane>
-        {selectedThread && showContextPanel ? (
+        {selectedThread && showContextPanel && isLgUp ? (
           <SplitPane
             id="context"
             defaultWidth={288}
@@ -441,7 +444,7 @@ export default function DirectCommunication() {
           </SplitPane>
         ) : null}
       </SplitRow>
-      {selectedThread && showContextPanel ? (
+      {selectedThread && showContextPanel && !isLgUp ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"

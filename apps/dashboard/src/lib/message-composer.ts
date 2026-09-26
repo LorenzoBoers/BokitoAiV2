@@ -1,4 +1,5 @@
 import type { InboxThread } from './inbox-api'
+import { humanizeContactName } from './contact-label'
 import { agentRunsPath, inboxPath } from './messages-paths'
 
 /** Outbound surface aligned with how Intercom picks reply channel per conversation. */
@@ -84,6 +85,30 @@ export function threadCounterpartyName(
   return thread.contactName?.trim() || thread.contactEmail?.trim() || labels?.unknownSender || 'Unknown sender'
 }
 
+/** Addresses that typically bounce or ignore replies (noreply@, donotreply@, …). */
+export function isNonReceivingEmailAddress(address: string | null | undefined): boolean {
+  const email = (address || '').trim().toLowerCase()
+  if (!email.includes('@')) return false
+  const local = email.split('@')[0] ?? ''
+  if (!local) return false
+  if (
+    local === 'noreply' ||
+    local === 'no-reply' ||
+    local === 'donotreply' ||
+    local === 'do-not-reply' ||
+    local === 'nobody' ||
+    local === 'mailer-daemon'
+  ) {
+    return true
+  }
+  return (
+    local.startsWith('noreply') ||
+    local.startsWith('no-reply') ||
+    local.startsWith('donotreply') ||
+    local.startsWith('do-not-reply')
+  )
+}
+
 export function threadSecondaryLine(thread: InboxThread): string {
   if (isInternalThread(thread)) {
     return thread.emailSubject || '(No subject)'
@@ -110,8 +135,12 @@ function mapSignalChannel(thread: InboxThread): ComposerChannel {
  * Derive composer tabs and defaults from thread channel + counterparty.
  * Mirrors Intercom: reply channel matches the conversation source; notes are always internal.
  */
-export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
+export function resolveComposerSurface(
+  thread: InboxThread,
+  labels?: { visitor?: string },
+): ComposerSurface {
   const channel = mapSignalChannel(thread)
+  const visitorLabel = labels?.visitor?.trim() || 'Website visitor'
 
   if (channel === 'internal' || channel === 'assistant') {
     const name = threadCounterpartyName(thread)
@@ -133,16 +162,17 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
   if (channel === 'email') {
     const email = thread.contactEmail?.trim() ?? ''
     const name = thread.contactName?.trim()
+    const nonReceiving = isNonReceivingEmailAddress(email)
     return {
       channel: 'email',
-      defaultTab: 'reply',
+      defaultTab: nonReceiving ? 'note' : 'reply',
       tabs: ['reply', 'note'],
       replyLabel: 'Email',
       replyPlaceholder: email ? `Reply to ${email}...` : 'Type an email...',
       replyPlaceholderKey: email ? 'composer.placeholders.replyEmail' : 'composer.placeholders.typeEmail',
       replyPlaceholderParams: email ? { email } : undefined,
       includeSignature: true,
-      showRecipient: Boolean(email || name),
+      showRecipient: Boolean(email || name) && !nonReceiving,
       recipientLabel: 'To',
       recipientValue: name && email ? `${name} <${email}>` : email || name || '',
     }
@@ -164,7 +194,8 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
   }
 
   if (channel === 'whatsapp') {
-    const name = thread.contactName?.trim() || 'contact'
+    const rawName = thread.contactName?.trim()
+    const name = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel) || 'contact'
     return {
       channel: 'whatsapp',
       defaultTab: 'reply',
@@ -174,14 +205,14 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       replyPlaceholderKey: 'composer.placeholders.whatsapp',
       replyPlaceholderParams: { name },
       includeSignature: false,
-      showRecipient: Boolean(thread.contactName),
+      showRecipient: Boolean(rawName),
       recipientLabel: 'To',
-      recipientValue: thread.contactName || 'WhatsApp contact',
+      recipientValue: rawName ? name : 'WhatsApp contact',
     }
   }
 
   // widget / chat / integration
-  const name = thread.contactName?.trim()
+  const name = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel) || undefined
   return {
     channel: 'chat',
     defaultTab: 'reply',
@@ -193,6 +224,6 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
     includeSignature: false,
     showRecipient: Boolean(thread.contactName || thread.contactEmail),
     recipientLabel: 'With',
-    recipientValue: thread.contactName || thread.contactEmail || '',
+    recipientValue: name || thread.contactEmail || '',
   }
 }

@@ -275,6 +275,38 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
 
 
 @pytest.mark.asyncio
+async def test_agenda_includes_conversation_follow_ups(session_override: AsyncSession):
+    from app.models.signal import Signal
+
+    tenant, _agent = await _tenant_and_agent(session_override)
+    now = datetime.utcnow()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="email",
+        subject="IB application",
+        contact_name="Interactive Brokers",
+        follow_up_at=now + timedelta(hours=3),
+        follow_up_title="Complete trading account",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+
+    items = await agenda_occurrences(
+        session_override,
+        tenant.id,
+        start=now - timedelta(hours=1),
+        end=now + timedelta(days=1),
+    )
+    follow_ups = [i for i in items if i.get("source") == "follow_up"]
+    assert len(follow_ups) == 1
+    assert follow_ups[0]["kind"] == "follow_up"
+    assert follow_ups[0]["name"] == "Complete trading account"
+    assert follow_ups[0]["signal_id"] == str(signal.id)
+    assert follow_ups[0]["actor_kind"] == "person"
+
+
+@pytest.mark.asyncio
 async def test_stale_running_runs_closed_by_repair(session_override: AsyncSession):
     tenant, agent = await _tenant_and_agent(session_override)
     now = datetime.utcnow()

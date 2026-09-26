@@ -34,4 +34,11 @@ describe('navigation', () => {
     expect(tabFromPath('/workstreams')).toBe('workstreams')
     expect(tabFromPath('/projects')).toBe('projects')
   })
+
+  it('splits Connections from Settings in the rail', () => {
+    const connections = TAB_GROUPS.find((g) => g.label === 'Connections')
+    const settings = TAB_GROUPS.find((g) => g.label === 'Settings')
+    expect(connections?.tabs).toEqual(['modules'])
+    expect(settings?.tabs).toEqual(['settings'])
+  })
 })

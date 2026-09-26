@@ -179,7 +179,7 @@ export default function FoldersAndTagsManager() {
               'Free-form tags were replaced by intake types: one catalog that agents and operators classify conversations with.',
           })}{' '}
           <Link to="/settings/signals" className="font-medium text-accent hover:underline">
-            {t('casesPage.openTypes', { defaultValue: 'Open signal types' })}
+                {t('casesPage.openTypes', { defaultValue: 'Open signal types' })}
           </Link>
         </p>
       </div>

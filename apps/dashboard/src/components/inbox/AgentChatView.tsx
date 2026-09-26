@@ -652,10 +652,14 @@ export function AgentChatView({
             </span>
             <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">
               {title ?? t('directChat.conversation')}
-              {agentName ? (
+              {agentName && agentName !== (title ?? '') ? (
                 <span className="ml-2 rounded-full border border-border/60 bg-bg-elevated px-2 py-0.5 text-[10.5px] font-normal text-text-muted">
                   {agentName}
                   {agentKind === 'company' ? ` · ${t('directChat.companyAgent')}` : ''}
+                </span>
+              ) : agentKind === 'company' ? (
+                <span className="ml-2 rounded-full border border-border/60 bg-bg-elevated px-2 py-0.5 text-[10.5px] font-normal text-text-muted">
+                  {t('directChat.companyAgent')}
                 </span>
               ) : null}
             </p>

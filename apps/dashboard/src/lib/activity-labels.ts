@@ -213,6 +213,18 @@ export function stripAiScaffolding(text: string): string {
     .trim()
 }
 
+const HEARTBEAT_WAKE_RE = /scheduled heartbeat wake/i
+
+function heartbeatCheckInLabel(t: TFunction): string {
+  return (
+    t('decisionCard.knownSubjects.heartbeat', { ns: 'communication', defaultValue: '' }) ||
+    t('mockAgent.heartbeatReply', {
+      ns: 'communication',
+      defaultValue: 'Scheduled check-in.',
+    })
+  )
+}
+
 /** Mock-mode agent replies from the API LLM stub. */
 export function translateMockAgentBody(text: string | null | undefined, t: TFunction): string {
   if (!text) return ''
@@ -225,6 +237,9 @@ export function translateMockAgentBody(text: string | null | undefined, t: TFunc
       text
     )
   }
+  if (HEARTBEAT_WAKE_RE.test(text)) {
+    return heartbeatCheckInLabel(t)
+  }
   const cleaned = stripAiScaffolding(text)
   const patterns = [
     /^\[mock\] I received your message about:\s*(.+?)\.+\s*This is the Bokito AI OS assistant running in mock mode\.\s*$/s,
@@ -233,7 +248,11 @@ export function translateMockAgentBody(text: string | null | undefined, t: TFunc
   for (const pattern of patterns) {
     const match = cleaned.match(pattern)
     if (match) {
-      return t('mockAgent.replyBody', { ns: 'communication', topic: match[1].trim() })
+      const topic = match[1].trim()
+      if (HEARTBEAT_WAKE_RE.test(topic)) {
+        return heartbeatCheckInLabel(t)
+      }
+      return t('mockAgent.replyBody', { ns: 'communication', topic })
     }
   }
   return cleaned || text

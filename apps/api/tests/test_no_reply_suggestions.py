@@ -472,8 +472,7 @@ async def test_close_thread_tool(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
-async def test_create_task_option_opens_agenda_task(client: AsyncClient, session_override):
-    from app.models.orchestration import AgentTask
+async def test_create_task_option_sets_conversation_look_at(client: AsyncClient, session_override):
     from app.services.inbound_agent import create_action_suggestion
 
     headers = await _auth_headers(client)
@@ -517,11 +516,8 @@ async def test_create_task_option_opens_agenda_task(client: AsyncClient, session
         json={"action": "approved", "option_id": "create_task"},
     )
     assert resolve.status_code == 200, resolve.text
-    task_id = resolve.json().get("task_id")
-    assert task_id
-    task = await session_override.get(AgentTask, UUID(task_id))
-    assert task is not None
-    assert task.signal_id == signal.id
-    assert task.assignee_kind == "human"
-    assert task.origin == "conversation"
-    assert task.status == "awaiting_human"
+    assert resolve.json().get("task_id") == str(signal.id)
+    await session_override.refresh(signal)
+    assert signal.follow_up_at is not None
+    assert "Follow up" in (signal.follow_up_title or "")
+

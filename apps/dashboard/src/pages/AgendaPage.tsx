@@ -35,10 +35,11 @@ import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda
 import { isTypingTarget } from '../hooks/useInboxListShortcuts'
 import { Input } from '../components/ui/input'
 import { agentRunsPath, inboxPath } from '../lib/messages-paths'
-import { resolveAgendaAgentId, resolveAgendaAgentName } from '../lib/agenda-label'
+import { resolveAgendaAgentId, resolveAgendaAgentName, humanizeAgendaActorName } from '../lib/agenda-label'
 import { pickClosestThreadBySubject, triggerThreadPath } from '../lib/agenda-thread'
 import { translateDecisionText } from '../lib/activity-labels'
 import { agendaStatusLabel } from '../lib/status-labels'
+import { humanizeContactName } from '../lib/contact-label'
 import { cn } from '../lib/utils'
 import { listThreads } from '../lib/inbox-api'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
@@ -51,13 +52,14 @@ function parseAgendaView(raw: string | null): ViewTab {
 }
 
 const KIND_LABELS: Record<string, string> = {
-  once: 'Task',
+  once: 'One-off',
   event: 'Event',
   cron: 'Recurring',
   interval: 'Repeating',
   heartbeat: 'Check-in',
   webhook: 'Incoming',
   calendar: 'Calendar',
+  follow_up: 'Look again',
 }
 
 type SourceFilter = 'all' | 'wakes' | 'calendar'
@@ -168,7 +170,9 @@ function AgendaChip({
           <p className="truncate opacity-75">
             {t(`agendaPage.actor.${item.actor_kind === 'person' ? 'person' : 'agent'}`)}
             {' · '}
-            {item.actor_name || item.agent_name}
+            {item.actor_kind === 'person'
+              ? humanizeContactName(item.actor_name, null, t('contactsPage.widgetVisitor'))
+              : item.agent_name || humanizeAgendaActorName(item.actor_name)}
           </p>
         ) : null}
         {isCalendarItem(item) && item.provider_label ? (
@@ -401,6 +405,12 @@ export default function AgendaPage() {
     if (isCalendarItem(item)) {
       setCalendarDetailItem(item)
       return
+    }
+    if (item.source === 'follow_up' || item.kind === 'follow_up') {
+      if (item.signal_id) {
+        navigate(inboxPath('open', item.signal_id))
+        return
+      }
     }
     void (async () => {
       // The trigger knows its own thread; only older rows need a subject search.
@@ -755,7 +765,13 @@ export default function AgendaPage() {
                             >
                               {t(`agendaPage.actor.${item.actor_kind === 'person' ? 'person' : 'agent'}`)}
                               {' · '}
-                              {item.actor_name || agentLabel}
+                              {item.actor_kind === 'person'
+                                ? humanizeContactName(
+                                    item.actor_name,
+                                    null,
+                                    t('contactsPage.widgetVisitor'),
+                                  )
+                                : agentLabel || humanizeAgendaActorName(item.actor_name)}
                             </span>
                           ) : item.provider_label ? (
                             <span className="hidden shrink-0 text-xs text-text-muted sm:inline">

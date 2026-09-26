@@ -78,6 +78,10 @@ class Signal(SQLModel, table=True):
     # Snooze: while status is "pending" a wake time may be set; the scheduler
     # reopens the thread (status -> open, unread) once it passes.
     snoozed_until: Optional[datetime] = Field(default=None, index=True)
+    # Free next look-at on this conversation (stays open). Not an AgentTask and
+    # not snooze: typed work opens a Case; this is only "look again at …".
+    follow_up_at: Optional[datetime] = Field(default=None, index=True)
+    follow_up_title: str = Field(default="")
     priority: str = Field(default="normal", index=True)
     assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     tags_json: str = Field(default="[]")

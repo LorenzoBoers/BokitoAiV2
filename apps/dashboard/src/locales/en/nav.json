@@ -9,6 +9,9 @@
     "loading": "Loading...",
     "loadingWorkspaces": "Loading workspaces..."
   },
+  "pageRelated": {
+    "ariaLabel": "Related"
+  },
   "tabs": {
     "overview": {
       "title": "Overview",
@@ -28,7 +31,7 @@
     },
     "agenda": {
       "title": "Agenda",
-      "subtitle": "Planned and past trigger occurrences"
+      "subtitle": "Planned look-ats and appointments"
     },
     "cases": {
       "title": "Signals",
@@ -108,7 +111,7 @@
     "stepKind": "Step type",
     "kinds": {
       "send_message": "Send message",
-      "agent_task": "Agent task",
+      "agent_task": "Agent step",
       "wait_for_reply": "Wait for reply",
       "ask_decision": "Ask decision",
       "call_tool": "Call tool",
@@ -188,7 +191,7 @@
     "manageTypes": "Set up signal types",
     "openWorkstream": "Playbook",
     "addType": "Add {{name}}",
-    "addMissed": "Add what we missed",
+    "addMissed": "Add a signal",
     "confirmChip": "Looks like {{type}} — confirm?",
     "confirm": "Confirm",
     "dismiss": "Dismiss",
@@ -404,6 +407,7 @@
     "typeArchived": "Type archived. Existing signals stay on threads; open queue rows were closed.",
     "moduleTypeNoDelete": "Module types cannot be deleted here.",
     "manageInCases": "Intake types are managed with Signals.",
+    "openTypes": "Open signal types",
     "openCases": "Open Signals"
   },
   "cockpitTabs": {
@@ -519,7 +523,7 @@
     "relatedTitle": "Related next steps",
     "relatedBody": "Jump to the settings or pages that usually follow this topic.",
     "related": {
-      "communication": "Messages",
+      "communication": "Communication",
       "agents": "Agents",
       "setup": "Setup guide",
       "channels": "Channel settings",
@@ -609,14 +613,14 @@
       ]
     },
     "agenda": {
-      "bannerTitle": "Agenda is the trigger timeline",
-      "bannerBody": "Review planned and past schedule occurrences with the responsible agent or person. Connected calendar blocks appear on the same timeline.",
+      "bannerTitle": "Agenda is what is scheduled",
+      "bannerBody": "See check-ins, one-off wakes, conversation look-ats, and connected calendar blocks on one timeline.",
       "pageTitle": "How Agenda works",
-      "intro": "Everything that should happen on a clock or an incoming event is planned here, alongside synced calendar events.",
+      "intro": "Everything that should happen on a clock shows here: agent check-ins, your look-ats on conversations, and synced calendar events.",
       "sections": [
         {
           "title": "Week and list",
-          "body": "Week shows planned runs and calendar events on each day. List is the same schedule as a feed. Filter by Wakes, Calendar or All. Today is highlighted so you can see what fires next."
+          "body": "Week shows planned items and calendar events on each day. List is the same schedule as a feed. Filter by Wakes, Look-ats, Calendar or All. Today is highlighted so you can see what fires next."
         },
         {
           "title": "Calendar sync",
@@ -624,11 +628,11 @@
         },
         {
           "title": "Automations",
-          "body": "Triggers (cron, interval, heartbeat, webhook, one-off) live under Automations. Pause, edit or run now from there. Heartbeats check workspace docs on a timer."
+          "body": "Recurring check-ins, one-off wakes, and incoming webhooks live under Automations. Pause, edit or run now from there."
         },
         {
           "title": "New",
-          "body": "Use Schedule for agent wakes. Use Calendar block to create an event on a connected calendar. Finished one-shots stay visible; on-demand chat runs belong in Activity."
+          "body": "Use Schedule for an agent wake. Use Calendar block for an event. Set a look-at from What next on a conversation — it appears here too. On-demand chat runs belong in Activity."
         }
       ]
     },
@@ -780,8 +784,8 @@
     "listFilterEmpty": "No scheduled items match that search.",
     "prevWeek": "Previous week",
     "nextWeek": "Next week",
-    "searchTriggers": "Search triggers",
-    "triggerFilterEmpty": "No triggers match that search.",
+    "searchTriggers": "Search schedules",
+    "triggerFilterEmpty": "No schedules match that search.",
     "profileCreated": "Run settings added",
     "removeTriggerConfirm": "Delete this schedule?",
     "allAgents": "All agents",
@@ -818,14 +822,15 @@
     "runtime": "How they run",
     "runs": "Runs",
     "kinds": {
-      "once": "Task",
+      "once": "One-off",
       "event": "Event",
       "cron": "Recurring",
       "interval": "Repeating",
       "heartbeat": "Check-in",
       "webhook": "Incoming",
       "calendar": "Calendar",
-      "task": "Follow-up"
+      "follow_up": "Look again",
+      "task": "Look again"
     },
     "calendar": {
       "connectTitle": "Sync a calendar",
@@ -871,7 +876,7 @@
       "everyMinutes": "every {{count}} min"
     },
     "allTriggers": "All triggers",
-    "noTriggers": "No triggers yet. Schedule a wake, a one-off task, or an event.",
+    "noTriggers": "Nothing scheduled yet. Plan a check-in, a one-off wake, or a calendar block.",
     "createAutomation": "Create automation",
     "scheduleEmptyDay": "Schedule",
     "backToAgenda": "Back to Agenda",
@@ -1972,13 +1977,13 @@
     "matchDomain": "Domain",
     "matchListId": "Mailing list",
     "actionClose": "Auto-close",
-    "actionTask": "Create task",
+    "actionTask": "Plan look-at",
     "actionSkip": "Skip AI",
     "matchSenderAddr": "Sender address",
     "matchDomainOpt": "Domain",
     "matchListIdOpt": "Mailing list id",
     "actionCloseThread": "Auto-close thread",
-    "actionCreateTask": "Create task",
+    "actionCreateTask": "Plan look-at",
     "actionSkipAi": "Skip AI (leave for team)",
     "active": "Active",
     "paused": "Paused",
@@ -2166,7 +2171,7 @@
     "webhookCreated": "Webhook created. Copy the secret now — it is shown once.",
     "schedule": "Schedule",
     "kinds": {
-      "once": "One-off task",
+      "once": "One-off wake",
       "event": "Event",
       "cron": "Recurring schedule",
       "interval": "Repeating",
@@ -2187,7 +2192,8 @@
     "work": "Work",
     "agent": "Agent",
     "ai": "AI",
-    "settings": "Organization",
+    "connections": "Connections",
+    "settings": "Settings",
     "modules": "Modules"
   },
   "palette": {
@@ -2508,6 +2514,9 @@
       "tags": "Tags",
       "settings": "Settings"
     },
+    "settings": {
+      "channels": "Channels"
+    },
     "bokito": {
       "loading": "Loading chats...",
       "empty": "Your private chats with Bokito show up here.",
@@ -2563,7 +2572,7 @@
       "custom": "Custom labels..."
     },
     "settings": {
-      "channels": "Email & messages",
+      "channels": "Channels",
       "assistant": "AI reply settings",
       "widget": "Chat widget",
       "integrations": "Integrations",
@@ -3573,6 +3582,11 @@
       "openConversationsCount_one": "{{count}} open",
       "awaitingDecisionCount": "{{count}} need a decision",
       "awaitingDecisionCount_one": "{{count}} needs a decision",
+      "audiences": {
+        "customers": "Customers",
+        "partners": "Partners",
+        "internal": "Internal"
+      },
       "conversationsTitle": "Open conversations",
       "conversationsDescription": "Threads this agent is handling right now.",
       "conversationsEmpty": "No open conversations for this agent.",
@@ -3726,6 +3740,7 @@
         "name": "Name",
         "namePlaceholder": "e.g. Support specialist",
         "role": "Role",
+        "audience": "Audience",
         "model": "Model",
         "workspaceDefault": "Workspace default",
         "prompt": "Instructions (optional)",
@@ -4486,7 +4501,7 @@
       "personal": "Personal",
       "products": "Products",
       "workspace": "Workspace",
-      "communication": "Messages",
+      "communication": "Communication",
       "integrations": "Integrations",
       "govern": "Govern",
       "advanced": "Advanced",
@@ -4501,7 +4516,7 @@
       "setupGuide": "Setup guide",
       "help": "help",
       "inbox": "Email and channels",
-      "emailMessages": "Email & messages",
+      "emailMessages": "Channels",
       "chatWidget": "Chat widget",
       "inboxAi": "Inbox AI",
       "signalTypes": "Signal types",

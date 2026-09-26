@@ -33,7 +33,7 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 ![Modules-hub](/api/docs/assets/integrations/modules-hub.png)
 *Koppelingen-hub — geïnstalleerde modules als kaarten, daarna partnerlogins.*
 
-1. Open **Koppelingen** in de zijbalk (groep Organisatie). Geïnstalleerde modulekaarten staan bovenaan; open een kaart, of gebruik **Marketplace** en de rij **Modules** om een nieuwe preset te installeren.
+1. Open **Koppelingen** in de zijbalk (groep Koppelingen). Geïnstalleerde modulekaarten staan bovenaan; open een kaart, of gebruik **Marketplace** en de rij **Modules** om een nieuwe preset te installeren.
 2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Status wordt **Setup**.
 3. Wijs **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
 4. Bekijk **Wat agents kunnen doen**: elke module-actie toont een korte beschrijving, het universele pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is. Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de exacte MCP-toolnamen van die servers.

@@ -8,6 +8,7 @@ import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
 import { threadNeedsReply } from '../../lib/message-composer'
 import { cn } from '../../lib/utils'
 import { useMembers } from '../../hooks/useMembers'
+import { channelKind } from '../ui/ChannelGlyph'
 import { InboxListSkeleton } from '../ui/skeleton'
 import BulkActionsBar from './BulkActionsBar'
 import ThreadListItem from './ThreadListItem'
@@ -133,11 +134,18 @@ export default function ThreadList({
   const scrollRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const channelOptions = useMemo(() => {
-    const values = new Set<string>()
+    // One option per display kind; prefer the canonical channel string when present
+    // so filters match stored Signal.channel values (widget vs customer_widget).
+    const byKind = new Map<string, string>()
     for (const thread of allThreads) {
-      if (thread.channel) values.add(thread.channel)
+      if (!thread.channel) continue
+      const kind = channelKind(thread.channel)
+      const current = byKind.get(kind)
+      if (!current || (current !== kind && thread.channel === kind)) {
+        byKind.set(kind, thread.channel)
+      }
     }
-    return [...values].sort()
+    return [...byKind.values()].sort()
   }, [allThreads])
 
   useEffect(() => {

@@ -71,7 +71,7 @@ Pull an agent in when you want to think out loud, look something up, or hand the
 
 1. A decision bubble appears when an agent needs your judgment.
 2. Read the proposal. When the card offers several concrete choices, each button keeps its own label (for example send vs cancel vs ask the customer). Approve, edit or decline. **Later** / **Not now** parks the conversation until tomorrow 9:00 so it leaves Open. The single **I'll handle it myself** button is only for pausing AI so you take over.
-3. Nothing customer-facing goes out until you answer, unless autonomy allows it. Approving **Create task** plans a human follow-up on [Agenda](/docs/ai/agenda) (no agent run). From the thread menu choose **Plan a follow-up** to set a title and when (today, tomorrow 9:00, next week, or no date). A suggested-action chip can offer the same planner. Open follow-ups appear under **Follow-ups** in the side panel — complete them there or on Agenda. Choose **Add to project** in the same menu to send the thread to a project's queue with a project picker — real work lands on the project backlog without leaving the conversation. See [Decisions](/docs/ai/decisions).
+3. Nothing customer-facing goes out until you answer, unless autonomy allows it. Approving **What next** (or the old Create task choice) sets a next look-at on this conversation — a title and when — and shows it on [Agenda](/docs/ai/agenda). From the thread menu choose **What next** to schedule a look-at or open a typed Signal. Clear the look-at under **This conversation** in the side panel when you are done. Choose **Add to project** in the same menu to link the thread to a project. See [Decisions](/docs/ai/decisions).
 
 ## Capture a website visitor
 

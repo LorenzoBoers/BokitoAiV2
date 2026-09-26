@@ -43,6 +43,9 @@ export type InboxThread = {
   status: ThreadStatus
   /** ISO wake time while snoozed (status pending); null = wait for reply. */
   snoozedUntil: string | null
+  /** Next look-at while the conversation stays open (not snooze). */
+  followUpAt: string | null
+  followUpTitle: string
   priority: ThreadPriority
   assignedToUserId: number | null
   tags: string[]
@@ -259,6 +262,9 @@ export type PatchThreadInput = {
   projectId?: string | null
   /** ISO wake time to snooze the thread; null clears the wake time. */
   snoozedUntil?: string | null
+  /** Next look-at while open; null clears it. */
+  followUpAt?: string | null
+  followUpTitle?: string
 }
 
 export type BulkThreadAction = 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'snooze'
@@ -362,6 +368,8 @@ function normalizeThread(row: unknown): InboxThread | null {
     contactPhone: asString(raw.contact_phone),
     status,
     snoozedUntil: asNullableTimestampString(raw.snoozed_until),
+    followUpAt: asNullableTimestampString(raw.follow_up_at),
+    followUpTitle: asString(raw.follow_up_title),
     priority,
     assignedToUserId:
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0 ? null : asNumber(raw.assigned_to_user_id),

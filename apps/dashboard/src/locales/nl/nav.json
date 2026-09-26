@@ -9,6 +9,9 @@
     "loading": "Laden...",
     "loadingWorkspaces": "Workspaces laden..."
   },
+  "pageRelated": {
+    "ariaLabel": "Gerelateerd"
+  },
   "tabs": {
     "overview": {
       "title": "Overview",
@@ -28,7 +31,7 @@
     },
     "agenda": {
       "title": "Agenda",
-      "subtitle": "Geplande en voorbije trigger-momenten"
+      "subtitle": "Geplande kijkmomenten en afspraken"
     },
     "cases": {
       "title": "Signalen",
@@ -108,7 +111,7 @@
     "stepKind": "Staptype",
     "kinds": {
       "send_message": "Bericht sturen",
-      "agent_task": "Agenttaak",
+      "agent_task": "Agentstap",
       "wait_for_reply": "Wachten op antwoord",
       "ask_decision": "Beslissing vragen",
       "call_tool": "Tool aanroepen",
@@ -188,7 +191,7 @@
     "manageTypes": "Signaaltypes instellen",
     "openWorkstream": "Draaiboek",
     "addType": "{{name}} toevoegen",
-    "addMissed": "Mis iets toevoegen",
+    "addMissed": "Signaal toevoegen",
     "confirmChip": "Dit lijkt op {{type}} — bevestigen?",
     "confirm": "Bevestigen",
     "dismiss": "Afwijzen",
@@ -404,6 +407,7 @@
     "typeArchived": "Type gearchiveerd. Bestaande signalen blijven op gesprekken; open wachtrij-rijen zijn gesloten.",
     "moduleTypeNoDelete": "Moduletypes kunnen hier niet worden verwijderd.",
     "manageInCases": "Intake-types beheer je op de pagina Signalen.",
+    "openTypes": "Signaaltypes openen",
     "openCases": "Signalen openen"
   },
   "cockpitTabs": {
@@ -519,7 +523,7 @@
     "relatedTitle": "Gerelateerde vervolgstappen",
     "relatedBody": "Ga naar de instellingen of pagina's die meestal bij dit onderwerp horen.",
     "related": {
-      "communication": "Berichten",
+      "communication": "Communicatie",
       "agents": "Agents",
       "setup": "Setupgids",
       "channels": "Kanaalinstellingen",
@@ -609,14 +613,14 @@
       ]
     },
     "agenda": {
-      "bannerTitle": "Agenda is de trigger-tijdlijn",
-      "bannerBody": "Bekijk geplande en voorbije schema-momenten met de verantwoordelijke agent of persoon. Gekoppelde kalenderblokken staan op dezelfde tijdlijn.",
+      "bannerTitle": "Agenda is wat er gepland staat",
+      "bannerBody": "Zie check-ins, eenmalige wakes, kijkmomenten op gesprekken en gekoppelde kalenderblokken op één tijdlijn.",
       "pageTitle": "Zo werkt Agenda",
-      "intro": "Alles wat op een klok of een inkomend event moet gebeuren, plan je hier, naast gesynchroniseerde kalenderafspraken.",
+      "intro": "Alles wat op een klok moet gebeuren, zie je hier: agent-check-ins, jouw kijkmomenten op gesprekken, en gesynchroniseerde kalenderafspraken.",
       "sections": [
         {
           "title": "Week en lijst",
-          "body": "Week toont geplande runs en kalenderafspraken per dag. Lijst is hetzelfde schema als feed. Filter op Wakes, Kalender of Alles. Vandaag is gemarkeerd zodat je ziet wat als volgende afgaat."
+          "body": "Week toont geplande items en kalenderafspraken per dag. Lijst is hetzelfde als feed. Filter op Wakes, Kijkmomenten, Kalender of Alles. Vandaag is gemarkeerd zodat je ziet wat als volgende afgaat."
         },
         {
           "title": "Kalendersync",
@@ -624,11 +628,11 @@
         },
         {
           "title": "Automatiseringen",
-          "body": "Triggers (cron, interval, heartbeat, webhook, eenmalig) staan onder Automatiseringen. Pauzeren, bewerken of nu uitvoeren doe je daar. Heartbeats checken workspace-docs op tijd."
+          "body": "Terugkerende check-ins, eenmalige wakes en inkomende webhooks staan onder Automatiseringen. Pauzeren, bewerken of nu uitvoeren doe je daar."
         },
         {
           "title": "Nieuw",
-          "body": "Gebruik Plannen voor agent-wakes. Gebruik Kalenderblok om een afspraak op een gekoppelde kalender te zetten. Afgeronde one-shots blijven zichtbaar; on-demand chatruns horen in Activiteit."
+          "body": "Gebruik Plannen voor een agent-wake. Gebruik Kalenderblok voor een afspraak. Zet een kijkmoment vanuit Wat nu op een gesprek — dat verschijnt hier ook. On-demand chatruns horen in Activiteit."
         }
       ]
     },
@@ -780,8 +784,8 @@
     "listFilterEmpty": "Geen geplande items die bij die zoekopdracht passen.",
     "prevWeek": "Vorige week",
     "nextWeek": "Volgende week",
-    "searchTriggers": "Zoek triggers",
-    "triggerFilterEmpty": "Geen triggers die bij die zoekopdracht passen.",
+    "searchTriggers": "Zoek schema's",
+    "triggerFilterEmpty": "Geen schema's die bij die zoekopdracht passen.",
     "profileCreated": "Uitvoerinstellingen toegevoegd",
     "removeTriggerConfirm": "Dit schema verwijderen?",
     "allAgents": "Alle agents",
@@ -818,14 +822,15 @@
     "runtime": "Hoe ze draaien",
     "runs": "Runs",
     "kinds": {
-      "once": "Taak",
+      "once": "Eenmalig",
       "event": "Afspraak",
       "cron": "Terugkerend",
       "interval": "Herhalend",
       "heartbeat": "Check-in",
       "webhook": "Inkomend",
       "calendar": "Kalender",
-      "task": "Opvolging"
+      "follow_up": "Opnieuw kijken",
+      "task": "Opnieuw kijken"
     },
     "calendar": {
       "connectTitle": "Kalender synchroniseren",
@@ -871,7 +876,7 @@
       "everyMinutes": "elke {{count}} min"
     },
     "allTriggers": "Alle triggers",
-    "noTriggers": "Nog geen triggers. Plan een wake, een eenmalige taak of een event.",
+    "noTriggers": "Nog niets gepland. Plan een check-in, een eenmalige wake of een kalenderblok.",
     "createAutomation": "Automatisering maken",
     "scheduleEmptyDay": "Plannen",
     "backToAgenda": "Terug naar Agenda",
@@ -1972,13 +1977,13 @@
     "matchDomain": "Domein",
     "matchListId": "Mailinglijst",
     "actionClose": "Automatisch sluiten",
-    "actionTask": "Taak maken",
+    "actionTask": "Kijkmoment plannen",
     "actionSkip": "AI overslaan",
     "matchSenderAddr": "Afzenderadres",
     "matchDomainOpt": "Domein",
     "matchListIdOpt": "Mailinglijst-id",
     "actionCloseThread": "Gesprek automatisch sluiten",
-    "actionCreateTask": "Taak maken",
+    "actionCreateTask": "Kijkmoment plannen",
     "actionSkipAi": "AI overslaan (voor het team)",
     "active": "Actief",
     "paused": "Gepauzeerd",
@@ -2166,7 +2171,7 @@
     "webhookCreated": "Webhook aangemaakt. Kopieer het geheim nu — het wordt maar één keer getoond.",
     "schedule": "Inplannen",
     "kinds": {
-      "once": "Eenmalige taak",
+      "once": "Eenmalige wake",
       "event": "Event",
       "cron": "Terugkerend schema",
       "interval": "Herhalend",
@@ -2187,7 +2192,8 @@
     "work": "Werk",
     "agent": "Agent",
     "ai": "AI",
-    "settings": "Organisatie",
+    "connections": "Koppelingen",
+    "settings": "Instellingen",
     "modules": "Modules"
   },
   "palette": {
@@ -2508,6 +2514,9 @@
       "tags": "Tags",
       "settings": "Instellingen"
     },
+    "settings": {
+      "channels": "Kanalen"
+    },
     "bokito": {
       "loading": "Gesprekken laden...",
       "empty": "Je privégesprekken met Bokito komen hier te staan.",
@@ -2563,7 +2572,7 @@
       "custom": "Eigen labels..."
     },
     "settings": {
-      "channels": "E-mail en berichten",
+      "channels": "Kanalen",
       "assistant": "AI-antwoordinstellingen",
       "widget": "Chatwidget",
       "integrations": "Integraties",
@@ -3573,6 +3582,11 @@
       "openConversationsCount_one": "{{count}} open",
       "awaitingDecisionCount": "{{count}} wachten op beslissing",
       "awaitingDecisionCount_one": "{{count}} wacht op beslissing",
+      "audiences": {
+        "customers": "Klanten",
+        "partners": "Partners",
+        "internal": "Intern"
+      },
       "conversationsTitle": "Openstaande gesprekken",
       "conversationsDescription": "Gesprekken die deze agent nu behandelt.",
       "conversationsEmpty": "Geen openstaande gesprekken voor deze agent.",
@@ -3726,6 +3740,7 @@
         "name": "Naam",
         "namePlaceholder": "bijv. Supportmedewerker",
         "role": "Rol",
+        "audience": "Doelgroep",
         "model": "Model",
         "workspaceDefault": "Workspace-standaard",
         "prompt": "Instructies (optioneel)",
@@ -4486,7 +4501,7 @@
       "personal": "Persoonlijk",
       "products": "Producten",
       "workspace": "Organisatie",
-      "communication": "Berichten",
+      "communication": "Communicatie",
       "integrations": "Integraties",
       "govern": "Govern",
       "advanced": "Geavanceerd",
@@ -4501,7 +4516,7 @@
       "setupGuide": "Setupgids",
       "help": "help",
       "inbox": "Mailboxen",
-      "emailMessages": "E-mail en berichten",
+      "emailMessages": "Kanalen",
       "chatWidget": "Chatwidget",
       "inboxAi": "AI-antwoorden",
       "signalTypes": "Signaaltypes",

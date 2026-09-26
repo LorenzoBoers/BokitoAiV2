@@ -534,10 +534,12 @@ async def agenda_occurrences(
     end: datetime,
     agent_id: UUID | None = None,
 ) -> list[dict[str, Any]]:
-    """Trigger timeline in [start, end]: planned moments and past runs.
+    """Trigger timeline in [start, end]: planned moments, past runs, and
+    conversation next look-ats.
 
     Agenda deliberately excludes ``AgentTask`` rows. Those are execution-ledger
-    work and conversation follow-ups, not schedule triggers.
+    work. Human follow-ups live on ``Signal.follow_up_at`` and appear here as
+    ``source: follow_up``.
     """
     stmt = select(Trigger).where(Trigger.tenant_id == tenant_id)
     if agent_id:
@@ -649,6 +651,45 @@ async def agenda_occurrences(
                 item.get("calendar_name") or item.get("provider_label") or "Person",
             )
         items.extend(calendar_items)
+
+    # Conversation next look-ats (person actor). Skip when filtering to one agent.
+    if agent_id is None:
+        from app.models.signal import Signal
+
+        follow_result = await session.execute(
+            select(Signal).where(
+                Signal.tenant_id == tenant_id,
+                Signal.follow_up_at.is_not(None),
+                Signal.follow_up_at >= start,
+                Signal.follow_up_at <= end,
+                Signal.status.notin_(("spam", "archived")),
+            )
+        )
+        for signal in follow_result.scalars().all():
+            title = (signal.follow_up_title or "").strip() or signal.subject or "Follow up"
+            at = signal.follow_up_at
+            assert at is not None
+            items.append(
+                {
+                    "id": f"follow_up:{signal.id}",
+                    "trigger_id": None,
+                    "name": title,
+                    "kind": "follow_up",
+                    "source": "follow_up",
+                    "signal_id": str(signal.id),
+                    "agent_id": None,
+                    "agent_role": "",
+                    "agent_name": None,
+                    "actor_kind": "person",
+                    "actor_id": None,
+                    "actor_name": signal.contact_name or signal.contact_email or "You",
+                    "instructions": "",
+                    "enabled": True,
+                    "at": _iso(at),
+                    "status": "due" if at <= now else "planned",
+                    "run_id": None,
+                }
+            )
 
     items.sort(key=lambda item: item["at"] or "")
     return items

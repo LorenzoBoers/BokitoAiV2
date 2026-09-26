@@ -109,6 +109,7 @@ function AgentLibraryCard({
             icon={agent.avatar_icon}
             color={agent.avatar_color}
             imageUrl={agent.avatar_image_url}
+            decorative
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
@@ -118,7 +119,13 @@ function AgentLibraryCard({
               <span className={cn('text-xs font-medium', STATUS_CLASS[agentWorkState(agent)])}>
                 {t(agentStatusI18nKey(agentWorkState(agent)))}
               </span>
-              {agent.audience ? <span className="text-xs capitalize text-text-muted">{agent.audience}</span> : null}
+              {agent.audience ? (
+                <span className="text-xs text-text-muted">
+                  {t(`workforce.agents.audiences.${agent.audience}`, {
+                    defaultValue: agent.audience,
+                  })}
+                </span>
+              ) : null}
             </div>
             {openCount > 0 || decisionCount > 0 ? (
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">

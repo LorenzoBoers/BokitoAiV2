@@ -14,6 +14,8 @@ interface AiAvatarProps {
   icon?: string | null
   color?: string | null
   imageUrl?: string | null
+  /** Hide the name from assistive tech when a parent already labels the control. */
+  decorative?: boolean
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -58,6 +60,7 @@ export function AiAvatar({
   icon,
   color,
   imageUrl,
+  decorative = false,
 }: AiAvatarProps) {
   const displayName = name?.trim() || 'Agent'
   const initials = getInitials(displayName)
@@ -68,6 +71,9 @@ export function AiAvatar({
   const fontSize = Math.round(size * 0.36)
   const iconSize = Math.round(size * 0.48)
   const borderRadius = Math.round(size * 0.5)
+  const a11yProps = decorative
+    ? { 'aria-hidden': true as const }
+    : { 'aria-label': displayName, title: displayName }
 
   if (resolved === 'image' && imageUrl) {
     return (
@@ -80,8 +86,7 @@ export function AiAvatar({
           boxShadow: `0 0 0 2px ${hexToRgba(accent, 0.16)}, 0 0 12px ${hexToRgba(accent, 0.22)}`,
         }}
         className={`inline-flex shrink-0 overflow-hidden ${className}`}
-        aria-label={displayName}
-        title={displayName}
+        {...a11yProps}
       >
         <img src={imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />
       </span>
@@ -101,8 +106,7 @@ export function AiAvatar({
         boxShadow: `0 0 0 2px ${hexToRgba(accent, 0.16)}, 0 0 12px ${hexToRgba(accent, 0.22)}`,
       }}
       className={`inline-flex shrink-0 select-none items-center justify-center font-semibold ${className}`}
-      aria-label={displayName}
-      title={displayName}
+      {...a11yProps}
     >
       {Icon ? <Icon size={iconSize} strokeWidth={1.75} aria-hidden /> : initials}
     </span>

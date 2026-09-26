@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 
@@ -18,10 +19,11 @@ export function PageRelatedLinks({
   links: RelatedLink[]
   className?: string
 }) {
+  const { t } = useTranslation('nav')
   if (links.length === 0) return null
   return (
     <nav
-      aria-label="Related"
+      aria-label={t('pageRelated.ariaLabel', { defaultValue: 'Related' })}
       className={cn('border-t border-border/40 pt-4 text-[12px] text-text-muted', className)}
     >
       <ul className="flex flex-wrap items-center gap-x-1 gap-y-1">

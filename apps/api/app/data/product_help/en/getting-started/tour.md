@@ -33,7 +33,7 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 
 Installed modules (for example **Accounting**) appear here as their own rail items. See [Integrations](/docs/integrations/integrations).
 
-## Organization: connections and the control room
+## Connections and Settings
 
 - **Connections** — installed modules, partner logins, custom MCP and marketplace. See [Integrations](/docs/integrations/integrations).
 - **Settings** — **Email & messages**, inbox AI, chat widget, members, models and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).

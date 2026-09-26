@@ -550,7 +550,7 @@ export default function ProjectsPage() {
         links={[
           { to: '/workstreams', label: t('pageGuides.related.workstreams') },
           { to: '/settings/signals', label: t('pageGuides.related.cases') },
-          { to: '/agents', label: t('projects.page.openAgents') },
+          { to: '/agents', label: t('pageGuides.related.agents') },
           { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
           { to: '/docs/ai/projects', label: t('pageGuides.learnMore') },
         ]}

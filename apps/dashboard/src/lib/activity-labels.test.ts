@@ -95,6 +95,12 @@ describe('activity labels', () => {
         t,
       ),
     ).toBe('Tijdelijk antwoord over afspraak morgen.')
+    expect(
+      translateMockAgentBody(
+        'I received your message about: This is a scheduled heartbeat wake. Work through the checklist below. This is a placeholder reply while the workspace runs without a live model.',
+        t,
+      ),
+    ).toBe('Check-in')
   })
 
   it('translates leftover English activity copy', () => {

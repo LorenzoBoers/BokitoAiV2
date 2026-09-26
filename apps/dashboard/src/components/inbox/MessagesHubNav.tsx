@@ -24,6 +24,7 @@ import {
   inboxPath,
   leafFromPath,
   leafKey,
+  leafPath,
   newConversationPath,
   type HubLeaf,
   type InboxQueue,
@@ -286,11 +287,6 @@ function ChannelsSection({ folders, loading, activeLeaf, defaultQueueFor, t }: C
       ) : null}
       {!loading && !hasAnyChannel ? (
         <div className="space-y-1.5 px-0.5">
-          <p className="px-2.5 text-[11px] leading-snug text-text-muted">
-            {t('support.channels.emptyHint', {
-              defaultValue: 'Connect email or chat so customer threads land here.',
-            })}
-          </p>
           <Link
             to="/settings/channels"
             title={t('support.channels.connectChannel')}
@@ -333,11 +329,11 @@ type AgentsSectionProps = {
   agents: ChatTarget[]
   loading: boolean
   activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }
 
-function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: AgentsSectionProps) {
+/** Talk to a company agent — one row each, no duplicated Open/Mine queue tree. */
+function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
   return (
     <div className="space-y-0.5">
       {loading ? (
@@ -359,22 +355,31 @@ function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: Agen
         </div>
       ) : null}
       {agents.map((agent) => {
-        const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
+        const openLeaf: HubLeaf = { type: 'agent', agentId: agent.id, queue: 'open' }
+        const isActive =
+          activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id
         return (
-          <SidebarFolder
-            key={agent.id}
-            baseLeaf={baseLeaf}
-            label={agent.name}
-            icon={<Bot size={14} className="shrink-0 text-ai-ink" />}
-            activeLeaf={activeLeaf}
-            defaultQueue={defaultQueueFor(baseLeaf)}
-            headerAction={
-              <ComposePlusLink
-                to={newConversationPath({ intent: 'agent', agentId: agent.id })}
-                label={t('support.composeToAgent')}
-              />
-            }
-          />
+          <div key={agent.id} className="flex items-center gap-0.5">
+            <NavLink
+              to={leafPath(openLeaf)}
+              title={t('support.composeToAgent')}
+              className={() =>
+                cn(
+                  'nav-row flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
+                  isActive
+                    ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-chip-active'
+                    : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
+                )
+              }
+            >
+              <Bot size={14} className="shrink-0 text-ai-ink" />
+              <span className="min-w-0 flex-1 truncate">{agent.name}</span>
+            </NavLink>
+            <ComposePlusLink
+              to={newConversationPath({ intent: 'agent', agentId: agent.id })}
+              label={t('support.composeToAgent')}
+            />
+          </div>
         )
       })}
     </div>
@@ -454,7 +459,6 @@ export default function MessagesHubNav() {
         agents={companyAgents}
         loading={targetsLoading}
         activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
         t={t}
       />
     ),
@@ -564,7 +568,7 @@ export default function MessagesHubNav() {
             className={({ isActive }) => navLinkClass(isActive)}
           >
             <Settings size={14} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">{t('support.section.settings')}</span>
+            <span className="min-w-0 flex-1 truncate">{t('support.settings.channels')}</span>
           </NavLink>
         ) : null}
       </div>

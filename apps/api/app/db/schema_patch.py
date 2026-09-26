@@ -64,6 +64,8 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "agent_id": "VARCHAR",
         "context_signal_id": "VARCHAR",
         "snoozed_until": "DATETIME",
+        "follow_up_at": "DATETIME",
+        "follow_up_title": "VARCHAR DEFAULT ''",
     },
     "agent_runs": {
         "tenant_id": "VARCHAR",

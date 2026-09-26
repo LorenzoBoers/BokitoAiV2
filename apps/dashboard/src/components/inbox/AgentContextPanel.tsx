@@ -223,6 +223,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               icon={agent.avatar_icon}
               color={agent.avatar_color}
               imageUrl={agent.avatar_image_url}
+              decorative
             />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-text-heading">{agent.name}</span>
@@ -260,24 +261,17 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             {t('agentContext.inboxAiSettings')}
           </Link>
           {agentId ? (
-            <Link to={`/agents/${agentId}`} className="text-[11px] font-medium text-accent hover:underline">
-              {t('agentContext.agentProfile')}
-            </Link>
-          ) : null}
-        </div>
-        {agentId ? (
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-            <Link to={`/agenda?agent=${agentId}`} className="font-medium text-accent hover:underline">
+            <Link to={`/agenda?agent=${agentId}`} className="text-[11px] font-medium text-accent hover:underline">
               {t('agentContext.schedule')}
             </Link>
-            <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
-              {t('agentContext.govern')}
-            </Link>
-            <Link to="/connections/connected" className="font-medium text-accent hover:underline">
-              {t('agentContext.openIntegrations')}
-            </Link>
-          </div>
-        ) : null}
+          ) : null}
+          <Link to="/settings/govern?tab=policy" className="text-[11px] font-medium text-accent hover:underline">
+            {t('agentContext.govern')}
+          </Link>
+          <Link to="/connections/connected" className="text-[11px] font-medium text-accent hover:underline">
+            {t('agentContext.openIntegrations')}
+          </Link>
+        </div>
         {model ? (
           <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-text-secondary">
             <Cpu size={12} className="shrink-0 text-text-muted" />
@@ -309,12 +303,6 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           onUpdated={onThreadUpdated}
         />
         <ThreadCasesList signalId={String(thread.id)} />
-        <nav className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]" aria-label="Conversation work">
-          <Link to="/agents" className="font-medium text-accent hover:underline">Agents</Link>
-          <Link to="/workstreams" className="font-medium text-accent hover:underline">Playbooks</Link>
-          <Link to="/projects" className="font-medium text-accent hover:underline">Projects</Link>
-          <Link to="/knowledge" className="font-medium text-accent hover:underline">Knowledge</Link>
-        </nav>
       </div>
 
       {loading ? (
@@ -329,6 +317,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         icon={Wrench}
         label={t('agentContext.toolsAndIntegrations')}
         count={toolCount + mcpRows.length}
+        countLabel={unrestricted ? t('agentContext.unrestricted') : undefined}
       >
         {mcpRows.length > 0 ? (
           <div className="mb-2">

@@ -165,8 +165,8 @@ export default function WorkstreamsPage() {
 
           {isAdmin ? (
             <p className="text-xs text-text-muted">
-              {t('casesPage.manageInSettings', {
-                defaultValue: 'Intake types are managed in workspace settings.',
+              {t('casesPage.manageInCases', {
+                defaultValue: 'Intake types are managed with Signals.',
               })}{' '}
               <Link to="/settings/signals" className="font-medium text-accent hover:underline">
                 {t('casesPage.openTypes', { defaultValue: 'Open signal types' })}
