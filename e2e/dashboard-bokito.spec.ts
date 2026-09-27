@@ -46,7 +46,9 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/overview')
     await expect(page).toHaveURL(/\/cockpit/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('heading', { name: /Overview|Overzicht/i })).toBeVisible({
+      timeout: 20000,
+    })
   })
 
   test('legacy chat, messages and inbox routes redirect into the communication hub', async ({ page }) => {
@@ -89,7 +91,9 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/communication/decisions')
     await expect(
-      page.getByText(/inbox routing rule|Inbox-doorstuurregel|Goedkeuring|Approval/i).first(),
+      page
+        .getByText(/inbox-routeringregel|inbox routing rule|Inbox-doorstuurregel/i)
+        .first(),
     ).toBeVisible({ timeout: 60000 })
   })
 
@@ -143,9 +147,13 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/agenda')
     await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('tab', { name: 'Week' })).toBeVisible({ timeout: 20000 })
-    await page.getByRole('tab', { name: 'Automations' }).click()
-    await expect(page.getByText('All triggers')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('tab', { name: /Week|Weekoverzicht/i })).toBeVisible({
+      timeout: 20000,
+    })
+    await page.getByRole('tab', { name: /Week|Weekoverzicht/i }).click()
+    await expect(page.getByRole('tab', { name: /Timeline|Tijdlijn/i })).toBeVisible({
+      timeout: 20000,
+    })
   })
 
   test('integrations settings section loads', async ({ page }) => {

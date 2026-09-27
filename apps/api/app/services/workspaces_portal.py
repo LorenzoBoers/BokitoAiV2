@@ -829,7 +829,6 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
     # First-run wizard completion (owners). Legacy tenants without the
     # onboarding.wizard_required flag never required the wizard, so they count
     # as done.
-    from app.models.auth import Tenant
     from app.services.onboarding_wizard import _onboarding_block
 
     tenant = (
