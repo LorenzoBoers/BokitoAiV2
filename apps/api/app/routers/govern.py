@@ -80,9 +80,46 @@ def _allowance_state(tenant: Tenant) -> dict:
     }
 
 
+async def _autonomous_prerequisites(
+    session: AsyncSession, auth: AuthContext
+) -> dict:
+    """Live model + at least one send-ready channel before Autonomous posture."""
+    from app.models.channel import ChannelAccount
+    from app.services.channel_registry import can_send, resolve_channel
+    from app.services.model_resolution import resolve_model_call
+
+    tenant = auth.tenant
+    call = await resolve_model_call(session, tenant.id, kind="chat")
+    llm_live = bool(call.live)
+    accounts = (
+        await session.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant.id,
+                ChannelAccount.is_enabled.is_(True),
+            )
+        )
+    ).scalars().all()
+    send_ready = any(can_send(resolve_channel(a, tenant=tenant)) for a in accounts)
+    reasons: list[str] = []
+    if not llm_live:
+        reasons.append("llm_not_live")
+    if not send_ready:
+        reasons.append("no_send_ready_channel")
+    return {
+        "llm_live": llm_live,
+        "send_ready": send_ready,
+        "autonomous_allowed": llm_live and send_ready,
+        "block_reasons": reasons,
+    }
+
+
 @router.get("/posture")
-async def get_posture(auth: Annotated[AuthContext, Depends(get_current_auth)]):
-    return _allowance_state(auth.tenant)
+async def get_posture(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    prereq = await _autonomous_prerequisites(session, auth)
+    return {**_allowance_state(auth.tenant), "prerequisites": prereq}
 
 
 @router.put("/posture")
@@ -94,6 +131,20 @@ async def update_posture(
     auth.require_role("owner", "admin")
     if body.posture not in AUTONOMY_POSTURES:
         raise HTTPException(status_code=400, detail=f"Invalid posture: {body.posture}")
+
+    prereq = await _autonomous_prerequisites(session, auth)
+    if body.posture == "autonomous" and not prereq["autonomous_allowed"]:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "autonomous_prerequisites",
+                "message": (
+                    "Autonomous posture requires a live AI model and at least "
+                    "one send-ready channel."
+                ),
+                "prerequisites": prereq,
+            },
+        )
 
     previous_posture = resolve_posture(auth.tenant)
     settings = tenant_settings(auth.tenant)
@@ -122,7 +173,7 @@ async def update_posture(
     )
     await session.commit()
     await session.refresh(tenant)
-    return _allowance_state(tenant)
+    return {**_allowance_state(tenant), "prerequisites": prereq}
 
 
 @router.get("/autonomy-scopes")
@@ -130,11 +181,14 @@ async def list_autonomy_scopes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.services.cases import ensure_platform_case_types
+
+    await ensure_platform_case_types(session, auth.tenant.id)
     case_types = (
         await session.execute(
             select(CaseType)
             .where(CaseType.tenant_id == auth.tenant.id, CaseType.enabled.is_(True))
-            .order_by(CaseType.name)
+            .order_by(CaseType.sort_order, CaseType.name)
         )
     ).scalars().all()
     workstreams = (
@@ -146,7 +200,12 @@ async def list_autonomy_scopes(
     ).scalars().all()
     return {
         "case_types": [
-            {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
+            {
+                "id": str(row.id),
+                "slug": row.slug,
+                "name": row.name,
+                "autonomy_level": row.autonomy_level,
+            }
             for row in case_types
         ],
         "workstreams": [
@@ -196,7 +255,10 @@ async def update_autonomy_scope(
         commit=False,
     )
     await session.commit()
-    return {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
+    payload: dict = {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
+    if scope_kind == "case_type":
+        payload["slug"] = getattr(row, "slug", "") or ""
+    return payload
 
 
 @router.get("/allowances")

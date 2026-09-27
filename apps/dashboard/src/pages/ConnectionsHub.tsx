@@ -18,6 +18,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
+import { useChannelStatus } from '../hooks/useChannelStatus'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import { useIntegrationBrand } from '../context/IntegrationBrandContext'
 import {
@@ -77,6 +78,7 @@ export default function ConnectionsHub() {
     counts,
     refresh,
   } = useConnectedIntegrationsSummary()
+  const { emailReady, sendReady } = useChannelStatus()
   const { applications, modules, refreshCatalog } = useIntegrationCatalog()
 
   const githubBrand = useIntegrationBrand('github')
@@ -224,14 +226,25 @@ export default function ConnectionsHub() {
 
     for (const row of calendarRows) {
       const brand = resolveProviderBrand(row.provider)
+      const provider = (row.provider || '').toLowerCase()
+      const calendarOnlyMail =
+        !emailReady &&
+        ((provider.includes('outlook') || provider.includes('microsoft'))
+          ? emailOutlook === 0
+          : provider.includes('google')
+            ? emailGmail === 0
+            : !sendReady)
       rows.push({
         id: row.id,
         kind: 'calendar',
         programKey: row.provider,
         programName: brand.name,
         title: row.display_name,
-        subtitle:
-          typeof row.event_count === 'number'
+        subtitle: calendarOnlyMail
+          ? t('integrations.connected.calendarOnlyNoMail', {
+              defaultValue: 'Calendar synced — mail not send-ready yet',
+            })
+          : typeof row.event_count === 'number'
             ? t('agendaPage.calendar.eventCount', { count: row.event_count })
             : null,
         brand,
@@ -307,11 +320,13 @@ export default function ConnectionsHub() {
     connections,
     emailGmail,
     emailOutlook,
+    emailReady,
     gmailBrand,
     github,
     githubBrand,
     mcpRows,
     outlookBrand,
+    sendReady,
     t,
   ])
 
@@ -383,6 +398,22 @@ export default function ConnectionsHub() {
       <p className="max-w-2xl text-sm text-text-secondary">
         {t('integrations.pageMeta.connected.description')}
       </p>
+
+      <section className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-text-heading">
+              {t('developersPage.controlFromCursor')}
+            </p>
+            <p className="mt-0.5 text-[12px] text-text-secondary">
+              {t('developersPage.controlFromCursorBody')}
+            </p>
+          </div>
+          <Button size="sm" variant="secondary" asChild>
+            <Link to="/settings/developers#mcp-setup">{t('developersPage.tokensTitle')}</Link>
+          </Button>
+        </div>
+      </section>
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">

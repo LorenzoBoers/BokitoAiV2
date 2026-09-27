@@ -31,6 +31,19 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         )
     ).scalar_one()
 
+    # Open inbox backlog (any age) so Verbruik is not "0" when Open is full.
+    open_backlog = (
+        await session.execute(
+            select(func.count()).select_from(Signal).where(
+                Signal.tenant_id == tenant_id,
+                Signal.channel.in_(EXTERNAL_CHANNELS),
+                Signal.source != "demo",
+                Signal.status.notin_(("closed", "spam")),
+                Signal.snoozed_until.is_(None),
+            )
+        )
+    ).scalar_one()
+
     from app.services.automated_mail import NO_REPLY_DECISION_TITLE
 
     open_decisions = (
@@ -116,6 +129,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
 
     return {
         "volume_week": conv_count,
+        "open_backlog": int(open_backlog or 0),
         "open_decisions": open_decisions,
         "autonomy_rate_pct": autonomy_rate,
         "avg_feedback_score": round(float(avg_feedback or 0), 2),

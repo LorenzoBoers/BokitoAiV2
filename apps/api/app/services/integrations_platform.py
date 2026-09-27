@@ -72,25 +72,36 @@ async def connection_counts(session: AsyncSession, tenant_id: UUID) -> dict[str,
             pid = PROVIDER_BY_SLUG[conn.provider]["id"]
             by_provider[pid] = by_provider.get(pid, 0) + 1
 
-    email_result = await session.execute(
-        select(ChannelAccount.provider, func.count())
-        .where(
-            ChannelAccount.tenant_id == tenant_id,
-            ChannelAccount.channel == "email",
-            ChannelAccount.is_enabled.is_(True),
+    # Count only mailboxes that are send- or receive-ready (ChannelStatus),
+    # not every enabled row that still needs OAuth or relay setup.
+    from app.models.auth import Tenant
+    from app.services.channel_registry import can_receive, can_send, resolve_channel
+
+    tenant_row = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    email_accounts = (
+        await session.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant_id,
+                ChannelAccount.channel == "email",
+                ChannelAccount.is_enabled.is_(True),
+            )
         )
-        .group_by(ChannelAccount.provider)
-    )
+    ).scalars().all()
     outlook = 0
     gmail = 0
     smtp_imap = 0
-    for provider, count in email_result.all():
-        if provider == "outlook":
-            outlook = int(count)
-        elif provider in ("gmail", "mock"):
-            gmail += int(count)
-        elif provider == "smtp_imap":
-            smtp_imap = int(count)
+    for account in email_accounts:
+        row = resolve_channel(account, tenant=tenant_row)
+        if not (can_send(row) or can_receive(row)):
+            continue
+        if account.provider == "outlook":
+            outlook += 1
+        elif account.provider in ("gmail", "mock"):
+            gmail += 1
+        elif account.provider == "smtp_imap":
+            smtp_imap += 1
 
     return {
         "by_provider_id": by_provider,

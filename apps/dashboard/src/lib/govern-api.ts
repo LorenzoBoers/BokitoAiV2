@@ -48,6 +48,13 @@ export type PosturePreset = {
   allowances: Record<string, AllowanceMode>
 }
 
+export type AutonomyPrerequisites = {
+  llm_live: boolean
+  send_ready: boolean
+  autonomous_allowed: boolean
+  block_reasons: string[]
+}
+
 export type AllowanceState = {
   posture: AutonomyPostureId
   allowances: Record<string, AllowanceMode>
@@ -55,6 +62,7 @@ export type AllowanceState = {
   categories: string[]
   presets: PosturePreset[]
   learning_history?: LearningAllowanceNote[]
+  prerequisites?: AutonomyPrerequisites
 }
 
 export type LearningAllowanceNote = {
@@ -82,6 +90,8 @@ export type AutonomyScopeLevel = 'manual' | 'approval' | 'auto'
 
 export type AutonomyScopeRow = {
   id: string
+  /** Present on case_type scopes for shared catalog labels. */
+  slug?: string
   name: string
   autonomy_level: AutonomyScopeLevel
 }

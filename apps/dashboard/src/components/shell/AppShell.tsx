@@ -8,6 +8,7 @@ import ShellSidebar from './ShellSidebar'
 import ShellTopbar from './ShellTopbar'
 import CommandPalette from './CommandPalette'
 import { settingsLinkForPath } from './SettingsLayout'
+import MockAiBanner from './MockAiBanner'
 import VerifyEmailBanner from './VerifyEmailBanner'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
 import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
@@ -26,11 +27,15 @@ function WorkspaceDocumentTitle() {
   useEffect(() => {
     const tab = tabFromPath(pathname)
     const settingsLink = settingsLinkForPath(pathname)
-    const page = settingsLink
-      ? `${t('tabs.settings.title')} / ${t(settingsLink.labelKey)}`
-      : tab
-        ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
-        : 'Bokito'
+    // Contacts nests under Communication in the rail, but the document title
+    // should say Contacts so the browser tab matches the page (F-79).
+    const page = pathname.startsWith('/contacts')
+      ? t('tabs.contacts.title')
+      : settingsLink
+        ? `${t('tabs.settings.title')} / ${t(settingsLink.labelKey)}`
+        : tab
+          ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
+          : 'Bokito'
     document.title = counts.inboxUnread > 0 ? `(${counts.inboxUnread}) ${page}` : page
   }, [pathname, counts.inboxUnread, t])
 
@@ -151,6 +156,7 @@ export default function AppShell() {
               />
               <VerifyEmailBanner />
               <TwoFactorBanner />
+              <MockAiBanner />
               <main className="min-h-0 flex-1">
                 {fullBleed ? (
                   <div className="h-full min-h-0 overflow-hidden">

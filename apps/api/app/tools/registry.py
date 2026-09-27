@@ -181,3 +181,4 @@ def _ensure_builtin_loaded() -> None:
     import app.tools.builtin  # noqa: F401 — registers built-in tools
     import app.tools.project_work  # noqa: F401 — registers project queue/doc tools
     import app.tools.cases  # noqa: F401 — registers operational case tools
+    import app.tools.contacts  # noqa: F401 — registers CRM contact tools

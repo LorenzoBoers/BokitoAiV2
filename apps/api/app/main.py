@@ -33,6 +33,7 @@ from app.routers import (
     livechat,
     integrations,
     mcp,
+    oauth_as,
     partner_mcp,
     me,
     models,
@@ -166,6 +167,72 @@ class LivechatCorsMiddleware:
 
 app.add_middleware(LivechatCorsMiddleware)
 
+
+class McpOAuthCorsMiddleware:
+    """Open CORS for remote MCP clients and the OAuth AS.
+
+    Cursor Agents, Claude.ai, and browser MCP hosts call these endpoints
+    cross-origin with Bearer tokens (never cookies), so wildcard Origin is
+    safe. Dashboard cookie auth stays on the strict allowlist above.
+    """
+
+    def __init__(self, app):  # noqa: ANN001
+        self.app = app
+        prefix = settings.api_prefix
+        self.prefixes = (
+            f"{prefix}/mcp",
+            f"{prefix}/oauth",
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-authorization-server",
+            "/.well-known/openid-configuration",
+        )
+
+    def _match(self, path: str) -> bool:
+        return any(path == p or path.startswith(p + "/") or path.startswith(p) for p in self.prefixes)
+
+    async def __call__(self, scope, receive, send):  # noqa: ANN001
+        if scope["type"] != "http" or not self._match(scope.get("path", "")):
+            await self.app(scope, receive, send)
+            return
+
+        cors_headers = [
+            (b"access-control-allow-origin", b"*"),
+            (b"access-control-allow-methods", b"GET, POST, OPTIONS"),
+            (
+                b"access-control-allow-headers",
+                b"Authorization, Content-Type, Accept, Mcp-Session-Id",
+            ),
+            (b"access-control-expose-headers", b"Mcp-Session-Id, WWW-Authenticate"),
+            (b"access-control-max-age", b"600"),
+        ]
+
+        if scope["method"] == "OPTIONS":
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 204,
+                    "headers": cors_headers,
+                }
+            )
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        async def send_with_cors(message):  # noqa: ANN001
+            if message["type"] == "http.response.start":
+                headers = [
+                    (k, v)
+                    for k, v in message.get("headers", [])
+                    if not k.lower().startswith(b"access-control-")
+                ]
+                headers.extend(cors_headers)
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_cors)
+
+
+app.add_middleware(McpOAuthCorsMiddleware)
+
 api_prefix = settings.api_prefix
 app.include_router(gateway_router, prefix=api_prefix)
 app.include_router(health.router, prefix=api_prefix)
@@ -192,6 +259,9 @@ app.include_router(projects.router, prefix=api_prefix)
 app.include_router(workforce.router, prefix=api_prefix)
 app.include_router(govern.router, prefix=api_prefix)
 app.include_router(mcp.router, prefix=api_prefix)
+app.include_router(oauth_as.router, prefix=api_prefix)
+app.include_router(oauth_as.mcp_well_known, prefix=api_prefix)
+app.include_router(oauth_as.well_known)
 app.include_router(partner_mcp.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(uploads.router, prefix=api_prefix)

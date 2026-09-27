@@ -102,12 +102,62 @@ def clean_message_preview(text: str, *, limit: int = 140) -> str:
 
 
 def _is_placeholder_preview(text: str) -> bool:
-    low = text.lower()
+    """True for mock/placeholder agent bodies that must never read as delivered."""
+    low = (text or "").lower()
     return (
         low.startswith("[mock]")
         or low.startswith("i received your message about:")
+        or low.startswith("ik heb je bericht ontvangen over:")
         or "placeholder reply while the workspace" in low
+        or "tijdelijk antwoord zolang de workspace" in low
+        or "without a live model" in low
+        or "zonder live model" in low
     )
+
+
+def message_is_mock(
+    body_text: str | None,
+    metadata: dict | None = None,
+    *,
+    auto_sent: bool = False,
+) -> bool:
+    """Whether a stored message is a mock/placeholder reply (not a live delivery)."""
+    meta = metadata if isinstance(metadata, dict) else {}
+    if meta.get("is_mock") is True:
+        return True
+    if meta.get("llm_mode") == "mock":
+        return True
+    if meta.get("llm_configured") is False:
+        return True
+    if _is_placeholder_preview(body_text or ""):
+        return True
+    return False
+
+
+def message_delivered_to_customer(
+    *,
+    direction: str | None,
+    auto_sent: bool,
+    send_status: str | None,
+    is_mock: bool,
+    kind: str | None = None,
+) -> bool:
+    """True only when an outbound agent/customer reply was actually delivered."""
+    if is_mock:
+        return False
+    if direction != "outbound":
+        return False
+    if kind in ("internal_note", "system"):
+        return False
+    status = (send_status or "").lower()
+    if status.startswith("failed") or status in ("scheduled", "sending"):
+        return False
+    if auto_sent:
+        return True
+    # Widget / chat: outbound agent bubbles reach the visitor without send_status.
+    if not status or status in ("sent", "skipped"):
+        return True
+    return status.startswith("sent")
 
 
 def _clean_thread_preview(text: str) -> str:
@@ -243,9 +293,11 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
         meta = json.loads(message.metadata_json or "{}")
     except json.JSONDecodeError:
         meta = {}
-    usage = meta.get("usage") if isinstance(meta, dict) else None
-    steps = meta.get("steps") if isinstance(meta, dict) else None
-    thinking = meta.get("thinking") if isinstance(meta, dict) else None
+    if not isinstance(meta, dict):
+        meta = {}
+    usage = meta.get("usage")
+    steps = meta.get("steps")
+    thinking = meta.get("thinking")
     if (
         (isinstance(usage, dict) and usage)
         or (isinstance(steps, list) and steps)
@@ -256,6 +308,22 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
             "steps": steps if isinstance(steps, list) else [],
             "thinking": thinking if isinstance(thinking, dict) else {},
         }
+    is_mock = message_is_mock(
+        message.body_text, meta, auto_sent=bool(message.auto_sent)
+    )
+    delivered = message_delivered_to_customer(
+        direction=message.direction,
+        auto_sent=bool(message.auto_sent),
+        send_status=message.send_status,
+        is_mock=is_mock,
+        kind=message.kind,
+    )
+    if is_mock:
+        payload["is_mock"] = True
+        payload["llm_mode"] = "mock"
+    elif meta.get("llm_mode"):
+        payload["llm_mode"] = meta.get("llm_mode")
+    payload["delivered_to_customer"] = delivered
     return {
         "id": str(message.id),
         "thread_id": str(message.signal_id),
@@ -265,8 +333,8 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
         "direction": message.direction,
         "from_address": message.from_address,
         "to_addresses": message.to_addresses,
-        "cc": str(meta.get("cc") or "") or None if isinstance(meta, dict) else None,
-        "bcc": str(meta.get("bcc") or "") or None if isinstance(meta, dict) else None,
+        "cc": str(meta.get("cc") or "") or None,
+        "bcc": str(meta.get("bcc") or "") or None,
         "subject": message.subject,
         "body_preview": message.body_preview or message.body_text[:200],
         "body_text": message.body_text,
@@ -277,6 +345,9 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
         "is_read": message.direction != "inbound",
         "send_status": message.send_status,
         "send_after": _iso(message.send_after),
+        "auto_sent": bool(message.auto_sent),
+        "is_mock": is_mock,
+        "delivered_to_customer": delivered,
         "attachments": json.loads(message.attachments_json or "[]"),
         "decision_id": str(message.decision_id) if message.decision_id else None,
         "payload": payload,
@@ -1455,9 +1526,22 @@ async def set_ai_paused(
             event_type="ai_paused" if paused else "ai_resumed",
             actor_type="user",
             actor_id=str(user_id),
-            payload_json=json.dumps({"ai_paused": paused}),
+            payload_json=json.dumps(
+                {
+                    "ai_paused": paused,
+                    "via": "operator_takeover" if paused else "operator_handback",
+                }
+            ),
         )
     )
+    if paused:
+        # Close open in-thread agent sessions so the composer defaults to Reply
+        # (Beantwoorden) instead of the agent tab after takeover.
+        from app.services.agent_sessions import close_open_sessions_for_thread
+
+        await close_open_sessions_for_thread(
+            session, tenant_id, user_id, signal_id, summary="Human takeover"
+        )
     from app.services.audit import record_audit
 
     await record_audit(

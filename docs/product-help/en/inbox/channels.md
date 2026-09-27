@@ -65,6 +65,8 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 
 ## Read a channel's state and checks
 
+Setup, Connections, Channels and the reply composer all use the same channel status. A calendar login alone does not count as a send-ready mailbox — Connections then shows that the agenda is synced while mail is not ready yet.
+
 1. Look at the state badge on the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused** or **Error**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
 2. When any channel still needs setup, a yellow notice appears above the list. Channels in **Setup required**, **Action needed** or **Error** open their **Checks** panel automatically.
 3. The chips next to the badge show what the channel can do: **Receive**, **Send**, **Sync**. Day-to-day sync runs automatically; **Retry sync** appears only when a mailbox has a sync problem.
@@ -72,7 +74,7 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 5. For a mailbox, **History** in the same panel is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
 6. Use the toggle to pause a channel. A paused channel keeps its history but receives nothing new.
 
-In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked.
+In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked. The setup guide marks the channel step done only when a mailbox can send or receive.
 
 ## Set a signature and default agent
 

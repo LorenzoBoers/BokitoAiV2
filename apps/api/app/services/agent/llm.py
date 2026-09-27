@@ -31,6 +31,89 @@ _SCAFFOLD_MARKERS = (
     "reply directly to the customer",
 )
 
+_DUTCH_HINT_RE = re.compile(
+    r"\b(ik|je|jij|u|wij|we|het|een|van|voor|met|niet|nog|graag|bedankt|"
+    r"afspraak|factuur|offerte|klacht|dringend|morgen|vandaag|alsjeblieft|"
+    r"kunnen|willen|hebben|zijn|goedemorgen|goedemiddag)\b",
+    re.IGNORECASE,
+)
+
+
+def _messages_blob(messages: list[dict[str, Any]]) -> str:
+    parts: list[str] = []
+    for message in messages:
+        content = message.get("content", "")
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    parts.append(str(block.get("text", "")))
+    return "\n".join(parts)
+
+
+def _detect_mock_language(messages: list[dict[str, Any]]) -> str:
+    """Prefer NL when instructions or the customer message point that way."""
+    blob = _messages_blob(messages)
+    low = blob.lower()
+    if (
+        "write the reply body in dutch" in low
+        or "write every reply in dutch" in low
+        or "must be written in dutch" in low
+    ):
+        return "nl"
+    if (
+        "write the reply body in english" in low
+        or "write every reply in english" in low
+        or "must be written in english" in low
+    ):
+        return "en"
+    last_user = _last_user_text(messages)
+    # AUTO: mirror the customer when their message clearly looks Dutch.
+    if _DUTCH_HINT_RE.search(last_user):
+        return "nl"
+    # Workspace / UI default often Dutch — prefer NL when instructions mention it.
+    if "in dutch" in low or "dutch workspace" in low:
+        return "nl"
+    return "en"
+
+
+def _mock_ack(lang: str) -> str:
+    if lang == "nl":
+        return (
+            "Bedankt voor je bericht. We hebben je verzoek ontvangen "
+            "en nemen spoedig contact met je op."
+        )
+    return (
+        "Thank you for your message. We have received your request "
+        "and will follow up shortly."
+    )
+
+
+def _mock_placeholder(lang: str, topic: str) -> str:
+    if lang == "nl":
+        return (
+            f"Ik heb je bericht ontvangen over: {topic}. "
+            "Dit is een tijdelijk antwoord zolang de workspace zonder live model draait."
+        )
+    return (
+        f"I received your message about: {topic}. "
+        "This is a placeholder reply while the workspace runs without a live model."
+    )
+
+
+def _mock_prepared(lang: str) -> str:
+    if lang == "nl":
+        return (
+            "Bedankt voor je bericht. Ik heb je vraag bekeken en de details "
+            "hieronder klaargezet. Laat het weten als er iets mist, dan volgen we op."
+        )
+    return (
+        "Thank you for reaching out. I looked into your question and "
+        "prepared the details below. Let us know if anything is missing "
+        "and we will follow up right away."
+    )
+
 
 def _mock_topic(last_user: str) -> str:
     """Short human topic for the mock echo: prefer the mail subject line."""
@@ -96,6 +179,8 @@ class MockLLMProvider:
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
         last_user = _last_user_text(messages)
+        lang = _detect_mock_language(messages)
+        ack = _mock_ack(lang)
         tool_loop_count = sum(
             1 for m in messages if m.get("role") == "user" and isinstance(m.get("content"), list)
         )
@@ -105,15 +190,7 @@ class MockLLMProvider:
         ):
             return {
                 "stop_reason": "end_turn",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "Thank you for your message. We have received your request "
-                            "and will follow up shortly."
-                        ),
-                    }
-                ],
+                "content": [{"type": "text", "text": ack}],
                 "usage": {"input_tokens": 10, "output_tokens": 20},
             }
         if tools and tool_loop_count < 1:
@@ -139,16 +216,8 @@ class MockLLMProvider:
                                         "label": "Send",
                                         "action_type": "send_reply",
                                         "payload": {
-                                            "body": (
-                                                "Thank you for your message. We have "
-                                                "received your request and will follow "
-                                                "up shortly."
-                                            ),
-                                            "body_text": (
-                                                "Thank you for your message. We have "
-                                                "received your request and will follow "
-                                                "up shortly."
-                                            ),
+                                            "body": ack,
+                                            "body_text": ack,
                                         },
                                     },
                                     {"id": "later", "label": "Defer", "action_type": "defer"},
@@ -174,16 +243,7 @@ class MockLLMProvider:
         if "preparing a response for a human teammate" in last_user:
             return {
                 "stop_reason": "end_turn",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "Thank you for reaching out. I looked into your question and "
-                            "prepared the details below. Let us know if anything is missing "
-                            "and we will follow up right away."
-                        ),
-                    }
-                ],
+                "content": [{"type": "text", "text": _mock_prepared(lang)}],
                 "usage": {"input_tokens": 10, "output_tokens": 25},
             }
         lowered_user = last_user.lower()
@@ -214,15 +274,7 @@ class MockLLMProvider:
             # that an operator may approve and send to a customer.
             return {
                 "stop_reason": "end_turn",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "Thank you for your message. We have received your request "
-                            "and will follow up shortly."
-                        ),
-                    }
-                ],
+                "content": [{"type": "text", "text": ack}],
                 "usage": {"input_tokens": 10, "output_tokens": 20},
             }
         return {
@@ -230,10 +282,7 @@ class MockLLMProvider:
             "content": [
                 {
                     "type": "text",
-                    "text": (
-                        f"I received your message about: {_mock_topic(last_user)}. "
-                        "This is a placeholder reply while the workspace runs without a live model."
-                    ),
+                    "text": _mock_placeholder(lang, _mock_topic(last_user)),
                 }
             ],
             "usage": {"input_tokens": 10, "output_tokens": 30},

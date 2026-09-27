@@ -213,3 +213,75 @@ export function channelCanSend(row: ChannelRow): boolean {
   if (!row.capabilities.includes('send')) return false
   return row.state === 'active' || row.state === 'degraded' || row.state === 'connecting'
 }
+
+export type ChannelStatusSummary = 'ready' | 'setup' | 'action' | 'paused' | 'broken'
+
+export type ChannelStatusRow = {
+  id: string
+  kind: string
+  channel: string
+  provider: string
+  address: string
+  displayName: string
+  isEnabled: boolean
+  state: string
+  stateReason: string
+  canSend: boolean
+  canReceive: boolean
+  summary: ChannelStatusSummary
+}
+
+export type ChannelStatusSnapshot = {
+  channels: ChannelStatusRow[]
+  readyCount: number
+  emailReady: boolean
+  sendReady: boolean
+}
+
+function normalizeStatusSummary(value: unknown): ChannelStatusSummary {
+  const s = asString(value)
+  if (s === 'ready' || s === 'setup' || s === 'action' || s === 'paused' || s === 'broken') {
+    return s
+  }
+  return 'setup'
+}
+
+function normalizeStatusRow(raw: unknown): ChannelStatusRow | null {
+  if (!raw || typeof raw !== 'object') return null
+  const value = raw as Record<string, unknown>
+  const id = asString(value.id)
+  if (!id) return null
+  return {
+    id,
+    kind: asString(value.kind),
+    channel: asString(value.channel),
+    provider: asString(value.provider),
+    address: asString(value.address),
+    displayName: asString(value.display_name, asString(value.address)),
+    isEnabled: value.is_enabled !== false,
+    state: asString(value.state, 'setup_required'),
+    stateReason: asString(value.state_reason),
+    canSend: value.can_send === true,
+    canReceive: value.can_receive === true,
+    summary: normalizeStatusSummary(value.summary),
+  }
+}
+
+/** Setup / Connections / composer — same ChannelStatus truth as Kanalen. */
+export async function getChannelStatus(token: string): Promise<ChannelStatusSnapshot> {
+  const data = await apiGet<{
+    channels?: unknown[]
+    ready_count?: number
+    email_ready?: boolean
+    send_ready?: boolean
+  }>(appRoutes.channels.status, token)
+  const channels = Array.isArray(data.channels)
+    ? data.channels.map(normalizeStatusRow).filter((r): r is ChannelStatusRow => r !== null)
+    : []
+  return {
+    channels,
+    readyCount: typeof data.ready_count === 'number' ? data.ready_count : channels.filter((c) => c.summary === 'ready').length,
+    emailReady: data.email_ready === true,
+    sendReady: data.send_ready === true,
+  }
+}

@@ -124,6 +124,8 @@ export const appRoutes = {
   channels: {
     // Uniform channel rows: state, capabilities, checks.
     list: '/channels',
+    /** Single-truth DTO for Setup, Connections, composer banners. */
+    status: '/channels/status',
     byId: (id: string) => `/channels/accounts/${id}`,
     sync: (id: string) => `/channels/accounts/${id}/sync`,
     emailRelays: '/channels/email/relays',

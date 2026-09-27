@@ -32,7 +32,7 @@ A playbook is a defined process for work that comes back: collecting figures for
 
 ## Start and follow a run
 
-1. Choose **Start run**, type the input (the request, period, or context this run is about), and confirm. An auto-start binding creates at most one run per tracked signal and playbook, even when multiple recognized signals on the conversation resolve to it.
+1. **Start run** stays disabled until the playbook has at least one step and is **Enabled** (not paused). Add a step first, then choose **Start run**, type the input (the request, period, or context this run is about), and confirm. An auto-start binding creates at most one run per tracked signal and playbook, even when multiple recognized signals on the conversation resolve to it.
 2. The run detail shows the status (**Running**, **Waiting**, **Awaiting gate**, **Completed**, **Failed**, **Cancelled**), the input, and a step-by-step worklog: what each agent step did, when the run waited, and which decisions were taken.
 3. A waiting run continues when you **Resume** it with the reply it waits for. A decision resolves inline in the tracked conversation; the selected branch determines the next step.
 4. **Cancel** stops a run; the worklog stays.

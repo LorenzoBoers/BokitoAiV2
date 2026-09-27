@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createCase, listCaseTypes, type CaseTypeRow } from '../../lib/cases-api'
+import { signalTypeLabel } from '../../lib/signal-type-catalog'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -34,7 +35,7 @@ export function WhatsNextDialog({
   onSaveReminder,
   onSignalCreated,
 }: Props) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const [mode, setMode] = useState<'remind' | 'signal'>('remind')
   const [title, setTitle] = useState(defaultTitle)
   const [when, setWhen] = useState<FollowUpWhen>('today')
@@ -165,7 +166,9 @@ export function WhatsNextDialog({
                   onClick={() => void handleSignal(type)}
                   className="flex w-full items-center justify-between rounded-lg border border-transparent px-2.5 py-1.5 text-left text-[12.5px] text-text-primary transition-colors hover:border-border/60 hover:bg-bg-hover/60 disabled:opacity-50"
                 >
-                  <span className="min-w-0 flex-1 truncate">{type.name}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {signalTypeLabel(type, i18n.language)}
+                  </span>
                   {creatingTypeId === type.id ? (
                     <span className="text-[10.5px] text-text-muted">{t('threadChrome.creating')}</span>
                   ) : null}

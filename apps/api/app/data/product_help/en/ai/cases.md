@@ -30,14 +30,14 @@ Each type has an **Outcome**: **Label only** records the recognition, **Track** 
 
 ## Open a case from website chat
 
-1. A visitor describes a bug in the [website widget](/docs/inbox/widget). The agent calls **create_case** with type **Bug report** and a certainty score.
+1. A visitor describes something broken in the [website widget](/docs/inbox/widget). The agent calls **create_case** with type **Storing** (Bug report) and a certainty score.
 2. If the type asks the visitor, the agent confirms first. If it asks the team, the visitor sees a short status line and you get a decision card in Messages.
 3. When exactly one binding is set to auto-link, the case attaches to that workstream. Several bindings pause for you to choose.
 
 ## Confirm a visitor before billing data
 
 1. On the Accounting module, turn on **Customer chat tools** when the widget may look up that visitor's own invoices after a short email link.
-2. Install the **Billing inquiry** intake type from the module **Intake types** list when you want that type in the workspace.
+2. Install the **Factuurvraag** (Billing inquiry) intake type from the module **Intake types** list when you want that type in the workspace. The platform also seeds **Factuur/betaling** (Invoice / payment) for general invoice and payment threads.
 3. The agent never says whether an account exists. The visitor gets a link, confirms, and the conversation stays open.
 
 ## Confirm or add signals on a conversation

@@ -18,6 +18,17 @@ export function isGenericVisitorName(name: string | null | undefined): boolean {
   return GENERIC_VISITOR_NAME.test((name ?? '').trim())
 }
 
+/** True when the contact still needs a real identifier (email / phone). */
+export function isAnonymousContact(
+  name: string | null | undefined,
+  address: string | null | undefined,
+): boolean {
+  if (isPlaceholderContactAddress(address)) return true
+  const trimmedAddress = (address ?? '').trim()
+  if (!trimmedAddress && isGenericVisitorName(name)) return true
+  return false
+}
+
 /** Prefer a real name; map leftover English widget labels to the local visitor term.
  * When there is no name, derive a readable label from the email local-part
  * (petra.bakker@… → Petra Bakker) instead of showing the full address as title.

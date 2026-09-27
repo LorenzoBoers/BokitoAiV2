@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { notificationSignalId, pathForNotification } from './notification-path'
 
 describe('pathForNotification', () => {
-  it('opens decision threads on the Decisions leaf with the signal id', () => {
+  it('opens decision threads on the Decisions hub leaf', () => {
     expect(
       pathForNotification({
         kind: 'decision_request',
@@ -33,7 +33,7 @@ describe('pathForNotification', () => {
     expect(notificationSignalId({ thread_id: 42 })).toBe('42')
   })
 
-  it('falls back to Decisions when a decision has no signal id', () => {
+  it('falls back to the Decisions leaf when a decision has no signal id', () => {
     expect(
       pathForNotification({
         kind: 'decision_request',

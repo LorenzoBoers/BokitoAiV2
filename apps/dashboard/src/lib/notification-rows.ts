@@ -27,6 +27,11 @@ export const DEFAULT_NOTIFICATION_ROWS: NotificationPrefRow[] = [
     channels: { desktop: true, email: false, push: true },
   },
   {
+    id: 'handoff',
+    label: 'When a customer asks for a human',
+    channels: { desktop: true, email: false, push: true },
+  },
+  {
     id: 'digest-daily',
     label: 'Daily email digest',
     channels: { desktop: false, email: false, push: false },

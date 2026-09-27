@@ -30,8 +30,7 @@ import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { permissionScopeLabel } from '../../lib/permission-scope-label'
 import { AiAvatar } from '../ui/AiAvatar'
-import { ThreadProjectPicker } from './ThreadProjectPicker'
-import { ThreadCasesList } from './ThreadCasesList'
+import { ConversationWorkSection } from './ConversationWorkSection'
 
 type Props = {
   thread: InboxThread
@@ -200,13 +199,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
 
   return (
     <div className="flex flex-col">
-      <div className="border-b border-border/40 px-4 pb-1 pt-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-          {t('sidePanel.who', { ns: 'communication', defaultValue: 'Who' })}
-        </h2>
-      </div>
-
-      {/* Identity */}
+      {/* Identity — panel chrome already titles this as Who */}
       <div className="border-b border-border/40 px-4 pb-3 pt-3">
         <SectionHeading title={t('agentContext.agent')} />
         {agent && agentId ? (
@@ -293,17 +286,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         </div>
       ) : null}
 
-      <div className="border-b border-border/40 px-4 py-3 space-y-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-          {t('sidePanel.thisConversation', { ns: 'communication', defaultValue: 'This conversation' })}
-        </h2>
-        <ThreadProjectPicker
-          threadId={thread.id}
-          projectId={thread.projectId ?? null}
-          onUpdated={onThreadUpdated}
-        />
-        <ThreadCasesList signalId={String(thread.id)} />
-      </div>
+      <ConversationWorkSection threadId={thread.id} />
 
       {loading ? (
         <div className="flex items-center gap-2 px-4 py-3 text-[12px] text-text-muted">

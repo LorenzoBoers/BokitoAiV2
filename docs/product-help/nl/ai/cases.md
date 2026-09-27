@@ -30,14 +30,14 @@ Elk type heeft een **Uitkomst**: **Alleen label** legt de herkenning vast, **Vol
 
 ## Open een signaal vanuit websitechat
 
-1. Een bezoeker beschrijft een bug in de [websitewidget](/docs/inbox/widget). De agent opent het type **Bug report** met een zekerheidsscore.
+1. Een bezoeker beschrijft een storing in de [websitewidget](/docs/inbox/widget). De agent opent het type **Storing** met een zekerheidsscore.
 2. Als het type de bezoeker vraagt, bevestigt de agent eerst. Als het het team vraagt, ziet de bezoeker een korte statusregel en krijg jij een beslissingskaart in Berichten.
 3. Bij precies één koppeling met automatisch linken gaat het signaal naar die werkstroom. Bij meerdere koppelingen kies jij.
 
 ## Bevestig een bezoeker voor factuurgegevens
 
 1. Zet op de module Boekhouding **Klantchat-tools** aan wanneer de widget de eigen facturen van die bezoeker mag opzoeken na een korte e-maillink.
-2. Installeer het intake-type **Billing inquiry** vanuit de modulelijst **Intake-types** wanneer je dat type in de workspace wilt.
+2. Installeer het intake-type **Factuurvraag** vanuit de modulelijst **Intake-types** wanneer je dat type in de workspace wilt. Het platform seedt ook **Factuur/betaling** voor algemene factuur- en betalingsgesprekken.
 3. De agent zegt nooit of een account bestaat. De bezoeker krijgt een link, bevestigt, en het gesprek blijft open.
 
 ## Bevestig of voeg signalen toe op een gesprek

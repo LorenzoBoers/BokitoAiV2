@@ -7,6 +7,7 @@ import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import ContactPanel from './ContactPanel'
 import AgentContextPanel from './AgentContextPanel'
+import { ConversationWorkSection } from './ConversationWorkSection'
 
 type Props = {
   thread: InboxThread
@@ -128,19 +129,17 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isExternal ? (
-          <ContactPanel
-            contactId={thread.contactId}
-            fallbackName={thread.contactName}
-            fallbackEmail={thread.contactEmail}
-            currentThreadId={thread.id}
-            threadSubject={thread.emailSubject}
-            threadPreview={thread.lastMessagePreview}
-            projectId={thread.projectId ?? null}
-            followUpAt={thread.followUpAt}
-            followUpTitle={thread.followUpTitle}
-            onUpdated={onThreadUpdated}
-            onFollowUpCleared={onThreadUpdated}
-          />
+          <>
+            <ContactPanel
+              contactId={thread.contactId}
+              fallbackName={thread.contactName}
+              fallbackEmail={thread.contactEmail}
+              currentThreadId={thread.id}
+              threadSubject={thread.emailSubject}
+              threadPreview={thread.lastMessagePreview}
+            />
+            <ConversationWorkSection threadId={thread.id} />
+          </>
         ) : (
           <AgentContextPanel thread={thread} agent={contextAgent} onThreadUpdated={onThreadUpdated} />
         )}

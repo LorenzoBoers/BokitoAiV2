@@ -5,6 +5,14 @@
 {$BOKITO_DOMAIN} {
 	encode zstd gzip
 
+	# MCP OAuth discovery (RFC 8414 / 9728) must hit FastAPI, not the SPA.
+	# Cursor fetches these before authorize; HTML here breaks connect with
+	# "Unexpected token '<'".
+	@oauthWellKnown path /.well-known/oauth-protected-resource* /.well-known/oauth-authorization-server* /.well-known/openid-configuration*
+	handle @oauthWellKnown {
+		reverse_proxy api:8000
+	}
+
 	# API + WebSocket gateway -> FastAPI (Caddy upgrades /api/ws automatically).
 	@api path /api/*
 	handle @api {

@@ -148,7 +148,7 @@ function AgentLibraryCard({
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      navigate(`${decisionsPath()}?agent=${encodeURIComponent(agent.id)}`)
+                      navigate(decisionsPath(null, { agent: agent.id }))
                     }}
                     className="text-[11px] font-medium text-text-heading hover:underline"
                   >

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CHANNELS = {"desktop": True, "email": False, "push": True, "slack": False}
 # User-toggleable rows in Notification Settings.
-NOTIFICATION_CATEGORIES = {"assigned-to-me", "mentions", "decisions"}
+NOTIFICATION_CATEGORIES = {"assigned-to-me", "mentions", "decisions", "handoff"}
 # Email digests: opt-in only (email off until the user enables it).
 DIGEST_CATEGORIES = {"digest-daily", "digest-weekly"}
 DIGEST_DEFAULT_CHANNELS = {"desktop": False, "email": False, "push": False, "slack": False}
@@ -36,8 +36,8 @@ async def notification_channels(
     """The user's enabled channels for a notification category.
 
     Channels: `desktop` (in-app bell + device push), `email`, and `slack`
-    (decision DMs). Preference categories (assigned/mentions/decisions) and
-    digest rows honour stored toggles. System categories (ops, handoff,
+    (decision DMs). Preference categories (assigned/mentions/decisions/
+    handoff) and digest rows honour stored toggles. System categories (ops,
     billing, …) always deliver desktop so operational alerts never vanish.
     """
     from app.models.notification import UserNotificationPreference

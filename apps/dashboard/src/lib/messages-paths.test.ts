@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  decisionsPath,
   leafFromPath,
   leafKey,
   leafPath,
@@ -121,11 +122,21 @@ describe('sameLeafScope', () => {
     expect(leafKey({ type: 'inbox', queue: 'open' })).toBe('inbox:open')
   })
 
-  it('round-trips the Decisions leaf', () => {
+  it('round-trips the Decisions hub leaf', () => {
     expect(leafFromPath('/communication/decisions')).toEqual({ type: 'decisions' })
     expect(leafPath({ type: 'decisions' })).toBe('/communication/decisions')
     expect(leafPath({ type: 'decisions' }, 'sig-1')).toBe('/communication/decisions/t/sig-1')
     expect(leafKey({ type: 'decisions' })).toBe('decisions')
+  })
+
+  it('keeps extra query params on the Decisions leaf and drops legacy filter', () => {
+    expect(decisionsPath(null, '?agent=a1')).toBe('/communication/decisions?agent=a1')
+    expect(decisionsPath('sig-2', { message: 'msg-9' })).toBe(
+      '/communication/decisions/t/sig-2?message=msg-9',
+    )
+    expect(decisionsPath(null, 'filter=needsDecision&agent=a1')).toBe(
+      '/communication/decisions?agent=a1',
+    )
   })
 
   it('matches Decisions scope', () => {

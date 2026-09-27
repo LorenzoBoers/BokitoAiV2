@@ -515,6 +515,43 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
     if signal.channel in ("internal", "assistant"):
         return {"error": f"Channel {signal.channel} has no external party to converse with"}
 
+    # Customer/visitor handoff pauses until a human acts. Agents must not
+    # silently resume AI after "talk to a human".
+    if signal.ai_paused:
+        latest_pause = (
+            await ctx.session.execute(
+                select(SignalEvent)
+                .where(
+                    SignalEvent.signal_id == signal.id,
+                    SignalEvent.tenant_id == ctx.tenant_id,
+                    SignalEvent.event_type == "ai_paused",
+                )
+                .order_by(SignalEvent.created_at.desc())
+                .limit(1)
+            )
+        ).scalars().first()
+        via = ""
+        if latest_pause and latest_pause.payload_json:
+            try:
+                via = str(json.loads(latest_pause.payload_json).get("via") or "")
+            except json.JSONDecodeError:
+                via = ""
+        if via in (
+            "handoff_to_human",
+            "visitor_request",
+            "visitor_handoff",
+            "widget_handoff",
+            "request_human",
+        ):
+            return {
+                "error": (
+                    "AI is paused because the customer asked for a human. "
+                    "A team member must reply or hand the thread back to AI."
+                ),
+                "ai_paused": True,
+                "signal_id": str(signal.id),
+            }
+
     signal.agent_id = ctx.agent.id
     signal.ai_paused = False
     signal.assigned_user_id = None
@@ -2668,6 +2705,347 @@ register_tool(
             "required": ["repo_url", "brief"],
         },
         handler=_dispatch_work,
+        mutating=True,
+        gated=True,
+        consequential=True,
+    )
+)
+
+
+# ── workforce introspection (agents / playbooks / triggers) ──────
+
+
+def _serialize_agent_row(row: Any, *, detail: bool = False) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "id": str(row.id),
+        "name": row.name,
+        "slug": row.slug or "",
+        "role": row.role,
+        "kind": row.kind,
+        "audience": row.audience,
+        "model": row.model,
+        "is_active": bool(row.is_active),
+        "is_lead": bool(row.is_lead),
+        "acts_for_user": bool(row.acts_for_user),
+        "autonomy_level": row.autonomy_level,
+        "runtime_status": row.runtime_status,
+    }
+    if detail:
+        try:
+            tools = json.loads(row.tools_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            tools = []
+        data.update(
+            {
+                # Stored as system_prompt; operators and the API call it purpose.
+                "purpose": row.system_prompt or "",
+                "tools": [str(t) for t in tools] if isinstance(tools, list) else [],
+                "chat_access": row.chat_access,
+                "max_loops": row.max_loops,
+                "current_activity_summary": row.current_activity_summary or "",
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+        )
+    return data
+
+
+async def _list_agents(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.models.agent import Agent
+
+    stmt = select(Agent).where(Agent.tenant_id == ctx.tenant_id)
+    if tool_input.get("include_inactive") is not True:
+        stmt = stmt.where(Agent.is_active.is_(True))
+    rows = (
+        await ctx.session.execute(stmt.order_by(Agent.name).limit(100))
+    ).scalars().all()
+    return {"agents": [_serialize_agent_row(row) for row in rows]}
+
+
+async def _get_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.models.agent import Agent
+
+    raw = str(tool_input.get("agent_id") or tool_input.get("agent_slug") or "").strip()
+    if not raw:
+        return {"error": "agent_id or agent_slug is required"}
+    try:
+        stmt = select(Agent).where(
+            Agent.id == UUID(raw), Agent.tenant_id == ctx.tenant_id
+        )
+    except ValueError:
+        stmt = select(Agent).where(Agent.slug == raw, Agent.tenant_id == ctx.tenant_id)
+    row = (await ctx.session.execute(stmt)).scalar_one_or_none()
+    if row is None:
+        return {"error": "Agent not found"}
+    return _serialize_agent_row(row, detail=True)
+
+
+async def _list_playbooks(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.workstreams import list_workstreams
+
+    project_id = None
+    raw_project = str(tool_input.get("project_id") or "").strip()
+    if raw_project:
+        try:
+            project_id = UUID(raw_project)
+        except ValueError:
+            return {"error": "project_id must be a valid id"}
+    elif ctx.project_id:
+        project_id = ctx.project_id
+    return {"playbooks": await list_workstreams(ctx.session, ctx.tenant_id, project_id=project_id)}
+
+
+async def _get_playbook(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from fastapi import HTTPException
+
+    from app.services.workstreams import (
+        get_workstream,
+        list_steps,
+        serialize_step,
+        serialize_workstream,
+    )
+
+    raw = str(tool_input.get("playbook_id") or tool_input.get("workstream_id") or "").strip()
+    if not raw:
+        return {"error": "playbook_id is required"}
+    try:
+        playbook_id = UUID(raw)
+    except ValueError:
+        return {"error": "playbook_id must be a valid id"}
+    try:
+        workstream = await get_workstream(ctx.session, ctx.tenant_id, playbook_id)
+    except HTTPException as exc:
+        return {"error": str(exc.detail)}
+    steps = await list_steps(ctx.session, ctx.tenant_id, workstream.id)
+    return {
+        **serialize_workstream(workstream, steps_count=len(steps)),
+        "steps": [serialize_step(step) for step in steps],
+    }
+
+
+async def _list_triggers(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.models.trigger import Trigger
+    from app.services.triggers import serialize_trigger
+
+    stmt = select(Trigger).where(Trigger.tenant_id == ctx.tenant_id)
+    kind = str(tool_input.get("kind") or "").strip()
+    if kind:
+        stmt = stmt.where(Trigger.kind == kind)
+    if tool_input.get("enabled_only") is True:
+        stmt = stmt.where(Trigger.enabled.is_(True))
+    limit = max(1, min(int(tool_input.get("limit") or 50), 100))
+    rows = (
+        await ctx.session.execute(stmt.order_by(Trigger.created_at).limit(limit))
+    ).scalars().all()
+    return {"triggers": [serialize_trigger(row) for row in rows]}
+
+
+_DECISION_ACTIONS = {
+    "approve": "approved",
+    "approved": "approved",
+    "reject": "rejected",
+    "rejected": "rejected",
+    "defer": "deferred",
+    "deferred": "deferred",
+}
+
+
+async def _resolve_decision(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Answer a pending decision card the same way the inbox does."""
+    from app.services.notifications import DecisionActionError
+    from app.services.notifications import resolve_decision as resolve
+
+    raw = str(tool_input.get("decision_id") or "").strip()
+    try:
+        decision_id = UUID(raw)
+    except ValueError:
+        return {"error": "decision_id must be a valid id"}
+    action = _DECISION_ACTIONS.get(str(tool_input.get("action") or "").strip().lower())
+    if action is None:
+        return {"error": "action must be approve, reject, or defer"}
+
+    decision = (
+        await ctx.session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.id == decision_id,
+                DecisionRequest.tenant_id == ctx.tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if decision is None:
+        return {"error": "Decision not found"}
+    if decision.status != "awaiting_human":
+        return {
+            "error": f"Decision is already {decision.status}",
+            "decision_id": str(decision.id),
+            "status": decision.status,
+        }
+
+    try:
+        options = json.loads(decision.options_json or "[]")
+    except json.JSONDecodeError:
+        options = []
+    option_ids = [str(o.get("id")) for o in options if isinstance(o, dict) and o.get("id")]
+    option_id = str(tool_input.get("chosen_option_id") or "").strip()
+    if option_id:
+        if option_ids and option_id not in option_ids:
+            return {"error": f"Unknown option. Choose one of: {', '.join(option_ids)}"}
+    elif action == "approved":
+        # Approving runs the option's action, so never guess between choices.
+        actionable = [
+            str(o.get("id"))
+            for o in options
+            if isinstance(o, dict)
+            and o.get("id")
+            and str(o.get("action_type") or "") not in ("reject", "defer")
+        ]
+        if len(actionable) != 1:
+            return {
+                "error": "chosen_option_id is required",
+                "options": options,
+            }
+        option_id = actionable[0]
+    else:
+        option_id = "reject" if action == "rejected" else "defer"
+
+    try:
+        resolved = await resolve(
+            ctx.session,
+            ctx.tenant_id,
+            decision_id,
+            option_id,
+            action,
+            user_id=ctx.user_id,
+        )
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except DecisionActionError as exc:
+        return {"error": str(exc.detail), "decision_id": str(decision_id), "status": "awaiting_human"}
+    return {
+        "decision_id": str(resolved.id),
+        "status": resolved.status,
+        "chosen_option_id": resolved.chosen_option_id,
+        "title": resolved.title,
+    }
+
+
+register_tool(
+    ToolSpec(
+        name="list_agents",
+        description=(
+            "List the agents in this workspace (name, slug, role, audience, "
+            "autonomy level, active flag). Pass include_inactive to also see "
+            "paused agents."
+        ),
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {"include_inactive": {"type": "boolean"}},
+        },
+        handler=_list_agents,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="get_agent",
+        description=(
+            "Read one agent by id or slug, including its purpose (system prompt) "
+            "and tool passport."
+        ),
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "agent_slug": {"type": "string"},
+            },
+        },
+        handler=_get_agent,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="list_playbooks",
+        description=(
+            "List playbooks (workstreams) with their step counts. Scoped to a "
+            "project when project_id is given or the run is project-scoped."
+        ),
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {"project_id": {"type": "string"}},
+        },
+        handler=_list_playbooks,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="get_playbook",
+        description="Read one playbook (workstream) with its ordered steps.",
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "playbook_id": {"type": "string"},
+                "workstream_id": {"type": "string"},
+            },
+        },
+        handler=_get_playbook,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="list_triggers",
+        description=(
+            "List Agenda triggers (cron, interval, heartbeat, webhook, once) with "
+            "their schedule, last status, and next run."
+        ),
+        category="triggers",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string"},
+                "enabled_only": {"type": "boolean"},
+                "limit": {"type": "integer"},
+            },
+        },
+        handler=_list_triggers,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="resolve_decision",
+        description=(
+            "Answer a pending decision card: approve, reject, or defer it. "
+            "Approving runs the chosen option's action, so pass "
+            "chosen_option_id whenever the card offers more than one real "
+            "choice. Always asks a human first."
+        ),
+        category="govern",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "decision_id": {"type": "string"},
+                "action": {"type": "string", "enum": ["approve", "reject", "defer"]},
+                "chosen_option_id": {"type": "string"},
+            },
+            "required": ["decision_id", "action"],
+        },
+        handler=_resolve_decision,
         mutating=True,
         gated=True,
         consequential=True,

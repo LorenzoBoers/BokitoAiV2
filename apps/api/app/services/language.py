@@ -84,12 +84,15 @@ def resolve_workspace_language(tenant: Tenant | None) -> str:
     return platform_default_ui_language()
 
 
-def reply_language_instruction(code: str) -> str:
+def reply_language_instruction(code: str, *, fallback: str | None = None) -> str:
     """Prompt line describing what language the reply body must be in."""
     if code == AUTO:
+        fb_code = fallback if fallback in LANGUAGE_NAMES else platform_default_ui_language()
+        fb_name = LANGUAGE_NAMES.get(fb_code, "Dutch")
         return (
             "Write the reply body in the same language as the customer's message "
-            "(mirror their language exactly; do not translate to another language)."
+            "(mirror their language exactly; do not translate to another language). "
+            f"If the customer's language is unclear, write in {fb_name}."
         )
     name = LANGUAGE_NAMES.get(code, "English")
     return f"Write the reply body in {name}, regardless of the customer's language."
@@ -119,14 +122,15 @@ def language_rules_for_trust(trust: str, tenant: Tenant | None) -> str:
 
     Internal/operator trust uses the tenant workspace language. External
     (customer) trust mirrors the customer's message unless reply_language is pinned.
+    When reply language is Auto, unclear customer language falls back to the
+    workspace language (NL when the UI/workspace default is Dutch).
     """
+    workspace = resolve_workspace_language(tenant)
     if trust == "external":
         reply = resolve_reply_language(tenant, None)
-        workspace = resolve_workspace_language(tenant)
         return (
             "## Language\n"
-            f"- {reply_language_instruction(reply)}\n"
+            f"- {reply_language_instruction(reply, fallback=workspace)}\n"
             f"- {workspace_language_instruction(workspace)}"
         )
-    workspace = resolve_workspace_language(tenant)
     return f"## Language\n{internal_language_instruction(workspace)}"

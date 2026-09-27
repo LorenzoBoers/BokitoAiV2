@@ -18,14 +18,15 @@ The widget is a small script on your site. Visitors chat with your assistant. Th
 
 1. Open **Settings**, then **Chat widget**, then **Install**.
 2. Copy **Widget for website visitors** for a public site. Copy **Assistant for signed-in users** only when the widget sits inside your own product and visitors are logged in. Use **Copy** on the snippet.
-3. Paste it on a staging page first. Send a test message and confirm the thread in [Communication](/docs/inbox/communication).
+3. If Install warns that the snippet uses a local development URL (`localhost` or `127.0.0.1`), paste it only for local tests. For a live website, open Chat widget on your production workspace and copy the snippet there.
+4. Paste it on a staging page first. Send a test message and confirm the thread in [Communication](/docs/inbox/communication).
 
 Developers can follow the [embed reference](/docs/developers/widget-embed).
 
 ## Set Look
 
 1. Open **Look** on the same page.
-2. Set **Handling agent** — that agent answers new widget conversations. The widget name follows this agent unless you set **Assistant name**.
+2. Set **Handling agent** — that agent answers new widget conversations. New workspaces default to **Front desk** (the customer-facing agent). The widget name follows this agent unless you set **Assistant name**.
 3. Under **Welcome messages**, set **Welcome title** and **Welcome subtitle**. Under **Colors**, pick **Accent**. **Widget icon** follows Branding unless you upload an override. Under **What visitors see**, turn modules **Home**, **Messages**, **Help** or **Tools** on or off. Choose **Save changes** and reload the staging page. Leaving with unsaved Look changes asks you to confirm.
 
 ## Set Voice, hours and the pre-chat form

@@ -21,11 +21,18 @@ describe('navigation', () => {
     expect(titleForTab('workstreams')).toBe('Playbooks')
   })
 
-  it('keeps Control to the two conversation-first destinations', () => {
+  it('keeps Control to conversation-first destinations (Govern stays in Settings)', () => {
     const control = TAB_GROUPS.find((g) => g.label === 'Control')
     expect(control?.tabs).toEqual(['communication', 'agenda'])
     expect(TAB_PATHS).not.toHaveProperty('cases')
     expect(TAB_PATHS).not.toHaveProperty('activity')
+    expect(TAB_PATHS).not.toHaveProperty('govern')
+  })
+
+  it('highlights Settings for Govern and other settings routes', () => {
+    expect(tabFromPath('/settings/govern')).toBe('settings')
+    expect(tabFromPath('/govern')).toBe('settings')
+    expect(tabFromPath('/settings/channels')).toBe('settings')
   })
 
   it('no longer resolves a rail tab for the retired /cases hub', () => {

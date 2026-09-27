@@ -202,6 +202,28 @@ export async function testProvider(token: string, id: string) {
 
 // --- Tenant models ---
 
+export type LlmRuntimeStatus = {
+  live: boolean
+  mode: 'live' | 'mock'
+  keySource: string
+  slug: string
+}
+
+export async function getLlmRuntime(token: string): Promise<LlmRuntimeStatus> {
+  const data = await settingsGet<{
+    live?: boolean
+    mode?: string
+    key_source?: string
+    slug?: string
+  }>(settingsRoutes.models.runtime, token)
+  return {
+    live: data.live === true,
+    mode: data.mode === 'live' ? 'live' : 'mock',
+    keySource: typeof data.key_source === 'string' ? data.key_source : 'mock',
+    slug: typeof data.slug === 'string' ? data.slug : '',
+  }
+}
+
 export async function getTenantModels(token: string) {
   return settingsGet<TenantModelsPayload>(settingsRoutes.models.list, token)
 }

@@ -18,11 +18,11 @@ A project is work that spans days. Open **Projects** when a goal should have a h
 
 1. Open **Projects**. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
 2. Read the card: project agent, open queue items, documentation health, repo status, remaining budget. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
-3. Open it. You land on the **Queue** tab. The **Settings** tab holds the **Who runs this** card; use **Change lead** to pick another agent or create one. Members can read a project; they cannot delete it or edit the name.
+3. Open it. You land on the **Queue** tab. The **Settings** tab holds the **Who runs this** card; use **Change project agent** to pick another agent or create one. Members can read a project; they cannot delete it or edit the name.
 
 ## Work the implementation queue
 
-1. On the **Queue** tab, choose **Add to queue**. Give the request a title, pick a kind (**Feature**, **Bug**, **Task**, **Idea**, **Risk**) and a priority, then choose **Add**.
+1. On the **Queue** tab, choose **Add to queue**. Give the request a title, pick a kind (**Improvement**, **Problem**, **Request**, **Idea**, **Risk**) and a priority, then choose **Add**.
 2. Items are grouped by status: **Proposed**, **Accepted**, **Analyzing**, **Planned**, **In progress**, **Verifying**, **Done**, **Rejected**. Open an item to read its context, impact analysis, and linked knowledge documents.
 3. Choose **Accept** on a proposed item. The project agent routes it into the best-matching project [workstream](/docs/ai/workstreams) and a run starts with the item as input. Every project ships with a default **Review and execute** workstream, so there is always a runnable path. The item's status follows the run: a completed run completes the item, a failed or cancelled run puts it back to **Planned**. You can also **Link document** on an open item to attach a project or organization knowledge page.
 4. When the work is done, choose **Ready to verify** and then **Verify**. The agent checks the documentation against reality before the item moves to **Done**.
@@ -33,8 +33,7 @@ Items born from a conversation show **Open source thread**, which takes you back
 
 1. Link a thread to a project in the conversation's detail panel (**Project**).
 2. When someone describes a bug or asks for something new, the agent proposes a queue item. A **Queue proposal** card appears in the thread.
-3. Choose **Add to queue** to accept, or **Dismiss**. Choose **Always allow** if the agent may add items without asking.
-4. Turn on **Autonomous mode** in the project's **Settings** tab to skip the accept step: conversation items are accepted automatically and analysis starts right away.
+3. Choose **Add to queue** to accept, or **Dismiss**. Choose **Always allow** if the agent may add items without asking. How much an agent may do without asking is one workspace-wide dial: see [Autonomy](/docs/govern/autonomy).
 
 ## Track project documentation
 

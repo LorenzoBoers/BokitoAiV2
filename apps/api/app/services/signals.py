@@ -34,6 +34,22 @@ async def _primary_channel_account_id(
     return account.id if account else None
 
 
+def _is_anonymous_contact_identity(address: str, display_name: str = "") -> bool:
+    """Widget / visitor placeholders stay pending until a real identifier exists."""
+    value = (address or "").strip().lower()
+    if not value:
+        return True
+    if value.startswith("cust_"):
+        return True
+    if value in ("visitor@web", "visitor@widget") or value.startswith("visitor@"):
+        return True
+    name = (display_name or "").strip().lower()
+    if name in ("website visitor", "website bezoeker", "websitebezoeker", "visitor", "bezoeker"):
+        if "@" not in value or value.startswith("visitor@"):
+            return True
+    return False
+
+
 async def get_or_create_contact(
     session: AsyncSession,
     tenant_id: UUID,
@@ -63,7 +79,7 @@ async def get_or_create_contact(
         channel=channel,
         address=address,
         display_name=display_name,
-        status="approved",
+        status="pending" if _is_anonymous_contact_identity(address, display_name) else "approved",
         last_seen_at=datetime.utcnow(),
     )
     canonical = (
@@ -235,7 +251,26 @@ def message_plain_text(row: SignalMessage) -> str:
 
 
 def serialize_message(row: SignalMessage) -> dict[str, Any]:
+    from app.services.signal_threads import (
+        message_delivered_to_customer,
+        message_is_mock,
+    )
+
     body_text = message_plain_text(row)
+    try:
+        meta = json.loads(row.metadata_json or "{}")
+    except json.JSONDecodeError:
+        meta = {}
+    if not isinstance(meta, dict):
+        meta = {}
+    is_mock = message_is_mock(body_text, meta, auto_sent=bool(row.auto_sent))
+    delivered = message_delivered_to_customer(
+        direction=row.direction,
+        auto_sent=bool(row.auto_sent),
+        send_status=row.send_status,
+        is_mock=is_mock,
+        kind=row.kind,
+    )
     return {
         "id": str(row.id),
         "signal_id": str(row.signal_id),
@@ -248,6 +283,9 @@ def serialize_message(row: SignalMessage) -> dict[str, Any]:
         "kind": row.kind,
         "decision_id": str(row.decision_id) if row.decision_id else None,
         "send_status": row.send_status,
+        "auto_sent": bool(row.auto_sent),
+        "is_mock": is_mock,
+        "delivered_to_customer": delivered,
         "created_at": row.created_at.isoformat(),
     }
 

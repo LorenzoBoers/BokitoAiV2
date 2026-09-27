@@ -109,7 +109,8 @@ async def get_or_create_widget_thread(
             channel="widget",
             address=customer_id or "",
             display_name="Website visitor",
-            status="approved",
+            # Anonymous widget visitors wait for an email before "Approved" (F-16).
+            status="pending",
         )
         session.add(contact)
         await session.flush()

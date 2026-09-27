@@ -83,17 +83,25 @@ function ProjectCard({
     <Card
       role="link"
       tabIndex={0}
-      aria-label={`Open project ${project.name}`}
+      aria-label={t('projects.page.openProject', {
+        defaultValue: 'Open project {{name}}',
+        name: project.name,
+      })}
       onClick={() => navigate(`/projects/${project.id}`)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') navigate(`/projects/${project.id}`)
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          navigate(`/projects/${project.id}`)
+        }
       }}
       interactive
       className="group flex flex-col gap-3 p-4"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-medium text-text-heading">{project.name}</p>
+          <p className="truncate font-medium text-text-heading group-hover:text-accent">
+            {project.name}
+          </p>
         </div>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
@@ -114,13 +122,6 @@ function ProjectCard({
               className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
               onClick={(e) => e.stopPropagation()}
             >
-              <DropdownMenu.Item
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                onSelect={() => navigate(threadsHref)}
-              >
-                <MessageSquare size={14} />
-                {t('projects.page.openThreads')}
-              </DropdownMenu.Item>
               {project.po_agent ? (
                 <DropdownMenu.Item
                   className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
@@ -138,6 +139,13 @@ function ProjectCard({
                   {t('projects.page.assignLead')}
                 </DropdownMenu.Item>
               ) : null}
+              <DropdownMenu.Item
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-secondary outline-none data-[highlighted]:bg-bg-hover"
+                onSelect={() => navigate(threadsHref)}
+              >
+                <MessageSquare size={14} />
+                {t('projects.page.openThreads')}
+              </DropdownMenu.Item>
               {canManage ? (
                 <>
                   <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
@@ -228,13 +236,6 @@ function ProjectCard({
         </div>
         {budget ? <ProjectBudgetBar budget={budget} /> : null}
         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
-          <Link
-            to={threadsHref}
-            onClick={(event) => event.stopPropagation()}
-            className="text-[11px] font-medium text-accent hover:underline"
-          >
-            {t('projects.page.openThreads')}
-          </Link>
           {project.po_agent ? (
             <Link
               to={`/agents/${project.po_agent.id}`}
@@ -252,6 +253,14 @@ function ProjectCard({
               {t('projects.page.assignLead')}
             </Link>
           ) : null}
+          {/* Threads live in Communication; keep this as a quiet shortcut. */}
+          <Link
+            to={threadsHref}
+            onClick={(event) => event.stopPropagation()}
+            className="text-[11px] text-text-muted hover:text-text-primary hover:underline"
+          >
+            {t('projects.page.openThreads')}
+          </Link>
         </div>
       </div>
     </Card>

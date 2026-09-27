@@ -383,6 +383,36 @@ async def _load_session(
     return conversation
 
 
+async def close_open_sessions_for_thread(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID | None,
+    thread_id: UUID,
+    *,
+    summary: str | None = None,
+) -> int:
+    """Close every active in-thread agent session (e.g. after human takeover)."""
+    active = list(
+        (
+            await session.execute(
+                select(Signal).where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.context_signal_id == thread_id,
+                    Signal.channel == "assistant",
+                    Signal.session_state == "active",
+                )
+            )
+        ).scalars().all()
+    )
+    closed = 0
+    for row in active:
+        await close_session(
+            session, tenant_id, user_id, thread_id, row.id, summary=summary
+        )
+        closed += 1
+    return closed
+
+
 async def close_session(
     session: AsyncSession,
     tenant_id: UUID,

@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Plus } from 'lucide-react'
+import { signalTypeLabel } from '../../lib/signal-type-catalog'
 import { cn } from '../../lib/utils'
 
 type Props = {
@@ -53,10 +54,12 @@ function isActiveQueue(row: CaseRow): boolean {
 }
 
 export function ThreadCasesList({ signalId }: Props) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const [rows, setRows] = useState<CaseRow[]>([])
   const [types, setTypes] = useState<CaseTypeRow[]>([])
   const [busy, setBusy] = useState(false)
+  const typeLabel = (type: { slug?: string | null; name?: string | null } | null | undefined) =>
+    signalTypeLabel(type, i18n.language)
 
   const load = useCallback(async () => {
     const [cases, typeRows] = await Promise.all([
@@ -124,13 +127,15 @@ export function ThreadCasesList({ signalId }: Props) {
                   key={type.id}
                   disabled={busy}
                   onSelect={() => void add(type.id)}
+                  title={
+                    type.follow_up_mode === 'label'
+                      ? t('cases.addLabelHint', {
+                          defaultValue: 'Stamps the thread; does not open a queue item.',
+                        })
+                      : type.description || undefined
+                  }
                 >
-                  {type.name}
-                  {type.follow_up_mode === 'label' ? (
-                    <span className="ml-2 text-[10px] text-text-muted">
-                      {t('cases.labelChip', { defaultValue: 'Label' })}
-                    </span>
-                  ) : null}
+                  {typeLabel(type)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -146,7 +151,10 @@ export function ThreadCasesList({ signalId }: Props) {
       </div>
       {rows.length === 0 ? (
         <p className="text-xs text-text-muted">
-          {t('cases.emptyThread', { defaultValue: 'No signals on this conversation yet.' })}
+          {t('cases.emptyThread', {
+            defaultValue:
+              'No signals yet. Add one — for example Invoice / payment on a dunning email.',
+          })}
         </p>
       ) : (
         <ul className="space-y-1">
@@ -154,6 +162,7 @@ export function ThreadCasesList({ signalId }: Props) {
             const labelOnly = isLabelOnly(row)
             const active = isActiveQueue(row)
             const proposed = row.status === 'proposed'
+            const caseTypeName = typeLabel(row.case_type)
             return (
               <li
                 key={row.id}
@@ -167,14 +176,14 @@ export function ThreadCasesList({ signalId }: Props) {
                 )}
               >
                 <p className="truncate text-[12px] font-medium text-text-primary">
-                  {row.title || row.case_type?.name}
+                  {row.title || caseTypeName}
                 </p>
                 {proposed ? (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span className="text-[10.5px] text-text-muted">
                       {t('cases.confirmChip', {
                         defaultValue: 'Looks like {{type}} — confirm?',
-                        type: row.case_type?.name ?? t('cases.listTitle', { defaultValue: 'Signal' }),
+                        type: caseTypeName || t('cases.listTitle', { defaultValue: 'Signal' }),
                       })}
                     </span>
                     <Button
@@ -231,7 +240,7 @@ export function ThreadCasesList({ signalId }: Props) {
                         {t('cases.labelChip', { defaultValue: 'Label' })}
                       </Badge>
                     ) : null}
-                    {row.case_type?.name ? <span>{row.case_type.name}</span> : null}
+                    {caseTypeName ? <span>{caseTypeName}</span> : null}
                     {row.workstream_id ? (
                       <Link
                         to={workstreamPath(row.workstream_id)}

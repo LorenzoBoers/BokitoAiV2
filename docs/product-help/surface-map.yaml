@@ -216,11 +216,14 @@ decisions:
   section: ai
   routes:
     - /communication/decisions
-    - /communication/inbox/open
+    - /communication/decisions/t/:threadId
   code_globs:
     - apps/dashboard/src/components/inbox/DecisionRequestMessage.tsx
+    - apps/dashboard/src/components/inbox/MessagesHubNav.tsx
     - apps/dashboard/src/lib/messages-paths.ts
+    - apps/dashboard/src/lib/hub-list-filters.ts
     - apps/dashboard/src/lib/notification-path.ts
+    - apps/dashboard/src/pages/Communication.tsx
     - apps/api/app/services/signal_decisions.py
   screenshots:
     - approve
@@ -408,6 +411,15 @@ mcp-endpoint:
   section: developers
   routes:
     - /docs/developers/mcp-endpoint
+    - /settings/developers
+    - /oauth/mcp
+  code_globs:
+    - apps/api/app/routers/mcp.py
+    - apps/api/app/routers/oauth_as.py
+    - apps/api/app/services/mcp_oauth_as.py
+    - apps/dashboard/src/pages/DeveloperSettings.tsx
+    - apps/dashboard/src/pages/OAuthMcpConsent.tsx
+    - apps/dashboard/src/lib/api-token-mcp.ts
   screenshots: []
 
 widget-embed:

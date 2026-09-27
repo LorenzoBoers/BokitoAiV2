@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "bokito": {
+      "url": "https://app.bokito.ai/api/mcp"
+    }
+  }
+}

@@ -730,7 +730,11 @@ function LegacyCockpitPage() {
               <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.recentEvents')}</h2>
               <p className="text-[12px] text-text-muted">{t('cockpitPage.recentEventsHint')}</p>
             </div>
-            <Link to="/activity" className="text-[12px] font-medium text-accent hover:underline">
+            {/* Activity is a raw log, not a place operators start their day. */}
+            <Link
+              to="/activity"
+              className="text-[12px] font-medium text-text-muted hover:text-text-primary hover:underline"
+            >
               {t('cockpitPage.openActivity')}
             </Link>
           </div>

@@ -5,7 +5,7 @@ import {
   scrollActiveThreadIntoView,
   useInboxListShortcuts,
 } from '../hooks/useInboxListShortcuts'
-import { nextUnreadId } from '../lib/inbox-ops'
+import { nextUnreadId, parseQuickFilterParam } from '../lib/inbox-ops'
 import { threadNeedsReply } from '../lib/message-composer'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -121,6 +121,27 @@ export default function DirectCommunication() {
     setSearch('')
   }, [listContextKey, setSearch])
 
+  // Sticky Needs-decision chip → Decisions hub leaf.
+  useEffect(() => {
+    const fromUrl = parseQuickFilterParam(searchParams.get('filter'))
+    if (fromUrl === 'needsDecision' || quickFilter === 'needsDecision') {
+      setQuickFilter('all')
+      navigate(decisionsPath(threadIdParam ?? undefined), { replace: true })
+    }
+  }, [searchParams, quickFilter, setQuickFilter, navigate, threadIdParam])
+
+  const applyQuickFilterChange = useCallback(
+    (value: InboxListQuickFilter) => {
+      if (value === 'needsDecision') {
+        setQuickFilter('all')
+        navigate(decisionsPath(threadIdParam ?? undefined), { replace: true })
+        return
+      }
+      setQuickFilter(value)
+    },
+    [navigate, setQuickFilter, threadIdParam],
+  )
+
   const { pinnedIds, addPin, removePin } = usePinnedIds()
   const {
     threads,
@@ -143,7 +164,6 @@ export default function DirectCommunication() {
       search: listSearch,
       unread: quickFilter === 'unread' || undefined,
       needsReply: quickFilter === 'needsReply' || undefined,
-      needsDecision: quickFilter === 'needsDecision' || undefined,
       pinnedOnly: quickFilter === 'pinned' || undefined,
     },
     pinnedIds,
@@ -395,7 +415,7 @@ export default function DirectCommunication() {
             onRetry={() => void refreshThreads()}
             selectedId={selectedThreadId}
             quickFilter={quickFilter}
-            onQuickFilterChange={setQuickFilter}
+            onQuickFilterChange={applyQuickFilterChange}
             onSelectThread={handleSelectThread}
             onMarkRead={handleListMarkRead}
             onMarkUnread={handleListMarkUnread}

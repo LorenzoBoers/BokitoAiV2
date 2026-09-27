@@ -37,6 +37,7 @@ type SectionTogglesProps = {
   onCollapsedChange: (collapsed: boolean) => void
   visibleLabel: string
   collapsedLabel: string
+  reorderAria: string
   /** When false, no drag handle (anchored sections). */
   sortable?: boolean
 }
@@ -50,6 +51,7 @@ function SectionToggles({
   onCollapsedChange,
   visibleLabel,
   collapsedLabel,
+  reorderAria,
   sortable = true,
 }: SectionTogglesProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -74,7 +76,7 @@ function SectionToggles({
           {...attributes}
           {...listeners}
           className="shrink-0 cursor-grab touch-none rounded-md p-1 text-text-muted hover:bg-bg-hover/70 hover:text-text-primary active:cursor-grabbing"
-          aria-label={`Reorder ${label}`}
+          aria-label={reorderAria}
         >
           <GripVertical size={15} />
         </button>
@@ -153,19 +155,23 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={movableOrder} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {movableOrder.map((section) => (
+              {movableOrder.map((section) => {
+                const label = t(SECTION_LABELS[section].labelKey)
+                return (
                 <SectionToggles
                   key={section}
                   section={section}
-                  label={t(SECTION_LABELS[section].labelKey)}
+                  label={label}
                   hidden={prefs.hidden.includes(section)}
                   collapsed={prefs.collapsed.includes(section)}
                   onHiddenChange={(hidden) => setSectionHidden(section, hidden)}
                   onCollapsedChange={(collapsed) => setSectionCollapsed(section, collapsed)}
                   visibleLabel={visibleLabel}
                   collapsedLabel={collapsedLabel}
+                  reorderAria={t('support.customize.reorderAria', { label })}
                 />
-              ))}
+                )
+              })}
             </div>
           </SortableContext>
         </DndContext>
@@ -181,6 +187,9 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
           onCollapsedChange={(collapsed) => setSectionCollapsed('settings', collapsed)}
           visibleLabel={visibleLabel}
           collapsedLabel={collapsedLabel}
+          reorderAria={t('support.customize.reorderAria', {
+            label: t(SECTION_LABELS.settings.labelKey),
+          })}
           sortable={false}
         />
         <div className="flex justify-end">

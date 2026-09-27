@@ -5,8 +5,8 @@ import { moduleStatusLabelKey, type IntegrationModuleRow } from '../../lib/integ
 const DEFAULTS: Record<ReturnType<typeof moduleStatusLabelKey>, string> = {
   comingSoon: 'Coming soon',
   connectedBadge: 'Connected',
-  installedBadge: 'Installed',
-  setupBadge: 'Setup',
+  installedBadge: 'Installed · no packages',
+  setupBadge: 'Needs setup',
   notInstalledBadge: 'Not installed',
   onBadge: 'Installed',
   offBadge: 'Not installed',
@@ -17,11 +17,12 @@ const VARIANT: Record<
   'warning' | 'success' | 'accent' | 'neutral'
 > = {
   comingSoon: 'warning',
+  // Only Connected is green — Installed without packages is not "ready for agents".
   connectedBadge: 'success',
-  installedBadge: 'success',
+  installedBadge: 'accent',
   setupBadge: 'accent',
   notInstalledBadge: 'neutral',
-  onBadge: 'success',
+  onBadge: 'accent',
   offBadge: 'neutral',
 }
 

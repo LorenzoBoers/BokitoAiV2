@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { McpCopyButton } from './McpCopyButton'
 
-type ClientId = 'cursor' | 'claude' | 'generic'
+type ClientId = 'cursor' | 'cursorToken' | 'claude' | 'generic'
 
 type Props = {
   clientId: ClientId

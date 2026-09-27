@@ -26,6 +26,12 @@ Providers and models live under **Settings**, then **Providers & models**. Spend
 2. Pick a **Provider type**, paste an **API key** (show or hide it), and optional **Label** or **Base URL** (for OpenAI-compatible endpoints). Press Enter or **Save provider**, then **Test**. A working key shows **Connection OK** in green and **Key set ····** plus the last four characters. **Remove** asks for confirmation.
 3. Models on your keys take precedence over Bokito AI; the Bokito AI card then shows **Standby**. The provider bills those calls. Remove the keys and Bokito AI becomes the fallback again.
 
+## When AI runs without a live key
+
+1. Open **Settings**, then **Providers & models**. If Bokito AI shows **Not configured**, calls run in mock mode.
+2. A workspace banner explains that replies are placeholders and are not sent to customers. Timeline labels those bubbles as placeholders, never **Sent to the customer**.
+3. Add a platform or provider key (or enable Bokito AI) before choosing **Autonomous** on [Govern](/docs/govern/autonomy).
+
 ## Spend does not bypass approval
 
 Token budgets sit on Cockpit **Usage** (daily token cap and monthly spend cap) and on projects. When the workspace budget is exhausted, platform-key calls pause; your own keys keep working. [Govern](/docs/govern/govern) still decides whether an agent may act.

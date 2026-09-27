@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Filter,
+  Gavel,
   List,
   Mail,
   MessageSquareReply,
@@ -78,6 +79,7 @@ const FILTERS: Array<{
 }> = [
   { id: 'all', labelKey: 'listFilters.all' },
   { id: 'needsReply', labelKey: 'listFilters.needsReply', icon: MessageSquareReply },
+  { id: 'needsDecision', labelKey: 'listFilters.needsDecision', icon: Gavel },
   { id: 'unread', labelKey: 'listFilters.unread', icon: Mail },
   { id: 'pinned', labelKey: 'listFilters.pinned', icon: Pin },
 ]

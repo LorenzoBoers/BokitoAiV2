@@ -41,12 +41,15 @@ const QUICK_FILTERS: readonly InboxListQuickFilter[] = ['all', 'unread', 'needsR
 
 export function readQuickFilter(): InboxListQuickFilter {
   const raw = readStorage(QUICK_FILTER_KEY)
+  // Legacy sticky Needs-decision chip — Decisions is its own hub leaf now.
+  if (raw === 'needsDecision') return 'all'
   if (raw && (QUICK_FILTERS as readonly string[]).includes(raw)) return raw as InboxListQuickFilter
   return 'all'
 }
 
 export function writeQuickFilter(value: InboxListQuickFilter): void {
-  writeStorage(QUICK_FILTER_KEY, value)
+  // Never persist Needs decision: that intent opens `/communication/decisions`.
+  writeStorage(QUICK_FILTER_KEY, value === 'needsDecision' ? 'all' : value)
 }
 
 export function readInboxDensity(): InboxDensity {

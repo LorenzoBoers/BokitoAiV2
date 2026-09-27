@@ -65,6 +65,8 @@ Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 
 ## Lees de status en controles van een kanaal
 
+Setupgids, Koppelingen, Kanalen en de reply-composer gebruiken dezelfde kanaalstatus. Alleen een agenda-login telt niet als verzendklare mailbox — Koppelingen toont dan dat de agenda gesynchroniseerd is terwijl mail nog niet klaar is.
+
 1. Bekijk de statusbadge op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd** of **Fout**. **Verbinden** hoort alleen tijdens een installatie die nog loopt — na een geslaagde koppeling zie je **Actief**.
 2. Als een kanaal nog niet klaar is, verschijnt een gele melding boven de lijst. Kanalen met **Instellen nodig**, **Actie nodig** of **Fout** openen hun **Controles** automatisch.
 3. De labels ernaast tonen wat het kanaal kan: **Ontvangen**, **Verzenden**, **Sync**. Dagelijkse sync loopt automatisch; **Sync opnieuw proberen** verschijnt alleen bij een syncprobleem.
@@ -72,7 +74,7 @@ Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 5. Bij een mailbox staat **Geschiedenis** in hetzelfde paneel voor latere backfills na opnieuw koppelen. Hoe ver terug bij de eerste installatie kies je tijdens **Kanaal toevoegen**.
 6. Gebruik de schakelaar om een kanaal te pauzeren. Een gepauzeerd kanaal houdt zijn historie maar ontvangt niets nieuws.
 
-In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** als er al een kanaal is dat nog niet klaar is, of **Mailbox koppelen** als er nog geen kanaal is.
+In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** als er al een kanaal is dat nog niet klaar is, of **Mailbox koppelen** als er nog geen kanaal is. De setupgids markeert de kanaalstap pas klaar wanneer een mailbox kan verzenden of ontvangen.
 
 ## Zet een handtekening en standaardagent
 

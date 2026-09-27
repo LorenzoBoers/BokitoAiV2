@@ -225,6 +225,21 @@ function heartbeatCheckInLabel(t: TFunction): string {
   )
 }
 
+/** True for mock/placeholder agent bodies (never treat as customer-delivered). */
+export function isMockAgentBody(text: string | null | undefined): boolean {
+  if (!text) return false
+  const low = text.toLowerCase()
+  return (
+    low.startsWith('[mock]') ||
+    low.startsWith('i received your message about:') ||
+    low.startsWith('ik heb je bericht ontvangen over:') ||
+    low.includes('placeholder reply while the workspace') ||
+    low.includes('tijdelijk antwoord zolang de workspace') ||
+    low.includes('without a live model') ||
+    low.includes('zonder live model')
+  )
+}
+
 /** Mock-mode agent replies from the API LLM stub. */
 export function translateMockAgentBody(text: string | null | undefined, t: TFunction): string {
   if (!text) return ''
@@ -244,6 +259,7 @@ export function translateMockAgentBody(text: string | null | undefined, t: TFunc
   const patterns = [
     /^\[mock\] I received your message about:\s*(.+?)\.+\s*This is the Bokito AI OS assistant running in mock mode\.\s*$/s,
     /^I received your message about:\s*(.+?)\.+\s*This is a placeholder reply while the workspace runs without a live model\.\s*$/s,
+    /^Ik heb je bericht ontvangen over:\s*(.+?)\.+\s*Dit is een tijdelijk antwoord zolang de workspace zonder live model draait\.\s*$/s,
   ]
   for (const pattern of patterns) {
     const match = cleaned.match(pattern)

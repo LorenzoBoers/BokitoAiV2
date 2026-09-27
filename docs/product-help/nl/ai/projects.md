@@ -18,11 +18,11 @@ Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis mo
 
 1. Open **Projecten**. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
 2. Lees de kaart: projectagent, open queue-items, documentatiegezondheid, repo-status, resterend budget. Zoek op naam of agent als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
-3. Open die. Je landt op het tabblad **Queue**. Het tabblad **Instellingen** bevat de kaart **Wie dit uitvoert**; gebruik **Lead wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
+3. Open die. Je landt op het tabblad **Queue**. Het tabblad **Instellingen** bevat de kaart **Wie dit uitvoert**; gebruik **Projectagent wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
 
 ## Werk de implementatie-queue af
 
-1. Kies op het tabblad **Queue** voor **Aan queue toevoegen**. Geef het verzoek een titel, kies een soort (**Feature**, **Bug**, **Taak**, **Idee**, **Risico**) en een prioriteit, en kies **Toevoegen**.
+1. Kies op het tabblad **Queue** voor **Aan queue toevoegen**. Geef het verzoek een titel, kies een soort (**Verbetering**, **Probleem**, **Verzoek**, **Idee**, **Risico**) en een prioriteit, en kies **Toevoegen**.
 2. Items zijn gegroepeerd op status: **Voorgesteld**, **Geaccepteerd**, **In analyse**, **Gepland**, **In uitvoering**, **In verificatie**, **Klaar**, **Afgewezen**. Open een item om de context, impactanalyse en gekoppelde kennisdocumenten te lezen.
 3. Kies **Accepteren** op een voorgesteld item. De projectagent leidt het naar de best passende project-[werkstroom](/docs/ai/workstreams) en er start een run met het item als input. Elk project heeft standaard een werkstroom **Beoordeel en voer uit**, dus er is altijd een uitvoerbaar pad. De itemstatus volgt de run: een afgeronde run rondt het item af, een mislukte of geannuleerde run zet het terug naar **Gepland**. Op een open item kun je ook **Document koppelen** kiezen om een project- of organisatiekennispagina te hangen.
 4. Als het werk klaar is, kies je **Klaar voor verificatie** en daarna **Verifieer**. De agent toetst de documentatie aan de realiteit voordat het item naar **Klaar** gaat.
@@ -33,8 +33,7 @@ Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je ter
 
 1. Koppel een gesprek aan een project in het detailpaneel van het gesprek (**Project**).
 2. Als iemand een bug beschrijft of iets nieuws vraagt, stelt de agent een queue-item voor. Er verschijnt een **Queue-voorstel**-kaart in het gesprek.
-3. Kies **Aan queue toevoegen** om te accepteren, of **Afwijzen**. Kies **Altijd toestaan** als de agent items mag toevoegen zonder te vragen.
-4. Zet **Autonome modus** aan op het tabblad **Instellingen** van het project om de acceptatiestap over te slaan: gespreksitems worden automatisch geaccepteerd en de analyse start direct.
+3. Kies **Aan queue toevoegen** om te accepteren, of **Afwijzen**. Kies **Altijd toestaan** als de agent items mag toevoegen zonder te vragen. Hoeveel een agent zonder vragen mag doen, is één workspacebrede knop: zie [Autonomy](/docs/govern/autonomy).
 
 ## Houd projectdocumentatie bij
 

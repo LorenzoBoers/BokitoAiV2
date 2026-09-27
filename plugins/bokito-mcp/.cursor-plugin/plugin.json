@@ -1,0 +1,13 @@
+{
+  "name": "bokito",
+  "displayName": "Bokito",
+  "version": "1.0.0",
+  "description": "Workspace MCP server. Connects Cursor to Bokito through MCP — authorize in the browser and pick a workspace.",
+  "author": {
+    "name": "Bokito"
+  },
+  "homepage": "https://app.bokito.ai/docs/developers/mcp-endpoint",
+  "logo": "assets/logo.svg",
+  "keywords": ["bokito", "mcp", "workspace", "agents"],
+  "mcpServers": "mcp.json"
+}

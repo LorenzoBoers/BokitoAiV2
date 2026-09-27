@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, FolderPlus, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, Radio, RefreshCw, Sparkles, Star, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -15,7 +15,19 @@ import {
 } from '../../lib/inbox-api'
 import { getContactThreads } from '../../lib/contacts-api'
 import { listCasesForSignal, listCaseTypes, createCase, type CaseRow } from '../../lib/cases-api'
-import { composerVerbHelp, type ParsedComposerVerb } from '../../lib/composer-verbs'
+import {
+  loadOpenSignalCases,
+  resolveOpenSignalCases,
+} from '../../lib/close-thread-signals'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
+import type { ParsedComposerVerb } from '../../lib/composer-verbs'
 import { patchSignalThread } from '../../lib/signals-api'
 import { MessageTimelineItem, EventClusterTimelineItem, formatHourMinute } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
@@ -59,7 +71,6 @@ import {
 } from '../../lib/use-agent-session-chat'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
-import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
@@ -166,133 +177,6 @@ type Props = {
 
 const HEADER_ICON =
   'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
-
-/**
- * Lightweight project picker: choosing a project creates a Task with
- * origin "queue" on that project, linked back to this signal.
- */
-function AddToProjectDialog({
-  open,
-  onClose,
-  signalId,
-  onLinked,
-}: {
-  open: boolean
-  onClose: () => void
-  signalId: string
-  subject?: string
-  onLinked?: () => void
-}) {
-  const { t } = useTranslation('communication')
-  const { token } = useAuth()
-  const [projects, setProjects] = useState<ProjectRow[] | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [busyId, setBusyId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    setProjects(null)
-    setLoadError(null)
-    listProjects()
-      .then((rows) => {
-        if (!cancelled) setProjects(rows)
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setProjects([])
-          setLoadError(err instanceof Error ? err.message : t('addToProject.loadError'))
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, t])
-
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
-
-  if (!open) return null
-
-  const pick = async (project: ProjectRow) => {
-    if (busyId || !token) return
-    setBusyId(project.id)
-    try {
-      await patchThread(token, signalId, { projectId: project.id })
-      toast.success(t('addToProject.success', { name: project.name }))
-      onLinked?.()
-      onClose()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('addToProject.error'))
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('addToProject.title')}
-    >
-      <div className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[13px] font-semibold text-text-heading">{t('addToProject.title')}</p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('composer.cancel')}
-            className="rounded-md p-1 text-text-muted hover:bg-bg-hover hover:text-text-primary"
-          >
-            <X size={14} />
-          </button>
-        </div>
-        <p className="mt-0.5 text-[11.5px] text-text-muted">{t('addToProject.hint')}</p>
-        <div className="mt-3 max-h-64 space-y-0.5 overflow-y-auto">
-          {projects === null ? (
-            <p className="px-2 py-1.5 text-[12px] text-text-muted">{t('addToProject.loading')}</p>
-          ) : loadError ? (
-            <p className="px-2 py-1.5 text-[12px] text-status-error">{loadError}</p>
-          ) : projects.length === 0 ? (
-            <div className="px-2 py-1.5">
-              <p className="text-[12px] text-text-muted">{t('addToProject.empty')}</p>
-              <Link to="/projects" className="mt-1 inline-block text-[11.5px] font-medium text-accent hover:underline">
-                {t('addToProject.openProjects')}
-              </Link>
-            </div>
-          ) : (
-            projects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                disabled={busyId != null}
-                onClick={() => void pick(project)}
-                className="flex w-full items-center gap-2 rounded-lg border border-transparent px-2.5 py-1.5 text-left text-[12.5px] text-text-primary transition-colors hover:border-border/60 hover:bg-bg-hover/60 disabled:opacity-50"
-              >
-                {busyId === project.id ? (
-                  <RefreshCw size={12} className="shrink-0 animate-spin text-text-muted" />
-                ) : (
-                  <FolderPlus size={12} className="shrink-0 text-text-muted" />
-                )}
-                <span className="min-w-0 flex-1 truncate">{project.name}</span>
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
   normal: { labelKey: 'priority.normal', dot: 'bg-text-muted/40' },
@@ -434,7 +318,7 @@ function ThreadMetaRow({
                     : 'border-border/60 text-text-secondary'
               }`}
             >
-              <Tag size={10} className="shrink-0 opacity-70" />
+              <Radio size={10} className="shrink-0 opacity-70" />
               <span className="truncate">{name}</span>
             </span>
           )
@@ -563,6 +447,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // Composer surface the operator is on. Sticky on `agent` while a meta
   // session runs, so the next keystroke goes to the agent, not the customer.
   const [composerMode, setComposerMode] = useState<ComposerMode>('reply')
+  // Close-the-loop prompt when typed Signals are still Open (F-49).
+  const [closeSignalsPrompt, setCloseSignalsPrompt] = useState<{
+    cases: CaseRow[]
+    afterResolve?: () => Promise<void>
+  } | null>(null)
+  const [closeSignalsBusy, setCloseSignalsBusy] = useState(false)
   // Transcript of the running meta session, owned here so a send in the
   // composer and the inline session card stay in sync.
   const [sessionMessages, setSessionMessages] = useState<ChatMessage[] | null>(null)
@@ -989,7 +879,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [creatingTask, setCreatingTask] = useState(false)
   const [followUpOpen, setFollowUpOpen] = useState(false)
   const [followUpTitle, setFollowUpTitle] = useState('')
-  const [projectPickerOpen, setProjectPickerOpen] = useState(false)
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
 
@@ -1079,15 +968,41 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
   const activeSessionId = activeSession?.id ?? null
 
-  // Prefer Reply so a missing mailbox shows the connect notice on the reply tab.
-  // Agent wins when a meta session runs.
+  // Prefer Reply (Beantwoorden) on customer channels and after human ask /
+  // takeover. Agent tab stays available but is never the default landing tab
+  // for an external conversation the operator should answer.
   useEffect(() => {
+    const thread = detail?.thread
+    if (!thread) {
+      setComposerMode('reply')
+      return
+    }
+    if (thread.aiPaused) {
+      setComposerMode('reply')
+      return
+    }
+    const customerChannel = ['email', 'widget', 'chat', 'whatsapp'].includes(thread.channel ?? '')
+    if (customerChannel) {
+      setComposerMode('reply')
+      return
+    }
     if (activeSessionId) {
       setComposerMode('agent')
       return
     }
+    if (isInternalThread(thread) && thread.hasOpenDecision) {
+      setComposerMode('note')
+      return
+    }
     setComposerMode('reply')
-  }, [threadId, activeSessionId])
+  }, [
+    threadId,
+    activeSessionId,
+    detail?.thread?.aiPaused,
+    detail?.thread?.hasOpenDecision,
+    detail?.thread?.channel,
+    detail?.thread,
+  ])
 
   const loadSessionMessages = useCallback(
     async (sessionId: string | null) => {
@@ -1162,10 +1077,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             defaultValue: 'Open the decision card in the thread to approve.',
           }),
         )
-        return true
-      }
-      if (verb.verb === 'playbook' || verb.verb === 'project' || verb.verb === 'schedule' || verb.verb === 'workbench') {
-        toast.message(composerVerbHelp())
         return true
       }
       return false
@@ -1300,6 +1211,47 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     gatewayStream.reset()
   }, [detail?.messages, gatewayStream.streaming, gatewayStream.reset])
 
+  const requestCloseThread = useCallback(
+    async (afterClose?: () => Promise<void>) => {
+      if (!detail || isInternalThread(detail.thread)) {
+        await onPatch({ status: 'closed' })
+        if (afterClose) await afterClose()
+        return
+      }
+      const openCases = await loadOpenSignalCases(String(detail.thread.id))
+      if (openCases.length === 0) {
+        await onPatch({ status: 'closed' })
+        if (afterClose) await afterClose()
+        return
+      }
+      setCloseSignalsPrompt({
+        cases: openCases,
+        afterResolve: afterClose,
+      })
+    },
+    [detail, onPatch],
+  )
+
+  const confirmCloseWithSignals = useCallback(
+    async (mode: 'resolve' | 'leave') => {
+      if (!closeSignalsPrompt) return
+      setCloseSignalsBusy(true)
+      try {
+        if (mode === 'resolve') {
+          await resolveOpenSignalCases(closeSignalsPrompt.cases)
+        }
+        await onPatch({ status: 'closed' })
+        if (closeSignalsPrompt.afterResolve) await closeSignalsPrompt.afterResolve()
+        setCloseSignalsPrompt(null)
+      } catch (err) {
+        toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithSignalsError')))
+      } finally {
+        setCloseSignalsBusy(false)
+      }
+    },
+    [closeSignalsPrompt, onPatch, t],
+  )
+
   const handleReply = useCallback(
     async (
       bodyText: string,
@@ -1319,7 +1271,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         setComposerDraft(null)
         onDecisionResolved?.()
         if (action === 'send_and_close') {
-          await onPatch({ status: 'closed' })
+          await requestCloseThread()
         } else if (action === 'send_and_pending') {
           await onPatch({
             status: 'pending',
@@ -1328,6 +1280,23 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 ? new Date(Date.now() + snoozeMinutes * 60_000).toISOString()
                 : null,
           })
+        }
+        window.setTimeout(() => scrollToBottom('smooth'), 80)
+        return
+      }
+      if (action === 'send_and_close') {
+        // Send first, then prompt about open Signals before flipping status.
+        const format = composerSurface?.includeSignature ? 'email' : 'plain'
+        await onReply(bodyText, 'send', format, attachments, snoozeMinutes, extras)
+        await requestCloseThread()
+        if (token && threadIdString && activeSession) {
+          try {
+            await closeAgentSession(token, threadIdString, activeSession.id)
+            setComposerMode('reply')
+            onRefresh()
+          } catch {
+            // The reply is out; a stuck session is not worth failing the send.
+          }
         }
         window.setTimeout(() => scrollToBottom('smooth'), 80)
         return
@@ -1356,6 +1325,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       detail,
       onDecisionResolved,
       onPatch,
+      requestCloseThread,
       threadIdString,
       activeSession,
       onRefresh,
@@ -1581,10 +1551,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             <TooltipTrigger asChild>
               <button
                 type="button"
-                disabled={saving}
-                onClick={() =>
-                  void onPatch({ status: thread.status === 'closed' ? 'open' : 'closed' })
-                }
+                disabled={saving || closeSignalsBusy}
+                onClick={() => {
+                  if (thread.status === 'closed') {
+                    void onPatch({ status: 'open' })
+                    return
+                  }
+                  void requestCloseThread()
+                }}
                 aria-label={thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
                 className={HEADER_ICON}
               >
@@ -1655,7 +1629,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             </DropdownMenu>
           ) : null}
           {onToggleTakeover &&
-          ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') ? (
+          ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') &&
+          // F-08: one primary takeover CTA — banner owns it when visible.
+          !(
+            !isInternalThread(thread) &&
+            (thread.aiPaused ||
+              Boolean(thread.hasOpenDecision) ||
+              Boolean(detail?.sessions?.some((s) => !s.closedAt)))
+          ) ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -1769,10 +1750,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
                   </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuItem className="gap-2" onClick={() => setProjectPickerOpen(true)}>
-                  <FolderPlus size={13} />
-                  {t('threadChrome.addToProject')}
-                </DropdownMenuItem>
                 {onDelete ? (
                   <DropdownMenuItem
                     disabled={deleting}
@@ -1819,7 +1796,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         >
           <p className="text-[11.5px] text-text-secondary">
             {thread.aiPaused
-              ? t('threadChrome.youTookOverBanner')
+              ? thread.assignedToUserId == null
+                ? t('threadChrome.customerAskedBanner')
+                : t('threadChrome.youTookOverBanner')
               : contactIsTeammate
                 ? t('threadChrome.teammateAiBanner')
                 : mailboxDisconnected
@@ -2107,14 +2086,62 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         onSaveReminder={handleSaveReminder}
         onSignalCreated={onRefresh}
       />
-      <AddToProjectDialog
-        open={projectPickerOpen}
-        onClose={() => setProjectPickerOpen(false)}
-        signalId={String(thread.id)}
-        subject={thread.emailSubject ?? ''}
-        onLinked={onRefresh}
-      />
+      <Dialog
+        open={closeSignalsPrompt != null}
+        onOpenChange={(open) => {
+          if (!open && !closeSignalsBusy) setCloseSignalsPrompt(null)
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('threadChrome.closeWithSignalsTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('threadChrome.closeWithSignalsBody', {
+                count: closeSignalsPrompt?.cases.length ?? 0,
+                names:
+                  (closeSignalsPrompt?.cases ?? [])
+                    .map((row) => row.title || row.case_type?.name)
+                    .filter(Boolean)
+                    .slice(0, 3)
+                    .join(', ') || t('threadChrome.closeWithSignalsFallback'),
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-40 space-y-1 overflow-y-auto text-sm text-text-secondary">
+            {(closeSignalsPrompt?.cases ?? []).map((row) => (
+              <li key={row.id} className="truncate rounded-md border border-border/50 px-2.5 py-1.5">
+                {row.title || row.case_type?.name || t('threadChrome.closeWithSignalsFallback')}
+              </li>
+            ))}
+          </ul>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={closeSignalsBusy}
+              onClick={() => setCloseSignalsPrompt(null)}
+            >
+              {t('threadChrome.closeWithSignalsCancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={closeSignalsBusy}
+              onClick={() => void confirmCloseWithSignals('leave')}
+            >
+              {t('threadChrome.closeWithSignalsLeaveOpen')}
+            </Button>
+            <Button
+              type="button"
+              disabled={closeSignalsBusy}
+              onClick={() => void confirmCloseWithSignals('resolve')}
+            >
+              {t('threadChrome.closeWithSignalsResolve')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-    </TooltipProvider>
+  </TooltipProvider>
   )
 }

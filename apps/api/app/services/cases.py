@@ -26,7 +26,14 @@ from app.models.case import (
 from app.models.orchestra import Workstream
 from app.models.project import Project
 from app.models.signal import Signal
-from app.modules.catalog import PLATFORM_SIGNAL_TYPE_SEEDS
+from app.modules.catalog import (
+    CASE_TYPE_TEMPLATES,
+    MODULE_CASE_TYPE_LEGACY_DESCRIPTIONS,
+    MODULE_CASE_TYPE_LEGACY_NAMES,
+    PLATFORM_SIGNAL_TYPE_LEGACY_DESCRIPTIONS,
+    PLATFORM_SIGNAL_TYPE_LEGACY_NAMES,
+    PLATFORM_SIGNAL_TYPE_SEEDS,
+)
 from app.services.customer_verify import thread_assurance_valid
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -144,9 +151,26 @@ async def enrich_case_run(
     return payload
 
 
+def _is_platform_seed_label(slug: str, name: str) -> bool:
+    """True when the row still carries a platform (or prior EN) seed name."""
+    known = PLATFORM_SIGNAL_TYPE_LEGACY_NAMES.get(slug, frozenset())
+    return (name or "").strip() in known
+
+
+def _is_platform_seed_description(slug: str, description: str) -> bool:
+    known = PLATFORM_SIGNAL_TYPE_LEGACY_DESCRIPTIONS.get(slug, frozenset())
+    return (description or "").strip() in known
+
+
 async def ensure_platform_case_types(
     session: AsyncSession, tenant_id: UUID, *, commit: bool = True
 ) -> None:
+    """Insert missing platform types and rename EN leftovers in place.
+
+    Operator-customized names/descriptions are left alone. Prior EN seed
+    labels (Complaint, Bug report, …) are rewritten to the current NL/MKB
+    catalog so menus and Govern dials stop showing English leftovers.
+    """
     existing_rows = list(
         (
             await session.execute(select(CaseType).where(CaseType.tenant_id == tenant_id))
@@ -179,12 +203,66 @@ async def ensure_platform_case_types(
             )
             changed = True
             continue
+        row_changed = False
+        # Rename in place when the tenant still has a platform seed label.
+        if _is_platform_seed_label(spec["slug"], existing.name) and existing.name != spec["name"]:
+            existing.name = spec["name"]
+            row_changed = True
+        if (
+            _is_platform_seed_description(spec["slug"], existing.description or "")
+            and (existing.description or "") != spec["description"]
+        ):
+            existing.description = spec["description"]
+            row_changed = True
+        # Keep platform order stable for untouched seeds (Factuur/betaling first).
+        if (
+            _is_platform_seed_label(spec["slug"], existing.name)
+            and existing.sort_order != int(spec["sort_order"])
+        ):
+            existing.sort_order = int(spec["sort_order"])
+            row_changed = True
         # Keep platform spam/abuse on label-only so old tenants converge.
         if spec["slug"] == "spam_abuse" and existing.follow_up_mode != "label":
             existing.follow_up_mode = "label"
+            row_changed = True
+        if row_changed:
             existing.updated_at = now
             session.add(existing)
             changed = True
+
+    # Module templates installed before the NL rename (e.g. Billing inquiry).
+    for module_slug, templates in CASE_TYPE_TEMPLATES.items():
+        for template in templates:
+            legacy_names = MODULE_CASE_TYPE_LEGACY_NAMES.get(template.slug, frozenset())
+            if not legacy_names:
+                continue
+            row = next(
+                (
+                    r
+                    for r in existing_rows
+                    if r.template_slug == template.slug and r.module_slug == module_slug
+                ),
+                None,
+            )
+            if row is None:
+                row = by_slug.get(template.slug)
+            if row is None:
+                continue
+            row_changed = False
+            if (row.name or "").strip() in legacy_names and row.name != template.name:
+                row.name = template.name
+                row_changed = True
+            legacy_desc = MODULE_CASE_TYPE_LEGACY_DESCRIPTIONS.get(template.slug, frozenset())
+            if (row.description or "").strip() in legacy_desc and (
+                row.description or ""
+            ) != template.description:
+                row.description = template.description
+                row_changed = True
+            if row_changed:
+                row.updated_at = now
+                session.add(row)
+                changed = True
+
     if changed:
         if commit:
             await session.commit()

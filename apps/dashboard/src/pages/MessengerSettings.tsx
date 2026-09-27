@@ -30,6 +30,7 @@ import {
   livechatWidgetHttpOrigin,
 } from '../lib/api.config'
 import { ensureChatWidgetScript } from '../lib/chat-widget-loader'
+import { isLocalHostname } from '../lib/host-routing'
 import {
   DEFAULT_MESSENGER_APPEARANCE,
   MESSENGER_MODULE_KEYS,
@@ -255,6 +256,17 @@ function MessengerSettingsContent({
     )
     return { site, signedIn }
   }, [currentWorkspace?.slug])
+
+  const snippetUsesLocalOrigin = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      const pageLocal = isLocalHostname(window.location.hostname)
+      const apiHost = new URL(livechatWidgetHttpOrigin()).hostname
+      return pageLocal || isLocalHostname(apiHost)
+    } catch {
+      return false
+    }
+  }, [])
 
   const copyInstallationSnippet = useCallback(async (html: string) => {
     try {
@@ -895,6 +907,24 @@ function MessengerSettingsContent({
 
             {section === 'installation' ? (
               <div className="space-y-4">
+                {snippetUsesLocalOrigin ? (
+                  <div
+                    role="status"
+                    className="rounded-xl border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm text-text-primary"
+                  >
+                    <p className="font-medium text-text-heading">
+                      {t('messengerPage.localSnippetTitle', {
+                        defaultValue: 'This snippet uses your local development URL',
+                      })}
+                    </p>
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {t('messengerPage.localSnippetBody', {
+                        defaultValue:
+                          'Paste it only on a page that can reach this machine. For a live website, open Chat widget on your production workspace and copy the snippet there — localhost and 127.0.0.1 will not work for visitors.',
+                      })}
+                    </p>
+                  </div>
+                ) : null}
                 {(
                   [
                     {

@@ -39,8 +39,8 @@
   },
   "landing": {
     "title": "Startpagina",
-    "description": "Kies waar Bokito opent na het inloggen. Berichten is de standaard.",
-    "communication": "Berichten",
+    "description": "Kies waar Bokito opent na het inloggen. Communicatie is de standaard.",
+    "communication": "Communicatie",
     "overview": "Overview",
     "saveError": "Startpagina opslaan is niet gelukt."
   },

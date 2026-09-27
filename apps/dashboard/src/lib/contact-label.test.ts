@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   humanizeContactName,
+  isAnonymousContact,
   isGenericVisitorName,
   isOpaqueWidgetAddress,
   isPlaceholderContactAddress,
@@ -20,6 +21,14 @@ describe('isPlaceholderContactAddress', () => {
     expect(isPlaceholderContactAddress('visitor@widget')).toBe(true)
     expect(isPlaceholderContactAddress('cust_abc')).toBe(true)
     expect(isPlaceholderContactAddress('sanne@klant.nl')).toBe(false)
+  })
+})
+
+describe('isAnonymousContact', () => {
+  it('flags placeholder widget identities', () => {
+    expect(isAnonymousContact('Website visitor', 'cust_abc')).toBe(true)
+    expect(isAnonymousContact('Erik Tester', 'visitor@web')).toBe(true)
+    expect(isAnonymousContact('Erik Tester', 'erik@example.com')).toBe(false)
   })
 })
 

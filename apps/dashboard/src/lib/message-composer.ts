@@ -144,16 +144,19 @@ export function resolveComposerSurface(
 
   if (channel === 'internal' || channel === 'assistant') {
     const name = threadCounterpartyName(thread)
+    // Open decisions: prefer a neutral note so Approve/Reject stays primary
+    // (do not push the operator into "Message Platform PO").
+    const awaitingDecision = Boolean(thread.hasOpenDecision)
     return {
       channel,
-      defaultTab: 'reply',
+      defaultTab: awaitingDecision ? 'note' : 'reply',
       tabs: ['reply', 'note'],
       replyLabel: channel === 'assistant' ? 'Chat' : 'Message',
       replyPlaceholder: `Message ${name}...`,
       replyPlaceholderKey: 'composer.placeholders.messageAgent',
       replyPlaceholderParams: { name },
       includeSignature: false,
-      showRecipient: true,
+      showRecipient: !awaitingDecision,
       recipientLabel: channel === 'assistant' ? 'Assistant' : 'Agent',
       recipientValue: name,
     }

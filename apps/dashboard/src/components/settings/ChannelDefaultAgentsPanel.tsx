@@ -64,7 +64,7 @@ export default function ChannelDefaultAgentsPanel() {
       <div>
         <h2 className="text-sm font-medium text-text-heading">{t('channelsPage.bindings.title')}</h2>
         <p className="mt-0.5 text-xs text-text-muted">
-          A conversation keeps its pinned agent. New conversations use the default agent for this channel.
+          {t('channelsPage.bindings.pinnedHint')}
         </p>
       </div>
       {loading ? (
@@ -88,7 +88,7 @@ export default function ChannelDefaultAgentsPanel() {
                 onChange={(event) => void update(account, event.target.value)}
                 className="h-8 min-w-[12rem] rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
               >
-                <option value="">No default agent</option>
+                <option value="">{t('channelsPage.bindings.noDefaultAgent')}</option>
                 {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>
                     {agent.name}

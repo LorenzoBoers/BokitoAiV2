@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
   Bot,
   ChevronRight,
+  Gavel,
   Inbox,
   Plus,
   Settings,
@@ -21,6 +22,7 @@ import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
+  decisionsPath,
   inboxPath,
   leafFromPath,
   leafKey,
@@ -50,7 +52,7 @@ const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> 
 ]
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
-  agents: { labelKey: 'support.section.agents', defaultLabel: 'Agents' },
+  agents: { labelKey: 'support.section.agents', defaultLabel: 'Chat with agents' },
   channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   settings: { labelKey: 'support.section.settings', defaultLabel: 'Settings' },
 }
@@ -389,13 +391,12 @@ function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
 /**
  * Communication hub inner rail.
  *
- * Fixed top: New chat + Inbox.
+ * Fixed top: New chat + Inbox + Decisions.
  * Scrollable middle: Agents / Channels (user order).
  * Anchored bottom: Contacts + Settings.
  *
- * Decisions and agent runs are deliberately absent: both live inside the
- * thread that produced them. Decisions are reachable with the "Needs decision"
- * list filter on Communication.
+ * Decisions is the exception queue (open DecisionRequests). Agent runs stay
+ * off the rail — work shows up on the thread that produced it.
  *
  * Personal Bokito helper history stays in the in-app widget only — not listed
  * here as channels.
@@ -437,6 +438,8 @@ export default function MessagesHubNav() {
   const inboxBaseLeaf: HubLeaf = { type: 'inbox' }
   const inboxDefaultQueue = defaultQueueFor(inboxBaseLeaf)
   const inboxBadge = countForInboxQueue(counts, inboxDefaultQueue)
+  const decisionsBadge = countForInboxQueue(counts, 'decisions')
+  const decisionsActive = activeLeaf?.type === 'decisions'
 
   // Hide "(0)" — it reads as unfinished; the empty CTA inside the section is enough.
   const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
@@ -523,8 +526,17 @@ export default function MessagesHubNav() {
           />
         </section>
 
-        {/* No Decisions leaf: a decision is a card in the thread that raised
-            it. Operators find them with the "Needs decision" list filter. */}
+        <section className="space-y-0.5">
+          <NavLink
+            to={decisionsPath()}
+            title={t('support.decisions.hint')}
+            className={() => navLinkClass(decisionsActive)}
+          >
+            <Gavel size={14} className="shrink-0 text-text-muted" />
+            <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
+            <NavCountBadge count={decisionsBadge} placement="inline" />
+          </NavLink>
+        </section>
 
         {visibleSections.map((section) => {
           const gear = SECTION_GEAR[section]

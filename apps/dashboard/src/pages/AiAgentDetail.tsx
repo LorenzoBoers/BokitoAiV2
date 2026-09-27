@@ -269,7 +269,9 @@ export default function AiAgentDetail() {
                     ) : null}
                   </div>
                   <p className="mt-0.5 text-sm capitalize text-text-muted">
-                    {agent.audience ?? 'internal'}
+                    {t(`workforce.agents.audiences.${agent.audience ?? 'internal'}`, {
+                      defaultValue: agent.audience ?? 'internal',
+                    })}
                   </p>
                 </div>
               </div>

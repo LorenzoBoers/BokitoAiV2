@@ -170,7 +170,21 @@ export default function UsagePage() {
           key: 'conversations',
           label: t('usagePage.conversations7d'),
           value: num(summary.volume_week),
-          hint: summary.volume_week === 0 ? t('usagePage.conversationsEmptyHint') : null,
+          hint:
+            summary.volume_week === 0
+              ? (summary.open_backlog ?? 0) > 0
+                ? t('usagePage.conversationsEmptyWithBacklog', {
+                    count: summary.open_backlog,
+                    defaultValue:
+                      'No new conversations this week. {{count}} still open in the inbox.',
+                  })
+                : t('usagePage.conversationsEmptyHint')
+              : (summary.open_backlog ?? 0) > 0
+                ? t('usagePage.openBacklogHint', {
+                    count: summary.open_backlog,
+                    defaultValue: '{{count}} open in the inbox (any age)',
+                  })
+                : null,
           hintTo: inboxPath('open'),
           hintLink: t('usagePage.openInbox'),
         },

@@ -86,38 +86,27 @@ def _has_access_token(account: ChannelAccount) -> bool:
     return bool(creds.get("access_token"))
 
 
-def _connection_status(account: ChannelAccount) -> str:
-    """Derive UI status from enablement + real credentials (not is_enabled alone)."""
-    settings = _load_settings(account)
-    if account.provider == "bokito":
-        # Relay address: no OAuth credentials, always ready when enabled.
-        return "connected" if account.is_enabled else "paused"
-    if settings.get("last_error") and _has_access_token(account) and account.is_enabled:
-        return "error"
-    if not account.is_enabled:
-        return "paused"
-    if not _has_access_token(account):
-        return "needs_auth"
-    return "connected"
-
-
 def _serialize_connection(
     account: ChannelAccount, *, is_primary: bool, tenant: Any | None = None
 ) -> dict[str, Any]:
-    from app.services.channel_registry import can_send, resolve_channel
+    from app.services.channel_registry import (
+        can_send,
+        channel_summary,
+        legacy_status_from_row,
+        resolve_channel,
+    )
 
     settings = _load_settings(account)
     provider = account.provider
-    is_ready = account.is_enabled and (
-        provider == "bokito" or _has_access_token(account)
-    )
     # One source of truth for lifecycle state across every channel kind; the
-    # legacy `status` below stays for clients that only know email statuses.
+    # legacy `status` below is derived from the same registry row.
     row = resolve_channel(account, tenant=tenant)
+    sendable = can_send(row)
     return {
         "state": row["state"],
         "capabilities": row["capabilities"],
-        "can_send": can_send(row),
+        "can_send": sendable,
+        "summary": channel_summary(row),
         # Numeric id matches the `email_connection_id` filter on /api/signals.
         "id": user_numeric_id(account.id),
         "uuid": str(account.id),
@@ -131,9 +120,9 @@ def _serialize_connection(
         "last_sync_at": settings.get("last_sync_at"),
         "last_error": settings.get("last_error"),
         "sync_window_days": _sync_window_days(settings),
-        "status": _connection_status(account),
+        "status": legacy_status_from_row(row),
         # Backward-compatible alias used by older clients that only know active/revoked.
-        "legacy_status": "active" if is_ready else "revoked",
+        "legacy_status": "active" if sendable else "revoked",
     }
 
 

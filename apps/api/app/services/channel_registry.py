@@ -460,6 +460,46 @@ def can_send(row: dict[str, Any]) -> bool:
     )
 
 
+def can_receive(row: dict[str, Any]) -> bool:
+    """Whether a resolved row may accept inbound messages right now."""
+    state = row.get("state")
+    if state in ("paused", "error", "setup_required", "action_required"):
+        return False
+    return "receive" in row.get("capabilities", [])
+
+
+def channel_summary(row: dict[str, Any]) -> str:
+    """Operator-facing bucket shared by Setup, Connections, Kanalen, composer."""
+    state = row.get("state") or ""
+    if can_send(row) or (can_receive(row) and state in ("active", "degraded", "connecting")):
+        return "ready"
+    if state == "paused":
+        return "paused"
+    if state == "error":
+        return "broken"
+    if state in ("action_required", "degraded"):
+        return "action"
+    return "setup"
+
+
+def to_channel_status(row: dict[str, Any]) -> dict[str, Any]:
+    """Thin DTO every product surface reads for channel truth."""
+    return {
+        "id": row.get("id"),
+        "kind": row.get("kind") or "",
+        "channel": row.get("channel") or "",
+        "provider": row.get("provider") or "",
+        "address": row.get("address") or "",
+        "display_name": row.get("display_name") or row.get("address") or "",
+        "is_enabled": bool(row.get("is_enabled")),
+        "state": row.get("state") or "setup_required",
+        "state_reason": row.get("state_reason") or "",
+        "can_send": can_send(row),
+        "can_receive": can_receive(row),
+        "summary": channel_summary(row),
+    }
+
+
 def account_can_send(
     account: ChannelAccount | None,
     *,
@@ -473,6 +513,20 @@ def account_can_send(
     if account is None or not account.is_enabled:
         return False
     return can_send(resolve_channel(account, tenant=tenant))
+
+
+def legacy_status_from_row(row: dict[str, Any]) -> str:
+    """Map registry state to the old email status vocabulary for older clients."""
+    state = row.get("state") or ""
+    if state == "paused":
+        return "paused"
+    if state == "error":
+        return "error"
+    if state in ("action_required", "setup_required"):
+        return "needs_auth"
+    if can_send(row) or state in ("active", "degraded", "connecting"):
+        return "connected"
+    return "needs_auth"
 
 
 async def last_event_by_account(

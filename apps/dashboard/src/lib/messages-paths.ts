@@ -5,7 +5,7 @@
  * column and the conversation pane:
  *
  * - `inbox`     — assignable conversations across channels
- * - `decisions` — hidden open-decision filter used by deep links
+ * - `decisions` — open DecisionRequests (customer + internal) as one queue
  * - `agent`     — direct chats with a company agent (optional sub-queue)
  * - `runs`      — internal agent activity (updates, results)
  * - `channel`   — threads of one connected channel (email mailbox, webchat, ...)
@@ -91,9 +91,22 @@ export function activityTerminalPath(agentId?: string | null): string {
     : '/activity'
 }
 
-/** Hidden Communication filter for open DecisionRequests (customer + internal). */
-export function decisionsPath(threadId?: string | null): string {
-  return withThread('/communication/decisions', threadId)
+/** Extra query params to keep when linking into the Decisions queue. */
+type DecisionsSearch = string | URLSearchParams | Record<string, string> | null | undefined
+
+/**
+ * Open DecisionRequests live under `/communication/decisions`.
+ * `extraSearch` is merged (e.g. `message` or `agent`); legacy `filter=needsDecision`
+ * is stripped so callers never re-introduce the sticky inbox filter.
+ */
+export function decisionsPath(threadId?: string | null, extraSearch?: DecisionsSearch): string {
+  const params = new URLSearchParams(
+    typeof extraSearch === 'string' ? extraSearch.replace(/^\?/, '') : (extraSearch ?? undefined),
+  )
+  params.delete('filter')
+  const qs = params.toString()
+  const base = withThread('/communication/decisions', threadId)
+  return qs ? `${base}?${qs}` : base
 }
 
 /** Open a waiting decision in its Communication thread. */

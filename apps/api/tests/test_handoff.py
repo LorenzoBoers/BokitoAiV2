@@ -76,7 +76,8 @@ async def test_handoff_tool_pauses_thread_and_notifies(client: AsyncClient, sess
         )
     ).scalars().first()
     assert notification is not None
-    assert "takeover" in notification.title.lower()
+    title_l = notification.title.lower()
+    assert "takeover" in title_l or "medewerker" in title_l
 
 
 @pytest.mark.asyncio

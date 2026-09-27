@@ -13,9 +13,54 @@ import json
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.auth import Tenant
 from app.models.signal import Signal, SignalEvent
+from app.services.language import resolve_workspace_language
+
+
+def _handoff_copy(lang: str, *, who: str, subject: str | None) -> tuple[str, str]:
+    """Title and body for a human-takeover alert, in the workspace language."""
+    topic = (subject or who).strip() or who
+    if lang == "nl":
+        title = f"Medewerker gevraagd: {topic}"[:200]
+        body = (
+            f"{who} vroeg om een medewerker. AI-antwoorden staan gepauzeerd "
+            "tot iemand dit gesprek overneemt."
+        )
+    else:
+        title = f"Human takeover requested: {topic}"[:200]
+        body = (
+            f"{who} asked for a human. AI replies are paused until someone "
+            "takes over the thread."
+        )
+    return title, body
+
+
+def _callback_copy(lang: str, *, who: str, subject: str | None) -> tuple[str, str]:
+    topic = (subject or who).strip() or who
+    if lang == "nl":
+        title = f"Terugbelverzoek: {topic}"[:200]
+        body = (
+            f"{who} vroeg het team om later terug te komen. "
+            "De chat blijft open; er is geen live overname."
+        )
+    else:
+        title = f"Callback requested: {topic}"[:200]
+        body = (
+            f"{who} asked the team to get back. Chat stays open; "
+            "no live handoff right now."
+        )
+    return title, body
+
+
+async def _workspace_lang(session: AsyncSession, tenant_id: UUID) -> str:
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    return resolve_workspace_language(tenant)
 
 
 async def request_human_handoff(
@@ -52,14 +97,15 @@ async def request_human_handoff(
         await publish_thread_update(signal)
         newly_paused = True
 
-    who = signal.contact_name or "A visitor"
+    lang = await _workspace_lang(session, tenant_id)
+    who = signal.contact_name or ("Een bezoeker" if lang == "nl" else "A visitor")
+    title, default_body = _handoff_copy(lang, who=who, subject=signal.subject)
     await notify_tenant_admins(
         session,
         tenant_id,
         category="handoff",
-        title=f"Human takeover requested: {signal.subject or who}"[:200],
-        body=reason
-        or f"{who} asked for a human. AI replies are paused until someone takes over the thread.",
+        title=title,
+        body=reason or default_body,
         payload={"signal_id": str(signal.id), "channel": signal.channel},
         cooldown_minutes=30,
     )
@@ -96,14 +142,15 @@ async def request_callback(
     await session.flush()
     await publish_thread_update(signal)
 
-    who = signal.contact_name or "A visitor"
+    lang = await _workspace_lang(session, tenant_id)
+    who = signal.contact_name or ("Een bezoeker" if lang == "nl" else "A visitor")
+    title, default_body = _callback_copy(lang, who=who, subject=signal.subject)
     await notify_tenant_admins(
         session,
         tenant_id,
         category="handoff",
-        title=f"Callback requested: {signal.subject or who}"[:200],
-        body=reason
-        or f"{who} asked the team to get back. Chat stays open; no live handoff right now.",
+        title=title,
+        body=reason or default_body,
         payload={"signal_id": str(signal.id), "channel": signal.channel, "via": via},
         cooldown_minutes=30,
     )

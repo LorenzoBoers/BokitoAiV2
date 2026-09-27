@@ -48,11 +48,14 @@ import {
   summarizeDiff,
 } from '../lib/govern-labels'
 import { agentAutonomyLevelLabel } from '../lib/labels'
+import { signalTypeLabel } from '../lib/signal-type-catalog'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { formatPermissionScopes } from '../lib/permission-scope-label'
 import { cn } from '../lib/utils'
 import { formatAppTime } from '../lib/app-locale'
 import { governHaystack, matchesGovernText } from '../lib/govern-list'
+import { useChannelStatus } from '../hooks/useChannelStatus'
+import { useLlmRuntime } from '../hooks/useLlmRuntime'
 import { Input } from '../components/ui/input'
 import {
   Dialog,
@@ -165,6 +168,13 @@ export default function GovernPage() {
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [showAllHistory, setShowAllHistory] = useState(false)
   const [showAllAudit, setShowAllAudit] = useState(false)
+  const { sendReady } = useChannelStatus()
+  const { live: liveModelReady } = useLlmRuntime()
+  const autonomousBlockedReason = !liveModelReady
+    ? t('posture.autonomousNeedsLiveModel')
+    : !sendReady
+      ? t('posture.autonomousNeedsChannel')
+      : null
 
   const load = useCallback(() => {
     setLoading(true)
@@ -268,6 +278,10 @@ export default function GovernPage() {
 
   async function handlePostureChange(next: AutonomyPostureId) {
     if (next === posture || savingPosture) return
+    if (next === 'autonomous' && autonomousBlockedReason) {
+      toast.error(autonomousBlockedReason)
+      return
+    }
     if (next === 'autonomous' && !window.confirm(t('posture.autonomousConfirm'))) return
     setSavingPosture(true)
     try {
@@ -555,17 +569,20 @@ export default function GovernPage() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   {POSTURE_ORDER.map((id) => {
                     const active = posture === id
+                    const blocked = id === 'autonomous' && Boolean(autonomousBlockedReason)
                     return (
                       <button
                         key={id}
                         type="button"
-                        disabled={savingPosture}
+                        disabled={savingPosture || blocked}
+                        title={blocked ? autonomousBlockedReason ?? undefined : undefined}
                         onClick={() => void handlePostureChange(id)}
                         className={cn(
                           'rounded-lg border p-4 text-left transition-colors',
                           active
                             ? 'border-accent bg-accent/5 ring-1 ring-accent/30'
                             : 'border-border/60 hover:border-border hover:bg-bg-muted/40',
+                          blocked && 'cursor-not-allowed opacity-60',
                         )}
                       >
                         <p className="text-sm font-medium text-text-heading">
@@ -579,6 +596,9 @@ export default function GovernPage() {
                           <li>{t(`posture.${id}.effects.tools`)}</li>
                           <li>{t(`posture.${id}.effects.structure`)}</li>
                         </ul>
+                        {blocked ? (
+                          <p className="mt-2 text-[11px] text-status-warning">{autonomousBlockedReason}</p>
+                        ) : null}
                         {active ? (
                           <Badge variant="default" className="mt-2 text-[10px]">
                             {t('posture.current')}
@@ -613,7 +633,11 @@ export default function GovernPage() {
                           key={row.id}
                           className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <span className="text-sm font-medium text-text-heading">{row.name}</span>
+                          <span className="text-sm font-medium text-text-heading">
+                            {kind === 'case_type'
+                              ? signalTypeLabel({ slug: row.slug, name: row.name }, i18n.language)
+                              : row.name}
+                          </span>
                           <div className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5" role="radiogroup">
                             {SCOPE_LEVELS.map((level) => (
                               <button

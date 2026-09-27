@@ -601,22 +601,6 @@ export default function DecisionRequestMessage({
               {t('decisionCard.resolved')}
             </span>
           ) : null}
-          {message.decisionId ? (
-            <button
-              type="button"
-              aria-label={t('decisionCard.copyId')}
-              title={t('decisionCard.copyId')}
-              onClick={() => {
-                void navigator.clipboard.writeText(String(message.decisionId)).then(
-                  () => toast.success(t('decisionCard.idCopied')),
-                  () => toast.error(t('decisionCard.copyIdFailed')),
-                )
-              }}
-              className="ml-auto flex h-5 w-5 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body"
-            >
-              <Copy size={11} />
-            </button>
-          ) : null}
         </div>
         {decisionSource ? (
           <p className="mb-1.5 text-[11px] text-text-muted">
@@ -630,6 +614,32 @@ export default function DecisionRequestMessage({
               })}
             </Link>
           </p>
+        ) : null}
+        {message.decisionId ? (
+          <details className="mb-1.5 group/tech">
+            <summary className="cursor-pointer list-none text-[10px] font-medium uppercase tracking-wide text-text-muted/80 hover:text-text-muted [&::-webkit-details-marker]:hidden">
+              {t('decisionCard.technical', { defaultValue: 'Technical' })}
+            </summary>
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="truncate font-mono text-[10px] text-text-muted">
+                {String(message.decisionId)}
+              </span>
+              <button
+                type="button"
+                aria-label={t('decisionCard.copyId')}
+                title={t('decisionCard.copyId')}
+                onClick={() => {
+                  void navigator.clipboard.writeText(String(message.decisionId)).then(
+                    () => toast.success(t('decisionCard.idCopied')),
+                    () => toast.error(t('decisionCard.copyIdFailed')),
+                  )
+                }}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body"
+              >
+                <Copy size={11} />
+              </button>
+            </div>
+          </details>
         ) : null}
         {isActionSuggestion ? (
           <>

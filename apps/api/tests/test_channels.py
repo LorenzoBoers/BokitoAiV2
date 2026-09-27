@@ -426,3 +426,20 @@ async def test_slack_signed_event_creates_signal(client: AsyncClient, unparked_c
     detail = await client.get(f"/api/signals/{signal_id}", headers=headers)
     assert detail.status_code == 200
     assert detail.json()["thread"]["channel"] == "slack"
+
+
+@pytest.mark.asyncio
+async def test_channel_status_endpoint(client: AsyncClient, unparked_channels):
+    """Single ChannelStatus DTO for Setup / Connections / composer."""
+    headers = await _login(client)
+    res = await client.get("/api/channels/status", headers=headers)
+    assert res.status_code == 200
+    body = res.json()
+    assert "channels" in body
+    assert "email_ready" in body
+    assert "send_ready" in body
+    assert "ready_count" in body
+    for row in body["channels"]:
+        assert row["summary"] in ("ready", "setup", "action", "paused", "broken")
+        assert "can_send" in row
+        assert "can_receive" in row

@@ -1,4 +1,9 @@
-"""Cursor Cloud Agents workbench adapter."""
+"""Cursor Cloud Agents workbench adapter.
+
+Outbound coding jobs (Bokito → Cursor Cloud Agents). Not the inbound
+tenant MCP path (`POST /api/mcp` + Settings → Developers). Real Cloud
+Agent wiring is a separate epic; this adapter stays a stub until then.
+"""
 
 from __future__ import annotations
 

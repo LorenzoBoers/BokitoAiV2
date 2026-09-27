@@ -28,7 +28,7 @@
     "empty": "Niets wacht op review. Klantbeslissingen blijven in Communicatie. Workspace-wijzigingen verschijnen hier als je agents laat wachten.",
     "openCommunication": "Communicatie openen",
     "openAgents": "Agents openen",
-    "openInboxAi": "Inbox AI openen",
+    "openInboxAi": "AI-antwoorden openen",
     "openInCommunication": "Open in Communicatie",
     "viewDiff": "Bekijk wijzigingen",
     "accept": "Accepteren",
@@ -90,6 +90,8 @@
     "saved": "Autonomie-instelling bijgewerkt",
     "current": "Huidige instelling",
     "autonomousConfirm": "Overschakelen naar Autonoom? Agents kunnen dan meer wijzigingen toepassen zonder op jou te wachten. Je kunt altijd terug.",
+    "autonomousNeedsLiveModel": "Koppel eerst een live model onder Providers en modellen voordat je Autonoom kiest.",
+    "autonomousNeedsChannel": "Koppel eerst een kanaal dat kan versturen voordat je Autonoom kiest.",
     "manual": {
       "label": "Handmatig",
       "summary": "Mensen keuren elke muterende agent-actie goed voordat die wordt toegepast.",
@@ -142,7 +144,7 @@
     }
   },
   "toolCategories": {
-    "messaging": { "label": "Berichten", "hint": "Antwoorden, beslissingen en gespreksacties." },
+    "messaging": { "label": "Gesprekken", "hint": "Antwoorden, beslissingen en gespreksacties." },
     "workspace": { "label": "Workspace", "hint": "Geheugen, documenten, skill-wijzigingen en canvas-nodes." },
     "agents": { "label": "Agents", "hint": "Agents en draaiboeken aanmaken of bijwerken." },
     "delegation": { "label": "Delegeren", "hint": "Werk overdragen aan een agent en taken plannen." },

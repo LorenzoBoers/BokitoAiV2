@@ -1,15 +1,15 @@
 ---
-title: Zo werken Berichten
+title: Zo werkt Communicatie
 intro: De hub voor elk gesprek — klanten en agents op één plek.
-description: Werk klantmail, chat en interne gesprekken af in Berichten, inclusief opstellen, notities, uitstellen en sjablonen.
-keywords: inbox, messages, gesprekken, email, chat, opstellen, uitstellen, sjablonen
+description: Werk klantmail, chat en interne gesprekken af in Communicatie, inclusief opstellen, notities, uitstellen en sjablonen.
+keywords: inbox, communicatie, gesprekken, email, chat, opstellen, uitstellen, sjablonen, beslissingen
 sort: 10
 related: agent-runs,channels,inbox-ai,contacts,decisions,cases
 ---
 
-# Zo werken Berichten
+# Zo werkt Communicatie
 
-Berichten is waar de dag gebeurt. Klantmail, websitechat en interne agentgesprekken delen één hub. Open die wanneer iets een antwoord of een beslissing nodig heeft. Terwijl een agent werkt, toont het gesprek losse paarse statusregels — een wolk verschijnt pas wanneer de agent iets schrijft of een beslissing voorlegt.
+Communicatie is waar de dag gebeurt. Klantmail, websitechat en interne agentgesprekken delen één hub. Open die wanneer iets een antwoord of een beslissing nodig heeft. Terwijl een agent werkt, toont het gesprek losse paarse statusregels — een wolk verschijnt pas wanneer de agent iets schrijft of een beslissing voorlegt.
 
 ## Werk de wachtrij Open af
 
@@ -18,9 +18,9 @@ Open is klantwerk dat nog jou nodig heeft.
 ![Wachtrij Open in Berichten](/api/docs/assets/communication/open-queue.png)
 *Open toont klantwerk dat nog jou nodig heeft.*
 
-1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map, net als de rest van de zijbalk: klik om **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Er is geen rij **Beslissingen**: open goedkeuringen blijven op hun gesprek, en **Filters** → **Wacht op beslissing** toont ze allemaal. **Contacten** en **Instellingen** staan vastgezet onderin — Contacten opent een eigen pagina, niet de threadlijst. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **E-mail en berichten** (Mappen) — meestal **Open**, of **Van mij** als je dat zo hebt gezet. **Uitgaand** is mail die jij startte.
-2. Wissel naar **Van mij** voor gesprekken die aan jou zijn toegewezen, of **Niet toegewezen** voor werk zonder eigenaar.
-3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde. Een vervolgbericht van dezelfde websitebezoeker blijft in dat Open-gesprek. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Open, Van mij of een andere wachtrij, en Bokito onthoudt de keuze in de URL als `?filter=`. Wisselen van filter houdt het gesprek dat je open hebt. **Wacht op beslissing** staat in hetzelfde menu en toont elk gesprek met een open keuzekaart; **1**–**5** wisselen de snelfilters op volgorde. Een badge **Wacht op beslissing** markeert die rijen. In hetzelfde **Filters**-menu verfijn je verder op toegewezene, prioriteit of kanaal. Druk **?** voor sneltoetsen: **J**/**K** bewegen, **]**/**[** springt ongelezen, **E** sluit (Ongedaan maken in de toast), **H** stelt een uur uit, **Shift+H** kiest een tijd, **X** selecteert, **Shift-klik** selecteert een bereik, **Cmd+A** selecteert geladen rijen, **U** markeert ongelezen, **Shift+U** markeert gelezen, **A** wijst aan jou toe, **Shift+A** opent de toewijzer, **P** zet vast, **R** focust het antwoord, **C** stelt op, **N** start een nieuwe chat, **L** kopieert de link, **#** kopieert het gespreks-ID, **/** zoekt, **Esc** gaat terug naar de lijst (niet terwijl een menu openstaat). Assistentchats gebruiken dezelfde toetsen voor bewegen, vastzetten, ongelezen, antwoord en zoeken.
+1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Direct daaronder staat **Beslissingen** — de map voor elk gesprek met een open keuzekaart (klant en intern). Overview, bel en diepe links landen daar. **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **E-mail en berichten** (Mappen) — meestal **Open**, of **Van mij** als je dat zo hebt gezet.
+2. Wissel naar **Van mij** voor gesprekken die aan jou zijn toegewezen, of **Niet toegewezen** voor werk zonder eigenaar. Open **Beslissingen** wanneer je alleen ja/nee-kaarten wilt.
+3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Open, Van mij of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen.
 4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per kanaal) onder **Instellingen**, dan **E-mail en berichten** (Mappen). De sectie **Agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde. Classificeren gaat met signalen, niet met tags: bekijk ze onder **Dit gesprek** en beheer de catalogus onder **Instellingen** → **Signaaltypes**. Zie [Hoe Signalen werken](/docs/ai/cases).
 5. Pin wat telt, kies **Toewijzen** of **Aan mij toewijzen**, of **Uitstellen** (klok in de toolbar). Presets zijn **1 uur**, **4 uur**, **Morgen 9:00**, **Volgende maandag 9:00**, **Tot de klant antwoordt**, of **Kies datum en tijd**. Na een antwoord biedt het pijltje naast **Versturen** de opties **Versturen en sluiten** en **Versturen en uitstellen** om in één stap af te ronden. **Geladen als gelezen markeren** wist ongelezen op de gesprekken die al in de lijst staan.
 6. Selecteer meerdere rijen voor bulk **Gelezen**, **Sluiten**, **Vastzetten**, **Markeer als spam**, **Aan mij toewijzen**, **Toewijzen**, **Heropenen**, **Markeer ongelezen** of **Uitstellen tot morgen 9:00**. Shift-klik een selectievakje om het bereik vanaf de laatste selectie te nemen. Het rij-indicatormenu kan ook tot morgen uitstellen. **Meer** bevat Uitgesteld, Gesloten en Spam. Het commandopalet springt ook naar Gesloten, Spam, Activiteit, Assistent, Jij aan zet en Beslissingen, en kan een gesprek of run openen op ID.
@@ -52,7 +52,7 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 1. Als [Inbox AI](/docs/inbox/inbox-ai) op **Antwoorden voorstellen** staat, verschijnt een conceptbubbel links in het gesprek met het agentavatar — dezelfde chatstijl als andere agentberichten. De bubbel toont alleen het klantgerichte antwoord. Teamcontext staat eronder als **Interne notitie** (gaat niet mee in de e-mail).
 2. Kies **Versturen als:** **Jij** of de agent — de handtekening staat direct onder de draft in dezelfde bubbel (niet onder de interne notitie). Die identiteit zet ook de From-weergavenaam op de mail; het mailboxadres verandert niet. Zonder eigen handtekening toont Bokito een standaard uit naam, functie, bedrijf en werkruimte-taal, met een link **Handtekening instellen** naar Profiel of de agentpagina. Pas de tekst aan en verstuur — of kies **Niet nu** / **Ik doe het zelf**. Versturen of goedkeuren van één concept legt overgebleven concepten terzijde. Oudere afgewezen concepten klappen in tot één korte bubbel (**Eerder concept — terzijde gelegd**).
 3. Of gebruik **Schrijven** in de composer: typ een intentie (of laat leeg om uit het gesprek te concepten), genereer in het antwoordvak, bewerk en verstuur zelf. Snelle acties herschrijven tekst die al in het vak staat. Niets gaat de deur uit tot je Versturen indrukt.
-4. Een banner op het gesprek zegt wanneer de AI het behandelt. **Overnemen van AI** pauzeert de assistent zodat jij met de hand afrondt. Zelf antwoorden pauzeert de AI ook en beëindigt een open metagesprek. **Geef terug aan AI** hervat die. Op **Automatisch antwoorden** is overnemen hoe je een live verzending stopt. In websitechat ziet de bezoeker bij overnemen direct een banner "een medewerker helpt je verder", die bij teruggeven of sluiten weer verdwijnt.
+4. Een banner op het gesprek zegt wanneer de AI het behandelt, of wanneer AI is gepauzeerd. Als een bezoeker om een medewerker vraagt, staat daar **Klant vroeg een medewerker — AI gepauzeerd.** **Overnemen van AI** (op die banner) pauzeert de assistent zodat jij met de hand afrondt; de composer opent op **Beantwoorden**. Zelf antwoorden pauzeert de AI ook en beëindigt een open metagesprek. **AI hervatten** geeft het terug. Op **Automatisch antwoorden** is overnemen hoe je een live verzending stopt. In websitechat ziet de bezoeker bij overnemen direct een banner "een medewerker helpt je verder", die bij teruggeven of sluiten weer verdwijnt. Zet meldingen voor “klant vraagt medewerker” aan of uit onder **Instellingen**, daarna **Notificaties**.
 
 ## Praat met een agent in het gesprek
 
@@ -83,7 +83,7 @@ Haal een agent erbij als je wilt sparren, iets wilt laten opzoeken of het gespre
 
 1. Open een klant- of intern gesprek. Het zijpaneel toont **Signalen**.
 2. Elke rij toont het type, de status en een werkstroomlink wanneer er een koppeling is.
-3. Kies **Bug report toevoegen** (of een ander type) wanneer een tweede intentie verschijnt. Op één gesprek kunnen meerdere signalen staan — zie [Signalen](/docs/ai/cases).
+3. Kies **Storing toevoegen** of **Factuur/betaling** (of een ander type) wanneer een tweede intentie verschijnt. Op één gesprek kunnen meerdere signalen staan — zie [Signalen](/docs/ai/cases).
 
 ## Wat nu
 

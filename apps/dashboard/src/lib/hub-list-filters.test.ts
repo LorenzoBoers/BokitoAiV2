@@ -62,6 +62,15 @@ describe('mergeHubThreadFilters', () => {
     expect(merged.folder).toBe('inbox')
   })
 
+  it('ignores sticky Needs-decision extras so folders stay independent', () => {
+    const leaf: HubLeaf = { type: 'inbox', queue: 'open' }
+    const leafFilters = configForLeaf(leaf).filters
+    const merged = mergeHubThreadFilters(leaf, leafFilters, { needsDecision: true })
+    expect(merged.folder).toBe('inbox')
+    expect(merged.needsDecision).toBeUndefined()
+    expect(merged.view).toBe('all_open')
+  })
+
   it('ignores inbox channelFilter on WhatsApp / Slack channel leaves', () => {
     const leaf: HubLeaf = { type: 'channel', channelKey: 'whatsapp', queue: 'open' }
     const leafFilters = configForLeaf(leaf).filters

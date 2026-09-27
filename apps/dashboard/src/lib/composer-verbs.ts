@@ -2,17 +2,10 @@
  * Composer slash verbs — typed commands that resolve to the same services
  * the thread buttons call. Plain language still goes through Bokito.
  *
- * Verbs: /assign, /signal, /playbook, /schedule, /approve, /project, /workbench
+ * Implemented: /assign, /signal, /approve
  */
 
-export type ComposerVerb =
-  | 'assign'
-  | 'signal'
-  | 'playbook'
-  | 'schedule'
-  | 'approve'
-  | 'project'
-  | 'workbench'
+export type ComposerVerb = 'assign' | 'signal' | 'approve'
 
 export type ParsedComposerVerb = {
   verb: ComposerVerb
@@ -22,15 +15,7 @@ export type ParsedComposerVerb = {
   rest: string
 }
 
-const VERBS: ComposerVerb[] = [
-  'assign',
-  'signal',
-  'playbook',
-  'schedule',
-  'approve',
-  'project',
-  'workbench',
-]
+const VERBS: ComposerVerb[] = ['assign', 'signal', 'approve']
 
 const VERB_SET = new Set<string>(VERBS)
 
@@ -55,13 +40,7 @@ export function parseComposerVerb(body: string): ParsedComposerVerb | null {
 
 export function composerVerbHelp(locale: 'en' | 'nl' = 'en'): string {
   if (locale === 'nl') {
-    return (
-      'Commando’s: /assign <naam>, /signal <type>, /playbook <naam>, ' +
-      '/schedule <wanneer>, /approve, /project <naam>, /workbench <tekst>'
-    )
+    return 'Commando’s: /assign <naam>, /signal <type>, /approve'
   }
-  return (
-    'Commands: /assign <name>, /signal <type>, /playbook <name>, ' +
-    '/schedule <when>, /approve, /project <name>, /workbench <text>'
-  )
+  return 'Commands: /assign <name>, /signal <type>, /approve'
 }

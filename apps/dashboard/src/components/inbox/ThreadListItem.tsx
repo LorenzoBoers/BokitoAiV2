@@ -277,27 +277,16 @@ export default function ThreadListItem({
             </div>
           </div>
 
-          {/* Tags under the title so the preview line stays readable. */}
-          {!isDirect && (thread.tags.length > 0 || thread.hasOpenDecision) ? (
+          {!isDirect && !isAgentThread && thread.hasOpenDecision ? (
             <div className="mb-1 flex flex-wrap items-center gap-1">
-              {!isAgentThread && thread.hasOpenDecision ? (
-                <span
-                  className={cn(
-                    'shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide',
-                    AI_PILL_CLASS,
-                  )}
-                >
-                  {t('listItem.needsDecision')}
-                </span>
-              ) : null}
-              {thread.tags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-block rounded px-1.5 py-0.5 text-[11px] bg-bg-surface-hover text-text-secondary"
-                >
-                  {tag}
-                </span>
-              ))}
+              <span
+                className={cn(
+                  'shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide',
+                  AI_PILL_CLASS,
+                )}
+              >
+                {t('listItem.needsDecision')}
+              </span>
             </div>
           ) : null}
 

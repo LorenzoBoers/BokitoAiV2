@@ -47,7 +47,7 @@
     },
     "projects": {
       "title": "Projecten",
-      "subtitle": "Gedeelde doelen voor agents en gesprekken"
+      "subtitle": "Gedeelde doelen, agents en draaiboeken voor een stuk werk"
     },
     "knowledge": {
       "title": "Kennis",
@@ -57,6 +57,10 @@
       "title": "Koppelingen",
       "subtitle": "Geïnstalleerde modules, partnerlogins en tools",
       "newBadge": "Nieuw"
+    },
+    "govern": {
+      "title": "Govern",
+      "subtitle": "Autonomie, platformwijzigingen en audittrail"
     },
     "settings": {
       "title": "Instellingen",
@@ -186,7 +190,7 @@
   },
   "cases": {
     "listTitle": "Signalen",
-    "emptyThread": "Nog geen signalen op dit gesprek.",
+    "emptyThread": "Nog geen signalen. Voeg er een toe — bijvoorbeeld Factuur/betaling bij een aanmaning.",
     "openHub": "Alle signalen",
     "manageTypes": "Signaaltypes instellen",
     "openWorkstream": "Draaiboek",
@@ -411,7 +415,7 @@
     "openCases": "Signalen openen"
   },
   "cockpitTabs": {
-    "aria": "Cockpit-onderdelen",
+    "aria": "Overview-onderdelen",
     "overview": "Overzicht",
     "activity": "Activiteit",
     "usage": "Verbruik"
@@ -470,8 +474,8 @@
         "blurb": "Wat Bokito is, de quickstart, de volledige setupgids en een tour door de interface."
       },
       "inbox": {
-        "title": "Inbox",
-        "blurb": "Werk gesprekken af in Communication, koppel kanalen, beheer contacten en installeer de widget."
+        "title": "Communicatie",
+        "blurb": "Werk gesprekken af in Communicatie, koppel kanalen, beheer contacten en installeer de widget."
       },
       "ai": {
         "title": "AI-workforce",
@@ -545,9 +549,9 @@
       "cases": "Signalen"
     },
     "cockpit": {
-      "bannerTitle": "Cockpit is de polsslag van de workspace",
+      "bannerTitle": "Overview is de polsslag van de workspace",
       "bannerBody": "Gezondheid, live activiteit en modelkosten op één plek, voordat je de gesprekken of agents induikt.",
-      "pageTitle": "Zo werkt Cockpit",
+      "pageTitle": "Zo werkt Overview",
       "intro": "Begin hier als je wilt weten of het werk loopt en waar aandacht nodig is.",
       "sections": [
         {
@@ -580,7 +584,7 @@
         },
         {
           "title": "Kanalen",
-          "body": "E-mail, webchat, WhatsApp en Slack krijgen elk een wachtrij na koppeling. Kanaalinstellingen en Inbox AI-modi staan onder Instellingen in de zijbalk."
+          "body": "E-mail, webchat, WhatsApp en Slack krijgen elk een wachtrij na koppeling. Kanaalinstellingen en AI-antwoordmodi staan onder Instellingen in de zijbalk."
         },
         {
           "title": "Agents in gesprekken",
@@ -588,7 +592,7 @@
         },
         {
           "title": "Beslissingen",
-          "body": "Open DecisionRequests van elk kanaal delen één Beslissingen-blad. Cockpit Vraagt aandacht en notificatieklikken openen dezelfde lijst."
+          "body": "Open DecisionRequests van elk kanaal delen het filter Wacht op beslissing in de inbox. Overview Vraagt aandacht en notificatieklikken openen dezelfde lijst."
         }
       ]
     },
@@ -754,7 +758,7 @@
     },
     "models": {
       "bannerTitle": "Modellen bepalen wat de workspace kan aanroepen",
-      "bannerBody": "Zet hier chat- en embeddingmodellen aan. Kosten blijven op Cockpit Verbruik; Govern bepaalt nog steeds wat agents mogen doen.",
+      "bannerBody": "Zet hier chat- en embeddingmodellen aan. Kosten blijven op Overview Verbruik; Govern bepaalt nog steeds wat agents mogen doen.",
       "pageTitle": "Modellen kiezen",
       "intro": "Kies welke taal- en embeddingmodellen deze workspace mag gebruiken, en wie daarvoor betaalt."
     },
@@ -1079,6 +1083,9 @@
     "noConversationsHint": "Koppel een kanaal of installeer de chatwidget zodat klanten je kunnen bereiken.",
     "lastSeen": "Laatst gezien {{time}}",
     "widgetVisitor": "Websitebezoeker",
+    "alsoSeenAsVisitor": "Ook gezien als websitebezoeker",
+    "statusAwaitingEmail": "Wacht op e-mail",
+    "anonymousGroupHint": "{{count}} websitebezoekers wachten op een e-mail — leg identiteit vast vóór goedkeuren.",
     "neverSeen": "Nog geen gesprekken",
     "writeEmail": "E-mail schrijven",
     "writeEmailHint": "Start een nieuwe e-mail naar deze persoon",
@@ -1142,7 +1149,7 @@
       "team": "Team uitnodigen",
       "modules": "Voeg een vakgebied toe",
       "projects": "Projecten",
-      "kpis": "Cijfers op de Cockpit",
+      "kpis": "Cijfers op Overview",
       "govern": "Govern"
     },
     "communication": {
@@ -1208,12 +1215,12 @@
       "installWidget": "Widget installeren"
     },
     "kpis": {
-      "title": "5. Cijfers op de Cockpit",
-      "description": "Zet de getallen die ertoe doen op de Cockpit. Agents houden ze bij.",
+      "title": "5. Cijfers op Overview",
+      "description": "Zet de getallen die ertoe doen op Overview. Agents houden ze bij.",
       "done": "{{count}} eigen cijfer",
       "done_other": "{{count}} eigen cijfers",
       "todo": "Nog geen eigen cijfers",
-      "openCockpit": "Cockpit openen",
+      "openCockpit": "Overview openen",
       "openUsage": "Gebruik openen"
     }
   },
@@ -1537,7 +1544,7 @@
     "openSetup": "Setupgids openen",
     "loopTitle": "Hoe Bokito samenhangt",
     "loopHint": "Communicatie, agents, de check-in en goedkeuringen zijn een loop. Begin hier, open de rest als je het nodig hebt.",
-    "loopMessages": "Berichten",
+    "loopMessages": "Communicatie",
     "loopMessagesHint": "Klant- en teamgesprekken komen hier binnen — inclusief check-in-bevindingen.",
     "loopAgents": "Agents",
     "loopAgentsHint": "Zij maken conceptantwoorden en doen gepland werk.",
@@ -1579,6 +1586,8 @@
     "confirmClearCaps": "Beide plafonds leegmaken? Aanroepen op platformsleutels hebben dan geen dag- of maandlimiet.",
     "conversations7d": "Gesprekken (7d)",
     "conversationsEmptyHint": "Deze week nog geen gesprekken. Open de inbox om te beginnen.",
+    "conversationsEmptyWithBacklog": "Deze week geen nieuwe gesprekken. {{count}} staan nog open in de inbox.",
+    "openBacklogHint": "{{count}} open in de inbox (elke leeftijd)",
     "openInbox": "Inbox openen",
     "autonomyEmptyHint": "Nog niets zelf afgehandeld. Stel in Govern in hoeveel agents mogen doen.",
     "openGovern": "Govern openen",
@@ -1625,6 +1634,10 @@
     "sentDev": "Verificatie-e-mail verstuurd. Dev-link staat in de serverlogs.",
     "failed": "Verificatie-e-mail kon niet worden verstuurd.",
     "resendIn": "Opnieuw in {{seconds}}s"
+  },
+  "mockAiBanner": {
+    "body": "AI draait in mock-modus — antwoorden zijn tijdelijke placeholders en gaan niet naar klanten.",
+    "cta": "Providers en modellen"
   },
   "notificationsUi": {
     "aria": "Notificaties",
@@ -1713,7 +1726,7 @@
     "reconnect": "Opnieuw koppelen",
     "folders": "Mappen",
     "signature": "Handtekening",
-    "routing": "Routing",
+    "routing": "Routering",
     "makePrimary": "Primaire afzender maken",
     "rename": "Hernoemen",
     "renameTitle": "Kanaal hernoemen",
@@ -1884,6 +1897,8 @@
     "bindings": {
       "title": "Kanaalrouting",
       "body": "Stuur inkomende gesprekken op een kanaal naar een specifieke agent. Zonder route behandelt de standaardagent nieuwe gesprekken. Zet alleen een route als een kanaal iemand anders moet gebruiken.",
+      "pinnedHint": "Een gesprek houdt zijn vastgezette agent. Nieuwe gesprekken gebruiken de standaardagent voor dit kanaal.",
+      "noDefaultAgent": "Geen standaardagent",
       "leadHint": "Laat de kolom Agent op de standaardagent staan tenzij dit item iemand anders nodig heeft.",
       "loading": "Routes laden...",
       "empty": "Nog geen routes. Nieuwe gesprekken gaan naar de standaardagent tot je er een toevoegt.",
@@ -1933,12 +1948,12 @@
     "oauthFailedTitle": "Kon {{provider}} niet koppelen"
   },
   "foldersTags": {
-    "title": "Mappen",
+    "title": "Mapstandaarden",
     "description": "Elke kanaalmap in Communicatie heeft dezelfde submappen: Open, Van mij, Niet toegewezen en Gesloten.",
     "defaultTitle": "Standaard submap",
     "defaultDescription": "De weergave die een kanaalmap opent als je erop klikt. Stel hieronder per kanaal een andere in.",
-    "casesTitle": "Classificatie verhuisd naar Signalen",
-    "casesDescription": "Losse tags zijn vervangen door intake-types: één catalogus waarmee agents en operators gesprekken classificeren.",
+    "casesTitle": "Classificatie staat bij Signaaltypes",
+    "casesDescription": "Classificeer gesprekken met signaaltypes onder Instellingen. Losse tags zijn weg.",
     "useGlobal": "Standaard ({{queue}})",
     "saveFailed": "Kon de mapinstellingen niet opslaan."
   },
@@ -2037,6 +2052,7 @@
       "assigned-to-me": "Wanneer een gesprek aan jou wordt toegewezen",
       "mentions": "Wanneer je wordt genoemd in gesprekken",
       "decisions": "Wanneer een agent je beslissing nodig heeft bij een toegewezen gesprek",
+      "handoff": "Wanneer een klant een medewerker vraagt",
       "ops-run-failed": "Wanneer een agent-run of trigger faalt",
       "ops-channel-disconnect": "Wanneer een gekoppeld kanaal stopt met synchroniseren",
       "billing-alerts": "Wanneer LLM-verbruik 80% of 100% van het budget bereikt",
@@ -2193,8 +2209,7 @@
     "agent": "Agent",
     "ai": "AI",
     "connections": "Koppelingen",
-    "settings": "Instellingen",
-    "modules": "Modules"
+    "settings": "Instellingen"
   },
   "palette": {
     "placeholder": "Zoek pagina's, gesprekken, contacten, kennis, acties...",
@@ -2208,7 +2223,7 @@
     "groupThreads": "Gesprekken",
     "groupContacts": "Contacten",
     "groupSettings": "Instellingen",
-    "groupInbox": "Berichten-wachtrijen",
+    "groupInbox": "Communicatie-wachtrijen",
     "inboxOpenHint": "J/K om te bewegen, ? voor sneltoetsen",
     "decisionsHint": "Open goedkeuringen over alle kanalen",
     "needsReply": "Jij aan zet",
@@ -2275,7 +2290,7 @@
     "language": "Taal",
     "languageNl": "Nederlands",
     "languageEn": "English",
-    "emailMessages": "E-mail en berichten",
+    "emailMessages": "E-mail en kanalen",
     "inboxAi": "AI-antwoorden",
     "signOut": "Uitloggen"
   },
@@ -2325,7 +2340,7 @@
     "railAgents": "Agenten ({{count}} open)",
     "railProjects": "Project hub ({{count}} open)",
     "railHome": "Home ({{count}})",
-    "railMessages": "Berichten ({{count}} ongelezen)",
+    "railMessages": "Communicatie ({{count}} ongelezen)",
     "ariaInbox": "{{count}} ongelezen berichten",
     "ariaAgents": "{{count}} items wachten op actie",
     "queue": {
@@ -2394,7 +2409,7 @@
       "overview": "Overzicht",
       "docs": "Workspace",
       "projects": "Projecten",
-      "communication": "Berichten",
+      "communication": "Communicatie",
       "decisions": "Beslissingen"
     },
     "quick": {
@@ -2504,12 +2519,12 @@
       "spamHint": "Verborgen uit de open wachtrij"
     },
     "section": {
-      "inbox": "Inbox",
+      "inbox": "Wachtrijen",
       "assistant": "Assistent",
       "bokito": "Bokito",
       "views": "Weergaven",
       "channels": "Kanalen",
-      "agents": "Agents",
+      "agents": "Chat met agents",
       "labels": "Labels",
       "tags": "Tags",
       "settings": "Instellingen"
@@ -2585,7 +2600,8 @@
       "visible": "Tonen",
       "collapsed": "Inklappen",
       "anchored": "Vastgezet",
-      "reset": "Standaard herstellen"
+      "reset": "Standaard herstellen",
+      "reorderAria": "Volgorde {{label}}"
     },
     "links": {
       "myInbox": "Toegewezen aan mij",
@@ -2714,9 +2730,9 @@
       "customBadge": "Afwijkend",
       "useDefault": "Workspace-standaard",
       "whoAnswersTitle": "Wie antwoordt",
-      "whoAnswersDescription": "Stuur inkomende gesprekken naar een specifieke agent. Dit is iets anders dan AI-modus: routing kiest wie het gesprek oppakt; modus kiest of die concepten maakt, automatisch antwoordt of uit blijft.",
+      "whoAnswersDescription": "Stuur inkomende gesprekken naar een specifieke agent. Dit is iets anders dan AI-modus: routering kiest wie het gesprek oppakt; modus kiest of die concepten maakt, automatisch antwoordt of uit blijft.",
       "noMailboxTitle": "Geen mailbox gekoppeld",
-      "noMailboxDescription": "Koppel e-mail onder E-mail en berichten voordat je AI-antwoorden per mailbox kunt wijzigen.",
+      "noMailboxDescription": "Koppel e-mail onder E-mail en kanalen voordat je AI-antwoorden per mailbox kunt wijzigen.",
       "unsavedLeave": "Je hebt niet-opgeslagen AI-antwoordinstellingen. Deze pagina verlaten?",
       "unsavedBar": "Je hebt niet-opgeslagen AI-antwoordinstellingen.",
       "currentSetup": "E-mail {{email}}, websitechat {{widget}}, overige kanalen {{other}}.",
@@ -2736,7 +2752,7 @@
     },
     "cloudAgent": {
       "title": "Cloud agents",
-      "description": "Compact beheer van deployment status, model en prestaties.",
+      "description": "Compact beheer van deploymentstatus, model en prestaties.",
       "newAgent": "Nieuwe agent",
       "viewCards": "Kaarten",
       "viewList": "Lijst",
@@ -2933,6 +2949,50 @@
       "snelstart": {
         "name": "SnelStart",
         "description": "Relaties, facturen en grootboek via de SnelStart B2B API."
+      },
+      "mollie": {
+        "name": "Mollie",
+        "description": "Betalingen, klanten en afrekeningen via Mollie."
+      },
+      "hubspot": {
+        "name": "HubSpot",
+        "description": "CRM-records, deals en marketing via HubSpot."
+      },
+      "intercom": {
+        "name": "Intercom",
+        "description": "Gesprekken en contacten via Intercom."
+      },
+      "figma": {
+        "name": "Figma",
+        "description": "Ontwerpbestanden en opmerkingen via Figma."
+      },
+      "miro": {
+        "name": "Miro",
+        "description": "Boards en workshopcontent via Miro."
+      },
+      "canva": {
+        "name": "Canva",
+        "description": "Canva-ontwerpen en merkonderdelen."
+      },
+      "airtable": {
+        "name": "Airtable",
+        "description": "Bases, records en tabellen via Airtable."
+      },
+      "adyen": {
+        "name": "Adyen",
+        "description": "Betalingsverwerking via Adyen."
+      },
+      "paypal": {
+        "name": "PayPal",
+        "description": "PayPal-betalingen en uitbetalingen."
+      },
+      "twinfield": {
+        "name": "Twinfield",
+        "description": "Twinfield-administraties via hosted MCP."
+      },
+      "yuki": {
+        "name": "Yuki",
+        "description": "Yuki-administraties voor accountants en MKB."
       }
     },
     "modules": {
@@ -2951,15 +3011,15 @@
       "backToMarketplace": "Terug naar Marketplace",
       "backToModules": "Terug naar Modules",
       "connectedBadge": "Gekoppeld",
-      "installedBadge": "Geïnstalleerd",
-      "setupBadge": "Setup",
+      "installedBadge": "Geïnstalleerd · geen pakketten",
+      "setupBadge": "Nog inrichten",
       "notInstalledBadge": "Niet geïnstalleerd",
       "onBadge": "Geïnstalleerd",
       "offBadge": "Niet geïnstalleerd",
       "install": "Installeren",
       "uninstall": "Deïnstalleren",
-      "finishSetup": "Setup afronden",
-      "installStarted": "{{name}} is klaar voor setup.",
+      "finishSetup": "Inrichten afronden",
+      "installStarted": "{{name}} is klaar om in te richten.",
       "installFinished": "{{name}} is geïnstalleerd.",
       "uninstalled": "{{name}} is gedeïnstalleerd.",
       "uninstallTitle": "{{name}} deïnstalleren?",
@@ -3297,6 +3357,7 @@
       "codeHint": "Alleen nodig voor code-projecten.",
       "mailboxProgram": "{{count}} mailboxen",
       "mailboxProgram_one": "{{count}} mailbox",
+      "calendarOnlyNoMail": "Agenda gekoppeld — mail nog niet verzendklaar",
       "openChannels": "Kanalen",
       "emptyCalendar": "Nog geen agenda gekoppeld.",
       "browseCalendar": "Agenda-apps bekijken",
@@ -3452,42 +3513,27 @@
       },
       "bokito": {
         "title": "Bokito gebruiken in Cursor",
-        "description": "Laat Cursor of Claude de tools en kennis van deze workspace gebruiken.",
-        "enable": "Aanzetten",
-        "enabledHint": "Cursor en vergelijkbare apps kunnen deze workspace gebruiken (preview).",
-        "disabledHint": "Zet aan om verbindingsgegevens en installatiestappen te zien.",
-        "previewBanner": "Installatiestappen zijn een preview. Live inloggen voor Cursor is nog niet beschikbaar.",
-        "connectionTitle": "Verbindingsgegevens",
-        "workspaceId": "Workspace-ID",
-        "schemaUrl": "Schema MCP-endpoint",
-        "dataUrl": "Data MCP-endpoint",
-        "accessToken": "Toegangstoken",
-        "copy": "Kopiëren",
-        "copied": "Gekopieerd",
-        "clientSetupTitle": "Client instellen",
+        "description": "Laat Cursor of Claude de governed tools van deze workspace aanroepen via MCP.",
         "clients": {
-          "cursor": "Cursor",
+          "cursor": "Cursor (OAuth)",
+          "cursorToken": "Cursor (API-token)",
           "claude": "Claude Desktop",
           "generic": "Generiek HTTP"
         },
         "steps": {
-          "cursor1": "Open Cursor-instellingen, daarna MCP.",
-          "cursor2": "Voeg een nieuwe MCP-server toe en plak de configuratie hieronder.",
-          "cursor3": "Herstart Cursor om tools uit je Bokito-workspace te laden.",
+          "oauth1": "Open Cursor-instellingen, daarna MCP.",
+          "oauth2": "Plak de JSON hieronder (alleen URL — geen token).",
+          "oauth3": "Opslaan. Cursor opent de browser: log in bij Bokito en kies een workspace.",
+          "cursor1": "Maak hierboven een app-token (voor automatisering / CI).",
+          "cursor2": "Plak de JSON hieronder in Cursor-instellingen → MCP (url + Authorization bearer).",
+          "cursor3": "Opslaan — tools van die token-workspace verschijnen voor de agent.",
           "claude1": "Open Claude Desktop-instellingen.",
-          "claude2": "Bewerk claude_desktop_config.json en plak de configuratie hieronder.",
-          "claude3": "Herstart Claude Desktop.",
-          "generic1": "Gebruik het HTTP-endpoint en bearer-token uit Verbindingsgegevens.",
-          "generic2": "Richt je MCP-client op de schema- of data-URL.",
-          "generic3": "Controleer of tools verschijnen na opnieuw verbinden."
-        },
-        "toolsTitle": "Beschikbare tools",
-        "toolsDescription": "Tools die deze workspace aan Cursor en vergelijkbare apps kan bieden.",
-        "toolColumn": "Tool",
-        "categoryColumn": "Categorie",
-        "descriptionColumn": "Beschrijving",
-        "categorySchema": "Schema",
-        "categoryData": "Data"
+          "claude2": "Bewerk claude_desktop_config.json en plak de configuratie hieronder (gebruikt mcp-remote).",
+          "claude3": "Herstart Claude Desktop en controleer of Bokito-tools laden.",
+          "generic1": "POST JSON-RPC naar /api/mcp met Authorization: Bearer bok_…",
+          "generic2": "Roep tools/list aan, daarna tools/call met dezelfde bearer-token.",
+          "generic3": "Scoped tokens zien alleen passende categorieën; lege scopes = alle tools."
+        }
       }
     }
   },
@@ -3517,7 +3563,7 @@
       "overview": "Overzicht",
       "agents": "Agentbibliotheek",
       "assistant": "Assistant agent",
-      "communication": "Inbox AI",
+      "communication": "AI-antwoorden",
       "po": "Lead",
       "backgroundWorkers": "Stromen",
       "viewAllAgents": "Alle agents",
@@ -3557,7 +3603,7 @@
       "renameAgent": "Naam bewerken",
       "editIdentity": "Bewerken",
       "identityDialogTitle": "Naam en icoon",
-      "identityDialogBody": "Hoe deze agent verschijnt in de bibliotheek, Berichten en webchat. Platform-AI-violet — geen eigen kleuren.",
+      "identityDialogBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie en webchat. Platform-AI-violet — geen eigen kleuren.",
       "identitySaved": "Weergave opgeslagen",
       "identitySaveError": "Kon weergave niet opslaan.",
       "archiveConfirmAction": "Agent archiveren",
@@ -3627,7 +3673,7 @@
       "openAgenda": "Agenda",
       "openThreads": "Gesprekken van deze agent",
       "openKnowledge": "Kennis",
-      "openIntegrations": "Integraties",
+      "openIntegrations": "Koppelingen",
       "openSetup": "Setupgids",
       "agendaTitle": "Binnenkort op de agenda",
       "agendaDescription": "Geplande check-ins en taken voor deze agent in de komende twee weken.",
@@ -3683,7 +3729,7 @@
       "replySendAsUser": "Als de goedkeurende collega",
       "replySendAsUserHint": "Impersoneert de persoon die goedkeurt — diens handtekening wordt gebruikt.",
       "signatureEditorContext": "voor agent {{name}}",
-      "openInboxAi": "Inbox AI aanpassen",
+      "openInboxAi": "AI-antwoorden aanpassen",
       "selectModel": "Kies een model",
       "defaultModel": "Standaard",
       "chatAccessTitle": "Communicatie",
@@ -3714,7 +3760,7 @@
       "leadArchiveBlocked": "Dit is de standaardagent. Maak eerst een andere agent standaard, en archiveer daarna.",
       "setAsDefault": "Gebruik als standaardagent",
       "isDefaultHint": "Standaard voor nieuwe kanalen en niet-toegewezen werk.",
-      "relatedInboxAi": "Inbox AI-instellingen",
+      "relatedInboxAi": "AI-antwoordinstellingen",
       "relatedKnowledge": "Kennis",
       "relatedGovern": "Autonomie en Govern",
       "relatedSetup": "Setupgids",
@@ -3751,7 +3797,7 @@
         "submit": "Agent aanmaken",
         "roles": {
           "assistant": "Assistent",
-          "communication": "Berichten",
+          "communication": "Communicatie",
           "builder": "Bouwer",
           "orchestra": "Lead"
         },
@@ -3777,7 +3823,7 @@
         "modelsRetry": "Kon modellen niet laden. Probeer opnieuw"
       },
     "visualTitle": "Visuele identiteit",
-    "visualBody": "Hoe deze agent verschijnt in de bibliotheek, Berichten, e-mailhandtekening en webchat. Naam plus optioneel icoon — platform-AI-violet, geen eigen kleuren.",
+    "visualBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie, e-mailhandtekening en webchat. Naam plus optioneel icoon — platform-AI-violet, geen eigen kleuren.",
     "visualEdit": "Bewerken",
     "visualSaved": "Visuele identiteit opgeslagen",
     "visualSaveError": "Kon visuele identiteit niet opslaan.",
@@ -3881,7 +3927,7 @@
       "projectsTitle": "Projecten die een lead nodig hebben",
       "projectsEmpty": "Geen projecten missen een lead-agent.",
       "attentionTitle": "Vereist aandacht",
-      "attentionHint": "Berichten die nog menselijke beslissing nodig hebben over alle projecten.",
+      "attentionHint": "Gesprekken die nog menselijke beslissing nodig hebben over alle projecten.",
       "openCommunication": "Open communicatie",
       "openProjectHub": "Open project hub",
       "manageAgents": "Beheer agents"
@@ -3897,12 +3943,12 @@
     },
     "page": {
       "title": "Projecten",
-      "subtitle": "Groepeer gesprekken, agents en kennis rond één doel. Elk project kan een projectagent hebben.",
+      "subtitle": "Langer lopend werk met een eigen doel, documentatie en queue. Elk project kan een projectagent hebben die het bewaakt.",
       "refresh": "Vernieuwen",
       "new": "Nieuw project",
       "loading": "Projecten laden...",
       "emptyTitle": "Nog geen projecten",
-      "emptyBody": "Een project groepeert gesprekken, agents en kennis rond één doel.",
+      "emptyBody": "Een project bevat het doel, de documentatie en de queue voor werk dat langer loopt dan één gesprek.",
       "openAgents": "Agents openen",
       "openSetup": "Setupgids openen",
       "openKnowledge": "Kennis openen",
@@ -3933,7 +3979,7 @@
       "deleteTitle": "Project verwijderen",
       "deleteItem": "het project",
       "deleteImpact": "Gesprekken en taken blijven bewaard, maar verliezen de projectgroepering.",
-      "searchPlaceholder": "Zoek op naam of lead",
+      "searchPlaceholder": "Zoek op naam of agent",
       "advancedSlug": "Geavanceerd: URL-slug",
       "hideAdvanced": "Slug verbergen",
       "readonlyBanner": "Je kunt projecten bekijken. Vraag een beheerder om ze aan te maken of te wijzigen.",
@@ -3978,10 +4024,6 @@
       "tabSettings": "Instellingen",
       "resources": "Resources",
       "resourcesHint": "Externe omgevingen waar dit project op werkt. Nu gekoppeld op referentie; connectors volgen later.",
-      "autonomousMode": "Autonome modus",
-      "autonomousModeHint": "Queue-items uit gesprekken worden automatisch geaccepteerd en de analyse start direct.",
-      "autonomousModeOn": "Autonome modus ingeschakeld",
-      "autonomousModeOff": "Autonome modus uitgeschakeld",
       "orchestration": "Wie dit uitvoert",
       "workstreams": "Draaiboeken",
       "noWorkstreams": "Nog geen draaiboeken voor dit project.",
@@ -4000,7 +4042,7 @@
       "description": "Beschrijving voor je agents",
       "descriptionPlaceholder": "Waar gaat dit project over?",
       "copyId": "Project-ID kopiëren",
-      "copyLeadId": "Lead-ID kopiëren",
+      "copyLeadId": "Projectagent-ID kopiëren",
       "copied": "{{label}} gekopieerd",
       "copyError": "Kon {{label}} niet kopiëren",
       "save": "Wijzigingen opslaan",
@@ -4015,7 +4057,7 @@
       "budgetCapHint": "Als het workspace-plafond is bereikt, pauzeren agents nieuw werk tot het volgende venster.",
       "copySlug": "Slug kopiëren",
       "advanced": "Geavanceerd",
-      "changeLead": "Lead wijzigen",
+      "changeLead": "Projectagent wijzigen",
       "readonlyBanner": "Je kunt dit project bekijken. Vraag een beheerder om instellingen te wijzigen.",
       "addFirstStep": "Voeg de eerste stap toe op de Agenda",
       "budgetBar": {
@@ -4107,9 +4149,9 @@
         "rejected": "Afwijzen"
       },
       "kind": {
-        "feature": "Feature",
-        "bug": "Bug",
-        "task": "Taak",
+        "feature": "Verbetering",
+        "bug": "Probleem",
+        "task": "Verzoek",
         "idea": "Idee",
         "risk": "Risico"
       },
@@ -4162,7 +4204,7 @@
       "resourcesLoading": "Resources laden...",
       "resourcesEmpty": "Nog geen resources gekoppeld.",
       "openModules": "Modules openen",
-      "openIntegrations": "Integraties openen",
+      "openIntegrations": "Koppelingen openen",
       "resourceAddLink": "Resource koppelen",
       "resourceAdd": "Koppelen",
       "resourceLinked": "Resource gekoppeld",
@@ -4204,12 +4246,12 @@
       "po": "Lead",
       "knowledge": "Workspace",
       "orchestration": "Wie dit uitvoert",
-      "communication": "Berichten",
+      "communication": "Communicatie",
       "workforce": "Agent-runs",
       "usage": "Tokenverbruik",
       "notifications": "Notificaties",
       "request": "Wijziging aanvragen",
-      "messages": "Berichten",
+      "messages": "Communicatie",
       "settings": "Instellingen"
     },
     "contextBar": {
@@ -4279,7 +4321,7 @@
     },
     "orchestration": {
       "title": "Orchestratie",
-      "description": "Stel in hoe de orkestrator dit project aanstuurt: cadans, autonomie en human-in-the-loop.",
+      "description": "Stel in hoe de orkestrator dit project aanstuurt: cadans, autonomie en wanneer een mens moet meebeslissen.",
       "loading": "Orchestratie-instellingen laden…",
       "saved": "Instellingen opgeslagen.",
       "loadError": "Kon orchestratie-instellingen niet laden.",
@@ -4452,7 +4494,7 @@
         "disconnectError": "Kon niet ontkoppelen",
         "reindexError": "Kon project niet opnieuw inlezen",
         "connectGithubFirst": "Koppel eerst GitHub zodat je een repository kunt kiezen.",
-        "openIntegrations": "Integraties openen"
+        "openIntegrations": "Koppelingen openen"
       },
       "danger": {
         "title": "Gevaarlijke acties",
@@ -4506,7 +4548,7 @@
       "govern": "Govern",
       "advanced": "Geavanceerd",
       "data": "Data",
-      "help": "help"
+      "help": "Hulp"
     },
     "links": {
       "profile": "Profiel",
@@ -4514,7 +4556,7 @@
       "myAssistant": "Mijn assistent",
       "notifications": "Notificaties",
       "setupGuide": "Setupgids",
-      "help": "help",
+      "help": "Hulp",
       "inbox": "Mailboxen",
       "emailMessages": "Kanalen",
       "chatWidget": "Chatwidget",
@@ -4615,7 +4657,7 @@
     "saved": "Privacy-instellingen opgeslagen.",
     "saveError": "Kon privacy-instellingen niet opslaan.",
     "legalTitle": "Juridische documenten",
-    "legalBody": "Engineering-concepten onder docs/legal. Jurist of FG moet reviewen vóór productie met klantdata.",
+    "legalBody": "Juridische documenten voor operators in deze workspace. Neem contact op met support voor een getekende verwerkersovereenkomst.",
     "linkDpa": "Verwerkersovereenkomst",
     "linkPrivacy": "Privacyverklaring",
     "linkSubprocessors": "Subverwerkers",
@@ -4642,7 +4684,7 @@
   "publicTrust": {
     "title": "Beveiliging en privacy",
     "subtitle": "Hoe Bokito workspacedata beschermt voor Nederlandse en EU-MKB.",
-    "draftGate": "Juridische templates zijn engineering-concepten tot een jurist of FG ze goedkeurt.",
+    "draftGate": "Vraag support om de actuele verwerkersovereenkomst en subverwerkerslijst voor jouw organisatie.",
     "highlightsTitle": "Kernpunten",
     "mfa": "Account-MFA en rollen in de workspace (owner, admin, member).",
     "encryption": "OAuth- en integratiecredentials versleuteld at rest met een aparte sleutel, los van JWT.",
@@ -4668,8 +4710,8 @@
       "description": "Configureer persoonlijke en teamnotificaties."
     },
     "support": {
-      "title": "Berichten",
-      "description": "Configureer berichten-gedrag en kanalen."
+      "title": "Communicatie",
+      "description": "Configureer Communicatie-gedrag en kanalen."
     },
     "messenger": {
       "title": "Assistent",
@@ -4747,7 +4789,7 @@
     },
     "unassigned": {
       "title": "Niet toegewezen",
-      "description": "Berichten die nog een eigenaar nodig hebben."
+      "description": "Gesprekken die nog een eigenaar nodig hebben."
     }
   },
   "fallbackTitles": {
@@ -4925,6 +4967,35 @@
       "company.md": "Over het bedrijf"
     }
   },
+  "oauthMcp": {
+    "title": "Bokito MCP autoriseren",
+    "loading": "Autorisatieverzoek laden...",
+    "missingRequest": "Autorisatieverzoek ontbreekt. Start opnieuw vanuit Cursor.",
+    "loadFailed": "Kon dit autorisatieverzoek niet laden.",
+    "backToLogin": "Terug naar inloggen",
+    "intro": "{{client}} wil Bokito-tools gebruiken als {{email}}. Kies de workspace om te koppelen.",
+    "redirectTo": "Keert terug naar {{host}} na autorisatie.",
+    "pickWorkspace": "Workspace",
+    "noWorkspaces": "Je account heeft nog geen workspaces.",
+    "scopesTitle": "Toegang",
+    "scopesFull": "Geen categorieën gekozen = volledige governed tool-toegang",
+    "authorize": "Autoriseren",
+    "deny": "Weigeren",
+    "authorizeFailed": "Autorisatie lukte niet.",
+    "denyFailed": "Weigeren lukte niet.",
+    "scopeLabels": {
+      "messaging": "Berichten & CRM",
+      "workspace": "Kennis",
+      "projects": "Projecten",
+      "agents": "Agents",
+      "delegation": "Delegatie",
+      "cases": "Signalen",
+      "triggers": "Agenda",
+      "channels": "Kanalen",
+      "integrations": "Integraties",
+      "govern": "Govern"
+    }
+  },
   "developersPage": {
     "tokensTitle": "App-tokens",
     "tokensBody": "Laat een andere app met deze workspace praten. Laat toegang leeg voor alles, of kies wat die mag doen.",
@@ -4941,11 +5012,44 @@
     "copied": "Gekopieerd",
     "copy": "Kopiëren",
     "dismissToken": "Ik heb hem gekopieerd",
-    "fullAccessWarning": "Geen scopes gekozen: deze token kan alles in de workspace.",
+    "fullAccessWarning": "Geen scopes gekozen: deze token kan alles in de workspace. Kies liever een preset voor Cursor.",
     "selectAllRest": "Hele API",
     "selectAllMcp": "Alle tools",
-    "copyCurl": "curl-voorbeeld kopiëren",
-    "copiedCurl": "curl-voorbeeld gekopieerd",
+    "preset": {
+      "read": "Workspace lezen",
+      "ops": "Ops + berichten",
+      "full": "Volledig governed"
+    },
+    "copyCurl": "REST-curl kopiëren",
+    "copiedCurl": "REST-curl gekopieerd",
+    "copyCursorMcp": "Cursor MCP-config kopiëren",
+    "copiedCursorMcp": "Cursor MCP-config gekopieerd",
+    "downloadMcpJson": "bokito-mcp.json downloaden",
+    "downloadedMcpJson": "bokito-mcp.json gedownload",
+    "cursorDeeplinkHint": "Cursor heeft nog geen stabiele publieke deeplink voor remote HTTP-MCP — plak of download de JSON in Instellingen → MCP.",
+    "copyClaudeMcp": "Claude Desktop-config kopiëren",
+    "copiedClaudeMcp": "Claude Desktop-config gekopieerd",
+    "copyMcpCurl": "MCP-curl kopiëren",
+    "copiedMcpCurl": "MCP-curl gekopieerd",
+    "mcpOauthTitle": "Cursor koppelen met OAuth",
+    "mcpOauthHint": "Plak alleen de MCP-URL in Cursor. Bij eerste gebruik opent Cursor de browser — log in en kies een workspace onder je account. Geen token kopiëren.",
+    "copyCursorMcpOauth": "Cursor MCP-URL-config kopiëren",
+    "copiedCursorMcpOauth": "Cursor OAuth MCP-config gekopieerd",
+    "oauthGrants": {
+      "title": "Gekoppelde MCP-clients",
+      "body": "OAuth-sessies van Cursor en andere MCP-clients. Intrekken stopt de toegang meteen; de client moet opnieuw autoriseren.",
+      "loading": "Gekoppelde clients laden...",
+      "empty": "Nog geen OAuth-clients. Autoriseer vanuit Cursor om ze hier te zien.",
+      "revoke": "Intrekken",
+      "revokeConfirm": "Toegang voor \"{{name}}\" intrekken? Tools stoppen tot ze opnieuw autoriseren.",
+      "revoked": "MCP-clienttoegang ingetrokken.",
+      "revokeError": "Kon MCP-client niet intrekken."
+    },
+    "mcpSetupTitle": "API-token fallback (CI / scripts)",
+    "mcpSetupHint": "Voor automatisering zonder browser: maak hierboven een token en plak een bearer-config. Governed tools vragen nog steeds om goedkeuring als policy dat eist.",
+    "mcpSetupPlaceholderHint": "Vervang YOUR_BOKITO_API_TOKEN door een token hierboven nadat je er een hebt aangemaakt.",
+    "controlFromCursor": "Stuur deze workspace vanuit Cursor",
+    "controlFromCursorBody": "Kopieer de URL-only MCP-config onder Developers, plak die in Cursor-instellingen → MCP, en autoriseer daarna in de browser met workspacekeuze.",
     "hideRevoked": "Ingetrokken verbergen",
     "showRevoked": "Ingetrokken tonen",
     "justNow": "zojuist",
@@ -4954,7 +5058,7 @@
     "daysAgo": "{{count}}d geleden",
     "loading": "Tokens laden...",
     "empty": "Nog geen tokens. Maak er een om Cursor of een andere app te koppelen.",
-    "openIntegrations": "Integraties openen",
+    "openIntegrations": "Koppelingen openen",
     "createError": "Kon token niet aanmaken.",
     "revokeConfirm": "Token \"{{name}}\" intrekken? Apps die die gebruiken stoppen.",
     "revoked": "Token ingetrokken.",
@@ -5079,6 +5183,8 @@
     "installExternalTitle": "Widget voor websitebezoekers",
     "installInternalBody": "Plak dit snippet in je product voor ingelogde gebruikers. Gesprekken blijven gekoppeld aan hun account.",
     "installExternalBody": "Plak dit snippet op elke website. Bezoekers chatten anoniem; gesprekken landen in Communicatie.",
+    "localSnippetTitle": "Dit snippet gebruikt je lokale ontwikkel-URL",
+    "localSnippetBody": "Plak het alleen op een pagina die deze machine kan bereiken. Voor een live website open je Chatwidget in je productie-workspace en kopieer je het snippet daar — localhost en 127.0.0.1 werken niet voor bezoekers.",
     "openCommunication": "Communicatie openen",
     "openHelpCenters": "Helpcentrum openen",
     "openSetup": "Setupgids openen",
@@ -5091,7 +5197,7 @@
     "previewAria": "Live messenger-voorbeeld",
     "modules": {
       "home": "Home",
-      "messages": "Berichten",
+      "messages": "Communicatie",
       "help": "Help",
       "tools": "Tools"
     }
@@ -5118,7 +5224,7 @@
     "openCommunication": "Nieuwe chat openen",
     "openModels": "Providers en modellen openen",
     "openKnowledge": "Kennis openen",
-    "openInboxAi": "Inbox AI openen",
+    "openInboxAi": "AI-antwoorden openen",
     "openNotifications": "Meldingen openen",
     "talkCta": "Praat met assistent",
     "unsavedLeave": "Je hebt niet-opgeslagen assistentwijzigingen. Deze pagina verlaten?",

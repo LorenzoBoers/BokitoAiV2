@@ -17,8 +17,8 @@ Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/
 *The preset lives on Govern.*
 
 1. Open **Settings**, then **Govern**, then **Policy**. The card is **How much agents can do**.
-2. Choose **Manual** (agents draft, you apply), **Assisted** (low-risk actions go through, the rest asks), or **Autonomous** (agents act within allowances).
-3. The setting saves as you pick it. A per-type or playbook policy may be stricter, never broader.
+2. Choose **Manual** (agents draft, you apply), **Assisted** (low-risk actions go through, the rest asks), or **Autonomous** (agents act within allowances). **Autonomous** stays unavailable until the workspace has a live model and at least one send-ready channel.
+3. The setting saves as you pick it. A per-type or playbook policy may be stricter, never broader. Without a live model, AI replies are placeholders and are never labeled as sent to the customer.
 
 ## Set the three layers
 

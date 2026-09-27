@@ -276,9 +276,10 @@ export default function ReplyComposer({
   const replyBlocked = replyDisabledNotice != null
 
   useEffect(() => {
-    // Keep the channel default (usually Reply). When replies are blocked the
-    // Reply tab shows the connect-mailbox notice — do not silently dump the
-    // operator on Intern.
+    // Keep the channel default (usually Reply). When controlled, ThreadDetail
+    // owns the tab (Reply after human ask / takeover). When replies are
+    // blocked the Reply tab shows the connect-mailbox notice — do not
+    // silently dump the operator on Intern.
     if (modeProp === undefined) {
       setUncontrolledTab(surface.defaultTab)
     }

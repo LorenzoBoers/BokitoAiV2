@@ -18,6 +18,8 @@ export type AuthMeResponse = {
 
 export type CockpitSummary = {
   volume_week: number
+  /** Open external conversations of any age (inbox backlog). */
+  open_backlog?: number
   open_decisions: number
   autonomy_rate_pct: number
   avg_feedback_score: number

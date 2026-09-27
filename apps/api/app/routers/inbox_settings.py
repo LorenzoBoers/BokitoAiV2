@@ -290,6 +290,7 @@ DEFAULT_NOTIFICATION_ROWS = [
     {"id": "assigned-to-me", "label": "When a conversation is assigned to you", "channels": {"desktop": True, "email": False, "push": True}},
     {"id": "mentions", "label": "When you are mentioned in conversations", "channels": {"desktop": True, "email": False, "push": True}},
     {"id": "decisions", "label": "When a decision needs you", "channels": {"desktop": True, "email": False, "push": True}},
+    {"id": "handoff", "label": "When a customer asks for a human", "channels": {"desktop": True, "email": False, "push": True}},
     {"id": "digest-daily", "label": "Daily email digest", "channels": {"desktop": False, "email": False, "push": False}},
     {"id": "digest-weekly", "label": "Weekly email digest", "channels": {"desktop": False, "email": False, "push": False}},
 ]

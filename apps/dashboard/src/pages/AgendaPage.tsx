@@ -62,19 +62,38 @@ const KIND_LABELS: Record<string, string> = {
   follow_up: 'Look again',
 }
 
-type SourceFilter = 'all' | 'wakes' | 'calendar'
+type SourceFilter = 'tasks' | 'all' | 'wakes' | 'calendar'
 
 function parseSourceFilter(raw: string | null): SourceFilter {
-  if (raw === 'wakes' || raw === 'calendar') return raw
-  return 'all'
+  if (raw === 'all' || raw === 'wakes' || raw === 'calendar' || raw === 'tasks') return raw
+  // Default: human look-ats / follow-ups first (F-80) — cron scans stay secondary.
+  return 'tasks'
 }
 
 function isCalendarItem(item: AgendaItem): boolean {
   return item.kind === 'calendar' || item.source === 'calendar'
 }
 
+function isLookbackItem(item: AgendaItem): boolean {
+  if (item.kind === 'follow_up' || item.kind === 'task' || item.source === 'follow_up') return true
+  if (item.actor_kind === 'person') return true
+  return false
+}
+
+function isAgentAutomationItem(item: AgendaItem): boolean {
+  if (isCalendarItem(item) || isLookbackItem(item)) return false
+  return item.kind === 'cron' || item.kind === 'interval' || item.kind === 'heartbeat'
+}
+
 function isWakeItem(item: AgendaItem): boolean {
   return !isCalendarItem(item)
+}
+
+function lookbackSortRank(item: AgendaItem): number {
+  if (isLookbackItem(item)) return 0
+  if (isCalendarItem(item)) return 1
+  if (isAgentAutomationItem(item)) return 3
+  return 2
 }
 
 function itemIsClickable(item: AgendaItem): boolean {
@@ -215,6 +234,7 @@ export default function AgendaPage() {
   const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null)
   const [initialRunAt, setInitialRunAt] = useState<Date | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [automationsExpanded, setAutomationsExpanded] = useState(false)
 
   const handleViewChange = useCallback(
     (next: ViewTab) => {
@@ -272,7 +292,8 @@ export default function AgendaPage() {
   const handleSourceFilterChange = (next: SourceFilter) => {
     setSourceFilter(next)
     const params = new URLSearchParams(searchParams)
-    if (next === 'all') params.delete('source')
+    // Persist the default lookbacks filter so a refresh keeps the human-first view.
+    if (next === 'tasks') params.delete('source')
     else params.set('source', next)
     setSearchParams(params, { replace: true })
   }
@@ -361,6 +382,7 @@ export default function AgendaPage() {
 
   const filtered = useMemo(() => {
     let out = items
+    if (sourceFilter === 'tasks') out = out.filter((i) => isLookbackItem(i) || isCalendarItem(i))
     if (sourceFilter === 'wakes') out = out.filter((i) => isWakeItem(i))
     if (sourceFilter === 'calendar') out = out.filter((i) => isCalendarItem(i))
     if (kindFilter !== 'all') out = out.filter((i) => i.kind === kindFilter)
@@ -371,19 +393,46 @@ export default function AgendaPage() {
         return hay.includes(q)
       })
     }
-    return [...out].sort((a, b) => parseAt(a.at).getTime() - parseAt(b.at).getTime())
+    return [...out].sort((a, b) => {
+      const byRank = lookbackSortRank(a) - lookbackSortRank(b)
+      if (byRank !== 0) return byRank
+      return parseAt(a.at).getTime() - parseAt(b.at).getTime()
+    })
   }, [items, kindFilter, sourceFilter, listQuery])
 
-  const byDay = useMemo(() => {
+  const primaryFiltered = useMemo(
+    () => (sourceFilter === 'all' ? filtered.filter((i) => !isAgentAutomationItem(i)) : filtered),
+    [filtered, sourceFilter],
+  )
+
+  const automationFiltered = useMemo(
+    () => (sourceFilter === 'all' ? filtered.filter((i) => isAgentAutomationItem(i)) : []),
+    [filtered, sourceFilter],
+  )
+
+  const primaryByDay = useMemo(() => {
     const map = new Map<string, AgendaItem[]>()
-    for (const item of filtered) {
+    for (const item of primaryFiltered) {
       const key = dayKey(parseAt(item.at))
       const list = map.get(key) ?? []
       list.push(item)
       map.set(key, list)
     }
     return map
-  }, [filtered])
+  }, [primaryFiltered])
+
+  const byDay = useMemo(() => {
+    // Week grid uses the human-first list; automations stay out of the day cells
+    // when browsing "All" so cron scans do not bury look-ats (F-80).
+    const map = new Map<string, AgendaItem[]>()
+    for (const item of primaryFiltered) {
+      const key = dayKey(parseAt(item.at))
+      const list = map.get(key) ?? []
+      list.push(item)
+      map.set(key, list)
+    }
+    return map
+  }, [primaryFiltered])
 
   const openCreate = (at?: Date) => {
     setEditingTrigger(null)
@@ -579,10 +628,11 @@ export default function AgendaPage() {
               />
             ) : null}
             <Select value={sourceFilter} onValueChange={(v) => handleSourceFilterChange(v as SourceFilter)}>
-              <SelectTrigger className="h-8 w-[130px] text-xs">
-                <SelectValue placeholder={t('agendaPage.allSources')} />
+              <SelectTrigger className="h-8 w-[150px] text-xs">
+                <SelectValue placeholder={t('agendaPage.sourceTasks')} />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="tasks">{t('agendaPage.sourceTasks')}</SelectItem>
                 <SelectItem value="all">{t('agendaPage.allSources')}</SelectItem>
                 <SelectItem value="wakes">{t('agendaPage.sourceWakes')}</SelectItem>
                 <SelectItem value="calendar">{t('agendaPage.sourceCalendar')}</SelectItem>
@@ -683,22 +733,30 @@ export default function AgendaPage() {
             )
           })}
         </div>
-      ) : filtered.length === 0 && listQuery.trim() ? (
+      ) : primaryFiltered.length === 0 && automationFiltered.length === 0 && listQuery.trim() ? (
         <p className="rounded-xl border border-dashed border-border/60 p-8 text-center text-sm text-text-muted">
           {t('agendaPage.listFilterEmpty')}
         </p>
-      ) : filtered.length === 0 ? (
+      ) : primaryFiltered.length === 0 && automationFiltered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 p-10 text-center">
           <CalendarDays className="mx-auto h-8 w-8 text-text-muted/50" aria-hidden />
-          <p className="mt-3 text-sm font-medium text-text-heading">{t('agendaPage.emptyTitle')}</p>
+          <p className="mt-3 text-sm font-medium text-text-heading">
+            {sourceFilter === 'tasks' ? t('agendaPage.emptyLookbacksTitle') : t('agendaPage.emptyTitle')}
+          </p>
           <p className="mt-1 text-sm text-text-muted">
-            {t('agendaPage.emptyBody')}
+            {sourceFilter === 'tasks' ? t('agendaPage.emptyLookbacksBody') : t('agendaPage.emptyBody')}
           </p>
           <div className="mt-4 flex flex-col items-center gap-3">
-            <Button type="button" size="sm" onClick={() => openCreate()}>
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden />
-              {t('agendaPage.createRun')}
-            </Button>
+            {sourceFilter === 'tasks' ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => handleSourceFilterChange('all')}>
+                {t('agendaPage.showAllIncludingAutomations')}
+              </Button>
+            ) : (
+              <Button type="button" size="sm" onClick={() => openCreate()}>
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                {t('agendaPage.createRun')}
+              </Button>
+            )}
             <Link to="/docs/ai/agenda" className="text-xs font-medium text-accent hover:underline">
               {t('pageGuides.learnMore')}
             </Link>
@@ -706,7 +764,7 @@ export default function AgendaPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          {[...byDay.entries()].map(([key, dayItems]) => {
+          {[...primaryByDay.entries()].map(([key, dayItems]) => {
             const day = parseAt(`${key}T12:00:00`)
             const isToday = key === todayKey
             return (
@@ -728,6 +786,7 @@ export default function AgendaPage() {
                         className={cn(
                           'flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-sm transition-colors',
                           isCalendarItem(item) ? 'border-sky-500/30' : '',
+                          isLookbackItem(item) ? 'border-status-warning/35' : '',
                           !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
                         )}
                       >
@@ -796,6 +855,62 @@ export default function AgendaPage() {
               </section>
             )
           })}
+          {automationFiltered.length > 0 ? (
+            <section className="rounded-xl border border-border/50 bg-bg-elevated/40">
+              <button
+                type="button"
+                onClick={() => setAutomationsExpanded((open) => !open)}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm"
+              >
+                <span className="font-medium text-text-heading">
+                  {t('agendaPage.automationsCollapsed', { count: automationFiltered.length })}
+                </span>
+                <span className="text-xs text-text-muted">
+                  {automationsExpanded ? t('agendaPage.automationsHide') : t('agendaPage.automationsShow')}
+                </span>
+              </button>
+              {automationsExpanded ? (
+                <div className="space-y-1.5 border-t border-border/40 px-3 py-2.5">
+                  {automationFiltered.map((item) => {
+                    const at = parseAt(item.at)
+                    const clickable = itemIsClickable(item)
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex w-full items-center gap-3 rounded-lg border border-border/40 bg-bg-surface/80 px-3 py-1.5 text-sm opacity-80"
+                      >
+                        <button
+                          type="button"
+                          disabled={!clickable}
+                          onClick={clickable ? () => openItem(item) : undefined}
+                          className={cn(
+                            'flex min-w-0 flex-1 items-center gap-3 text-left',
+                            clickable ? 'hover:opacity-90' : 'cursor-default',
+                          )}
+                        >
+                          <span className="w-12 shrink-0 tabular-nums text-text-muted">
+                            {formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })}{' '}
+                            {formatTime(at, i18n.language)}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            {t(`agendaPage.kinds.${item.kind}`, {
+                              defaultValue: KIND_LABELS[item.kind] ?? item.kind,
+                            })}
+                          </Badge>
+                          <span className="min-w-0 flex-1 truncate text-text-secondary">
+                            {translateDecisionText(item.name, t) || item.name}
+                          </span>
+                          <span className="shrink-0 text-[10px] uppercase tracking-wide text-text-muted">
+                            {agendaStatusLabel(item.status, t)}
+                          </span>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       )}
 

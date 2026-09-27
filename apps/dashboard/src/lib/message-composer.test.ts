@@ -130,6 +130,20 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.showRecipient).toBe(false)
   })
 
+  it('defaults internal threads with an open decision to a neutral note', () => {
+    const surface = resolveComposerSurface(
+      thread({
+        channel: 'internal',
+        folder: 'internal',
+        agentName: 'Platform PO',
+        hasOpenDecision: true,
+      }),
+    )
+    expect(surface.channel).toBe('internal')
+    expect(surface.defaultTab).toBe('note')
+    expect(surface.showRecipient).toBe(false)
+  })
+
   it('keeps website chat on chat even when the visitor left an email', () => {
     const surface = resolveComposerSurface(
       thread({

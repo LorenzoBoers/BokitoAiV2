@@ -3,6 +3,7 @@
  *
  * Rail: Overview, Communication, Agenda, Projects, Agents, Knowledge,
  * installed module workspaces, Connections, Settings.
+ * Govern lives under Settings (not a primary rail item).
  * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
  */
 
@@ -92,7 +93,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   agents: 'People and agents you can chat with',
   workstreams: 'Repeatable step-by-step playbooks for agents',
   knowledge: 'Docs, skills and memory',
-  projects: 'Shared goals for agents and threads',
+  projects: 'Shared goals, agents and playbooks for a body of work',
   modules: 'Installed modules, partner logins and tools',
   settings: 'Workspace configuration',
 }
@@ -172,6 +173,7 @@ export function tabFromPath(pathname: string): Tab | null {
   if (pathname.startsWith('/ai/modules')) return null
   // Activity terminal is shared; highlight Communication when opened from hub.
   if (pathname.startsWith('/activity')) return 'communication'
-  if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
+  if (pathname.startsWith('/settings') || pathname.startsWith('/ai/') || pathname.startsWith('/govern'))
+    return 'settings'
   return null
 }

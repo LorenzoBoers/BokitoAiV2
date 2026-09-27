@@ -69,4 +69,5 @@ async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONR
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": code, "message": message, **extras}},
+        headers=dict(exc.headers) if exc.headers else None,
     )

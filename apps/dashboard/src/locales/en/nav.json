@@ -47,7 +47,7 @@
     },
     "projects": {
       "title": "Projects",
-      "subtitle": "Shared goals for agents and threads"
+      "subtitle": "Shared goals, agents and playbooks for a body of work"
     },
     "knowledge": {
       "title": "Knowledge",
@@ -57,6 +57,10 @@
       "title": "Connections",
       "subtitle": "Installed modules, partner logins and tools",
       "newBadge": "New"
+    },
+    "govern": {
+      "title": "Govern",
+      "subtitle": "Autonomy, platform changes and audit trail"
     },
     "settings": {
       "title": "Settings",
@@ -186,7 +190,7 @@
   },
   "cases": {
     "listTitle": "Signals",
-    "emptyThread": "No signals on this conversation yet.",
+    "emptyThread": "No signals yet. Add one — for example Invoice / payment on a dunning email.",
     "openHub": "All signals",
     "manageTypes": "Set up signal types",
     "openWorkstream": "Playbook",
@@ -411,7 +415,7 @@
     "openCases": "Open Signals"
   },
   "cockpitTabs": {
-    "aria": "Cockpit sections",
+    "aria": "Overview sections",
     "overview": "Overview",
     "activity": "Activity",
     "usage": "Usage"
@@ -527,7 +531,7 @@
       "agents": "Agents",
       "setup": "Setup guide",
       "channels": "Channel settings",
-      "inboxAi": "Inbox AI settings",
+      "inboxAi": "AI reply settings",
       "contacts": "Contacts",
       "agenda": "Agenda",
       "projects": "Projects",
@@ -545,9 +549,9 @@
       "cases": "Signals"
     },
     "cockpit": {
-      "bannerTitle": "Cockpit is the pulse of the workspace",
+      "bannerTitle": "Overview is the pulse of the workspace",
       "bannerBody": "See health, live activity and model spend in one place before you dive into threads or agents.",
-      "pageTitle": "How Cockpit works",
+      "pageTitle": "How Overview works",
       "intro": "Start here when you want to know whether work is flowing and where attention is needed.",
       "sections": [
         {
@@ -580,7 +584,7 @@
         },
         {
           "title": "Channels",
-          "body": "Email, webchat, WhatsApp and Slack each get a queue when connected. Channel settings and Inbox AI modes live under Settings in the sidebar."
+          "body": "Email, webchat, WhatsApp and Slack each get a queue when connected. Channel settings and AI reply modes live under Settings in the sidebar."
         },
         {
           "title": "Agents in threads",
@@ -588,7 +592,7 @@
         },
         {
           "title": "Decisions",
-          "body": "Open DecisionRequests from any channel share one Decisions leaf. Cockpit Needs attention and notification clicks open the same list."
+          "body": "Open DecisionRequests from any channel share the Needs decision filter on the inbox. Overview Needs attention and notification clicks open the same list."
         }
       ]
     },
@@ -754,7 +758,7 @@
     },
     "models": {
       "bannerTitle": "Models decide what the workspace can call",
-      "bannerBody": "Enable chat and embedding models here. Spend still shows on Cockpit Usage; Govern still decides what agents may do.",
+      "bannerBody": "Enable chat and embedding models here. Spend still shows on Overview Usage; Govern still decides what agents may do.",
       "pageTitle": "Choose models",
       "intro": "Pick which language and embedding models this workspace may use, and who pays for them."
     },
@@ -792,8 +796,14 @@
     "allTypes": "All types",
     "allSources": "All items",
     "sourceWakes": "Wakes",
-    "sourceTasks": "Follow-ups",
+    "sourceTasks": "My look-ats",
     "sourceCalendar": "Calendar",
+    "emptyLookbacksTitle": "No look-ats yet",
+    "emptyLookbacksBody": "Conversation look-ats and calendar blocks show here. Agent scans live under All items.",
+    "showAllIncludingAutomations": "Show all items",
+    "automationsCollapsed": "{{count}} agent scans and check-ins",
+    "automationsShow": "Show",
+    "automationsHide": "Hide",
     "actor": {
       "agent": "Agent",
       "person": "Person"
@@ -1079,6 +1089,9 @@
     "noConversationsHint": "Connect a channel or install the chat widget so customers can reach you.",
     "lastSeen": "Last seen {{time}}",
     "widgetVisitor": "Website visitor",
+    "alsoSeenAsVisitor": "Also seen as website visitor",
+    "statusAwaitingEmail": "Awaiting email",
+    "anonymousGroupHint": "{{count}} website visitors waiting for an email — capture identity before approving.",
     "neverSeen": "No conversations yet",
     "writeEmail": "Write email",
     "writeEmailHint": "Start a new email to this person",
@@ -1142,7 +1155,7 @@
       "team": "Invite the team",
       "modules": "Add a field of work",
       "projects": "Projects",
-      "kpis": "Numbers on Cockpit",
+      "kpis": "Numbers on Overview",
       "govern": "Govern"
     },
     "communication": {
@@ -1208,12 +1221,12 @@
       "installWidget": "Install widget"
     },
     "kpis": {
-      "title": "5. Numbers on Cockpit",
-      "description": "Put the numbers that matter on Cockpit. Agents keep them up to date.",
+      "title": "5. Numbers on Overview",
+      "description": "Put the numbers that matter on Overview. Agents keep them up to date.",
       "done": "{{count}} custom number",
       "done_other": "{{count}} custom numbers",
       "todo": "No custom numbers yet",
-      "openCockpit": "Open Cockpit",
+      "openCockpit": "Open Overview",
       "openUsage": "Open Usage"
     }
   },
@@ -1579,6 +1592,8 @@
     "confirmClearCaps": "Clear both caps? Platform-key calls will have no daily or monthly limit.",
     "conversations7d": "Conversations (7d)",
     "conversationsEmptyHint": "No conversations this week yet. Open the inbox to start one.",
+    "conversationsEmptyWithBacklog": "No new conversations this week. {{count}} still open in the inbox.",
+    "openBacklogHint": "{{count}} open in the inbox (any age)",
     "openInbox": "Open inbox",
     "autonomyEmptyHint": "Nothing handled on its own yet. Set how much agents may do in Govern.",
     "openGovern": "Open Govern",
@@ -1625,6 +1640,10 @@
     "sentDev": "Verification email sent. Dev link available in the server logs.",
     "failed": "Could not send the verification email.",
     "resendIn": "Resend in {{seconds}}s"
+  },
+  "mockAiBanner": {
+    "body": "AI is running in mock mode — replies are placeholders and are not sent to customers.",
+    "cta": "Open Models"
   },
   "notificationsUi": {
     "aria": "Notifications",
@@ -1856,7 +1875,7 @@
     "crossLinks": {
       "body": "Channels land conversations in Communication. AI behavior and the chat widget work with the same channels.",
       "communication": "Open Communication",
-      "inboxAi": "Inbox AI settings",
+      "inboxAi": "AI reply settings",
       "widget": "Chat widget",
       "integrations": "Browse integrations",
       "setup": "Setup guide"
@@ -1884,6 +1903,8 @@
     "bindings": {
       "title": "Channel routing",
       "body": "Send incoming conversations on a channel to a specific agent. Without a route, the default agent handles new threads. Set a route only when a channel should use someone else.",
+      "pinnedHint": "A conversation keeps its pinned agent. New conversations use the default agent for this channel.",
+      "noDefaultAgent": "No default agent",
       "leadHint": "Leave the Agent column on the default agent unless this item needs someone else.",
       "loading": "Loading routes...",
       "empty": "No routes yet. New conversations go to the default agent until you add one.",
@@ -1933,12 +1954,12 @@
     "oauthFailedTitle": "Could not connect {{provider}}"
   },
   "foldersTags": {
-    "title": "Folders",
+    "title": "Folder defaults",
     "description": "Every channel folder in Communication has the same sub-views: Open, Mine, Unassigned and Closed.",
     "defaultTitle": "Default sub-view",
     "defaultDescription": "The view a channel folder opens on when you click it. Set a different one per channel below.",
-    "casesTitle": "Classification moved to Signals",
-    "casesDescription": "Free-form tags were replaced by intake types: one catalog that agents and operators classify conversations with.",
+    "casesTitle": "Classification lives under Signal types",
+    "casesDescription": "Classify conversations with Signal types under Settings. Free-form tags are gone.",
     "useGlobal": "Default ({{queue}})",
     "saveFailed": "Could not save the folder settings."
   },
@@ -2037,6 +2058,7 @@
       "assigned-to-me": "When a conversation is assigned to you",
       "mentions": "When you are mentioned in conversations",
       "decisions": "When an agent needs your decision on an assigned conversation",
+      "handoff": "When a customer asks for a human",
       "ops-run-failed": "When an agent run or trigger fails",
       "ops-channel-disconnect": "When a connected channel stops syncing",
       "billing-alerts": "When LLM spend reaches 80% or 100% of the budget",
@@ -2075,7 +2097,7 @@
     "verifyTokenMissing": "Ask your platform admin for the verify token (WHATSAPP_VERIFY_TOKEN is not configured on this server).",
     "subscribeHint": "Subscribe the webhook to the messages field, then send a test message to your number.",
     "openCommunication": "Open Communication",
-    "openInboxAi": "Inbox AI settings",
+    "openInboxAi": "AI reply settings",
     "displayName": "Display name",
     "displayNamePlaceholder": "+31 6 12345678",
     "displayNameHint": "Label in Bokito only — your team sees this under Channels.",
@@ -2115,7 +2137,7 @@
     "eventsUrl": "Events URL:",
     "interactivityUrl": "Interactivity URL:",
     "openCommunication": "Open Communication",
-    "openInboxAi": "Inbox AI settings",
+    "openInboxAi": "AI reply settings",
     "openGovern": "Open Govern policy",
     "workspaceName": "Workspace name",
     "workspaceNamePlaceholder": "Acme Inc",
@@ -2193,8 +2215,7 @@
     "agent": "Agent",
     "ai": "AI",
     "connections": "Connections",
-    "settings": "Settings",
-    "modules": "Modules"
+    "settings": "Settings"
   },
   "palette": {
     "placeholder": "Search pages, threads, contacts, knowledge, actions...",
@@ -2276,7 +2297,7 @@
     "languageNl": "Nederlands",
     "languageEn": "English",
     "emailMessages": "Email & messages",
-    "inboxAi": "Messages AI",
+    "inboxAi": "AI replies",
     "signOut": "Sign out"
   },
   "theme": {
@@ -2504,12 +2525,12 @@
       "spamHint": "Hidden from the open queue"
     },
     "section": {
-      "inbox": "Inbox",
+      "inbox": "Queues",
       "assistant": "Assistant",
       "bokito": "Bokito",
       "views": "Views",
       "channels": "Channels",
-      "agents": "Agents",
+      "agents": "Chat with agents",
       "labels": "Labels",
       "tags": "Tags",
       "settings": "Settings"
@@ -2585,7 +2606,8 @@
       "visible": "Show",
       "collapsed": "Collapse",
       "anchored": "Anchored",
-      "reset": "Reset to defaults"
+      "reset": "Reset to defaults",
+      "reorderAria": "Reorder {{label}}"
     },
     "allChannels": "All channels",
     "allMessages": "All",
@@ -2933,6 +2955,50 @@
       "snelstart": {
         "name": "SnelStart",
         "description": "Relations, invoices and general ledger via the SnelStart B2B API."
+      },
+      "mollie": {
+        "name": "Mollie",
+        "description": "Payments, customers, and settlements from Mollie."
+      },
+      "hubspot": {
+        "name": "HubSpot",
+        "description": "CRM records, deals, and marketing from HubSpot."
+      },
+      "intercom": {
+        "name": "Intercom",
+        "description": "Conversations and contacts from Intercom."
+      },
+      "figma": {
+        "name": "Figma",
+        "description": "Design files and comments from Figma."
+      },
+      "miro": {
+        "name": "Miro",
+        "description": "Boards and workshop content from Miro."
+      },
+      "canva": {
+        "name": "Canva",
+        "description": "Canva designs and brand assets."
+      },
+      "airtable": {
+        "name": "Airtable",
+        "description": "Bases, records, and tables from Airtable."
+      },
+      "adyen": {
+        "name": "Adyen",
+        "description": "Payment processing via Adyen."
+      },
+      "paypal": {
+        "name": "PayPal",
+        "description": "PayPal payments and payouts."
+      },
+      "twinfield": {
+        "name": "Twinfield",
+        "description": "Twinfield administrations via hosted MCP."
+      },
+      "yuki": {
+        "name": "Yuki",
+        "description": "Yuki administrations for accountants and SMBs."
       }
     },
     "modules": {
@@ -2951,8 +3017,8 @@
       "backToMarketplace": "Back to Marketplace",
       "backToModules": "Back to Modules",
       "connectedBadge": "Connected",
-      "installedBadge": "Installed",
-      "setupBadge": "Setup",
+      "installedBadge": "Installed · no packages",
+      "setupBadge": "Needs setup",
       "notInstalledBadge": "Not installed",
       "onBadge": "Installed",
       "offBadge": "Not installed",
@@ -3297,6 +3363,7 @@
       "codeHint": "Only needed for code projects.",
       "mailboxProgram": "{{count}} mailboxes",
       "mailboxProgram_one": "{{count}} mailbox",
+      "calendarOnlyNoMail": "Calendar synced — mail not send-ready yet",
       "openChannels": "Channels",
       "emptyCalendar": "No agenda connected yet.",
       "browseCalendar": "Browse agenda apps",
@@ -3452,42 +3519,27 @@
       },
       "bokito": {
         "title": "Use Bokito in Cursor",
-        "description": "Let Cursor or Claude use this workspace's tools and knowledge.",
-        "enable": "Turn on",
-        "enabledHint": "Cursor and similar apps can use this workspace (preview).",
-        "disabledHint": "Turn on to view connection details and setup steps.",
-        "previewBanner": "Setup steps are shown for preview. Live sign-in for Cursor is not available yet.",
-        "connectionTitle": "Connection details",
-        "workspaceId": "Workspace ID",
-        "schemaUrl": "Schema MCP endpoint",
-        "dataUrl": "Data MCP endpoint",
-        "accessToken": "Access token",
-        "copy": "Copy",
-        "copied": "Copied",
-        "clientSetupTitle": "Client setup",
+        "description": "Let Cursor or Claude call this workspace's governed tools over MCP.",
         "clients": {
-          "cursor": "Cursor",
+          "cursor": "Cursor (OAuth)",
+          "cursorToken": "Cursor (API token)",
           "claude": "Claude Desktop",
           "generic": "Generic HTTP"
         },
         "steps": {
-          "cursor1": "Open Cursor Settings, then MCP.",
-          "cursor2": "Add a new MCP server and paste the configuration below.",
-          "cursor3": "Restart Cursor to load tools from your Bokito workspace.",
+          "oauth1": "Open Cursor Settings, then MCP.",
+          "oauth2": "Paste the JSON below (URL only — no token).",
+          "oauth3": "Save. Cursor opens the browser: sign in to Bokito and pick a workspace.",
+          "cursor1": "Create an app token above (for automation / CI).",
+          "cursor2": "Paste the JSON below into Cursor Settings → MCP (url + Authorization bearer).",
+          "cursor3": "Save — tools from that token's workspace appear for the agent.",
           "claude1": "Open Claude Desktop settings.",
-          "claude2": "Edit claude_desktop_config.json and paste the configuration below.",
-          "claude3": "Restart Claude Desktop.",
-          "generic1": "Use the HTTP endpoint and bearer token from Connection details.",
-          "generic2": "Point your MCP-compatible client at the schema or data URL.",
-          "generic3": "Verify tools appear after reconnecting the client."
-        },
-        "toolsTitle": "Available tools",
-        "toolsDescription": "Tools this workspace can offer to Cursor and similar apps.",
-        "toolColumn": "Tool",
-        "categoryColumn": "Category",
-        "descriptionColumn": "Description",
-        "categorySchema": "Schema",
-        "categoryData": "Data"
+          "claude2": "Edit claude_desktop_config.json and paste the configuration below (uses mcp-remote).",
+          "claude3": "Restart Claude Desktop and confirm Bokito tools load.",
+          "generic1": "POST JSON-RPC to /api/mcp with Authorization: Bearer bok_…",
+          "generic2": "Call tools/list then tools/call with the same bearer token.",
+          "generic3": "Scoped tokens only see matching tool categories; empty scopes = all tools."
+        }
       }
     }
   },
@@ -3517,7 +3569,7 @@
       "overview": "Overview",
       "agents": "Agent library",
       "assistant": "Assistant agent",
-      "communication": "Inbox AI",
+      "communication": "AI replies",
       "po": "Lead",
       "backgroundWorkers": "Flows",
       "viewAllAgents": "View all agents",
@@ -3627,7 +3679,7 @@
       "openAgenda": "Agenda",
       "openThreads": "This agent's threads",
       "openKnowledge": "Knowledge",
-      "openIntegrations": "Integrations",
+      "openIntegrations": "Connections",
       "openSetup": "Setup guide",
       "agendaTitle": "Upcoming on the agenda",
       "agendaDescription": "Scheduled wakes and tasks for this agent in the next two weeks.",
@@ -3683,7 +3735,7 @@
       "replySendAsUser": "As the approving teammate",
       "replySendAsUserHint": "Impersonates the person who approves — their signature is used.",
       "signatureEditorContext": "for agent {{name}}",
-      "openInboxAi": "Adjust Inbox AI",
+      "openInboxAi": "Adjust AI replies",
       "selectModel": "Select a model",
       "defaultModel": "Default",
       "chatAccessTitle": "Communication",
@@ -3714,7 +3766,7 @@
       "leadArchiveBlocked": "This is the default agent. Make another agent the default first, then archive.",
       "setAsDefault": "Use as default agent",
       "isDefaultHint": "Default for new channels and unassigned work.",
-      "relatedInboxAi": "Inbox AI settings",
+      "relatedInboxAi": "AI reply settings",
       "relatedKnowledge": "Knowledge",
       "relatedGovern": "Autonomy & Govern",
       "relatedSetup": "Setup guide",
@@ -3897,12 +3949,12 @@
     },
     "page": {
       "title": "Projects",
-      "subtitle": "Group conversations, agents and knowledge around one goal. Each project can have a project agent.",
+      "subtitle": "Longer-running work with its own goal, documentation and queue. Each project can have a project agent that owns it.",
       "refresh": "Refresh",
       "new": "New project",
       "loading": "Loading projects...",
       "emptyTitle": "No projects yet",
-      "emptyBody": "A project groups conversations, agents and knowledge around one goal.",
+      "emptyBody": "A project holds the goal, documentation and queue for work that runs longer than one conversation.",
       "openAgents": "Open Agents",
       "openSetup": "Open setup guide",
       "openKnowledge": "Open Knowledge",
@@ -3933,7 +3985,7 @@
       "deleteTitle": "Delete project",
       "deleteItem": "the project",
       "deleteImpact": "Threads and tasks linked to this project keep their history but lose the project grouping.",
-      "searchPlaceholder": "Search by name or lead",
+      "searchPlaceholder": "Search by name or agent",
       "advancedSlug": "Advanced: URL slug",
       "hideAdvanced": "Hide slug",
       "readonlyBanner": "You can browse projects. Ask an admin to create or change them.",
@@ -3978,10 +4030,6 @@
       "tabSettings": "Settings",
       "resources": "Resources",
       "resourcesHint": "External surfaces this project works on. Linked by reference now; connectors attach later.",
-      "autonomousMode": "Autonomous mode",
-      "autonomousModeHint": "Queue items from conversations are accepted automatically and analysis starts right away.",
-      "autonomousModeOn": "Autonomous mode enabled",
-      "autonomousModeOff": "Autonomous mode disabled",
       "orchestration": "Who runs this",
       "workstreams": "Playbooks",
       "noWorkstreams": "No playbooks for this project yet.",
@@ -4000,7 +4048,7 @@
       "description": "Description for your agents",
       "descriptionPlaceholder": "What is this project about?",
       "copyId": "Copy project ID",
-      "copyLeadId": "Copy lead ID",
+      "copyLeadId": "Copy project agent ID",
       "copied": "{{label}} copied",
       "copyError": "Could not copy {{label}}",
       "save": "Save changes",
@@ -4015,7 +4063,7 @@
       "budgetCapHint": "When the workspace cap is reached, agents pause new work until the next window.",
       "copySlug": "Copy slug",
       "advanced": "Advanced",
-      "changeLead": "Change lead",
+      "changeLead": "Change project agent",
       "readonlyBanner": "You can view this project. Ask an admin to change settings.",
       "addFirstStep": "Add the first step on Agenda",
       "budgetBar": {
@@ -4107,9 +4155,9 @@
         "rejected": "Reject"
       },
       "kind": {
-        "feature": "Feature",
-        "bug": "Bug",
-        "task": "Task",
+        "feature": "Improvement",
+        "bug": "Problem",
+        "task": "Request",
         "idea": "Idea",
         "risk": "Risk"
       },
@@ -4162,7 +4210,7 @@
       "resourcesLoading": "Loading resources...",
       "resourcesEmpty": "No resources linked yet.",
       "openModules": "Open Modules",
-      "openIntegrations": "Open integrations",
+      "openIntegrations": "Open Connections",
       "resourceAddLink": "Link a resource",
       "resourceAdd": "Link",
       "resourceLinked": "Resource linked",
@@ -4452,7 +4500,7 @@
         "disconnectError": "Could not disconnect",
         "reindexError": "Could not re-read project",
         "connectGithubFirst": "Connect GitHub first so you can pick a repository.",
-        "openIntegrations": "Open Integrations"
+        "openIntegrations": "Open Connections"
       },
       "danger": {
         "title": "Danger zone",
@@ -4506,7 +4554,7 @@
       "govern": "Govern",
       "advanced": "Advanced",
       "data": "Data",
-      "help": "help"
+      "help": "Help"
     },
     "links": {
       "profile": "Profile",
@@ -4514,11 +4562,11 @@
       "myAssistant": "My assistant",
       "notifications": "Notifications",
       "setupGuide": "Setup guide",
-      "help": "help",
+      "help": "Help",
       "inbox": "Email and channels",
       "emailMessages": "Channels",
       "chatWidget": "Chat widget",
-      "inboxAi": "Inbox AI",
+      "inboxAi": "AI replies",
       "signalTypes": "Signal types",
       "mailboxes": "Mailboxes",
       "emailSettings": "Email settings",
@@ -4615,7 +4663,7 @@
     "saved": "Privacy settings saved.",
     "saveError": "Could not save privacy settings.",
     "legalTitle": "Legal documents",
-    "legalBody": "Engineering drafts under docs/legal. Counsel must review before production use with customer data.",
+    "legalBody": "Workspace legal documents for operators. Contact support if you need a signed DPA for your organisation.",
     "linkDpa": "Data processing agreement",
     "linkPrivacy": "Privacy notice",
     "linkSubprocessors": "Subprocessors",
@@ -4642,7 +4690,7 @@
   "publicTrust": {
     "title": "Security and privacy",
     "subtitle": "How Bokito protects workspace data for Dutch and EU SMBs.",
-    "draftGate": "Legal templates are engineering drafts until counsel or a DPO marks them approved.",
+    "draftGate": "Ask support for the current DPA and subprocessors list for your organisation.",
     "highlightsTitle": "Highlights",
     "mfa": "Account MFA and role-based workspace access (owner, admin, member).",
     "encryption": "OAuth and integration credentials encrypted at rest with a dedicated key, separate from JWT signing.",
@@ -4925,6 +4973,35 @@
       "company.md": "About the company"
     }
   },
+  "oauthMcp": {
+    "title": "Authorize Bokito MCP",
+    "loading": "Loading authorization request...",
+    "missingRequest": "Missing authorization request. Start again from Cursor.",
+    "loadFailed": "Could not load this authorization request.",
+    "backToLogin": "Back to login",
+    "intro": "{{client}} wants to use Bokito tools as {{email}}. Pick the workspace to connect.",
+    "redirectTo": "Returns to {{host}} after authorize.",
+    "pickWorkspace": "Workspace",
+    "noWorkspaces": "Your account has no workspaces yet.",
+    "scopesTitle": "Access",
+    "scopesFull": "No categories selected = full governed tool access",
+    "authorize": "Authorize",
+    "deny": "Deny",
+    "authorizeFailed": "Could not complete authorization.",
+    "denyFailed": "Could not deny authorization.",
+    "scopeLabels": {
+      "messaging": "Messaging & CRM",
+      "workspace": "Knowledge",
+      "projects": "Projects",
+      "agents": "Agents",
+      "delegation": "Delegation",
+      "cases": "Signals",
+      "triggers": "Agenda",
+      "channels": "Channels",
+      "integrations": "Integrations",
+      "govern": "Govern"
+    }
+  },
   "developersPage": {
     "tokensTitle": "App tokens",
     "tokensBody": "Let another app talk to this workspace. Leave access empty for everything, or pick what it may do.",
@@ -4941,11 +5018,44 @@
     "copied": "Copied",
     "copy": "Copy",
     "dismissToken": "I have copied it",
-    "fullAccessWarning": "No scopes selected: this token can do everything in the workspace.",
+    "fullAccessWarning": "No scopes selected: this token can do everything in the workspace. Prefer a preset below for Cursor.",
     "selectAllRest": "All API",
     "selectAllMcp": "All tools",
-    "copyCurl": "Copy curl example",
-    "copiedCurl": "curl example copied",
+    "preset": {
+      "read": "Read workspace",
+      "ops": "Ops + messaging",
+      "full": "Full governed"
+    },
+    "copyCurl": "Copy REST curl",
+    "copiedCurl": "REST curl copied",
+    "copyCursorMcp": "Copy Cursor MCP config",
+    "copiedCursorMcp": "Cursor MCP config copied",
+    "downloadMcpJson": "Download bokito-mcp.json",
+    "downloadedMcpJson": "Downloaded bokito-mcp.json",
+    "cursorDeeplinkHint": "Cursor has no stable public deeplink for remote HTTP MCP yet — paste or download the JSON into Settings → MCP.",
+    "copyClaudeMcp": "Copy Claude Desktop config",
+    "copiedClaudeMcp": "Claude Desktop config copied",
+    "copyMcpCurl": "Copy MCP curl",
+    "copiedMcpCurl": "MCP curl copied",
+    "mcpOauthTitle": "Connect Cursor with OAuth",
+    "mcpOauthHint": "Paste only the MCP URL into Cursor. On first use Cursor opens the browser — sign in and pick a workspace under your account. No token to copy.",
+    "copyCursorMcpOauth": "Copy Cursor MCP URL config",
+    "copiedCursorMcpOauth": "Cursor OAuth MCP config copied",
+    "oauthGrants": {
+      "title": "Connected MCP clients",
+      "body": "OAuth sessions from Cursor and other MCP clients. Revoke to cut access immediately; the client must authorize again.",
+      "loading": "Loading connected clients...",
+      "empty": "No OAuth clients connected yet. Authorize from Cursor to see them here.",
+      "revoke": "Revoke",
+      "revokeConfirm": "Revoke access for \"{{name}}\"? Tools stop working until they authorize again.",
+      "revoked": "MCP client access revoked.",
+      "revokeError": "Could not revoke MCP client."
+    },
+    "mcpSetupTitle": "API token fallback (CI / scripts)",
+    "mcpSetupHint": "For automation that cannot open a browser, create a token above and paste a bearer config. Governed tools still ask when policy requires it.",
+    "mcpSetupPlaceholderHint": "Replace YOUR_BOKITO_API_TOKEN with a token from above after you create one.",
+    "controlFromCursor": "Control this workspace from Cursor",
+    "controlFromCursorBody": "Copy the URL-only MCP config under Developers, paste it in Cursor Settings → MCP, then authorize and pick a workspace in the browser.",
     "hideRevoked": "Hide revoked",
     "showRevoked": "Show revoked",
     "justNow": "just now",
@@ -4954,7 +5064,7 @@
     "daysAgo": "{{count}}d ago",
     "loading": "Loading tokens...",
     "empty": "No tokens yet. Create one to connect Cursor or another app.",
-    "openIntegrations": "Open Integrations",
+    "openIntegrations": "Open Connections",
     "createError": "Could not create token.",
     "revokeConfirm": "Revoke token \"{{name}}\"? Apps using it will stop working.",
     "revoked": "Token revoked.",
@@ -5079,6 +5189,8 @@
     "installExternalTitle": "Widget for website visitors",
     "installInternalBody": "Paste this snippet into your product for signed-in users. Conversations stay linked to their account.",
     "installExternalBody": "Paste this snippet on any website. Visitors chat anonymously; conversations land in Communication.",
+    "localSnippetTitle": "This snippet uses your local development URL",
+    "localSnippetBody": "Paste it only on a page that can reach this machine. For a live website, open Chat widget on your production workspace and copy the snippet there — localhost and 127.0.0.1 will not work for visitors.",
     "openCommunication": "Open Communication",
     "openHelpCenters": "Open Help center",
     "openSetup": "Open setup guide",
@@ -5118,7 +5230,7 @@
     "openCommunication": "Open a new chat",
     "openModels": "Open Providers & models",
     "openKnowledge": "Open Knowledge",
-    "openInboxAi": "Open Inbox AI",
+    "openInboxAi": "Open AI replies",
     "openNotifications": "Open Notifications",
     "talkCta": "Talk to assistant",
     "unsavedLeave": "You have unsaved assistant changes. Leave this page?",

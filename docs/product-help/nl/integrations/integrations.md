@@ -34,11 +34,11 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 *Koppelingen-hub — geïnstalleerde modules als kaarten, daarna partnerlogins.*
 
 1. Open **Koppelingen** in de zijbalk (groep Koppelingen). Geïnstalleerde modulekaarten staan bovenaan; open een kaart, of gebruik **Marketplace** en de rij **Modules** om een nieuwe preset te installeren.
-2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Status wordt **Setup**.
+2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Status wordt **Nog inrichten**.
 3. Wijs **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
 4. Bekijk **Wat agents kunnen doen**: elke module-actie toont een korte beschrijving, het universele pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is. Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de exacte MCP-toolnamen van die servers.
 5. Onder **Koppelingen** kies je **Nieuwe registratie** om in één stap te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** voor een login die al op Koppelingen staat. Geplande pakketten (Exact Online, SnelStart) blijven grijs.
-6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Setup afronden**. Status wordt **Geïnstalleerd**. Signaaltypen en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
+6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Inrichten afronden**. Status wordt **Geïnstalleerd · geen pakketten** tot er een partnerlogin hangt, daarna **Gekoppeld**. Signaaltypen en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
 
 ## Koppel een optionele boekhoudintegratie
 

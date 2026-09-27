@@ -702,11 +702,26 @@ class CaseTypeTemplate:
 # Platform-owned Signal type seeds use the same catalog as module packages.
 # They are not an installable module, but keeping them here prevents intake
 # defaults and module-provided types from drifting into separate registries.
+# Labels are NL/MKB: the product shell for SMBs is Dutch. Slugs stay English
+# stable identifiers. Earlier EN seed names are listed in
+# PLATFORM_SIGNAL_TYPE_LEGACY_NAMES so ensure_platform_case_types can rename
+# in place without touching operator-customized names.
 PLATFORM_SIGNAL_TYPE_SEEDS: tuple[dict[str, Any], ...] = (
     {
+        "slug": "invoice_payment",
+        "name": "Factuur/betaling",
+        "description": "Vraag of geschil over een factuur, betaling of aanmaning.",
+        "create_mode": "ask_customer",
+        "follow_up_mode": "track",
+        "ask_threshold": 6,
+        "auto_threshold": 11,
+        "audience": "customer",
+        "sort_order": 5,
+    },
+    {
         "slug": "complaint",
-        "name": "Complaint",
-        "description": "A customer is unhappy and wants this recorded.",
+        "name": "Klacht",
+        "description": "Een klant is ontevreden en wil dit vastgelegd hebben.",
         "create_mode": "ask_customer",
         "follow_up_mode": "track",
         "ask_threshold": 6,
@@ -716,8 +731,8 @@ PLATFORM_SIGNAL_TYPE_SEEDS: tuple[dict[str, Any], ...] = (
     },
     {
         "slug": "bug_report",
-        "name": "Bug report",
-        "description": "Something is broken and should be looked at.",
+        "name": "Storing",
+        "description": "Iets werkt niet en moet bekeken worden.",
         "create_mode": "ask_customer",
         "follow_up_mode": "track",
         "ask_threshold": 6,
@@ -727,8 +742,8 @@ PLATFORM_SIGNAL_TYPE_SEEDS: tuple[dict[str, Any], ...] = (
     },
     {
         "slug": "feature_request",
-        "name": "Feature request",
-        "description": "A request for a new capability.",
+        "name": "Functieverzoek",
+        "description": "Een verzoek om een nieuwe of verbeterde mogelijkheid.",
         "create_mode": "ask_customer",
         "follow_up_mode": "track",
         "ask_threshold": 6,
@@ -738,8 +753,8 @@ PLATFORM_SIGNAL_TYPE_SEEDS: tuple[dict[str, Any], ...] = (
     },
     {
         "slug": "spam_abuse",
-        "name": "Spam or abuse",
-        "description": "Unwanted or abusive inbound that should be closed quickly.",
+        "name": "Spam of misbruik",
+        "description": "Ongewenst of misbruikend verkeer dat snel dicht mag.",
         "create_mode": "auto",
         "follow_up_mode": "label",
         "ask_threshold": 3,
@@ -749,21 +764,79 @@ PLATFORM_SIGNAL_TYPE_SEEDS: tuple[dict[str, Any], ...] = (
     },
 )
 
+# Prior platform seed names (EN and earlier NL). Safe to overwrite when a
+# tenant row still carries one of these; leave any other name alone.
+PLATFORM_SIGNAL_TYPE_LEGACY_NAMES: dict[str, frozenset[str]] = {
+    "invoice_payment": frozenset({"Factuur/betaling", "Invoice/payment", "Invoice / payment"}),
+    "complaint": frozenset({"Complaint", "Klacht"}),
+    "bug_report": frozenset({"Bug report", "Storing"}),
+    "feature_request": frozenset({"Feature request", "Functieverzoek"}),
+    "spam_abuse": frozenset({"Spam or abuse", "Spam of misbruik"}),
+}
+
+PLATFORM_SIGNAL_TYPE_LEGACY_DESCRIPTIONS: dict[str, frozenset[str]] = {
+    "invoice_payment": frozenset(
+        {
+            "Vraag of geschil over een factuur, betaling of aanmaning.",
+            "A question or dispute about an invoice, payment, or dunning notice.",
+        }
+    ),
+    "complaint": frozenset(
+        {
+            "Een klant is ontevreden en wil dit vastgelegd hebben.",
+            "A customer is unhappy and wants this recorded.",
+        }
+    ),
+    "bug_report": frozenset(
+        {
+            "Iets werkt niet en moet bekeken worden.",
+            "Something is broken and should be looked at.",
+        }
+    ),
+    "feature_request": frozenset(
+        {
+            "Een verzoek om een nieuwe of verbeterde mogelijkheid.",
+            "A request for a new capability.",
+        }
+    ),
+    "spam_abuse": frozenset(
+        {
+            "Ongewenst of misbruikend verkeer dat snel dicht mag.",
+            "Unwanted or abusive inbound that should be closed quickly.",
+        }
+    ),
+}
+
 
 CASE_TYPE_TEMPLATES: dict[str, tuple[CaseTypeTemplate, ...]] = {
     "accounting": (
         CaseTypeTemplate(
             slug="billing_inquiry",
             module_slug="accounting",
-            name="Billing inquiry",
+            name="Factuurvraag",
             description=(
-                "A customer asks about an invoice, balance, or payment. "
-                "Requires a confirmed email before looking up their records."
+                "Een klant vraagt naar een factuur, saldo of betaling. "
+                "Vereist een bevestigd e-mailadres voordat dossiers mogen worden opgezocht."
             ),
             create_mode="ask_customer",
             requires_verification=True,
             audience="customer",
         ),
+    ),
+}
+
+# Module template rows installed before the NL/MKB rename.
+MODULE_CASE_TYPE_LEGACY_NAMES: dict[str, frozenset[str]] = {
+    "billing_inquiry": frozenset({"Billing inquiry", "Factuurvraag"}),
+}
+MODULE_CASE_TYPE_LEGACY_DESCRIPTIONS: dict[str, frozenset[str]] = {
+    "billing_inquiry": frozenset(
+        {
+            "Een klant vraagt naar een factuur, saldo of betaling. "
+            "Vereist een bevestigd e-mailadres voordat dossiers mogen worden opgezocht.",
+            "A customer asks about an invoice, balance, or payment. "
+            "Requires a confirmed email before looking up their records.",
+        }
     ),
 }
 

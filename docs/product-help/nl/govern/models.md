@@ -26,6 +26,12 @@ Providers en modellen staan onder **Instellingen** en daarna **Providers en mode
 2. Kies een **Providertype**, plak een **API-sleutel** (tonen of verbergen), en optioneel een **Label** of **Basis-URL** (voor OpenAI-compatibele endpoints). Druk op Enter of **Provider opslaan**, daarna **Testen**. Een werkende sleutel toont **Verbinding OK** in groen en **Sleutel ingesteld ····** plus de laatste vier tekens. **Verwijderen** vraagt om bevestiging.
 3. Modellen op je sleutels gaan voor op Bokito AI; de kaart Bokito AI toont dan **Stand-by**. De provider factureert die calls. Verwijder de sleutels en Bokito AI is weer de fallback.
 
+## Als AI zonder live sleutel draait
+
+1. Open **Instellingen** en daarna **Providers en modellen**. Toont Bokito AI **Niet geconfigureerd**, dan draaien calls in mock-modus.
+2. Een workspacebanner legt uit dat antwoorden tijdelijke placeholders zijn en niet naar klanten gaan. De tijdlijn toont die bubbels als tijdelijk, nooit als **Verstuurd naar de klant**.
+3. Voeg een platform- of providersleutel toe (of activeer Bokito AI) voordat je **Autonoom** kiest op [Govern](/docs/govern/autonomy).
+
 ## Verbruik omzeilt geen goedkeuring
 
 Tokenbudgetten zitten op Cockpit **Verbruik** (dagelijks tokenplafond en maandelijks spendplafond) en op projecten. Als het workspacebudget op is, pauzeren calls op platformkeys; je eigen keys blijven werken. [Govern](/docs/govern/govern) bepaalt nog steeds of een agent mag handelen.

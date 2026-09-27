@@ -1,7 +1,7 @@
 ---
 title: Beslissingen goedkeuren en afwijzen
-intro: Agents vragen in het gesprek om jouw oordeel. Elke open goedkeuring blijft op het gesprek dat de vraag stelde.
-description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via het filter Wacht op beslissing, Cockpit of een notificatie.
+intro: Agents vragen in het gesprek om jouw oordeel. Elke open goedkeuring staat in Communicatie onder Beslissingen.
+description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via de map Beslissingen, Cockpit of een notificatie.
 keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop
 sort: 20
 related: communication,agent-runs,autonomy,govern
@@ -9,18 +9,18 @@ related: communication,agent-runs,autonomy,govern
 
 # Beslissingen goedkeuren en afwijzen
 
-Een DecisionRequest is een bericht in het gesprek, en daar handel je hem ook af. Er is geen aparte Beslissingen-inbox: wil je elk gesprek met een open kaart zien — klant en intern samen — open dan **Filters** boven de Communicatie-lijst en kies **Wacht op beslissing**.
+Een DecisionRequest is een bericht in het gesprek, en daar handel je hem ook af. Wil je elk gesprek met een open kaart zien — klant en intern samen — open dan **Beslissingen** in de Communicatie-zijbalk.
 
 Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen beslissingen. De agent noteert die stil in het gesprek. Als tipkaarten van eerdere mail zich hebben opgestapeld, open [Agents](/docs/ai/agents) en gebruik **Tipkaarten wissen**.
 
 ## Vind een wachtende beslissing
 
 ![Een wachtende beslissing in het gesprek](/api/docs/assets/decisions/approve.png)
-*Open het gesprek via het filter Wacht op beslissing, Cockpit of een notificatie.*
+*Open het gesprek via Beslissingen, Cockpit of een notificatie.*
 
-1. Open **Communicatie**, dan **Filters** → **Wacht op beslissing**, of open Cockpit **Wacht op beslissing** / **Vraagt aandacht**. Beide landen op dezelfde lijst. Een badge **Wacht op beslissing** markeert de rijen.
-2. Selecteer een gesprek en scroll naar de keuzekaart. Die toont de voorgestelde actie en waarom de agent stopte.
-3. Het bel-menu in de topbalk wijst naar dezelfde kaart.
+1. Open **Communicatie**, dan **Beslissingen**. Cockpit **Wacht op beslissing** / **Vraagt aandacht** en het bel-menu landen op dezelfde lijst. Een badge **Wacht op beslissing** markeert de rijen.
+2. Selecteer een gesprek (de eerste match opent automatisch) en scroll naar de keuzekaart. Die toont de voorgestelde actie en waarom de agent stopte.
+3. Als niets op jou wacht, toont Beslissingen een lege staat met links terug naar de inbox en Agents.
 
 ## Goedkeuren, bewerken of afwijzen
 
@@ -30,8 +30,8 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 
 ## Antwoorden vanuit een notificatie
 
-1. Kies de beslissing in het belmenu, of open de pushmelding op je telefoon. Beide openen het gesprek en springen direct naar de wachtende kaart.
-2. Lees de bronregel op de kaart: die noemt waar de vraag vandaan komt — een projectwachtrij-item, een agentrun of een voorgestelde workspacewijziging — en linkt ernaartoe.
+1. Kies de beslissing in het belmenu, of open de pushmelding op je telefoon. Beide openen Beslissingen op dat gesprek en springen direct naar de wachtende kaart.
+2. Lees de bronregel op de kaart: die noemt waar de vraag vandaan komt — een projectqueue, een agentrun of een voorgestelde workspacewijziging — en linkt ernaartoe.
 3. Antwoord in het gesprek. Inbox AI-voorstellen hebben nog een menselijke verzending nodig tenzij autonomie meer toestaat.
 4. Zet notificaties per gebeurtenis aan of uit onder **Instellingen**, dan **Notificaties**.
 

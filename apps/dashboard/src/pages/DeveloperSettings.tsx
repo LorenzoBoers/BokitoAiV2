@@ -17,7 +17,22 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { buildApiTokenCurl } from '../lib/api-token-curl'
+import {
+  buildClaudeDesktopMcpConfig,
+  buildCursorMcpConfig,
+  buildCursorMcpOAuthConfig,
+  buildMcpToolsListCurl,
+  MCP_TOKEN_PLACEHOLDER,
+  TOKEN_SCOPE_PRESETS,
+} from '../lib/api-token-mcp'
+import { McpClientSetupCard } from '../components/mcp/McpClientSetupCard'
 import { isHttpsUrl } from '../lib/https-url'
+import { useAuth } from '../context/AuthContext'
+import {
+  listMcpOAuthGrants,
+  revokeMcpOAuthGrant,
+  type McpOAuthGrant,
+} from '../lib/mcp-oauth-api'
 import {
   createApiToken,
   listApiTokens,
@@ -47,7 +62,7 @@ const TOKEN_SCOPE_GROUPS: { labelKey: 'restApi' | 'mcpTools'; scopes: string[] }
       'projects',
       'agents',
       'delegation',
-      'channels',
+      'cases',
       'triggers',
       'integrations',
       'govern',
@@ -59,6 +74,92 @@ function formatTime(iso: string | null): string {
   if (!iso) return '-'
   const d = new Date(iso)
   return Number.isFinite(d.getTime()) ? d.toLocaleString() : '-'
+}
+
+function McpOAuthGrantsSection() {
+  const { t } = useTranslation('nav')
+  const { token } = useAuth()
+  const [grants, setGrants] = useState<McpOAuthGrant[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    if (!token) {
+      setGrants([])
+      setLoading(false)
+      return
+    }
+    try {
+      setGrants(await listMcpOAuthGrants(token))
+    } catch {
+      setGrants([])
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function handleRevoke(grant: McpOAuthGrant) {
+    if (!token) return
+    if (!window.confirm(t('developersPage.oauthGrants.revokeConfirm', { name: grant.client_name }))) {
+      return
+    }
+    setBusyId(grant.id)
+    try {
+      await revokeMcpOAuthGrant(token, grant.client_id, grant.tenant_id)
+      toast.success(t('developersPage.oauthGrants.revoked'))
+      await load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('developersPage.oauthGrants.revokeError'))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <section className="mt-6 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+      <h2 className="text-[15px] font-semibold text-text-heading">
+        {t('developersPage.oauthGrants.title')}
+      </h2>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
+        {t('developersPage.oauthGrants.body')}
+      </p>
+      {loading ? (
+        <p className="mt-3 text-[12px] text-text-muted">{t('developersPage.oauthGrants.loading')}</p>
+      ) : grants.length === 0 ? (
+        <p className="mt-3 text-[12px] text-text-muted">{t('developersPage.oauthGrants.empty')}</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {grants.map((grant) => (
+            <li
+              key={grant.id}
+              className="flex items-start justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-text-heading">{grant.client_name}</p>
+                <p className="text-[11.5px] text-text-muted">
+                  {grant.tenant_name}
+                  {grant.scopes.length ? ` · ${grant.scopes.join(', ')}` : ` · ${t('developersPage.fullAccess')}`}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busyId === grant.id}
+                onClick={() => void handleRevoke(grant)}
+              >
+                {busyId === grant.id ? <Loader2 size={13} className="animate-spin" /> : null}
+                {t('developersPage.oauthGrants.revoke')}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 function ApiTokensSection() {
@@ -143,7 +244,7 @@ function ApiTokensSection() {
   }
 
   return (
-    <section>
+    <section id="mcp-setup">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-1.5 text-[15px] font-semibold text-text-heading">
@@ -172,7 +273,19 @@ function ApiTokensSection() {
           </div>
           <div>
             <Label>{t('developersPage.scopes')}</Label>
-            <div className="mt-1 space-y-2">
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {TOKEN_SCOPE_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setScopes([...preset.scopes])}
+                  className="rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
+                >
+                  {t(`developersPage.preset.${preset.id}`)}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 space-y-2">
               {TOKEN_SCOPE_GROUPS.map((group) => (
                 <div key={group.labelKey}>
                   <div className="flex items-center justify-between gap-2">
@@ -246,6 +359,58 @@ function ApiTokensSection() {
               size="sm"
               variant="secondary"
               onClick={() => {
+                const text = buildCursorMcpConfig(createdToken, window.location.origin)
+                void navigator.clipboard.writeText(text)
+                toast.success(t('developersPage.copiedCursorMcp'))
+              }}
+            >
+              {t('developersPage.copyCursorMcp')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const text = buildCursorMcpConfig(createdToken, window.location.origin)
+                const blob = new Blob([text], { type: 'application/json' })
+                const href = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = href
+                a.download = 'bokito-mcp.json'
+                a.click()
+                URL.revokeObjectURL(href)
+                toast.success(t('developersPage.downloadedMcpJson'))
+              }}
+            >
+              {t('developersPage.downloadMcpJson')}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                void navigator.clipboard.writeText(
+                  buildClaudeDesktopMcpConfig(createdToken, window.location.origin),
+                )
+                toast.success(t('developersPage.copiedClaudeMcp'))
+              }}
+            >
+              {t('developersPage.copyClaudeMcp')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void navigator.clipboard.writeText(
+                  buildMcpToolsListCurl(createdToken, window.location.origin),
+                )
+                toast.success(t('developersPage.copiedMcpCurl'))
+              }}
+            >
+              {t('developersPage.copyMcpCurl')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
                 void navigator.clipboard.writeText(buildApiTokenCurl(createdToken, window.location.origin))
                 toast.success(t('developersPage.copiedCurl'))
               }}
@@ -258,6 +423,79 @@ function ApiTokensSection() {
           </div>
         </div>
       ) : null}
+
+      {/* OAuth URL-only is primary; bearer token snippets stay as automation fallback. */}
+      <div className="mt-4 space-y-3 rounded-xl border border-border/50 bg-bg-elevated/40 p-3">
+        <p className="text-[12px] font-medium text-text-heading">{t('developersPage.mcpOauthTitle')}</p>
+        <p className="text-[11.5px] text-text-muted">{t('developersPage.mcpOauthHint')}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              const text = buildCursorMcpOAuthConfig(window.location.origin)
+              void navigator.clipboard.writeText(text)
+              toast.success(t('developersPage.copiedCursorMcpOauth'))
+            }}
+          >
+            <Copy size={13} className="mr-1" />
+            {t('developersPage.copyCursorMcpOauth')}
+          </Button>
+        </div>
+        <McpClientSetupCard
+          clientId="cursor"
+          configSnippet={buildCursorMcpOAuthConfig(
+            typeof window !== 'undefined' ? window.location.origin : '',
+          )}
+          stepKeys={[
+            'integrations.mcp.bokito.steps.oauth1',
+            'integrations.mcp.bokito.steps.oauth2',
+            'integrations.mcp.bokito.steps.oauth3',
+          ]}
+        />
+        <p className="pt-1 text-[12px] font-medium text-text-heading">{t('developersPage.mcpSetupTitle')}</p>
+        <p className="text-[11.5px] text-text-muted">{t('developersPage.mcpSetupHint')}</p>
+        {!createdToken ? (
+          <p className="text-[11px] text-text-muted">{t('developersPage.mcpSetupPlaceholderHint')}</p>
+        ) : null}
+        <p className="text-[11px] text-text-muted">{t('developersPage.cursorDeeplinkHint')}</p>
+        <McpClientSetupCard
+          clientId="cursorToken"
+          configSnippet={buildCursorMcpConfig(
+            createdToken ?? MCP_TOKEN_PLACEHOLDER,
+            typeof window !== 'undefined' ? window.location.origin : '',
+          )}
+          stepKeys={[
+            'integrations.mcp.bokito.steps.cursor1',
+            'integrations.mcp.bokito.steps.cursor2',
+            'integrations.mcp.bokito.steps.cursor3',
+          ]}
+        />
+        <McpClientSetupCard
+          clientId="claude"
+          configSnippet={buildClaudeDesktopMcpConfig(
+            createdToken ?? MCP_TOKEN_PLACEHOLDER,
+            typeof window !== 'undefined' ? window.location.origin : '',
+          )}
+          stepKeys={[
+            'integrations.mcp.bokito.steps.claude1',
+            'integrations.mcp.bokito.steps.claude2',
+            'integrations.mcp.bokito.steps.claude3',
+          ]}
+        />
+        <McpClientSetupCard
+          clientId="generic"
+          configSnippet={buildMcpToolsListCurl(
+            createdToken ?? MCP_TOKEN_PLACEHOLDER,
+            typeof window !== 'undefined' ? window.location.origin : '',
+          )}
+          stepKeys={[
+            'integrations.mcp.bokito.steps.generic1',
+            'integrations.mcp.bokito.steps.generic2',
+            'integrations.mcp.bokito.steps.generic3',
+          ]}
+        />
+      </div>
 
       {loading ? (
         <div className="mt-4 flex items-center gap-2 text-[12.5px] text-text-muted">
@@ -288,7 +526,7 @@ function ApiTokensSection() {
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium text-text-heading">
                   {row.name}{' '}
-                  <span className="font-mono text-[11px] text-text-muted">{row.token_prefix}…</span>
+                  <span className="font-mono text-[11px] text-text-muted">bok_…</span>
                   {row.revoked_at ? (
                     <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-[10.5px] font-medium text-red-500">
                       {t('developersPage.revokedBadge')}
@@ -724,6 +962,7 @@ export default function DeveloperSettings() {
         </section>
 
         <ApiTokensSection />
+        <McpOAuthGrantsSection />
 
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <h2 className="text-[15px] font-semibold text-text-heading">{t('developersPage.publicTitle')}</h2>

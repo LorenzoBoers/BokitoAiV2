@@ -28,7 +28,7 @@
     "empty": "Nothing waiting for review. Customer decisions stay in Communication. Workspace edits show up here when you ask agents to wait.",
     "openCommunication": "Open Communication",
     "openAgents": "Open Agents",
-    "openInboxAi": "Open Inbox AI",
+    "openInboxAi": "Open AI replies",
     "openInCommunication": "Open in Communication",
     "viewDiff": "View changes",
     "accept": "Accept",
@@ -90,6 +90,8 @@
     "saved": "Autonomy setting updated",
     "current": "Current setting",
     "autonomousConfirm": "Switch to Autonomous? Agents can apply more changes without waiting for you. You can switch back at any time.",
+    "autonomousNeedsLiveModel": "Connect a live model under Models before Autonomous.",
+    "autonomousNeedsChannel": "Connect a send-ready channel before Autonomous.",
     "manual": {
       "label": "Manual",
       "summary": "Humans approve every mutating agent action before it applies.",

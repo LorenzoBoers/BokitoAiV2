@@ -17,8 +17,8 @@ Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Gove
 *Het preset staat op Govern.*
 
 1. Open **Instellingen**, daarna **Govern**, daarna **Beleid**. De kaart heet **Hoeveel agents mogen doen**.
-2. Kies **Handmatig** (agents concepten, jij past toe), **Ondersteund** (laag risico gaat door, de rest vraagt), of **Autonoom** (agents handelen binnen toestemmingen).
-3. De instelling slaat op zodra je kiest. Beleid per type of draaiboek mag strenger zijn, nooit ruimer.
+2. Kies **Handmatig** (agents concepten, jij past toe), **Ondersteund** (laag risico gaat door, de rest vraagt), of **Autonoom** (agents handelen binnen toestemmingen). **Autonoom** blijft uit tot de workspace een live model heeft én minstens één verzendklaar kanaal.
+3. De instelling slaat op zodra je kiest. Beleid per type of draaiboek mag strenger zijn, nooit ruimer. Zonder live model zijn AI-antwoorden tijdelijk en worden ze nooit als verstuurd naar de klant getoond.
 
 ## Stel de drie lagen in
 

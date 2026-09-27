@@ -421,6 +421,7 @@ async def create_reply_suggestion(
     *,
     reply_text: str,
     run_id: UUID | None = None,
+    is_mock: bool = False,
 ) -> dict:
     """Persist an inline DecisionRequest for a drafted reply (suggest-only).
 
@@ -478,8 +479,22 @@ async def create_reply_suggestion(
             "channel": signal.channel,
             "signal_id": str(signal.id),
             "run_id": str(run_id) if run_id else None,
+            "is_mock": is_mock,
         },
     )
+    if is_mock and message is not None:
+        try:
+            meta = json.loads(message.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        meta["is_mock"] = True
+        meta["llm_mode"] = "mock"
+        meta["llm_configured"] = False
+        message.metadata_json = json.dumps(meta)
+        message.auto_sent = False
+        session.add(message)
 
     apply_suggested_actions(signal)
     # Team-facing remarks stay on the decision option payload (`internal_note`)
@@ -498,6 +513,7 @@ async def create_reply_suggestion(
                     "decision_id": str(decision.id),
                     "message_id": str(message.id),
                     "run_id": str(run_id) if run_id else None,
+                    "is_mock": is_mock,
                 }
             ),
         )
@@ -548,15 +564,27 @@ async def persist_inbound_agent_reply(
     run_id: UUID | None = None,
     tokens: dict | None = None,
     mode: str = "suggest",
+    llm_live: bool | None = None,
 ) -> dict:
     """Persist agent output on an inbound thread according to the AI mode.
 
     ``suggest`` creates an inline DecisionRequest for human approval;
     ``auto`` appends the reply and delivers it externally where supported.
+
+    When ``llm_live`` is False (mock / no key), never deliver externally and
+    stamp the message so the timeline never labels it as sent to the customer.
     """
+    from app.services.signal_threads import _is_placeholder_preview
+
     text = (reply_text or "").strip()
     if text in _SKIP_REPLIES or signal.ai_paused:
         return {"skipped": True, "reason": "empty_or_paused"}
+
+    if llm_live is None:
+        # Infer from body when the caller did not pass the resolved model flag.
+        is_mock_reply = _is_placeholder_preview(text)
+    else:
+        is_mock_reply = not llm_live or _is_placeholder_preview(text)
 
     # Defense in depth: never create a Send card or customer bubble when the
     # bound channel cannot deliver (composer already blocks the same way).
@@ -584,6 +612,7 @@ async def persist_inbound_agent_reply(
             agent,
             reply_text=text,
             run_id=run_id,
+            is_mock=is_mock_reply,
         )
         if outcome.get("reason") == "meta_draft":
             return await create_human_attention_suggestion(
@@ -627,6 +656,10 @@ async def persist_inbound_agent_reply(
         metadata["run_id"] = str(run_id)
     if tokens:
         metadata["usage"] = tokens
+    if is_mock_reply:
+        metadata["is_mock"] = True
+        metadata["llm_mode"] = "mock"
+        metadata["llm_configured"] = False
 
     message = await append_signal_chat_message(
         session,
@@ -638,7 +671,12 @@ async def persist_inbound_agent_reply(
     )
 
     delivery_status = "skipped"
-    if signal.channel in _DELIVERABLE_CHANNELS:
+    # Mock / placeholder replies must never leave the workspace as customer mail.
+    if is_mock_reply:
+        delivery_status = "not_delivered:mock"
+        message.auto_sent = False
+        session.add(message)
+    elif signal.channel in _DELIVERABLE_CHANNELS:
         from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
         # Auto mode sends carry the agent identity: agent signature, with the
@@ -675,7 +713,11 @@ async def persist_inbound_agent_reply(
             actor_type="agent",
             actor_id=str(agent.id),
             payload_json=json.dumps(
-                {"run_id": str(run_id) if run_id else None, "delivery": delivery_status}
+                {
+                    "run_id": str(run_id) if run_id else None,
+                    "delivery": delivery_status,
+                    "is_mock": is_mock_reply,
+                }
             ),
         )
     )
@@ -684,4 +726,6 @@ async def persist_inbound_agent_reply(
         "message_id": str(message.id),
         "delivery": delivery_status,
         "channel": signal.channel,
+        "is_mock": is_mock_reply,
+        "delivered_to_customer": False if is_mock_reply else delivery_status.startswith("sent"),
     }

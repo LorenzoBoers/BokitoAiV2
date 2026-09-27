@@ -204,8 +204,27 @@ async def test_set_posture_manual_asks_everywhere(client: AsyncClient, session_o
 
 
 @pytest.mark.asyncio
-async def test_set_posture_autonomous_allows_agents(client: AsyncClient, session_override):
+async def test_set_posture_autonomous_blocked_without_live_model(
+    client: AsyncClient, session_override
+):
     headers = await _auth_headers(client)
+
+    res = await client.put("/api/govern/posture", headers=headers, json={"posture": "autonomous"})
+    assert res.status_code == 400, res.text
+    err = res.json()["error"]
+    assert err["code"] == "autonomous_prerequisites"
+    assert err["prerequisites"]["llm_live"] is False
+    assert "llm_not_live" in err["prerequisites"]["block_reasons"]
+
+
+@pytest.mark.asyncio
+async def test_set_posture_autonomous_allows_agents(client: AsyncClient, session_override):
+    from app.services import platform_secrets
+
+    headers = await _auth_headers(client)
+    await platform_secrets.set_platform_secret(
+        session_override, "anthropic", "sk-ant-test-autonomous"
+    )
 
     res = await client.put("/api/govern/posture", headers=headers, json={"posture": "autonomous"})
     assert res.status_code == 200
@@ -213,6 +232,7 @@ async def test_set_posture_autonomous_allows_agents(client: AsyncClient, session
     assert data["posture"] == "autonomous"
     assert data["allowances"]["agents"] == "allow"
     assert data["allowances"]["integrations"] == "ask"
+    assert data["prerequisites"]["autonomous_allowed"] is True
 
     session_override.expire_all()
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()

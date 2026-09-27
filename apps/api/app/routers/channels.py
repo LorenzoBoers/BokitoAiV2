@@ -390,6 +390,30 @@ async def _row(session: AsyncSession, auth: AuthContext, account: ChannelAccount
     )
 
 
+class ChannelStatusRow(BaseModel):
+    """Thin channel truth shared by Setup, Connections, Kanalen, and composer."""
+
+    id: str
+    kind: str
+    channel: str
+    provider: str
+    address: str
+    display_name: str
+    is_enabled: bool
+    state: str
+    state_reason: str = ""
+    can_send: bool
+    can_receive: bool
+    summary: str  # ready | setup | action | paused | broken
+
+
+class ChannelStatusResponse(BaseModel):
+    channels: list[ChannelStatusRow]
+    ready_count: int = 0
+    email_ready: bool = False
+    send_ready: bool = False
+
+
 @router.get("", response_model=ChannelListResponse)
 async def list_channels_unified(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -402,6 +426,31 @@ async def list_channels_unified(
         session, auth.tenant, user_id=auth.user.id, role=auth.role
     )
     return ChannelListResponse(channels=[ChannelRow(**row) for row in rows])
+
+
+@router.get("/status", response_model=ChannelStatusResponse)
+async def list_channel_status(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelStatusResponse:
+    """Single channel-truth DTO for Setup, Connections, and composer banners."""
+    from app.services.channel_registry import list_channels, to_channel_status
+
+    rows = await list_channels(
+        session, auth.tenant, user_id=auth.user.id, role=auth.role
+    )
+    statuses = [ChannelStatusRow(**to_channel_status(row)) for row in rows]
+    ready = [s for s in statuses if s.summary == "ready"]
+    email_ready = any(
+        s.summary == "ready" and s.channel == "email" for s in statuses
+    )
+    send_ready = any(s.can_send for s in statuses)
+    return ChannelStatusResponse(
+        channels=statuses,
+        ready_count=len(ready),
+        email_ready=email_ready,
+        send_ready=send_ready,
+    )
 
 
 @router.get("/accounts/{account_id}", response_model=ChannelRow)

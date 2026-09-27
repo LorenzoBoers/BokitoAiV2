@@ -457,35 +457,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           })
         },
       })
-    } else if (threadId && parsedVerb?.verb === 'playbook') {
-      const wanted = parsedVerb.arg.toLowerCase()
-      const match = workstreams.find((row) => row.name.toLowerCase().includes(wanted))
-      if (match) {
-        extras.push({
-          id: `verb-start-${match.id}`,
-          label: t('palette.startPlaybook', { name: match.name, defaultValue: `Start ${match.name}` }),
-          hint: parsedVerb.arg,
-          group: t('palette.groupActions'),
-          icon: Workflow,
-          run: () => {
-            void startWorkstreamRun(match.id, {
-              input_kind: 'signal',
-              input_ref: decodeURIComponent(threadId),
-            })
-              .then((run) => navigate(`/workstreams/runs/${encodeURIComponent(run.id)}`))
-              .catch(() => toast.error(t('palette.commandFailed', { defaultValue: 'Command failed' })))
-          },
-        })
-      }
-    } else if (threadId && parsedVerb?.verb === 'schedule') {
-      extras.push({
-        id: 'verb-schedule-thread',
-        label: t('palette.scheduleCurrentConversation', { defaultValue: 'Schedule from this conversation' }),
-        hint: parsedVerb.arg,
-        group: t('palette.groupActions'),
-        icon: CalendarDays,
-        run: () => navigate(talkToAssistantPath(`Schedule "${parsedVerb.arg}" for conversation ${decodeURIComponent(threadId)}.`)),
-      })
     }
     if (q.length >= 2) {
       extras.push({

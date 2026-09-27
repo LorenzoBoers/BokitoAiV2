@@ -336,14 +336,32 @@ async def resolve_decision(
                     ),
                 )
             )
+            from app.models.auth import Tenant
+            from app.services.language import resolve_workspace_language
+
+            tenant = (
+                await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+            ).scalar_one_or_none()
+            locale = resolve_workspace_language(tenant)
+            if locale == "nl":
+                body_text = (
+                    "Doorgestuurd naar een medewerker. "
+                    "AI-suggesties zijn gepauzeerd op dit gesprek."
+                )
+                body_preview = "Doorgestuurd naar een medewerker"
+            else:
+                body_text = (
+                    "Escalated to a human. AI suggestions are paused on this thread."
+                )
+                body_preview = "Escalated to a human"
             escalate_msg = SignalMessage(
                 signal_id=signal.id,
                 tenant_id=tenant_id,
                 kind="system_event",
                 direction="internal",
                 role="system",
-                body_text="Escalated to a human. AI suggestions are paused on this thread.",
-                body_preview="Escalated to a human",
+                body_text=body_text,
+                body_preview=body_preview,
                 metadata_json=json.dumps({"decision_id": str(decision.id)}),
             )
             session.add(escalate_msg)

@@ -229,6 +229,24 @@ async def _tenant_models_payload(session: AsyncSession, tenant_id: UUID) -> dict
     }
 
 
+@router.get("/models/runtime")
+async def get_llm_runtime(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Lightweight live/mock flag for workspace banners (any member)."""
+    from app.services.model_resolution import resolve_model_call
+
+    call = await resolve_model_call(session, auth.tenant.id, kind="chat")
+    live = bool(call.live)
+    return {
+        "live": live,
+        "mode": "live" if live else "mock",
+        "key_source": call.key_source,
+        "slug": call.slug,
+    }
+
+
 @router.get("/models")
 async def get_tenant_models(
     auth: Annotated[AuthContext, Depends(get_current_auth)],

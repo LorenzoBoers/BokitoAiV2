@@ -56,8 +56,8 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     case 'decisions':
-      // Open DecisionRequests across customer and internal threads — do not
-      // scope by folder or Cockpit / Agents deep links open an empty list.
+      // Open DecisionRequests across customer and internal threads — no folder
+      // scope, or Overview / Agents deep links open an empty list.
       return {
         filters: { view: 'awaiting_decision' },
         mode: 'agent',
@@ -133,14 +133,19 @@ export function mergeHubThreadFilters(
 ): ThreadFilters {
   const inboxChannel =
     leaf.type === 'inbox' ? (extras.channelFilter ?? undefined) : leafFilters.channel
+  // Decisions live on their own leaf (`view: awaiting_decision`). Do not let a
+  // sticky inbox `needsDecision` chip rewrite folder scope across queues.
   return {
     ...leafFilters,
+    folder: leafFilters.folder,
     search: extras.search,
     projectId: extras.projectId,
     agentId: extras.agentId ?? leafFilters.agentId,
     unread: extras.unread || undefined,
     needsReply: extras.needsReply || undefined,
-    needsDecision: extras.needsDecision || undefined,
+    // Ignore sticky needsDecision extras — Communication redirects that chip
+    // to `/communication/decisions` instead of filtering the current folder.
+    needsDecision: undefined,
     pinnedOnly: extras.pinnedOnly || undefined,
     assigneeId: extras.assigneeId ?? undefined,
     channel: inboxChannel,

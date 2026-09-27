@@ -67,8 +67,21 @@ async def test_platform_types_and_multi_cases_per_thread(client: AsyncClient, se
     tenant = await _tenant(session_override)
     listed = await client.get("/api/cases/types", headers=headers)
     assert listed.status_code == 200
-    slugs = {row["slug"] for row in listed.json()["items"]}
-    assert {"complaint", "bug_report", "feature_request", "spam_abuse"} <= slugs
+    items = listed.json()["items"]
+    slugs = {row["slug"] for row in items}
+    assert {
+        "invoice_payment",
+        "complaint",
+        "bug_report",
+        "feature_request",
+        "spam_abuse",
+    } <= slugs
+    by_slug = {row["slug"]: row for row in items}
+    assert by_slug["invoice_payment"]["name"] == "Factuur/betaling"
+    assert by_slug["complaint"]["name"] == "Klacht"
+    assert by_slug["bug_report"]["name"] == "Storing"
+    assert by_slug["feature_request"]["name"] == "Functieverzoek"
+    assert by_slug["spam_abuse"]["name"] == "Spam of misbruik"
 
     signal = await _signal(session_override, tenant.id)
     bug = await _type_by_slug(session_override, tenant.id, "bug_report")
@@ -89,6 +102,32 @@ async def test_platform_types_and_multi_cases_per_thread(client: AsyncClient, se
     thread = await client.get(f"/api/signals/{signal.id}/cases", headers=headers)
     assert thread.status_code == 200
     assert len(thread.json()["items"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_platform_type_rename_in_place_leaves_custom_names(client: AsyncClient, session_override):
+    # `client` seeds the test tenant; rename runs through ensure_platform_case_types.
+    _ = client
+    tenant = await _tenant(session_override)
+    await ensure_platform_case_types(session_override, tenant.id)
+    complaint = await _type_by_slug(session_override, tenant.id, "complaint")
+    bug = await _type_by_slug(session_override, tenant.id, "bug_report")
+    # Simulate a tenant stuck on the prior EN seed labels.
+    complaint.name = "Complaint"
+    complaint.description = "A customer is unhappy and wants this recorded."
+    bug.name = "Klachten VIP"
+    session_override.add_all([complaint, bug])
+    await session_override.commit()
+
+    await ensure_platform_case_types(session_override, tenant.id)
+    await session_override.refresh(complaint)
+    await session_override.refresh(bug)
+    assert complaint.name == "Klacht"
+    assert "ontevreden" in (complaint.description or "")
+    # Operator-customized name is preserved.
+    assert bug.name == "Klachten VIP"
+    invoice = await _type_by_slug(session_override, tenant.id, "invoice_payment")
+    assert invoice.name == "Factuur/betaling"
 
 
 @pytest.mark.asyncio

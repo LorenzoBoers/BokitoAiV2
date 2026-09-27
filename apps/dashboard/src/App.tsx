@@ -31,6 +31,7 @@ const HelpCenter = lazy(() => import('./pages/HelpCenter'))
 const DocsPage = lazy(() => import('./pages/DocsPage'))
 const DocsApiReference = lazy(() => import('./pages/DocsApiReference'))
 const PublicTrustPage = lazy(() => import('./pages/PublicTrustPage'))
+const OAuthMcpConsent = lazy(() => import('./pages/OAuthMcpConsent'))
 // Chat (default surface)
 const NewConversationPage = lazy(() => import('./pages/NewConversationPage'))
 
@@ -218,7 +219,7 @@ function LegacyCustomersRedirect() {
     )
   }
   if (queue === 'awaiting-decision') {
-    return <Navigate to={`${decisionsPath(threadId)}${location.search}`} replace />
+    return <Navigate to={decisionsPath(threadId, location.search)} replace />
   }
   const target = LEGACY_CUSTOMER_QUEUE_MAP[queue ?? ''] ?? 'all'
   return <Navigate to={`${inboxPath(target as Parameters<typeof inboxPath>[0], threadId)}${location.search}`} replace />
@@ -237,16 +238,16 @@ function LegacyAgentsRedirect() {
   const location = useLocation()
   const mapped = LEGACY_RUNS_QUEUE_MAP[queue ?? ''] ?? 'all'
   if (mapped === 'awaiting-decision') {
-    return <Navigate to={`${decisionsPath(threadId)}${location.search}`} replace />
+    return <Navigate to={decisionsPath(threadId, location.search)} replace />
   }
   return <Navigate to={`${agentRunsPath(mapped, threadId)}${location.search}`} replace />
 }
 
-/** `/communication/runs/awaiting-decision[...]` → `/communication/decisions[...]`. */
+/** Legacy agent-runs decision segment → the Decisions hub leaf. */
 function LegacyAwaitingDecisionRedirect() {
   const { threadId } = useParams<{ threadId?: string }>()
   const location = useLocation()
-  return <Navigate to={`${decisionsPath(threadId)}${location.search}`} replace />
+  return <Navigate to={decisionsPath(threadId, location.search)} replace />
 }
 
 /** `/messages/...` → the new inbox/runs routes. */
@@ -288,6 +289,7 @@ export default function App() {
       <Route path="/docs/:section/:slug" element={<DocsPage />} />
       <Route path="/docs/:slug" element={<DocsPage />} />
       <Route path="/trust" element={<PublicTrustPage />} />
+      <Route path="/oauth/mcp" element={<OAuthMcpConsent />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/onboarding" element={<OnboardingWizardPage />} />
@@ -330,7 +332,7 @@ export default function App() {
             <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<DirectCommunication />} />
 
-            {/* Hidden open-decision filter used by thread deep links; not a sidebar leaf. */}
+            {/* Decisions queue: open DecisionRequests across customer + internal */}
             <Route path="/communication/decisions" element={<Communication />} />
             <Route path="/communication/decisions/t/:threadId" element={<Communication />} />
 
@@ -477,8 +479,12 @@ export default function App() {
           <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/connections" />} />
           <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
           <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/connections" />} />
+          <Route path="/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
+          <Route path="/settings/privacy" element={<Navigate to="/settings/trust" replace />} />
+          <Route path="/settings/providers" element={<Navigate to="/settings/models" replace />} />
+          <Route path="/settings/signal-types" element={<Navigate to="/settings/signals" replace />} />
           <Route path="/settings/widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
           <Route path="/settings/chat-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
           <Route path="/settings/website-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />

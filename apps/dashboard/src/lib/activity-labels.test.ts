@@ -4,6 +4,7 @@ import {
   activityEventTypeLabel,
   collapseCockpitEvents,
   isCockpitHeadlineEvent,
+  isMockAgentBody,
   stripAiScaffolding,
   translateDecisionText,
   translateMockAgentBody,
@@ -97,10 +98,30 @@ describe('activity labels', () => {
     ).toBe('Tijdelijk antwoord over afspraak morgen.')
     expect(
       translateMockAgentBody(
+        'Ik heb je bericht ontvangen over: factuur. Dit is een tijdelijk antwoord zolang de workspace zonder live model draait.',
+        t,
+      ),
+    ).toBe('Tijdelijk antwoord over factuur.')
+    expect(
+      translateMockAgentBody(
         'I received your message about: This is a scheduled heartbeat wake. Work through the checklist below. This is a placeholder reply while the workspace runs without a live model.',
         t,
       ),
     ).toBe('Check-in')
+  })
+
+  it('flags mock agent bodies', () => {
+    expect(
+      isMockAgentBody(
+        'I received your message about: hello. This is a placeholder reply while the workspace runs without a live model.',
+      ),
+    ).toBe(true)
+    expect(
+      isMockAgentBody(
+        'Ik heb je bericht ontvangen over: hallo. Dit is een tijdelijk antwoord zolang de workspace zonder live model draait.',
+      ),
+    ).toBe(true)
+    expect(isMockAgentBody('We will follow up tomorrow.')).toBe(false)
   })
 
   it('translates leftover English activity copy', () => {

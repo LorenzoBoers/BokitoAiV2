@@ -411,6 +411,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 run_id=run.id,
             )
         else:
+            llm_live = bool(
+                getattr(loop, "resolved_call", None)
+                and getattr(loop.resolved_call, "live", False)
+            )
             delivery = await persist_inbound_agent_reply(
                 session,
                 UUID(tenant_id),
@@ -420,6 +424,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 run_id=run.id,
                 tokens=tokens,
                 mode=ai_mode,
+                llm_live=llm_live,
             )
 
         run.status = "completed"

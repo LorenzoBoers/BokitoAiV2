@@ -95,6 +95,9 @@ def test_workspace_language_tenant_setting():
 def test_auto_instruction_mirrors_customer():
     text = reply_language_instruction("auto")
     assert "same language as the customer" in text
+    assert "unclear" in text.lower()
+    assert "Dutch" in reply_language_instruction("auto", fallback="nl")
+    assert "English" in reply_language_instruction("auto", fallback="en")
 
 
 def test_fixed_instruction_names_language():

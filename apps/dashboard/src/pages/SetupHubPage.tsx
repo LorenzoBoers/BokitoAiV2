@@ -22,6 +22,7 @@ import {
   useDemoThread,
   type OnboardingStatus,
 } from '../components/onboarding/OnboardingChecklist'
+import { useChannelStatus } from '../hooks/useChannelStatus'
 
 type CoreStepId = 'email' | 'assistant' | 'first_decision' | 'watching'
 
@@ -44,6 +45,11 @@ export default function SetupHubPage() {
   const [checkIn, setCheckIn] = useState<{ id: string; enabled: boolean } | null>(null)
   const [enablingWatch, setEnablingWatch] = useState(false)
   const { start: startDemo, starting: demoStarting } = useDemoThread()
+  const { emailReady, sendReady, channels: channelStatuses } = useChannelStatus()
+  const calendarOnly =
+    !emailReady &&
+    !sendReady &&
+    channelStatuses.some((c) => c.channel === 'calendar' || c.kind.includes('calendar'))
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,9 +101,14 @@ export default function SetupHubPage() {
         title: t('setupGuidePage.core.channel.title', {
           defaultValue: 'Connect a channel',
         }),
-        description: t('setupGuidePage.core.channel.description', {
-          defaultValue: 'Create a Bokito address or connect a mailbox so mail can arrive.',
-        }),
+        description: calendarOnly
+          ? t('setupGuidePage.core.channel.calendarOnly', {
+              defaultValue:
+                'Calendar is connected, but mail is not send-ready yet. Connect a mailbox under Channels.',
+            })
+          : t('setupGuidePage.core.channel.description', {
+              defaultValue: 'Create a Bokito address or connect a mailbox so mail can arrive.',
+            }),
         done: emailDone,
         icon: Mail,
         actions: [
@@ -184,6 +195,7 @@ export default function SetupHubPage() {
     ]
   }, [
     assistantPrompt,
+    calendarOnly,
     checkIn,
     demoStarting,
     enableCheckIn,

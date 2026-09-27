@@ -48,7 +48,19 @@ import {
   type ContactStatus,
 } from '../lib/contacts-api'
 import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
-import { humanizeContactName, isPlaceholderContactAddress } from '../lib/contact-label'
+import {
+  humanizeContactName,
+  isAnonymousContact,
+  isPlaceholderContactAddress,
+} from '../lib/contact-label'
+
+function displayContactStatus(
+  contact: Pick<ContactRow, 'status' | 'displayName' | 'address'>,
+): ContactStatus {
+  if (contact.status === 'blocked') return 'blocked'
+  if (isAnonymousContact(contact.displayName, contact.address)) return 'pending'
+  return contact.status
+}
 import { inboxPath } from '../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
 import { withoutParkedChannels } from '../lib/channel-surface'
@@ -312,16 +324,18 @@ function ContactDetail({ contactId }: { contactId: string }) {
               <h2 className="truncate text-[14px] font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
             </span>
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[contact.status]}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[displayContactStatus(contact)]}`}
             >
-              {contactStatusLabel(contact.status, t)}
+              {isAnonymousContact(contact.displayName, contact.address)
+                ? t('contactsPage.statusAwaitingEmail')
+                : contactStatusLabel(contact.status, t)}
             </span>
           </div>
           <div className="mt-3 space-y-3">
             <p className="flex items-center gap-2 text-[12.5px] text-text-secondary">
               <ChannelGlyph channel={contact.channel} size={13} />
               {isPlaceholderContactAddress(contact.address)
-                ? t('contactsPage.widgetVisitor')
+                ? t('contactsPage.alsoSeenAsVisitor')
                 : contact.address || t('contactsPage.noAddress')}
               <span className="ml-auto text-[11px] text-text-muted">
                 <ChannelLabel
@@ -890,10 +904,19 @@ export default function ContactsPage() {
   const sorted = useMemo(
     () =>
       [...contacts].sort((a, b) => {
+        // Named people first; anonymous visitors sink so the list is scannable (F-79).
+        const aAnon = isAnonymousContact(a.displayName, a.address) ? 1 : 0
+        const bAnon = isAnonymousContact(b.displayName, b.address) ? 1 : 0
+        if (aAnon !== bAnon) return aAnon - bAnon
         const at = a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0
         const bt = b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0
         return bt - at
       }),
+    [contacts],
+  )
+
+  const anonymousCount = useMemo(
+    () => contacts.filter((c) => isAnonymousContact(c.displayName, c.address)).length,
     [contacts],
   )
 
@@ -958,6 +981,12 @@ export default function ContactsPage() {
           className="w-full bg-transparent text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none"
         />
       </div>
+
+      {view === 'people' && anonymousCount > 0 ? (
+        <p className="mb-3 rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2 text-[12px] text-text-secondary">
+          {t('contactsPage.anonymousGroupHint', { count: anonymousCount })}
+        </p>
+      ) : null}
 
       <div className="mb-4 flex items-center gap-1.5">
         <div className="mr-2 flex items-center rounded-lg border border-border/60 p-0.5">
@@ -1257,7 +1286,7 @@ export default function ContactsPage() {
                           </span>
                           <span className="block truncate text-[11px] text-text-muted">
                             {isPlaceholderContactAddress(contact.address)
-                              ? t('contactsPage.widgetVisitor')
+                              ? t('contactsPage.alsoSeenAsVisitor')
                               : contact.address}
                           </span>
                         </span>
@@ -1348,13 +1377,21 @@ export default function ContactsPage() {
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[contact.status]}`}
-                    >
-                      {contact.status === 'blocked' ? <ShieldBan size={10} /> : null}
-                      {contact.status === 'approved' ? <Check size={10} /> : null}
-                      {contactStatusLabel(contact.status, t)}
-                    </span>
+                    {(() => {
+                      const shown = displayContactStatus(contact)
+                      const awaiting = isAnonymousContact(contact.displayName, contact.address)
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[shown]}`}
+                        >
+                          {shown === 'blocked' ? <ShieldBan size={10} /> : null}
+                          {shown === 'approved' ? <Check size={10} /> : null}
+                          {awaiting
+                            ? t('contactsPage.statusAwaitingEmail')
+                            : contactStatusLabel(shown, t)}
+                        </span>
+                      )
+                    })()}
                   </td>
                 </tr>
               ))}

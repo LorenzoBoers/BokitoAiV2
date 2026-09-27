@@ -9,6 +9,7 @@ import {
   apiDelete,
   apiGet as apiGetApp,
 } from './api'
+import { isMockAgentBody } from './activity-labels'
 import type { ResolveDecisionResult, ThreadSession } from './signals-api'
 
 // ---------------------------------------------------------------------------
@@ -96,6 +97,10 @@ export type InboxMessage = {
   authorUserId: number | null
   isRead: boolean
   sendStatus: SendStatus | null
+  /** Mock / placeholder LLM reply — never treat as customer delivery. */
+  isMock?: boolean
+  /** Server verdict: outbound actually reached the customer. */
+  deliveredToCustomer?: boolean
   attachments: unknown[] | null
   decisionId?: string | null
   payload?: Record<string, unknown>
@@ -442,6 +447,18 @@ function normalizeMessage(row: unknown): InboxMessage | null {
   const sendStatusValue = asString(raw.send_status)
   const sendStatus: SendStatus | null =
     sendStatusValue === 'sending' ? 'sending' : sendStatusValue === 'sent' ? 'sent' : sendStatusValue === 'failed' ? 'failed' : null
+  const bodyText = asString(raw.body_text) || undefined
+  const bodyPreview = asString(raw.body_preview)
+  const payload =
+    raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {}
+  // Prefer API flags; fall back to body/payload heuristics for older rows.
+  const isMock =
+    raw.is_mock === true ||
+    payload.is_mock === true ||
+    payload.llm_mode === 'mock' ||
+    isMockAgentBody(bodyText) ||
+    isMockAgentBody(bodyPreview)
+  const deliveredToCustomer = isMock ? false : raw.delivered_to_customer === true
   return {
     id,
     threadId,
@@ -451,17 +468,19 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     fromAddress: asString(raw.from_address),
     toAddresses: asString(raw.to_addresses),
     subject: asString(raw.subject),
-    bodyPreview: asString(raw.body_preview),
-    bodyText: asString(raw.body_text) || undefined,
+    bodyPreview,
+    bodyText,
     bodyHtml: asNullableString(raw.body_html),
     graphMessageId: asString(raw.graph_message_id),
     inReplyTo: asNullableString(raw.in_reply_to),
     authorUserId: raw.author_user_id == null || raw.author_user_id === 0 ? null : asNumber(raw.author_user_id),
     isRead: Boolean(raw.is_read),
     sendStatus,
+    isMock,
+    deliveredToCustomer,
     attachments: Array.isArray(raw.attachments) ? raw.attachments : null,
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
-    payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
+    payload,
     myFeedback: normalizeMyFeedback(raw),
     agentTrace: normalizeAgentTrace(raw),
     receivedAt: asNullableTimestampString(raw.received_at),

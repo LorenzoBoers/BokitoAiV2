@@ -106,6 +106,22 @@ async def ensure_front_desk(
     ).scalars().first()
     if existing:
         return existing
+    # Only claim the workspace lead when none exists yet. Older tenants may
+    # already have a lead (e.g. a project PO); customer routing uses
+    # ChannelAccount.default_agent_id → Front desk, not the lead flag.
+    has_lead = (
+        await session.execute(
+            select(Agent.id)
+            .where(
+                Agent.tenant_id == tenant_id,
+                Agent.kind == "company",
+                Agent.is_lead.is_(True),
+                Agent.is_active.is_(True),
+                Agent.acts_for_user.is_(False),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
     agent = Agent(
         tenant_id=tenant_id,
         name="Front desk",
@@ -115,7 +131,7 @@ async def ensure_front_desk(
         chat_access="everyone",
         system_prompt=ONBOARDING_SYSTEM_PROMPT,
         is_active=True,
-        is_lead=True,
+        is_lead=has_lead is None,
     )
     session.add(agent)
     if commit:
@@ -126,13 +142,47 @@ async def ensure_front_desk(
     return agent
 
 
+async def ensure_widget_default_agent(
+    session: AsyncSession, tenant_id: UUID, front_desk: Agent, *, commit: bool = False
+) -> ChannelAccount:
+    """Bind the website chat to Front desk when unset or pointing at a non-customer agent."""
+    from sqlalchemy import select
+
+    widget = await ensure_widget_channel(session, tenant_id, commit=False)
+    current = None
+    if widget.default_agent_id:
+        current = (
+            await session.execute(
+                select(Agent).where(
+                    Agent.id == widget.default_agent_id,
+                    Agent.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+    needs_front_desk = current is None or (
+        current.audience != "customers"
+        or current.acts_for_user
+        or not current.is_active
+    )
+    if needs_front_desk and widget.default_agent_id != front_desk.id:
+        widget.default_agent_id = front_desk.id
+        session.add(widget)
+    if commit:
+        await session.commit()
+        await session.refresh(widget)
+    else:
+        await session.flush()
+    return widget
+
+
 async def ensure_front_desks(session: AsyncSession) -> int:
-    """Startup backfill for the customer-facing default agent."""
+    """Startup backfill: Front desk agent + widget default binding per tenant."""
     from sqlalchemy import select
 
     tenant_ids = list((await session.execute(select(Tenant.id))).scalars().all())
     for tenant_id in tenant_ids:
-        await ensure_front_desk(session, tenant_id, commit=False)
+        front_desk = await ensure_front_desk(session, tenant_id, commit=False)
+        await ensure_widget_default_agent(session, tenant_id, front_desk, commit=False)
     if tenant_ids:
         await session.commit()
     return len(tenant_ids)
@@ -161,9 +211,7 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # Email stays empty until someone connects a mailbox or creates a Bokito
     # relay address. The website chat is the one channel that works the moment
     # the widget is embedded, so it gets a row to carry state and an off switch.
-    widget = await ensure_widget_channel(session, tenant_id, commit=False)
-    widget.default_agent_id = front_desk.id
-    session.add(widget)
+    await ensure_widget_default_agent(session, tenant_id, front_desk, commit=False)
     await seed_default_triggers(session, tenant_id)
     from app.services.cases import ensure_platform_case_types
 

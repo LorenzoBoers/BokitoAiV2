@@ -31,7 +31,10 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   const { t } = useTranslation('nav')
   const { user, logout } = useAuth()
   const { status: onboardingStatus } = useOnboardingStatus()
-  const setupIncomplete = Boolean(onboardingStatus && !onboardingStatus.completed)
+  const onSetupPage = pathname.startsWith('/settings/setup')
+  // Hide on the setup guide itself — repeating "Get started" there feels stuck.
+  const setupIncomplete =
+    Boolean(onboardingStatus && !onboardingStatus.completed) && !onSetupPage
   const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace()
   const tab = tabFromPath(pathname)
   const onModuleWorkspace =
@@ -39,7 +42,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   const pageTitle = tab
     ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
     : onModuleWorkspace
-      ? t('tabGroups.modules', { defaultValue: 'Modules' })
+      ? t('tabGroups.connections', { defaultValue: 'Connections' })
       : 'Bokito'
   const settingsLink = settingsLinkForPath(pathname)
   const extraCrumbs = extraCrumbsForPath(pathname)

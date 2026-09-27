@@ -22,7 +22,6 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
-import { Switch } from '../components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
@@ -88,7 +87,6 @@ export default function ProjectDetail() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
-  const [togglingAutonomy, setTogglingAutonomy] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -175,24 +173,6 @@ export default function ProjectDetail() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [dirty, saving, name, saveAbout])
-
-  const toggleAutonomy = async (checked: boolean) => {
-    if (!project) return
-    setTogglingAutonomy(true)
-    try {
-      const updated = await patchProject(project.id, { autonomous_mode: checked })
-      setProject(updated)
-      toast.success(
-        checked
-          ? t('projects.detail.autonomousModeOn')
-          : t('projects.detail.autonomousModeOff'),
-      )
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('projects.detail.saveError')))
-    } finally {
-      setTogglingAutonomy(false)
-    }
-  }
 
   const confirmDelete = async () => {
     if (!project) return
@@ -416,20 +396,6 @@ export default function ProjectDetail() {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t('projects.detail.descriptionPlaceholder')}
                     disabled={!isAdmin}
-                  />
-                </div>
-                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-heading">
-                      {t('projects.detail.autonomousMode')}
-                    </p>
-                    <p className="text-xs text-text-muted">{t('projects.detail.autonomousModeHint')}</p>
-                  </div>
-                  <Switch
-                    checked={Boolean(project.autonomous_mode)}
-                    disabled={!isAdmin || togglingAutonomy}
-                    onCheckedChange={(checked) => void toggleAutonomy(checked)}
-                    aria-label={t('projects.detail.autonomousMode')}
                   />
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">

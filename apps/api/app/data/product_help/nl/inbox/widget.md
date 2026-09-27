@@ -18,14 +18,15 @@ De widget is een klein script op je site. Bezoekers chatten met je assistent. Di
 
 1. Open **Instellingen**, daarna **Chatwidget**, daarna **Installeren**.
 2. Kopieer **Widget voor websitebezoekers** voor een openbare site. Kopieer **Assistent voor ingelogde gebruikers** alleen wanneer de widget in je eigen product zit en bezoekers zijn ingelogd. Gebruik **Kopiëren** bij de snippet.
-3. Plak die eerst op een stagingpagina. Stuur een testbericht en bevestig het gesprek in [Communicatie](/docs/inbox/communication).
+3. Als Installeren waarschuwt dat de snippet een lokale ontwikkel-URL gebruikt (`localhost` of `127.0.0.1`), plak die alleen voor lokale tests. Voor een live website open je Chatwidget in je productie-workspace en kopieer je de snippet daar.
+4. Plak die eerst op een stagingpagina. Stuur een testbericht en bevestig het gesprek in [Communicatie](/docs/inbox/communication).
 
 Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 
 ## Zet Uiterlijk
 
 1. Open **Uiterlijk** op dezelfde pagina.
-2. Zet **Behandelende agent** — die agent beantwoordt nieuwe widgetgesprekken. De widgetnaam volgt deze agent tenzij je **Assistentnaam** zet.
+2. Zet **Behandelende agent** — die agent beantwoordt nieuwe widgetgesprekken. Nieuwe werkruimtes starten met **Front desk** (de klantgerichte agent). De widgetnaam volgt deze agent tenzij je **Assistentnaam** zet.
 3. Onder **Welkomstberichten** zet je **Welkomsttitel** en **Welkomstondertitel**. Onder **Kleuren** kies je **Accent**. **Widgetpictogram** volgt Branding tenzij je een override uploadt. Onder **Wat bezoekers zien** zet je **Home**, **Berichten**, **Help** of **Tools** aan of uit. Kies **Wijzigingen opslaan** en herlaad de stagingpagina. Wegnavigeren met niet-opgeslagen Look-wijzigingen vraagt om bevestiging.
 
 ## Zet Stem, uren en het vooraf-formulier

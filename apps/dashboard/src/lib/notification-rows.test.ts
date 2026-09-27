@@ -25,6 +25,7 @@ describe('notification rows', () => {
       'decisions',
       'digest-daily',
       'digest-weekly',
+      'handoff',
       'mentions',
     ])
     const paused = pauseAllDesktop(defaults)

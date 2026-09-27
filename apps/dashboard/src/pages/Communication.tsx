@@ -50,6 +50,8 @@ import {
   threadHubPath,
   threadNeedsReply,
 } from '../lib/message-composer'
+import { loadOpenSignalCases, resolveOpenSignalCases } from '../lib/close-thread-signals'
+import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { InboxSplitSkeleton } from '../components/ui/skeleton'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
@@ -210,7 +212,8 @@ export default function Communication() {
     if (projectId) params.set('project_id', projectId)
     if (agentIdFilter) params.set('agent', agentIdFilter)
     if (caseTypeId) params.set('case_type_id', caseTypeId)
-    if (quickFilter !== 'all') params.set('filter', quickFilter)
+    // Never stick Needs decision on folder URLs — that intent is the Decisions leaf.
+    if (quickFilter !== 'all' && quickFilter !== 'needsDecision') params.set('filter', quickFilter)
     const query = params.toString()
     return query ? `?${query}` : ''
   }, [projectId, agentIdFilter, caseTypeId, quickFilter])
@@ -269,8 +272,10 @@ export default function Communication() {
 
   const applyQuickFilterChange = useCallback(
     (value: InboxListQuickFilter) => {
+      // Needs decision is its own hub leaf — never stick it on an inbox folder.
       if (value === 'needsDecision') {
-        navigate(decisionsPath())
+        setQuickFilter('all')
+        navigate(decisionsPath(threadIdParam ?? undefined), { replace: true })
         return
       }
       setQuickFilter(value)
@@ -281,18 +286,20 @@ export default function Communication() {
         return next
       }, { replace: true })
     },
-    [navigate, setQuickFilter, setSearchParams],
+    [navigate, setQuickFilter, setSearchParams, threadIdParam],
   )
 
   const urlFilter = searchParams.get('filter')
   useEffect(() => {
     const fromUrl = parseQuickFilterParam(urlFilter)
     if (fromUrl === 'needsDecision') {
-      navigate(decisionsPath(), { replace: true })
+      const next = new URLSearchParams(searchParams)
+      next.delete('filter')
+      navigate(decisionsPath(threadIdParam ?? undefined, next), { replace: true })
       return
     }
     if (fromUrl) setQuickFilter(fromUrl)
-  }, [urlFilter, setQuickFilter, navigate])
+  }, [urlFilter, setQuickFilter, navigate, searchParams, threadIdParam])
 
   const {
     threads,
@@ -313,7 +320,6 @@ export default function Communication() {
       agentId: agentIdFilter,
       unread: mode === 'customer' && quickFilter === 'unread',
       needsReply: mode === 'customer' && quickFilter === 'needsReply',
-      needsDecision: mode === 'customer' && quickFilter === 'needsDecision',
       pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
       channelFilter,
@@ -328,7 +334,7 @@ export default function Communication() {
   }, [leaf.type])
 
   // Customer list chips (Needs reply / Unread / …) must not stick on Agent-runs
-  // or assistant leaves — they hide runs and show the wrong empty copy.
+  // or Decisions — they hide runs and show the wrong empty copy.
   useEffect(() => {
     if (mode === 'customer') return
     if (quickFilter === 'all') return
@@ -342,6 +348,18 @@ export default function Communication() {
   }, [mode, quickFilter, setQuickFilter, setSearchParams])
 
   const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}:${caseTypeId ?? ''}`
+
+  // Folder switches must not carry a sticky Needs-decision chip.
+  useEffect(() => {
+    if (quickFilter !== 'needsDecision') return
+    setQuickFilter('all')
+    setSearchParams((prev) => {
+      if (prev.get('filter') !== 'needsDecision') return prev
+      const next = new URLSearchParams(prev)
+      next.delete('filter')
+      return next
+    }, { replace: true })
+  }, [listContextKey, quickFilter, setQuickFilter, setSearchParams])
 
   useEffect(() => {
     if (leaf.type === 'inbox' && leaf.queue) writeLastInboxQueue(leaf.queue)
@@ -468,13 +486,39 @@ export default function Communication() {
   )
 
   const firstThreadId = pickPreferredInboxThread(filteredThreads)?.id ?? null
+  const selectedInFilteredList =
+    selectedThreadId != null &&
+    filteredThreads.some((thread) => String(thread.id) === String(selectedThreadId))
 
+  // Auto-select the first match. On Decisions, also replace orphan detail
+  // (thread left open from another folder) or clear the pane when empty.
   useEffect(() => {
-    if (composeOpen) return
-    if (threadIdParam || !threadsReady || firstThreadId == null) return
-    setSkipMarkRead(true)
-    handleSelectThread(firstThreadId, true, { markRead: false })
-  }, [composeOpen, threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
+    if (composeOpen || !threadsReady) return
+    if (selectedThreadId == null) {
+      if (firstThreadId == null) return
+      setSkipMarkRead(true)
+      handleSelectThread(firstThreadId, true, { markRead: false })
+      return
+    }
+    if (leaf.type !== 'decisions' || selectedInFilteredList) return
+    if (firstThreadId != null) {
+      setSkipMarkRead(true)
+      handleSelectThread(firstThreadId, true, { markRead: false })
+      return
+    }
+    navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
+  }, [
+    composeOpen,
+    threadsReady,
+    selectedThreadId,
+    selectedInFilteredList,
+    firstThreadId,
+    listContextKey,
+    leaf,
+    handleSelectThread,
+    navigate,
+    inboxQuery,
+  ])
 
   const handleListMarkRead = useCallback(
     async (id: ThreadId) => {
@@ -788,7 +832,32 @@ export default function Communication() {
       if (selectedThreadId != null) navigate(`${leafPath(leaf)}${inboxQuery}`)
     },
     onClose: () => {
-      void handlePatch({ status: 'closed' })
+      void (async () => {
+        if (selectedThreadId == null) return
+        const openCases = await loadOpenSignalCases(String(selectedThreadId))
+        if (openCases.length > 0) {
+          if (
+            !window.confirm(
+              t('threadChrome.closeWithSignalsShortcutConfirm', { count: openCases.length }),
+            )
+          ) {
+            return
+          }
+          if (
+            window.confirm(
+              t('threadChrome.closeWithSignalsShortcutResolve', { count: openCases.length }),
+            )
+          ) {
+            try {
+              await resolveOpenSignalCases(openCases)
+            } catch (err) {
+              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithSignalsError')))
+              return
+            }
+          }
+        }
+        await handlePatch({ status: 'closed' })
+      })()
     },
     onUnread: () => {
       if (selectedThreadId != null) void handleListMarkUnread(selectedThreadId)
@@ -1147,8 +1216,15 @@ export default function Communication() {
     )
   }
 
+  // Secondary folders (snoozed / spam / closed) use queue empty copy — never the
+  // first-run setup checklist (F-63). Setup belongs on Open / new chat only.
+  const isSecondaryInboxQueue =
+    leaf.type === 'inbox' &&
+    (leaf.queue === 'snoozed' || leaf.queue === 'spam' || leaf.queue === 'closed')
+
   const isInboxEmpty =
     (leaf.type === 'inbox' || (leaf.type === 'channel' && leaf.channelKey === 'email')) &&
+    !isSecondaryInboxQueue &&
     threadsReady &&
     threads.length === 0 &&
     // An active search, a list chip, or an open thread is not a first-run empty.
@@ -1346,7 +1422,11 @@ export default function Communication() {
                   ? t('threadList.emptyRuns')
                   : leaf.type === 'inbox' && leaf.queue === 'snoozed'
                     ? t('threadList.emptySnoozed')
-                    : undefined
+                    : leaf.type === 'inbox' && leaf.queue === 'spam'
+                      ? t('threadList.emptySpam')
+                      : leaf.type === 'inbox' && leaf.queue === 'closed'
+                        ? t('threadList.emptyClosed')
+                        : undefined
             }
             emptyHint={
               search.trim() ? (
@@ -1368,6 +1448,26 @@ export default function Communication() {
               ) : leaf.type === 'inbox' && leaf.queue === 'snoozed' ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
                   <p className="text-[11px] text-text-muted">{t('threadList.emptySnoozedHint')}</p>
+                  <Link
+                    to={inboxPath('open')}
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.openInbox')}
+                  </Link>
+                </div>
+              ) : leaf.type === 'inbox' && leaf.queue === 'spam' ? (
+                <div className="mt-2 flex flex-col items-center gap-2">
+                  <p className="text-[11px] text-text-muted">{t('threadList.emptySpamHint')}</p>
+                  <Link
+                    to={inboxPath('open')}
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.openInbox')}
+                  </Link>
+                </div>
+              ) : leaf.type === 'inbox' && leaf.queue === 'closed' ? (
+                <div className="mt-2 flex flex-col items-center gap-2">
+                  <p className="text-[11px] text-text-muted">{t('threadList.emptyClosedHint')}</p>
                   <Link
                     to={inboxPath('open')}
                     className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"

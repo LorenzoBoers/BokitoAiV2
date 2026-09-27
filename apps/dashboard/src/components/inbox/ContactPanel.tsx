@@ -16,18 +16,18 @@ import {
   type ContactRow,
   type ContactStatus,
 } from '../../lib/contacts-api'
-import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../../lib/contact-label'
+import {
+  humanizeContactName,
+  isAnonymousContact,
+  isGenericVisitorName,
+  isPlaceholderContactAddress,
+} from '../../lib/contact-label'
 import type { InboxMember, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { threadStatusLabel } from '../../lib/status-labels'
-import { ThreadCasesList } from './ThreadCasesList'
-import { ThreadProjectPicker } from './ThreadProjectPicker'
-import { formatAppDateTime } from '../../lib/app-locale'
-import { patchThread } from '../../lib/inbox-api'
-import { CheckCircle2 } from 'lucide-react'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
   const email = (address || '').trim().toLowerCase()
@@ -52,11 +52,6 @@ type Props = {
   currentThreadId?: ThreadId | null
   threadSubject?: string | null
   threadPreview?: string | null
-  projectId?: string | null
-  followUpAt?: string | null
-  followUpTitle?: string | null
-  onUpdated?: () => void
-  onFollowUpCleared?: () => void
 }
 
 function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -87,15 +82,9 @@ export default function ContactPanel({
   currentThreadId,
   threadSubject,
   threadPreview,
-  projectId = null,
-  followUpAt,
-  followUpTitle,
-  onUpdated,
-  onFollowUpCleared,
 }: Props) {
-  const { t, i18n } = useTranslation('communication')
+  const { t } = useTranslation('communication')
   const { token, user } = useAuth()
-  const [clearingFollowUp, setClearingFollowUp] = useState(false)
   const { members } = useMembers()
   const { activeConnections } = useMailboxConnections()
   const canSendEmail = activeConnections.length > 0
@@ -186,7 +175,6 @@ export default function ContactPanel({
       })
       if (updated) setContact(updated)
       toast.success(t('contactPanel.emailSaved'))
-      onUpdated?.()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('contactPanel.emailSaveError')))
     } finally {
@@ -312,37 +300,45 @@ export default function ContactPanel({
     (row) => String(row.id) !== String(currentThreadId ?? ''),
   )
 
+  const anonymous = isAnonymousContact(contact.displayName, contact.address)
+  const headlineName =
+    humanizeContactName(contact.displayName, contact.address, t('contactPanel.widgetVisitor')) ||
+    (!isPlaceholderContactAddress(contact.address) && contact.address) ||
+    t('contactPanel.unknown')
+  const namedHeadline =
+    Boolean(headlineName) &&
+    headlineName.trim().toLowerCase() !== t('contactPanel.widgetVisitor').trim().toLowerCase()
+  // Legacy rows may still be "approved" without an email — treat as awaiting identity.
+  const statusPending = contact.status === 'pending' || (anonymous && contact.status === 'approved')
+  const alsoSeenAsVisitor =
+    namedHeadline &&
+    (isPlaceholderContactAddress(contact.address) ||
+      isGenericVisitorName(contact.displayName) ||
+      (fallbackName != null && isGenericVisitorName(fallbackName)))
+
   return (
     <div className="flex flex-col">
-      <div className="border-b border-border/40 px-4 pb-1 pt-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-          {t('sidePanel.who', { defaultValue: 'Who' })}
-        </h2>
-      </div>
-      {/* Identity card */}
+      {/* Identity card — panel chrome already titles this as Who */}
       <div className="border-b border-border/40 px-4 pb-3 pt-3">
         <div className="flex items-start gap-2.5">
           <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13.5px] font-semibold text-text-heading">
-              {humanizeContactName(contact.displayName, contact.address, t('contactPanel.widgetVisitor')) ||
-                // A real address is a better headline than "unknown contact".
-                (!isPlaceholderContactAddress(contact.address) && contact.address) ||
-                t('contactPanel.unknown')}
-            </p>
+            <p className="truncate text-[13.5px] font-semibold text-text-heading">{headlineName}</p>
             <span
               className={`mt-0.5 inline-flex rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
                 contact.status === 'blocked'
                   ? 'bg-status-error/12 text-status-error'
-                  : contact.status === 'pending'
+                  : statusPending
                     ? 'bg-status-warning/15 text-status-warning'
                     : 'bg-status-success/12 text-status-success'
               }`}
             >
               {contact.status === 'blocked'
                 ? t('contactPanel.statusBlocked')
-                : contact.status === 'pending'
-                  ? t('contactPanel.statusPending')
+                : statusPending
+                  ? anonymous
+                    ? t('contactPanel.statusAwaitingEmail')
+                    : t('contactPanel.statusPending')
                   : t('contactPanel.statusApproved')}
             </span>
             {contact.title || contact.company ? (
@@ -353,20 +349,18 @@ export default function ContactPanel({
           </div>
         </div>
         <div className="mt-3 space-y-1.5">
-          {(() => {
-            const headline =
-              humanizeContactName(contact.displayName, contact.address, t('contactPanel.widgetVisitor')) ||
-              (!isPlaceholderContactAddress(contact.address) && contact.address) ||
-              ''
-            const mailValue = isPlaceholderContactAddress(contact.address)
-              ? t('contactPanel.widgetVisitor')
-              : contact.address
-            // Avoid repeating the same email as both title and mail row.
-            const showMail =
-              Boolean(mailValue) &&
-              mailValue.trim().toLowerCase() !== String(headline).trim().toLowerCase()
-            return showMail ? <FieldRow icon={Mail} value={mailValue} /> : null
-          })()}
+          {!isPlaceholderContactAddress(contact.address) &&
+          contact.address.trim().toLowerCase() !== String(headlineName).trim().toLowerCase() ? (
+            <FieldRow icon={Mail} value={contact.address} />
+          ) : null}
+          {alsoSeenAsVisitor ? (
+            <p className="flex items-center gap-2 text-[12px] text-text-muted">
+              <ChannelGlyph channel={contact.channel || 'widget'} size={13} className="shrink-0" />
+              <span className="min-w-0 truncate">
+                {t('contactPanel.alsoSeenAs', { label: t('contactPanel.widgetVisitor') })}
+              </span>
+            </p>
+          ) : null}
           <FieldRow icon={Phone} value={contact.phone} />
           {contact.company ? (
             <Link
@@ -422,7 +416,7 @@ export default function ContactPanel({
           </form>
         ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {contact.status === 'pending' ? (
+          {statusPending && !anonymous ? (
             <button
               type="button"
               disabled={saving}
@@ -569,62 +563,6 @@ export default function ContactPanel({
           </div>
         )}
       </div>
-
-      {currentThreadId ? (
-        <div className="px-4 py-3 space-y-4">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-            {t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
-          </h2>
-          <div className="-mx-4">
-            <ThreadProjectPicker
-              threadId={currentThreadId}
-              projectId={projectId}
-              onUpdated={onUpdated}
-            />
-          </div>
-          {followUpAt ? (
-            <div className="rounded-lg border border-accent/25 bg-accent/5 px-2.5 py-2">
-              <p className="text-[11px] font-medium text-accent">
-                {t('contactPanel.nextLookAt')}
-              </p>
-              <p className="mt-0.5 text-[12.5px] text-text-primary">
-                {followUpTitle || threadSubject || t('threadChrome.whatsNext')}
-              </p>
-              <p className="mt-0.5 text-[10.5px] text-text-muted">
-                {formatAppDateTime(new Date(followUpAt), i18n.language)}
-              </p>
-              <button
-                type="button"
-                disabled={clearingFollowUp || !token}
-                onClick={() => {
-                  if (!token || !currentThreadId) return
-                  setClearingFollowUp(true)
-                  void patchThread(token, currentThreadId, {
-                    followUpAt: null,
-                    followUpTitle: '',
-                  })
-                    .then(() => {
-                      toast.success(t('contactPanel.nextLookAtCleared'))
-                      onFollowUpCleared?.()
-                      onUpdated?.()
-                    })
-                    .catch((err) => {
-                      toast.error(
-                        formatApiErrorMessage(err, t('contactPanel.nextLookAtClearError')),
-                      )
-                    })
-                    .finally(() => setClearingFollowUp(false))
-                }}
-                className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-accent hover:underline disabled:opacity-50"
-              >
-                <CheckCircle2 size={12} />
-                {clearingFollowUp ? t('contactPanel.nextLookAtClearing') : t('contactPanel.nextLookAtDone')}
-              </button>
-            </div>
-          ) : null}
-          <ThreadCasesList signalId={String(currentThreadId)} />
-        </div>
-      ) : null}
     </div>
   )
 }

@@ -10,12 +10,15 @@ self.addEventListener('activate', (event) => {
 })
 
 function targetUrlFromPayload(data) {
-  // A decision lands on the Decisions leaf and scrolls to its own card;
-  // anything else opens the thread in All.
+  // A decision lands on the inbox Needs-decision filter and scrolls to its own
+  // card; anything else opens the thread in All.
   if (data.kind === 'decision_request' || data.decision_id) {
-    if (!data.signal_id) return '/communication/decisions'
-    const base = `/communication/decisions/t/${data.signal_id}`
-    return data.message_id ? `${base}?message=${encodeURIComponent(data.message_id)}` : base
+    const filter = 'filter=needsDecision'
+    if (!data.signal_id) return `/communication/inbox/open?${filter}`
+    const base = `/communication/inbox/open/t/${data.signal_id}`
+    return data.message_id
+      ? `${base}?message=${encodeURIComponent(data.message_id)}&${filter}`
+      : `${base}?${filter}`
   }
   if (data.signal_id) {
     return `/communication/inbox/all/t/${data.signal_id}`

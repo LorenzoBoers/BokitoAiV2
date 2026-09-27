@@ -1,7 +1,7 @@
 import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Text, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { translateMockAgentBody } from '../../lib/activity-labels'
+import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labels'
 import { cn } from '../../lib/utils'
 import { cancelScheduledMessage, submitMessageFeedback } from '../../lib/signals-api'
 import { useCorrectionChat } from '../../lib/correction-chat'
@@ -589,6 +589,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   replied: (t) => t('timeline.events.replySent'),
   reply_sent: (t) => t('timeline.events.replySent'),
   note_added: (t) => t('timeline.events.noteAdded'),
+  message_added: (t) => t('timeline.events.messageAdded'),
   reopened: (t) => t('timeline.events.reopened'),
   thread_updated: (t, p, _name, memberNameFor) => {
     const status = typeof p.status === 'string' ? p.status : null
@@ -667,11 +668,6 @@ function eventPresentation(eventType: string): { ai: boolean; icon: ReactNode } 
   return { ai: false, icon: null }
 }
 
-function humanizeEventType(eventType: string): string {
-  const text = eventType.replace(/[_-]+/g, ' ').trim()
-  return text.charAt(0).toUpperCase() + text.slice(1)
-}
-
 function eventLabel(
   event: InboxEvent,
   t: TFunction,
@@ -679,9 +675,9 @@ function eventLabel(
   memberNameFor?: MemberNameResolver,
 ): string {
   const labelFn = EVENT_LABELS[event.eventType]
-  return labelFn
-    ? labelFn(t, event.payload, memberName, memberNameFor)
-    : humanizeEventType(event.eventType)
+  if (labelFn) return labelFn(t, event.payload, memberName, memberNameFor)
+  // Prefer a known generic label over English snake_case leftovers (F-77).
+  return t('timeline.events.messageAdded')
 }
 
 // Compact centered pill for a single timeline event. AI-flow events share one
@@ -1090,11 +1086,23 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     }
     if (authorKind === 'external') return inboundHeader
     if (authorKind === 'agent') {
+      const mockOrPlaceholder =
+        Boolean(message.isMock) ||
+        isMockAgentBody(message.bodyText) ||
+        isMockAgentBody(message.bodyPreview)
+      const delivered = !mockOrPlaceholder && message.deliveredToCustomer === true
+      const agentSubtitle = !isOutbound
+        ? undefined
+        : mockOrPlaceholder
+          ? t('timeline.mockNotSent')
+          : delivered
+            ? t('timeline.sentToCustomer')
+            : t('timeline.notDelivered')
       return (
         <BubbleHeader
           name={agentName || t('timeline.aiAgent')}
           chip={<RoleChip kind="ai" />}
-          subtitle={isOutbound ? t('timeline.sentToCustomer') : undefined}
+          subtitle={agentSubtitle}
         />
       )
     }

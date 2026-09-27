@@ -10,6 +10,8 @@ export const settingsRoutes = {
   models: {
     list: '/models',
     byId: (id: string) => `/models/${encodeURIComponent(id)}`,
+    /** Live vs mock LLM flag for workspace banners (any member). */
+    runtime: '/models/runtime',
   },
   webhooks: {
     list: '/webhooks',

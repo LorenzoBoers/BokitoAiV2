@@ -775,21 +775,28 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
         ).first()
     )
 
-    # Any email channel counts: a Bokito relay address the workspace created
-    # completes this step just like a connected Gmail/Outlook mailbox.
-    email_done = bool(
-        (
-            await session.execute(
-                select(ChannelAccount.id)
-                .where(
-                    ChannelAccount.tenant_id == tenant_id,
-                    ChannelAccount.channel == "email",
-                    ChannelAccount.provider.in_(["outlook", "gmail", "bokito"]),  # type: ignore[attr-defined]
-                )
-                .limit(1)
+    # Channel step follows ChannelStatus: send-ready or receive-ready email
+    # (Gmail/Outlook/Bokito/SMTP). A row that only exists is not enough.
+    from app.services.channel_registry import can_receive, can_send, resolve_channel
+
+    tenant_row = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    email_accounts = (
+        await session.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant_id,
+                ChannelAccount.channel == "email",
+                ChannelAccount.is_enabled.is_(True),
             )
-        ).first()
-    )
+        )
+    ).scalars().all()
+    email_done = False
+    for account in email_accounts:
+        row = resolve_channel(account, tenant=tenant_row)
+        if can_send(row) or can_receive(row):
+            email_done = True
+            break
 
     member_count = (
         await session.execute(
