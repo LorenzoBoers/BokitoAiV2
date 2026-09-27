@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
-from app.services.integrations_catalog import PROVIDERS, PROVIDER_BY_SLUG, provider_id
+from app.services.integrations_catalog import PROVIDER_BY_SLUG, provider_id
 from app.services.mcp_auth import mcp_auth_headers as _mcp_auth_headers
 from app.services.crypto import (
     encrypt_credentials_blob,

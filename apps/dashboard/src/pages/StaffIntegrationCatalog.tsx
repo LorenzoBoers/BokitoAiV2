@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { PageHeader } from '../components/layout/PageHeader'
+import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -136,18 +136,17 @@ export default function StaffIntegrationCatalog() {
   }
 
   return (
-    <>
-      <PageHeader
+    <PageContent width="xl" className="space-y-8">
+      <ContentHeader
         title={t('integrations.staffCatalog.title', {
           defaultValue: 'MCP marketplace catalog',
         })}
-        description={t('integrations.staffCatalog.description', {
+        subtitle={t('integrations.staffCatalog.description', {
           defaultValue:
             'Staff-only. Add remote MCP apps (URL + OAuth or API key). Changes appear on Marketplace without a deploy. Native adapters stay in code.',
         })}
       />
-      <PageContent width="xl" className="space-y-8">
-        {error ? <p className="text-sm text-status-error">{error}</p> : null}
+      {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
         <section className="panel space-y-3 p-4">
           <h2 className="text-sm font-semibold text-text-heading">
@@ -295,8 +294,7 @@ export default function StaffIntegrationCatalog() {
               </tbody>
             </table>
           </div>
-        </section>
-      </PageContent>
-    </>
+      </section>
+    </PageContent>
   )
 }
