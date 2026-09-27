@@ -281,6 +281,8 @@ async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
     from sqlmodel import SQLModel
 
     tenant_id = tenant.id
+    # Raw SQL binds must be strings — SQLite rejects uuid.UUID parameters.
+    tid = str(tenant_id)
     # Break cycles that metadata.sorted_tables cannot order (FK constraints on
     # cyclic pairs are ignored by the sorter, so a plain tenant_id sweep fails).
     await session.execute(
@@ -289,18 +291,18 @@ async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
             "SET platform_change_id = NULL, signal_id = NULL, notification_id = NULL "
             "WHERE tenant_id = :tid"
         ),
-        {"tid": tenant_id},
+        {"tid": tid},
     )
     await session.execute(
         text("UPDATE platform_changes SET decision_id = NULL WHERE tenant_id = :tid"),
-        {"tid": tenant_id},
+        {"tid": tid},
     )
     await session.execute(
         text(
             "UPDATE signal_messages SET decision_id = NULL "
             "WHERE signal_id IN (SELECT id FROM signals WHERE tenant_id = :tid)"
         ),
-        {"tid": tenant_id},
+        {"tid": tid},
     )
     for table in reversed(SQLModel.metadata.sorted_tables):
         if table.name == "tenants":
