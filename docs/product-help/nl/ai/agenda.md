@@ -26,7 +26,7 @@ Agenda is wat er gepland staat. Die combineert aankomende momenten met voorbije 
 2. Rond OAuth af. Afspraken verschijnen op het weekrooster (in lokale development verschijnen demo-events).
 3. Kies **Sync** om te verversen. Kies **Kalenderblok** om een afspraak op een gekoppelde kalender te zetten. Klik op een kalenderchip voor details — **Bewerken** voor titel, tijden, locatie of beschrijving, of **Verwijderen** om te wissen.
 
-Agents met kalendertools kunnen aankomende afspraken tonen (met vaste ids) en nieuwe blokken of verplaatsingen voorstellen die op jouw goedkeuring in Berichten wachten.
+Agents met kalendertools kunnen aankomende afspraken tonen (met vaste ids) en nieuwe blokken of verplaatsingen voorstellen die op jouw goedkeuring in Communicatie wachten.
 
 ## Hang een wake aan een agent
 
@@ -47,7 +47,7 @@ Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starte
 Agents kunnen zelf werk plannen: vraag in een gesprek aan een agent om "dit vrijdag opnieuw te checken" of "het team te herinneren aan het voorstel".
 
 1. De agent gebruikt zijn planningstools om een wake te maken (eenmalig, cron, of elke N minuten) voor zichzelf of een collega-agent.
-2. Afhankelijk van je [autonomie-houding](/docs/govern/autonomy) wordt de planning direct gemaakt of verschijnt die eerst als beslissingskaart in Berichten ter goedkeuring.
+2. Afhankelijk van je [autonomie-houding](/docs/govern/autonomy) wordt de planning direct gemaakt of verschijnt die eerst als beslissingskaart in Communicatie ter goedkeuring.
 3. Goedgekeurde wakes verschijnen op de Agenda-tijdlijn. Kijkmomenten van **Wat nu** op een gesprek verschijnen hier ook als persoonsitems — open ze om terug te gaan naar dat gesprek.
 
 ## Wat daarna

@@ -16,11 +16,11 @@ MCP is hoe agents externe tools aanroepen via een standaardprotocol. Die logins 
 ![MCP-servers](/api/docs/assets/mcp/servers.png)
 *Voeg de server-URL en inloggegevens toe.*
 
-1. Open **Koppelingen** in de zijbalk, daarna **Marketplace**, en filter **Tools**. Kies **Eigen tool** (of Notion, Linear en andere marketplace-apps).
-2. Rond setup af: voor een eigen server vul je een **Weergavenaam**, **Server-URL** en **Authenticatie** (**API-sleutel** of **Bearer-token**) plus **Geheim / token** in.
+1. Open **Koppelingen** in de zijbalk, daarna **Marketplace**, en filter **Tools**. Kies **Eigen tool**, **Alpaca**, of een andere marketplace-app (Notion, Linear, KING Accountancy).
+2. Rond setup af: voor een eigen server vul je een **Weergavenaam**, **Server-URL** en **Authenticatie** (**API-sleutel** of **Bearer-token**) plus **Geheim / token** in. Voor **Alpaca** plak je je Trading API **API-key** en **Secret key** (dezelfde waarden als `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` in de [officiële Alpaca MCP-server](https://github.com/alpacahq/alpaca-mcp-server)); laat **Paper trading gebruiken** aan tot je live keys hebt.
 3. **Verbinding opslaan**. De rij verschijnt onder **Custom MCP-servers** op **Koppelingen**. Kies **Ontkoppelen** om die te verwijderen.
 
-Marketplace-apps zoals Notion, Linear of KING Accountancy landen hier ook na setup. Open een appkaart om het **Tool-endpoint** te zien en, na koppelen, de exacte **Tools** die van de MCP-server zijn ontdekt (vernieuw om discovery opnieuw te draaien). Een verkeerd geconfigureerde server faalt vaak pas bij de aanroep, niet bij het koppelen.
+Marketplace-apps zoals Alpaca, Notion, Linear of KING Accountancy landen hier ook na setup. Open een appkaart om het **Tool-endpoint** te zien en, na koppelen, de exacte **Tools** die van de MCP-server zijn ontdekt (vernieuw om discovery opnieuw te draaien). Een verkeerd geconfigureerde server faalt vaak pas bij de aanroep, niet bij het koppelen.
 
 ## Test eenmaal
 

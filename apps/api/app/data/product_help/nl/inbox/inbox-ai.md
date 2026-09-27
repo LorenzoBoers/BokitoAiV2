@@ -9,7 +9,7 @@ related: communication,autonomy,channels,agents
 
 # Inbox AI instellen
 
-Inbox AI is de workspaceregel voor klantantwoorden. Open **Instellingen** en daarna **AI-antwoordinstellingen**. Dit is niet Govern: Govern is tools en autonomie; Inbox AI is of er een concept of een verzending volgt wanneer mail of chat binnenkomt.
+Inbox AI is de workspaceregel voor klantantwoorden. Open **Instellingen** en daarna **AI-antwoorden** (de paginatitel kan nog **AI-antwoordinstellingen** tonen). Dit is niet Govern: Govern is tools en autonomie; Inbox AI is of er een concept of een verzending volgt wanneer mail of chat binnenkomt.
 
 Workspace-standaarden gelden eerst. Een mailbox wijkt alleen af als je onder **Mailbox-uitzonderingen** iets zet.
 
@@ -18,7 +18,7 @@ Workspace-standaarden gelden eerst. Een mailbox wijkt alleen af als je onder **M
 ![Inbox AI-kanaalstandaarden](/api/docs/assets/inbox-ai/draft-mode.png)
 *Kies Antwoorden voorstellen, Automatisch antwoorden of Uit voor e-mail, websitechat en WhatsApp.*
 
-1. Open **Instellingen** en daarna **AI-antwoordinstellingen**.
+1. Open **Instellingen** en daarna **AI-antwoorden**.
 2. Onder **Workspace-standaarden** → **Hoe AI reageert** zet je E-mail, Websitechat en WhatsApp apart.
 3. Kies een van:
    - **Antwoorden voorstellen** — de assistent schrijft een conceptkaart. Je team verstuurt, bewerkt of escaleert.
@@ -56,7 +56,7 @@ Op **Antwoorden voorstellen** verlaat niets klantgericht de workspace totdat jij
 
 ## Als het kanaal nog niet kan verzenden
 
-Als een mailbox nog setup of herkoppeling nodig heeft (dezelfde staten die **Versturen** in de composer blokkeren), maakt Inbox AI geen klantconcept en geen auto-antwoord. Het gesprek krijgt een **Interne notitie** die wijst naar afronden onder **Instellingen → E-mail & berichten**. Herstel het kanaal, neem daarna over of geef het gesprek terug aan AI.
+Als een mailbox nog setup of herkoppeling nodig heeft (dezelfde staten die **Versturen** in de composer blokkeren), maakt Inbox AI geen klantconcept en geen auto-antwoord. Het gesprek krijgt een **Interne notitie** die wijst naar afronden onder **Instellingen → Kanalen**. Herstel het kanaal, neem daarna over of geef het gesprek terug aan AI.
 
 ## Wat nu
 

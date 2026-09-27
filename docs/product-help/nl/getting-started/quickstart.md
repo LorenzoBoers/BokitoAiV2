@@ -9,14 +9,14 @@ related: setup-guide,channels,tour,inbox-ai
 
 # Quickstart
 
-Dit is de kortste weg van een verse workspace naar echt werk. Na signup ronden owners eerst de **eerste-setupwizard** af (intake, talen, meldingen, autonomie, agentnaam, optioneel kanaal), daarna een korte producttour. Uitgenodigde leden zetten alleen taal en meldingen.
+Dit is de kortste weg van een verse workspace naar echt werk. Na signup ronden owners eerst de **eerste-setupwizard** af — stappen **Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, daarna optioneel **Kanaal** — en daarna een korte producttour. Uitgenodigde leden zetten alleen taal en meldingen.
 
 ## 1. Koppel een mailbox
 
 ![Een mailbox koppelen](/api/docs/assets/quickstart/mailbox.png)
-*Open Instellingen en daarna E-mail en berichten.*
+*Open Instellingen en daarna Kanalen.*
 
-1. Open **Instellingen** en daarna **E-mail en berichten**.
+1. Open **Instellingen** en daarna **Kanalen**.
 2. Kies **Kanaal toevoegen** en daarna **Bokito-adres**, kies een prefix en stuur er een testmail naartoe — of koppel Gmail of Outlook als antwoorden vanaf je eigen domein moeten vertrekken.
 3. Inbound mail verschijnt binnen een paar minuten als gesprekken in Communicatie. Zie [Kanalen](/docs/inbox/channels).
 
@@ -28,7 +28,7 @@ Dit is de kortste weg van een verse workspace naar echt werk. Na signup ronden o
 
 ## 3. Laat de assistent concepten maken
 
-1. Open **Instellingen** en daarna **AI-antwoordinstellingen**.
+1. Open **Instellingen** en daarna **AI-antwoorden**.
 2. Zet e-mail op **Antwoorden voorstellen**. De assistent schrijft; jij beoordeelt en verstuurt.
 3. Zie [Inbox AI](/docs/inbox/inbox-ai).
 

@@ -14,7 +14,11 @@ import {
 import { installMcpConnection, type McpAuthType } from '../../lib/mcp-integrations'
 import { moduleSlugFromPathname } from '../../lib/integration-setup-url'
 
-export type McpConnectPreset = 'custom_mcp' | 'bjorn_lunden_mcp' | 'king_accountancy'
+export type McpConnectPreset =
+  | 'custom_mcp'
+  | 'bjorn_lunden_mcp'
+  | 'king_accountancy'
+  | 'alpaca_mcp'
 
 type AdministratieRow = {
   id: string
@@ -48,6 +52,7 @@ export function McpConnectionForm({
   const isCustom = provider === 'custom_mcp'
   const isBjorn = provider === 'bjorn_lunden_mcp'
   const isKing = provider === 'king_accountancy'
+  const isAlpaca = provider === 'alpaca_mcp'
 
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
@@ -56,32 +61,43 @@ export function McpConnectionForm({
   const [blClientId, setBlClientId] = useState('')
   const [blClientSecret, setBlClientSecret] = useState('')
   const [blCompanyKey, setBlCompanyKey] = useState('')
+  const [alpacaKeyId, setAlpacaKeyId] = useState('')
+  const [alpacaSecret, setAlpacaSecret] = useState('')
+  const [alpacaPaper, setAlpacaPaper] = useState(true)
   const [administraties, setAdministraties] = useState<AdministratieRow[]>([newAdministratieRow()])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setName(isKing ? 'KING Accountancy' : isBjorn ? 'Bjorn Lunden' : '')
+    setName(
+      isKing ? 'KING Accountancy' : isBjorn ? 'Bjorn Lunden' : isAlpaca ? 'Alpaca' : '',
+    )
     setUrl('')
     setAuthType('api_key')
     setSecret('')
     setBlClientId('')
     setBlClientSecret('')
     setBlCompanyKey('')
+    setAlpacaKeyId('')
+    setAlpacaSecret('')
+    setAlpacaPaper(true)
     setAdministraties([newAdministratieRow()])
     setError(null)
     setSaving(false)
-  }, [provider, isBjorn, isKing])
+  }, [provider, isBjorn, isKing, isAlpaca])
 
   const kingReady = administraties.some(
     (row) => row.omgevingscode.trim().length > 0 && row.name.trim().length > 0,
   )
   const blReady = blClientId.trim().length > 0 && blClientSecret.trim().length > 0
+  const alpacaReady = alpacaKeyId.trim().length > 0 && alpacaSecret.trim().length > 0
   const canSave = isKing
     ? kingReady
     : isBjorn
       ? blReady
-      : secret.trim().length > 0 && name.trim().length > 0 && url.trim().length > 0
+      : isAlpaca
+        ? alpacaReady
+        : secret.trim().length > 0 && name.trim().length > 0 && url.trim().length > 0
 
   const handleSave = async () => {
     if (!canSave) return
@@ -106,15 +122,29 @@ export function McpConnectionForm({
               .filter((row) => row.omgevingscode.length > 0),
           }
         : undefined
+      const alpacaAuth = isAlpaca
+        ? {
+            api_key_id: alpacaKeyId.trim(),
+            api_secret_key: alpacaSecret.trim(),
+            paper: alpacaPaper,
+            // Same env names as https://github.com/alpacahq/alpaca-mcp-server
+            ALPACA_API_KEY: alpacaKeyId.trim(),
+            ALPACA_SECRET_KEY: alpacaSecret.trim(),
+            ALPACA_PAPER_TRADE: alpacaPaper,
+          }
+        : undefined
       await installMcpConnection({
         provider,
-        api_key: secret.trim(),
+        api_key: isAlpaca
+          ? `${alpacaKeyId.trim()}:${alpacaSecret.trim()}`
+          : secret.trim(),
         display_name: name.trim() || undefined,
         server_url: url.trim() || undefined,
         auth_type: authType,
         module_slug: moduleSlugFromPathname(window.location.pathname) ?? undefined,
         ...(blAuth ? { auth: blAuth } : {}),
         ...(kingAuth ? { auth: kingAuth } : {}),
+        ...(alpacaAuth ? { auth: alpacaAuth } : {}),
       })
       onSaved()
     } catch (e) {
@@ -135,7 +165,7 @@ export function McpConnectionForm({
           placeholder={t('integrations.mcp.servers.name')}
         />
       </div>
-      {isBjorn || isKing ? null : (
+      {isBjorn || isKing || isAlpaca ? null : (
         <div className="grid gap-2">
           <Label htmlFor="mcp-connection-url">{t('integrations.mcp.servers.url')}</Label>
           <Input
@@ -275,6 +305,40 @@ export function McpConnectionForm({
               placeholder={t('integrations.mcp.servers.bjornCompanyKeyHint')}
             />
           </div>
+        </>
+      ) : isAlpaca ? (
+        <>
+          <p className="text-xs text-text-secondary">{t('integrations.mcp.servers.alpacaHint')}</p>
+          <div className="grid gap-2">
+            <Label htmlFor="mcp-alpaca-key-id">{t('integrations.mcp.servers.alpacaApiKey')}</Label>
+            <Input
+              id="mcp-alpaca-key-id"
+              value={alpacaKeyId}
+              onChange={(e) => setAlpacaKeyId(e.target.value)}
+              placeholder={t('integrations.mcp.servers.alpacaApiKeyHint')}
+              autoComplete="off"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="mcp-alpaca-secret">{t('integrations.mcp.servers.alpacaSecretKey')}</Label>
+            <Input
+              id="mcp-alpaca-secret"
+              type="password"
+              value={alpacaSecret}
+              onChange={(e) => setAlpacaSecret(e.target.value)}
+              placeholder={t('integrations.mcp.servers.alpacaSecretKeyHint')}
+              autoComplete="off"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={alpacaPaper}
+              onChange={(e) => setAlpacaPaper(e.target.checked)}
+              className="rounded border-border"
+            />
+            {t('integrations.mcp.servers.alpacaPaper')}
+          </label>
         </>
       ) : (
         <div className="grid gap-2">

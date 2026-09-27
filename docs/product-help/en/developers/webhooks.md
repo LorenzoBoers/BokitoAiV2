@@ -17,7 +17,7 @@ Webhooks push events to your endpoint the moment they happen, so you do not have
 2. Under **Webhooks**, choose **Add endpoint**. Enter an HTTPS URL (or `http://localhost` for local tests) and an optional description.
 3. Pick events, or leave **All events**. Choose **Add webhook**.
 4. Copy the **Signing secret** once and store it like a password. You need it to verify deliveries.
-5. Use **Test** to send a probe. Open **Recent deliveries** to see event, status, attempts and time. **Enable** or **Disable** without deleting.
+5. Use **Test** to send a probe. Open **Recent deliveries** to see event, status, attempts and time. Turn an endpoint off without deleting it — the badge shows **Paused**.
 
 ## Events
 
@@ -26,7 +26,7 @@ Webhooks push events to your endpoint the moment they happen, so you do not have
 | `signal.created` | A new conversation lands in the inbox (any channel, including the REST API) |
 | `signal.closed` | A conversation is closed by a person, an agent or an automation |
 | `decision.created` | An agent raises a decision request that needs human approval |
-| `decision.resolved` | Someone approves or declines that decision |
+| `decision.resolved` | Someone **Approve**s or **Reject**s that decision |
 | `agent.run_failed` | A scheduled or inbound agent run fails |
 | `platform_change.applied` | A Govern change is applied (Accept, or a yolo apply) |
 | `spend.threshold_reached` | Workspace token or spend use hits the 80% or 100% cap |

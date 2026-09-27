@@ -9,14 +9,14 @@ related: setup-guide,channels,tour,inbox-ai
 
 # Quickstart
 
-This is the shortest path from a fresh workspace to real work happening. After signup, owners first complete the **first-run wizard** (intake, languages, notifications, autonomy, agent name, optional channel), then a short product tour. Invited members only set language and notifications.
+This is the shortest path from a fresh workspace to real work happening. After signup, owners first complete the **first-run wizard** — steps **About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, then optional **Channel** — then a short product tour. Invited members only set language and notifications.
 
 ## 1. Connect a mailbox
 
 ![Connect a mailbox](/api/docs/assets/quickstart/mailbox.png)
-*Open Settings, then Email & messages.*
+*Open Settings, then Channels.*
 
-1. Open **Settings**, then **Email & messages**.
+1. Open **Settings**, then **Channels**.
 2. Choose **Add channel**, then **Bokito address**, pick a prefix and send a test mail to it — or connect Gmail or Outlook if replies must leave from your domain.
 3. Inbound mail appears as threads in Communication within a few minutes. See [Channels](/docs/inbox/channels).
 
@@ -28,7 +28,7 @@ This is the shortest path from a fresh workspace to real work happening. After s
 
 ## 3. Let the assistant draft
 
-1. Open **Settings**, then **AI reply settings**.
+1. Open **Settings**, then **AI replies**.
 2. Set email to **Suggest replies**. The assistant writes; you review and send.
 3. See [Inbox AI](/docs/inbox/inbox-ai).
 

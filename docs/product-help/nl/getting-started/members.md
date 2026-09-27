@@ -36,7 +36,7 @@ Leden beantwoorden gesprekken. Ze koppelen geen mailboxen, wijzigen Inbox AI nie
 
 ## Persoonlijke instellingen blijven persoonlijk
 
-Iedereen heeft **Profiel** en **Notificaties**. Die schermen zijn van hen. Ze staan niet in deze workspacedocs en ze veranderen niet hoe het team klanten beantwoordt. Zie [Agents](/docs/ai/agents) voor bedrijfsagents, en [Communicatie](/docs/inbox/communication) voor de gedeelde inbox.
+Iedereen heeft **Profiel** en **Notificaties**. Die schermen zijn van hen. Op Profiel zetten ze **Startpagina** (**Communicatie** of **Overview**), **Weergave**, taal, en een persoonlijke **E-mailhandtekening** wanneer een antwoord als hen verstuurd wordt. Op Notificaties kiezen ze rijen onder **Meld me over** (beslissingen, vermeldingen, overdracht, budgetwaarschuwingen) met **In-app**, **E-mail**, **Push** en optioneel **Slack**. Zie [Beslissingen](/docs/ai/decisions) voor hoe notificatieklikken op wachtende kaarten landen. Ze veranderen niet hoe het team klanten beantwoordt. Zie [Agents](/docs/ai/agents) voor bedrijfsagents, en [Communicatie](/docs/inbox/communication) voor de gedeelde inbox.
 
 ## Wat nu
 

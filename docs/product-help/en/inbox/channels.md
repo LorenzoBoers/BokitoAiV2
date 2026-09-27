@@ -9,16 +9,16 @@ related: communication,inbox-ai,widget,integrations
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Email & messages**. Every channel — mailbox, Bokito address, website chat, WhatsApp — is one row in the **Channels** list with the same state, capabilities and checks. A new workspace starts with the website chat only, so add an email channel before you expect mail.
+Channels are how customers reach the workspace. Open **Settings**, then **Channels** (the top bar may still say **Email & messages**). Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row in the **Channels** list with the same state, capabilities and checks. A new workspace starts with the website chat only, so add an email channel before you expect mail.
 
 ## Add a channel
 
 ![Channel settings with the channel list](/api/docs/assets/channels/mailbox-status.png)
 *Every channel is one row with a state badge, capability chips and its own checks.*
 
-1. Open **Settings**, then **Email & messages**.
+1. Open **Settings**, then **Channels**.
 2. Choose **Add channel**.
-3. Pick **Email**, **WhatsApp Business**, or **Website chat**. **Email** opens a second step with **Gmail**, **Outlook**, **SMTP / IMAP** and **Bokito address**.
+3. Pick **Email**, **WhatsApp Business**, **Website chat**, or **Slack workspace**. **Email** opens a second step with **Gmail**, **Outlook**, **SMTP / IMAP** and **Bokito address**.
 4. Finish the form for that choice. The new row appears in the **Channels** list.
 
 ## Connect SMTP / IMAP

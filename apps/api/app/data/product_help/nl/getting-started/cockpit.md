@@ -33,12 +33,12 @@ In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via d
 
 ## Lees Activiteit
 
-1. Blijf op Overview en open **Recente gebeurtenissen**, of open **Activiteit** vanuit Berichten als je de volledige stream nodig hebt.
+1. Blijf op Overview en open **Recente gebeurtenissen**, of open **Activiteit** vanuit Communicatie als je de volledige stream nodig hebt.
 2. Scan resultaten, niet elke denkstap.
 3. Spring naar een gesprek of agent wanneer een rij follow-up vraagt.
 
 ## Check Verbruik
 
-1. Open het tabblad **Verbruik** op Overview.
-2. Bekijk tokens en kosten van de maand.
-3. Stel limieten in op hetzelfde Verbruik-scherm wanneer je een harde stop nodig hebt.
+1. Open het tabblad **Verbruik** op Overview. De kaart **Budget (platformsleutels)** toont **Tokens vandaag** en **Factureerbare spend deze maand**, plus uitsplitsingen **Per model** en **Per agent**. Wissel de periode met **7 dagen**, **30 dagen** of **90 dagen**, of kies **CSV exporteren**.
+2. Owners en admins kiezen **Plafonds bewerken**. Zet een **Dagelijks tokenplafond** en een **Maandelijks spendplafond (USD)**, of laat een veld leeg voor **Geen plafond**. Meldingen gaan af bij 80% en 100%.
+3. Als het budget op is, pauzeren AI-calls op Bokito-platformkeys tot je het plafond verhoogt of de periode reset. Modellen op je eigen keys blijven werken (**Eigen sleutel (geen kosten)**). Lege beoordelingen zeggen **Nog geen klantbeoordelingen** met **Websitechat installeren**.

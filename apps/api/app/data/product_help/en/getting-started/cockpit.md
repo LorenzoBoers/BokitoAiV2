@@ -33,12 +33,12 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Read Activity
 
-1. Stay on Overview and open **Recent events**, or open the **Activity** leaf from Messages when you need the full stream.
+1. Stay on Overview and open **Recent events**, or open the **Activity** leaf from Communication when you need the full stream.
 2. Scan outcomes, not every thinking step.
 3. Jump into a thread or agent when a row needs follow-up.
 
 ## Check Usage
 
-1. Open the **Usage** tab on Overview.
-2. Review tokens and spend for the month.
-3. Set caps under the same Usage view when you need a hard stop.
+1. Open the **Usage** tab on Overview. The **Budget (platform keys)** card shows **Tokens today** and **Billable spend this month**, plus breakdowns **By model** and **By agent**. Switch the period with **7 days**, **30 days** or **90 days**, or choose **Export CSV**.
+2. Owners and admins choose **Edit caps**. Set a **Daily token cap** and a **Monthly spend cap (USD)**, or leave a field empty for **No cap**. Alerts fire at 80% and 100%.
+3. When the budget is exhausted, AI calls on Bokito platform keys pause until you raise the cap or the period resets. Models on your own keys keep working (**Your own key (no charge)**). Empty ratings say **No customer ratings yet** with **Install website chat**.

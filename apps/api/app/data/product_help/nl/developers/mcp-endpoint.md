@@ -85,8 +85,8 @@ OAuth-consent en API-token-scopes noemen toolcategorieën: een scoped credential
 
 ## Gebruik vanuit Cursor
 
-1. Kopieer de URL-only config onder **Instellingen → Developers**.
-2. Plak die onder Cursor-instellingen → MCP.
+1. Onder **Instellingen → Developers** gebruik je **Cursor MCP-URL-config kopiëren**, **bokito-mcp.json downloaden**, of **Cursor MCP-config kopiëren** (bearer). **Claude Desktop-config kopiëren** en **MCP-curl kopiëren** staan op dezelfde pagina voor andere clients.
+2. Plak of importeer de JSON onder Cursor-instellingen → MCP (Cursor heeft nog geen stabiele publieke deeplink voor remote HTTP-MCP).
 3. Autoriseer in de browser en kies de workspace wanneer Cursor daarom vraagt.
 4. Tools van die workspace verschijnen voor de agent, binnen scopes en Govern.
 5. Om later te ontkoppelen: open **Gekoppelde MCP-clients** en kies **Intrekken**.

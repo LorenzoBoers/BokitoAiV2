@@ -33,7 +33,8 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 
 1. Open de agent. Wijzig **Naam**, **Doel**, **Doelgroep** en **Model**.
 2. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
-3. Kies in **Communicatie-instellingen** per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Archiveren** verbergt de agent en wist de kanaalstandaarden; run-geschiedenis blijft.
+3. Zet **Autonomieniveau** op de agent: **Handmatig — altijd vragen**, **Goedkeuring — begrensde acties**, **Automatisch — zelfstandig handelen**, of **Workspace-standaard**. Dat zit op of onder het workspaceplafond op [Autonomie](/docs/govern/autonomy).
+4. Kies in **Communicatie-instellingen** per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Archiveren** verbergt de agent en wist de kanaalstandaarden; run-geschiedenis blijft.
 
 ## Beperk wie mag chatten
 
@@ -54,7 +55,7 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 2. Kies **Bewerken** naast de agentnaam.
 3. Pas de **naam** aan, kies **Initialen** of **Icoon**, en sla op. Agents gebruiken altijd het platform-AI-violet — er is geen eigen kleur- of fotokiezer.
 
-Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Berichten en de webchat-headerbubble van de antwoordingende agent.
+Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Communicatie en de webchat-headerbubble van de antwoordingende agent.
 
 ## Plan de agent
 

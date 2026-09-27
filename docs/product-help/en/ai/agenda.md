@@ -26,7 +26,7 @@ Agenda is what is scheduled. It combines upcoming moments with past occurrences 
 2. Finish OAuth. Events sync into the week grid (mock demo events appear in local development).
 3. Choose **Sync** to refresh. Choose **Calendar block** to create an event on a connected calendar. Click a calendar chip to open details — **Edit** to change title, times, location or description, or **Delete** to remove it.
 
-Agents with calendar tools can list upcoming events (with stable ids) and propose new blocks or reschedules that wait for your approval in Messages.
+Agents with calendar tools can list upcoming events (with stable ids) and propose new blocks or reschedules that wait for your approval in Communication.
 
 ## Attach a wake to an agent
 
@@ -45,7 +45,7 @@ Leave **Enabled** on. Disabled items stay on the agenda but never fire.
 Agents can plan work themselves: in any conversation, ask an agent to "check this again on Friday" or "remind the team to review the proposal".
 
 1. The agent uses its schedule tools to create a wake (once, cron, or every N minutes) for itself or a colleague agent.
-2. Depending on your [autonomy posture](/docs/govern/autonomy), the schedule is created directly or lands as a decision card in Messages for approval first.
+2. Depending on your [autonomy posture](/docs/govern/autonomy), the schedule is created directly or lands as a decision card in Communication for approval first.
 3. Approved wakes appear on the Agenda timeline. Conversation look-ats (**What next** on a thread) also appear here as person items — open them to return to that conversation.
 
 ## What to do next

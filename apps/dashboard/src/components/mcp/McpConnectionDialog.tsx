@@ -24,19 +24,24 @@ export function McpConnectionDialog({ open, onOpenChange, onSaved, presetProvide
   const provider = presetProvider ?? 'custom_mcp'
   const isBjorn = provider === 'bjorn_lunden_mcp'
   const isKing = provider === 'king_accountancy'
+  const isAlpaca = provider === 'alpaca_mcp'
   const brand = useIntegrationBrand(provider)
 
   const title = isKing
     ? t('integrations.mcp.servers.dialogKingTitle')
     : isBjorn
       ? t('integrations.mcp.servers.dialogBjornTitle')
-      : t('integrations.mcp.servers.addTitle')
+      : isAlpaca
+        ? t('integrations.mcp.servers.dialogAlpacaTitle')
+        : t('integrations.mcp.servers.addTitle')
 
   const description = isKing
     ? t('integrations.mcp.servers.dialogKingDescription')
     : isBjorn
       ? t('integrations.mcp.servers.dialogBjornDescription')
-      : t('integrations.mcp.servers.modalDescription')
+      : isAlpaca
+        ? t('integrations.mcp.servers.dialogAlpacaDescription')
+        : t('integrations.mcp.servers.modalDescription')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

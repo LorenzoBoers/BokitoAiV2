@@ -14,9 +14,9 @@ Elk developer-oppervlak authenticeert met workspace-API-tokens. Owners en admins
 ## Token aanmaken
 
 1. Open **Instellingen** en daarna **Developers**.
-2. Onder **App-tokens** kies je **Nieuwe token**. Vul een **Tokennaam** in (bijvoorbeeld `staging-crm`).
-3. Onder **Toegang (leeg = alles)** kies je scopes. Laat ze alleen allemaal uit als de integratie écht **Volledige toegang** nodig heeft.
-4. Kies **Token aanmaken**. De platte waarde begint met `bok_` en zie je één keer. Kopieer die, of gebruik **curl-voorbeeld kopiëren** voor `GET /api/public/v1/signals`. Kies **Ik heb hem gekopieerd** als je klaar bent. Bokito bewaart alleen een hash; de lijst toont later een prefix zoals `bok_ab12…` plus **laatst gebruikt** of **nooit gebruikt**. Verberg ingetrokken tokens tenzij je de geschiedenis nodig hebt.
+2. Onder **App-tokens** kies je **Nieuwe token**. Vul een **Tokennaam** in (bijvoorbeeld `staging-crm` of `Cursor`).
+3. Kies een preset als die past: **Workspace lezen**, **Ops + berichten**, of **Volledig governed**. Of vink onder **Toegang (leeg = alles)** scopes handmatig aan. Laat ze alleen allemaal uit als de integratie écht volle toegang nodig heeft — het formulier waarschuwt dan.
+4. Kies **Token aanmaken**. De platte waarde begint met `bok_` en zie je één keer. Kopieer die, of gebruik **REST-curl kopiëren** voor `GET /api/public/v1/signals`. Kies **Ik heb hem gekopieerd** als je klaar bent. Bokito bewaart alleen een hash; de lijst toont later een prefix zoals `bok_ab12…` plus **laatst gebruikt** of **nooit gebruikt**. Verberg ingetrokken tokens tenzij je de geschiedenis nodig hebt.
 
 ## Meesturen
 

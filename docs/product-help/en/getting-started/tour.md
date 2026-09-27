@@ -9,7 +9,7 @@ related: welcome,cockpit,communication
 
 # Product tour
 
-After you create a workspace, owners finish a short **first-run wizard** (`/onboarding`) — intake, languages, notifications, autonomy, agent name, optional channel — before this tour. Invited members only set personal language and notifications. The rail tour does not auto-start until that wizard is done; finishing the wizard starts the tour.
+After you create a workspace, owners finish a short **first-run wizard** (`/onboarding`) — **About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel** — before this tour. Invited members only set personal language and notifications. The rail tour does not auto-start until that wizard is done; finishing the wizard starts the tour.
 
 Bokito has one sidebar with seven areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
 
@@ -29,23 +29,22 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 - **Playbooks** — repeatable step-by-step processes agents execute. See [Playbooks](/docs/ai/workstreams).
 - **Knowledge** — docs, skills and memory; equal sibling next to Agents. See [Knowledge](/docs/ai/knowledge).
 
-## Modules: installed workspaces
+## Connections: modules and tools
 
-Installed modules (for example **Accounting**) appear here as their own rail items. See [Integrations](/docs/integrations/integrations).
+Installed modules (for example **Accounting**) live under **Connections** in the rail — they do not add their own rail tabs. Open **Connections** for marketplace installs, partner logins and tools. See [Integrations](/docs/integrations/integrations).
 
-## Connections and Settings
+## Settings
 
-- **Connections** — installed modules, partner logins, custom MCP and marketplace. See [Integrations](/docs/integrations/integrations).
-- **Settings** — **Email & messages**, inbox AI, chat widget, members, models and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).
+- **Settings** — **Channels**, **AI replies**, chat widget, members, **Providers & models** and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).
 
 Owners and admins come here; members rarely. See the [setup guide](/docs/getting-started/setup-guide). **Overview** sits above Control in the rail — see [Overview](/docs/getting-started/cockpit).
 
-Personal screens — **Profile** (including start page: Communication or Overview) and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
+Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, **Start page** is **Messages** (default) or **Overview**; **Appearance** is **Light**, **Dark** or **System**; **Email signature** is appended when you send or approve as yourself. They do not change how the team answers customers.
 
 ## Use the command palette
 
 1. Press `Ctrl+K` (Windows) or `Cmd+K` (Mac) from any signed-in page.
-2. Type to jump. Results group under **Recent**, **Go to**, **Actions**, **Sessions**, **Threads**, **Contacts**, **Inbox queues**, **Knowledge** and **Settings**.
+2. Type to jump. Results group under **Recent**, **Go to**, **Actions**, **Sessions**, **Threads**, **Contacts**, **Messages queues**, **Knowledge** and **Settings**.
 3. With an empty query, **Actions** also offers **New chat**, **Talk to an agent**, **Open agent**, **Open playbook**, **Open project**, **Open Knowledge**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **Connect mailbox**, **Open setup guide** and **Open help**.
 4. Settings pages appear after you type. You can **Switch to light mode** or **Switch to dark mode** from the palette too.
 

@@ -90,6 +90,9 @@ function endpointForRow(
   if (provider.slug === 'bjorn_lunden_mcp') {
     return 'Bjorn Lunden MCP'
   }
+  if (provider.slug === 'alpaca_mcp') {
+    return 'Alpaca Trading API'
+  }
   const remoteUrl =
     (connection.metadata?.mcp_remote_url as string | undefined) ??
     (bindingConfig?.mcp_remote_url as string | undefined)
@@ -216,7 +219,13 @@ export async function installMcpConnection(input: InstallMcpConnectionInput): Pr
   if (discovery && discovery.ok === false) {
     throw new Error(discovery.error || 'Connection verification failed')
   }
-  if (result.verified === false && !input.use_mock && (input.provider === 'king_accountancy' || input.provider === 'bjorn_lunden_mcp')) {
+  if (
+    result.verified === false &&
+    !input.use_mock &&
+    (input.provider === 'king_accountancy' ||
+      input.provider === 'bjorn_lunden_mcp' ||
+      input.provider === 'alpaca_mcp')
+  ) {
     throw new Error('Connection was saved but not verified. Check your credentials and try again.')
   }
 }

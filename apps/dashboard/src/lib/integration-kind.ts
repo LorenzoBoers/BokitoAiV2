@@ -7,6 +7,7 @@ const APP_SLUGS = new Set(['moneybird', 'exact_online', 'snelstart', 'gocardless
 const MCP_SLUGS = new Set([
   'king_accountancy',
   'bjorn_lunden_mcp',
+  'alpaca_mcp',
   'custom_mcp',
   'shopify_mcp',
   'pmb_exact_mcp',

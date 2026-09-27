@@ -46,6 +46,8 @@ A document is a page built from `##` sections; each section is the atomic unit a
 
 ## Publish customer help
 
+Customer help articles live in Knowledge, not under a separate **Help center** settings page (that sidebar link redirects here).
+
 1. Open a **Docs** article.
 2. Choose **Publish**. Confirm the public help site prompt.
 3. Share the help URL with customers. Unpublish when the article should leave the public site.

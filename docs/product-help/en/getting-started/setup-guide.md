@@ -9,7 +9,7 @@ related: quickstart,channels,members,agents,autonomy
 
 # Workspace setup guide
 
-The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Help**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). After the first-run wizard and product tour, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, Govern).
+The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Help**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). Owners first finish the first-run wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**), then the product tour. After that, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, Govern, numbers on Overview).
 
 ## Workspace basics and branding
 
@@ -28,9 +28,9 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 
 ## Connect channels and Inbox AI
 
-1. Create a Bokito address or connect every mailbox under **Settings**, then **Email & messages**. See [Channels](/docs/inbox/channels).
+1. Create a Bokito address or connect every mailbox under **Settings**, then **Channels**. See [Channels](/docs/inbox/channels).
 2. Add routing, signatures and a few saved replies.
-3. Open [Inbox AI](/docs/inbox/inbox-ai). Start email on **Suggest replies**. Website chat can wait until the widget is installed.
+3. Open [Inbox AI](/docs/inbox/inbox-ai) under **Settings** → **AI replies**. Start email on **Suggest replies**. Website chat can wait until the widget is installed.
 4. Website chat and WhatsApp can wait until mail runs.
 
 ## Load knowledge and agents
@@ -39,7 +39,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 2. Review the default assistant under [Agents](/docs/ai/agents). Archive agents you do not want to keep; tighten chat access if they should not appear in Communication.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
 4. Optional: open **Projects** when work should be grouped around a goal. See [Projects](/docs/ai/projects).
-5. Optional: open **Modules** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
+5. Optional: open **Connections** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
 
 ## Schedule recurring work
 
@@ -49,12 +49,12 @@ New workspaces seed an hourly **platform check-in** that starts **paused**. When
 
 On first login, owners complete the **first-run wizard**, then the product tour. After that, Communication shows **Continue setup**. The same activation steps live under **Settings** → **Help** → **Setup guide**:
 
-1. **Finish first-run setup** — the wizard (languages, notifications, autonomy, first agent).
-2. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Email & messages**, not the module marketplace. See [Channels](/docs/inbox/channels).
+1. **Finish first-run setup** — the wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**).
+2. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Channels**, not the module marketplace. See [Channels](/docs/inbox/channels).
 3. **Talk with the assistant** — a short chat fills company knowledge. See [Knowledge](/docs/ai/knowledge).
-4. **Approve one decision** — **Try the demo** starts a sample thread so you can approve a card.
+4. **Resolve your first decision** — the checklist card (and **Try the demo** where offered) starts a sample thread so you can approve a card.
 5. **Turn on check-in** — the hourly check-in is seeded paused; turn it on when you want watching.
 
-**Later** (no numbers): branding, invite the team, add a field of work on [Modules](/docs/integrations/integrations), projects, and [Govern](/docs/govern/govern).
+**Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), projects, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Trust & privacy](/docs/govern/privacy-security) (retention and data subject requests).
 
 **Hide setup** only hides the card. The checklist on Settings stays until those steps are done. You are ready when mail flows in, one decision is understood, and the assistant is watching.

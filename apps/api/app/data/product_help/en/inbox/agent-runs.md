@@ -17,8 +17,8 @@ Activity is the live work timeline of your AI: everything agents did and are doi
 *One live timeline for the whole AI workforce.*
 
 1. In Communication, open **Activity**, pinned at the bottom of the sidebar next to Contacts. That opens the Activity page (same chrome as Contacts), not a view inside the thread list.
-2. Read the timeline: each row shows the time, who acted, the step and its result — green for finished work, red for failures, blue for work in progress. New rows stream in live; **Jump to newest** keeps the view following the end.
-3. Filter with the agent chips at the top or the search field; **Load older** pages further back in history.
+2. Read the timeline: each row shows the time, who acted, the step and its result — green for finished work, red for failures, blue for work in progress. New rows stream in live; leave **Jump to newest** on to keep following the end.
+3. Filter with the agent chips at the top or the search field; choose **Load older** to page further back in history.
 4. Click a row to open the run conversation behind it. For items waiting on a yes or no, open **Filters** → **Needs decision** on the Communication list — the same list Overview **Awaiting decision** uses. Archived agents no longer appear under [Agents](/docs/ai/agents); reassign Agenda wakes that still point at them.
 
 ## Check one agent's work log

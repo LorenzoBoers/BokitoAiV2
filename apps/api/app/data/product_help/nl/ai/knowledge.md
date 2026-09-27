@@ -46,6 +46,8 @@ Een document is een pagina opgebouwd uit `##`-secties; elke sectie is de atomair
 
 ## Publiceer voor klanten
 
+Klantartikelen leven in Kennis, niet onder een aparte **Helpcentrum**-instellingenpagina (die zijbalklink stuurt hierheen).
+
 1. Open een document van het soort **Docs**.
 2. Kies **Publiceren**. Bevestig de prompt voor de openbare helpsite.
 3. Deel de help-URL met klanten. Haal publicatie weg wanneer het artikel van de openbare site af moet.

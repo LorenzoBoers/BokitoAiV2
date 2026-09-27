@@ -604,6 +604,14 @@
       "simpleicons": "n8n",
       "description": "n8n workflows and executions.",
       "logo_domain": "n8n.io"
+    },
+    {
+      "slug": "alpaca",
+      "name": "Alpaca",
+      "brand_color": "#FFD700",
+      "initials": "AL",
+      "description": "US stocks, ETFs, crypto, and options via the Alpaca Trading API.",
+      "logo_domain": "alpaca.markets"
     }
   ],
   "providers": [

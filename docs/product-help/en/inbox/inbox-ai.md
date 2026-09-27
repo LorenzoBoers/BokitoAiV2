@@ -9,7 +9,7 @@ related: communication,autonomy,channels,agents
 
 # Set Inbox AI
 
-Inbox AI is the workspace rule for customer replies. Open **Settings**, then **AI reply settings**. This is not Govern: Govern is tools and autonomy; Inbox AI is whether a draft or a send happens when mail or chat arrives.
+Inbox AI is the workspace rule for customer replies. Open **Settings**, then **AI replies** (the page title may still say **AI reply settings**). This is not Govern: Govern is tools and autonomy; Inbox AI is whether a draft or a send happens when mail or chat arrives.
 
 Workspace defaults apply first. A mailbox only differs when you set an exception under **Mailbox exceptions**.
 
@@ -18,7 +18,7 @@ Workspace defaults apply first. A mailbox only differs when you set an exception
 ![Inbox AI channel defaults](/api/docs/assets/inbox-ai/draft-mode.png)
 *Pick Suggest, Reply automatically, or Off for email, website chat and WhatsApp.*
 
-1. Open **Settings**, then **AI reply settings**.
+1. Open **Settings**, then **AI replies**.
 2. Under **Workspace defaults** → **How AI responds**, set Email, Website chat and WhatsApp separately.
 3. Pick one of:
    - **Suggest replies** — the assistant writes a draft card. Your team sends, edits or escalates.
@@ -56,7 +56,7 @@ Nothing customer-facing leaves on **Suggest replies** until you send, unless [Au
 
 ## When the channel cannot send yet
 
-If a mailbox still needs setup or reconnect (the same states that disable **Send** in the composer), Inbox AI does not invent a customer draft or auto-reply. The thread gets an **Internal note** that points you to finish setup under **Settings → Email & messages**. Fix the channel, then take over or hand the thread back to AI.
+If a mailbox still needs setup or reconnect (the same states that disable **Send** in the composer), Inbox AI does not invent a customer draft or auto-reply. The thread gets an **Internal note** that points you to finish setup under **Settings → Channels**. Fix the channel, then take over or hand the thread back to AI.
 
 ## What to do next
 

@@ -17,7 +17,7 @@ Webhooks duwen events naar jouw endpoint op het moment dat ze gebeuren, zodat je
 2. Onder **Webhooks** kies je **Endpoint toevoegen**. Vul een HTTPS-URL in (of `http://localhost` voor lokale tests) en optioneel een beschrijving.
 3. Kies events, of laat **Alle events** staan. Kies **Webhook toevoegen**.
 4. Kopieer het **Ondertekeningsgeheim** één keer en bewaar het als een wachtwoord. Je hebt het nodig om leveringen te verifieren.
-5. Gebruik **Testen** voor een proef. Open **Recente deliveries** voor event, status, pogingen en tijd. **Aanzetten** of **Pauzeren** zonder te verwijderen.
+5. Gebruik **Testen** voor een proef. Open **Recente deliveries** voor event, status, pogingen en tijd. Zet een endpoint uit zonder te verwijderen — de badge toont **Gepauzeerd**.
 
 ## Events
 
@@ -26,7 +26,7 @@ Webhooks duwen events naar jouw endpoint op het moment dat ze gebeuren, zodat je
 | `signal.created` | Een nieuw gesprek in de inbox landt (elk kanaal, ook de REST-API) |
 | `signal.closed` | Een gesprek wordt gesloten door een persoon, agent of automatisering |
 | `decision.created` | Een agent een beslisverzoek indient dat menselijke goedkeuring vraagt |
-| `decision.resolved` | Iemand die beslissing goedkeurt of afwijst |
+| `decision.resolved` | Iemand **Goedkeuren** of **Weigeren** kiest op die beslissing |
 | `agent.run_failed` | Een geplande of inbound agent-run faalt |
 | `platform_change.applied` | Een Govern-wijziging wordt toegepast (Accepteren, of een yolo-apply) |
 | `spend.threshold_reached` | Workspace-tokens of uitgaven de 80%- of 100%-cap raken |

@@ -15,18 +15,18 @@ Owners and admins manage retention and data subject requests under **Settings**,
 
 1. Open **Settings**.
 2. Under **Govern**, choose **Trust & privacy**.
-3. Review the legal document links, then the retention and data subject sections.
+3. Under **Legal documents**, open **Data processing agreement**, **Privacy notice**, **Subprocessors** or **Security overview** when you need the operator drafts. Then use the retention and data subject sections below.
 
 ## Set retention and AI body use
 
-1. Set **Workspace retention (days)** (default 365). One period applies to messages, synced calendar events, and audit data.
+1. Open **Retention and AI**. Set **Workspace retention (days)** (default 365). One period applies to messages, calendar events, and audit data across this workspace.
 2. Older eligible data is purged by the retention job; thread shells can remain.
-3. Toggle **Allow AI to use message bodies**. When off, inbox AI that needs full bodies stays disabled.
+3. Toggle **Allow AI to use message bodies**. When off, inbox AI drafts that need full bodies stay disabled; metadata-only flows may still run.
 4. Leave the field to save. Changes apply to this workspace only.
 
 ## Export or erase a data subject
 
-1. Enter the person's email under **Data subject requests**.
+1. Under **Data subject requests**, enter the **Data subject email**.
 2. Choose **Export personal data** to download a JSON package for that address in this workspace.
-3. Or choose **Erase personal data**, confirm, and scrub matching contacts, message bodies, and calendar attendees.
+3. Or choose **Erase personal data** and confirm the scrub of contacts, message bodies, and matching calendar attendees. This cannot be undone.
 4. Full workspace wipe remains under workspace delete. Account delete is separate from subject erase.

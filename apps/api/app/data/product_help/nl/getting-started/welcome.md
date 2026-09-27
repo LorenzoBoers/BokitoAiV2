@@ -16,13 +16,13 @@ Bokito is een operations-platform voor teams die AI echt werk willen laten doen.
 ![Bokito-zijbalk](/api/docs/assets/welcome/rail.png)
 *Eén zijbalk: Besturing, AI en Instellingen.*
 
-- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [Inbox AI](/docs/inbox/inbox-ai) bepaalt of de assistent concept, verstuurt of uit blijft. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
-- [Agents](/docs/ai/agents) zijn collega's met een rol, instructies, kennis en tools.
+- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [Inbox AI](/docs/inbox/inbox-ai) bepaalt of de assistent concept, verstuurt of uit blijft. [Signalen](/docs/ai/cases) typen de intake op elk gesprek. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
+- [Agents](/docs/ai/agents) zijn collega's met een doel, doelgroep, kennis en tools. [Draaiboeken](/docs/ai/workstreams) zijn de stappenprocessen die ze uitvoeren.
 - Keuzekaarten verschijnen in het gesprek wanneer een stap oordeel vraagt. Structurele wijzigingen landen als concepten op Govern.
 
 ## Hoe een dag loopt
 
-Werk landt als gesprek. Een agent gebruikt [Kennis](/docs/ai/knowledge) en antwoordt, concept of vraagt. [Cockpit](/docs/getting-started/cockpit) toont wat jou nodig heeft. Inloggen onthoudt het laatste e-mailadres op dit apparaat. Spring met `Ctrl+K` — zoek **Nodig een teammate uit**, **Praat met een agent**, **Nieuw project**, of **Open mijn profiel**. In-app **Hulp** en publieke **Docs** onthouden het laatste artikel dat je opende. Autonomie schroef je in de tijd op.
+Werk landt als gesprek. Een agent gebruikt [Kennis](/docs/ai/knowledge) en antwoordt, concept of vraagt. [Overview](/docs/getting-started/cockpit) toont wat jou nodig heeft. Inloggen onthoudt het laatste e-mailadres op dit apparaat. Spring met `Ctrl+K` — zoek **Nodig een teammate uit**, **Praat met een agent**, **Nieuw project**, of **Open mijn profiel**. In-app **Hulp** en publieke **Docs** onthouden het laatste artikel dat je opende. Autonomie schroef je in de tijd op.
 
 ## Waar je begint
 

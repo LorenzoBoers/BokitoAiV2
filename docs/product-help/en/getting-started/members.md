@@ -36,7 +36,7 @@ Members answer threads. They do not connect mailboxes, change Inbox AI, or chang
 
 ## Personal settings stay personal
 
-Each person has **Profile** and **Notifications**. Those screens are theirs. They do not appear in these workspace docs and they do not change how the team answers customers. See [Agents](/docs/ai/agents) for company agents, and [Communication](/docs/inbox/communication) for the shared inbox.
+Each person has **Profile** and **Notifications**. Those screens are theirs. On Profile they set **Start page** (**Messages** or **Overview**), **Appearance**, language, and a personal **Email signature** used when a reply is sent as them. On Notifications they choose **Notify me about** rows (decisions, mentions, handoffs, budget alerts) with **In-app**, **Email**, **Push** and optional **Slack**. See [Decisions](/docs/ai/decisions) for how notification clicks land on waiting cards. They do not change how the team answers customers. See [Agents](/docs/ai/agents) for company agents, and [Messages](/docs/inbox/communication) for the shared inbox.
 
 ## What to do next
 

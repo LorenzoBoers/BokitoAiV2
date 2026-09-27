@@ -1,27 +1,27 @@
 ---
-title: How Messages works
+title: How Communication works
 intro: The hub for every conversation — customers and agents in one place.
-description: Work customer email, chat and internal threads from Messages, including compose, notes, snooze and saved replies.
-keywords: inbox, messages, threads, email, chat, compose, snooze, saved replies
+description: Work customer email, chat and internal threads from Communication, including compose, notes, snooze and saved replies.
+keywords: inbox, communication, messages, threads, email, chat, compose, snooze, saved replies
 sort: 10
 related: agent-runs,channels,inbox-ai,contacts,decisions,cases
 ---
 
-# How Messages works
+# How Communication works
 
-Messages is where the day happens. Customer mail, website chat and internal agent threads share one hub. Open it when something needs a reply or a decision. While an agent works, the thread shows live purple status lines — a bubble appears only when the agent writes a reply or asks for a decision.
+Communication is where the day happens. Customer mail, website chat and internal agent threads share one hub. Open it when something needs a reply or a decision. While an agent works, the thread shows live purple status lines — a bubble appears only when the agent writes a reply or asks for a decision.
 
 ## Work the Open queue
 
 Open is customer work that still needs you.
 
-![Open queue in Messages](/api/docs/assets/communication/open-queue.png)
+![Open queue in Communication](/api/docs/assets/communication/open-queue.png)
 *Open lists customer work that still needs you.*
 
-1. Open **Messages**. At the top, **All communication** is a folder: click it to expand **Open**, **Mine**, **Unassigned** and **Closed** (plus **Snoozed** and **Spam**). Directly below sits **Decisions** — the folder for every conversation with an open approval card (customer and internal). Overview, the bell, and deep links land there. **Contacts** and **Settings** sit pinned at the bottom. The first expand opens the default sub-view from **Settings** → **Email & messages** (Folders) — usually **Open**, or **Mine** if you set that.
+1. Open **Communication**. At the top, **All communication** is a folder: click it to expand **Open**, **Mine**, **Unassigned** and **Closed** (plus **Snoozed** and **Spam**). Directly below sits **Decisions** — the folder for every conversation with an open approval card (customer and internal). Overview, the bell, and deep links land there. **Contacts** and **Settings** sit pinned at the bottom. The first expand opens the default sub-view from **Settings** → **Channels** (Folders) — usually **Open**, or **Mine** if you set that.
 2. Switch to **Mine** for threads assigned to you, or **Unassigned** for work with no owner yet. Open **Decisions** when you only want yes/no cards.
 3. Scan the list. Each row shows the last real message, prefixed with **You:** when you sent it. A follow-up from the same website visitor stays in that Open thread. Use the search field at the top of the list, then open **Filters** for **Needs reply**, **Unread** or **Pinned** — they apply on top of Open, Mine or any other queue. Filters do not stick across folders. A **Needs decision** badge marks rows with an open card. Press **?** for inbox shortcuts: **J**/**K** move, **]**/**[** jump unread, **E** closes (Undo in the toast), **H** snoozes one hour, **Shift+H** picks a time, **X** selects, **Shift-click** selects a range, **Cmd+A** selects loaded rows, **U** marks unread, **Shift+U** marks all loaded read when nothing is selected, **A** assigns to you, **Shift+A** opens the assignee list, **P** pins, **R** focuses the reply, **C** composes, **N** starts a new chat, **L** copies the link, **#** copies the thread id, **/** searches, **Esc** returns to the list (it does not leave the thread while a menu is open). Assistant chats use the same move, pin, unread, reply and search keys.
-4. The **Channels** section lists only channels you have configured: each mailbox or Bokito address, **Website chat** when the widget channel is on, and WhatsApp after you connect it. When nothing is connected yet, **Add a channel** sits at the top of that list. Every channel is a folder with the same sub-views: **Open**, **Mine**, **Unassigned** and **Closed** — and each folder lists only threads from that channel (Website chat never mixes in mailbox mail). Sub-views stay hidden until you click the channel — that expands the list and opens the default sub-view; click again to collapse. Only one folder stays expanded at a time. Change the default (globally or per channel) under **Settings**, then **Email & messages** (Folders). The **Agents** section (company agents you may chat with) uses the same folder pattern. Classification uses Signals, not tags: review them under **This conversation** and manage their catalog under **Settings** → **Signal types**. See [How Signals work](/docs/ai/cases).
+4. The **Channels** section lists only channels you have configured: each mailbox or Bokito address, **Website chat** when the widget channel is on, and WhatsApp after you connect it. When nothing is connected yet, **Add a channel** sits at the top of that list. Every channel is a folder with the same sub-views: **Open**, **Mine**, **Unassigned** and **Closed** — and each folder lists only threads from that channel (Website chat never mixes in mailbox mail). Sub-views stay hidden until you click the channel — that expands the list and opens the default sub-view; click again to collapse. Only one folder stays expanded at a time. Change the default (globally or per channel) under **Settings**, then **Channels** (Folders). The **Agents** section (company agents you may chat with) uses the same folder pattern. Classification uses Signals, not tags: review them under **This conversation** and manage their catalog under **Settings** → **Signal types**. See [How Signals work](/docs/ai/cases).
 5. Pin what matters, choose **Assign** or **Assign to me**, or **Snooze** (toolbar clock). Presets are **1 hour**, **4 hours**, **Tomorrow 9:00**, **Next Monday 9:00**, **Until the customer replies**, or **Choose date and time**. After a reply, the arrow next to **Send** offers **Send and close** and **Send and snooze** to finish in one step. **Mark loaded as read** clears unread on the conversations already in the list.
 6. Select several rows for bulk **Read**, **Close**, **Pin**, **Mark as spam**, **Assign to me**, **Assign**, **Reopen**, **Mark unread** or **Snooze until tomorrow 9:00**. Shift-click a checkbox to take the range from the last selected row. The row indicator menu can also snooze until tomorrow. **More** holds Snoozed, Closed and Spam. The command palette also jumps to Closed, Spam, Activity, New chat, Needs reply and Decisions, and can open a conversation or run by ID.
 
@@ -29,7 +29,7 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 
 ## Start a new chat or email
 
-1. Choose **New chat**. You see three large choices: **Contact**, **Agent**, and **Teammate**. Nothing is created until you send — this is a draft in Messages.
+1. Choose **New chat**. You see three large choices: **Contact**, **Agent**, and **Teammate**. Nothing is created until you send — this is a draft in Communication.
 2. **Contact** (or **Teammate**): pick **To**, choose **From** (a connected mailbox; you can switch before send and optionally **Remember as default**), add a subject, write the message, then send. Hover **+** on a mailbox in the sidebar to start with that From already set. Typing a new address is fine; a contact is not required first.
 3. **Agent**: pick a company agent (or use **+** on an agent row), type, and send. That creates the chat thread. If no agents are available, the page says so.
 4. You can also start mail from a contact card or the command palette. Forward from a thread still opens the compose dialog.
@@ -43,8 +43,8 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 1. Select a thread. The title sits in the header; under it a meta row shows priority, cases on this conversation, and (right-aligned, purple) the channel agent. Contact details stay in the side panel — the agent is not listed there, because it owns the channel/thread, not the person.
 2. The composer sends on the same channel the customer used. On email threads the first tab shows the **mailbox name** (and provider icon) instead of a generic Reply label — hover for the send-from hint. When you have more than one mailbox, open that tab to pick another; sending from a different mailbox **moves** the conversation to that channel. **Ctrl+Enter** sends email and is printed on the Send button; Enter sends chat. The arrow next to **Send** holds **Send and close** and **Send and snooze**. **Send as:** **You** or the agent picks whose signature is appended and whose name appears as the email From display name (the mailbox address stays the connected account).
 3. Switch to **Internal** for a team message the customer never sees (hover the tab for the reminder). Typing `@` and selecting a person or agent from the picker switches you to Internal (or into an agent meta conversation). Plain `@text` without a selection stays customer reply text. Switching back to Reply flattens mentions to plain `@Name`. Internal messages still work if no mailbox can send. Closed or spam threads keep them too — a **Reopen** button sits on the composer.
-4. Open **Write** (sparkles) in the composer to describe what you want to send, or to rewrite, shorten, expand or change the tone of text already in the box. Under **What should this say?** you can dictate with the same microphone control. Dictation also works on Reply, Internal and the agent tab: hold to talk or click to start; while listening the button matches the chat widget (green glow and wave bars; hover shows a check). Click or release to confirm. Spoken text lands live in the box and the field grows with it. Saved replies live under that Write menu, or under **Settings**, then **Email & messages**.
-5. Email replies can add CC/BCC and append your mailbox signature. When the customer copied colleagues on their email, **Reply all** pre-fills their CC list (and other To recipients, not your mailbox). **Quote** inserts the last inbound lines, including HTML-only mail. **Forward as new email** keeps attachments. After you close or task the same sender several times, Bokito can ask to always do that — **Always do this** or **Not now**. From the thread menu you can also choose **Always close mail from this sender**. Those rules live under Email & messages.
+4. Open **Write** (sparkles) in the composer to describe what you want to send, or to rewrite, shorten, expand or change the tone of text already in the box. Under **What should this say?** you can dictate with the same microphone control. Dictation also works on Reply, Internal and the agent tab: hold to talk or click to start; while listening the button matches the chat widget (green glow and wave bars; hover shows a check). Click or release to confirm. Spoken text lands live in the box and the field grows with it. Saved replies live under that Write menu, or under **Settings**, then **Channels**.
+5. Email replies can add CC/BCC and append your mailbox signature. When the customer copied colleagues on their email, **Reply all** pre-fills their CC list (and other To recipients, not your mailbox). **Quote** inserts the last inbound lines, including HTML-only mail. **Forward as new email** keeps attachments. After you close or task the same sender several times, Bokito can ask to always do that — **Always do this** or **Not now**. From the thread menu you can also choose **Always close mail from this sender**. Those rules live under **Channels**.
 6. Search also matches company names and attachment filenames.
 
 ## Use an AI draft
@@ -79,11 +79,11 @@ Pull an agent in when you want to think out loud, look something up, or hand the
 2. In **Details**, type their name and email, then **Save email**. Write email becomes available once a real address is stored.
 3. The contact card shows whether they are approved, pending or blocked, and company names open the company page when one exists. Unsaved contact notes stay highlighted until you save, and leaving the page asks you to confirm. Mail from a workspace member shows a **Teammate** card instead (no Block or Approve) — they are not treated as a customer contact.
 
-## See cases on a conversation
+## See signals on a conversation
 
-1. Open a customer or internal thread. The side panel lists **Cases**.
-2. Each row shows the type, status, and a workstream link when one is bound.
-3. Choose **Add Storing** or **Factuur/betaling** (or another type) when a second intent appears. Several cases can sit on one conversation — see [Cases](/docs/ai/cases).
+1. Open a customer or internal thread. The side panel lists **Signals** under **This conversation**.
+2. Each row shows the type, status, and a playbook or project link when one is bound.
+3. Choose **Add a signal**, or **Add Storing** / **Add Factuur/betaling** (or another type) when a second intent appears. Several signals can sit on one conversation — see [Signals](/docs/ai/cases).
 
 ## What to do next
 

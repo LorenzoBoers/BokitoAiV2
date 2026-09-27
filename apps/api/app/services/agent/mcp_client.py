@@ -238,6 +238,22 @@ async def call_mcp_tool(
         response.update(outcome)
         return response
 
+    if server.server_url.startswith("native://alpaca"):
+        from app.services.alpaca import call_alpaca_tool, has_alpaca_credentials
+
+        try:
+            auth_data = json.loads(server.auth_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            auth_data = {}
+        if not isinstance(auth_data, dict):
+            auth_data = {}
+        if not has_alpaca_credentials(auth_data) and not get_settings().is_production:
+            return _mock_mcp_response(server_name, tool_name, arguments)
+        outcome = await call_alpaca_tool(auth_data, tool_name, arguments or {})
+        response = {"server": server_name, "tool": tool_name}
+        response.update(outcome)
+        return response
+
     if server.server_url.startswith("native://"):
         from app.services.bjorn_lunden import call_bl_tool, has_bl_credentials
 

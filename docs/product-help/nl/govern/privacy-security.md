@@ -15,18 +15,18 @@ Owners en admins beheren bewaartermijnen en verzoeken van betrokkenen via **Inst
 
 1. Open **Instellingen**.
 2. Kies onder **Govern** voor **Vertrouwen en privacy**.
-3. Bekijk de juridische links, daarna bewaartermijn en verzoeken van betrokkenen.
+3. Onder **Juridische documenten** open je **Verwerkersovereenkomst**, **Privacyverklaring**, **Subverwerkers** of **Beveiligingsoverzicht** wanneer je de operatorconcepten nodig hebt. Gebruik daarna bewaartermijn en verzoeken van betrokkenen hieronder.
 
 ## Bewaartermijn en AI-tekstgebruik instellen
 
-1. Stel **Bewaartermijn workspace (dagen)** in (standaard 365). Eén termijn geldt voor berichten, gesynchroniseerde agenda-items en auditgegevens.
+1. Open **Bewaartermijn en AI**. Stel **Bewaartermijn workspace (dagen)** in (standaard 365). Eén termijn geldt voor berichten, agenda-items en auditgegevens in deze workspace.
 2. Oudere gegevens die onder het beleid vallen worden door de bewaartaak gepurged; de thread-schil kan blijven.
-3. Zet **AI mag berichtteksten gebruiken** aan of uit. Uit = inbox-AI die volledige tekst nodig heeft blijft uit.
+3. Zet **AI mag berichtteksten gebruiken** aan of uit. Uit = inbox-AI die volledige tekst nodig heeft blijft uit; metadata-only stromen kunnen doorgaan.
 4. Verlaat het veld om op te slaan. Wijzigingen gelden alleen voor deze workspace.
 
 ## Gegevens van een betrokkene exporteren of wissen
 
-1. Vul het e-mailadres in onder **Verzoeken van betrokkenen**.
+1. Vul onder **Verzoeken van betrokkenen** het **E-mail van betrokkene** in.
 2. Kies **Persoonsgegevens exporteren** om een JSON-pakket voor dat adres in deze workspace te downloaden.
-3. Of kies **Persoonsgegevens wissen**, bevestig, en scrub bijpassende contacten, berichtteksten en agenda-deelnemers.
+3. Of kies **Persoonsgegevens wissen** en bevestig het scrubben van contactvelden, berichtteksten en bijpassende agenda-deelnemers. Dit kan niet ongedaan worden gemaakt.
 4. Volledige workspace-wipe blijft onder workspace verwijderen. Account verwijderen is iets anders dan subject-erase.

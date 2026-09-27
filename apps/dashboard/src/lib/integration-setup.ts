@@ -71,6 +71,7 @@ function defaultAuthType(integrationId: string): IntegrationAuthType {
   if (
     integrationId === 'king_accountancy' ||
     integrationId === 'bjorn_lunden_mcp' ||
+    integrationId === 'alpaca_mcp' ||
     integrationId === 'custom_mcp'
   ) {
     return 'api_key'

@@ -31,6 +31,7 @@ They are not imported by FastAPI runtime code.
 | `vps-set-trader-default-agent.py` | Re-run `seed_trading_stack`: workspace docs + MMXM Trader as default chat agent for `trader@bokito.ai` |
 | `vps-validate-reporting.py` | Fire `kind: report` webhook; verify `OperationalOutcome` row |
 | `vps-validate-strategy-review.py` | Fire weekly strategy review trigger; verify workstream task starts |
+| `vps-apply-mmxm-autonomy.py` | Sync bootstrap, reseed Strategy Optimizer + docs + MCP read overrides, fix bridge/MCP |
 
 ## Preferred setup path
 

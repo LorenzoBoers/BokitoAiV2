@@ -21,7 +21,7 @@ Bokito is je eigen assistent binnen het platform. Hij is geen agent van de works
 
 1. Vraag Bokito om iets te laten doen, bijvoorbeeld "vraag de boekhouder om de facturen van vorige maand te controleren".
 2. Bokito doet het werk niet zelf. Hij geeft het door aan een agent van de workspace en vertelt je welke agent het oppakt.
-3. Volg de run onder [Agents](/docs/ai/agents); de thread die eruit komt staat in Berichten.
+3. Volg de run onder [Agents](/docs/ai/agents); de thread die eruit komt staat in Communicatie.
 
 Werk doorgeven vraagt geen owner- of adminrol. Agents inrichten wel — zie [Govern](/docs/govern/govern).
 
@@ -49,6 +49,6 @@ Elk gesprek blijft in de workspace waar je het voerde. Wat Bokito over *jou* ont
 
 1. Open **Instellingen**, daarna **Mijn assistent**.
 2. Lees de feiten die Bokito over jou bewaarde. Kies **Vergeten** bij één regel of **Alles wissen**.
-3. Open de helper opnieuw met **Praat met assistent** als je iets nieuws wilt laten onthouden.
+3. Open de helper opnieuw met **Praat met assistent** als je iets nieuws wilt laten onthouden. Bedrijfsagents en de websitewidget zijn apart — zie [Agents](/docs/ai/agents) en [Chatwidget](/docs/inbox/widget).
 
 De websitechatwidget is een andere instelling: **Instellingen**, daarna **Chatwidget**. Die pagina is voor bezoekers op je site, niet voor deze helper. De helper volgt het lichte of donkere thema van het dashboard. Intake van die widget is een [signaal](/docs/ai/cases) op het gesprek.

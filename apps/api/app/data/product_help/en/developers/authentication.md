@@ -14,9 +14,9 @@ Every developer surface authenticates with workspace API tokens. Owners and admi
 ## Create a token
 
 1. Open **Settings**, then **Developers**.
-2. Under **App tokens**, choose **New token**. Enter a **Token name** (for example `staging-crm`).
-3. Under **Access (empty = everything)** pick scopes. Leave them all off only when the integration truly needs **Full access**.
-4. Choose **Create token**. The plaintext value starts with `bok_` and is shown once. Copy it, or use **Copy curl example** for `GET /api/public/v1/signals`. Choose **I have copied it** when you are done. Bokito keeps only a hash; the list later shows a prefix such as `bok_ab12…` plus **last used** or **never used**. Hide revoked tokens unless you need the history.
+2. Under **App tokens**, choose **New token**. Enter a **Token name** (for example `staging-crm` or `Cursor`).
+3. Pick a preset when one fits: **Read workspace**, **Ops + messaging**, or **Full governed**. Or under **Access (empty = everything)** tick scopes by hand. Leave them all off only when the integration truly needs full access — the form warns when that happens.
+4. Choose **Create token**. The plaintext value starts with `bok_` and is shown once. Copy it, or use **Copy REST curl** for `GET /api/public/v1/signals`. Choose **I have copied it** when you are done. Bokito keeps only a hash; the list later shows a prefix such as `bok_ab12…` plus **last used** or **never used**. Hide revoked tokens unless you need the history.
 
 ## Send it
 

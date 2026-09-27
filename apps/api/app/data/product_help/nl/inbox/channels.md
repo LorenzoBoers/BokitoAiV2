@@ -9,16 +9,16 @@ related: communication,inbox-ai,widget,integrations
 
 # Kanalen koppelen
 
-Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **E-mail en berichten**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp — is één rij in de lijst **Kanalen** met dezelfde status, mogelijkheden en controles. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
+Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen** (de topbalk kan nog **E-mail en kanalen** tonen). Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij in de lijst **Kanalen** met dezelfde status, mogelijkheden en controles. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
 
 ## Voeg een kanaal toe
 
 ![Kanaalinstellingen met de kanalenlijst](/api/docs/assets/channels/mailbox-status.png)
 *Elk kanaal is één rij met een statusbadge, mogelijkheden en eigen controles.*
 
-1. Open **Instellingen** en daarna **E-mail en berichten**.
+1. Open **Instellingen** en daarna **Kanalen**.
 2. Kies **Kanaal toevoegen**.
-3. Kies **E-mail**, **WhatsApp Business** of **Websitechat**. **E-mail** opent een tweede stap met **Gmail**, **Outlook**, **SMTP / IMAP** en **Bokito-adres**.
+3. Kies **E-mail**, **WhatsApp Business**, **Websitechat** of **Slack-workspace**. **E-mail** opent een tweede stap met **Gmail**, **Outlook**, **SMTP / IMAP** en **Bokito-adres**.
 4. Rond het formulier voor die keuze af. De nieuwe rij verschijnt in de lijst **Kanalen**.
 
 ## Koppel SMTP / IMAP

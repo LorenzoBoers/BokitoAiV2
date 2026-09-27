@@ -16,13 +16,13 @@ Bokito is an operations platform for teams that want AI to do real work. Custome
 ![Bokito sidebar](/api/docs/assets/welcome/rail.png)
 *One sidebar: Control, AI and Settings.*
 
-- [Communication](/docs/inbox/communication) collects email, website chat and WhatsApp. [Inbox AI](/docs/inbox/inbox-ai) decides whether the assistant drafts, sends, or stays off. [Govern](/docs/govern/govern) decides which tools an agent may use and when a human must approve.
-- [Agents](/docs/ai/agents) are coworkers with a role, instructions, knowledge and tools.
+- [Communication](/docs/inbox/communication) collects email, website chat and WhatsApp. [Inbox AI](/docs/inbox/inbox-ai) decides whether the assistant drafts, sends, or stays off. [Signals](/docs/ai/cases) type the intake on each conversation. [Govern](/docs/govern/govern) decides which tools an agent may use and when a human must approve.
+- [Agents](/docs/ai/agents) are coworkers with a purpose, audience, knowledge and tools. [Playbooks](/docs/ai/workstreams) are the step-by-step processes they run.
 - Decision cards appear in the thread when a step needs judgment. Structural changes land as drafts on Govern.
 
 ## How a day runs
 
-Work lands as a thread. An agent uses [Knowledge](/docs/ai/knowledge), then replies, drafts or asks. [Cockpit](/docs/getting-started/cockpit) shows what needs you. Sign-in remembers the last email on this device. Jump with `Ctrl+K` — search **Invite a teammate**, **Talk to an agent**, **New project**, or **Open my profile**. In-app **Learn** and public **Docs** remember the last article you opened. You dial autonomy up over time.
+Work lands as a thread. An agent uses [Knowledge](/docs/ai/knowledge), then replies, drafts or asks. [Overview](/docs/getting-started/cockpit) shows what needs you. Sign-in remembers the last email on this device. Jump with `Ctrl+K` — search **Invite a teammate**, **Talk to an agent**, **New project**, or **Open my profile**. In-app **Learn** and public **Docs** remember the last article you opened. You dial autonomy up over time.
 
 ## Where to start
 

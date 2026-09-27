@@ -10,7 +10,12 @@ import { McpIntegrationsTable } from './McpIntegrationsTable'
 const CONNECT_PARAM = 'connect'
 
 function parseConnectPreset(value: string | null): McpConnectPreset | undefined {
-  if (value === 'custom_mcp' || value === 'bjorn_lunden_mcp' || value === 'king_accountancy') {
+  if (
+    value === 'custom_mcp' ||
+    value === 'bjorn_lunden_mcp' ||
+    value === 'king_accountancy' ||
+    value === 'alpaca_mcp'
+  ) {
     return value
   }
   return undefined

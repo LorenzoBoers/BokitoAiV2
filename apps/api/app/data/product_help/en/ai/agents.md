@@ -33,7 +33,8 @@ New chats in Communication require a **company agent**. If none are available fo
 
 1. Open the agent. Edit its **Name**, **Purpose**, **Audience**, and **Model**.
 2. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
-3. In **Communication settings**, choose one default agent for each connected channel. A conversation-level agent pin always wins. **Archive** hides an agent and clears its channel defaults; run history stays.
+3. Set **Autonomy level** on the agent: **Manual — always ask**, **Approval — gated actions**, **Auto — act independently**, or **Workspace default**. This sits at or below the workspace ceiling on [Autonomy](/docs/govern/autonomy).
+4. In **Communication settings**, choose one default agent for each connected channel. A conversation-level agent pin always wins. **Archive** hides an agent and clears its channel defaults; run history stays.
 
 ## Limit who can chat
 
@@ -55,7 +56,7 @@ New chats in Communication require a **company agent**. If none are available fo
 2. Choose **Edit** next to the agent name.
 3. Change the **name**, pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker.
 
-The same look shows on the Agents library, agent detail, Messages, and the webchat header bubble for the answering agent.
+The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.
 
 ## Schedule the agent
 

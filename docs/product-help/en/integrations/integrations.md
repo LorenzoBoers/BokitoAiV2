@@ -26,7 +26,7 @@ Integrations are partner logins. A **module** is one package of Signal types, pl
 2. Pick an app to open its card. **Works with modules** names the presets that can use this login, so you know what agents will do with it. Finish OAuth or the provider setup and you return on Connections. A login stays there until you attach it to a module.
 3. Communication apps add queues (email, WhatsApp). Code apps attach to a [project](/docs/ai/projects). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Custom MCP servers** or **Tools**. See [MCP](/docs/integrations/mcp).
 
-WhatsApp itself is configured on **Email & messages**, not only here. The marketplace card points you there.
+WhatsApp itself is configured under **Channels**, not only here. The marketplace card points you there.
 
 ## Install a business module
 
@@ -47,7 +47,7 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 
 1. Open **Accounting** from its card on **Connections**. The list shows only attached registrations, not every Moneybird login in the workspace.
 2. Choose **New registration** to connect from the module (that login attaches automatically), or **Use this connection** for a login that already exists on Connections.
-3. Finish setup with real credentials (OAuth for Moneybird, partner key plus administraties for KING, client id/secret for Bjorn Lunden). Empty or random labels alone do not create a working link.
+3. Finish setup with real credentials (OAuth for Moneybird, partner key plus administraties for KING, client id/secret for Bjorn Lunden, Trading API key plus secret for Alpaca). Empty or random labels alone do not create a working link.
 4. Each row shows status (**Verified**, **Needs credentials**, **Unverified**, or **Error**), optional provider identity, and actions: **Verify**, **Remove from module** (keeps the login on Connections), **Disconnect**, **Rename**, and **Set default** (only when verified).
 5. Only agents assigned to the module can use the shared accounting toolset. Propose tools land as a [decision](/docs/ai/decisions) you approve first.
 

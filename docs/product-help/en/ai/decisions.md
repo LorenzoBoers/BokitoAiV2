@@ -33,7 +33,7 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 1. Choose the decision in the bell menu, or open the push notification on your phone. Both open Decisions on that thread and jump straight to the waiting card.
 2. Read the card's source line: it names where the request came from — a project queue, an agent run, or a proposed workspace change — and links to it.
 3. Answer in the thread. Inbox AI suggestions still need a human send unless autonomy allows more.
-4. Turn notifications per event on or off under **Settings**, then **Notifications**.
+4. Under **Settings**, then **Notifications**, open **Notify me about**. Turn **In-app**, **Email**, **Push** or **Slack** on per row — for example **When an agent needs your decision on an assigned conversation**, **When a customer asks for a human**, **When an agent run or trigger fails**, or budget alerts at 80% / 100%. Use **Pause in-app alerts**, **Restore recommended**, or **Preview a notification** when you are tuning the set. Push applies to this browser only; connect Slack under **Channels** before Slack toggles work.
 
 ## When agents ask
 

@@ -408,6 +408,32 @@ async def _require_native_mcp_credentials(
         identity = creds.get("user_key") or creds.get("client_id") or None
         return _stamp_verify_meta(auth_payload, ok=True, identity=identity)
 
+    if provider == "alpaca_mcp":
+        from app.services.alpaca import (
+            has_alpaca_credentials,
+            parse_alpaca_credentials,
+            validate_credentials,
+        )
+
+        if not has_alpaca_credentials(auth_payload):
+            raise HTTPException(
+                status_code=400,
+                detail="Alpaca requires api_key_id and api_secret_key (Trading API keys).",
+            )
+        check = await validate_credentials(auth_payload)
+        if not check.get("ok") or check.get("note"):
+            raise HTTPException(
+                status_code=400,
+                detail=str(check.get("error") or check.get("note") or "Alpaca verification failed"),
+            )
+        creds = parse_alpaca_credentials(auth_payload)
+        identity = str(check.get("identity") or creds["api_key_id"])
+        stamped = _stamp_verify_meta(auth_payload, ok=True, identity=identity)
+        stamped["paper"] = creds["paper"]
+        stamped["api_key_id"] = creds["api_key_id"]
+        stamped["api_secret_key"] = creds["api_secret_key"]
+        return stamped
+
     return auth_payload
 
 
@@ -436,6 +462,10 @@ async def install_mcp(
         from app.services.bjorn_lunden import BL_NATIVE_URL
 
         url = BL_NATIVE_URL
+    if not url and provider == "alpaca_mcp":
+        from app.services.alpaca import ALPACA_NATIVE_URL
+
+        url = ALPACA_NATIVE_URL
     if provider == "king_accountancy":
         from app.services.partner_mcp import is_king_mcp_url, partner_mcp_url
 
@@ -467,7 +497,7 @@ async def install_mcp(
         auth_payload.update({k: v for k, v in auth.items() if v is not None})
         auth_payload["auth_type"] = auth.get("auth_type") or auth_type
 
-    if provider in ("king_accountancy", "bjorn_lunden_mcp"):
+    if provider in ("king_accountancy", "bjorn_lunden_mcp", "alpaca_mcp"):
         stamped = await _require_native_mcp_credentials(
             provider, auth_payload, use_mock=use_mock
         )
@@ -726,6 +756,26 @@ async def test_mcp_server(
         auth_data = _parse_json(server.auth_json)
         check = await validate_king_credentials(auth_data if isinstance(auth_data, dict) else {})
         tools = partner_tools(partner_slug)
+        await _persist_discovered_tools(session, server, tools)
+        payload = {
+            "ok": bool(check.get("ok")),
+            "server_id": str(server.id),
+            "server_name": server.name,
+            "tool_count": len(tools),
+            "tools": tools,
+        }
+        if check.get("error"):
+            payload["error"] = check["error"]
+        if check.get("note"):
+            payload["note"] = check["note"]
+        return payload
+
+    if server.server_url.startswith("native://alpaca"):
+        from app.services.alpaca import ALPACA_NATIVE_TOOLS, validate_credentials as validate_alpaca
+
+        auth_data = _parse_json(server.auth_json)
+        check = await validate_alpaca(auth_data if isinstance(auth_data, dict) else {})
+        tools = [dict(t) for t in ALPACA_NATIVE_TOOLS]
         await _persist_discovered_tools(session, server, tools)
         payload = {
             "ok": bool(check.get("ok")),

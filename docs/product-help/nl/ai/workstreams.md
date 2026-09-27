@@ -32,7 +32,7 @@ Een draaiboek is een gedefinieerd proces voor werk dat terugkomt: cijfers verzam
 
 ## Start en volg een run
 
-1. **Run starten** blijft uit tot het draaiboek minstens één stap heeft en **Ingeschakeld** is (niet gepauzeerd). Voeg eerst een stap toe, kies daarna **Run starten**, typ de input (het verzoek, de periode of de context waar deze run over gaat) en bevestig. Een auto-startkoppeling maakt maximaal één run per gevolgd signaal en draaiboek, ook als meerdere herkende signalen in het gesprek ernaar verwijzen.
+1. **Run starten** blijft uit tot het draaiboek minstens één stap heeft en **Ingeschakeld** is (niet gepauzeerd). Voeg eerst een stap toe, kies daarna **Run starten**, typ de input (het verzoek, de periode of de context waar deze run over gaat) en bevestig. Auto-start komt van het signaaltype (**Start het draaiboek direct** onder [Signalen](/docs/ai/cases)) of van geaccepteerde intake op de Over-kaart — maximaal één run per gevolgd signaal en draaiboek, ook als meerdere herkende signalen in het gesprek ernaar verwijzen.
 2. Het run-detail toont de status (**Actief**, **Wachtend**, **Wacht op gate**, **Afgerond**, **Mislukt**, **Geannuleerd**), de input en een stap-voor-stap werklog: wat elke agent-stap deed, wanneer de run wachtte en welke beslissingen zijn genomen.
 3. Een wachtende run gaat verder wanneer je **Hervatten** kiest met het verwachte antwoord. Een beslissing wordt inline in het gevolgde gesprek opgelost; de gekozen tak bepaalt de volgende stap.
 4. **Annuleren** stopt een run; het werklog blijft bewaard.

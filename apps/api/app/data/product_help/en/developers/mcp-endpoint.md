@@ -85,8 +85,8 @@ OAuth consent and API token scopes name tool categories: a scoped credential onl
 
 ## Use from Cursor
 
-1. Copy the URL-only config from **Settings → Developers**.
-2. Paste it under Cursor Settings → MCP.
+1. Under **Settings → Developers**, use **Copy Cursor MCP URL config**, **Download bokito-mcp.json**, or **Copy Cursor MCP config** (bearer). **Copy Claude Desktop config** and **Copy MCP curl** are on the same page for other clients.
+2. Paste or import the JSON under Cursor Settings → MCP (Cursor has no stable public deeplink for remote HTTP MCP yet).
 3. When Cursor prompts, authorize in the browser and select the workspace.
 4. Tools from that workspace appear for the agent, subject to scopes and Govern.
 5. To disconnect later, open **Connected MCP clients** and choose **Revoke**.

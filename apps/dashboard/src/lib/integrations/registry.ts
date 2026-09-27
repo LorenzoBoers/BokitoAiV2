@@ -2,7 +2,11 @@ import type { IntegrationKind } from '../integration-kind'
 import type { OAuthProvider } from '../email-oauth'
 import { REMOTE_MCP_PROVIDERS } from '../mcp-remote-providers'
 
-export type McpSetupPreset = 'bjorn_lunden_mcp' | 'king_accountancy' | 'custom_mcp'
+export type McpSetupPreset =
+  | 'bjorn_lunden_mcp'
+  | 'king_accountancy'
+  | 'alpaca_mcp'
+  | 'custom_mcp'
 
 /** How the dashboard starts OAuth for this provider. */
 export type IntegrationOAuthStrategy = 'github' | 'inbox' | 'platform' | 'mcp_remote'
@@ -92,6 +96,14 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
     connectionCountSource: 'platform',
   },
   {
+    staticId: 'alpaca_mcp',
+    platformSlug: 'alpaca_mcp',
+    kind: 'mcp',
+    setupMode: 'api_key',
+    mcpPreset: 'alpaca_mcp',
+    connectionCountSource: 'platform',
+  },
+  {
     staticId: 'moneybird',
     platformSlug: 'moneybird',
     kind: 'app',
@@ -163,6 +175,7 @@ const SLUG_TO_STATIC_ID_RECORD: Record<string, string> = {
   google_mail: 'google-workspace',
   king_accountancy: 'king_accountancy',
   bjorn_lunden_mcp: 'bjorn_lunden_mcp',
+  alpaca_mcp: 'alpaca_mcp',
   moneybird: 'moneybird',
   exact_online: 'exact_online',
   snelstart: 'snelstart',

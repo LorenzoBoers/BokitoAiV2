@@ -49,6 +49,6 @@ Each chat stays inside the workspace where you had it. What Bokito remembers abo
 
 1. Open **Settings**, then **My assistant**.
 2. Read the facts Bokito stored about you. Choose **Forget** on one row or **Clear all**.
-3. Open the helper again with **Talk to assistant** if you want to tell it something new.
+3. Open the helper again with **Talk to assistant** if you want to tell it something new. Company agents and the website widget are separate — see [Agents](/docs/ai/agents) and [Chat widget](/docs/inbox/widget).
 
 The website chat widget is a different setting: **Settings**, then **Chat widget**. That page is for visitors on your site, not for this helper. The helper follows the dashboard light or dark theme. Visitor intake from that widget is a [case](/docs/ai/cases) on the conversation.

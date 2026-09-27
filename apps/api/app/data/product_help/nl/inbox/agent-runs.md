@@ -17,8 +17,8 @@ Activiteit is de live werktijdlijn van je AI: alles wat agents deden en aan het 
 *Een live tijdlijn voor de hele AI-workforce.*
 
 1. Open in Communicatie **Activiteit**, vastgezet onderin de zijbalk naast Contacten. Dat opent de Activiteit-pagina (zelfde chrome als Contacten), geen weergave in de threadlijst.
-2. Lees de tijdlijn: elke rij toont de tijd, wie handelde, de stap en het resultaat — groen voor afgerond werk, rood voor fouten, blauw voor werk in uitvoering. Nieuwe rijen streamen live binnen; **Naar nieuwste** laat de weergave het einde volgen.
-3. Filter met de agent-chips bovenaan of het zoekveld; **Ouder laden** bladert verder terug in de historie.
+2. Lees de tijdlijn: elke rij toont de tijd, wie handelde, de stap en het resultaat — groen voor afgerond werk, rood voor fouten, blauw voor werk in uitvoering. Nieuwe rijen streamen live binnen; laat **Spring naar nieuwste** aan om het einde te blijven volgen.
+3. Filter met de agent-chips bovenaan of het zoekveld; kies **Ouder laden** om verder terug in de historie te bladeren.
 4. Klik op een rij om het run-gesprek erachter te openen. Voor items die op een ja of nee wachten, open **Filters** → **Wacht op beslissing** boven de Communicatie-lijst — dezelfde lijst als Overview **Wacht op beslissing**. Gearchiveerde agents staan niet meer onder [Agents](/docs/ai/agents); wijs Agenda-wakes die nog naar hen wijzen opnieuw toe.
 
 ## Bekijk het werklog van een agent

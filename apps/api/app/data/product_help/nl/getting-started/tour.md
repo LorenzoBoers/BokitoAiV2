@@ -9,7 +9,7 @@ related: welcome,cockpit,communication
 
 # Producttour
 
-Na het aanmaken van een workspace ronden owners eerst een korte **eerste-setupwizard** af (`/onboarding`) — intake, talen, meldingen, autonomie, agentnaam, optioneel kanaal — vóór deze tour. Uitgenodigde leden zetten alleen hun eigen taal en meldingen. De rail-tour start niet automatisch tot die wizard klaar is; na de wizard begint de tour.
+Na het aanmaken van een workspace ronden owners eerst een korte **eerste-setupwizard** af (`/onboarding`) — **Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal** — vóór deze tour. Uitgenodigde leden zetten alleen hun eigen taal en meldingen. De rail-tour start niet automatisch tot die wizard klaar is; na de wizard begint de tour.
 
 Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
 
@@ -29,23 +29,22 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 - **Draaiboeken** — herhaalbare stappenprocessen die agents uitvoeren. Zie [Draaiboeken](/docs/ai/workstreams).
 - **Kennis** — documenten, skills en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
 
-## Modules: geïnstalleerde werkplekken
+## Koppelingen: modules en tools
 
-Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) verschijnen hier als eigen rail-items. Zie [Integraties](/docs/integrations/integrations).
+Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) staan onder **Connections** in de rail — ze krijgen geen eigen rail-tab. Open **Connections** voor marketplace-installaties, partnerlogins en tools. Zie [Integraties](/docs/integrations/integrations).
 
-## Koppelingen en Instellingen
+## Instellingen
 
-- **Koppelingen** — geïnstalleerde modules, partnerlogins, custom MCP en marketplace. Zie [Integraties](/docs/integrations/integrations).
-- **Instellingen** — **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).
+- **Instellingen** — **Kanalen**, **AI-antwoorden**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).
 
 Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat boven Besturing in de rail — zie [Overview](/docs/getting-started/cockpit).
 
-Persoonlijke schermen — **Profiel** (inclusief startpagina: Communicatie of Overview) en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
+Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel is **Startpagina** **Communicatie** (standaard) of **Overview**; **Weergave** is **Licht**, **Donker** of **Systeem**; **E-mailhandtekening** wordt meegestuurd wanneer jij als jezelf verstuurt of goedkeurt. Ze veranderen niet hoe het team klanten beantwoordt.
 
 ## Gebruik het commandopalet
 
 1. Druk `Ctrl+K` (Windows) of `Cmd+K` (Mac) vanaf elke ingelogde pagina.
-2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Inbox-wachtrijen**, **Kennis** en **Instellingen**.
+2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Communicatie-wachtrijen**, **Kennis** en **Instellingen**.
 3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Agent openen**, **Draaiboek openen**, **Project openen**, **Kennis openen**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen** en **Hulp openen**.
 4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
