@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { agentChatPath } from '../../lib/messages-paths'
@@ -40,6 +40,17 @@ import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
 import ThinkingTrace from './ThinkingTrace'
 import ReasoningDisclosure from './ReasoningDisclosure'
 import { useSignalStream } from '../../hooks/useSignalStream'
+import AssigneeSelector from './AssigneeSelector'
+import { ChatMessageBubble } from './ChatBubble'
+import { TooltipProvider } from '../ui/tooltip'
+import {
+  COMPOSER_AI_STRIP_CLASS,
+  THREAD_ACTION_CLUSTER_CLASS,
+  THREAD_COMPOSER_DOCK_CLASS,
+  THREAD_HEADER_CLASS,
+  THREAD_HEADER_ICON_CLASS,
+  THREAD_TRANSCRIPT_CLASS,
+} from '../../lib/chat-chrome'
 
 type StreamState = {
   text: string
@@ -52,6 +63,13 @@ export type AgentChatViewProps = {
   title?: string | null
   agentName?: string | null
   agentKind?: string | null
+  /** Conversation lifecycle status; delete is only offered when closed/spam. */
+  status?: string | null
+  /** Same assign model as customer threads in Communication. */
+  assignedToUserId?: number | null
+  onAssign?: (userId: number | null) => void | Promise<void>
+  onClose?: () => void | Promise<void>
+  onReopen?: () => void | Promise<void>
   onDeleted?: () => void
   onRefreshThreads?: () => void
   /** Mobile stacked navigation: return to the conversation list (hidden on md+). */
@@ -110,34 +128,33 @@ function MessageBubble({
 
   if (isUser) {
     return (
-      <div className="flex items-start justify-end gap-2.5">
-        <div className="max-w-[78%] rounded-2xl rounded-tr-md bg-accent/14 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
-        </div>
-        <span className="mt-0.5 shrink-0">
-          <UserAvatar name={userName} email={userEmail} avatarUrl={userAvatarUrl} size={26} />
-        </span>
-      </div>
+      <ChatMessageBubble
+        side="right"
+        variant="self"
+        avatar={<UserAvatar name={userName} email={userEmail} avatarUrl={userAvatarUrl} size={28} />}
+        body={<p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text-primary">{message.content}</p>}
+      />
     )
   }
 
   const hasDecision = Boolean(message.decision_request_id)
+  const agentAvatar = (
+    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
+      <Bot size={14} />
+    </span>
+  )
 
-  return (
-    <div className="flex items-start gap-2.5">
-      <span className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
-        <Bot size={14} />
-      </span>
-      <div className="min-w-0 max-w-[82%] space-y-1">
-        <ReasoningDisclosure
-          thinking={message.thinking}
-          steps={message.steps}
-          usage={message.usage}
-          className="max-w-full"
-        />
-        {hasDecision ? (
-          // The decision card carries the title/summary itself; skip the plain
-          // bubble so the request is not shown twice.
+  if (hasDecision) {
+    return (
+      <div className="flex w-full items-end gap-2">
+        {agentAvatar}
+        <div className="min-w-0 max-w-[78%] space-y-1">
+          <ReasoningDisclosure
+            thinking={message.thinking}
+            steps={message.steps}
+            usage={message.usage}
+            className="max-w-full"
+          />
           <ChatDecisionCard
             conversationId={conversationId}
             messageId={message.id}
@@ -145,22 +162,41 @@ function MessageBubble({
             fallbackText={message.content}
             onResolved={onDecisionResolved}
           />
-        ) : (
-          <div className="rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-            <ChatMarkdown content={translateMockAgentBody(message.content, t)} />
-          </div>
-        )}
-        {!hasDecision && onCopyText && message.content.trim() ? (
-          <button
-            type="button"
-            onClick={() => onCopyText(message.content)}
-            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
-          >
-            <ClipboardCopy size={11} />
-            {copyLabel ?? t('directChat.copyToComposer')}
-          </button>
-        ) : null}
+        </div>
       </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      <ReasoningDisclosure
+        thinking={message.thinking}
+        steps={message.steps}
+        usage={message.usage}
+        className="max-w-[78%] pl-9"
+      />
+      <ChatMessageBubble
+        side="left"
+        variant="agent"
+        avatar={agentAvatar}
+        body={
+          <div className="space-y-1.5">
+            <div className="text-[13px] leading-relaxed text-text-primary">
+              <ChatMarkdown content={translateMockAgentBody(message.content, t)} />
+            </div>
+            {onCopyText && message.content.trim() ? (
+              <button
+                type="button"
+                onClick={() => onCopyText(message.content)}
+                className="flex items-center gap-1 rounded-md px-1 py-0.5 text-[11px] text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                <ClipboardCopy size={11} />
+                {copyLabel ?? t('directChat.copyToComposer')}
+              </button>
+            ) : null}
+          </div>
+        }
+      />
     </div>
   )
 }
@@ -322,6 +358,11 @@ export function AgentChatView({
   title,
   agentName,
   agentKind,
+  status,
+  assignedToUserId = null,
+  onAssign,
+  onClose,
+  onReopen,
   onDeleted,
   onRefreshThreads,
   onBack,
@@ -612,16 +653,16 @@ export function AgentChatView({
   }
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {hideHeader ? null : (
-      <>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/40 px-4">
+      <div className={THREAD_HEADER_CLASS}>
         {onBack ? (
           <button
             type="button"
             onClick={onBack}
             aria-label={t('threadChrome.backToConversations')}
-            className="md:hidden -ml-1.5 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+            className="md:hidden -ml-1 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
           >
             <ArrowLeft size={16} />
           </button>
@@ -638,56 +679,86 @@ export function AgentChatView({
               className="w-full max-w-[420px] rounded-md border border-border/60 bg-bg-input px-2 py-1 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
               autoFocus
             />
-            <button type="button" onClick={() => void commitRename()} className="rounded-md p-1 text-text-muted hover:text-text-primary" aria-label={t('directChat.saveTitle')}>
+            <button type="button" onClick={() => void commitRename()} className={THREAD_HEADER_ICON_CLASS} aria-label={t('directChat.saveTitle')}>
               <Check size={13} />
             </button>
-            <button type="button" onClick={() => setRenaming(false)} className="rounded-md p-1 text-text-muted hover:text-text-primary" aria-label={t('directChat.cancelRename')}>
+            <button type="button" onClick={() => setRenaming(false)} className={THREAD_HEADER_ICON_CLASS} aria-label={t('directChat.cancelRename')}>
               <X size={13} />
             </button>
           </span>
         ) : (
           <>
-            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${AI_ICON_BOX_CLASS}`}>
-              <Bot size={12} />
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
+              <Bot size={13} />
             </span>
-            <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">
-              {title ?? t('directChat.conversation')}
-              {agentName && agentName !== (title ?? '') ? (
-                <span className="ml-2 rounded-full border border-border/60 bg-bg-elevated px-2 py-0.5 text-[10.5px] font-normal text-text-muted">
-                  {agentName}
-                  {agentKind === 'company' ? ` · ${t('directChat.companyAgent')}` : ''}
-                </span>
-              ) : agentKind === 'company' ? (
-                <span className="ml-2 rounded-full border border-border/60 bg-bg-elevated px-2 py-0.5 text-[10.5px] font-normal text-text-muted">
-                  {t('directChat.companyAgent')}
-                </span>
-              ) : null}
-            </p>
-            <button type="button" onClick={startRename} title={t('directChat.rename')} className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary">
-              <Pencil size={13} />
-            </button>
-            <button type="button" onClick={() => void deleteConversation()} title={t('directChat.delete')} className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-status-error">
-              <Trash2 size={13} />
-            </button>
-            {onToggleContext ? (
-              <button
-                type="button"
-                onClick={onToggleContext}
-                title={contextOpen ? t('directChat.hideContext') : t('directChat.showContext')}
-                className={`rounded-md p-1.5 transition-colors hover:bg-bg-hover/60 ${
-                  contextOpen ? 'text-accent' : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                <PanelRight size={14} />
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-[13px] font-medium text-text-heading">
+                {title ?? t('directChat.conversation')}
+              </p>
+              <p className="truncate text-[11px] text-text-muted">
+                {agentName
+                  ? `${agentName}${agentKind === 'company' ? ` · ${t('directChat.companyAgent')}` : ''}`
+                  : agentKind === 'company'
+                    ? t('directChat.companyAgent')
+                    : t('directChat.aiDisclosure')}
+                {status === 'closed' || status === 'spam' ? ` · ${status}` : ''}
+              </p>
+            </div>
+            <div className={THREAD_ACTION_CLUSTER_CLASS} role="toolbar">
+              <button type="button" onClick={startRename} title={t('directChat.rename')} className={THREAD_HEADER_ICON_CLASS}>
+                <Pencil size={13} />
               </button>
-            ) : null}
+              {onAssign ? (
+                <AssigneeSelector
+                  currentAssigneeId={assignedToUserId ?? null}
+                  onChange={(userId) => void onAssign(userId)}
+                />
+              ) : null}
+              {status === 'closed' || status === 'spam' ? (
+                <>
+                  {onReopen ? (
+                    <button
+                      type="button"
+                      onClick={() => void onReopen()}
+                      title={t('threadChrome.reopen')}
+                      className={THREAD_HEADER_ICON_CLASS}
+                    >
+                      <ArchiveRestore size={13} />
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void deleteConversation()}
+                    title={t('directChat.delete')}
+                    className={`${THREAD_HEADER_ICON_CLASS} hover:text-status-error`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              ) : onClose ? (
+                <button
+                  type="button"
+                  onClick={() => void onClose()}
+                  title={t('threadList.closeThread')}
+                  className={THREAD_HEADER_ICON_CLASS}
+                >
+                  <Archive size={13} />
+                </button>
+              ) : null}
+              {onToggleContext ? (
+                <button
+                  type="button"
+                  onClick={onToggleContext}
+                  title={contextOpen ? t('directChat.hideContext') : t('directChat.showContext')}
+                  className={`${THREAD_HEADER_ICON_CLASS}${contextOpen ? ' text-accent' : ''}`}
+                >
+                  <PanelRight size={13} />
+                </button>
+              ) : null}
+            </div>
           </>
         )}
       </div>
-      <p className="shrink-0 border-b border-border/30 px-4 py-1 text-[10px] leading-snug text-text-muted">
-        {t('directChat.aiDisclosure')}
-      </p>
-      </>
       )}
 
       <div
@@ -699,11 +770,11 @@ export function AgentChatView({
           scrollPinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 80
         }}
       >
-        <div className="mx-auto w-full max-w-[820px] px-4 py-6">
+        <div className={THREAD_TRANSCRIPT_CLASS}>
           {loadingMessages && messages.length === 0 ? (
             <ChatTranscriptSkeleton />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {messages.map((m) => (
                 <MessageBubble
                   key={m.id}
@@ -730,7 +801,7 @@ export function AgentChatView({
         </div>
       </div>
 
-      <div className="shrink-0 px-4 pb-5 pt-2">
+      <div className={THREAD_COMPOSER_DOCK_CLASS}>
         <div className="mx-auto w-full max-w-[820px]">
           {error ? <p className="mb-2 px-1 text-[12px] text-status-error">{error}</p> : null}
           <ComposerCard
@@ -766,7 +837,7 @@ export function AgentChatView({
                 ? t('composer.dictationListening')
                 : (composerPlaceholder ?? t('directChat.placeholder'))
             }
-            className="border-border/60 bg-bg-surface"
+            className={COMPOSER_AI_STRIP_CLASS}
           >
             {dictation.supported ? (
               <DictationMicButton
@@ -796,6 +867,7 @@ export function AgentChatView({
         </div>
       </div>
     </div>
+    </TooltipProvider>
   )
 }
 

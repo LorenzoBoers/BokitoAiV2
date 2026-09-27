@@ -27,6 +27,7 @@ type Props = {
   onMarkUnread: (id: ThreadId) => void
   onTogglePin: (id: ThreadId, currentPinned: boolean) => void
   onSnooze?: (id: ThreadId) => void
+  onClose?: (id: ThreadId) => void
   onDelete: (id: ThreadId) => void
   deletingThreadId?: ThreadId | null
   variant?: 'customer' | 'direct'
@@ -86,6 +87,7 @@ export default function ThreadList({
   onMarkUnread,
   onTogglePin,
   onSnooze,
+  onClose,
   onDelete,
   deletingThreadId = null,
   variant = 'customer',
@@ -290,7 +292,7 @@ export default function ThreadList({
             </div>
           )
         ) : (
-          threads.map((thread) => (
+          threads.map((thread, index) => (
             <ThreadListItem
               key={thread.id}
               thread={thread}
@@ -300,6 +302,7 @@ export default function ThreadList({
               onMarkUnread={onMarkUnread}
               onTogglePin={onTogglePin}
               onSnooze={onSnooze}
+              onClose={onClose}
               onDelete={onDelete}
               deleting={String(deletingThreadId) === String(thread.id)}
               variant={variant}
@@ -312,6 +315,7 @@ export default function ThreadList({
                   : null
               }
               compact={density === 'compact'}
+              enterIndex={index}
             />
           ))
         )}
@@ -323,11 +327,16 @@ export default function ThreadList({
             disabled={loadingMore}
             className="mt-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
           >
-            {loadingMore
-              ? t('threadList.loadingMore')
-              : total != null
-                ? t('threadList.loadMoreOf', { loaded: allThreads.length, total })
-                : t('threadList.loadMore')}
+            {loadingMore ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border border-border border-t-accent" />
+                {t('threadList.loadingMore')}
+              </span>
+            ) : total != null ? (
+              t('threadList.loadMoreOf', { loaded: allThreads.length, total })
+            ) : (
+              t('threadList.loadMore')
+            )}
           </button>
         ) : null}
       </div>

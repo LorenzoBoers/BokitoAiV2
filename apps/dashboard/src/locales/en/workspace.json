@@ -34,6 +34,7 @@
   "dangerTitle": "Danger zone",
   "deleteWorkspaceTitle": "Delete workspace",
   "deleteWorkspaceDescription": "This action cannot be undone. All data will be permanently deleted.",
+  "deleteWorkspaceStaffHint": "As platform support you can delete this workspace even when you are not the owner.",
   "deleteWorkspaceButton": "Delete workspace",
   "deleteDialogTitle": "Delete workspace",
   "deleteDialogPrompt": "Type the workspace name \"{{name}}\" to confirm:",

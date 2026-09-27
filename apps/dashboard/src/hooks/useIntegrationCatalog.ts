@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   INTEGRATIONS,
-  isPlatformProviderSlug,
   type Integration,
   type IntegrationStatus,
 } from '../data/integrations-data'
@@ -120,7 +119,8 @@ export function useIntegrationCatalog() {
       setConnectionCounts(connection_counts)
       if (moduleRows?.length) setModules(moduleRows)
       const staticById = new Map(INTEGRATIONS.map((i) => [i.id, i]))
-      const liveProviders = p.filter((row) => isPlatformProviderSlug(row.slug))
+      // API is source of truth (includes DB-backed remote MCP presets).
+      const liveProviders = p
       const fromApi: Integration[] = liveProviders.map((row) => {
         const count = connectionCountForProvider(row, connection_counts)
         const staticId = SLUG_TO_STATIC_ID[row.slug] ?? row.slug

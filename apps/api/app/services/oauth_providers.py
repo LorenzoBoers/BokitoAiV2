@@ -18,6 +18,8 @@ GITHUB = "github"
 GOOGLE = "gmail"
 MICROSOFT = "outlook"
 MONEYBIRD = "moneybird"
+# Marketplace slug — same id as the native MCP provider.
+ALPACA = "alpaca_mcp"
 GOOGLE_CALENDAR = "google_calendar"
 OUTLOOK_CALENDAR = "outlook_calendar"
 
@@ -66,6 +68,7 @@ GOOGLE_SSO_SCOPES = [
 ]
 _GITHUB_SCOPES = ["repo", "read:user", "user:email"]
 _MONEYBIRD_SCOPES = ["sales_invoices", "documents", "estimates", "bank", "settings"]
+_ALPACA_SCOPES = ["account:write", "trading"]
 
 CALENDAR_PROVIDERS = frozenset({GOOGLE_CALENDAR, OUTLOOK_CALENDAR})
 
@@ -90,6 +93,8 @@ def _credentials(provider: str) -> tuple[str, str]:
         return s.microsoft_oauth_client_id, s.microsoft_oauth_client_secret
     if key == MONEYBIRD:
         return s.moneybird_oauth_client_id, s.moneybird_oauth_client_secret
+    if key == ALPACA:
+        return s.alpaca_oauth_client_id, s.alpaca_oauth_client_secret
     return "", ""
 
 
@@ -109,6 +114,10 @@ def _authorize_endpoint(provider: str) -> str:
         return f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
     if key == MONEYBIRD:
         return "https://moneybird.com/oauth/authorize"
+    if key == ALPACA:
+        from app.services.alpaca import ALPACA_OAUTH_AUTHORIZE
+
+        return ALPACA_OAUTH_AUTHORIZE
     raise ValueError(f"Unsupported OAuth provider: {provider}")
 
 
@@ -123,6 +132,10 @@ def _token_endpoint(provider: str) -> str:
         return f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
     if key == MONEYBIRD:
         return "https://moneybird.com/oauth/token"
+    if key == ALPACA:
+        from app.services.alpaca import ALPACA_OAUTH_TOKEN
+
+        return ALPACA_OAUTH_TOKEN
     raise ValueError(f"Unsupported OAuth provider: {provider}")
 
 
@@ -139,6 +152,8 @@ def _scopes(provider: str) -> list[str]:
         return _MICROSOFT_CALENDAR_SCOPES
     if provider == MONEYBIRD:
         return _MONEYBIRD_SCOPES
+    if provider == ALPACA:
+        return list(_ALPACA_SCOPES)
     return []
 
 
@@ -263,5 +278,21 @@ async def fetch_identity(provider: str, access_token: str) -> dict[str, Any]:
                 "email": email,
                 "login": email,
                 "name": info.get("displayName", ""),
+            }
+        if key == ALPACA:
+            from app.services.alpaca import ALPACA_LIVE_BASE, ALPACA_PAPER_BASE
+
+            # Token works on both hosts; try live then paper for identity.
+            account: dict[str, Any] = {}
+            for base in (ALPACA_LIVE_BASE, ALPACA_PAPER_BASE):
+                resp = await client.get(f"{base}/v2/account", headers=headers)
+                if resp.status_code < 400:
+                    account = resp.json() if isinstance(resp.json(), dict) else {}
+                    break
+            number = str(account.get("account_number") or account.get("id") or "")
+            return {
+                "email": "",
+                "login": number,
+                "name": number or "Alpaca",
             }
     return {"email": "", "login": "", "name": ""}

@@ -5,13 +5,21 @@ the ``alpaca_mcp`` marketplace provider, which registers an McpServer row with
 ``native://alpaca``. Tool names match the official Alpaca MCP server so agent
 prompts and docs stay aligned.
 
-Auth: ``APCA-API-KEY-ID`` / ``APCA-API-SECRET-KEY`` from Trading API keys.
-Default endpoint is paper trading (``paper=true``).
+Auth modes (same tool surface; only request headers change):
+
+- ``api_key`` — Trading API key ID + secret
+  (``APCA-API-KEY-ID`` / ``APCA-API-SECRET-KEY``). Default for self-serve today.
+- ``oauth`` — Alpaca Connect OAuth2 access token
+  (``Authorization: Bearer …``). Ready for when Bokito is an approved Connect
+  app; redirect URI is the shared platform callback
+  (``Settings.oauth_redirect_uri``).
+
+Default trading endpoint is paper (``paper=true``).
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -20,9 +28,18 @@ ALPACA_PAPER_BASE = "https://paper-api.alpaca.markets"
 ALPACA_LIVE_BASE = "https://api.alpaca.markets"
 ALPACA_DATA_BASE = "https://data.alpaca.markets"
 
+# Alpaca Connect (third-party OAuth) — see
+# https://docs.alpaca.markets/docs/using-oauth2-and-trading-api
+ALPACA_OAUTH_AUTHORIZE = "https://app.alpaca.markets/oauth/authorize"
+ALPACA_OAUTH_TOKEN = "https://api.alpaca.markets/oauth/token"
+ALPACA_OAUTH_SCOPES = ["account:write", "trading"]
+
+AuthMode = Literal["api_key", "oauth"]
+
 MISSING_CREDENTIALS_ERROR = (
     "Alpaca credentials are not configured. Open Connections, connect Alpaca, "
-    "and paste your Trading API key ID and secret key (paper keys are fine)."
+    "and paste your Trading API key ID and secret key (paper keys are fine), "
+    "or complete Alpaca Connect when that sign-in is enabled."
 )
 
 # Subset of the official Alpaca MCP tool catalog (same names / intent).
@@ -63,12 +80,39 @@ def _http_client(**kwargs: Any) -> httpx.AsyncClient:
     return httpx.AsyncClient(**kwargs)
 
 
-def parse_alpaca_credentials(auth: dict[str, Any]) -> dict[str, Any]:
-    """Extract Alpaca credentials from a connection auth payload.
+def _parse_paper(auth: dict[str, Any]) -> bool:
+    paper_raw = auth.get("paper")
+    if paper_raw is None:
+        paper_raw = auth.get("ALPACA_PAPER_TRADE", True)
+    if isinstance(paper_raw, str):
+        return paper_raw.strip().lower() not in ("0", "false", "no", "live")
+    return bool(paper_raw)
 
-    Accepts ``api_key_id`` / ``api_secret_key`` (or ``secret_key``), plus
-    ``paper`` (default true). Combined ``api_key`` as ``key_id:secret`` also works.
+
+def parse_alpaca_auth(auth: dict[str, Any]) -> dict[str, Any]:
+    """Normalize connection auth into a single session shape.
+
+    Returns ``mode`` (``api_key`` | ``oauth``), ``paper``, and either key pair
+    fields or ``access_token``. Prefer OAuth when an access token is present so
+    Connect installs do not fall through to empty key headers.
     """
+    paper = _parse_paper(auth)
+    token = str(
+        auth.get("access_token")
+        or auth.get("oauth_access_token")
+        or auth.get("bearer_token")
+        or ""
+    ).strip()
+    mode_hint = str(auth.get("auth_mode") or auth.get("auth_type") or "").strip().lower()
+    if token and mode_hint in ("", "oauth", "oauth2", "bearer"):
+        return {
+            "mode": "oauth",
+            "paper": paper,
+            "access_token": token,
+            "api_key_id": "",
+            "api_secret_key": "",
+        }
+
     key_id = str(
         auth.get("api_key_id") or auth.get("ALPACA_API_KEY") or auth.get("key_id") or ""
     ).strip()
@@ -83,55 +127,114 @@ def parse_alpaca_credentials(auth: dict[str, Any]) -> dict[str, Any]:
         left, right = combined.split(":", 1)
         key_id = key_id or left.strip()
         secret = secret or right.strip()
-    paper_raw = auth.get("paper")
-    if paper_raw is None:
-        paper_raw = auth.get("ALPACA_PAPER_TRADE", True)
-    if isinstance(paper_raw, str):
-        paper = paper_raw.strip().lower() not in ("0", "false", "no", "live")
-    else:
-        paper = bool(paper_raw)
-    return {"api_key_id": key_id, "api_secret_key": secret, "paper": paper}
+    if key_id and secret:
+        return {
+            "mode": "api_key",
+            "paper": paper,
+            "access_token": "",
+            "api_key_id": key_id,
+            "api_secret_key": secret,
+        }
+    # Token without explicit mode (e.g. raw OAuth credential blob).
+    if token:
+        return {
+            "mode": "oauth",
+            "paper": paper,
+            "access_token": token,
+            "api_key_id": "",
+            "api_secret_key": "",
+        }
+    return {
+        "mode": "api_key",
+        "paper": paper,
+        "access_token": "",
+        "api_key_id": key_id,
+        "api_secret_key": secret,
+    }
+
+
+def parse_alpaca_credentials(auth: dict[str, Any]) -> dict[str, Any]:
+    """Backward-compatible key-pair view of :func:`parse_alpaca_auth`."""
+    session = parse_alpaca_auth(auth)
+    return {
+        "api_key_id": session["api_key_id"],
+        "api_secret_key": session["api_secret_key"],
+        "paper": session["paper"],
+        "mode": session["mode"],
+        "access_token": session["access_token"],
+    }
 
 
 def has_alpaca_credentials(auth: dict[str, Any]) -> bool:
-    creds = parse_alpaca_credentials(auth)
-    return bool(creds["api_key_id"] and creds["api_secret_key"])
+    session = parse_alpaca_auth(auth)
+    if session["mode"] == "oauth":
+        return bool(session["access_token"])
+    return bool(session["api_key_id"] and session["api_secret_key"])
 
 
-def _trading_base(creds: dict[str, Any], auth: dict[str, Any]) -> str:
+def auth_payload_from_oauth_tokens(
+    tokens: dict[str, Any], *, paper: bool = True
+) -> dict[str, Any]:
+    """Build McpServer ``auth_json`` from an Alpaca Connect token response."""
+    access = str(tokens.get("access_token") or "").strip()
+    payload: dict[str, Any] = {
+        "auth_mode": "oauth",
+        "auth_type": "oauth2",
+        "access_token": access,
+        "token_type": str(tokens.get("token_type") or "Bearer"),
+        "scope": str(tokens.get("scope") or ""),
+        "paper": paper,
+    }
+    if tokens.get("refresh_token"):
+        payload["refresh_token"] = tokens["refresh_token"]
+    return payload
+
+
+def _trading_base(session: dict[str, Any], auth: dict[str, Any]) -> str:
     override = str(auth.get("base_url") or "").strip().rstrip("/")
     if override:
         return override
-    return ALPACA_PAPER_BASE if creds["paper"] else ALPACA_LIVE_BASE
+    return ALPACA_PAPER_BASE if session["paper"] else ALPACA_LIVE_BASE
 
 
 def _data_base(auth: dict[str, Any]) -> str:
     return str(auth.get("data_base_url") or ALPACA_DATA_BASE).rstrip("/")
 
 
-def _headers(creds: dict[str, Any]) -> dict[str, str]:
-    return {
-        "APCA-API-KEY-ID": creds["api_key_id"],
-        "APCA-API-SECRET-KEY": creds["api_secret_key"],
-        "Accept": "application/json",
-    }
+def _headers(session: dict[str, Any]) -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    if session["mode"] == "oauth":
+        headers["Authorization"] = f"Bearer {session['access_token']}"
+        return headers
+    headers["APCA-API-KEY-ID"] = session["api_key_id"]
+    headers["APCA-API-SECRET-KEY"] = session["api_secret_key"]
+    return headers
 
 
 async def validate_credentials(auth: dict[str, Any]) -> dict[str, Any]:
-    """Health-check stored keys via GET /v2/account."""
+    """Health-check stored keys or OAuth token via GET /v2/account."""
     if not has_alpaca_credentials(auth):
         return {"ok": True, "note": "credentials_pending"}
-    creds = parse_alpaca_credentials(auth)
-    base = _trading_base(creds, auth)
+    session = parse_alpaca_auth(auth)
+    base = _trading_base(session, auth)
     try:
         async with _http_client() as client:
-            response = await client.get(f"{base}/v2/account", headers=_headers(creds))
+            response = await client.get(f"{base}/v2/account", headers=_headers(session))
             response.raise_for_status()
             body = response.json()
     except Exception as exc:
         return {"ok": False, "error": f"Alpaca authentication failed: {exc}"}
-    identity = str(body.get("account_number") or body.get("id") or creds["api_key_id"])
-    return {"ok": True, "identity": identity, "paper": creds["paper"]}
+    identity = str(
+        body.get("account_number")
+        or body.get("id")
+        or (session["api_key_id"] if session["mode"] == "api_key" else "oauth")
+    )
+    return {
+        "ok": True,
+        "identity": identity,
+        "paper": session["paper"],
+        "auth_mode": session["mode"],
+    }
 
 
 def _s(args: dict[str, Any], *keys: str, default: str = "") -> str:
@@ -210,10 +313,10 @@ async def call_alpaca_tool(
     if not has_alpaca_credentials(auth):
         return {"error": MISSING_CREDENTIALS_ERROR}
 
-    creds = parse_alpaca_credentials(auth)
-    trading = _trading_base(creds, auth)
+    session = parse_alpaca_auth(auth)
+    trading = _trading_base(session, auth)
     data = _data_base(auth)
-    headers = _headers(creds)
+    headers = _headers(session)
 
     if tool_name == "get_account_info":
         return await _request("GET", f"{trading}/v2/account", headers=headers)

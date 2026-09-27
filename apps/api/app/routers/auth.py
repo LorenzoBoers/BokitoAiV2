@@ -906,6 +906,12 @@ async def _build_memberships(session: AsyncSession, user: User) -> list[dict]:
     """Tenant memberships for the dashboard AuthContext (staff sees all tenants)."""
     memberships: list[dict] = []
     if user.is_staff:
+        real_roles = {
+            row.tenant_id: canonical_workspace_role(row.role)
+            for row in (
+                await session.execute(select(Membership).where(Membership.user_id == user.id))
+            ).scalars().all()
+        }
         result = await session.execute(select(Tenant).order_by(Tenant.name))
         for tenant in result.scalars().all():
             if not allows_platform_support(tenant):
@@ -915,7 +921,8 @@ async def _build_memberships(session: AsyncSession, user: User) -> list[dict]:
                     "tenant_id": str(tenant.id),
                     "tenant_slug": tenant.slug,
                     "tenant_name": tenant.name,
-                    "role": "admin",
+                    # Real owner membership beats the staff-as-admin default.
+                    "role": real_roles.get(tenant.id, "admin"),
                     "status": "active",
                 }
             )

@@ -80,18 +80,22 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(ordered.map((item) => item.id)).toEqual(['customer-1', 'internal-1'])
   })
 
-  it('hides internal agent work from the Open queue', () => {
+  it('hides agent-run work from Open but keeps assistant chats', () => {
     const open = customersOnly([
       thread({ id: 'internal-1', channel: 'internal', folder: 'internal' }),
+      thread({ id: 'assistant-1', channel: 'assistant', folder: 'assistant' }),
       thread({ id: 'customer-1', channel: 'email', folder: 'customer' }),
     ])
-    expect(open.map((item) => item.id)).toEqual(['customer-1'])
+    expect(open.map((item) => item.id)).toEqual(['assistant-1', 'customer-1'])
   })
 
-  it('opens customer threads in Open and agent work in Agent-runs', () => {
+  it('opens customer threads in Open, assistant chats on the agent leaf, runs under Agent-runs', () => {
     expect(threadHubPath(thread({ id: 'c1', channel: 'email', folder: 'customer' }))).toBe(
       '/communication/inbox/open/t/c1',
     )
+    expect(
+      threadHubPath(thread({ id: 'a1', channel: 'assistant', folder: 'assistant', agentId: 'agent-9' })),
+    ).toBe('/communication/agent/agent-9/open/t/a1')
     expect(threadHubPath(thread({ id: 'i1', channel: 'internal', folder: 'internal' }))).toBe(
       '/communication/runs/all/t/i1',
     )

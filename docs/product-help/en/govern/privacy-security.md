@@ -29,4 +29,4 @@ Owners and admins manage retention and data subject requests under **Settings**,
 1. Under **Data subject requests**, enter the **Data subject email**.
 2. Choose **Export personal data** to download a JSON package for that address in this workspace.
 3. Or choose **Erase personal data** and confirm the scrub of contacts, message bodies, and matching calendar attendees. This cannot be undone.
-4. Full workspace wipe remains under workspace delete. Account delete is separate from subject erase.
+4. Full workspace wipe: owners use **Settings → General → Delete workspace**. Platform support can also delete a tenant from **Ops** (type the slug to confirm). Account delete is separate from subject erase.

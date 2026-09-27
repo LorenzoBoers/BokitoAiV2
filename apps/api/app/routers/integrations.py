@@ -903,6 +903,16 @@ async def platform_oauth_start(
                 "integration_error": "oauth_not_configured",
             },
         )
+    elif provider == "alpaca_mcp":
+        # Alpaca Connect needs ALPACA_OAUTH_CLIENT_* after app approval. Until
+        # then operators use Trading API key paste (api_key install).
+        authorize_url = mock_authorize_url(
+            return_url,
+            {
+                "provider": "alpaca_mcp",
+                "integration_error": "oauth_not_configured",
+            },
+        )
     elif provider in ("google_calendar", "outlook_calendar"):
         from app.services.calendar_sync import sync_connection
 

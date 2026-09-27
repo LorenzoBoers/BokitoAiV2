@@ -258,6 +258,41 @@ async def _store_integration_credentials(
             meta["verify_error"] = str(
                 check.get("error") or check.get("note") or "Moneybird verification failed"
             )
+    if provider == oauth_providers.ALPACA:
+        from datetime import datetime, timezone
+
+        from app.services.alpaca import (
+            auth_payload_from_oauth_tokens,
+            validate_credentials,
+        )
+        from app.services.integrations_platform import install_mcp
+
+        # Default paper until the operator flips the connection; Connect tokens
+        # work on both hosts (see Alpaca OAuth docs).
+        paper = True
+        mcp_auth = auth_payload_from_oauth_tokens(tokens, paper=paper)
+        check = await validate_credentials(mcp_auth)
+        if check.get("ok") and not check.get("note"):
+            meta["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+            meta["identity"] = str(check.get("identity") or identity.get("login") or "")
+            meta["auth_mode"] = "oauth"
+            meta["paper"] = paper
+            try:
+                await install_mcp(
+                    session,
+                    tenant_id,
+                    provider="alpaca_mcp",
+                    api_key="",
+                    auth=mcp_auth,
+                    auth_type="oauth2",
+                )
+            except Exception:
+                logger.exception("Alpaca Connect MCP install failed after OAuth")
+                meta["verify_error"] = "oauth_ok_mcp_install_failed"
+        else:
+            meta["verify_error"] = str(
+                check.get("error") or check.get("note") or "Alpaca verification failed"
+            )
     conn.metadata_json = json.dumps(meta)
     conn.status = "active"
     session.add(conn)

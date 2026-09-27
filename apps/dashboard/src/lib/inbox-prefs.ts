@@ -53,7 +53,8 @@ export function writeQuickFilter(value: InboxListQuickFilter): void {
 }
 
 export function readInboxDensity(): InboxDensity {
-  return readStorage(DENSITY_KEY) === 'compact' ? 'compact' : 'comfortable'
+  // Default compact — denser Communication list; opt into comfortable.
+  return readStorage(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact'
 }
 
 export function writeInboxDensity(value: InboxDensity): void {

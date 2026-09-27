@@ -1,6 +1,6 @@
 import type { InboxThread } from './inbox-api'
 import { humanizeContactName } from './contact-label'
-import { agentRunsPath, inboxPath } from './messages-paths'
+import { agentChatPath, agentRunsPath, inboxPath } from './messages-paths'
 
 /** Outbound surface aligned with how Intercom picks reply channel per conversation. */
 export type ComposerChannel = 'email' | 'chat' | 'slack' | 'whatsapp' | 'internal' | 'assistant'
@@ -23,11 +23,20 @@ export type ComposerSurface = {
   recipientValue: string
 }
 
-const INTERNAL_CHANNELS = new Set(['internal', 'assistant'])
-
-export function isInternalThread(thread: Pick<InboxThread, 'channel' | 'folder'>): boolean {
+/** Background agent-run / ops threads (Agent-runs leaf). */
+export function isAgentRunThread(thread: Pick<InboxThread, 'channel' | 'folder'>): boolean {
   const channel = thread.channel ?? 'email'
-  return thread.folder === 'internal' || INTERNAL_CHANNELS.has(channel)
+  return thread.folder === 'internal' || channel === 'internal'
+}
+
+/** Direct operator ↔ agent chats (channel=assistant). */
+export function isAssistantChatThread(thread: Pick<InboxThread, 'channel' | 'folder'>): boolean {
+  return (thread.channel ?? '') === 'assistant'
+}
+
+/** True for assistant chats and agent-run threads (not customer channels). */
+export function isInternalThread(thread: Pick<InboxThread, 'channel' | 'folder'>): boolean {
+  return isAgentRunThread(thread) || isAssistantChatThread(thread)
 }
 
 /** Prefer a customer conversation when auto-opening the inbox. */
@@ -39,20 +48,23 @@ export function pickPreferredInboxThread<
   return pool.find((thread) => thread.hasUnread) ?? pool[0] ?? null
 }
 
-/** Keep All looking like a customer inbox: agent work stays visible, but below. */
+/**
+ * Alle communicatie ordering: customer + assistant chats first (by list order),
+ * agent-run threads last when a mixed list appears.
+ */
 export function customersFirst<T extends Pick<InboxThread, 'channel' | 'folder'>>(threads: T[]): T[] {
-  const customers: T[] = []
-  const internal: T[] = []
+  const conversations: T[] = []
+  const runs: T[] = []
   for (const thread of threads) {
-    if (isInternalThread(thread)) internal.push(thread)
-    else customers.push(thread)
+    if (isAgentRunThread(thread)) runs.push(thread)
+    else conversations.push(thread)
   }
-  return [...customers, ...internal]
+  return [...conversations, ...runs]
 }
 
-/** Open is customer work; agent runs live under Agent-runs. */
+/** Open queue: conversations (customer + assistant); agent runs stay under Agent-runs. */
 export function customersOnly<T extends Pick<InboxThread, 'channel' | 'folder'>>(threads: T[]): T[] {
-  return threads.filter((thread) => !isInternalThread(thread))
+  return threads.filter((thread) => !isAgentRunThread(thread))
 }
 
 /** Open work where the last real line is inbound, or the row is unread. */
@@ -65,10 +77,19 @@ export function threadNeedsReply(
 }
 
 /** Deep-link a thread to the hub leaf a first-time user expects. */
-export function threadHubPath(thread: Pick<InboxThread, 'id' | 'channel' | 'folder'>): string {
-  return isInternalThread(thread)
-    ? agentRunsPath('all', String(thread.id))
-    : inboxPath('open', String(thread.id))
+export function threadHubPath(
+  thread: Pick<InboxThread, 'id' | 'channel' | 'folder' | 'agentId'>,
+): string {
+  if (isAssistantChatThread(thread)) {
+    if (thread.agentId) {
+      return agentChatPath(thread.agentId, { queue: 'open', threadId: String(thread.id) })
+    }
+    return inboxPath('open', String(thread.id))
+  }
+  if (isAgentRunThread(thread)) {
+    return agentRunsPath('all', String(thread.id))
+  }
+  return inboxPath('open', String(thread.id))
 }
 
 /** Primary label for thread list rows and headers. */

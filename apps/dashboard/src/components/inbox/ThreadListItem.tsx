@@ -1,9 +1,11 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, Bot, Trash2 } from 'lucide-react'
+import { Archive, ArrowLeft, ArrowRight, Bot, Trash2 } from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
 import { AI_PILL_CLASS } from '../ai/AiMark'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { PersonAvatar } from '../ui/PersonAvatar'
+import { THREAD_ROW_AI_CLASS, THREAD_ROW_SELECTED_CLASS } from '../../lib/chat-chrome'
 import { cn } from '../../lib/utils'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
@@ -21,6 +23,9 @@ type Props = {
   onMarkUnread: (id: ThreadId) => void
   onTogglePin: (id: ThreadId, currentPinned: boolean) => void
   onSnooze?: (id: ThreadId) => void
+  /** Close/archive an open thread (shown outside Closed/Spam). */
+  onClose?: (id: ThreadId) => void
+  /** Permanently delete — only used for Closed/Spam rows. */
   onDelete: (id: ThreadId) => void
   deleting?: boolean
   variant?: 'customer' | 'direct'
@@ -32,6 +37,8 @@ type Props = {
   /** Display name of the assigned member (resolved by the parent list). */
   assigneeName?: string | null
   compact?: boolean
+  /** Stagger index for list-row enter animation (cap in parent). */
+  enterIndex?: number
 }
 
 function formatRelativeTime(
@@ -68,6 +75,7 @@ export default function ThreadListItem({
   onMarkUnread,
   onTogglePin,
   onSnooze,
+  onClose,
   onDelete,
   deleting = false,
   variant = 'customer',
@@ -76,6 +84,7 @@ export default function ThreadListItem({
   selectionActive = false,
   assigneeName = null,
   compact = false,
+  enterIndex,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
@@ -148,16 +157,18 @@ export default function ThreadListItem({
       data-active={isSelected || undefined}
       data-ai-managed={aiActive || undefined}
       className={cn(
-        'row-interactive w-full cursor-pointer text-left px-3 rounded-md group/thread',
-        compact ? 'py-1.5' : 'py-2.5',
-        isSelected
-          ? 'bg-accent/10 border border-accent/20'
-          : 'hover:bg-bg-hover/50 border border-transparent',
-        aiActive &&
-          (isSelected
-            ? 'shadow-[inset_3px_0_0_0_rgb(var(--color-ai)/0.55)]'
-            : 'border-ai/20 bg-ai/[0.04] shadow-[inset_3px_0_0_0_rgb(var(--color-ai)/0.45),0_8px_20px_-14px_rgb(var(--color-ai)/0.35)]'),
+        'row-interactive group/thread w-full cursor-pointer rounded-md border border-transparent px-3 text-left',
+        compact ? 'py-1.5' : 'py-2',
+        isSelected ? THREAD_ROW_SELECTED_CLASS : 'hover:bg-bg-hover/45',
+        aiActive && THREAD_ROW_AI_CLASS,
+        enterIndex != null && enterIndex < 12 && 'list-row-enter',
       )}
+      style={
+        enterIndex != null && enterIndex < 12
+          ? ({ '--stagger': enterIndex } as CSSProperties)
+          : undefined
+      }
+      data-channel={thread.channel ?? undefined}
     >
       <div className="flex items-start gap-2 min-w-0">
         {onToggleChecked ? (
@@ -218,12 +229,32 @@ export default function ThreadListItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1 mb-0.5">
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className={cn('text-sm font-medium truncate', thread.hasUnread ? 'text-text-heading' : 'text-text-primary')}>
+              <span
+                className={cn(
+                  'truncate text-[13px] font-medium',
+                  thread.hasUnread ? 'text-text-heading' : 'text-text-primary',
+                )}
+              >
                 {primaryLabel}
               </span>
+              {isDirect ? (
+                <span className="shrink-0 rounded-full border border-ai/25 bg-ai/[0.06] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-ai-ink">
+                  {t('listItem.assistant')}
+                </span>
+              ) : null}
               {isAgentThread && !isDirect ? (
                 <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated/70 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-text-muted">
                   {t('listItem.internal')}
+                </span>
+              ) : null}
+              {!isAgentThread && thread.hasOpenDecision ? (
+                <span
+                  className={cn(
+                    'shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide',
+                    AI_PILL_CLASS,
+                  )}
+                >
+                  {t('listItem.needsDecision')}
                 </span>
               ) : null}
               {thread.status === 'pending' ? (
@@ -233,37 +264,59 @@ export default function ThreadListItem({
               ) : null}
             </span>
             <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(thread.id)
-                }}
-                onKeyDown={(e) => e.stopPropagation()}
-                title={t('threadList.deleteThread')}
-                aria-label={t('threadList.deleteThread')}
-                className={cn(
-                  'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
-                  'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
-                  'hover:bg-status-error/10 hover:text-status-error transition-opacity',
-                  'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
-                )}
-              >
-                <Trash2 size={13} />
-              </button>
+              {thread.status === 'closed' || thread.status === 'spam' ? (
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(thread.id)
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  title={t('threadList.deleteThread')}
+                  aria-label={t('threadList.deleteThread')}
+                  className={cn(
+                    'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
+                    'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
+                    'hover:bg-status-error/10 hover:text-status-error transition-opacity',
+                    'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+                  )}
+                >
+                  <Trash2 size={13} />
+                </button>
+              ) : onClose ? (
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClose(thread.id)
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  title={t('threadList.closeThread')}
+                  aria-label={t('threadList.closeThread')}
+                  className={cn(
+                    'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
+                    'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
+                    'hover:bg-bg-hover hover:text-text-heading transition-opacity',
+                    'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+                  )}
+                >
+                  <Archive size={13} />
+                </button>
+              ) : null}
               {!isDirect && !isAgentThread ? (
                 <span
                   title={t(`composer.channel.${thread.channel ?? 'email'}`, {
                     defaultValue: thread.channel ?? '',
                   })}
-                  className="inline-flex"
+                  className="inline-flex items-center gap-0.5 rounded border border-border/40 bg-bg-elevated/50 px-1 py-px text-text-muted"
                 >
-                  <ChannelGlyph channel={thread.channel ?? 'email'} size={11} className="text-text-muted/80" />
+                  <ChannelGlyph channel={thread.channel ?? 'email'} size={10} className="text-text-muted" />
                 </span>
               ) : null}
               <span
-                className="text-xs text-text-muted"
+                className="text-[11px] tabular-nums text-text-muted"
                 title={
                   thread.lastMessageAt
                     ? formatAppDateTime(new Date(thread.lastMessageAt), i18n.language)
@@ -276,19 +329,6 @@ export default function ThreadListItem({
               </span>
             </div>
           </div>
-
-          {!isDirect && !isAgentThread && thread.hasOpenDecision ? (
-            <div className="mb-1 flex flex-wrap items-center gap-1">
-              <span
-                className={cn(
-                  'shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide',
-                  AI_PILL_CLASS,
-                )}
-              >
-                {t('listItem.needsDecision')}
-              </span>
-            </div>
-          ) : null}
 
           <div className="flex items-center gap-1.5">
             {priorityDot && !isDirect ? (

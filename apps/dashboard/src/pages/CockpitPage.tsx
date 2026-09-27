@@ -25,6 +25,7 @@ import CockpitTabs from '../components/shell/CockpitTabs'
 import { OnboardingCompactCard, useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import { CockpitPanelsSkeleton, CockpitSnapshotSkeleton } from '../components/ui/skeleton'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
 import {
@@ -488,6 +489,9 @@ function LegacyCockpitPage() {
       ) : null}
 
       {/* Snapshot */}
+      {loading && !summary ? (
+        <CockpitSnapshotSkeleton />
+      ) : (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard
           index={0}
@@ -589,9 +593,12 @@ function LegacyCockpitPage() {
           to="/cockpit/usage"
         />
       </div>
+      )}
+
+      {loading && !summary ? <CockpitPanelsSkeleton className="mt-5" /> : null}
 
       {/* Attention + event log */}
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className={loading && !summary ? 'hidden' : 'mt-5 grid gap-4 lg:grid-cols-2'}>
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>

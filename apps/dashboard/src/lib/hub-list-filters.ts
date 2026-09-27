@@ -98,7 +98,8 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
     }
     case 'agent':
       // The `activity` sub-view is the agent's work log: internal run threads
-      // scoped to this agent. Chat sub-queues are handled by DirectCommunication.
+      // scoped to this agent. Chat sub-queues use the same Communication shell
+      // as Alle communicatie (close / assign / snooze).
       if (leaf.queue === 'activity') {
         return {
           filters: { folder: 'internal', view: 'internal', agentId: leaf.agentId },
@@ -106,7 +107,15 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
           variant: 'customer',
         }
       }
-      return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
+      return {
+        filters: {
+          folder: 'assistant',
+          view: leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all_open',
+          agentId: leaf.agentId,
+        },
+        mode: 'customer',
+        variant: 'direct',
+      }
     default:
       return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
   }

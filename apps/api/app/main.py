@@ -37,6 +37,7 @@ from app.routers import (
     partner_mcp,
     me,
     models,
+    staff_integration_catalog,
     staff_ops,
     notifications,
     privacy,
@@ -268,6 +269,7 @@ app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
 app.include_router(models.router, prefix=api_prefix)
 app.include_router(models.staff_router, prefix=api_prefix)
+app.include_router(staff_integration_catalog.router, prefix=api_prefix)
 app.include_router(staff_ops.router, prefix=api_prefix)
 app.include_router(webhooks.router, prefix=api_prefix)
 app.include_router(public_api.router, prefix=api_prefix)

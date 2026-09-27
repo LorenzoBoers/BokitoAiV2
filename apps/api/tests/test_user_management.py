@@ -139,6 +139,62 @@ async def test_role_guards(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_admin_cannot_change_owner(client: AsyncClient, session_override):
+    """Workspace admins cannot demote or remove the owner."""
+    from uuid import UUID
+
+    from app.models.auth import Membership, User
+    from app.services.auth import hash_password
+
+    headers = await _owner_headers(client)
+    ws = await _workspace_id(client, headers)
+
+    r = await client.get("/api/app/workspaces", headers=headers)
+    tenant_id = r.json()[0]["id"]
+
+    admin = User(
+        email="workspace-admin@example.com",
+        password_hash=hash_password("adminpass123"),
+        display_name="Workspace Admin",
+        email_verified=True,
+    )
+    session_override.add(admin)
+    await session_override.commit()
+    await session_override.refresh(admin)
+    session_override.add(
+        Membership(tenant_id=UUID(str(tenant_id)), user_id=admin.id, role="admin")
+    )
+    await session_override.commit()
+
+    admin_token = await _login(client, "workspace-admin@example.com", "adminpass123")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    r = await client.get(f"/api/app/workspaces/{ws}/members", headers=headers)
+    owner = next(m for m in r.json() if m["email"] == TEST_EMAIL)
+
+    r = await client.patch(
+        f"/api/app/workspaces/{ws}/members/{owner['uuid']}",
+        headers=admin_headers,
+        json={"role": "member"},
+    )
+    assert r.status_code == 403, r.text
+
+    r = await client.delete(
+        f"/api/app/workspaces/{ws}/members/{owner['uuid']}",
+        headers=admin_headers,
+    )
+    assert r.status_code == 403, r.text
+
+    # Admin can still invite non-owners.
+    r = await client.post(
+        "/api/app/workspace-invites",
+        headers=admin_headers,
+        json={"workspace_id": ws, "email": "peer@example.com", "role": "member"},
+    )
+    assert r.status_code == 200, r.text
+
+
+@pytest.mark.asyncio
 async def test_invite_revoke(client: AsyncClient):
     headers = await _owner_headers(client)
     ws = await _workspace_id(client, headers)

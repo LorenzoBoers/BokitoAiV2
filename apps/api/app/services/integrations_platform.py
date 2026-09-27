@@ -113,17 +113,20 @@ async def connection_counts(session: AsyncSession, tenant_id: UUID) -> dict[str,
 
 async def list_providers(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
     from app.modules.catalog import serialize_modules_for_tenant
+    from app.services.integration_catalog_store import ensure_catalog_fresh
+    from app.services.integrations_catalog import PROVIDERS as LIVE_PROVIDERS
 
+    await ensure_catalog_fresh(session)
     counts = await connection_counts(session, tenant_id)
     hosts = []
     seen_hosts: set[str] = set()
-    for p in PROVIDERS:
+    for p in LIVE_PROVIDERS:
         host = p.get("host")
         if host and host["id"] not in seen_hosts:
             hosts.append(host)
             seen_hosts.add(host["id"])
     return {
-        "providers": sorted(PROVIDERS, key=lambda p: p.get("sort_order", 0)),
+        "providers": sorted(LIVE_PROVIDERS, key=lambda p: p.get("sort_order", 0)),
         "hosts": hosts,
         "connection_counts": counts,
         "modules": await serialize_modules_for_tenant(session, tenant_id),
@@ -411,14 +414,17 @@ async def _require_native_mcp_credentials(
     if provider == "alpaca_mcp":
         from app.services.alpaca import (
             has_alpaca_credentials,
-            parse_alpaca_credentials,
+            parse_alpaca_auth,
             validate_credentials,
         )
 
         if not has_alpaca_credentials(auth_payload):
             raise HTTPException(
                 status_code=400,
-                detail="Alpaca requires api_key_id and api_secret_key (Trading API keys).",
+                detail=(
+                    "Alpaca requires Trading API api_key_id + api_secret_key, "
+                    "or an Alpaca Connect access_token."
+                ),
             )
         check = await validate_credentials(auth_payload)
         if not check.get("ok") or check.get("note"):
@@ -426,12 +432,21 @@ async def _require_native_mcp_credentials(
                 status_code=400,
                 detail=str(check.get("error") or check.get("note") or "Alpaca verification failed"),
             )
-        creds = parse_alpaca_credentials(auth_payload)
-        identity = str(check.get("identity") or creds["api_key_id"])
+        session_auth = parse_alpaca_auth(auth_payload)
+        identity = str(
+            check.get("identity")
+            or session_auth.get("api_key_id")
+            or "oauth"
+        )
         stamped = _stamp_verify_meta(auth_payload, ok=True, identity=identity)
-        stamped["paper"] = creds["paper"]
-        stamped["api_key_id"] = creds["api_key_id"]
-        stamped["api_secret_key"] = creds["api_secret_key"]
+        stamped["paper"] = session_auth["paper"]
+        stamped["auth_mode"] = session_auth["mode"]
+        if session_auth["mode"] == "oauth":
+            stamped["access_token"] = session_auth["access_token"]
+            stamped["auth_type"] = "oauth2"
+        else:
+            stamped["api_key_id"] = session_auth["api_key_id"]
+            stamped["api_secret_key"] = session_auth["api_secret_key"]
         return stamped
 
     return auth_payload
@@ -451,6 +466,10 @@ async def install_mcp(
     use_mock: bool = False,
     module_slug: str | None = None,
 ) -> dict[str, Any]:
+    from app.services.integration_catalog_store import ensure_catalog_fresh
+
+    if provider not in PROVIDER_BY_SLUG:
+        await ensure_catalog_fresh(session)
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
     if PROVIDER_BY_SLUG[provider].get("status") == "coming_soon":

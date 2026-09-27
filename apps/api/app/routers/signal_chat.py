@@ -412,16 +412,46 @@ async def stream_message(
 
         return EventSourceResponse(paused_generator())
 
-    agent, run = await _agent_run(session, auth, signal, body.content)
-    history = await signal_chat_history(session, conversation_id)
-    loop = AgentLoop(
-        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
-        enable_chat_thinking=True,
-        tool_signal_id=signal.context_signal_id,
-        user_role=auth.role,
-    )
-    llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
     from app.services.agent.run_cancel import clear_cancel
+
+    agent = None
+    run = None
+    try:
+        agent, run = await _agent_run(session, auth, signal, body.content)
+        history = await signal_chat_history(session, conversation_id)
+        loop = AgentLoop(
+            session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
+            enable_chat_thinking=True,
+            tool_signal_id=signal.context_signal_id,
+            user_role=auth.role,
+        )
+        llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
+    except Exception as exc:
+        # Setup failures (e.g. history compaction LLM billing) must not leave a
+        # bare 500 + stuck AgentRun; surface a done event the client can show.
+        logger.exception("assistant stream setup failed for signal %s", signal.id)
+        llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
+        error_text = _agent_error_message(exc, llm_meta)
+        await _finalize_run(session, run, status="failed")
+        await append_signal_chat_message(
+            session,
+            signal,
+            role="assistant",
+            content=error_text,
+            author_agent_id=agent.id if agent else None,
+            metadata={"error": True, **llm_meta},
+        )
+        await session.commit()
+        if run:
+            clear_cancel(run.id)
+
+        async def setup_failed_generator():
+            yield {
+                "event": "done",
+                "data": json.dumps({"text": error_text, "error": True, **llm_meta}),
+            }
+
+        return EventSourceResponse(setup_failed_generator())
 
     async def event_generator():
         full_text = ""

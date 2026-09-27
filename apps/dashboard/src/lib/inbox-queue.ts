@@ -1,5 +1,5 @@
 import type { InboxThread } from './inbox-api'
-import { isInternalThread } from './message-composer'
+import { isAgentRunThread } from './message-composer'
 import type { InboxQueue } from './messages-paths'
 
 export function threadFitsInboxQueue(
@@ -14,7 +14,8 @@ export function threadFitsInboxQueue(
     case 'mine':
       return thread.status === 'open' && thread.assignedToUserId === userId
     case 'open':
-      return thread.status === 'open' && !isInternalThread(thread)
+      // Customer + assistant chats; agent-run threads live under Agent-runs.
+      return thread.status === 'open' && !isAgentRunThread(thread)
     case 'unassigned':
       return thread.status === 'open' && thread.assignedToUserId == null
     case 'snoozed':

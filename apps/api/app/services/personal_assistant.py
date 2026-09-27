@@ -84,6 +84,7 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "list_project_docs",
     "list_project_resources",
     "list_queue_items",
+    "get_project_canvas",
     "get_tenant_overview",
     "list_recent_activity",
     "get_usage_summary",
@@ -113,6 +114,7 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "update_queue_item_status",
     "link_queue_item_to_doc",
     "propose_project_resource",
+    "update_project_canvas",
     # Hand work to the tenant's agents.
     "delegate_to_agent",
     "create_task",

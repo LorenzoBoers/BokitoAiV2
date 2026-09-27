@@ -97,7 +97,7 @@ export default function ThreadListQuickFilters({
   counts,
   onCompose,
   countsArePartial = false,
-  density = 'comfortable',
+  density = 'compact',
   onToggleDensity,
   onSelectAll,
   onMarkAllRead,

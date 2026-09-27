@@ -77,7 +77,7 @@ def _provider(
     auth_type: str,
     *,
     host_slug: str,
-    capabilities: dict[str, bool] | None = None,
+    capabilities: dict[str, Any] | None = None,
     status: str = "available",
     sort_order: int = 0,
     mcp_remote_url: str | None = None,
@@ -186,9 +186,15 @@ _CORE_PROVIDERS: list[dict[str, Any]] = [
         "Alpaca",
         "Paper and live stock, ETF, crypto, and options trading via the Alpaca Trading API.",
         "Investeren",
+        # Primary self-serve path is Trading API keys. Alpaca Connect (oauth2)
+        # is implemented end-to-end; enable in UI when ALPACA_OAUTH_CLIENT_* are set.
         "api_key",
         host_slug="alpaca",
-        capabilities={"mcp_tools": True},
+        capabilities={
+            "mcp_tools": True,
+            "auth_modes": ["api_key", "oauth2"],
+            "alpaca_connect": True,
+        },
         sort_order=11,
         mcp_remote_url=None,
         mcp_transport="streamable_http",
@@ -276,44 +282,104 @@ _CORE_PROVIDERS: list[dict[str, Any]] = [
 ]
 
 
-def _remote_mcp_providers() -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for index, row in enumerate(catalog_providers()):
-        slug = str(row["slug"])
-        url = str(row.get("mcp_remote_url") or "").strip() or None
-        auth = str(row.get("auth_type") or "mcp_remote_oauth")
-        caps = {"mcp_tools": True}
-        module = row.get("module")
-        if module == "accounting":
-            caps["accounting"] = True
-        if module == "banking":
-            caps["banking"] = True
-        status = str(row.get("status") or "coming_soon")
-        if auth == "mcp_remote_oauth" and not url:
-            status = "coming_soon"
-        rows.append(
-            _provider(
-                slug,
-                str(row.get("name") or slug),
-                str(row.get("description") or ""),
-                str(row.get("category_nl") or row.get("category") or "Productiviteit"),
-                auth,
-                host_slug=str(row.get("host_slug") or "custom"),
-                capabilities=caps,
-                status=status,
-                sort_order=20 + index,
-                mcp_remote_url=url,
-                mcp_transport=str(row.get("mcp_transport") or "streamable_http") if url else None,
-                module=str(module) if module else None,
-            )
-        )
-    return rows
+CORE_PROVIDER_SLUGS: set[str] = {str(p["slug"]) for p in _CORE_PROVIDERS}
 
 
-PROVIDERS: list[dict[str, Any]] = [*_CORE_PROVIDERS, *_remote_mcp_providers()]
+def remote_row_to_provider(
+    row: dict[str, Any],
+    *,
+    host: Any | None = None,
+    index: int = 0,
+) -> dict[str, Any]:
+    """Build a marketplace provider dict from a DB (or seed) remote row."""
+    slug = str(row.get("slug") or "")
+    url = str(row.get("mcp_remote_url") or "").strip() or None
+    auth = str(row.get("auth_type") or "mcp_remote_oauth")
+    caps: dict[str, bool] = {"mcp_tools": True}
+    module = row.get("module")
+    if module == "accounting":
+        caps["accounting"] = True
+    if module == "banking":
+        caps["banking"] = True
+    status = str(row.get("status") or "coming_soon")
+    if auth == "mcp_remote_oauth" and not url:
+        status = "coming_soon"
+    host_slug = str(row.get("host_slug") or "custom")
+    if host is not None:
+        # Ensure HOST_BY_SLUG knows this host for logo_meta.
+        slug_key = getattr(host, "slug", None) or host_slug
+        if slug_key not in HOST_BY_SLUG:
+            HOST_BY_SLUG[slug_key] = {
+                "id": host_id(slug_key),
+                "slug": slug_key,
+                "name": getattr(host, "name", None) or slug_key,
+                "brand_color": getattr(host, "brand_color", None) or "#475569",
+                "initials": getattr(host, "initials", None) or slug_key[:2].upper(),
+            }
+            HOSTS.append(HOST_BY_SLUG[slug_key])
+        host_slug = slug_key
+    sort = row.get("sort_order")
+    return _provider(
+        slug,
+        str(row.get("name") or slug),
+        str(row.get("description") or ""),
+        str(row.get("category_nl") or row.get("category") or "Productiviteit"),
+        auth,
+        host_slug=host_slug,
+        capabilities=caps,
+        status=status,
+        sort_order=int(sort) if sort is not None else 20 + index,
+        mcp_remote_url=url,
+        mcp_transport=str(row.get("mcp_transport") or "streamable_http") if url else None,
+        module=str(module) if module else None,
+    )
 
-PROVIDER_BY_SLUG = {p["slug"]: p for p in PROVIDERS}
-PROVIDER_BY_ID = {p["id"]: p for p in PROVIDERS}
+
+def _remote_mcp_providers_from_json() -> list[dict[str, Any]]:
+    """Cold-start remotes from JSON until the DB cache is loaded."""
+    return [
+        remote_row_to_provider(row, index=index)
+        for index, row in enumerate(catalog_providers())
+    ]
+
+
+def rebuild_provider_index(
+    remote_providers: list[dict[str, Any]],
+    remote_hosts: list[dict[str, Any]] | None = None,
+) -> None:
+    """Replace the remote slice of PROVIDERS / PROVIDER_BY_SLUG (cores win)."""
+    global PROVIDERS, PROVIDER_BY_SLUG, PROVIDER_BY_ID
+    if remote_hosts:
+        for h in remote_hosts:
+            slug = str(h.get("slug") or "")
+            if not slug:
+                continue
+            meta = {
+                "id": host_id(slug),
+                "slug": slug,
+                "name": str(h.get("name") or slug),
+                "brand_color": str(h.get("brand_color") or "#475569"),
+                "initials": str(h.get("initials") or slug[:2].upper()),
+            }
+            if slug in HOST_BY_SLUG:
+                HOST_BY_SLUG[slug].update(meta)
+            else:
+                HOST_BY_SLUG[slug] = meta
+                HOSTS.append(meta)
+    # Drop remotes that collide with core slugs.
+    remotes = [p for p in remote_providers if p.get("slug") not in CORE_PROVIDER_SLUGS]
+    PROVIDERS = [*_CORE_PROVIDERS, *remotes]
+    PROVIDER_BY_SLUG.clear()
+    PROVIDER_BY_SLUG.update({p["slug"]: p for p in PROVIDERS})
+    PROVIDER_BY_ID.clear()
+    PROVIDER_BY_ID.update({p["id"]: p for p in PROVIDERS})
+
+
+# Mutable catalogs — refreshed from DB via integration_catalog_store.
+PROVIDERS: list[dict[str, Any]] = []
+PROVIDER_BY_SLUG: dict[str, Any] = {}
+PROVIDER_BY_ID: dict[str, Any] = {}
+rebuild_provider_index(_remote_mcp_providers_from_json())
 
 
 def slug_for_provider_id(pid: str) -> str | None:

@@ -29,8 +29,10 @@ Leden werken gesprekken af. Owners en admins wijzigen ook instellingen en beoord
 ## Wijzig een rol of verwijder toegang
 
 1. Wissel naar **Actief** en open het lid in de lijst.
-2. Wijzig de rol als hun werk veranderde. Iemand **Eigenaar** maken vraagt om bevestiging — die persoon krijgt facturatie en wie-er-bij-mag.
+2. Wijzig de rol als hun werk veranderde. Iemand **Eigenaar** maken vraagt om bevestiging — die persoon krijgt facturatie en wie-er-bij-mag. Alleen de huidige **Eigenaar** mag een eigenaar promoveren, degraderen of verwijderen; beheerders beheren alleen beheerders en leden.
 3. **Lid verwijderen** wanneer ze geen workspacemail of instellingen meer mogen zien.
+
+Om de hele workspace te verwijderen opent een eigenaar **Instellingen**, dan **Algemeen**, en gebruikt **Workspace verwijderen**. Platform support kan een tenant ook verwijderen via **Ops**.
 
 Leden beantwoorden gesprekken. Ze koppelen geen mailboxen, wijzigen Inbox AI niet en wijzigen autonomie niet. Zie [Govern](/docs/govern/govern) voor wie platformwijzigingen mag accepteren.
 

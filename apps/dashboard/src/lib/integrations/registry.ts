@@ -99,7 +99,10 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
     staticId: 'alpaca_mcp',
     platformSlug: 'alpaca_mcp',
     kind: 'mcp',
+    // Self-serve: Trading API keys. When ALPACA_OAUTH_CLIENT_* is set on the
+    // API, flip setupMode to 'oauth2' + oauthStrategy 'platform' (tools unchanged).
     setupMode: 'api_key',
+    oauthStrategy: 'platform',
     mcpPreset: 'alpaca_mcp',
     connectionCountSource: 'platform',
   },

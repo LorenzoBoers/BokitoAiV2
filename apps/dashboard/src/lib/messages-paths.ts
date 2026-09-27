@@ -38,7 +38,7 @@ export type SubQueue = (typeof SUB_QUEUES)[number]
  */
 export type AgentQueue = SubQueue | 'activity'
 
-/** Sub-queue → list `view` filter used by Communication and DirectCommunication. */
+/** Sub-queue → list `view` filter used by Communication (inbox, channels, agents). */
 export const SUB_QUEUE_TO_VIEW = {
   open: 'all_open',
   mine: 'mine',

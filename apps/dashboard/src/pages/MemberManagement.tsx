@@ -111,7 +111,18 @@ export default function MemberManagement() {
   const { currentWorkspace, workspaceLoading } = useWorkspace()
   const canInviteMembers = hasPermission('invite_members')
   const canManageMembers = hasPermission('invite_members')
+  // Staff support defaults to admin in memberships; real owner membership wins.
+  const membershipRole = user?.memberships?.find(
+    (m) => String(m.tenantId) === String(user.organisationId),
+  )?.role
+  const isWorkspaceOwner = membershipRole === 'owner' || (!user?.isStaff && user?.role === 'owner')
   const workspaceId = currentWorkspace?.id ?? null
+
+  const canEditMemberRow = (member: Member) =>
+    canManageMembers && !member.isCurrentUser && (member.role !== 'owner' || isWorkspaceOwner)
+
+  const roleOptionsFor = (_member: Member): MemberRole[] =>
+    isWorkspaceOwner ? MEMBER_ROLE_VALUES : INVITE_ROLE_VALUES
 
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
@@ -293,6 +304,11 @@ export default function MemberManagement() {
 
   const changeMemberRole = async (member: Member, role: MemberRole) => {
     if (!token || !workspaceId || member.role === role) return
+    if (!canEditMemberRow(member)) return
+    if ((role === 'owner' || member.role === 'owner') && !isWorkspaceOwner) {
+      setError(t('membersPage.ownerOnlyError'))
+      return
+    }
     if (role === 'owner' && !window.confirm(t('membersPage.ownerConfirm', { name: member.name }))) return
     setRowBusyId(member.id)
     setError(null)
@@ -312,6 +328,11 @@ export default function MemberManagement() {
 
   const removeMember = async (member: Member) => {
     if (!token || !workspaceId) return
+    if (!canEditMemberRow(member)) return
+    if (member.role === 'owner' && !isWorkspaceOwner) {
+      setError(t('membersPage.ownerOnlyError'))
+      return
+    }
     if (!window.confirm(t('membersPage.removeConfirm', { name: member.name }))) return
     setRowBusyId(member.id)
     setError(null)
@@ -560,7 +581,7 @@ export default function MemberManagement() {
                       </TableCell>
                       <TableCell className="text-text-secondary">{m.email || '-'}</TableCell>
                       <TableCell>
-                        {canManageMembers && !m.isCurrentUser ? (
+                        {canEditMemberRow(m) ? (
                           <Select
                             value={m.role}
                             onValueChange={(value) => void changeMemberRole(m, asRole(value))}
@@ -570,7 +591,7 @@ export default function MemberManagement() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {MEMBER_ROLE_VALUES.map((role) => (
+                              {roleOptionsFor(m).map((role) => (
                                 <SelectItem key={role} value={role}>
                                   {t(`membersPage.roles.${role}`)}
                                 </SelectItem>
@@ -587,7 +608,7 @@ export default function MemberManagement() {
                         {m.joinedAt ? toDateLabel(m.joinedAt, t('membersPage.unknown'), i18n.language) : '-'}
                       </TableCell>
                       <TableCell className="text-right">
-                        {canManageMembers && !m.isCurrentUser ? (
+                        {canEditMemberRow(m) ? (
                           <Button
                             variant="ghost"
                             size="sm"

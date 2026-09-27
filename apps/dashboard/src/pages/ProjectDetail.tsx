@@ -31,6 +31,7 @@ import type { AgentVisualFields } from '../components/ui/AgentOptionRow'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { ProjectDocs } from '../components/projects/ProjectDocs'
 import { ProjectOrchestratorSection } from '../components/projects/ProjectOrchestratorSection'
+import { ProjectCanvasBoard } from '../components/projects/ProjectCanvasBoard'
 import { ProjectQueue } from '../components/projects/ProjectQueue'
 import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
 import { ProjectResourcesSection } from '../components/projects/ProjectResourcesSection'
@@ -259,12 +260,17 @@ export default function ProjectDetail() {
             </p>
           ) : null}
 
-          <Tabs defaultValue="queue">
+          <Tabs defaultValue="canvas">
             <TabsList>
+              <TabsTrigger value="canvas">{t('projects.detail.tabCanvas')}</TabsTrigger>
               <TabsTrigger value="queue">{t('projects.detail.tabQueue')}</TabsTrigger>
               <TabsTrigger value="docs">{t('projects.detail.tabDocs')}</TabsTrigger>
               <TabsTrigger value="settings">{t('projects.detail.tabSettings')}</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="canvas">
+              <ProjectCanvasBoard projectId={project.id} canEdit={isAdmin} />
+            </TabsContent>
 
             <TabsContent value="queue">
               <ProjectQueue projectId={project.id} canEdit={isAdmin} />

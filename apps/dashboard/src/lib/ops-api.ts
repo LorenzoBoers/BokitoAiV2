@@ -1,5 +1,5 @@
 import { staffRoutes } from '../api/routes'
-import { staffGet } from './api'
+import { staffDelete, staffGet } from './api'
 
 export type StaffOpsTenant = {
   id: string
@@ -49,4 +49,14 @@ export async function getStaffOpsDirectory(
   if (q?.trim()) params.set('q', q.trim())
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return staffGet<StaffOpsDirectory>(`${staffRoutes.ops}${suffix}`, token)
+}
+
+export async function deleteStaffOpsTenant(
+  token: string,
+  tenantId: string,
+  confirmSlug: string,
+): Promise<{ ok: boolean; id: string; slug: string; name: string }> {
+  return staffDelete(staffRoutes.opsTenant(tenantId), token, {
+    confirm_slug: confirmSlug,
+  }) as Promise<{ ok: boolean; id: string; slug: string; name: string }>
 }

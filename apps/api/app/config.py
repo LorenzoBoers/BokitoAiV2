@@ -152,6 +152,12 @@ class Settings(BaseSettings):
     # dev = the connect flow creates a pending connection served by mocks.
     moneybird_oauth_client_id: str = ""
     moneybird_oauth_client_secret: str = ""
+    # Alpaca Connect OAuth app (https://app.alpaca.markets/brokerage/dashboard/apps).
+    # Empty = marketplace stays on Trading API key paste; set both after Connect
+    # approval to enable Sign in with Alpaca. Redirect URI must be
+    # ``{PUBLIC_API_URL}/api/integrations/oauth/callback``.
+    alpaca_oauth_client_id: str = ""
+    alpaca_oauth_client_secret: str = ""
 
     # WhatsApp Business Cloud API (Meta). One app-level webhook serves all
     # tenants: {public_api_url}/api/channels/whatsapp/webhook. When empty the
@@ -205,6 +211,12 @@ def validate_production_settings(settings: "Settings") -> list[str]:
         ("GITHUB", settings.github_oauth_client_id, settings.github_oauth_client_secret),
         ("GOOGLE", settings.google_oauth_client_id, settings.google_oauth_client_secret),
         ("MICROSOFT", settings.microsoft_oauth_client_id, settings.microsoft_oauth_client_secret),
+        ("ALPACA", settings.alpaca_oauth_client_id, settings.alpaca_oauth_client_secret),
+        (
+            "MONEYBIRD",
+            settings.moneybird_oauth_client_id,
+            settings.moneybird_oauth_client_secret,
+        ),
     )
     for name, client_id, client_secret in oauth_pairs:
         if bool(client_id) != bool(client_secret):

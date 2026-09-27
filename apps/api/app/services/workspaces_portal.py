@@ -274,11 +274,34 @@ async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
 
     All domain tables carry a `tenant_id` column, so we delete from each table
     that has one (children before parents) and finally the tenant itself.
+    Cross-table cycles (decision_requests ↔ platform_changes ↔ signals) are
+    broken by nulling FKs first — SQLAlchemy cannot topologically sort those.
     """
-    from sqlalchemy import delete as sa_delete
+    from sqlalchemy import delete as sa_delete, text
     from sqlmodel import SQLModel
 
     tenant_id = tenant.id
+    # Break cycles that metadata.sorted_tables cannot order (FK constraints on
+    # cyclic pairs are ignored by the sorter, so a plain tenant_id sweep fails).
+    await session.execute(
+        text(
+            "UPDATE decision_requests "
+            "SET platform_change_id = NULL, signal_id = NULL, notification_id = NULL "
+            "WHERE tenant_id = :tid"
+        ),
+        {"tid": tenant_id},
+    )
+    await session.execute(
+        text("UPDATE platform_changes SET decision_id = NULL WHERE tenant_id = :tid"),
+        {"tid": tenant_id},
+    )
+    await session.execute(
+        text(
+            "UPDATE signal_messages SET decision_id = NULL "
+            "WHERE signal_id IN (SELECT id FROM signals WHERE tenant_id = :tid)"
+        ),
+        {"tid": tenant_id},
+    )
     for table in reversed(SQLModel.metadata.sorted_tables):
         if table.name == "tenants":
             continue
@@ -349,10 +372,15 @@ async def update_member_role(
     tenant_id: UUID,
     member_id: str,
     role: str,
+    *,
+    acting_is_workspace_owner: bool = False,
 ) -> dict[str, Any]:
     if role not in ("owner", "admin", "member"):
         raise AppError("Role must be owner, admin or member.", status_code=400)
     user, membership = await _resolve_membership(session, tenant_id, member_id)
+    # Ownership changes are owner-only (admins and staff support cannot).
+    if (membership.role == "owner" or role == "owner") and not acting_is_workspace_owner:
+        raise AppError("Only a workspace owner can change ownership.", status_code=403)
     if membership.role == "owner" and role != "owner":
         await _ensure_not_last_owner(session, tenant_id, membership)
     if role == "owner" and membership.role != "owner":
@@ -383,6 +411,7 @@ async def remove_member(
     member_id: str,
     *,
     acting_user: User,
+    acting_is_workspace_owner: bool = False,
 ) -> None:
     from app.models.signal import Signal, SignalEvent
     from app.services.auth import revoke_user_sessions
@@ -390,6 +419,8 @@ async def remove_member(
     user, membership = await _resolve_membership(session, tenant_id, member_id)
     if user.id == acting_user.id:
         raise AppError("You cannot remove yourself from the workspace.", status_code=400)
+    if membership.role == "owner" and not acting_is_workspace_owner:
+        raise AppError("Only a workspace owner can remove another owner.", status_code=403)
     await _ensure_not_last_owner(session, tenant_id, membership)
     await session.delete(membership)
     if user.last_tenant_id == tenant_id:

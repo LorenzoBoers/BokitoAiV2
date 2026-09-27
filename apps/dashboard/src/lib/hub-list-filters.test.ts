@@ -43,6 +43,18 @@ describe('configForLeaf', () => {
     expect(configForLeaf(leaf).filters).toEqual({ view: 'awaiting_decision' })
     expect(configForLeaf(leaf).mode).toBe('agent')
   })
+
+  it('scopes company-agent chat leaves to assistant folder with shared actions', () => {
+    const leaf: HubLeaf = { type: 'agent', agentId: 'agent-9', queue: 'open' }
+    const cfg = configForLeaf(leaf)
+    expect(cfg.filters).toEqual({
+      folder: 'assistant',
+      view: 'all_open',
+      agentId: 'agent-9',
+    })
+    expect(cfg.mode).toBe('customer')
+    expect(cfg.variant).toBe('direct')
+  })
 })
 
 describe('mergeHubThreadFilters', () => {

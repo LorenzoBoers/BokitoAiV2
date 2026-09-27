@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -459,14 +459,19 @@ export default function ProjectsPage() {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleProjects.map((project) => (
-            <ProjectCard
+          {visibleProjects.map((project, index) => (
+            <div
               key={project.id}
-              project={project}
-              budget={budgets[project.id]}
-              canManage={isAdmin}
-              onDelete={() => setDeleteTarget(project)}
-            />
+              className="stagger-in"
+              style={{ '--stagger': Math.min(index, 11) } as CSSProperties}
+            >
+              <ProjectCard
+                project={project}
+                budget={budgets[project.id]}
+                canManage={isAdmin}
+                onDelete={() => setDeleteTarget(project)}
+              />
+            </div>
           ))}
         </div>
       )}

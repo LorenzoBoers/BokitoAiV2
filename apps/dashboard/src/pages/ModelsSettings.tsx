@@ -793,9 +793,19 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
 
   return (
     <section className="space-y-4 rounded-xl border border-accent/30 bg-accent/[0.03] p-4">
-      <div className="flex items-center gap-2">
-        <ShieldCheck size={16} className="text-accent" />
-        <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.staff.title')}</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={16} className="text-accent" />
+          <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.staff.title')}</h3>
+        </div>
+        <Link
+          to="/settings/mcp-catalog"
+          className="text-[12px] font-medium text-accent hover:underline"
+        >
+          {t('modelsPage.staff.mcpCatalogLink', {
+            defaultValue: 'MCP marketplace catalog',
+          })}
+        </Link>
       </div>
       {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
 

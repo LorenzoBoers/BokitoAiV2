@@ -16,6 +16,7 @@ from app.models.signal import (
     SignalThreadPin,
 )
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
+from app.models.integration_catalog import IntegrationCatalogHost, IntegrationCatalogProvider
 from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
 from app.models.trigger import Trigger
 from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep
@@ -31,6 +32,7 @@ from app.models.webhook import WebhookDelivery, WebhookEndpoint
 from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
 from app.models.project import Project, ProjectAgent
+from app.models.project_canvas import ProjectCanvas
 from app.models.project_work import (
     ProjectResource,
     TaskDocLink,
@@ -69,6 +71,8 @@ __all__ = [
     "IntegrationConnection",
     "IntegrationBinding",
     "McpServer",
+    "IntegrationCatalogHost",
+    "IntegrationCatalogProvider",
     "ChannelAccount",
     "ChannelBinding",
     "Company",
@@ -94,6 +98,7 @@ __all__ = [
     "WorkstreamStep",
     "Project",
     "ProjectAgent",
+    "ProjectCanvas",
     "TaskDocLink",
     "ProjectResource",
     "UsageLedger",

@@ -795,7 +795,7 @@ export default function ReplyComposer({
           }
           className={
             isAgent
-              ? 'border-ai/30 border-l-[3px] border-l-ai/50 bg-ai/[0.06]'
+              ? 'border-border/60 border-l-[3px] border-l-ai/50 bg-bg-surface'
               : isNote
                 ? 'border-border/70 border-l-[3px] border-l-border bg-bg-elevated/40'
                 : 'border-border/60 bg-bg-surface'

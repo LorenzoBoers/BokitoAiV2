@@ -246,6 +246,19 @@ class MemberRolePatchBody(BaseModel):
     role: str
 
 
+def _actor_is_workspace_owner(auth: AuthContext) -> bool:
+    """True when the actor holds an owner membership in this tenant.
+
+    Staff support without a membership (entered via Ops) is not an owner.
+    Staff who also own the workspace (e.g. local seed admin) keep ownership rights.
+    """
+    from app.models.auth import canonical_workspace_role
+
+    if auth.membership is None:
+        return False
+    return canonical_workspace_role(auth.membership.role) == "owner"
+
+
 @router.patch("/workspaces/{workspace_id}/members/{member_id}")
 async def patch_workspace_member(
     workspace_id: str,
@@ -258,10 +271,13 @@ async def patch_workspace_member(
         session, workspace_id, auth.user, is_staff=auth.is_staff
     )
     auth.require_role("owner", "admin")
-    if body.role == "owner":
-        # Only an owner can promote someone to owner.
-        auth.require_role("owner")
-    updated = await update_member_role(session, tenant.id, member_id, body.role)
+    updated = await update_member_role(
+        session,
+        tenant.id,
+        member_id,
+        body.role,
+        acting_is_workspace_owner=_actor_is_workspace_owner(auth),
+    )
     from app.services.audit import record_audit
 
     await record_audit(
@@ -288,7 +304,13 @@ async def delete_workspace_member(
         session, workspace_id, auth.user, is_staff=auth.is_staff
     )
     auth.require_role("owner", "admin")
-    await remove_member(session, tenant.id, member_id, acting_user=auth.user)
+    await remove_member(
+        session,
+        tenant.id,
+        member_id,
+        acting_user=auth.user,
+        acting_is_workspace_owner=_actor_is_workspace_owner(auth),
+    )
     from app.services.audit import record_audit
 
     await record_audit(

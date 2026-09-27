@@ -35,9 +35,9 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
-    <Card className={cn('text-center', PAD[size], className)}>
+    <Card className={cn('animate-pop-in text-center', PAD[size], className)}>
       {Icon ? (
-        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-bg-elevated text-text-muted shadow-[0_0_0_4px_rgb(var(--color-bg-hover)/0.55)]">
+        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-bg-elevated text-text-muted shadow-[0_0_0_4px_rgb(var(--color-bg-hover)/0.55)] transition-transform duration-300">
           <Icon size={18} aria-hidden />
         </div>
       ) : null}

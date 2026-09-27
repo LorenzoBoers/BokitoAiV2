@@ -34,14 +34,14 @@ function normalizeSlug(slugOrId: string): string {
 
 export function resolveIntegrationKind(
   slugOrId: string,
-  capabilities?: Record<string, boolean>,
+  capabilities?: Record<string, boolean | string[] | undefined>,
 ): IntegrationKind {
   const slug = normalizeSlug(slugOrId)
-  if (capabilities?.calendar) return 'calendar'
-  if (capabilities?.mcp_tools || capabilities?.remote_mcp) return 'mcp'
-  if (capabilities?.accounting || APP_SLUGS.has(slug)) return 'app'
-  if (capabilities?.inbox_sync) return 'inbox'
-  if (capabilities?.repo_index) return 'repository'
+  if (capabilities?.calendar === true) return 'calendar'
+  if (capabilities?.mcp_tools === true || capabilities?.remote_mcp === true) return 'mcp'
+  if (capabilities?.accounting === true || APP_SLUGS.has(slug)) return 'app'
+  if (capabilities?.inbox_sync === true) return 'inbox'
+  if (capabilities?.repo_index === true) return 'repository'
   if (CALENDAR_SLUGS.has(slug) || slug.includes('calendar')) return 'calendar'
   if (MCP_SLUGS.has(slug) || slug.includes('mcp')) return 'mcp'
   if (REPOSITORY_SLUGS.has(slug)) return 'repository'

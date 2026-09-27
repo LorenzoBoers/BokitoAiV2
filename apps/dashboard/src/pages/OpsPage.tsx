@@ -7,8 +7,10 @@ import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import {
+  deleteStaffOpsTenant,
   getStaffOpsDirectory,
   type StaffOpsDirectory,
+  type StaffOpsTenant,
 } from '../lib/ops-api'
 
 function envLabel(environment: string, apiUrl: string): string {
@@ -39,6 +41,7 @@ export default function OpsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [enteringId, setEnteringId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const load = useCallback(async (q: string) => {
     if (!token) return
@@ -84,6 +87,34 @@ export default function OpsPage() {
       }
     },
     [activeTenantId, enteringId, switchStaffTenant, t],
+  )
+
+  const onDeleteTenant = useCallback(
+    async (tenant: StaffOpsTenant) => {
+      if (!token || deletingId) return
+      const typed = window.prompt(t('ops.deletePrompt', { slug: tenant.slug, name: tenant.name }))
+      if (typed == null) return
+      if (typed.trim().toLowerCase() !== tenant.slug.toLowerCase()) {
+        setError(t('ops.deleteSlugMismatch'))
+        return
+      }
+      if (!window.confirm(t('ops.deleteConfirm', { name: tenant.name }))) return
+      setDeletingId(tenant.id)
+      setError(null)
+      try {
+        await deleteStaffOpsTenant(token, tenant.id, typed.trim())
+        if (tenant.id === activeTenantId) {
+          window.location.assign('/ops')
+          return
+        }
+        await load(appliedQuery)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('ops.deleteError'))
+      } finally {
+        setDeletingId(null)
+      }
+    },
+    [token, deletingId, activeTenantId, load, appliedQuery, t],
   )
 
   const env = useMemo(
@@ -219,23 +250,39 @@ export default function OpsPage() {
                             {formatWhen(tenant.created_at, i18n.language)}
                           </td>
                           <td className="px-3 py-2.5 text-right">
-                            {isActive ? (
-                              <span className="text-[12px] text-text-muted">{t('ops.current')}</span>
-                            ) : (
+                            <div className="flex items-center justify-end gap-2">
+                              {isActive ? (
+                                <span className="text-[12px] text-text-muted">{t('ops.current')}</span>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  disabled={locked || enteringId === tenant.id || deletingId === tenant.id}
+                                  onClick={() => void onEnter(tenant.id)}
+                                >
+                                  {enteringId === tenant.id ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                  ) : (
+                                    t('ops.enter')
+                                  )}
+                                </Button>
+                              )}
                               <Button
                                 type="button"
                                 size="sm"
-                                variant="secondary"
-                                disabled={locked || enteringId === tenant.id}
-                                onClick={() => void onEnter(tenant.id)}
+                                variant="ghost"
+                                className="text-status-error hover:text-status-error"
+                                disabled={deletingId === tenant.id}
+                                onClick={() => void onDeleteTenant(tenant)}
                               >
-                                {enteringId === tenant.id ? (
+                                {deletingId === tenant.id ? (
                                   <Loader2 size={14} className="animate-spin" />
                                 ) : (
-                                  t('ops.enter')
+                                  t('ops.delete')
                                 )}
                               </Button>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       )

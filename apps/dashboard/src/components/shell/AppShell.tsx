@@ -63,6 +63,16 @@ function isFullBleed(pathname: string): boolean {
   )
 }
 
+/** Coarse key so thread/doc leaf switches do not replay the shell enter. */
+function contentEnterKey(pathname: string): string {
+  if (pathname.startsWith('/communication')) return 'communication'
+  if (pathname.startsWith('/knowledge')) return pathname.split('/').slice(0, 3).join('/') || 'knowledge'
+  if (pathname.startsWith('/settings')) return pathname.split('/').slice(0, 3).join('/') || 'settings'
+  if (pathname.startsWith('/ai/')) return pathname.split('/').slice(0, 3).join('/') || 'ai'
+  // Document pages already animate via PageContent — avoid a second remount.
+  return 'document'
+}
+
 export default function AppShell() {
   const { t } = useTranslation('nav')
   const { pathname, search } = useLocation()
@@ -159,7 +169,10 @@ export default function AppShell() {
               <MockAiBanner />
               <main className="min-h-0 flex-1">
                 {fullBleed ? (
-                  <div className="h-full min-h-0 overflow-hidden">
+                  <div
+                    key={contentEnterKey(pathname)}
+                    className="h-full min-h-0 animate-content-enter overflow-hidden"
+                  >
                     <Outlet />
                   </div>
                 ) : (

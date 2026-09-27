@@ -29,8 +29,10 @@ Members work conversations. Owners and admins also change settings and review Go
 ## Change a role or remove access
 
 1. Switch to **Active** and open the member in the list.
-2. Change the role if their job changed. Making someone an **Owner** asks for confirmation — they get billing and who-can-join control.
+2. Change the role if their job changed. Making someone an **Owner** asks for confirmation — they get billing and who-can-join control. Only the current **Owner** can promote, demote, or remove an owner; admins manage admins and members only.
 3. **Remove member** when they should no longer see workspace mail or settings.
+
+To delete the whole workspace, an owner opens **Settings**, then **General**, and uses **Delete workspace**. Platform support can also delete a tenant from **Ops**.
 
 Members answer threads. They do not connect mailboxes, change Inbox AI, or change autonomy. See [Govern](/docs/govern/govern) for who may accept platform changes.
 

@@ -36,6 +36,10 @@ function newAdministratieRow(): AdministratieRow {
 
 type McpConnectionFormProps = {
   presetProvider: McpConnectPreset
+  /** When set, install uses this provider slug instead of the form preset. */
+  installProviderSlug?: string
+  defaultName?: string
+  defaultServerUrl?: string
   onSaved: () => void
   onCancel?: () => void
   showActions?: boolean
@@ -43,6 +47,9 @@ type McpConnectionFormProps = {
 
 export function McpConnectionForm({
   presetProvider,
+  installProviderSlug,
+  defaultName,
+  defaultServerUrl,
   onSaved,
   onCancel,
   showActions = true,
@@ -70,9 +77,10 @@ export function McpConnectionForm({
 
   useEffect(() => {
     setName(
-      isKing ? 'KING Accountancy' : isBjorn ? 'Bjorn Lunden' : isAlpaca ? 'Alpaca' : '',
+      defaultName ||
+        (isKing ? 'KING Accountancy' : isBjorn ? 'Bjorn Lunden' : isAlpaca ? 'Alpaca' : ''),
     )
-    setUrl('')
+    setUrl(defaultServerUrl || '')
     setAuthType('api_key')
     setSecret('')
     setBlClientId('')
@@ -84,7 +92,7 @@ export function McpConnectionForm({
     setAdministraties([newAdministratieRow()])
     setError(null)
     setSaving(false)
-  }, [provider, isBjorn, isKing, isAlpaca])
+  }, [provider, isBjorn, isKing, isAlpaca, defaultName, defaultServerUrl])
 
   const kingReady = administraties.some(
     (row) => row.omgevingscode.trim().length > 0 && row.name.trim().length > 0,
@@ -134,7 +142,7 @@ export function McpConnectionForm({
           }
         : undefined
       await installMcpConnection({
-        provider,
+        provider: installProviderSlug || provider,
         api_key: isAlpaca
           ? `${alpacaKeyId.trim()}:${alpacaSecret.trim()}`
           : secret.trim(),

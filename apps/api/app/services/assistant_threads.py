@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -12,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_signal_message
 from app.models.signal import Signal, SignalEvent, SignalMessage
+
+logger = logging.getLogger(__name__)
 
 
 def serialize_decision_for_chat(decision: Any) -> dict[str, Any]:
@@ -300,8 +303,17 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
 
     remaining = history[signal.compacted_count :]
     if len(remaining) > COMPACT_THRESHOLD:
-        await _compact_signal_history(session, signal, remaining)
-        remaining = history[signal.compacted_count :]
+        try:
+            await _compact_signal_history(session, signal, remaining)
+            remaining = history[signal.compacted_count :]
+        except Exception:
+            # Compaction uses the chat LLM; billing/provider outages must not
+            # 500 the whole conversation. Fall back to a hard trim.
+            logger.exception(
+                "chat history compaction failed for signal %s; trimming instead",
+                signal_id,
+            )
+            remaining = remaining[-KEEP_RECENT:]
 
     if signal.compact_summary and signal.compacted_count:
         remaining = [

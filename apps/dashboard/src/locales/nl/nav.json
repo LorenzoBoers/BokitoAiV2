@@ -2530,7 +2530,12 @@
       "settings": "Instellingen"
     },
     "settings": {
-      "channels": "Kanalen"
+      "channels": "Kanalen",
+      "assistant": "AI-antwoordinstellingen",
+      "widget": "Chatwidget",
+      "integrations": "Integraties",
+      "setupGuide": "Setupgids",
+      "allSettings": "Alle instellingen"
     },
     "bokito": {
       "loading": "Gesprekken laden...",
@@ -2585,14 +2590,6 @@
       "follow-up": "Opvolgen",
       "billing": "Facturatie",
       "custom": "Eigen labels..."
-    },
-    "settings": {
-      "channels": "Kanalen",
-      "assistant": "AI-antwoordinstellingen",
-      "widget": "Chatwidget",
-      "integrations": "Integraties",
-      "setupGuide": "Setupgids",
-      "allSettings": "Alle instellingen"
     },
     "customize": {
       "title": "Zijbalk aanpassen",
@@ -3830,25 +3827,25 @@
         "projectNone": "Nog geen project",
         "modelsRetry": "Kon modellen niet laden. Probeer opnieuw"
       },
-    "visualTitle": "Visuele identiteit",
-    "visualBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie, e-mailhandtekening en webchat. Naam plus optioneel icoon — platform-AI-violet, geen eigen kleuren.",
-    "visualEdit": "Bewerken",
-    "visualSaved": "Visuele identiteit opgeslagen",
-    "visualSaveError": "Kon visuele identiteit niet opslaan.",
-    "visualUploadError": "Kon de afbeelding niet uploaden.",
-    "visualImageRequired": "Upload een afbeelding of kies Initialen of Icoon.",
-    "visualIconRequired": "Kies een icoon.",
-    "visualInitialsHint": "Gebruikt de initialen van de agentnaam met de platform-AI-kleur.",
-    "visualPickIcon": "Icoon",
-    "visualPickColor": "Kleur",
-    "visualUpload": "Afbeelding uploaden",
-    "visualClearImage": "Afbeelding verwijderen",
-    "visualImageHint": "Vierkante foto's werken het best. Opgeslagen in workspace-uploads.",
-    "visualKind": {
-      "initials": "Initialen",
-      "icon": "Icoon",
-      "image": "Afbeelding"
-    }
+      "visualTitle": "Visuele identiteit",
+      "visualBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie, e-mailhandtekening en webchat. Naam plus optioneel icoon — platform-AI-violet, geen eigen kleuren.",
+      "visualEdit": "Bewerken",
+      "visualSaved": "Visuele identiteit opgeslagen",
+      "visualSaveError": "Kon visuele identiteit niet opslaan.",
+      "visualUploadError": "Kon de afbeelding niet uploaden.",
+      "visualImageRequired": "Upload een afbeelding of kies Initialen of Icoon.",
+      "visualIconRequired": "Kies een icoon.",
+      "visualInitialsHint": "Gebruikt de initialen van de agentnaam met de platform-AI-kleur.",
+      "visualPickIcon": "Icoon",
+      "visualPickColor": "Kleur",
+      "visualUpload": "Afbeelding uploaden",
+      "visualClearImage": "Afbeelding verwijderen",
+      "visualImageHint": "Vierkante foto's werken het best. Opgeslagen in workspace-uploads.",
+      "visualKind": {
+        "initials": "Initialen",
+        "icon": "Icoon",
+        "image": "Afbeelding"
+      }
     },
     "pageMeta": {
       "overview": {
@@ -4103,7 +4100,8 @@
       "agentDefaultBadge": "Standaard",
       "unsavedLeave": "Je hebt niet-opgeslagen projectwijzigingen. Deze pagina verlaten?",
       "refreshedAt": "Bijgewerkt {{time}}",
-      "refresh": "Vernieuwen"
+      "refresh": "Vernieuwen",
+      "tabCanvas": "Canvas"
     },
     "work": {
       "queueLoadError": "Kon de queue niet laden.",
@@ -4238,6 +4236,36 @@
         "syncing": "Synchroniseert",
         "error": "Fout",
         "disconnected": "Losgekoppeld"
+      }
+    },
+    "canvas": {
+      "loading": "Canvas laden…",
+      "loadError": "Canvas kon niet worden geladen.",
+      "saveError": "Canvas kon niet worden opgeslagen.",
+      "saved": "Canvas bijgewerkt",
+      "subtitle": "Levend projectbord — agents houden tegels actueel; jij herschikt en voegt toe wat telt.",
+      "aiHint": "Vraag een agent in Communicatie om dit canvas bij te werken (metrics, status, grafieken, embeds).",
+      "addMetric": "Metric toevoegen",
+      "metricLabel": "Label",
+      "metricValue": "Waarde",
+      "add": "Toevoegen",
+      "reset": "Bord resetten",
+      "resetConfirm": "Dit canvas vervangen door het standaardbord?",
+      "resetDone": "Canvas teruggezet naar standaard",
+      "openItems": "Open items",
+      "ofTotal": "van {{total}} totaal",
+      "queueEmpty": "Geen open wachtrij-items.",
+      "resourcesEmpty": "Nog geen gekoppelde resources.",
+      "iframeEmpty": "Geen embed-URL gezet.",
+      "tokensToday": "Tokens vandaag",
+      "remaining": "Resterend",
+      "open": "Openen",
+      "unknownWidget": "Onbekend widgettype: {{type}}",
+      "widgets": {
+        "queue": "Wachtrij",
+        "queueList": "Open wachtrij",
+        "resources": "Resources",
+        "budget": "Budget"
       }
     }
   },
@@ -5437,6 +5465,7 @@
     "removeConfirm": "{{name}} uit deze workspace verwijderen?",
     "invalidEmail": "Vul een volledig e-mailadres in, zoals naam@bedrijf.nl.",
     "ownerConfirm": "{{name}} eigenaar maken? Die persoon krijgt volledige controle, inclusief facturatie en wie erbij mag.",
+    "ownerOnlyError": "Alleen een workspace-eigenaar kan eigenaarschap wijzigen of verwijderen.",
     "roles": {
       "owner": "Eigenaar",
       "admin": "Beheerder",
@@ -5460,6 +5489,11 @@
     "loading": "Laden…",
     "loadError": "Kon ops-directory niet laden.",
     "enterError": "Kon workspace niet openen.",
+    "delete": "Verwijderen",
+    "deletePrompt": "Type de slug \"{{slug}}\" om {{name}} permanent te verwijderen:",
+    "deleteConfirm": "Workspace {{name}} en alle data verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "deleteSlugMismatch": "De slug kwam niet overeen. Er is niets verwijderd.",
+    "deleteError": "Kon de workspace niet verwijderen.",
     "stats": {
       "tenants": "Tenants",
       "users": "Users",

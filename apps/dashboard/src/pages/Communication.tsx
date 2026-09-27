@@ -45,6 +45,7 @@ import {
 import {
   customersFirst,
   customersOnly,
+  isAgentRunThread,
   isInternalThread,
   pickPreferredInboxThread,
   threadHubPath,
@@ -696,6 +697,69 @@ export default function Communication() {
     [filteredThreads, handleSelectThread, navigate, leaf, inboxQuery, removeThread],
   )
 
+  const handleListClose = useCallback(
+    async (id: ThreadId) => {
+      if (!token) return
+      try {
+        const openCases = await loadOpenSignalCases(String(id))
+        if (openCases.length > 0) {
+          if (
+            !window.confirm(
+              t('threadChrome.closeWithSignalsShortcutConfirm', { count: openCases.length }),
+            )
+          ) {
+            return
+          }
+          if (
+            window.confirm(
+              t('threadChrome.closeWithSignalsShortcutResolve', { count: openCases.length }),
+            )
+          ) {
+            try {
+              await resolveOpenSignalCases(openCases)
+            } catch (err) {
+              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithSignalsError')))
+              return
+            }
+          }
+        }
+        await apiPatchThread(token, id, { status: 'closed' })
+        const undoReopen = () => {
+          void apiPatchThread(token, id, { status: 'open' }).then(() => {
+            void refreshThreads()
+            void refreshNavBadges()
+          })
+        }
+        toast.success(t('threadResolved.closed'), {
+          action: { label: t('undoSend.undo'), onClick: undoReopen },
+        })
+        void refreshNavBadges()
+        if (String(selectedThreadId) === String(id)) {
+          leaveResolvedThread(id, 'closed')
+        } else {
+          const dedicated = dedicatedInboxQueueForStatus('closed')
+          if (!(leaf.type === 'inbox' && dedicated != null && leaf.queue === dedicated)) {
+            removeThread(id)
+          } else {
+            void refreshThreads()
+          }
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t('actions.closeError'))
+      }
+    },
+    [
+      token,
+      selectedThreadId,
+      leaveResolvedThread,
+      leaf,
+      removeThread,
+      refreshThreads,
+      refreshNavBadges,
+      t,
+    ],
+  )
+
   // When a thread no longer fits the active inbox (closed while on Open),
   // stay on that box and open the first remaining thread — or the empty box.
   const redirectCheckedForThreadRef = useRef<string | null>(null)
@@ -714,7 +778,8 @@ export default function Communication() {
     redirectCheckedForThreadRef.current = fitKey
 
     if (leaf.type === 'inbox') {
-      if (leaf.queue === 'open' && isInternalThread(detail.thread)) {
+      // Agent-run threads do not belong under Open; assistant chats do.
+      if (leaf.queue === 'open' && isAgentRunThread(detail.thread)) {
         navigate(`${agentRunsPath('all', String(detail.thread.id))}${inboxQuery}`, { replace: true })
         return
       }
@@ -735,7 +800,7 @@ export default function Communication() {
         return
       }
       const destQueue =
-        detail.thread.status === 'open' && !isInternalThread(detail.thread) ? 'open' : 'all'
+        detail.thread.status === 'open' && !isAgentRunThread(detail.thread) ? 'open' : 'all'
       navigate(`${inboxPath(destQueue, String(detail.thread.id))}${inboxQuery}`, { replace: true })
       return
     }
@@ -1386,6 +1451,7 @@ export default function Communication() {
             onMarkUnread={handleListMarkUnread}
             onTogglePin={handleListTogglePin}
             onSnooze={mode === 'customer' ? handleListSnooze : undefined}
+            onClose={(id) => void handleListClose(id)}
             onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
             deletingThreadId={deletingThreadId}
             variant={variant}
@@ -1553,7 +1619,12 @@ export default function Communication() {
             onRefresh={refreshDetail}
             onTogglePin={handleDetailTogglePin}
             onToggleTakeover={detail ? handleToggleTakeover : undefined}
-            onDelete={detail ? handleDetailDelete : undefined}
+            onDelete={
+              detail &&
+              (detail.thread.status === 'closed' || detail.thread.status === 'spam')
+                ? handleDetailDelete
+                : undefined
+            }
             deleting={String(deletingThreadId) === String(selectedThreadId)}
             onToggleContact={detail ? toggleContactPanel : undefined}
             onBack={() => navigate(`${leafPath(leaf)}${inboxQuery}`)}

@@ -17,10 +17,10 @@ MCP is how agents call external tools over a standard protocol. Those logins liv
 *Add the server URL and credentials.*
 
 1. Open **Connections** in the rail, then **Marketplace**, and filter **Tools**. Choose **Custom tool**, **Alpaca**, or another marketplace app (Notion, Linear, KING Accountancy).
-2. Finish setup: for a custom server enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**. For **Alpaca**, paste your Trading API **API key** and **Secret key** (same values as `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` in the [official Alpaca MCP server](https://github.com/alpacahq/alpaca-mcp-server)); leave **Use paper trading** on until you are ready for live keys.
+2. Finish setup: for a custom server enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**. For **Alpaca**, paste your Trading API **API key** and **Secret key** from the Alpaca dashboard (Paper Trading → API Keys — not an Alpaca Connect app). Use the same values as `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` in the [official Alpaca MCP server](https://github.com/alpacahq/alpaca-mcp-server); leave **Use paper trading** on until you are ready for live keys. When Bokito is listed as an Alpaca Connect app, setup can switch to **Sign in with Alpaca** without changing agent tools.
 3. **Save connection**. The row appears under **Custom MCP servers** on **Connections**. Choose **Disconnect** to remove it.
 
-Marketplace apps such as Alpaca, Notion, Linear, or KING Accountancy also land here after setup. Open an app card to see the **Tool endpoint** and, once connected, the exact **Tools** discovered from the MCP server (refresh to re-run discovery). A misconfigured server often fails at call time, not at connect time.
+Marketplace apps such as Alpaca, Notion, Linear, or KING Accountancy also land here after setup. Remote MCP apps with a public URL can be added to the platform catalog so they appear under **Marketplace** for every workspace. Open an app card to see the **Tool endpoint** and, once connected, the exact **Tools** discovered from the MCP server (refresh to re-run discovery). A misconfigured server often fails at call time, not at connect time.
 
 ## Test it once
 

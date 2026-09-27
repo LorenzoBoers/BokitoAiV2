@@ -2536,7 +2536,12 @@
       "settings": "Settings"
     },
     "settings": {
-      "channels": "Channels"
+      "channels": "Channels",
+      "assistant": "AI reply settings",
+      "widget": "Chat widget",
+      "integrations": "Integrations",
+      "setupGuide": "Setup guide",
+      "allSettings": "All settings"
     },
     "bokito": {
       "loading": "Loading chats...",
@@ -2591,14 +2596,6 @@
       "follow-up": "Follow-up",
       "billing": "Billing",
       "custom": "Custom labels..."
-    },
-    "settings": {
-      "channels": "Channels",
-      "assistant": "AI reply settings",
-      "widget": "Chat widget",
-      "integrations": "Integrations",
-      "setupGuide": "Setup guide",
-      "allSettings": "All settings"
     },
     "customize": {
       "title": "Customize sidebar",
@@ -3836,25 +3833,25 @@
         "projectNone": "No project yet",
         "modelsRetry": "Could not load models. Try again"
       },
-    "visualTitle": "Visual identity",
-    "visualBody": "How this agent appears in the library, Messages, email signature, and webchat. Name plus an optional icon — platform AI violet, no custom colors.",
-    "visualEdit": "Edit",
-    "visualSaved": "Visual identity saved",
-    "visualSaveError": "Could not save visual identity.",
-    "visualUploadError": "Could not upload the image.",
-    "visualImageRequired": "Upload an image or switch to Initials or Icon.",
-    "visualIconRequired": "Pick an icon.",
-    "visualInitialsHint": "Uses the agent name initials with the platform AI color.",
-    "visualPickIcon": "Icon",
-    "visualPickColor": "Color",
-    "visualUpload": "Upload image",
-    "visualClearImage": "Remove image",
-    "visualImageHint": "Square photos work best. Stored in workspace uploads.",
-    "visualKind": {
-      "initials": "Initials",
-      "icon": "Icon",
-      "image": "Image"
-    }
+      "visualTitle": "Visual identity",
+      "visualBody": "How this agent appears in the library, Messages, email signature, and webchat. Name plus an optional icon — platform AI violet, no custom colors.",
+      "visualEdit": "Edit",
+      "visualSaved": "Visual identity saved",
+      "visualSaveError": "Could not save visual identity.",
+      "visualUploadError": "Could not upload the image.",
+      "visualImageRequired": "Upload an image or switch to Initials or Icon.",
+      "visualIconRequired": "Pick an icon.",
+      "visualInitialsHint": "Uses the agent name initials with the platform AI color.",
+      "visualPickIcon": "Icon",
+      "visualPickColor": "Color",
+      "visualUpload": "Upload image",
+      "visualClearImage": "Remove image",
+      "visualImageHint": "Square photos work best. Stored in workspace uploads.",
+      "visualKind": {
+        "initials": "Initials",
+        "icon": "Icon",
+        "image": "Image"
+      }
     },
     "pageMeta": {
       "overview": {
@@ -4109,7 +4106,8 @@
       "agentDefaultBadge": "Default",
       "unsavedLeave": "You have unsaved project changes. Leave this page?",
       "refreshedAt": "Updated {{time}}",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "tabCanvas": "Canvas"
     },
     "work": {
       "queueLoadError": "Could not load the queue.",
@@ -4244,6 +4242,36 @@
         "syncing": "Syncing",
         "error": "Error",
         "disconnected": "Disconnected"
+      }
+    },
+    "canvas": {
+      "loading": "Loading canvas…",
+      "loadError": "Could not load the canvas.",
+      "saveError": "Could not save the canvas.",
+      "saved": "Canvas updated",
+      "subtitle": "Living project board — agents keep tiles current; you rearrange and add what matters.",
+      "aiHint": "Ask an agent in Communication to update this canvas (metrics, status, charts, embeds).",
+      "addMetric": "Add metric",
+      "metricLabel": "Label",
+      "metricValue": "Value",
+      "add": "Add",
+      "reset": "Reset board",
+      "resetConfirm": "Replace this canvas with the default board?",
+      "resetDone": "Canvas reset to default",
+      "openItems": "Open items",
+      "ofTotal": "of {{total}} total",
+      "queueEmpty": "No open queue items.",
+      "resourcesEmpty": "No linked resources yet.",
+      "iframeEmpty": "No embed URL set.",
+      "tokensToday": "Tokens today",
+      "remaining": "Remaining",
+      "open": "Open",
+      "unknownWidget": "Unknown widget type: {{type}}",
+      "widgets": {
+        "queue": "Queue",
+        "queueList": "Open queue",
+        "resources": "Resources",
+        "budget": "Budget"
       }
     }
   },
@@ -5443,6 +5471,7 @@
     "removeConfirm": "Remove {{name}} from this workspace?",
     "invalidEmail": "Enter a full email address, like name@company.com.",
     "ownerConfirm": "Make {{name}} an owner? They will have full control, including billing and who can join.",
+    "ownerOnlyError": "Only a workspace owner can change or remove ownership.",
     "roles": {
       "owner": "Owner",
       "admin": "Admin",
@@ -5466,6 +5495,11 @@
     "loading": "Loading…",
     "loadError": "Could not load ops directory.",
     "enterError": "Could not enter workspace.",
+    "delete": "Delete",
+    "deletePrompt": "Type the slug \"{{slug}}\" to permanently delete {{name}}:",
+    "deleteConfirm": "Delete workspace {{name}} and all of its data? This cannot be undone.",
+    "deleteSlugMismatch": "The slug did not match. Nothing was deleted.",
+    "deleteError": "Could not delete the workspace.",
     "stats": {
       "tenants": "Tenants",
       "users": "Users",

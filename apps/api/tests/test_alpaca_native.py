@@ -14,8 +14,10 @@ from app.services.agent.mcp_client import call_mcp_tool
 from app.services.alpaca import (
     ALPACA_NATIVE_TOOLS,
     ALPACA_NATIVE_URL,
+    auth_payload_from_oauth_tokens,
     call_alpaca_tool,
     has_alpaca_credentials,
+    parse_alpaca_auth,
     parse_alpaca_credentials,
 )
 from app.services.integrations_catalog import PROVIDER_BY_SLUG
@@ -36,17 +38,42 @@ def test_provider_is_available_in_catalog():
     assert row["status"] == "available"
     assert row["auth_type"] == "api_key"
     assert row["capabilities"].get("mcp_tools") is True
+    assert row["capabilities"].get("alpaca_connect") is True
+    assert "oauth2" in (row["capabilities"].get("auth_modes") or [])
 
 
 def test_parse_credentials_explicit_fields():
     creds = parse_alpaca_credentials(
         {"api_key_id": "PKTEST", "api_secret_key": "secret", "paper": True}
     )
-    assert creds == {
-        "api_key_id": "PKTEST",
-        "api_secret_key": "secret",
-        "paper": True,
-    }
+    assert creds["api_key_id"] == "PKTEST"
+    assert creds["api_secret_key"] == "secret"
+    assert creds["paper"] is True
+    assert creds["mode"] == "api_key"
+
+
+def test_parse_oauth_access_token():
+    session = parse_alpaca_auth(
+        {"access_token": "tok-abc", "paper": False, "auth_mode": "oauth"}
+    )
+    assert session["mode"] == "oauth"
+    assert session["access_token"] == "tok-abc"
+    assert session["paper"] is False
+    assert has_alpaca_credentials({"access_token": "tok-abc"})
+    payload = auth_payload_from_oauth_tokens({"access_token": "tok-xyz"}, paper=True)
+    assert payload["auth_mode"] == "oauth"
+    assert payload["access_token"] == "tok-xyz"
+
+
+def test_oauth_provider_endpoints_wired():
+    from app.services import oauth_providers
+    from app.services.alpaca import ALPACA_OAUTH_AUTHORIZE, ALPACA_OAUTH_TOKEN
+
+    assert oauth_providers.ALPACA == "alpaca_mcp"
+    assert oauth_providers._authorize_endpoint("alpaca_mcp") == ALPACA_OAUTH_AUTHORIZE
+    assert oauth_providers._token_endpoint("alpaca_mcp") == ALPACA_OAUTH_TOKEN
+    assert "trading" in oauth_providers._scopes("alpaca_mcp")
+    assert oauth_providers.is_configured("alpaca_mcp") is False
 
 
 def test_parse_credentials_official_env_names():
@@ -171,6 +198,26 @@ async def test_call_alpaca_tool_account_and_order(monkeypatch):
     assert ("GET", "https://paper-api.alpaca.markets/v2/account") in [
         (m, u.split("?")[0]) for m, u in calls
     ] or any(m == "GET" and "/v2/account" in u for m, u in calls)
+
+
+@pytest.mark.asyncio
+async def test_call_alpaca_tool_oauth_bearer(monkeypatch):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["authorization"] = request.headers.get("authorization", "")
+        seen["key_id"] = request.headers.get("apca-api-key-id", "")
+        return httpx.Response(200, json={"account_number": "OA1", "status": "ACTIVE"})
+
+    monkeypatch.setattr("app.services.alpaca._transport", httpx.MockTransport(handler))
+    result = await call_alpaca_tool(
+        {"access_token": "oauth-token", "auth_mode": "oauth", "paper": True},
+        "get_account_info",
+        {},
+    )
+    assert result["result"]["account_number"] == "OA1"
+    assert seen["authorization"] == "Bearer oauth-token"
+    assert seen["key_id"] == ""
 
 
 @pytest.mark.asyncio

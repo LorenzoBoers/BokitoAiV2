@@ -744,7 +744,7 @@ function EmailMessageBlock({
   return (
     <div className="flex w-full items-start gap-2">
       {avatar}
-      <div className="w-full min-w-0 rounded-lg border px-3 py-2 bg-bg-surface border-border/60">
+      <div className="w-full min-w-0 rounded-2xl rounded-bl-sm border border-border/60 bg-bg-surface px-3 py-2">
         {header}
         {body}
       </div>

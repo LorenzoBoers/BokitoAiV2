@@ -360,6 +360,11 @@ async def delete_project(
     await session.execute(
         sa_delete(ProjectResource).where(ProjectResource.project_id == project_id)
     )
+    from app.models.project_canvas import ProjectCanvas
+
+    await session.execute(
+        sa_delete(ProjectCanvas).where(ProjectCanvas.project_id == project_id)
+    )
     doc_ids = select(WorkspaceDoc.id).where(WorkspaceDoc.project_id == project_id)
     await session.execute(sa_delete(DocChunk).where(DocChunk.doc_id.in_(doc_ids)))
     await session.execute(sa_delete(WorkspaceDoc).where(WorkspaceDoc.project_id == project_id))

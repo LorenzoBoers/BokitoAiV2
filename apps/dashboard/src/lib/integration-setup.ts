@@ -16,6 +16,9 @@ export type IntegrationSetupConfig = {
   platformSlug: string
   oauthProvider?: OAuthProvider
   mcpPreset?: import('./integrations/registry').McpSetupPreset
+  /** Prefill for catalog remotes that install as custom MCP. */
+  mcpServerUrl?: string
+  mcpDisplayName?: string
 }
 
 export function integrationIdToPlatformSlug(integrationId: string): string {
@@ -39,8 +42,18 @@ export function resolveSetupConfig(
     getRegistryEntryByPlatformSlug(platformSlug)
 
   if (entry) {
+    // Alpaca: keep API-key install as default; when the catalog advertises
+    // oauth2 as the primary auth_type (Connect app live), prefer OAuth UI.
+    let mode = entry.setupMode
+    if (
+      entry.platformSlug === 'alpaca_mcp' &&
+      provider?.auth_type === 'oauth2' &&
+      entry.oauthStrategy === 'platform'
+    ) {
+      mode = 'oauth2'
+    }
     return {
-      mode: entry.setupMode,
+      mode,
       platformSlug: entry.platformSlug,
       oauthProvider: entry.inboxOAuthProvider,
       mcpPreset: entry.mcpPreset,
@@ -56,7 +69,22 @@ export function resolveSetupConfig(
     return { mode: 'oauth2', platformSlug }
   }
   if (provider?.capabilities?.mcp_tools || provider?.capabilities?.remote_mcp) {
-    return { mode: 'api_key', platformSlug, mcpPreset: 'custom_mcp' }
+    // Native cores keep their dedicated presets; catalog remotes with a URL
+    // install as custom MCP using the catalog endpoint.
+    const nativePreset =
+      platformSlug === 'bjorn_lunden_mcp' ||
+      platformSlug === 'king_accountancy' ||
+      platformSlug === 'alpaca_mcp'
+        ? (platformSlug as import('./integrations/registry').McpSetupPreset)
+        : 'custom_mcp'
+    const remoteUrl = (provider.mcp_remote_url || '').trim()
+    return {
+      mode: 'api_key',
+      platformSlug,
+      mcpPreset: nativePreset,
+      mcpServerUrl: remoteUrl || undefined,
+      mcpDisplayName: provider.name || undefined,
+    }
   }
   return { mode: 'oauth2', platformSlug }
 }
@@ -85,10 +113,10 @@ export function capabilityLabels(
 ): string[] {
   const caps = provider?.capabilities ?? {}
   const labels: string[] = []
-  if (caps.inbox_sync) labels.push('inbox_sync')
-  if (caps.repo_index) labels.push('repo_index')
-  if (caps.remote_mcp) labels.push('remote_mcp')
-  if (caps.mcp_tools || integration?.kind === 'mcp') labels.push('mcp_tools')
+  if (caps.inbox_sync === true) labels.push('inbox_sync')
+  if (caps.repo_index === true) labels.push('repo_index')
+  if (caps.remote_mcp === true) labels.push('remote_mcp')
+  if (caps.mcp_tools === true || integration?.kind === 'mcp') labels.push('mcp_tools')
   if (labels.length === 0 && integration?.kind === 'inbox') labels.push('inbox_sync')
   if (labels.length === 0 && integration?.kind === 'repository') labels.push('repo_index')
   if (labels.length === 0 && integration?.kind === 'mcp') labels.push('mcp_tools')

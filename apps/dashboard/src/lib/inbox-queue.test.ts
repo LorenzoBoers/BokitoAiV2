@@ -7,9 +7,16 @@ import {
 } from './inbox-queue'
 
 describe('threadFitsInboxQueue', () => {
-  it('keeps only open customer threads in Open', () => {
+  it('keeps open customer and assistant chats in Open; hides agent runs', () => {
     expect(
       threadFitsInboxQueue({ status: 'open', assignedToUserId: null, channel: 'email', folder: 'inbox' }, 'open', 1),
+    ).toBe(true)
+    expect(
+      threadFitsInboxQueue(
+        { status: 'open', assignedToUserId: null, channel: 'assistant', folder: 'assistant' },
+        'open',
+        1,
+      ),
     ).toBe(true)
     expect(
       threadFitsInboxQueue({ status: 'closed', assignedToUserId: null, channel: 'email', folder: 'inbox' }, 'open', 1),

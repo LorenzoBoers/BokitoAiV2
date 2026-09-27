@@ -83,6 +83,7 @@ async def init_db() -> None:
             await conn.run_sync(apply_column_patches)
             await conn.run_sync(apply_data_repairs)
 
+    from app.services.integration_catalog_store import ensure_catalog_fresh
     from app.services.lead_agent import ensure_lead_agents
     from app.services.model_catalog import seed_model_catalog
     from app.services.personal_agents import deactivate_personal_agents
@@ -92,6 +93,7 @@ async def init_db() -> None:
 
     async with async_session_factory() as session:
         await seed_model_catalog(session)
+        await ensure_catalog_fresh(session)
         await deactivate_personal_agents(session)
         await ensure_front_desks(session)
         await ensure_lead_agents(session)

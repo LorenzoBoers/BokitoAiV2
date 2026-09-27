@@ -665,3 +665,98 @@ async def delete_project_resource(
 ):
     await work.delete_resource(session, auth.tenant.id, resource_id)
     return {"ok": True}
+
+
+# ── project canvas (AI-maintained dashboard / board) ─────────────
+
+
+class CanvasPutBody(BaseModel):
+    title: str | None = None
+    layout: dict[str, Any] | None = None
+    widgets: list[dict[str, Any]] | None = None
+    notes: str | None = None
+    expected_revision: int | None = None
+    reset_to_default: bool = False
+
+
+class CanvasPatchBody(BaseModel):
+    upsert: list[dict[str, Any]] | None = None
+    remove_ids: list[str] | None = None
+    notes: str | None = None
+    expected_revision: int | None = None
+
+
+@router.get("/{project_id}/canvases")
+async def list_project_canvases(
+    project_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import project_canvas as canvas_svc
+
+    return {"items": await canvas_svc.list_canvases(session, auth.tenant.id, project_id)}
+
+
+@router.get("/{project_id}/canvases/{slug}")
+async def get_project_canvas(
+    project_id: UUID,
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    hydrate: bool = Query(default=True),
+):
+    from app.services import project_canvas as canvas_svc
+
+    return await canvas_svc.get_canvas(
+        session, auth.tenant.id, project_id, slug=slug, hydrate=hydrate
+    )
+
+
+@router.put("/{project_id}/canvases/{slug}")
+async def put_project_canvas(
+    project_id: UUID,
+    slug: str,
+    body: CanvasPutBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import project_canvas as canvas_svc
+
+    return await canvas_svc.put_canvas(
+        session,
+        auth.tenant.id,
+        project_id,
+        slug=slug,
+        title=body.title,
+        layout=body.layout,
+        widgets=body.widgets,
+        notes=body.notes,
+        expected_revision=body.expected_revision,
+        reset_to_default=body.reset_to_default,
+        updated_by_type="user",
+        updated_by_id=str(auth.user.id),
+    )
+
+
+@router.patch("/{project_id}/canvases/{slug}")
+async def patch_project_canvas(
+    project_id: UUID,
+    slug: str,
+    body: CanvasPatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import project_canvas as canvas_svc
+
+    return await canvas_svc.patch_widgets(
+        session,
+        auth.tenant.id,
+        project_id,
+        slug=slug,
+        upsert=body.upsert,
+        remove_ids=body.remove_ids,
+        notes=body.notes,
+        expected_revision=body.expected_revision,
+        updated_by_type="user",
+        updated_by_id=str(auth.user.id),
+    )

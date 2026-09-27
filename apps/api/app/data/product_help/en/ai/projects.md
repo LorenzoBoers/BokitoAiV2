@@ -1,15 +1,15 @@
 ---
 title: How Projects works
-intro: A project holds a goal — its implementation queue, its documentation, who leads it, and how much it may spend.
-description: Work the implementation queue, keep smart documentation with section statuses, link resources like a repo or drive, and let agents propose queue items from conversations.
-keywords: projects, queue, documentation, sections, resources, repository, budget, orchestration
+intro: A project holds a goal — its canvas, implementation queue, documentation, who leads it, and how much it may spend.
+description: Work the AI-maintained project canvas, implementation queue, smart documentation, linked resources, and let agents propose queue items from conversations.
+keywords: projects, canvas, dashboard, widgets, queue, documentation, sections, resources, repository, budget, orchestration
 sort: 40
 related: agenda,knowledge,communication,workstreams
 ---
 
 # How Projects works
 
-A project is work that spans days. Open **Projects** when a goal should have a home instead of living only in chat. A project detail has three tabs: **Queue** (what should happen), **Documentation** (what is true), and **Settings** (who runs it and what it works on).
+A project is work that spans days. Open **Projects** when a goal should have a home instead of living only in chat. A project detail has four tabs: **Canvas** (living overview), **Queue** (what should happen), **Documentation** (what is true), and **Settings** (who runs it and what it works on).
 
 ## Create or open a project
 
@@ -18,7 +18,16 @@ A project is work that spans days. Open **Projects** when a goal should have a h
 
 1. Open **Projects**. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
 2. Read the card: project agent, open queue items, documentation health, repo status, remaining budget. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
-3. Open it. You land on the **Queue** tab. The **Settings** tab holds the **Who runs this** card; use **Change project agent** to pick another agent or create one. Members can read a project; they cannot delete it or edit the name.
+3. Open it. You land on the **Canvas** tab. The **Settings** tab holds the **Who runs this** card; use **Change project agent** to pick another agent or create one. Members can read a project; they cannot delete it or edit the name.
+
+## Keep a living canvas
+
+The canvas is a flexible board of tiles (metrics, status, markdown, charts, tables, embeds, and live queue/budget/resources). Agents maintain it under Govern; you rearrange and add what you want to see.
+
+1. Open the **Canvas** tab. The default board already shows health, queue pulse, budget, resources, and open queue items.
+2. Choose **Add metric** to pin a number yourself, or **Reset board** to restore the default layout.
+3. In [Communication](/docs/inbox/communication), ask a company agent to update the canvas — for example a status tile, a chart, or a markdown briefing. Changes go through [Govern](/docs/govern/govern) when autonomy requires approval.
+4. Live tiles refresh from the project queue, budget and resources; static tiles keep the content the agent (or you) last wrote.
 
 ## Work the implementation queue
 

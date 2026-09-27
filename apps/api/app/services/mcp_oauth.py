@@ -213,6 +213,9 @@ async def start_mcp_remote_oauth(
     provider: str,
     return_url: str,
 ) -> dict[str, str]:
+    from app.services.integration_catalog_store import ensure_catalog_fresh
+
+    await ensure_catalog_fresh(session)
     row = PROVIDER_BY_SLUG.get(provider)
     if not row or row.get("auth_type") != "mcp_remote_oauth":
         raise HTTPException(status_code=400, detail="Provider does not support remote MCP OAuth.")

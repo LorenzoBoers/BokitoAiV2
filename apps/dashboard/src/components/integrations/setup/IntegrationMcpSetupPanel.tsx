@@ -18,6 +18,9 @@ export function IntegrationMcpSetupPanel({ config, onSaved, onCancel }: Props) {
   return (
     <McpConnectionForm
       presetProvider={preset}
+      installProviderSlug={config.platformSlug}
+      defaultName={config.mcpDisplayName}
+      defaultServerUrl={config.mcpServerUrl}
       onSaved={onSaved}
       onCancel={onCancel}
       showActions

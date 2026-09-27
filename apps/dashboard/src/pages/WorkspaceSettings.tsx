@@ -18,10 +18,13 @@ import { persistUiLanguage } from '../lib/language-preference';
 
 export default function WorkspaceSettings() {
   const { t, i18n } = useTranslation(['workspace', 'common', 'nav']);
-  const { user, token } = useAuth();
+  const { user, token, isStaff } = useAuth();
   const { currentWorkspace, updateWorkspace, deleteWorkspace } = useWorkspace();
-  const canManageWorkspace = usePermission('delete_workspace') || usePermission('invite_members');
-  const canDeleteWorkspace = usePermission('delete_workspace');
+  const canInviteMembers = usePermission('invite_members');
+  const isOwner = usePermission('delete_workspace');
+  const canManageWorkspace = isOwner || canInviteMembers;
+  // Owners delete from Settings; staff support also can (effective role is admin).
+  const canDeleteWorkspace = isOwner || Boolean(isStaff);
 
   const [workspaceName, setWorkspaceName] = useState(currentWorkspace?.name || user?.tenant.name || '');
   const language = (i18n.resolvedLanguage === 'nl' ? 'nl' : 'en') as 'nl' | 'en';
@@ -270,6 +273,7 @@ export default function WorkspaceSettings() {
                 </h3>
                 <p className="mb-4 text-sm text-text-secondary">
                   {t('deleteWorkspaceDescription')}
+                  {isStaff && !isOwner ? <> {t('deleteWorkspaceStaffHint')}</> : null}
                 </p>
                 <Button
                   variant="destructive"

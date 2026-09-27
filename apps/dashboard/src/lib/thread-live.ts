@@ -65,7 +65,8 @@ export function threadMatchesFilters(
   const channel = thread.channel ?? ''
   if (filters.folder === 'external' && !EXTERNAL_CHANNELS.has(channel)) return false
   if (filters.folder === 'internal' && channel !== 'internal') return false
-  if (filters.folder === 'inbox' && channel === 'assistant') return false
+  // Shared hub includes assistant chats; agent-run threads stay under Agent-runs.
+  if (filters.folder === 'inbox' && channel === 'internal') return false
   // Assistant folder also filters on thread ownership, which the row lacks.
   if (filters.folder === 'assistant') return null
 

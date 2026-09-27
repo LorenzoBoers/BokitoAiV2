@@ -579,3 +579,157 @@ register_tool(
         handles_ask=True,
     )
 )
+
+
+async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services import project_canvas as canvas_svc
+
+    project = await _resolve_project(ctx, tool_input)
+    if project is None:
+        return {
+            "error": "No project found. Pass project_id (id or slug); use list_projects to see them."
+        }
+    slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
+    return await canvas_svc.get_canvas(
+        ctx.session, ctx.tenant_id, project.id, slug=slug, hydrate=True
+    )
+
+
+async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Propose or apply a canvas update under Govern (resource_type=project_canvas)."""
+    from app.models.auth import Tenant
+    from app.services.platform_changes import propose_platform_change
+
+    project = await _resolve_project(ctx, tool_input)
+    if project is None:
+        return {
+            "error": "No project found. Pass project_id (id or slug); use list_projects to see them."
+        }
+
+    slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
+    mode = str(tool_input.get("mode") or "patch").strip().lower()
+    if mode not in {"patch", "replace", "reset"}:
+        return {"error": "mode must be patch, replace, or reset"}
+
+    notes = str(tool_input.get("notes") or "").strip()
+    after: dict[str, Any] = {
+        "project_id": str(project.id),
+        "slug": slug,
+        "mode": "replace" if mode == "reset" else mode,
+        "notes": notes or None,
+        "agent_id": str(ctx.agent.id) if ctx.agent else "",
+        "updated_by_id": str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
+    }
+    if mode == "reset":
+        after["reset_to_default"] = True
+        summary = f"Reset canvas '{slug}' on project {project.name}"
+    elif mode == "replace":
+        widgets = tool_input.get("widgets")
+        if not isinstance(widgets, list):
+            return {"error": "replace mode requires widgets[]"}
+        after["widgets"] = widgets
+        if tool_input.get("layout") is not None:
+            after["layout"] = tool_input.get("layout")
+        if tool_input.get("title") is not None:
+            after["title"] = str(tool_input.get("title") or "")
+        summary = f"Replace canvas '{slug}' on project {project.name}"
+    else:
+        upsert = tool_input.get("upsert") if isinstance(tool_input.get("upsert"), list) else []
+        remove_ids = (
+            tool_input.get("remove_ids") if isinstance(tool_input.get("remove_ids"), list) else []
+        )
+        if not upsert and not remove_ids:
+            return {"error": "patch mode requires upsert[] and/or remove_ids[]"}
+        after["upsert"] = upsert
+        after["remove_ids"] = [str(x) for x in remove_ids]
+        summary = notes or f"Update canvas '{slug}' on project {project.name}"
+
+    tenant = (
+        await ctx.session.execute(select(Tenant).where(Tenant.id == ctx.tenant_id))
+    ).scalar_one()
+    change, meta = await propose_platform_change(
+        ctx.session,
+        tenant,
+        resource_type="project_canvas",
+        change_kind="update",
+        after=after,
+        before={"project_id": str(project.id), "slug": slug},
+        summary=summary,
+        agent=ctx.agent,
+        run_id=ctx.run_id,
+        user_id=ctx.user_id,
+        tool_name="update_project_canvas",
+        mode=ctx.mode,
+        signal_id=ctx.signal_id,
+    )
+    if meta.get("mode") == "apply":
+        return meta.get("applied", {"status": "applied", "mode": "apply"})
+    return {
+        "change_id": str(change.id),
+        "status": change.status,
+        "mode": meta.get("mode"),
+        "message": "Canvas change submitted for review",
+    }
+
+
+register_tool(
+    ToolSpec(
+        name="get_project_canvas",
+        description=(
+            "Read a project's canvas (dashboard/board): layout, widgets, and live "
+            "data for queue/budget/resources tiles. Default slug is 'main'."
+        ),
+        category="projects",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "slug": {"type": "string", "description": "Canvas slug; default main."},
+            },
+        },
+        handler=_get_project_canvas,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="update_project_canvas",
+        description=(
+            "Update a project's flexible canvas (AI-maintained dashboard). "
+            "Prefer mode=patch with upsert widgets (markdown, metric, status, "
+            "queue_summary, queue_list, resources, budget, links, table, chart, "
+            "iframe, spacer) and optional remove_ids. Use replace only for a full "
+            "redesign; reset restores the default board. Goes through Govern."
+        ),
+        category="projects",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "slug": {"type": "string"},
+                "mode": {"type": "string", "enum": ["patch", "replace", "reset"]},
+                "notes": {"type": "string", "description": "Short changelog for operators."},
+                "title": {"type": "string"},
+                "layout": {"type": "object"},
+                "widgets": {
+                    "type": "array",
+                    "description": "Full widget list for replace mode.",
+                    "items": {"type": "object"},
+                },
+                "upsert": {
+                    "type": "array",
+                    "description": "Widgets to create or update (patch mode).",
+                    "items": {"type": "object"},
+                },
+                "remove_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Widget ids to remove (patch mode).",
+                },
+            },
+        },
+        handler=_update_project_canvas,
+    )
+)

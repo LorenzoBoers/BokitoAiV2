@@ -247,8 +247,11 @@ projects:
     - apps/dashboard/src/pages/ProjectsPage.tsx
     - apps/dashboard/src/pages/ProjectDetail.tsx
     - apps/dashboard/src/components/projects/**
+    - apps/dashboard/src/lib/project-canvas-api.ts
     - apps/api/app/services/project_work.py
+    - apps/api/app/services/project_canvas.py
     - apps/api/app/routers/projects.py
+    - apps/api/app/models/project_canvas.py
   screenshots:
     - project
 

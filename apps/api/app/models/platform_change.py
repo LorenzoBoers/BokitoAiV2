@@ -27,6 +27,7 @@ PLATFORM_RESOURCE_TYPES = frozenset(
         "case_type",
         "case_type_binding",
         "project",
+        "project_canvas",
         "trigger",
     }
 )

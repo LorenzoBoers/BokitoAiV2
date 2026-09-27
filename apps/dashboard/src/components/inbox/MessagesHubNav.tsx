@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { NavSectionSkeleton } from '../ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
@@ -284,9 +285,7 @@ function ChannelsSection({ folders, loading, activeLeaf, defaultQueueFor, t }: C
 
   return (
     <div className="space-y-0.5">
-      {loading ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.channels.loading')}</p>
-      ) : null}
+      {loading ? <NavSectionSkeleton rows={3} /> : null}
       {!loading && !hasAnyChannel ? (
         <div className="space-y-1.5 px-0.5">
           <Link
@@ -338,9 +337,7 @@ type AgentsSectionProps = {
 function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
   return (
     <div className="space-y-0.5">
-      {loading ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.agents.loading')}</p>
-      ) : null}
+      {loading ? <NavSectionSkeleton rows={2} /> : null}
       {!loading && agents.length === 0 ? (
         <div className="space-y-1 px-3 py-1">
           <p className="text-[12px] text-text-muted">

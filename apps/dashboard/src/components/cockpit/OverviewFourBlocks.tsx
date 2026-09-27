@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CircleDollarSign, GitPullRequest, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
+import { CockpitPanelsSkeleton } from '../ui/skeleton'
 import { listCases, listCaseTypes, type CaseRow, type CaseTypeRow } from '../../lib/cases-api'
 import { listGovernChanges, type PlatformChangeRow } from '../../lib/govern-api'
 import { listThreads, type InboxThread } from '../../lib/inbox-api'
@@ -64,13 +65,18 @@ function Block({
   title,
   hint,
   children,
+  index = 0,
 }: {
   title: string
   hint: string
-  children: React.ReactNode
+  children: ReactNode
+  index?: number
 }) {
   return (
-    <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+    <section
+      className="stagger-in rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card"
+      style={{ '--stagger': index } as CSSProperties}
+    >
       <div>
         <h2 className="text-[14px] font-semibold text-text-heading">{title}</h2>
         <p className="mt-0.5 text-[12px] text-text-muted">{hint}</p>
@@ -80,9 +86,9 @@ function Block({
   )
 }
 
-function EmptyRow({ children }: { children: React.ReactNode }) {
+function EmptyRow({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
+    <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
       {children}
     </div>
   )
@@ -102,14 +108,19 @@ function Metric({
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-colors hover:border-accent/40"
+      className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
     >
       <span className="min-w-0 flex-1">
         <span className="block text-[12.5px] font-medium text-text-primary">{label}</span>
         <span className="block truncate text-[11px] text-text-muted">{detail}</span>
       </span>
-      <span className="tabular-nums text-[14px] font-semibold text-text-heading">{value}</span>
-      <ArrowRight size={12} className="text-text-muted group-hover:text-accent" />
+      <span key={value} className="count-pop tabular-nums text-[14px] font-semibold text-text-heading">
+        {value}
+      </span>
+      <ArrowRight
+        size={12}
+        className="text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
+      />
     </Link>
   )
 }
@@ -172,7 +183,7 @@ export default function OverviewFourBlocks() {
         loadError: 'Some Overview data could not be loaded.',
       }
   const [data, setData] = useState<OverviewData>(EMPTY)
-  const [, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   const load = useCallback(async () => {
@@ -275,32 +286,47 @@ export default function OverviewFourBlocks() {
     { label: copy.finishedRuns, values: trajectory.completed, to: '/workstreams?view=runs&status=completed' },
   ] as const
 
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <CockpitPanelsSkeleton />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {error ? <p className="text-right text-[11px] text-status-warning">{copy.loadError}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Block title={copy.needs} hint={copy.needsHint}>
+        <Block title={copy.needs} hint={copy.needsHint} index={0}>
           {data.needsYou.length === 0 ? <EmptyRow>{copy.emptyNeeds}</EmptyRow> : data.needsYou.map((thread) => (
             <Link
               key={String(thread.id)}
               to={attentionThreadPath(thread)}
-              className="group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 hover:border-accent/40"
+              className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
             >
-              <GitPullRequest size={13} className={thread.hasOpenDecision ? 'text-status-warning' : 'text-text-muted'} />
+              {thread.hasOpenDecision ? (
+                <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
+              ) : (
+                <GitPullRequest size={13} className="shrink-0 text-text-muted" />
+              )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12.5px] font-medium text-text-primary">{thread.emailSubject || thread.contactName}</span>
                 <span className="block truncate text-[11px] text-text-muted">{thread.hasOpenDecision ? copy.decisions : copy.assigned}</span>
               </span>
-              <ArrowRight size={12} className="text-text-muted group-hover:text-accent" />
+              <ArrowRight
+                size={12}
+                className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
+              />
             </Link>
           ))}
-          <Link to={data.needsYou.some((thread) => thread.hasOpenDecision) ? decisionsPath() : inboxPath('mine')} className="block pt-1 text-right text-[11px] font-medium text-accent hover:underline">
+          <Link to={data.needsYou.some((thread) => thread.hasOpenDecision) ? decisionsPath() : inboxPath('mine')} className="link-draw block pt-1 text-right text-[11px] font-medium text-accent">
             {nl ? 'Alles openen' : 'Open all'}
           </Link>
         </Block>
 
-        <Block title={copy.signals} hint={copy.signalsHint}>
+        <Block title={copy.signals} hint={copy.signalsHint} index={1}>
           {signalTypes.length === 0 ? <EmptyRow>{copy.emptySignals}</EmptyRow> : signalTypes.map((row) => (
             <Metric
               key={row.type.id}
@@ -312,20 +338,30 @@ export default function OverviewFourBlocks() {
           ))}
         </Block>
 
-        <Block title={copy.running} hint={copy.runningHint}>
+        <Block title={copy.running} hint={copy.runningHint} index={2}>
           {running.length === 0 ? <EmptyRow>{copy.emptyRunning}</EmptyRow> : running.map((row) => (
-            <Link key={row.id} to={row.to} className="group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 hover:border-accent/40">
-              <Play size={13} className="text-accent" />
+            <Link
+              key={row.id}
+              to={row.to}
+              className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
+            >
+              <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                <span className="pulse-dot absolute h-1.5 w-1.5 rounded-full bg-accent" />
+                <Play size={13} className="relative text-accent opacity-90" />
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12.5px] font-medium text-text-primary">{row.label}</span>
                 <span className="block truncate text-[11px] text-text-muted">{row.detail}</span>
               </span>
-              <ArrowRight size={12} className="text-text-muted group-hover:text-accent" />
+              <ArrowRight
+                size={12}
+                className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
+              />
             </Link>
           ))}
         </Block>
 
-        <Block title={copy.trajectory} hint={copy.trajectoryHint}>
+        <Block title={copy.trajectory} hint={copy.trajectoryHint} index={3}>
           {trajectoryRows.map((row) => (
             <Metric
               key={row.label}
@@ -341,8 +377,11 @@ export default function OverviewFourBlocks() {
             detail={nl ? 'Open voorstellen' : 'Open proposals'}
             to="/settings/govern?tab=drafts"
           />
-          <Link to="/cockpit/usage" className="group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 hover:border-accent/40">
-            <CircleDollarSign size={13} className="text-text-muted" />
+          <Link
+            to="/cockpit/usage"
+            className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
+          >
+            <CircleDollarSign size={13} className="shrink-0 text-text-muted" />
             <span className="min-w-0 flex-1">
               <span className="block text-[12.5px] font-medium text-text-primary">{copy.cost}</span>
               <span className="block text-[11px] text-text-muted">{copy.costUnavailable}</span>
@@ -350,7 +389,10 @@ export default function OverviewFourBlocks() {
             <span className="text-[12px] font-semibold text-text-heading">
               {data.usage ? formatAppUsdCents(data.usage.total_customer_cost_micros / 10_000, i18n.language) : '—'}
             </span>
-            <ArrowRight size={12} className="text-text-muted group-hover:text-accent" />
+            <ArrowRight
+              size={12}
+              className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
+            />
           </Link>
         </Block>
       </div>

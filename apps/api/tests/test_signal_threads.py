@@ -141,7 +141,7 @@ async def test_channel_filter_and_inbox_folder(client: AsyncClient, session_over
     )
     assert widget.status_code == 200
 
-    # An assistant chat should stay out of the shared inbox folder.
+    # Assistant chats belong in the shared Communication inbox (not Agent-runs).
     conv = await client.post("/api/signals/conversations", json={"title": "My chat"}, headers=headers)
     assert conv.status_code == 200
 
@@ -153,8 +153,9 @@ async def test_channel_filter_and_inbox_folder(client: AsyncClient, session_over
     inbox = await client.get("/api/signals?view=all&folder=inbox", headers=headers)
     assert inbox.status_code == 200
     inbox_channels = {item["channel"] for item in inbox.json()["items"]}
-    assert "assistant" not in inbox_channels
-    assert {"email", "widget"}.issubset(inbox_channels)
+    assert "assistant" in inbox_channels
+    assert {"email", "widget", "assistant"}.issubset(inbox_channels)
+    assert "internal" not in inbox_channels
 
 
 @pytest.mark.asyncio

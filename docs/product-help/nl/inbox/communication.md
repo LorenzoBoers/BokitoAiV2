@@ -9,16 +9,16 @@ related: agent-runs,channels,inbox-ai,contacts,decisions,cases
 
 # Zo werkt Communicatie
 
-Communicatie is waar de dag gebeurt. Klantmail, websitechat en interne agentgesprekken delen één hub. Open die wanneer iets een antwoord of een beslissing nodig heeft. Terwijl een agent werkt, toont het gesprek losse paarse statusregels — een wolk verschijnt pas wanneer de agent iets schrijft of een beslissing voorlegt.
+Communicatie is waar de dag gebeurt. Klantmail, websitechat, chats met bedrijfsagents en interne agent-runs delen één hub. Agentchats houden hun eigen map **Agents** in de zijbalk, maar gebruiken dezelfde wachtrijen en acties als de rest van Communicatie. Open die wanneer iets een antwoord of een beslissing nodig heeft. Terwijl een agent werkt, toont het gesprek losse paarse statusregels — een wolk verschijnt pas wanneer de agent iets schrijft of een beslissing voorlegt.
 
 ## Werk de wachtrij Open af
 
-Open is klantwerk dat nog jou nodig heeft.
+Open is gesprekswerk dat nog jou nodig heeft — klantkanalen én agentchats. Achtergrond-runs blijven onder **Activiteit**.
 
 ![Wachtrij Open in Communicatie](/api/docs/assets/communication/open-queue.png)
-*Open toont klantwerk dat nog jou nodig heeft.*
+*Open toont gesprekswerk dat nog jou nodig heeft, inclusief agentchats.*
 
-1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Direct daaronder staat **Beslissingen** — de map voor elk gesprek met een open keuzekaart (klant en intern). Overview, bel en diepe links landen daar. **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Mappen) — meestal **Open**, of **Van mij** als je dat zo hebt gezet.
+1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Die lijst bevat chats met bedrijfsagents naast klantmail en websitechat. Direct daaronder staat **Beslissingen** — de map voor elk gesprek met een open keuzekaart (klant, agentchat en intern). Overview, bel en diepe links landen daar. **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Mappen) — meestal **Open**, of **Van mij** als je dat zo hebt gezet.
 2. Wissel naar **Van mij** voor gesprekken die aan jou zijn toegewezen, of **Niet toegewezen** voor werk zonder eigenaar. Open **Beslissingen** wanneer je alleen ja/nee-kaarten wilt.
 3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Open, Van mij of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen.
 4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per kanaal) onder **Instellingen**, dan **Kanalen** (Mappen). De sectie **Agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde. Classificeren gaat met signalen, niet met tags: bekijk ze onder **Dit gesprek** en beheer de catalogus onder **Instellingen** → **Signaaltypes**. Zie [Hoe Signalen werken](/docs/ai/cases).

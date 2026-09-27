@@ -16,7 +16,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 ![Algemene workspace-instellingen](/api/docs/assets/setup-guide/workspace.png)
 *Zet eerst naam, logo en taal.*
 
-1. Open **Instellingen** en daarna **Algemeen**. Zet **Workspace naam** en **Tijdzone**. **Jouw taal** is persoonlijk (Nederlands of Engels), geen workspacestandaard. Onder **Beveiliging** kunnen owners **Verplichte 2FA voor alle leden** aanzetten. Kies **Instellingen opslaan**.
+1. Open **Instellingen** en daarna **Algemeen**. Zet **Workspace naam** en **Tijdzone**. **Jouw taal** is persoonlijk (Nederlands of Engels), geen workspacestandaard. Onder **Beveiliging** kunnen owners **Verplichte 2FA voor alle leden** aanzetten. Kies **Instellingen opslaan**. Eigenaren verwijderen de workspace in de **Gevaarlijke acties** onderaan deze pagina (type de workspacenaam ter bevestiging).
 2. Open **Branding**. Zet **Naam**, **Logo**, **Favicon**, **Merkkleur** en **Workspace-subdomein**, en kies **Wijzigingen opslaan**. Die komen terug in de [websitewidget](/docs/inbox/widget) en uitgaande mail.
 3. Doe branding voordat iets klantgericht live gaat, zodat concepten en de launcher al op jullie lijken.
 

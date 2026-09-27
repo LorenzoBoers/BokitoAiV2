@@ -135,7 +135,7 @@ async function request<T>(
   if (method === 'DELETE') {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error((err as { message?: string }).message || `HTTP ${res.status}`);
+      throw new Error(parseApiErrorBody(err) || `HTTP ${res.status}`);
     }
     if (res.status === 204) return undefined as T;
     const text = await res.text();
@@ -203,6 +203,10 @@ export async function workforcePatch<T>(path: string, body: object, token?: stri
   return request<T>(WORKFORCE_API_BASE, path, 'PATCH', { body, token, requireAuth: false });
 }
 
+export async function workforcePut<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(WORKFORCE_API_BASE, path, 'PUT', { body, token, requireAuth: false });
+}
+
 export async function workforceDelete<T = unknown>(
   path: string,
   body?: object,
@@ -255,8 +259,12 @@ export async function staffPut<T>(path: string, body: object, token?: string): P
   return request<T>(STAFF_API_BASE, path, 'PUT', { body, token });
 }
 
-export async function staffDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
-  return request<T>(STAFF_API_BASE, path, 'DELETE', { token });
+export async function staffDelete<T = unknown>(
+  path: string,
+  token?: string,
+  body?: object,
+): Promise<T | void> {
+  return request<T>(STAFF_API_BASE, path, 'DELETE', { token, body });
 }
 
 // ── auth base (`/api/auth`) ──────────────────────────────────────────

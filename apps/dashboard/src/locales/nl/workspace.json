@@ -34,6 +34,7 @@
   "dangerTitle": "Gevaarlijke acties",
   "deleteWorkspaceTitle": "Workspace verwijderen",
   "deleteWorkspaceDescription": "Deze actie kan niet ongedaan worden gemaakt. Alle data wordt permanent verwijderd.",
+  "deleteWorkspaceStaffHint": "Als platform support kun je deze workspace ook verwijderen als je geen eigenaar bent.",
   "deleteWorkspaceButton": "Workspace verwijderen",
   "deleteDialogTitle": "Workspace verwijderen",
   "deleteDialogPrompt": "Type de naam van de workspace \"{{name}}\" om te bevestigen:",

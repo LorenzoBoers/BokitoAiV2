@@ -208,6 +208,7 @@
     "clearScope": "Alle gesprekken tonen",
     "emptyScoped": "Geen gesprekken in dit filter.",
     "selectThread": "Gesprek selecteren",
+    "closeThread": "Gesprek sluiten",
     "deleteThread": "Gesprek verwijderen",
     "channelSettings": "Kanaalinstellingen",
     "lastSyncNow": "Mail zojuist",

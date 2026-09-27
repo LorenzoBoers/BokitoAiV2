@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -451,7 +451,6 @@ async def _signals_with_open_decisions(session: AsyncSession, tenant_id: UUID) -
         .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
         .where(
             Signal.tenant_id == tenant_id,
-            Signal.channel != "assistant",
             Signal.status.notin_(("closed", "spam")),
             SignalMessage.kind == "decision_request",
             DecisionRequest.status == "awaiting_human",
@@ -512,14 +511,22 @@ async def nav_badge_counts(
             stmt = stmt.where(acl)
         return int((await session.execute(stmt)).scalar_one() or 0)
 
-    customer_inbox = Signal.channel.notin_(("internal", "assistant"))
+    # Alle communicatie badges: customer channels + assistant chats the operator
+    # may see. Internal agent-run threads stay under Agent-runs.
+    hub_inbox = or_(
+        Signal.channel.notin_(("internal", "assistant")),
+        and_(
+            Signal.channel == "assistant",
+            or_(Signal.owner_user_id == user_id, Signal.owner_user_id.is_(None)),
+        ),
+    )
     my_unread = await _count(
-        open_status, unread, customer_inbox, Signal.assigned_user_id == user_id
+        open_status, unread, hub_inbox, Signal.assigned_user_id == user_id
     )
     unassigned_unread = await _count(
-        open_status, unread, customer_inbox, Signal.assigned_user_id.is_(None)
+        open_status, unread, hub_inbox, Signal.assigned_user_id.is_(None)
     )
-    all_unread = await _count(open_status, unread, customer_inbox)
+    all_unread = await _count(open_status, unread, hub_inbox)
 
     agents_attention = 0
     no_reply_suggestions = 0
@@ -595,9 +602,18 @@ async def list_threads(
     elif folder == "internal":
         query = query.where(Signal.channel == "internal")
     elif folder == "inbox":
-        # Customer work only. Internal agent runs live under Agent-runs;
-        # assistant chats live under Assistant.
-        query = query.where(Signal.channel.notin_(("internal", "assistant")))
+        # Shared Communication hub: customer channels + assistant/agent chats
+        # the operator may see (owned or shared). Internal agent-run threads
+        # stay under Agent-runs / activity.
+        query = query.where(
+            or_(
+                Signal.channel.notin_(("internal", "assistant")),
+                and_(
+                    Signal.channel == "assistant",
+                    or_(Signal.owner_user_id == user_id, Signal.owner_user_id.is_(None)),
+                ),
+            )
+        )
     elif folder == "assistant":
         query = query.where(Signal.channel == "assistant")
         query = query.where(

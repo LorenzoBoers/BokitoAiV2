@@ -75,6 +75,11 @@ import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
 import { formatAppDateTime } from '../../lib/app-locale'
+import {
+  THREAD_ACTION_CLUSTER_CLASS,
+  THREAD_HEADER_CLASS,
+  THREAD_HEADER_ICON_CLASS,
+} from '../../lib/chat-chrome'
 import { WhatsNextDialog, scheduledForIso, type FollowUpWhen } from './WhatsNextDialog'
 import { toast } from 'sonner'
 
@@ -175,8 +180,7 @@ type Props = {
   onAskAssistant?: () => void
 }
 
-const HEADER_ICON =
-  'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
+const HEADER_ICON = THREAD_HEADER_ICON_CLASS
 
 const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
   normal: { labelKey: 'priority.normal', dot: 'bg-text-muted/40' },
@@ -232,7 +236,7 @@ function ThreadMetaRow({
   const showAgent = Boolean(agentId || agentName)
 
   return (
-    <div className="flex items-center gap-2 border-b border-border/40 bg-bg-elevated px-3 py-1 shrink-0">
+    <div className="flex shrink-0 items-center gap-1.5 border-b border-border/30 bg-bg-surface px-3 py-1">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1410,6 +1414,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         title={thread.emailSubject}
         agentName={thread.agentName}
         agentKind={thread.agentKind}
+        status={thread.status}
+        assignedToUserId={thread.assignedToUserId}
+        onAssign={(userId) => void onPatch({ assignedToUserId: userId ?? 0 })}
+        onClose={() => onPatch({ status: 'closed' })}
+        onReopen={() => onPatch({ status: 'open' })}
         onDeleted={() => {
           onRefresh()
           onBack?.()
@@ -1431,7 +1440,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   return (
     <TooltipProvider delayDuration={150}>
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-bg-surface shrink-0 min-h-10">
+      <div className={THREAD_HEADER_CLASS}>
         {onBack ? (
           <button
             type="button"
@@ -1443,12 +1452,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           </button>
         ) : null}
         <div className="min-w-0 flex-1 leading-tight">
-          <h2 className="text-[13px] font-medium text-text-heading truncate">
+          <h2 className="truncate text-[13px] font-medium text-text-heading">
             {translateDecisionText(thread.emailSubject, t)}
           </h2>
-          <p className="text-[11px] text-text-muted truncate">
+          <p className="truncate text-[11px] text-text-muted">
             {isInternalThread(thread) ? (
-              `${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`
+              <>
+                {`${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`}
+                <span className="text-text-muted/75">
+                  {' · '}
+                  {threadStatusLabel(thread.status, t)}
+                </span>
+              </>
             ) : (
               <>
                 {thread.contactId ? (
@@ -1502,21 +1517,19 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     </button>
                   </>
                 ) : null}
+                <span className="text-text-muted/75">
+                  {' · '}
+                  {threadStatusLabel(thread.status, t)}
+                  {thread.status === 'pending'
+                    ? ` · ${
+                        (thread.snoozedUntil
+                          ? formatWakeTime(thread.snoozedUntil, t, i18n.language)
+                          : null) ?? t('snooze.wakesOnReply')
+                      }`
+                    : ''}
+                </span>
               </>
             )}
-          </p>
-          <p className="truncate text-[10px] text-text-muted/80">
-            {threadStatusLabel(thread.status, t)}
-            {thread.createdAt
-              ? ` · ${formatAppDateTime(new Date(thread.createdAt), i18n.language)}`
-              : ''}
-            {thread.status === 'pending'
-              ? ` · ${
-                  (thread.snoozedUntil
-                    ? formatWakeTime(thread.snoozedUntil, t, i18n.language)
-                    : null) ?? t('snooze.wakesOnReply')
-                }`
-              : ''}
           </p>
         </div>
         {detail.csat ? (
@@ -1538,7 +1551,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           </Tooltip>
         ) : null}
         <div
-          className="flex items-center shrink-0 rounded-lg border border-border/60 bg-bg-surface-hover/30 p-0.5"
+          className={THREAD_ACTION_CLUSTER_CLASS}
           role="toolbar"
           aria-label={t('threadChrome.threadActions')}
         >
@@ -1788,13 +1801,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') &&
       (thread.aiPaused || Boolean(thread.hasOpenDecision) || Boolean(detail?.sessions?.some((s) => !s.closedAt))) ? (
         <div
-          className={`flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5 ${
+          className={`flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-1 ${
             thread.aiPaused
-              ? 'border-accent/25 bg-accent/5'
-              : 'border-border/40 bg-bg-elevated'
+              ? 'border-accent/20 bg-accent/[0.04]'
+              : 'border-border/30 bg-bg-surface'
           }`}
         >
-          <p className="text-[11.5px] text-text-secondary">
+          <p className="text-[11px] text-text-muted">
             {thread.aiPaused
               ? thread.assignedToUserId == null
                 ? t('threadChrome.customerAskedBanner')
@@ -1860,7 +1873,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         ) : null}
         <div
           ref={scrollRef}
-          className="absolute inset-0 overflow-y-auto px-4 py-3"
+          className="absolute inset-0 overflow-y-auto px-4 py-4"
         >
         <div ref={contentRef} className="mx-auto w-full max-w-[860px]">
         {groups.length === 0 ? (

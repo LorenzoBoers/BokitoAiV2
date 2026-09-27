@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,9 +16,17 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import Membership, Tenant, User
 from app.models.staff import StaffAccessLog
-from app.services.workspaces_portal import allows_platform_support
+from app.services.workspaces_portal import allows_platform_support, delete_workspace
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/staff", tags=["staff-ops"])
+
+
+class StaffDeleteTenantBody(BaseModel):
+    """Confirm by typing the workspace slug (case-insensitive)."""
+
+    confirm_slug: str = Field(min_length=1, max_length=80)
 
 
 def _require_staff(auth: AuthContext) -> None:
@@ -142,3 +153,40 @@ async def staff_ops_directory(
         "users": users,
         "access_logs": access_logs,
     }
+
+
+@router.delete("/ops/tenants/{tenant_id}")
+async def staff_delete_tenant(
+    tenant_id: str,
+    body: StaffDeleteTenantBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Hard-purge a tenant. Staff must type the slug to confirm."""
+    _require_staff(auth)
+    try:
+        tid = UUID(tenant_id.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid tenant id") from exc
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tid))
+    ).scalar_one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
+    if body.confirm_slug.strip().lower() != tenant.slug.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirmation slug does not match this workspace.",
+        )
+    slug = tenant.slug
+    name = tenant.name
+    # Access logs for this tenant are purged with the workspace (tenant_id FK).
+    await delete_workspace(session, tenant)
+    logger.info(
+        "staff_tenant_deleted staff=%s tenant_id=%s slug=%s name=%s",
+        auth.user.email,
+        tid,
+        slug,
+        name,
+    )
+    return {"ok": True, "id": str(tid), "slug": slug, "name": name}

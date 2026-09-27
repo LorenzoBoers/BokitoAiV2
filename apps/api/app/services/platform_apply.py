@@ -495,6 +495,10 @@ async def apply_change_to_domain(
         return await apply_case_type_binding_change(session, tenant_id, ck, after, before)
     if rt == "project":
         return await apply_project_change(session, tenant_id, ck, after, before)
+    if rt == "project_canvas":
+        from app.services.project_canvas import apply_canvas_document
+
+        return await apply_canvas_document(session, tenant_id, after)
     if rt == "trigger":
         return await apply_trigger_change(session, tenant_id, ck, after, before)
     return {"status": "applied", "resource_type": rt, "payload": after}

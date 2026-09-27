@@ -16,7 +16,7 @@ import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/l
 import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { legacyModulesPath } from './lib/integration-kind-url'
-import { CardGridSkeleton } from './components/ui/skeleton'
+import { CockpitPanelsSkeleton, Skeleton } from './components/ui/skeleton'
 import { activityTerminalPath, agentChatPath, agentRunsPath, channelPath, decisionsPath, inboxPath, newConversationPath } from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
@@ -39,9 +39,6 @@ const NewConversationPage = lazy(() => import('./pages/NewConversationPage'))
 const CockpitPage = lazy(() => import('./pages/CockpitPage'))
 const ContactsPage = lazy(() => import('./pages/ContactsPage'))
 const Communication = lazy(() => import('./pages/MessagesHub').then((m) => ({ default: m.MessagesHub })))
-const DirectCommunication = lazy(() =>
-  import('./pages/MessagesHub').then((m) => ({ default: m.MessagesDirectHub })),
-)
 const ActivityTerminalPage = lazy(() => import('./pages/ActivityTerminalPage'))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
@@ -59,6 +56,7 @@ const WorkstreamRunDetail = lazy(() => import('./pages/WorkstreamRunDetail'))
 // Settings sections
 const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
 const ModelsSettings = lazy(() => import('./pages/ModelsSettings'))
+const StaffIntegrationCatalog = lazy(() => import('./pages/StaffIntegrationCatalog'))
 const OpsPage = lazy(() => import('./pages/OpsPage'))
 const DeveloperSettings = lazy(() => import('./pages/DeveloperSettings'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
@@ -87,8 +85,17 @@ const WorkspaceAccount = lazy(() => import('./pages/WorkspaceAccount'))
 function RouteFallback() {
   const { t } = useTranslation('nav')
   return (
-    <div className="px-5 py-6" role="status" aria-busy="true" aria-label={t('app.loading')}>
-      <CardGridSkeleton cards={3} />
+    <div
+      className="animate-fade-in space-y-4 px-5 py-6"
+      role="status"
+      aria-busy="true"
+      aria-label={t('app.loading')}
+    >
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-3 w-64" />
+      </div>
+      <CockpitPanelsSkeleton />
     </div>
   )
 }
@@ -323,14 +330,14 @@ export default function App() {
             <Route path="/communication/assistant/*" element={<Navigate to={newConversationPath()} replace />} />
             <Route path="/communication/assistant" element={<Navigate to={newConversationPath()} replace />} />
 
-            {/* Company agent chats */}
-            <Route path="/communication/agent/:agentId" element={<DirectCommunication />} />
-            <Route path="/communication/agent/:agentId/t/:threadId" element={<DirectCommunication />} />
+            {/* Company agent chats — same Communication shell as Alle communicatie */}
+            <Route path="/communication/agent/:agentId" element={<Communication />} />
+            <Route path="/communication/agent/:agentId/t/:threadId" element={<Communication />} />
             {/* Per-agent activity → global activity timeline filtered to that agent */}
             <Route path="/communication/agent/:agentId/activity" element={<LegacyAgentActivityRedirect />} />
             <Route path="/communication/agent/:agentId/activity/t/:threadId" element={<LegacyAgentActivityRedirect />} />
-            <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
-            <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<DirectCommunication />} />
+            <Route path="/communication/agent/:agentId/:queue" element={<Communication />} />
+            <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<Communication />} />
 
             {/* Decisions queue: open DecisionRequests across customer + internal */}
             <Route path="/communication/decisions" element={<Communication />} />
@@ -451,6 +458,7 @@ export default function App() {
             <Route path="/settings/trust" element={<TrustPrivacyPage />} />
             <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
+            <Route path="/settings/mcp-catalog" element={<StaffIntegrationCatalog />} />
             <Route path="/settings/projects" element={<Navigate to="/projects" replace />} />
             <Route path="/ai/assistant" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
             <Route path="/ai/assistant/:audience/:section" element={<MessengerSettings />} />

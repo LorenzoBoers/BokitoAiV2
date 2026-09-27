@@ -1,15 +1,15 @@
 ---
 title: Zo werken Projecten
-intro: Een project houdt een doel vast — de implementatie-queue, de documentatie, wie het leidt, en hoeveel het mag uitgeven.
-description: Werk de implementatie-queue af, houd slimme documentatie met sectiestatussen bij, koppel resources zoals een repo of drive, en laat agents queue-items voorstellen vanuit gesprekken.
-keywords: projecten, queue, documentatie, secties, resources, repository, budget, orkestratie
+intro: Een project houdt een doel vast — canvas, implementatie-queue, documentatie, wie het leidt, en hoeveel het mag uitgeven.
+description: Werk het AI-onderhouden projectcanvas, de implementatie-queue, slimme documentatie en gekoppelde resources, en laat agents queue-items voorstellen vanuit gesprekken.
+keywords: projecten, canvas, dashboard, widgets, queue, documentatie, secties, resources, repository, budget, orkestratie
 sort: 40
 related: agenda,knowledge,communication,workstreams
 ---
 
 # Zo werken Projecten
 
-Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een projectdetail heeft drie tabbladen: **Queue** (wat er moet gebeuren), **Documentatie** (wat waar is) en **Instellingen** (wie het uitvoert en waar het op werkt).
+Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een projectdetail heeft vier tabbladen: **Canvas** (levend overzicht), **Queue** (wat er moet gebeuren), **Documentatie** (wat waar is) en **Instellingen** (wie het uitvoert en waar het op werkt).
 
 ## Maak of open een project
 
@@ -18,7 +18,16 @@ Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis mo
 
 1. Open **Projecten**. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
 2. Lees de kaart: projectagent, open queue-items, documentatiegezondheid, repo-status, resterend budget. Zoek op naam of agent als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
-3. Open die. Je landt op het tabblad **Queue**. Het tabblad **Instellingen** bevat de kaart **Wie dit uitvoert**; gebruik **Projectagent wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
+3. Open die. Je landt op het tabblad **Canvas**. Het tabblad **Instellingen** bevat de kaart **Wie dit uitvoert**; gebruik **Projectagent wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
+
+## Houd een levend canvas bij
+
+Het canvas is een flexibel bord met tegels (metrics, status, markdown, grafieken, tabellen, embeds en live queue/budget/resources). Agents onderhouden het via Govern; jij herschikt en voegt toe wat je wilt zien.
+
+1. Open het tabblad **Canvas**. Het standaardbord toont al gezondheid, queue-puls, budget, resources en open queue-items.
+2. Kies **Metric toevoegen** om zelf een getal te pinnen, of **Bord resetten** om de standaardindeling terug te zetten.
+3. Vraag in [Communicatie](/docs/inbox/communication) een bedrijfsagent om het canvas bij te werken — bijvoorbeeld een status-tegel, een grafiek of een markdown-briefing. Wijzigingen gaan via [Govern](/docs/govern/govern) wanneer autonomie goedkeuring vraagt.
+4. Live tegels vernieuwen vanuit queue, budget en resources; statische tegels houden de inhoud die de agent (of jij) het laatst schreef.
 
 ## Werk de implementatie-queue af
 

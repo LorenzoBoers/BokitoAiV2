@@ -28,7 +28,8 @@ export interface IntegrationProviderRow {
   description: string
   category: string
   auth_type: IntegrationAuthType
-  capabilities?: Record<string, boolean>
+  /** Boolean flags plus optional lists (e.g. auth_modes). */
+  capabilities?: Record<string, boolean | string[] | undefined>
   status: IntegrationProviderStatus
   host_id?: string
   host?: IntegrationHostRow | null
