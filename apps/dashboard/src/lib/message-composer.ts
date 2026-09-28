@@ -26,6 +26,9 @@ export type ComposerSurface = {
 /** Background agent-run / ops threads (Agent-runs leaf). */
 export function isAgentRunThread(thread: Pick<InboxThread, 'channel' | 'folder'>): boolean {
   const channel = thread.channel ?? 'email'
+  // Assistant chats are conversations, never agent runs, regardless of the
+  // folder the API stamps on them.
+  if (channel === 'assistant') return false
   return thread.folder === 'internal' || channel === 'internal'
 }
 

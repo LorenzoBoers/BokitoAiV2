@@ -89,6 +89,14 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(open.map((item) => item.id)).toEqual(['assistant-1', 'customer-1'])
   })
 
+  it('keeps assistant chats in Open even when the API stamps them as internal', () => {
+    const open = customersOnly([
+      thread({ id: 'assistant-1', channel: 'assistant', folder: 'internal' }),
+      thread({ id: 'internal-1', channel: 'internal', folder: 'internal' }),
+    ])
+    expect(open.map((item) => item.id)).toEqual(['assistant-1'])
+  })
+
   it('opens customer threads in Open, assistant chats on the agent leaf, runs under Agent-runs', () => {
     expect(threadHubPath(thread({ id: 'c1', channel: 'email', folder: 'customer' }))).toBe(
       '/communication/inbox/open/t/c1',

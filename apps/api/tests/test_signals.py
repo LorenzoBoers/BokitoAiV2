@@ -264,6 +264,32 @@ async def test_inbox_folder_excludes_internal(client: AsyncClient, session_overr
 
 
 @pytest.mark.asyncio
+async def test_inbox_open_includes_assistant_chat_as_assistant_folder(
+    client: AsyncClient, session_override
+):
+    """Agent chats are conversations: listed in Alle communicatie -> Open with
+    folder=assistant so the dashboard does not hide them as agent runs."""
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    chat = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        subject="MMXM Trader",
+        status="open",
+        has_unread=False,
+    )
+    session_override.add(chat)
+    await session_override.commit()
+
+    inbox = await client.get("/api/signals?view=all_open&folder=inbox", headers=headers)
+    assert inbox.status_code == 200
+    by_id = {item["id"]: item for item in inbox.json()["items"]}
+    assert str(chat.id) in by_id
+    assert by_id[str(chat.id)]["folder"] == "assistant"
+    assert by_id[str(chat.id)]["channel"] == "assistant"
+
+
+@pytest.mark.asyncio
 async def test_list_threads_and_flags(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()

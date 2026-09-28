@@ -215,7 +215,14 @@ def serialize_thread(
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
-    folder = "internal" if is_internal_channel(signal.channel) else "external"
+    # Assistant chats are conversations (Alle communicatie + Agents folder);
+    # only agent-run threads are "internal" and hidden from the Open queue.
+    if signal.channel == "assistant":
+        folder = "assistant"
+    elif is_internal_channel(signal.channel):
+        folder = "internal"
+    else:
+        folder = "external"
     payload: dict[str, Any] = {
         "id": str(signal.id),
         "organisation_id": str(signal.tenant_id),
