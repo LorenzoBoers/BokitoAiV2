@@ -310,19 +310,18 @@ async def test_tenant_models_api_and_agent_patch(client: AsyncClient):
     res = await client.get("/api/settings/models", headers=headers)
     assert res.status_code == 200
     payload = res.json()
-    assert payload.get("source") == "platform"
-    assert any(m["slug"] == "claude-sonnet-4-6" for m in payload["models"])
-    # No BYOK -> both providers billable.
-    assert set(payload["billable_providers"]) == {"anthropic", "openai"}
+    assert payload.get("source") == "managed"
+    assert payload["managed"]["chat"]["slug"] == "bokito-ai-3-1"
+    assert any(m["slug"] == "bokito-ai-3-1" for m in payload["models"])
 
-    # Restrict allowed chat models to just haiku.
+    # Restrict allowed chat models to just haiku (legacy platform prefs).
     put = await client.put(
         "/api/settings/models",
         json={"allowed_chat": ["claude-haiku-4-5"], "default_chat": "claude-haiku-4-5"},
         headers=headers,
     )
     assert put.status_code == 200
-    assert put.json()["prefs"]["allowed_chat"] == ["claude-haiku-4-5"]
+    assert put.json().get("default_chat") == "claude-haiku-4-5"
 
     # Find a company agent to repoint.
     agents = (await client.get("/api/workforce/agents", headers=headers)).json()["items"]

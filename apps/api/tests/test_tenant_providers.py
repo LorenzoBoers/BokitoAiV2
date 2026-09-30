@@ -2,12 +2,23 @@
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 
 from app.models.auth import Tenant
 from app.models.agent import Agent
-from app.services import provider_connections, tenant_model_catalog
+from app.services import provider_connections, tenant_features, tenant_model_catalog
 from app.services.model_catalog import seed_model_catalog
 from app.services.model_resolution import resolve_model_call
+
+
+async def _activate_custom_models(session, tenant_id, monkeypatch):
+    """Turn on the env kill-switch and entitle + opt-in the tenant for BYOK tests."""
+    monkeypatch.setattr(
+        "app.services.tenant_features.get_settings",
+        lambda: type("S", (), {"feature_custom_models": True})(),
+    )
+    await tenant_features.set_custom_models_entitlement(session, tenant_id, entitled=True)
+    await tenant_features.set_custom_models_opt_in(session, tenant_id, enabled=True)
 
 
 @pytest.mark.asyncio
@@ -36,12 +47,13 @@ async def test_create_provider_and_enable_presets(session_override):
 
 
 @pytest.mark.asyncio
-async def test_resolve_tenant_model_byok(session_override):
+async def test_resolve_tenant_model_byok(session_override, monkeypatch):
     await seed_model_catalog(session_override)
     tenant = Tenant(slug="prov-b", name="Prov B")
     session_override.add(tenant)
     await session_override.commit()
     await session_override.refresh(tenant)
+    await _activate_custom_models(session_override, tenant.id, monkeypatch)
 
     conn = await provider_connections.create_connection(
         session_override,
@@ -60,11 +72,12 @@ async def test_resolve_tenant_model_byok(session_override):
 
 
 @pytest.mark.asyncio
-async def test_resolve_openai_compatible_base_url(session_override):
+async def test_resolve_openai_compatible_base_url(session_override, monkeypatch):
     tenant = Tenant(slug="prov-c", name="Prov C")
     session_override.add(tenant)
     await session_override.commit()
     await session_override.refresh(tenant)
+    await _activate_custom_models(session_override, tenant.id, monkeypatch)
 
     conn = await provider_connections.create_connection(
         session_override,
@@ -131,7 +144,7 @@ async def test_agent_model_validates_tenant_model(session_override):
 
 
 @pytest.mark.asyncio
-async def test_providers_api(client: AsyncClient):
+async def test_providers_api(client: AsyncClient, session_override, monkeypatch):
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
     login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
@@ -141,6 +154,12 @@ async def test_providers_api(client: AsyncClient):
     assert listed.status_code == 200
     assert "presets" in listed.json()
     assert "anthropic" in listed.json()["presets"]
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    await _activate_custom_models(session_override, tenant.id, monkeypatch)
+    # AuthContext caches the tenant from login; re-login so gates see entitlement.
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
     created = await client.post(
         "/api/settings/providers",

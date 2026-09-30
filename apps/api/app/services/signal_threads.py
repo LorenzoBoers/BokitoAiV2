@@ -2047,14 +2047,26 @@ async def reply_to_thread(
     # Internal agent threads are two-way chats: when an operator posts a reply
     # (not an internal note), run the thread's agent in the background so Send
     # returns immediately. Deltas stream via gateway; the final message lands
-    # through append_signal_chat_message.
+    # through append_signal_chat_message. Under mock/test execution await
+    # inline — background sessions cannot see the in-memory SQLite fixture.
     if direction == "outbound" and signal.channel == "internal" and not signal.ai_paused and not scheduled:
-        _schedule_agent_reply(
-            tenant_id,
-            user_id,
-            signal.id,
-            attachments=list(attachments) if attachments else None,
-        )
+        from app.config import get_settings
+
+        if get_settings().bokito_mock_execution:
+            await _generate_agent_reply(
+                session,
+                tenant_id,
+                user_id,
+                signal,
+                attachments=list(attachments) if attachments else None,
+            )
+        else:
+            _schedule_agent_reply(
+                tenant_id,
+                user_id,
+                signal.id,
+                attachments=list(attachments) if attachments else None,
+            )
     return serialize_message(message)
 
 
