@@ -28,6 +28,7 @@ describe('product help routes', () => {
   it('keeps the section order stable', () => {
     expect(PRODUCT_HELP_SECTIONS[0]).toBe('getting-started')
     expect(PRODUCT_HELP_SECTIONS).toContain('developers')
-    expect(PRODUCT_HELP_SECTIONS).toHaveLength(6)
+    expect(PRODUCT_HELP_SECTIONS).toContain('v2')
+    expect(PRODUCT_HELP_SECTIONS).toHaveLength(7)
   })
 })

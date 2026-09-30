@@ -492,6 +492,10 @@
       "developers": {
         "title": "Developers",
         "blurb": "REST-API, authenticatie, webhooks, het MCP-endpoint, widget-embedding en rate limits."
+      },
+      "v2": {
+        "title": "Bokito V2",
+        "blurb": "De volgende generatie op v2.bokito.ai: een gespreksoppervlak, bestuurde agents, modules en het MCP-endpoint."
       }
     }
   },

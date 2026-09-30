@@ -125,6 +125,42 @@ The removed V1 scripts (`vps-redeploy.py`, `vps-finish-deploy.py`, `vps-update-e
 - `WORKER_INBOUND_SECRET`
 - `BULL_BOARD_BASIC_AUTH` (Bull Board on the legacy worker plane)
 
+## Bokito V2 (v2.bokito.ai)
+
+V2 (`apps/api-v2`, `apps/web-v2`) ships through the same `Deploy` workflow as V1 and lands on the same VPS as two extra compose projects with their own Postgres and Redis volumes. Nothing is shared with V1 except the host Caddy.
+
+| | V2 staging | V2 production |
+|---|---|---|
+| URL | `https://v2-staging.bokito.ai` | `https://v2.bokito.ai` |
+| Compose project | `bokito-v2-staging` | `bokito-v2` |
+| Env file | `/opt/bokito/.env.v2-staging` | `/opt/bokito/.env.v2` |
+| Web port (host Caddy) | `127.0.0.1:8091` | `127.0.0.1:8090` |
+| `ENVIRONMENT` / `LLM_MODE` | `staging` / `mock` | `production` / `live` |
+| Images | `ghcr.io/lorenzoboers/bokito-api-v2:<sha>`, `ghcr.io/lorenzoboers/bokito-web-v2:<sha>` (one web image for both) | same digest as staging |
+
+Flow inside `deploy.yml`: the `build` job pushes the two V2 images; `deploy-staging` runs `scripts/vps-v2-bootstrap.sh staging` on first use (env file with generated `POSTGRES_PASSWORD`, `JWT_SECRET`, `CREDENTIALS_KEY`, `INBOUND_SECRET`, plus the Caddy route) and then `scripts/vps-pull-deploy-v2.sh staging <sha>`; `scripts/smoke-v2.sh` checks `/api/health/ready`, OAuth discovery, the MCP 401 challenge and the web shell. `deploy-production` repeats this for `prod` after the environment approval, with `.rollback.v2-prod.env` as the rollback snapshot.
+
+Manual deploy on the server:
+
+```bash
+cd /opt/bokito
+bash scripts/vps-v2-bootstrap.sh staging   # once
+./scripts/vps-pull-deploy-v2.sh staging <git-sha>
+bash scripts/smoke-v2.sh https://v2-staging.bokito.ai
+./scripts/vps-pull-deploy-v2.sh prod <git-sha>
+```
+
+Production requirements are enforced at startup by `validate_production_settings`: `JWT_SECRET` of at least 32 characters, `CREDENTIALS_KEY` (Fernet), `LLM_MODE=live`, `REDIS_URL`, a public `PUBLIC_APP_URL`. The managed model defaults to `mistral:mistral-large-latest` (EU); set `MISTRAL_API_KEY` in `.env.v2`, or override `MANAGED_MODEL` with another provider key until a Mistral key is available. `alembic upgrade head` runs on every API container start. Rollback:
+
+```bash
+cd /opt/bokito
+set -a && source .rollback.v2-prod.env && set +a
+docker compose -p bokito-v2 --env-file .env.v2 -f docker-compose.v2.deploy.yml pull
+docker compose -p bokito-v2 --env-file .env.v2 -f docker-compose.v2.deploy.yml up -d
+```
+
+Local V2 stack: `docker compose -p bokito-v2 -f docker-compose.v2.yml up -d --build` (web on `http://127.0.0.1:8090`).
+
 ## Local development (unchanged)
 
 ```powershell

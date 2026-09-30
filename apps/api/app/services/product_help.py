@@ -26,7 +26,7 @@ from app.services.workspace import _keyword_score, _tokens, chunk_markdown, pars
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 LANGS = ("en", "nl")
-SECTIONS = ("getting-started", "inbox", "ai", "govern", "integrations", "developers")
+SECTIONS = ("getting-started", "inbox", "ai", "govern", "integrations", "developers", "v2")
 SOURCE_TYPE = "product_help"
 
 
@@ -319,6 +319,7 @@ _LLMS_SECTION_TITLES = {
     "govern": "Govern",
     "integrations": "Integrations",
     "developers": "Developers",
+    "v2": "Bokito V2",
 }
 
 

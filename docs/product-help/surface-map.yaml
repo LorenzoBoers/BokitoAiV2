@@ -442,3 +442,97 @@ rate-limits:
   routes:
     - /docs/developers/rate-limits
   screenshots: []
+
+# Bokito V2 (apps/api-v2 + apps/web-v2, served on v2.bokito.ai). Routes below are
+# web-v2 routes; screenshots follow once the V2 capture script exists.
+
+v2-welcome:
+  section: v2
+  routes:
+    - /docs/v2/v2-welcome
+    - /login
+    - /signup
+  code_globs:
+    - apps/web-v2/src/App.tsx
+    - apps/web-v2/src/pages/auth/*.tsx
+    - apps/web-v2/src/components/Shell.tsx
+    - docs/CORE_INTENT.md
+  screenshots: []
+
+v2-communication:
+  section: v2
+  routes:
+    - /communication
+    - /communication/:id
+    - /overview
+  code_globs:
+    - apps/web-v2/src/pages/communication/*.tsx
+    - apps/web-v2/src/pages/OverviewPage.tsx
+    - apps/api-v2/bokito/api/conversations.py
+    - apps/api-v2/bokito/api/decisions.py
+    - apps/api-v2/bokito/api/contacts.py
+  screenshots: []
+
+v2-govern:
+  section: v2
+  routes:
+    - /govern
+    - /govern/:tab
+  code_globs:
+    - apps/web-v2/src/pages/govern/*.tsx
+    - apps/api-v2/bokito/api/govern.py
+    - apps/api-v2/bokito/services/policy.py
+    - apps/api-v2/bokito/services/outcomes.py
+    - apps/api-v2/bokito/services/usage.py
+  screenshots: []
+
+v2-work:
+  section: v2
+  routes:
+    - /work
+    - /work/:tab
+    - /work/:tab/:id
+  code_globs:
+    - apps/web-v2/src/pages/work/*.tsx
+    - apps/api-v2/bokito/api/work.py
+    - apps/api-v2/bokito/agent/*.py
+  screenshots: []
+
+v2-knowledge:
+  section: v2
+  routes:
+    - /knowledge
+    - /knowledge/:id
+  code_globs:
+    - apps/web-v2/src/pages/KnowledgePage.tsx
+    - apps/api-v2/bokito/api/knowledge.py
+  screenshots: []
+
+v2-connections:
+  section: v2
+  routes:
+    - /connections
+  code_globs:
+    - apps/web-v2/src/pages/ConnectionsPage.tsx
+    - apps/api-v2/bokito/api/connections.py
+    - apps/api-v2/bokito/api/modules.py
+    - apps/api-v2/bokito/channels/*.py
+    - apps/api-v2/bokito/modules/**/*.py
+    - apps/api-v2/bokito/workbench/*.py
+  screenshots: []
+
+v2-developers:
+  section: v2
+  routes:
+    - /settings/developers
+    - /oauth/consent
+  code_globs:
+    - apps/web-v2/src/pages/SettingsPage.tsx
+    - apps/web-v2/src/pages/auth/OAuthConsentPage.tsx
+    - apps/api-v2/bokito/api/mcp.py
+    - apps/api-v2/bokito/api/oauth.py
+    - apps/api-v2/bokito/api/tools.py
+    - apps/api-v2/bokito/api/workbench.py
+    - apps/api-v2/bokito/deps.py
+    - apps/api-v2/bokito/services/oauth.py
+  screenshots: []

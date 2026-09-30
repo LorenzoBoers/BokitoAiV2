@@ -23,6 +23,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   API_IMAGE: ghcr.io/lorenzoboers/bokito-api
+  API_V2_IMAGE: ghcr.io/lorenzoboers/bokito-api-v2
+  WEB_V2_IMAGE: ghcr.io/lorenzoboers/bokito-web-v2
 
 jobs:
   gate:
@@ -114,6 +116,32 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # V2 (apps/api-v2 + apps/web-v2). Same-origin web image serves staging and prod.
+      - name: Build and push API V2 image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/api-v2
+          push: true
+          tags: |
+            ${{ env.API_V2_IMAGE }}:${{ needs.resolve-sha.outputs.sha }}
+            ${{ env.API_V2_IMAGE }}:master
+          cache-from: type=gha,scope=api-v2
+          cache-to: type=gha,mode=max,scope=api-v2
+
+      - name: Build and push web V2 image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web-v2/Dockerfile
+          push: true
+          tags: |
+            ${{ env.WEB_V2_IMAGE }}:${{ needs.resolve-sha.outputs.sha }}
+            ${{ env.WEB_V2_IMAGE }}:master
+          build-args: |
+            VITE_APP_VERSION=${{ needs.resolve-sha.outputs.short_sha }}
+          cache-from: type=gha,scope=web-v2
+          cache-to: type=gha,mode=max,scope=web-v2
+
   deploy-staging:
     needs: [resolve-sha, build]
     runs-on: ubuntu-latest
@@ -164,12 +192,18 @@ jobs:
             docker compose -p bokito-staging --env-file .env.staging \
               -f docker-compose.deploy.yml -f docker-compose.vps.yml \
               exec -T api python scripts/seed_staging.py || true
+            chmod +x scripts/vps-pull-deploy-v2.sh scripts/vps-v2-bootstrap.sh scripts/smoke-v2.sh
+            test -f .env.v2-staging || bash scripts/vps-v2-bootstrap.sh staging
+            ./scripts/vps-pull-deploy-v2.sh staging ${{ needs.resolve-sha.outputs.sha }}
 
       - name: Smoke test staging
         env:
           SMOKE_EMAIL: ${{ secrets.STAGING_SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
         run: bash scripts/smoke-deploy.sh https://staging.bokito.ai
+
+      - name: Smoke test V2 staging
+        run: bash scripts/smoke-v2.sh https://v2-staging.bokito.ai
 
   deploy-production:
     needs: [resolve-sha, build, deploy-staging]
@@ -218,6 +252,9 @@ jobs:
             fi
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             ./scripts/vps-pull-deploy.sh prod ${{ needs.resolve-sha.outputs.sha }}
+            chmod +x scripts/vps-pull-deploy-v2.sh scripts/vps-v2-bootstrap.sh scripts/smoke-v2.sh
+            test -f .env.v2 || bash scripts/vps-v2-bootstrap.sh prod
+            ./scripts/vps-pull-deploy-v2.sh prod ${{ needs.resolve-sha.outputs.sha }}
 
       - name: Smoke test production
         id: smoke
@@ -225,6 +262,34 @@ jobs:
           SMOKE_EMAIL: ${{ secrets.PROD_SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.PROD_SMOKE_PASSWORD }}
         run: bash scripts/smoke-deploy.sh https://app.bokito.ai
+
+      - name: Smoke test V2 production
+        id: smoke_v2
+        run: bash scripts/smoke-v2.sh https://v2.bokito.ai
+
+      - name: Rollback V2 production on smoke failure
+        if: failure() && steps.smoke_v2.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 120s
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/bokito
+            if [ ! -f .rollback.v2-prod.env ]; then
+              echo "No V2 rollback snapshot; manual intervention required" >&2
+              exit 1
+            fi
+            set -a
+            source .rollback.v2-prod.env
+            set +a
+            docker compose -p bokito-v2 --env-file .env.v2 -f docker-compose.v2.deploy.yml pull
+            docker compose -p bokito-v2 --env-file .env.v2 -f docker-compose.v2.deploy.yml up -d
+            echo "rollback_v2_ok"
 
       - name: Rollback production on smoke failure
         if: failure() && steps.smoke.outcome == 'failure'
