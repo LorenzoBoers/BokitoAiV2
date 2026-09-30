@@ -1,0 +1,84 @@
+# Bokito V2 stack. Runs side by side with V1 (different project name, ports, db).
+#   docker compose -p bokito-v2 -f docker-compose.v2.yml up -d --build
+# Web on http://127.0.0.1:8090 (nginx proxies /api to api-v2).
+name: bokito-v2
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bokito}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bokito}
+      POSTGRES_DB: ${POSTGRES_DB:-bokito_v2}
+    volumes:
+      - pg_v2_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-bokito}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_v2_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api-v2:
+    build:
+      context: ./apps/api-v2
+    image: bokito-api-v2:${IMAGE_TAG:-local}
+    env_file:
+      - path: ./apps/api-v2/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bokito}:${POSTGRES_PASSWORD:-bokito}@postgres:5432/${POSTGRES_DB:-bokito_v2}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PREFIX: bokito2
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://127.0.0.1:8090}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://127.0.0.1:8090}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-v2:
+    image: bokito-api-v2:${IMAGE_TAG:-local}
+    command: ['arq', 'bokito.workers.WorkerSettings']
+    env_file:
+      - path: ./apps/api-v2/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bokito}:${POSTGRES_PASSWORD:-bokito}@postgres:5432/${POSTGRES_DB:-bokito_v2}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PREFIX: bokito2
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      api-v2:
+        condition: service_started
+    restart: unless-stopped
+
+  web-v2:
+    build:
+      context: .
+      dockerfile: apps/web-v2/Dockerfile
+      args:
+        VITE_APP_VERSION: ${IMAGE_TAG:-local}
+    image: bokito-web-v2:${IMAGE_TAG:-local}
+    ports:
+      - '${WEB_PORT:-8090}:80'
+    depends_on:
+      - api-v2
+    restart: unless-stopped
+
+volumes:
+  pg_v2_data:
+  redis_v2_data:

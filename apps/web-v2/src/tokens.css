@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens shared with Bokito V1 so both apps look like one product.
+ * Surface ladder (dark): bg < sidebar < canvas < surface < elevated < hover.
+ * Light theme: one cool gray canvas, white cards.
+ */
+@layer base {
+  :root {
+    color-scheme: dark;
+    --color-bg: 16 19 25;
+    --color-bg-root: 16 19 25;
+    --color-bg-sidebar: 20 23 31;
+    --color-bg-canvas: 22 26 34;
+    --color-bg-surface: 29 32 43;
+    --color-bg-elevated: 36 40 53;
+    --color-bg-hover: 45 49 63;
+    --color-bg-input: 36 40 53;
+    --color-border: 50 56 71;
+    --color-border-light: 70 76 92;
+    --color-border-focus: 13 148 136;
+    --color-text-primary: 224 228 235;
+    --color-text-secondary: 175 181 198;
+    --color-text-muted: 130 135 150;
+    --color-text-heading: 244 247 251;
+    --color-accent: 13 148 136;
+    --color-accent-hover: 16 168 155;
+    --color-accent-dark: 11 127 117;
+    --color-accent-fg: 255 255 255;
+    --color-accent-ink: 94 214 201;
+    --color-ai: 139 92 246;
+    --color-ai-ink: 196 181 253;
+    --color-ai-fg: 255 255 255;
+    --color-status-success: 47 190 135;
+    --color-status-warning: 232 158 39;
+    --color-status-error: 226 88 92;
+    --color-status-info: 88 142 255;
+    --body-bg: #101319;
+    --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 1px 2px rgba(0, 0, 0, 0.28);
+    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    --shadow-chip-active:
+      0 1px 0 rgba(255, 255, 255, 0.08) inset,
+      0 8px 18px -14px rgba(0, 0, 0, 0.45);
+    --shadow-card:
+      0 1px 0 rgba(255, 255, 255, 0.03) inset,
+      0 10px 24px -18px rgba(0, 0, 0, 0.5);
+    --shadow-card-hover:
+      0 1px 0 rgba(255, 255, 255, 0.045) inset,
+      0 16px 32px -18px rgba(0, 0, 0, 0.62);
+    --shadow-overlay: 0 24px 60px -24px rgba(0, 0, 0, 0.75);
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --color-bg: 244 246 249;
+    --color-bg-root: 244 246 249;
+    --color-bg-sidebar: 244 246 249;
+    --color-bg-canvas: 244 246 249;
+    --color-bg-surface: 255 255 255;
+    --color-bg-elevated: 241 244 248;
+    --color-bg-hover: 232 236 242;
+    --color-bg-input: 255 255 255;
+    --color-border: 220 225 234;
+    --color-border-light: 205 212 224;
+    --color-border-focus: 13 148 136;
+    --color-text-primary: 30 41 59;
+    --color-text-secondary: 100 116 139;
+    --color-text-muted: 128 140 160;
+    --color-text-heading: 15 23 42;
+    --color-accent: 13 148 136;
+    --color-accent-hover: 11 127 117;
+    --color-accent-dark: 9 107 99;
+    --color-accent-fg: 255 255 255;
+    --color-accent-ink: 11 128 118;
+    --color-ai: 109 40 217;
+    --color-ai-ink: 76 29 149;
+    --color-ai-fg: 255 255 255;
+    --color-status-success: 22 163 113;
+    --color-status-warning: 217 119 6;
+    --color-status-error: 220 38 38;
+    --color-status-info: 37 99 235;
+    --body-bg: #f4f6f9;
+    --shadow-btn:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+    --shadow-chip-active:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow-card:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 2px 8px -2px rgba(15, 23, 42, 0.06);
+    --shadow-card-hover:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 8px 20px -6px rgba(15, 23, 42, 0.1);
+    --shadow-overlay:
+      0 4px 16px rgba(15, 23, 42, 0.08),
+      0 16px 40px -12px rgba(15, 23, 42, 0.16);
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "app": { "name": "Bokito", "tagline": "Your company's shared conversation" },
+  "nav": {
+    "communication": "Communication",
+    "overview": "Overview",
+    "govern": "Govern",
+    "work": "Work",
+    "knowledge": "Knowledge",
+    "connections": "Connections",
+    "settings": "Settings",
+    "logout": "Log out",
+    "search": "Search or run a command"
+  },
+  "auth": {
+    "login": "Log in",
+    "signup": "Create workspace",
+    "email": "Email",
+    "password": "Password",
+    "name": "Your name",
+    "workspaceName": "Workspace name",
+    "noAccount": "New to Bokito?",
+    "haveAccount": "Already have a workspace?",
+    "invalidCredentials": "Email or password is incorrect.",
+    "emailTaken": "This email is already registered.",
+    "language": "Language"
+  },
+  "common": {
+    "loading": "Loading",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "empty": "Nothing here yet",
+    "error": "Something went wrong",
+    "retry": "Retry"
+  },
+  "surface": {
+    "communicationIntro": "Every customer, colleague and agent in one list.",
+    "overviewIntro": "What needs attention and what the agents resolved.",
+    "governIntro": "Autonomy posture, allowances, changes and audit.",
+    "workIntro": "Agents and playbooks.",
+    "knowledgeIntro": "Documents, memory and skills the agents read.",
+    "connectionsIntro": "Channels, integrations, models and MCP clients.",
+    "settingsIntro": "Profile, workspace and members."
+  }
+}

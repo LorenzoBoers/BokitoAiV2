@@ -1,0 +1,66 @@
+@import './tokens.css';
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--body-bg);
+    color: rgb(var(--color-text-primary));
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: rgb(var(--color-accent) / 0.35);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-border/60 bg-bg-surface shadow-card;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-border bg-bg-input px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-border-focus;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-accent-fg hover:bg-accent-hover;
+  }
+
+  .btn-ghost {
+    @apply btn text-text-secondary hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .btn-outline {
+    @apply btn border border-border text-text-primary hover:bg-bg-hover;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-elevated px-2 py-0.5 text-2xs font-medium text-text-secondary;
+  }
+}

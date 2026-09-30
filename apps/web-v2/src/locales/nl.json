@@ -1,0 +1,45 @@
+{
+  "app": { "name": "Bokito", "tagline": "Het gedeelde gesprek van je bedrijf" },
+  "nav": {
+    "communication": "Communicatie",
+    "overview": "Overview",
+    "govern": "Govern",
+    "work": "Werk",
+    "knowledge": "Kennis",
+    "connections": "Verbindingen",
+    "settings": "Instellingen",
+    "logout": "Uitloggen",
+    "search": "Zoek of voer een opdracht uit"
+  },
+  "auth": {
+    "login": "Inloggen",
+    "signup": "Workspace aanmaken",
+    "email": "E-mail",
+    "password": "Wachtwoord",
+    "name": "Je naam",
+    "workspaceName": "Naam van de workspace",
+    "noAccount": "Nieuw bij Bokito?",
+    "haveAccount": "Heb je al een workspace?",
+    "invalidCredentials": "E-mail of wachtwoord is onjuist.",
+    "emailTaken": "Dit e-mailadres is al geregistreerd.",
+    "language": "Taal"
+  },
+  "common": {
+    "loading": "Laden",
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "close": "Sluiten",
+    "empty": "Nog niets hier",
+    "error": "Er ging iets mis",
+    "retry": "Opnieuw"
+  },
+  "surface": {
+    "communicationIntro": "Elke klant, collega en agent in een lijst.",
+    "overviewIntro": "Wat aandacht vraagt en wat de agents hebben opgelost.",
+    "governIntro": "Autonomie, toestemmingen, wijzigingen en audit.",
+    "workIntro": "Agents en draaiboeken.",
+    "knowledgeIntro": "Documenten, geheugen en vaardigheden die agents lezen.",
+    "connectionsIntro": "Kanalen, integraties, modellen en MCP-clients.",
+    "settingsIntro": "Profiel, workspace en leden."
+  }
+}
