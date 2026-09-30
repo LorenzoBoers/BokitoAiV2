@@ -94,6 +94,13 @@ async def on_created(session: AsyncSession, conn: Connection) -> None:
     settings = get_settings()
     if conn.kind == ConnectionKind.email and not conn.address:
         conn.address = f"{conn.public_key.lower()}@{settings.inbound_domain}"
+    if conn.kind == ConnectionKind.phone:
+        import secrets
+
+        from bokito.services.connections import credentials_of, set_credentials
+
+        if not credentials_of(conn).get("secret"):
+            set_credentials(conn, {"secret": secrets.token_urlsafe(24)})
     await session.flush()
 
 

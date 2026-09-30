@@ -17,6 +17,7 @@ from bokito.api import (
     tools,
     work,
 )
+from bokito.channels import email, phone, whatsapp, widget
 from bokito.realtime import gateway
 
 
@@ -38,5 +39,7 @@ def build_router() -> APIRouter:
     ):
         router.include_router(module.router)
     router.include_router(work.hooks)
+    for channel in (email, whatsapp, widget, phone):
+        router.include_router(channel.router)
     router.include_router(gateway.router)
     return router

@@ -55,7 +55,13 @@ async def create(
         agent_id=agent_id,
         status=status,
         public_key=secrets.token_urlsafe(18)
-        if kind in (ConnectionKind.widget, ConnectionKind.email, ConnectionKind.whatsapp)
+        if kind
+        in (
+            ConnectionKind.widget,
+            ConnectionKind.email,
+            ConnectionKind.whatsapp,
+            ConnectionKind.phone,
+        )
         else "",
     )
     session.add(conn)

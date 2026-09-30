@@ -53,6 +53,7 @@ class MessageOut(Orm):
     send_error: str
     ai_generated: bool
     run_id: uuid.UUID | None
+    external_id: str | None
     meta: dict[str, Any]
     created_at: datetime
     sent_at: datetime | None
