@@ -31,7 +31,7 @@ DEFAULT_CONSEQUENTIAL = [
     "delete_contact",
     "set_posture",
     "revoke_token",
-    "module.moneybird.send_invoice",
+    "moneybird_send_invoice",
 ]
 
 POSTURE_DEFAULTS: dict[Posture, dict[str, Verdict]] = {

@@ -7,6 +7,7 @@ export {
   decisionsRoutes,
   governRoutes,
   knowledgeRoutes,
+  modulesRoutes,
   oauthRoutes,
   signalsRoutes,
   workbenchRoutes,

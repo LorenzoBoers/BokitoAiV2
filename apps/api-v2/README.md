@@ -76,3 +76,19 @@ uv run alembic upgrade head
   Cursor calls back on `POST /api/hooks/workbench/{public_key}` (HMAC-SHA256 over the raw body)
   and the result lands as a `run` message in the originating conversation. `WORKBENCH_MODE`
   defaults to `LLM_MODE`; in `mock` no network calls are made.
+
+## Modules
+
+A module (`bokito/modules/<slug>/`) is a `ModuleSpec`: Signal type seeds, playbook seeds, skill
+docs and tools registered with `module=<slug>`. `POST /api/modules/{slug}/install` seeds what is
+missing (never overwrites operator edits) and links an `integration` connection; uninstall
+disables types and playbooks and hides the tools, history stays. Module tools are invisible and
+denied (`module_not_installed`) until installed, on every surface: palette, agents, MCP, REST.
+First module: `accounting` (Moneybird) with `moneybird_find_contact`, `moneybird_list_invoices`
+and the consequential `moneybird_send_invoice`. Live ledger writes additionally need
+`MODULE_WRITES_ENABLED=accounting`.
+
+Outcomes (`services/outcomes.py`) run nightly at 02:15 (ARQ cron): a conversation counts as
+resolved by an agent when it is closed without handoff or human reply and not reopened within
+72 hours. `GET /api/outcomes` summarises; `GET /api/conversations/{id}/usage` is the per
+conversation cost report.

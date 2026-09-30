@@ -23,7 +23,7 @@ describe('OAuthConsentPage', () => {
       configurable: true,
       value: { ...window.location, assign },
     })
-    const fetchMock = vi.fn(async (input: URL | string) => {
+    const fetchMock = vi.fn(async (input: URL | string, _init?: RequestInit) => {
       const url = input.toString()
       if (url.includes('/api/oauth/consent-context')) {
         return new Response(
@@ -59,7 +59,7 @@ describe('OAuthConsentPage', () => {
 
     const consentCall = fetchMock.mock.calls.find(([u]) => u.toString().includes('/api/oauth/consent') && !u.toString().includes('context'))
     expect(consentCall).toBeTruthy()
-    const init = consentCall![1] as unknown as RequestInit
+    const init = consentCall![1] as RequestInit
     expect(JSON.parse(String(init.body))).toMatchObject({
       approve: true,
       client_id: 'mcp_abc',

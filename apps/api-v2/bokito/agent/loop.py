@@ -30,6 +30,7 @@ from bokito.domain.orient import Contact, Doc, DocKind
 from bokito.domain.work import Agent, Run, RunKind, RunStatus
 from bokito.services import conversation as conv_svc
 from bokito.services import knowledge as kb
+from bokito.services import modules as modules_svc
 from bokito.services import usage as usage_svc
 from bokito.services import work as work_svc
 from bokito.tools.executor import execute_tool
@@ -152,8 +153,17 @@ async def build_messages(
         }
     )
 
-    allowed = list(agent.tools or []) or AGENT_TOOLS_DEFAULT
-    tools = [t.to_public() for t in registry.list(trust="agent", allowed=allowed)]
+    installed = await modules_svc.installed_slugs(session, tenant.id)
+    if agent.tools:
+        allowed = list(agent.tools)
+    else:
+        # Default agents get the core set plus the tools of every installed module.
+        allowed = AGENT_TOOLS_DEFAULT + [
+            t.name for t in registry.list(trust="agent", modules=installed) if t.module
+        ]
+    tools = [
+        t.to_public() for t in registry.list(trust="agent", allowed=allowed, modules=installed)
+    ]
     return messages, tools
 
 

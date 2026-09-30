@@ -12,6 +12,7 @@ import {
   decisionsRoutes,
   governRoutes,
   knowledgeRoutes,
+  modulesRoutes,
   signalsRoutes,
   workRoutes,
   workspaceRoutes,
@@ -43,6 +44,7 @@ export const keys = {
   knowledgeSearch: (q: string) => ['knowledge-search', q] as const,
   connections: ['connections'] as const,
   providers: ['providers'] as const,
+  modules: ['modules'] as const,
   policy: ['policy'] as const,
   changes: ['changes'] as const,
   audit: (q?: Query) => ['audit', q ?? {}] as const,
@@ -394,6 +396,34 @@ export function useConnectionMutations() {
     onSuccess: invalidate,
   })
   return { create, update, verify, remove }
+}
+
+// Modules ---------------------------------------------------------------------
+
+export function useModules() {
+  return useQuery({
+    queryKey: keys.modules,
+    queryFn: () => api.get<T.Module[]>(modulesRoutes.list),
+  })
+}
+
+export function useModuleMutations() {
+  const invalidate = useInvalidate(['modules'], ['signal-types'], ['playbooks'], ['docs'], ['tools'])
+  const install = useMutation({
+    mutationFn: ({ slug, ...body }: { slug: string; connection_id?: string | null; settings?: Record<string, unknown> }) =>
+      api.post<T.Module>(modulesRoutes.install(slug), body),
+    onSuccess: invalidate,
+  })
+  const update = useMutation({
+    mutationFn: ({ slug, ...body }: { slug: string; connection_id?: string | null; settings?: Record<string, unknown> }) =>
+      api.patch<T.Module>(modulesRoutes.detail(slug), body),
+    onSuccess: invalidate,
+  })
+  const uninstall = useMutation({
+    mutationFn: (slug: string) => api.delete<void>(modulesRoutes.detail(slug)),
+    onSuccess: invalidate,
+  })
+  return { install, update, uninstall }
 }
 
 // Govern ----------------------------------------------------------------------

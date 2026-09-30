@@ -97,6 +97,12 @@ export const oauthRoutes = {
   grant: (clientId: string) => `/oauth/grants/${encodeURIComponent(clientId)}`,
 } as const
 
+export const modulesRoutes = {
+  list: '/modules',
+  detail: (slug: string) => `/modules/${slug}`,
+  install: (slug: string) => `/modules/${slug}/install`,
+} as const
+
 export const workbenchRoutes = {
   jobs: '/workbench/jobs',
   refreshJob: (id: string) => `/workbench/jobs/${id}/refresh`,

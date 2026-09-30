@@ -118,6 +118,14 @@ async def execute_tool(
         raise NotFound(f"unknown tool {name}", code="unknown_tool")
     if principal.trust not in tool.trusts:
         raise Denied(f"tool {name} is not available for {principal.trust}", code="tool_trust")
+    if tool.module:
+        from bokito.services import modules as modules_svc
+
+        if tool.module not in await modules_svc.installed_slugs(session, principal.tenant_id):
+            raise Denied(
+                f"tool {name} belongs to module {tool.module}, which is not installed",
+                code="module_not_installed",
+            )
 
     try:
         parsed = tool.input_model.model_validate(args or {})

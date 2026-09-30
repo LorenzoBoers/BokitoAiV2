@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+import bokito.modules  # noqa: F401  (registers modules and their tools)
 import bokito.tools.builtin  # noqa: F401  (registers core tools)
 from bokito.api import (
     auth,
@@ -14,6 +15,7 @@ from bokito.api import (
     knowledge,
     mcp,
     me,
+    modules,
     oauth,
     signals,
     tools,
@@ -44,6 +46,7 @@ def build_router() -> APIRouter:
         oauth,
         mcp,
         workbench,
+        modules,
     ):
         router.include_router(module.router)
     router.include_router(work.hooks)

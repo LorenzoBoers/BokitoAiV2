@@ -266,6 +266,33 @@ export type Provider = {
   module?: string
 }
 
+export type ModuleSetting = { type: string; default?: unknown; label?: string }
+
+export type Module = {
+  slug: string
+  name: string
+  description: string
+  version: string
+  connection_provider: string | null
+  connection_kind: string
+  signal_types: string[]
+  playbooks: string[]
+  docs: string[]
+  tools: string[]
+  settings_schema: Record<string, ModuleSetting>
+  installed: boolean
+  install: {
+    id: string
+    version: string
+    settings: Record<string, unknown>
+    connection_id: string | null
+    enabled: boolean
+    installed_at: string
+    updated_at: string
+  } | null
+  created?: { signal_types: number; playbooks: number; docs: number }
+}
+
 export type DocKind = 'doc' | 'memory' | 'persona' | 'skill' | 'snippet'
 
 export type DocSummary = {

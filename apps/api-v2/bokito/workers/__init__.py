@@ -7,6 +7,8 @@ inline when Redis is not configured (development without Redis, tests).
 
 from __future__ import annotations
 
+import bokito.modules  # noqa: F401  (module tools must exist in the worker too)
+import bokito.tools.builtin  # noqa: F401
 from bokito.workers.jobs import (
     compute_outcomes_job,
     fire_due_triggers_job,

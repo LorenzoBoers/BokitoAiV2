@@ -325,6 +325,24 @@
     "added": "{{name}} verbonden.",
     "provider": "Provider"
   },
+  "modules": {
+    "title": "Modules",
+    "hint": "Een module voegt Signaaltypes, draaiboeken en tools toe voor een werkgebied. Nooit een scherm.",
+    "installed": "Geinstalleerd",
+    "available": "Beschikbaar",
+    "types": "Signaaltypes",
+    "playbooks": "Draaiboeken",
+    "tools": "Tools",
+    "linkedTo": "Gebruikt verbinding {{name}}.",
+    "install": "Installeren",
+    "uninstall": "Verwijderen",
+    "connectFirst": "Verbind eerst {{provider}}",
+    "installTitle": "{{name}} installeren",
+    "installHint": "Types en draaiboeken worden een keer toegevoegd; daarna pas je ze aan onder Work en Signalen.",
+    "connection": "Verbinding",
+    "installedSummary": "{{name}} geinstalleerd: {{types}} signaaltypes, {{playbooks}} draaiboeken.",
+    "uninstalled": "{{name}} verwijderd. Types en draaiboeken zijn uitgeschakeld, de historie blijft."
+  },
   "settings": {
     "tabs": { "profile": "Profiel", "workspace": "Workspace", "members": "Leden", "developers": "Developers" },
     "workspaceLanguage": "Standaardtaal",

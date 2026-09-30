@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from bokito.api.schemas import ToolOutcomeOut
 from bokito.deps import DbSession, Operator
+from bokito.services import modules as modules_svc
 from bokito.tools import execute_tool, registry
 
 router = APIRouter(prefix="/tools", tags=["tools"])
@@ -22,8 +23,9 @@ class ToolIn(BaseModel):
 
 
 @router.get("", summary="Tools available to the operator")
-async def list_tools(principal: Operator) -> list[dict[str, Any]]:
-    return [t.to_public() for t in registry.list(trust=principal.trust)]
+async def list_tools(session: DbSession, principal: Operator) -> list[dict[str, Any]]:
+    installed = await modules_svc.installed_slugs(session, principal.tenant_id)
+    return [t.to_public() for t in registry.list(trust=principal.trust, modules=installed)]
 
 
 @router.post("/execute", response_model=ToolOutcomeOut, summary="Execute a tool as the operator")

@@ -30,6 +30,7 @@ from bokito.errors import AppError, Denied
 from bokito.services import conversation as conv_svc
 from bokito.services import decision as decision_svc
 from bokito.services import knowledge as knowledge_svc
+from bokito.services import modules as modules_svc
 from bokito.services import oauth as oauth_svc
 from bokito.tools.executor import execute_tool
 from bokito.tools.registry import ToolDef, registry
@@ -101,9 +102,10 @@ def _annotations(tool: ToolDef) -> dict[str, Any]:
     }
 
 
-def _tool_listing(principal: Principal) -> list[dict[str, Any]]:
+async def _tool_listing(session: AsyncSession, principal: Principal) -> list[dict[str, Any]]:
+    installed = await modules_svc.installed_slugs(session, principal.tenant_id)
     out = []
-    for t in registry.list(trust="api"):
+    for t in registry.list(trust="api", modules=installed):
         out.append(
             {
                 "name": t.name,
@@ -285,7 +287,7 @@ async def dispatch(
         if method == "ping":
             return _ok(req_id, {})
         if method == "tools/list":
-            return _ok(req_id, {"tools": _tool_listing(principal)})
+            return _ok(req_id, {"tools": await _tool_listing(session, principal)})
         if method == "tools/call":
             return _ok(req_id, await _tools_call(session, principal, params))
         if method == "resources/list":

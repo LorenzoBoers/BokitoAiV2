@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { useAgents, useConnectionMutations, useConnections, useProviders } from '@/api/queries'
-import type { Connection, ConnectionKind, Provider } from '@/api/types'
+import { useAgents, useConnectionMutations, useConnections, useModuleMutations, useModules, useProviders } from '@/api/queries'
+import type { Connection, ConnectionKind, Module, Provider } from '@/api/types'
 import { Badge, Dialog, Field, KeyValue, Loading, Page, PageHeader, Section, Switch, statusTone } from '@/components/ui'
 import { dateTime } from '@/lib/format'
 
@@ -24,6 +24,7 @@ export function ConnectionsPage() {
     <Page>
       <PageHeader title={t('nav.connections')} intro={t('surface.connectionsIntro')} />
       <div className="space-y-6 overflow-auto p-6">
+        {connections.data && <ModulesSection connections={connections.data} onAddIntegration={() => setAdding('integration')} />}
         {!connections.data ? (
           <Loading />
         ) : (
@@ -64,6 +65,161 @@ export function ConnectionsPage() {
       </div>
       {adding && <AddConnectionDialog kind={adding} providers={providers.data?.[adding] ?? []} onClose={() => setAdding(null)} />}
     </Page>
+  )
+}
+
+function ModulesSection({ connections, onAddIntegration }: { connections: Connection[]; onAddIntegration: () => void }) {
+  const { t } = useTranslation()
+  const modules = useModules()
+  const { install, uninstall } = useModuleMutations()
+  const [installing, setInstalling] = useState<Module | null>(null)
+
+  async function onUninstall(m: Module) {
+    try {
+      await uninstall.mutateAsync(m.slug)
+      toast.success(t('modules.uninstalled', { name: m.name }))
+    } catch {
+      toast.error(t('common.error'))
+    }
+  }
+
+  return (
+    <Section title={t('modules.title')} description={t('modules.hint')}>
+      {!modules.data ? (
+        <Loading />
+      ) : (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {modules.data.map((m) => {
+            const matching = connections.filter(
+              (c) => c.kind === m.connection_kind && (!m.connection_provider || c.provider === m.connection_provider),
+            )
+            const linked = m.install?.connection_id ? connections.find((c) => c.id === m.install?.connection_id) : undefined
+            return (
+              <li key={m.slug} className="panel flex flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-text-heading">{m.name}</span>
+                      <Badge tone={m.installed ? 'success' : 'neutral'}>
+                        {m.installed ? t('modules.installed') : t('modules.available')}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-text-secondary">{m.description}</p>
+                  </div>
+                  <span className="shrink-0 text-2xs text-text-muted">v{m.version}</span>
+                </div>
+                <KeyValue
+                  rows={[
+                    [t('modules.types'), m.signal_types.join(', ')],
+                    [t('modules.playbooks'), m.playbooks.join(', ')],
+                    [t('modules.tools'), m.tools.join(', ')],
+                  ]}
+                />
+                {m.installed && linked && (
+                  <p className="text-2xs text-text-muted">{t('modules.linkedTo', { name: linked.name })}</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {m.installed ? (
+                    <button type="button" className="btn-outline h-8" disabled={uninstall.isPending} onClick={() => void onUninstall(m)}>
+                      {t('modules.uninstall')}
+                    </button>
+                  ) : matching.length === 0 && m.connection_provider ? (
+                    <button type="button" className="btn-primary h-8" onClick={onAddIntegration}>
+                      <Plus className="h-3.5 w-3.5" />
+                      {t('modules.connectFirst', { provider: m.connection_provider })}
+                    </button>
+                  ) : (
+                    <button type="button" className="btn-primary h-8" disabled={install.isPending} onClick={() => setInstalling(m)}>
+                      {t('modules.install')}
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {installing && (
+        <InstallModuleDialog
+          module={installing}
+          connections={connections.filter(
+            (c) => c.kind === installing.connection_kind && (!installing.connection_provider || c.provider === installing.connection_provider),
+          )}
+          onClose={() => setInstalling(null)}
+        />
+      )}
+    </Section>
+  )
+}
+
+function InstallModuleDialog({ module: m, connections, onClose }: { module: Module; connections: Connection[]; onClose: () => void }) {
+  const { t } = useTranslation()
+  const { install } = useModuleMutations()
+  const [connectionId, setConnectionId] = useState(connections[0]?.id ?? '')
+  const [settings, setSettings] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(m.settings_schema).map(([k, s]) => [k, s.default !== undefined && s.default !== null ? String(s.default) : '']),
+    ),
+  )
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const parsed: Record<string, unknown> = {}
+    for (const [k, s] of Object.entries(m.settings_schema)) {
+      const raw = settings[k] ?? ''
+      if (raw === '') continue
+      parsed[k] = s.type === 'integer' || s.type === 'number' ? Number(raw) : s.type === 'boolean' ? raw === 'true' : raw
+    }
+    try {
+      const out = await install.mutateAsync({ slug: m.slug, connection_id: connectionId || null, settings: parsed })
+      toast.success(
+        t('modules.installedSummary', {
+          name: m.name,
+          types: out.created?.signal_types ?? 0,
+          playbooks: out.created?.playbooks ?? 0,
+        }),
+      )
+      onClose()
+    } catch {
+      toast.error(t('common.error'))
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={t('modules.installTitle', { name: m.name })}>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <p className="text-xs text-text-secondary">{t('modules.installHint')}</p>
+        {m.connection_provider && (
+          <Field label={t('modules.connection')}>
+            <select className="field" value={connectionId} onChange={(e) => setConnectionId(e.target.value)}>
+              {connections.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({t(`connectionStatus.${c.status}`)})
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        {Object.entries(m.settings_schema).map(([k, s]) => (
+          <Field key={k} label={s.label ?? k}>
+            <input
+              className="field"
+              type={s.type === 'integer' || s.type === 'number' ? 'number' : 'text'}
+              value={settings[k] ?? ''}
+              onChange={(e) => setSettings((prev) => ({ ...prev, [k]: e.target.value }))}
+            />
+          </Field>
+        ))}
+        <div className="flex justify-end gap-2">
+          <button type="button" className="btn-outline" onClick={onClose}>
+            {t('common.cancel')}
+          </button>
+          <button type="submit" className="btn-primary" disabled={install.isPending}>
+            {t('modules.install')}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   )
 }
 

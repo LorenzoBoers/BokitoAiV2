@@ -325,6 +325,24 @@
     "added": "{{name}} connected.",
     "provider": "Provider"
   },
+  "modules": {
+    "title": "Modules",
+    "hint": "A module adds Signal types, playbooks and tools for one line of work. It never adds a screen.",
+    "installed": "Installed",
+    "available": "Available",
+    "types": "Signal types",
+    "playbooks": "Playbooks",
+    "tools": "Tools",
+    "linkedTo": "Uses connection {{name}}.",
+    "install": "Install",
+    "uninstall": "Uninstall",
+    "connectFirst": "Connect {{provider}} first",
+    "installTitle": "Install {{name}}",
+    "installHint": "Types and playbooks are added once; you can edit them afterwards under Work and Signals.",
+    "connection": "Connection",
+    "installedSummary": "{{name}} installed: {{types}} signal types, {{playbooks}} playbooks.",
+    "uninstalled": "{{name}} uninstalled. Its types and playbooks are disabled, history is kept."
+  },
   "settings": {
     "tabs": { "profile": "Profile", "workspace": "Workspace", "members": "Members", "developers": "Developers" },
     "workspaceLanguage": "Default language",

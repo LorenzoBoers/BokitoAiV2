@@ -120,6 +120,13 @@ async def verify(session: AsyncSession, conn: Connection) -> tuple[bool, str]:
         missing = [k for k in needed if not creds.get(k)]
         return (not missing, "" if not missing else f"missing {', '.join(missing)}")
     if conn.kind == ConnectionKind.integration:
+        if conn.provider == "moneybird":
+            from bokito.modules.accounting.moneybird import MoneybirdClient, MoneybirdError
+
+            try:
+                return await MoneybirdClient(creds).verify()
+            except MoneybirdError as exc:
+                return False, exc.message
         return (
             bool(creds.get("access_token")),
             "" if creds.get("access_token") else "access_token missing",
