@@ -7,25 +7,22 @@ Any pending operation means a migration is missing.
 from __future__ import annotations
 
 import asyncio
+import subprocess
 import sys
 
 from alembic.autogenerate import compare_metadata
-from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import text
 
-from alembic import command
-from bokito.config import get_settings
 from bokito.db import get_engine
 from bokito.domain import Base
 
 
-async def main() -> int:
-    settings = get_settings()
-    cfg = Config("alembic.ini")
-    cfg.set_main_option("sqlalchemy.url", settings.database_url)
-    command.upgrade(cfg, "head")
+def _upgrade() -> None:
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
 
+
+async def _drift() -> list:
     engine = get_engine()
     async with engine.connect() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
@@ -36,7 +33,12 @@ async def main() -> int:
 
         diff = await conn.run_sync(_diff)
     await engine.dispose()
+    return diff
 
+
+def main() -> int:
+    _upgrade()
+    diff = asyncio.run(_drift())
     if diff:
         print("Model/migration drift detected:")
         for op in diff:
@@ -47,4 +49,4 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    sys.exit(main())

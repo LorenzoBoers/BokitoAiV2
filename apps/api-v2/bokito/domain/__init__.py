@@ -1,7 +1,15 @@
-"""Domain models, one module per aggregate.
+"""Domain models. Import every aggregate so `Base.metadata` is complete."""
 
-Import every module here so `Base.metadata` is complete for Alembic and tests.
-"""
+from bokito.domain import (  # noqa: F401
+    connection,
+    conversation,
+    govern,
+    identity,
+    metering,
+    orient,
+    platform,
+    work,
+)
+from bokito.domain.base import Base
 
-from bokito.domain import identity  # noqa: E402,F401
-from bokito.domain.base import Base, TenantMixin, TimestampMixin, utcnow  # noqa: F401
+__all__ = ["Base"]

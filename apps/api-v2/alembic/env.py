@@ -35,6 +35,8 @@ def run_migrations_offline() -> None:
 
 
 def _run(connection) -> None:
+    connection.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector")
+    connection.commit()
     context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
     with context.begin_transaction():
         context.run_migrations()

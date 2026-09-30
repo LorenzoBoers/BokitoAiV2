@@ -7,8 +7,10 @@ Create Date: ${create_date}
 
 from __future__ import annotations
 
+import pgvector.sqlalchemy
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 ${imports if imports else ""}
 
 revision = ${repr(up_revision)}

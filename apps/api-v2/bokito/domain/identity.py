@@ -82,6 +82,24 @@ class Session(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class Identity(Base):
+    """External login identity (SSO): Google, Microsoft, passkey..."""
+
+    __tablename__ = "identities"
+    __table_args__ = (UniqueConstraint("provider", "subject"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))
+    subject: Mapped[str] = mapped_column(String(300))
+    email: Mapped[str] = mapped_column(String(320), default="")
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Invite(TenantMixin, Base):
     __tablename__ = "invites"
 

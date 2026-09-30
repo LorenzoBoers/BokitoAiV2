@@ -41,6 +41,9 @@ def configure_database(url: str) -> None:
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with get_session_factory()() as session:
         yield session
+    from bokito.workers.queue import run_pending
+
+    await run_pending()
 
 
 async def dispose_engine() -> None:
