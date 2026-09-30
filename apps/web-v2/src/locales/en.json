@@ -340,7 +340,29 @@
     "apiTokensHint": "Tokens for MCP clients and scripts live under Govern.",
     "manageTokens": "Manage tokens",
     "endpoints": "Endpoints",
-    "endpointsHint": "Everything the dashboard does is available here too."
+    "endpointsHint": "Everything the dashboard does is available here too.",
+    "mcpClients": "Connected MCP clients",
+    "mcpClientsHint": "Tools such as Cursor, Claude or ChatGPT that were granted access to this workspace through OAuth. Disconnecting revokes their tokens immediately.",
+    "mcpClientsEmpty": "No MCP client is connected. Point a client at the MCP endpoint above and approve it here.",
+    "mcpLastUsed": "last used {{when}}",
+    "mcpConnected": "connected {{when}}",
+    "mcpClientDisconnected": "Client disconnected",
+    "disconnect": "Disconnect"
+  },
+  "oauth": {
+    "title": "Connect an MCP client",
+    "intro": "{{client}} asks for access to the workspace {{workspace}}. It will act with your role and under the workspace policy.",
+    "scopes": "Requested access",
+    "scope": {
+      "read": "Read conversations, contacts, knowledge and decisions",
+      "write": "Change conversations, contacts, agents and playbooks",
+      "tools": "Run tools through the MCP endpoint"
+    },
+    "redirectHint": "After approval you return to {{host}}.",
+    "policyHint": "Consequential actions still ask an operator in the conversation thread; that does not change with this grant.",
+    "allow": "Allow",
+    "deny": "Deny",
+    "missingClient": "This link is missing a client. Start again from your MCP client."
   },
   "palette": {
     "hint": "Arrow keys to move, Enter to open. Tools run with your permissions and the workspace policy.",

@@ -1,9 +1,10 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { appRoutes, authRoutes } from '@/api/routes'
+import { appRoutes, authRoutes, oauthRoutes } from '@/api/routes'
 import { useInvites, useMembers, useWorkspace, useWorkspaceMutations } from '@/api/queries'
 import { Badge, Field, Loading, Page, PageHeader, Section, TabPanel, Tabs } from '@/components/ui'
 import { api } from '@/lib/api'
@@ -294,6 +295,74 @@ function DevelopersTab() {
           </li>
         </ul>
       </Section>
+      <McpClientsSection />
     </div>
+  )
+}
+
+type Grant = {
+  client_id: string
+  client_name: string
+  scope: string
+  user_id: string
+  created_at: string
+  last_used_at: string | null
+  active_tokens: number
+}
+
+function McpClientsSection() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const grants = useQuery({
+    queryKey: ['oauth', 'grants'],
+    queryFn: () => api.get<Grant[]>(oauthRoutes.grants),
+  })
+  const revoke = useMutation({
+    mutationFn: (clientId: string) => api.delete<void>(oauthRoutes.grant(clientId)),
+    onSuccess: () => {
+      toast.success(t('settings.mcpClientDisconnected'))
+      void qc.invalidateQueries({ queryKey: ['oauth', 'grants'] })
+    },
+    onError: () => toast.error(t('common.error')),
+  })
+  return (
+    <Section title={t('settings.mcpClients')} description={t('settings.mcpClientsHint')} className="lg:col-span-2">
+      {grants.isLoading && <Loading />}
+      {grants.data && grants.data.length === 0 && (
+        <p className="text-xs text-text-muted">{t('settings.mcpClientsEmpty')}</p>
+      )}
+      {grants.data && grants.data.length > 0 && (
+        <ul className="divide-y divide-border">
+          {grants.data.map((g) => (
+            <li key={g.client_id} className="flex items-center gap-3 py-2 text-sm">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-text-heading">{g.client_name || g.client_id}</div>
+                <div className="text-2xs text-text-muted">
+                  {g.scope
+                    .split(' ')
+                    .filter(Boolean)
+                    .map((s) => (
+                      <Badge key={s} className="mr-1">
+                        {s}
+                      </Badge>
+                    ))}
+                  {g.last_used_at
+                    ? t('settings.mcpLastUsed', { when: dateTime(g.last_used_at) })
+                    : t('settings.mcpConnected', { when: dateTime(g.created_at) })}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-outline h-8 shrink-0"
+                disabled={revoke.isPending}
+                onClick={() => revoke.mutate(g.client_id)}
+              >
+                {t('settings.disconnect')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
   )
 }

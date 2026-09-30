@@ -101,6 +101,10 @@ async def on_created(session: AsyncSession, conn: Connection) -> None:
 
         if not credentials_of(conn).get("secret"):
             set_credentials(conn, {"secret": secrets.token_urlsafe(24)})
+    if conn.kind == ConnectionKind.workbench:
+        from bokito.services.workbench import ensure_webhook_secret
+
+        ensure_webhook_secret(conn)
     await session.flush()
 
 
@@ -125,4 +129,11 @@ async def verify(session: AsyncSession, conn: Connection) -> tuple[bool, str]:
             bool((conn.settings or {}).get("url") or creds.get("url")),
             "url missing" if not ((conn.settings or {}).get("url") or creds.get("url")) else "",
         )
+    if conn.kind == ConnectionKind.workbench:
+        from bokito.workbench import WorkbenchError, get_adapter
+
+        try:
+            return await get_adapter(conn.provider).verify(creds)
+        except WorkbenchError as exc:
+            return False, exc.message
     return True, ""

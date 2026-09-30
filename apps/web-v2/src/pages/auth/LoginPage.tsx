@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { ApiError } from '@/lib/api'
 import { login, useToken } from '@/lib/auth'
@@ -9,13 +9,16 @@ import { AuthLayout } from './AuthLayout'
 export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const token = useToken()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const rawNext = params.get('next') ?? ''
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/'
 
-  if (token) return <Navigate to="/" replace />
+  if (token) return <Navigate to={next} replace />
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -23,7 +26,7 @@ export function LoginPage() {
     setError(null)
     try {
       await login(email, password)
-      navigate('/', { replace: true })
+      navigate(next, { replace: true })
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 401 ? t('auth.invalidCredentials') : t('common.error'),

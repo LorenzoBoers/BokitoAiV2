@@ -14,12 +14,20 @@ class AppError(Exception):
     status_code = 400
     code = "bad_request"
 
-    def __init__(self, message: str = "", *, code: str | None = None, details: Any = None):
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        code: str | None = None,
+        details: Any = None,
+        headers: dict[str, str] | None = None,
+    ):
         super().__init__(message or self.code)
         self.message = message or self.code.replace("_", " ")
         if code:
             self.code = code
         self.details = details
+        self.headers = headers or {}
 
 
 class NotFound(AppError):
@@ -60,7 +68,9 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
-            _payload(exc.code, exc.message, exc.details), status_code=exc.status_code
+            _payload(exc.code, exc.message, exc.details),
+            status_code=exc.status_code,
+            headers=exc.headers or None,
         )
 
     @app.exception_handler(StarletteHTTPException)

@@ -7,7 +7,9 @@ export {
   decisionsRoutes,
   governRoutes,
   knowledgeRoutes,
+  oauthRoutes,
   signalsRoutes,
+  workbenchRoutes,
   workRoutes,
   workspaceRoutes,
 } from './app.routes'

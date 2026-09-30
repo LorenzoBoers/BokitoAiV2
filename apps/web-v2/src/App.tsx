@@ -1,8 +1,9 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { useToken } from '@/lib/auth'
 import { Shell } from '@/shell/Shell'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { OAuthConsentPage } from '@/pages/auth/OAuthConsentPage'
 import { SignupPage } from '@/pages/auth/SignupPage'
 import { CommunicationPage } from '@/pages/communication/CommunicationPage'
 import { ConnectionsPage } from '@/pages/ConnectionsPage'
@@ -14,7 +15,12 @@ import { WorkPage } from '@/pages/work/WorkPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useToken()
-  if (!token) return <Navigate to="/login" replace />
+  const location = useLocation()
+  if (!token) {
+    const next = `${location.pathname}${location.search}`
+    const to = next && next !== '/' ? `/login?next=${encodeURIComponent(next)}` : '/login'
+    return <Navigate to={to} replace />
+  }
   return <>{children}</>
 }
 
@@ -23,6 +29,14 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route
+        path="/oauth/consent"
+        element={
+          <RequireAuth>
+            <OAuthConsentPage />
+          </RequireAuth>
+        }
+      />
       <Route
         element={
           <RequireAuth>

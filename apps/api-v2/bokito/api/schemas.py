@@ -181,6 +181,7 @@ class RunOut(Orm):
     output: dict[str, Any] | None
     error: str
     step: int
+    checkpoint: dict[str, Any]
     cost_eur: float
     tokens_in: int
     tokens_out: int

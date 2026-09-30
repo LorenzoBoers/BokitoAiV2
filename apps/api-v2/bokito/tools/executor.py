@@ -30,6 +30,16 @@ from bokito.tools.registry import ToolContext, ToolDef, registry
 log = logging.getLogger(__name__)
 
 
+class InvalidToolArgs(AppError):
+    status_code = 422
+    code = "invalid_tool_args"
+
+
+class ToolFailed(AppError):
+    status_code = 500
+    code = "tool_failed"
+
+
 @dataclass
 class ToolOutcome:
     status: str
@@ -112,8 +122,8 @@ async def execute_tool(
     try:
         parsed = tool.input_model.model_validate(args or {})
     except ValidationError as exc:
-        raise AppError(
-            422, "invalid_tool_args", f"invalid arguments for {name}", exc.errors()
+        raise InvalidToolArgs(
+            f"invalid arguments for {name}", code="invalid_tool_args", details=exc.errors()
         ) from exc
 
     conversation = None
@@ -219,7 +229,7 @@ async def execute_tool(
         run.finished_at = utcnow()
         await _event(session, run, 2, "error", {"message": str(exc)[:500]})
         await session.flush()
-        raise AppError(500, "tool_failed", f"{name} failed") from exc
+        raise ToolFailed(f"{name} failed", code="tool_failed") from exc
 
     serial = _serialisable(result)
     run.status = RunStatus.done

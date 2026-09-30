@@ -11,7 +11,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bokito.db import get_session
@@ -61,12 +61,80 @@ def _bearer(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1].strip()
 
 
+API_TOKEN_PREFIX = "bok2_"
+OAUTH_TOKEN_PREFIX = "bok2o_"
+
+
+def _required_scope(request: Request) -> str:
+    """Map a REST call to the scope it needs: read (GET), tools (execute/MCP), write (rest)."""
+    path = request.url.path
+    if path.endswith("/tools/execute") or path.rstrip("/").endswith("/mcp"):
+        return "tools"
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return "read"
+    return "write"
+
+
+def check_scope(scopes: list[str], request: Request) -> None:
+    if not scopes:
+        return
+    needed = _required_scope(request)
+    if needed not in scopes:
+        raise Forbidden(
+            f"token lacks the {needed} scope",
+            code="insufficient_scope",
+            headers={"WWW-Authenticate": f'Bearer error="insufficient_scope", scope="{needed}"'},
+        )
+
+
+async def _principal_for_token_owner(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+    scopes: list[str],
+) -> Principal:
+    """API principals inherit the role of the user who created the token (admin fallback)."""
+    role = Role.admin
+    if user_id:
+        membership = await identity.membership_for(session, user_id, tenant_id)
+        if membership:
+            role = membership.role
+    return Principal(trust="api", tenant_id=tenant_id, user_id=user_id, role=role, scopes=scopes)
+
+
 async def current_operator(
     session: DbSession,
+    request: Request,
     authorization: Annotated[str | None, Header()] = None,
 ) -> Principal:
-    """Operator principal from a dashboard JWT."""
-    payload = identity.decode_access_token(_bearer(authorization))
+    """The calling principal on REST routes.
+
+    Accepts a dashboard JWT (trust operator), a `bok2_` API token or a `bok2o_`
+    OAuth access token (both trust api). This is what makes the REST surface the
+    public API: the same routes, one principal shape, policy by trust.
+    """
+    raw = _bearer(authorization)
+    if raw.startswith(OAUTH_TOKEN_PREFIX):
+        from bokito.services import oauth
+
+        token = await oauth.resolve_access_token(session, raw)
+        scopes = token.scope.split()
+        check_scope(scopes, request)
+        return await _principal_for_token_owner(
+            session, tenant_id=token.tenant_id, user_id=token.user_id, scopes=scopes
+        )
+    if raw.startswith(API_TOKEN_PREFIX):
+        api_token = await identity.resolve_api_token(session, raw)
+        scopes = list(api_token.scopes or [])
+        check_scope(scopes, request)
+        return await _principal_for_token_owner(
+            session,
+            tenant_id=api_token.tenant_id,
+            user_id=api_token.created_by_user_id,
+            scopes=scopes,
+        )
+    payload = identity.decode_access_token(raw)
     user = await session.get(User, uuid.UUID(payload["sub"]))
     if not user:
         raise Unauthorized("user not found")
@@ -99,17 +167,32 @@ async def current_user_any_tenant(
 
 async def current_api_client(
     session: DbSession,
+    request: Request,
     authorization: Annotated[str | None, Header()] = None,
 ) -> Principal:
-    """API principal from a `bok2_` token (MCP clients, public API)."""
-    token = await identity.resolve_api_token(session, _bearer(authorization))
-    return Principal(
-        trust="api",
-        tenant_id=token.tenant_id,
-        user_id=token.created_by_user_id,
-        scopes=list(token.scopes or []),
-        role=Role.admin,
-    )
+    """Token-only principal (MCP): `bok2_` or `bok2o_`, never a dashboard JWT.
+
+    Trust is always `api`, and a missing or bad token answers with the RFC 9728
+    `WWW-Authenticate` challenge so MCP clients can discover the authorization server.
+    """
+    from bokito.services import oauth
+
+    try:
+        raw = _bearer(authorization)
+    except Unauthorized as exc:
+        exc.headers = {"WWW-Authenticate": oauth.www_authenticate()}
+        raise
+    if not raw.startswith((API_TOKEN_PREFIX, OAUTH_TOKEN_PREFIX)):
+        raise Unauthorized(
+            "a bok2 API token or OAuth access token is required",
+            code="token_invalid",
+            headers={"WWW-Authenticate": oauth.www_authenticate("invalid_token")},
+        )
+    try:
+        return await current_operator(session, request, authorization)
+    except Unauthorized as exc:
+        exc.headers.setdefault("WWW-Authenticate", oauth.www_authenticate("invalid_token"))
+        raise
 
 
 Operator = Annotated[Principal, Depends(current_operator)]

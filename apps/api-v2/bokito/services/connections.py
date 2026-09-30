@@ -61,6 +61,7 @@ async def create(
             ConnectionKind.email,
             ConnectionKind.whatsapp,
             ConnectionKind.phone,
+            ConnectionKind.workbench,
         )
         else "",
     )

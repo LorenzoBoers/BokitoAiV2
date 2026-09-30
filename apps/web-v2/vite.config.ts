@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
       open: false,
       proxy: {
         '/api': { target: apiUrl, changeOrigin: true, ws: true },
+        '/.well-known/oauth-': { target: apiUrl, changeOrigin: true },
       },
     },
     build: {

@@ -62,9 +62,17 @@ class Settings(BaseSettings):
     meta_app_secret: str = ""
     whatsapp_verify_token: str = ""
 
+    # Workbenches (Cursor cloud agents, Codex). Follows llm_mode unless set.
+    workbench_mode: Literal["mock", "live"] | None = None
+    cursor_api_base: str = "https://api.cursor.com"
+
     # Feature switches
     module_writes_enabled: str = ""  # comma-separated module slugs
     scheduler_enabled: bool = True
+
+    @property
+    def workbench_live(self) -> bool:
+        return (self.workbench_mode or self.llm_mode) == "live"
 
     @property
     def cors_origin_list(self) -> list[str]:

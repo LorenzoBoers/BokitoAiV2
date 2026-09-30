@@ -90,6 +90,18 @@ export const governRoutes = {
   feedback: '/feedback',
 } as const
 
+export const oauthRoutes = {
+  consentContext: '/oauth/consent-context',
+  consent: '/oauth/consent',
+  grants: '/oauth/grants',
+  grant: (clientId: string) => `/oauth/grants/${encodeURIComponent(clientId)}`,
+} as const
+
+export const workbenchRoutes = {
+  jobs: '/workbench/jobs',
+  refreshJob: (id: string) => `/workbench/jobs/${id}/refresh`,
+} as const
+
 export const workspaceRoutes = {
   detail: '/workspace',
   members: '/workspace/members',

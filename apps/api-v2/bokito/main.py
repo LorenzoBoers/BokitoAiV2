@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from bokito import __version__
-from bokito.api import build_router
+from bokito.api import build_root_router, build_router
 from bokito.config import get_settings, validate_production_settings
 from bokito.db import dispose_engine
 from bokito.errors import install_error_handlers
@@ -53,6 +53,7 @@ def create_app() -> FastAPI:
     )
     install_error_handlers(app)
     app.include_router(build_router(), prefix=settings.api_prefix)
+    app.include_router(build_root_router())
     return app
 
 

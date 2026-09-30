@@ -340,7 +340,29 @@
     "apiTokensHint": "Tokens voor MCP-clients en scripts staan onder Govern.",
     "manageTokens": "Tokens beheren",
     "endpoints": "Endpoints",
-    "endpointsHint": "Alles wat het dashboard doet is hier ook beschikbaar."
+    "endpointsHint": "Alles wat het dashboard doet is hier ook beschikbaar.",
+    "mcpClients": "Gekoppelde MCP-clients",
+    "mcpClientsHint": "Tools zoals Cursor, Claude of ChatGPT die via OAuth toegang kregen tot deze workspace. Ontkoppelen trekt hun tokens direct in.",
+    "mcpClientsEmpty": "Er is geen MCP-client gekoppeld. Richt een client op het MCP-endpoint hierboven en keur die hier goed.",
+    "mcpLastUsed": "laatst gebruikt {{when}}",
+    "mcpConnected": "gekoppeld {{when}}",
+    "mcpClientDisconnected": "Client ontkoppeld",
+    "disconnect": "Ontkoppelen"
+  },
+  "oauth": {
+    "title": "MCP-client koppelen",
+    "intro": "{{client}} vraagt toegang tot de workspace {{workspace}}. De client handelt met jouw rol en onder het workspacebeleid.",
+    "scopes": "Gevraagde toegang",
+    "scope": {
+      "read": "Gesprekken, contacten, kennis en beslissingen lezen",
+      "write": "Gesprekken, contacten, agents en draaiboeken wijzigen",
+      "tools": "Tools uitvoeren via het MCP-endpoint"
+    },
+    "redirectHint": "Na goedkeuring ga je terug naar {{host}}.",
+    "policyHint": "Ingrijpende acties vragen nog steeds een operator in het gesprek; dat verandert niet met deze koppeling.",
+    "allow": "Toestaan",
+    "deny": "Weigeren",
+    "missingClient": "Deze link mist een client. Begin opnieuw vanuit je MCP-client."
   },
   "palette": {
     "hint": "Pijltjes om te bewegen, Enter om te openen. Tools draaien met jouw rechten en het workspacebeleid.",
