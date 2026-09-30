@@ -10,7 +10,6 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from app.models.agent import Agent
 from app.models.auth import Tenant, User
 from app.models.channel import ChannelAccount
 from app.models.notification import DecisionRequest
