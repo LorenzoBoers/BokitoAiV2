@@ -63,4 +63,48 @@
   .chip {
     @apply inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-elevated px-2 py-0.5 text-2xs font-medium text-text-secondary;
   }
+
+  .prose-bokito p {
+    @apply my-1.5 leading-relaxed;
+  }
+  .prose-bokito p:first-child {
+    @apply mt-0;
+  }
+  .prose-bokito p:last-child {
+    @apply mb-0;
+  }
+  .prose-bokito ul,
+  .prose-bokito ol {
+    @apply my-1.5 pl-5;
+  }
+  .prose-bokito ul {
+    @apply list-disc;
+  }
+  .prose-bokito ol {
+    @apply list-decimal;
+  }
+  .prose-bokito h1,
+  .prose-bokito h2,
+  .prose-bokito h3 {
+    @apply mb-1 mt-3 text-sm font-semibold text-text-heading;
+  }
+  .prose-bokito code {
+    @apply rounded bg-bg-elevated px-1 py-0.5 font-mono text-xs;
+  }
+  .prose-bokito pre {
+    @apply my-2 overflow-auto rounded-lg bg-bg-elevated p-3 text-xs;
+  }
+  .prose-bokito a {
+    @apply text-accent-ink underline;
+  }
+  .prose-bokito blockquote {
+    @apply my-2 border-l-2 border-border pl-3 text-text-secondary;
+  }
+  .prose-bokito table {
+    @apply my-2 w-full text-xs;
+  }
+  .prose-bokito th,
+  .prose-bokito td {
+    @apply border border-border/60 px-2 py-1 text-left;
+  }
 }

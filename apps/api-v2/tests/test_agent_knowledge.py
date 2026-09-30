@@ -71,6 +71,14 @@ async def test_agent_loop_replies_with_knowledge(client: AsyncClient, owner: dic
     assert report["lines"][0]["kind"] == "llm"
     assert report["lines"][0]["region"] == "eu"
 
+    r = await client.get("/api/usage", headers=auth(owner))
+    assert r.status_code == 200, r.text
+    period = r.json()
+    assert period["total_cost_eur"] > 0
+    assert period["eu_share"] == 1.0
+    assert len(period["by_day"]) == 1
+    assert period["by_day"][0]["cost_eur"] == period["total_cost_eur"]
+
     r = await client.get("/api/runs", params={"kind": "reply"}, headers=auth(owner))
     assert r.json()[0]["status"] == "done"
     r = await client.get(f"/api/runs/{r.json()[0]['id']}", headers=auth(owner))
@@ -109,6 +117,12 @@ async def test_agent_tool_call_pauses_on_decision(
     assert r.json()["status"] == "rejected"
     r = await client.get(f"/api/conversations/{conv.id}/messages", headers=auth(owner))
     assert not [m for m in r.json()["items"] if m["direction"] == "outbound"]
+
+    # The paused agent run is closed with the decision instead of staying "waiting".
+    r = await client.get(f"/api/runs/{result.run_id}", headers=auth(owner))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "cancelled"
+    assert r.json()["output"]["decision"] == "rejected"
 
 
 async def test_handoff_stops_agent(client: AsyncClient, owner: dict) -> None:

@@ -16,6 +16,7 @@ from bokito.api import (
     signals,
     tools,
     work,
+    workspace,
 )
 from bokito.channels import email, phone, whatsapp, widget
 from bokito.realtime import gateway
@@ -27,6 +28,7 @@ def build_router() -> APIRouter:
         health,
         auth,
         me,
+        workspace,
         conversations,
         decisions,
         contacts,

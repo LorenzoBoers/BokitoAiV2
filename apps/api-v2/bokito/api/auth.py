@@ -20,8 +20,9 @@ class SignupIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=200)
     name: str = Field(default="", max_length=200)
-    workspace_name: str = Field(min_length=1, max_length=200)
+    workspace_name: str = Field(default="", max_length=200)
     language: str = Field(default="en", pattern="^(en|nl)$")
+    invite: str | None = Field(default=None, description="Invite token to join a workspace")
 
 
 class LoginIn(BaseModel):
@@ -80,9 +81,16 @@ async def signup(body: SignupIn, session: DbSession, response: Response) -> Toke
         session, email=body.email, password=body.password, name=body.name
     )
     user.language = body.language
-    await identity.create_workspace(
-        session, owner=user, name=body.workspace_name, language=body.language
-    )
+    if body.invite:
+        await identity.accept_invite(session, user=user, raw=body.invite)
+    else:
+        if not body.workspace_name.strip():
+            from bokito.errors import AppError
+
+            raise AppError("workspace_name is required", code="workspace_name_required")
+        await identity.create_workspace(
+            session, owner=user, name=body.workspace_name, language=body.language
+        )
     return await _issue(session, response, user)
 
 

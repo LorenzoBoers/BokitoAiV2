@@ -55,6 +55,7 @@ export async function signup(input: {
   name: string
   workspace_name: string
   language: string
+  invite?: string
 }) {
   const out = await api.post<TokenOut>(authRoutes.signup, input)
   authStore.setToken(out.access_token, out.tenant_id)

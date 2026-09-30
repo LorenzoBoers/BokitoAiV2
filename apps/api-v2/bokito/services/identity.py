@@ -100,6 +100,25 @@ async def create_workspace(
     return tenant
 
 
+async def accept_invite(session: AsyncSession, *, user: User, raw: str) -> Membership:
+    from bokito.domain.base import utcnow
+    from bokito.domain.identity import Invite
+
+    inv = await session.scalar(select(Invite).where(Invite.token_digest == _digest(raw)))
+    if not inv or inv.accepted_at is not None or inv.expires_at < utcnow():
+        raise Unauthorized("invite is invalid or expired", code="invite_invalid")
+    existing = await membership_for(session, user.id, inv.tenant_id)
+    if existing:
+        inv.accepted_at = utcnow()
+        return existing
+    membership = Membership(tenant_id=inv.tenant_id, user_id=user.id, role=inv.role)
+    session.add(membership)
+    inv.accepted_at = utcnow()
+    user.last_tenant_id = inv.tenant_id
+    await session.flush()
+    return membership
+
+
 async def authenticate(session: AsyncSession, email: str, password: str) -> User:
     user = await get_user_by_email(session, email)
     if not user or not verify_password(password, user.password_hash):

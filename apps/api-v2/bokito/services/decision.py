@@ -157,6 +157,17 @@ async def resolve(
         run.output = {"approved": approved, "option": option}
         run.finished_at = utcnow()
 
+    # The agent or playbook run that paused on this decision resumes its final state.
+    parent = await session.get(Run, run.parent_run_id) if run and run.parent_run_id else None
+    if (
+        parent
+        and parent.status == RunStatus.waiting
+        and (parent.checkpoint or {}).get("decision_id") == str(decision.id)
+    ):
+        parent.status = RunStatus.done if approved else RunStatus.cancelled
+        parent.output = {**(parent.output or {}), "decision": decision.status.value}
+        parent.finished_at = utcnow()
+
     decision.result = result
     if conv:
         await conv_svc.append_message(

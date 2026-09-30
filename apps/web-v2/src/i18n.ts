@@ -16,4 +16,8 @@ void i18n
     detection: { order: ['localStorage', 'navigator'], caches: ['localStorage'] },
   })
 
+export function setLanguage(lng: string) {
+  return i18n.changeLanguage(lng)
+}
+
 export default i18n

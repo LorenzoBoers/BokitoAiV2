@@ -1,2 +1,13 @@
 export { authRoutes } from './auth.routes'
-export { appRoutes } from './app.routes'
+export {
+  appRoutes,
+  connectionsRoutes,
+  contactsRoutes,
+  conversationsRoutes,
+  decisionsRoutes,
+  governRoutes,
+  knowledgeRoutes,
+  signalsRoutes,
+  workRoutes,
+  workspaceRoutes,
+} from './app.routes'

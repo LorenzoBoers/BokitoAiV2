@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bokito.domain.base import utcnow
@@ -139,18 +139,18 @@ async def period_report(
         }
         for kind, provider, region, byok, count, tin, tout, cost in rows
     ]
+    # Bind the literal once and group on the label; asyncpg otherwise sees two
+    # distinct `$n` parameters and rejects the GROUP BY.
+    day_col = func.date_trunc(literal("day"), UsageEvent.created_at).label("day")
     by_day_stmt = (
-        select(
-            func.date_trunc("day", UsageEvent.created_at),
-            func.coalesce(func.sum(UsageEvent.cost_eur), 0),
-        )
+        select(day_col, func.coalesce(func.sum(UsageEvent.cost_eur), 0))
         .where(
             UsageEvent.tenant_id == tenant_id,
             UsageEvent.created_at >= since,
             UsageEvent.created_at < until,
         )
-        .group_by(func.date_trunc("day", UsageEvent.created_at))
-        .order_by(func.date_trunc("day", UsageEvent.created_at))
+        .group_by(day_col)
+        .order_by(day_col)
     )
     by_day = [
         {"day": day.date().isoformat(), "cost_eur": float(cost)}
