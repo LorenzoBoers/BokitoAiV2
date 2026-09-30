@@ -9,6 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "test", "staging", "production"]
@@ -69,6 +70,12 @@ class Settings(BaseSettings):
     # Feature switches
     module_writes_enabled: str = ""  # comma-separated module slugs
     scheduler_enabled: bool = True
+
+    @field_validator("workbench_mode", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        # `WORKBENCH_MODE=` in an env file means "follow LLM_MODE".
+        return None if isinstance(value, str) and not value.strip() else value
 
     @property
     def workbench_live(self) -> bool:
