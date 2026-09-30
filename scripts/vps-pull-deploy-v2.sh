@@ -55,7 +55,13 @@ set_kv BOKITO_V2_ENV_FILE "$ENV_FILE" "$ENV_FILE"
 
 COMPOSE=(docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.v2.deploy.yml)
 
-"${COMPOSE[@]}" pull
+if ! "${COMPOSE[@]}" pull; then
+  # Registry login on the host may have expired; a manual promote of images that
+  # staging already pulled must still work.
+  docker image inspect "$API_IMAGE" "$WEB_IMAGE" >/dev/null 2>&1 \
+    || { echo "pull failed and images are not present locally" >&2; exit 1; }
+  echo "pull failed; using local images already present on this host"
+fi
 "${COMPOSE[@]}" up -d --remove-orphans
 
 echo "deploy_ok env=v2-${ENV_NAME} sha=${SHA} api=${API_IMAGE} web=${WEB_IMAGE}"
