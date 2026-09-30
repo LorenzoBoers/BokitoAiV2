@@ -12,6 +12,8 @@ export const settingsRoutes = {
     byId: (id: string) => `/models/${encodeURIComponent(id)}`,
     /** Live vs mock LLM flag for workspace banners (any member). */
     runtime: '/models/runtime',
+    /** Tenant opt-in for custom (BYOK) models. */
+    custom: '/models/custom',
   },
   webhooks: {
     list: '/webhooks',

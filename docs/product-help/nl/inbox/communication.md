@@ -35,34 +35,32 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 4. Je kunt mail ook starten vanaf een contactkaart of het commandopalet. Doorsturen vanuit een thread opent nog het compose-dialoog.
 5. Een lege inbox biedt nog steeds **Nieuwe chat**, **Widget installeren** en de setupgids — websitechat wacht niet op e-mail.
 
-## Antwoord, notitie of sjabloon
+## Kies wat je stuurt (Antwoord / Vraag AI / Notitie)
 
-![Gesprek en composer in Communicatie](/api/docs/assets/communication/thread-composer.png)
-*Gesprek, contact en composer staan op één scherm.*
+![Composer-modes in Communicatie](/api/docs/assets/communication/composer-modes.png)
+*Eén composer met drie bestemmingen: de klant, de AI of het team.*
 
-1. Selecteer een gesprek. De titel staat in de header; daaronder toont een meta-rij prioriteit, signalen op dit gesprek, en (rechts uitgelijnd, paars) de kanaal-agent. Contactgegevens blijven in het zijpaneel — de agent staat daar niet meer, want die hoort bij het kanaal/de thread, niet bij de persoon.
-2. De composer verstuurt via hetzelfde kanaal als de klant. Op e-mailthreads toont het eerste tabblad de **mailboxnaam** (met provider-icoon) in plaats van generiek Beantwoorden — hover voor de verstuur-hint. Heb je meer dan één mailbox, open dat tabblad om een andere te kiezen; versturen vanaf een andere mailbox **verplaatst** het gesprek naar dat kanaal. **Ctrl+Enter** verstuurt e-mail en staat op de knop Versturen; Enter verstuurt chat. Het pijltje naast **Versturen** bevat **Versturen en sluiten** en **Versturen en uitstellen**. **Versturen als:** **Jij** of de agent bepaalt welke handtekening erbij komt en wiens naam als From-weergavenaam op de mail staat (het mailboxadres blijft het gekoppelde account).
-3. Wissel naar **Intern** voor een teambericht dat de klant nooit ziet (beweeg over het tabblad voor de herinnering). Typ `@` en selecteer een persoon of agent in de picker om naar Intern te gaan (of naar een agent-metagesprek). Platte `@tekst` zonder selectie blijft klantantwoord. Terug naar Beantwoorden maakt mentions plat tot `@Naam`. Interne berichten werken nog als er geen mailbox kan versturen. Gesloten of spamgesprekken houden ze ook — een knop **Heropenen** staat op de composer.
-4. Open **Schrijven** (sparkles) in de composer om te beschrijven wat je wilt sturen, of om tekst in het vak te herschrijven, in te korten, uit te breiden of van toon te wisselen. Onder **Wat moet dit zeggen?** kun je dicteren met dezelfde microfoonknop. Dicteren werkt ook op Beantwoorden, Intern en het agent-tabblad: houd ingedrukt om te praten of klik om te starten; tijdens luisteren komt de knop overeen met de chatwidget (groene glow en golfbalken; bij hover een vinkje). Klik of laat los om te bevestigen. Gesproken tekst verschijnt live in het vak en het veld groeit mee. Opgeslagen antwoorden staan onder dat Schrijven-menu, of onder **Instellingen**, daarna **Kanalen**.
-5. E-mailantwoorden kunnen CC/BCC toevoegen en je mailboxhandtekening meenemen. Zette de klant collega's in de CC, dan vult **Allen beantwoorden** hun CC-lijst alvast in (en andere Aan-adressen, niet jouw mailbox). **Citeren** voegt de laatste inboundregels in, ook bij HTML-only mail. **Doorsturen als nieuwe e-mail** houdt bijlagen vast. Als je dezelfde afzender meerdere keren sluit of een taak maakt, kan Bokito vragen dat voortaan te doen — **Doe dit voortaan** of **Niet nu**. In het gespreksmenu kun je ook **Mail van deze afzender altijd sluiten** kiezen. Die regels staan onder **Kanalen**.
-6. Zoeken vindt ook bedrijfsnamen en bestandsnamen van bijlagen.
+1. Open een gesprek. Onder de tijdlijn toont de composer een mode-chip: **Antwoord aan {naam}**, **Vraag {agent}** en **Notitie**.
+2. **Antwoord** gaat naar de klant op hetzelfde kanaal. De placeholder herinnert je eraan dat de klant dit ziet. Op e-mail stuurt **Ctrl+Enter**; op chat stuurt Enter.
+3. **Vraag** praat alleen met de AI op dit gesprek (of start een AI check-in). De klant ziet niets. Tijdens streamen staat **Stop** klaar.
+4. **Notitie** is alleen voor het team. Gebruik die voor overdracht en context die de workspace niet mag verlaten.
+5. Op een AI-gesprek (`assistant`) of een AI check-in ontbreekt Antwoord — alleen Vraag en Notitie blijven. Slash-commando's en `@`-mentions blijven werken.
 
-## Gebruik een AI-concept
+## Zie en wijzig wat de AI doet
 
-1. Als [Inbox AI](/docs/inbox/inbox-ai) op **Antwoorden voorstellen** staat, verschijnt een conceptbubbel links in het gesprek met het agentavatar — dezelfde chatstijl als andere agentberichten. De bubbel toont alleen het klantgerichte antwoord. Teamcontext staat eronder als **Interne notitie** (gaat niet mee in de e-mail).
-2. Kies **Versturen als:** **Jij** of de agent — de handtekening staat direct onder de draft in dezelfde bubbel (niet onder de interne notitie). Die identiteit zet ook de From-weergavenaam op de mail; het mailboxadres verandert niet. Zonder eigen handtekening toont Bokito een standaard uit naam, functie, bedrijf en werkruimte-taal, met een link **Handtekening instellen** naar Profiel of de agentpagina. Pas de tekst aan en verstuur — of kies **Niet nu** / **Ik doe het zelf**. Versturen of goedkeuren van één concept legt overgebleven concepten terzijde. Oudere afgewezen concepten klappen in tot één korte bubbel (**Eerder concept — terzijde gelegd**).
-3. Of gebruik **Schrijven** in de composer: typ een intentie (of laat leeg om uit het gesprek te concepten), genereer in het antwoordvak, bewerk en verstuur zelf. Snelle acties herschrijven tekst die al in het vak staat. Niets gaat de deur uit tot je Versturen indrukt.
-4. Een banner op het gesprek zegt wanneer de AI het behandelt, of wanneer AI is gepauzeerd. Als een bezoeker om een medewerker vraagt, staat daar **Klant vroeg een medewerker — AI gepauzeerd.** **Overnemen van AI** (op die banner) pauzeert de assistent zodat jij met de hand afrondt; de composer opent op **Beantwoorden**. Zelf antwoorden pauzeert de AI ook en beëindigt een open metagesprek. **AI hervatten** geeft het terug. Op **Automatisch antwoorden** is overnemen hoe je een live verzending stopt. In websitechat ziet de bezoeker bij overnemen direct een banner "een medewerker helpt je verder", die bij teruggeven of sluiten weer verdwijnt. Zet meldingen voor “klant vraagt medewerker” aan of uit onder **Instellingen**, daarna **Notificaties**.
+![AI-statuschip in de gespreksheader](/api/docs/assets/communication/ai-status.png)
+*De chip in de header toont of AI voorstelt, zelf antwoordt, uit staat, of jij hebt overgenomen.*
 
-## Praat met een agent in het gesprek
+1. Open een klant- of AI-gesprek. De header toont een **AI-status**-chip: **AI stelt voor**, **AI antwoordt zelf**, **AI uit**, of **Jij hebt het overgenomen**.
+2. Open het chipmenu. Kies **Overnemen** om de AI op dit gesprek te pauzeren, of **Teruggeven aan AI** wanneer je klaar bent.
+3. Kies **Instellen voor alle gesprekken op dit kanaal** om de Communicatie-instellingen te openen (kanaal-AI-modus). Er is geen aparte mode per gesprek — alleen overnemen (`ai_paused`).
+4. Live werk verschijnt als een dunne strip onder de tijdlijn terwijl de AI denkt of streamt — dezelfde plek voor klantantwoorden en Vraag-beurten.
 
-Haal een agent erbij als je wilt sparren, iets wilt laten opzoeken of het gesprek wilt overdragen.
+## Keur een AI-voorstel goed vanuit de composer
 
-1. Open het agent-tabblad in de composer (genoemd naar de thread-owner), of typ `@` en selecteer een agent. Alleen naar het tabblad schakelen start nog geen metagesprek — je eerste bericht op dat tabblad doet dat. De klant ziet het niet.
-2. Typ op het agent-tabblad en druk Enter. Jouw bericht verschijnt rechts; de agent streamt een bubbel links in dezelfde tijdlijn (geen apart paars vlak). Een dunne **intern**-strip markeert de sessie. Je kunt opnieuw versturen terwijl die antwoordt: het huidige antwoord stopt, je nieuwe bericht gaat in de buffer, en de agent gaat verder met de gebufferde teksten. **Stop** annuleert zonder te bufferen. De composer blijft op het agent-tabblad tot je de sessie afrondt of een klant-Beantwoorden stuurt.
-3. Vraag om een antwoord en de agent stelt een conceptbubbel voor. Gebruik **Schrijven** in de composer als je alleen tekst in het antwoordvak nodig hebt — het agent-tabblad is voor onderzoek en afstemming. Een teammate taggen mid-meta stuurt een melding; het bericht gaat nog steeds naar de agent. Concepten zetten de composer niet om naar Beantwoorden zolang er nog een stream loopt.
-4. Als het werk klaar is — of na een paar minuten stilte — biedt de agent (of het systeem) een afrondingsbeslissing: sessie beëindigen, doorgaan, of opvolging. **Sessie afronden** klapt het metagesprek in tot één gedeelde samenvattingsbubbel (agentavatar links, jouw avatar rechts) die je later kunt uitklappen. Een klant-Beantwoorden beëindigt de meta zonder checkout-acties. Agentberichten die naar de klant gaan tonen **Verstuurd naar de klant** onder de agentnaam, zodat ze te onderscheiden zijn van interne metabubbels.
-5. Toch niet nodig, nog voor je iets typte? **Annuleren** haalt de sessie weg. Zodra er een bericht is gewisseld, gebruik de afrondingskaart of **Sessie afronden**.
+1. Als Inbox AI een antwoord voorstelt, laadt het concept in de composer met **Verstuur**, **Bewerk** en **Weg**. In de tijdlijn staat alleen een korte regel: **AI stelde een antwoord voor**.
+2. Pas de tekst zo nodig aan en kies **Verstuur** (of het verstuurmenu voor sluiten / uitstellen). Versturen lost de beslissing op en levert het antwoord af.
+3. **Weg** wijst het voorstel af zonder te versturen. Andere beslissingen (platform, module, agenda, afronding) blijven kaarten met de kop **Wacht op jouw OK** en gewone werkwoordknoppen — geen toolnamen in de copy.
 
 ## Beslis in het gesprek
 

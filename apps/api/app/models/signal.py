@@ -83,9 +83,9 @@ class Signal(SQLModel, table=True):
     follow_up_at: Optional[datetime] = Field(default=None, index=True)
     follow_up_title: str = Field(default="")
     priority: str = Field(default="normal", index=True)
-    assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     tags_json: str = Field(default="[]")
-    has_unread: bool = True
+    has_unread: bool = Field(default=True, index=True)
     ai_paused: bool = False
     # Compact next-action chips set during AI inbound processing
     # (subset of: close, assign, create_task).

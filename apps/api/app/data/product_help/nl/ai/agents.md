@@ -36,6 +36,14 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 3. Zet **Autonomieniveau** op de agent: **Handmatig — altijd vragen**, **Goedkeuring — begrensde acties**, **Automatisch — zelfstandig handelen**, of **Workspace-standaard**. Dat zit op of onder het workspaceplafond op [Autonomie](/docs/govern/autonomy).
 4. Kies in **Communicatie-instellingen** per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Archiveren** verbergt de agent en wist de kanaalstandaarden; run-geschiedenis blijft.
 
+## Beheerde agents
+
+Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading). Die tonen een badge **Beheerd** op de bibliotheekkaart en de detailpagina.
+
+1. Open **Agents** en zoek een kaart met het label **Beheerd**.
+2. Open de agent. De badge noemt bij hover het pakket dat de agent beheert.
+3. Als je een beheerde agent **Archiveert**, zetten stack-seed of updates hem niet stil terug. Bokito opent een herstel-Decision in Communicatie; keur die goed om de agent weer in de bibliotheek te zetten, of wijs af om hem gearchiveerd te houden.
+
 ## Beperk wie mag chatten
 
 1. Een stille agent toont **Klaar**. Open **Communicatie** op de agentpagina (chattoegang). Kies **Iedereen**, **Geselecteerde gebruikers** of **Niemand**.

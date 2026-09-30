@@ -70,6 +70,8 @@ export const appRoutes = {
       `/signals/${threadId}/sessions/${sessionId}`,
     threadSessionClose: (threadId: string, sessionId: string) =>
       `/signals/${threadId}/sessions/${sessionId}/close`,
+    threadMessage: (threadId: string, messageId: string) =>
+      `/signals/${threadId}/messages/${messageId}`,
     messageResolve: (threadId: string, messageId: string) =>
       `/signals/${threadId}/messages/${messageId}/resolve`,
     pins: '/signals/pins',

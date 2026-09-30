@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, Radio, RefreshCw, Sparkles, Star, Trash2 } from 'lucide-react'
+import { AlertCircle, Flag, ListPlus, Radio, RefreshCw, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -29,10 +29,10 @@ import {
 } from '../ui/dialog'
 import type { ParsedComposerVerb } from '../../lib/composer-verbs'
 import { patchSignalThread } from '../../lib/signals-api'
-import { MessageTimelineItem, EventClusterTimelineItem, formatHourMinute } from './TimelineItem'
-import DecisionRequestMessage from './DecisionRequestMessage'
-import ReplyComposer, { type ComposerMode } from './ReplyComposer'
-import AssigneeSelector from './AssigneeSelector'
+import { replyProposalFromMessage } from './DecisionRequestMessage'
+import ReplyComposer from './ReplyComposer'
+import ThreadHeader from './ThreadHeader'
+import ThreadTimeline, { buildTimelineRows, type ThreadTimelineHandle } from './ThreadTimeline'
 import { Button } from '../ui/button'
 import { InboxThreadSkeleton } from '../ui/skeleton'
 import {
@@ -42,21 +42,17 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { translateDecisionText } from '../../lib/activity-labels'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboundQuoteText, suggestedReplyAllRecipients } from '../../lib/thread-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
-import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
+import { isPlaceholderContactAddress } from '../../lib/contact-label'
 import {
   isInternalThread,
   resolveComposerSurface,
-  threadCounterpartyName,
-  threadHubPath,
+  type ComposerMode,
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
 import ThinkingTrace from './ThinkingTrace'
-import AgentSessionCard from './AgentSessionCard'
-import { AgentChatView } from './AgentChatView'
 import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
   bokitoListMessages,
@@ -65,60 +61,12 @@ import {
   startAgentSession,
   type ChatMessage,
 } from '../../lib/signals-api'
-import {
-  mergeSessionLiveMessages,
-  useAgentSessionChat,
-} from '../../lib/use-agent-session-chat'
+import { useAiChatStream } from '../../lib/use-agent-session-chat'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
-import { threadStatusLabel } from '../../lib/status-labels'
-import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
-import { formatAppDateTime } from '../../lib/app-locale'
-import {
-  THREAD_ACTION_CLUSTER_CLASS,
-  THREAD_HEADER_CLASS,
-  THREAD_HEADER_ICON_CLASS,
-} from '../../lib/chat-chrome'
 import { WhatsNextDialog, scheduledForIso, type FollowUpWhen } from './WhatsNextDialog'
 import { toast } from 'sonner'
-
-type TimelineEntry =
-  | { kind: 'message'; time: string; id: string; data: ThreadDetailType['messages'][number] }
-  | { kind: 'event'; time: string; id: string; data: ThreadDetailType['events'][number] }
-  | { kind: 'session'; time: string; id: string; data: ThreadDetailType['sessions'][number] }
-
-type DayGroup = {
-  dayKey: string
-  label: string
-  entries: TimelineEntry[]
-}
-
-// Render item after merging consecutive events into one compact cluster, so
-// system/AI activity shows as a single pill row instead of stacked dividers.
-type RenderItem =
-  | { kind: 'message'; id: string; time: string; entry: Extract<TimelineEntry, { kind: 'message' }> }
-  | { kind: 'events'; id: string; time: string; events: ThreadDetailType['events'] }
-  | { kind: 'session'; id: string; time: string; session: ThreadDetailType['sessions'][number] }
-
-function clusterEntries(entries: TimelineEntry[]): RenderItem[] {
-  const items: RenderItem[] = []
-  for (const entry of entries) {
-    if (entry.kind === 'event') {
-      const last = items[items.length - 1]
-      if (last && last.kind === 'events') {
-        last.events.push(entry.data)
-      } else {
-        items.push({ kind: 'events', id: entry.id, time: entry.time, events: [entry.data] })
-      }
-    } else if (entry.kind === 'session') {
-      items.push({ kind: 'session', id: entry.id, time: entry.time, session: entry.data })
-    } else {
-      items.push({ kind: 'message', id: entry.id, time: entry.time, entry })
-    }
-  }
-  return items
-}
 
 type Props = {
   detail: ThreadDetailType | null
@@ -156,6 +104,10 @@ type Props = {
   /** Mark the open thread as unread again (return-to-queue workflow). */
   onMarkUnread?: () => void | Promise<void>
   onRefresh: () => void
+  /** True when older history exists above the current message window. */
+  hasOlder?: boolean
+  loadingOlder?: boolean
+  onLoadOlder?: () => void | Promise<void>
   onTogglePin?: () => void | Promise<void>
   /** Human takeover toggle for AI-handled channels (email/widget/chat/assistant). */
   onToggleTakeover?: () => void | Promise<void>
@@ -180,8 +132,6 @@ type Props = {
   onAskAssistant?: () => void
 }
 
-const HEADER_ICON = THREAD_HEADER_ICON_CLASS
-
 const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
   normal: { labelKey: 'priority.normal', dot: 'bg-text-muted/40' },
   high: { labelKey: 'priority.high', dot: 'bg-status-warning' },
@@ -190,7 +140,8 @@ const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
 
 /**
  * Compact chips row under the thread header: priority, cases on this
- * conversation, optional AI triage, and the channel agent (right-aligned).
+ * conversation, and optional AI triage. Who handles the conversation is the
+ * header's AI status chip, not a chip here.
  */
 function ThreadMetaRow({
   signalId,
@@ -198,8 +149,6 @@ function ThreadMetaRow({
   saving,
   onPatch,
   triage,
-  agentId,
-  agentName,
   onWhatsNext,
   followUpLabel,
 }: {
@@ -208,8 +157,6 @@ function ThreadMetaRow({
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
   triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
-  agentId?: string | null
-  agentName?: string | null
   onWhatsNext?: () => void
   /** When set, replaces the Wat nu button with a clickable look-at chip. */
   followUpLabel?: string | null
@@ -233,7 +180,6 @@ function ThreadMetaRow({
 
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
   const priorityLabel = t(priorityMeta.labelKey, { ns: 'communication' })
-  const showAgent = Boolean(agentId || agentName)
 
   return (
     <div className="flex shrink-0 items-center gap-1.5 border-b border-border/30 bg-bg-surface px-3 py-1">
@@ -352,89 +298,23 @@ function ThreadMetaRow({
           </Tooltip>
         ) : null}
       </div>
-
-      {showAgent ? (
-        <Link
-          to={agentId ? `/agents/${agentId}` : '/agents'}
-          className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-ai/30 bg-ai/10 px-2 py-0.5 text-[11px] font-medium text-ai-ink hover:border-ai/50 hover:bg-ai/15"
-          title={t('threadChrome.agentHandling', { ns: 'communication' })}
-        >
-          <Bot size={11} />
-          <span className="max-w-[9rem] truncate">
-            {agentName || t('listItem.agent', { ns: 'communication' })}
-          </span>
-        </Link>
-      ) : null}
     </div>
   )
 }
 
-function makeDayKey(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-function makeDayLabel(
-  date: Date,
-  t: (key: string) => string,
-  locale?: string,
-): string {
-  const now = new Date()
-  const todayKey = makeDayKey(now)
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  const yesterdayKey = makeDayKey(yesterday)
-  const key = makeDayKey(date)
-  if (key === todayKey) return t('timeline.today')
-  if (key === yesterdayKey) return t('timeline.yesterday')
-  return new Intl.DateTimeFormat(locale, {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(date)
-}
-
-function groupByDay(
-  entries: TimelineEntry[],
-  t: (key: string) => string,
-  locale?: string,
-): DayGroup[] {
-  const map = new Map<string, DayGroup>()
-  for (const entry of entries) {
-    const date = new Date(entry.time)
-    if (Number.isNaN(date.getTime())) continue
-    const key = makeDayKey(date)
-    let group = map.get(key)
-    if (!group) {
-      group = { dayKey: key, label: makeDayLabel(date, t, locale), entries: [] }
-      map.set(key, group)
-    }
-    group.entries.push(entry)
-  }
-  return Array.from(map.values())
-}
-
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
   const { t, i18n } = useTranslation('communication')
   const navigate = useNavigate()
   const { token, user } = useAuth()
   const { connections } = useMailboxConnections()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
+  const timelineRef = useRef<ThreadTimelineHandle>(null)
   const previousMessageCountRef = useRef<number>(0)
-  const groupRefs = useRef<Map<string, HTMLElement>>(new Map())
-  // Anchor-to-bottom: when a thread opens we want the timeline to stay pinned
-  // to the bottom until the user manually scrolls up. Email iframes finish
-  // measuring their height asynchronously, so a one-shot scroll right after
-  // open is not enough; a ResizeObserver re-pins on every subsequent growth.
-  const anchorToBottomRef = useRef<boolean>(false)
-  const programmaticScrollRef = useRef<boolean>(false)
   const visitedThreadsRef = useRef<Set<string>>(new Set())
+  // Anchor-to-bottom: the timeline stays pinned to the newest row until the
+  // user scrolls up. Virtuoso reports that through `onAtBottomChange`.
+  const anchorToBottomRef = useRef<boolean>(true)
   const [membersById, setMembersById] = useState<Record<number, InboxMember>>({})
-  const [activeDayLabel, setActiveDayLabel] = useState<string | null>(null)
   const [unseenNew, setUnseenNew] = useState(0)
   const [searchParams, setSearchParams] = useSearchParams()
   // Card targeted by a `?message=` deep link; highlighted for a few seconds.
@@ -448,8 +328,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     /** Sender identity chosen on the suggestion card (user | agent). */
     sendAs?: 'user' | 'agent'
   } | null>(null)
-  // Composer surface the operator is on. Sticky on `agent` while a meta
-  // session runs, so the next keystroke goes to the agent, not the customer.
+  // Composer surface the operator is on. Sticky on `ask` while an AI turn
+  // runs, so the next keystroke goes to the AI, not the customer.
   const [composerMode, setComposerMode] = useState<ComposerMode>('reply')
   // Close-the-loop prompt when typed Signals are still Open (F-49).
   const [closeSignalsPrompt, setCloseSignalsPrompt] = useState<{
@@ -465,17 +345,39 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     agentStreaming,
     send: sendAgentSessionMessage,
     stop: stopAgentSessionStream,
-  } = useAgentSessionChat(token)
+  } = useAiChatStream(token)
   const agentStreamingRef = useRef(false)
   agentStreamingRef.current = agentStreaming
   const applyComposerDraft = useCallback(
     (draft: NonNullable<typeof composerDraft>) => {
-      // Do not yank the Agent tab mid-stream when a suggestion card appears.
+      // Do not yank the Ask tab mid-stream when a suggestion card appears.
       if (agentStreamingRef.current) return
       setComposerDraft(draft)
     },
     [],
   )
+  const appliedProposalRef = useRef<string | null>(null)
+  useEffect(() => {
+    appliedProposalRef.current = null
+  }, [threadId])
+  useEffect(() => {
+    if (!detail) return
+    for (let i = detail.messages.length - 1; i >= 0; i -= 1) {
+      const proposal = replyProposalFromMessage(detail.messages[i], detail.events)
+      if (!proposal) continue
+      if (appliedProposalRef.current === proposal.decisionMessageId) return
+      if (agentStreamingRef.current) return
+      appliedProposalRef.current = proposal.decisionMessageId
+      applyComposerDraft({
+        body: proposal.body,
+        subject: proposal.subject,
+        key: `${proposal.decisionMessageId}-auto`,
+        decisionMessageId: proposal.decisionMessageId,
+      })
+      setComposerMode('reply')
+      return
+    }
+  }, [detail, applyComposerDraft])
 
   // Active agents are @-mentionable in notes; a mention invokes the agent on
   // this thread and its answer lands as an internal note.
@@ -532,83 +434,24 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [token, t])
 
-  const groups = useMemo<DayGroup[]>(() => {
-    if (!detail) return []
-    const timeline: TimelineEntry[] = [
-      ...detail.messages.map((m) => ({
-        kind: 'message' as const,
-        time: m.receivedAt ?? m.createdAt,
-        id: `m-${m.id}`,
-        data: m,
-      })),
-      ...detail.events
-        .filter(
-          (e) =>
-            e.eventType !== 'replied' &&
-            e.eventType !== 'note_added' &&
-            e.eventType !== 'reply_sent' &&
-            // The session card itself represents these lifecycle moments.
-            e.eventType !== 'agent_session_started' &&
-            e.eventType !== 'agent_session_closed' &&
-            // Decision / suggestion cards already sit in the timeline.
-            e.eventType !== 'decision_created' &&
-            e.eventType !== 'suggestion_created',
-        )
-        .map((e) => ({
-          kind: 'event' as const,
-          time: e.createdAt,
-          id: `e-${e.id}`,
-          data: e,
-        })),
-      ...(detail.sessions ?? []).map((s) => ({
-        kind: 'session' as const,
-        time: s.startedAt,
-        id: `s-${s.id}`,
-        data: s,
-      })),
-    ].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-    return groupByDay(timeline, t, i18n.language)
-  }, [detail, t, i18n.language])
+  const rows = useMemo(
+    () => buildTimelineRows(detail, t, i18n.language),
+    [detail, t, i18n.language],
+  )
 
-  const latestMessageId = useMemo(() => {
-    for (let g = groups.length - 1; g >= 0; g -= 1) {
-      const entries = groups[g]?.entries ?? []
-      for (let i = entries.length - 1; i >= 0; i -= 1) {
-        const entry = entries[i]
-        if (entry?.kind === 'message') return entry.id
-      }
+  const latestMessageRowId = useMemo(() => {
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      const row = rows[i]
+      if (row?.kind === 'message') return row.id
     }
     return null
-  }, [groups])
+  }, [rows])
 
   const messageLayout: 'chat' | 'email' =
     detail && resolveComposerSurface(detail.thread).channel === 'email' ? 'email' : 'chat'
 
   const scrollToLatestMessage = useCallback((behavior: ScrollBehavior = 'auto') => {
-    const container = scrollRef.current
-    if (!container) return
-    programmaticScrollRef.current = true
-    const latest = container.querySelector('[data-latest-message="true"]') as HTMLElement | null
-    if (latest) {
-      const containerRect = container.getBoundingClientRect()
-      const latestRect = latest.getBoundingClientRect()
-      const nextTop = Math.max(0, container.scrollTop + (latestRect.top - containerRect.top) - 8)
-      if (behavior === 'smooth') {
-        container.scrollTo({ top: nextTop, behavior: 'smooth' })
-      } else {
-        container.scrollTop = nextTop
-      }
-    } else {
-      const top = Math.max(0, container.scrollHeight - container.clientHeight)
-      if (behavior === 'smooth') {
-        container.scrollTo({ top, behavior: 'smooth' })
-      } else {
-        container.scrollTop = top
-      }
-    }
-    window.setTimeout(() => {
-      programmaticScrollRef.current = false
-    }, 120)
+    timelineRef.current?.scrollToBottom(behavior === 'smooth' ? 'smooth' : 'auto')
   }, [])
 
   const pinToLatest = useCallback(
@@ -628,33 +471,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const loadedThreadId = detail?.thread.id ?? null
   const messageCount = detail?.messages.length ?? 0
 
-  // Deep link from a notification or push: `?message=` scrolls to that card
-  // and highlights it briefly, instead of dropping the reader at the bottom.
+  // Deep link from a notification or push: `?message=` highlights that card.
+  // ThreadTimeline scrolls to focusedMessageId itself.
   useEffect(() => {
     const requested = searchParams.get('message')
-    if (!requested || loading || groups.length === 0) return
+    if (!requested || loading || rows.length === 0) return
     if (threadId == null || String(loadedThreadId) !== String(threadId)) return
 
     setFocusedMessageId(requested)
     anchorToBottomRef.current = false
 
-    const reveal = () => {
-      const container = scrollRef.current
-      const node = container?.querySelector(
-        `[data-message-id="${requested}"]`,
-      ) as HTMLElement | null
-      if (!container || !node) return
-      programmaticScrollRef.current = true
-      const containerRect = container.getBoundingClientRect()
-      const nodeRect = node.getBoundingClientRect()
-      container.scrollTop = Math.max(0, container.scrollTop + (nodeRect.top - containerRect.top) - 24)
-      window.setTimeout(() => {
-        programmaticScrollRef.current = false
-      }, 120)
-    }
-
-    // The first-visit pinning above re-scrolls for up to 700ms; land after it.
-    const timers = [0, 150, 400, 800].map((delay) => window.setTimeout(reveal, delay))
     const clear = window.setTimeout(() => {
       setFocusedMessageId(null)
       setSearchParams(
@@ -667,17 +493,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       )
     }, 3000)
 
-    return () => {
-      timers.forEach((id) => window.clearTimeout(id))
-      window.clearTimeout(clear)
-    }
-  }, [searchParams, setSearchParams, loading, groups.length, threadId, loadedThreadId])
+    return () => window.clearTimeout(clear)
+  }, [searchParams, setSearchParams, loading, rows.length, threadId, loadedThreadId])
 
-  // Scroll to bottom whenever a thread finishes loading. We engage the anchor
-  // flag so the ResizeObserver below keeps re-pinning as email iframes finish
-  // measuring their height (often hundreds of ms after the initial render).
+  // Scroll to bottom whenever a thread finishes loading (first visit).
   useLayoutEffect(() => {
-    if (loading || threadId == null || String(loadedThreadId) !== String(threadId) || groups.length === 0) {
+    if (loading || threadId == null || String(loadedThreadId) !== String(threadId) || rows.length === 0) {
       if (loadedThreadId == null) anchorToBottomRef.current = false
       return
     }
@@ -685,79 +506,38 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     const key = String(threadId)
     const firstVisit = !visitedThreadsRef.current.has(key)
     visitedThreadsRef.current.add(key)
+    if (visitedThreadsRef.current.size > 50) {
+      const oldest = visitedThreadsRef.current.values().next().value
+      if (oldest != null) visitedThreadsRef.current.delete(oldest)
+    }
     previousMessageCountRef.current = messageCount
     setUnseenNew(0)
     if (!firstVisit) return
 
     pinToBottom('auto')
-
     const raf = window.requestAnimationFrame(() => pinToBottom('auto'))
-    const t1 = window.setTimeout(() => pinToBottom('auto'), 0)
-    const t2 = window.setTimeout(() => pinToBottom('auto'), 120)
-    const t3 = window.setTimeout(() => pinToBottom('auto'), 350)
-    const t4 = window.setTimeout(() => pinToBottom('auto'), 700)
-
+    const t1 = window.setTimeout(() => pinToBottom('auto'), 80)
+    const t2 = window.setTimeout(() => pinToBottom('auto'), 350)
     return () => {
       window.cancelAnimationFrame(raf)
       window.clearTimeout(t1)
       window.clearTimeout(t2)
-      window.clearTimeout(t3)
-      window.clearTimeout(t4)
     }
-  }, [loading, threadId, loadedThreadId, groups.length, pinToBottom, messageCount])
+  }, [loading, threadId, loadedThreadId, rows.length, pinToBottom, messageCount])
 
-  // Re-pin when timeline content changes while anchored (extra events/messages).
+  // Re-pin when timeline content changes while anchored.
   useLayoutEffect(() => {
-    if (!anchorToBottomRef.current || loadedThreadId == null || groups.length === 0) return
+    if (!anchorToBottomRef.current || loadedThreadId == null || rows.length === 0) return
     pinToBottom('auto')
-  }, [groups, loadedThreadId, pinToBottom])
+  }, [rows, loadedThreadId, pinToBottom])
 
-  // Re-pin to the bottom on any content height growth (iframes loading,
-  // images decoding, etc.) for as long as the anchor is engaged.
-  useEffect(() => {
-    const node = contentRef.current
-    if (!node || typeof ResizeObserver === 'undefined' || loadedThreadId == null) return
-    const observer = new ResizeObserver(() => {
-      if (anchorToBottomRef.current) {
-        scrollToBottom('auto')
-      }
-    })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [loadedThreadId, scrollToBottom])
-
-  // Release the anchor as soon as the user scrolls away from the bottom so we
-  // don't fight them while they read older messages.
-  useEffect(() => {
-    const container = scrollRef.current
-    if (!container) return
-    const onScroll = () => {
-      if (programmaticScrollRef.current) return
-      const distance = container.scrollHeight - container.scrollTop - container.clientHeight
-      if (distance > 80) {
-        anchorToBottomRef.current = false
-      }
-    }
-    container.addEventListener('scroll', onScroll, { passive: true })
-    return () => container.removeEventListener('scroll', onScroll)
-  }, [loadedThreadId])
-
-  // Scroll on message-count growth, but only when the user is already near the bottom.
+  // Scroll on message-count growth when already near the bottom.
   useEffect(() => {
     if (loadedThreadId == null) return
     const prev = previousMessageCountRef.current
     previousMessageCountRef.current = messageCount
     if (messageCount <= prev) return
-    const container = scrollRef.current
-    if (!container) {
-      scrollToBottom('smooth')
-      return
-    }
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-    if (distanceFromBottom < 150) {
-      // Re-engage the anchor so iframes growing right after a new message
-      // also stay pinned to the bottom.
-      anchorToBottomRef.current = true
+    if (anchorToBottomRef.current) {
       setUnseenNew(0)
       scrollToBottom('smooth')
     } else {
@@ -765,51 +545,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [messageCount, loadedThreadId, scrollToBottom])
 
-  // Track which day group is currently visible at the top of the scroll
-  // container so a single fixed bar above the scroll area can show the active
-  // day label (no per-group sticky pill).
+  // Day pills live inside ThreadTimeline.
   useEffect(() => {
-    const container = scrollRef.current
-    if (!container) {
-      setActiveDayLabel(null)
-      return
-    }
-    if (groups.length === 0) {
-      setActiveDayLabel(null)
-      return
-    }
-
-    let rafId: number | null = null
-
-    const update = () => {
-      rafId = null
-      const containerTop = container.getBoundingClientRect().top
-      let currentLabel: string | null = groups[0]?.label ?? null
-      for (const group of groups) {
-        const node = groupRefs.current.get(group.dayKey)
-        if (!node) continue
-        const top = node.getBoundingClientRect().top - containerTop
-        if (top <= 1) {
-          currentLabel = group.label
-        } else {
-          break
-        }
-      }
-      setActiveDayLabel(currentLabel)
-    }
-
-    const onScroll = () => {
-      if (rafId != null) return
-      rafId = window.requestAnimationFrame(update)
-    }
-
-    update()
-    container.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      container.removeEventListener('scroll', onScroll)
-      if (rafId != null) cancelAnimationFrame(rafId)
-    }
-  }, [groups])
+    // no-op: kept so thread switches clear any leftover chrome state
+  }, [threadId])
 
   const composerSurface = useMemo(
     () =>
@@ -972,9 +711,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
   const activeSessionId = activeSession?.id ?? null
 
-  // Prefer Reply (Beantwoorden) on customer channels and after human ask /
-  // takeover. Agent tab stays available but is never the default landing tab
-  // for an external conversation the operator should answer.
+  // Land on the surface default. Takeover forces reply so the operator answers first.
   useEffect(() => {
     const thread = detail?.thread
     if (!thread) {
@@ -985,20 +722,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setComposerMode('reply')
       return
     }
-    const customerChannel = ['email', 'widget', 'chat', 'whatsapp'].includes(thread.channel ?? '')
-    if (customerChannel) {
-      setComposerMode('reply')
-      return
-    }
     if (activeSessionId) {
-      setComposerMode('agent')
+      setComposerMode('ask')
       return
     }
-    if (isInternalThread(thread) && thread.hasOpenDecision) {
-      setComposerMode('note')
-      return
-    }
-    setComposerMode('reply')
+    setComposerMode(resolveComposerSurface(thread).defaultMode)
   }, [
     threadId,
     activeSessionId,
@@ -1093,7 +821,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (!token || !threadIdString) return
       try {
         await startAgentSession(token, threadIdString, agentId)
-        setComposerMode('agent')
+        setComposerMode('ask')
         onRefresh()
         window.setTimeout(() => pinToBottom('smooth'), 400)
       } catch {
@@ -1114,7 +842,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       }
       if (item.type !== 'agent' || !token || !threadIdString) return
       if (activeSession && activeSession.agentId && activeSession.agentId === item.id) {
-        setComposerMode('agent')
+        setComposerMode('ask')
         return
       }
       if (activeSession) {
@@ -1140,7 +868,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (!token || !threadIdString) return
       const text = stripMentionMarkup(bodyText).trim()
       if (!text) return
-      let sessionId = activeSessionId
+      const isAssistant = (detail?.thread.channel ?? '') === 'assistant'
+      let sessionId = isAssistant ? threadIdString : activeSessionId
       if (!sessionId) {
         const started = await startAgentSession(token, threadIdString, detail?.thread.agentId ?? null)
         sessionId = started?.id ?? null
@@ -1150,7 +879,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       try {
         await sendAgentSessionMessage(sessionId, text, {
           onFinished: async () => {
-            await loadSessionMessages(sessionId)
+            if (!isAssistant) await loadSessionMessages(sessionId)
             onRefresh()
             window.setTimeout(() => pinToBottom('smooth'), 120)
           },
@@ -1158,11 +887,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''
         if (msg === 'agent_busy') {
-          toast.error(t('agentSession.busyError', { defaultValue: 'The agent is still replying. Wait or press Stop.' }))
+          toast.error(t('aiChat.busyError', { defaultValue: 'The AI is still replying. Wait or press Stop.' }))
         } else {
-          toast.error(t('agentSession.sendError', { defaultValue: 'Could not send to the agent.' }))
+          toast.error(t('aiChat.sendError', { defaultValue: 'Could not send to the AI.' }))
         }
-        await loadSessionMessages(sessionId)
+        if (!isAssistant) await loadSessionMessages(sessionId)
       }
     },
     [
@@ -1193,7 +922,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             (m) =>
               m.kind === 'agent_message' ||
               Boolean(m.payload?.agent_id) ||
-              Boolean(m.agentTrace),
+              Boolean(m.agentTrace) ||
+              Boolean(m.hasAgentTrace),
           )
           .map((m) => String(m.id)),
       )
@@ -1209,7 +939,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     const isAgent =
       last.kind === 'agent_message' ||
       Boolean(last.payload?.agent_id) ||
-      Boolean(last.agentTrace)
+      Boolean(last.agentTrace) ||
+      Boolean(last.hasAgentTrace)
     if (!isAgent) return
     if (agentIdsAtStreamStartRef.current.has(String(last.id))) return
     gatewayStream.reset()
@@ -1404,432 +1135,30 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   const { thread } = detail
 
-  // Direct assistant/agent conversations render as a chat transcript with the
-  // chat composer instead of the customer-thread timeline. One component, two
-  // channel-aware presentations.
-  if ((thread.channel ?? '') === 'assistant') {
-    return (
-      <AgentChatView
-        conversationId={String(thread.id)}
-        title={thread.emailSubject}
-        agentName={thread.agentName}
-        agentKind={thread.agentKind}
-        status={thread.status}
-        assignedToUserId={thread.assignedToUserId}
-        onAssign={(userId) => void onPatch({ assignedToUserId: userId ?? 0 })}
-        onClose={() => onPatch({ status: 'closed' })}
-        onReopen={() => onPatch({ status: 'open' })}
-        onDeleted={() => {
-          onRefresh()
-          onBack?.()
-        }}
-        onRefreshThreads={onRefresh}
-        onBack={onBack}
-        onToggleContext={onToggleContact}
-        contextOpen={contactOpen}
-      />
-    )
-  }
-
-  // What the header's name slot shows; the " · email" suffix is skipped when
-  // this already is the email address (no name known), to avoid "x@y · x@y".
-  const contactDisplayName =
-    humanizeContactName(thread.contactName, thread.contactEmail, t('contactPanel.widgetVisitor')) ||
-    (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
-
   return (
     <TooltipProvider delayDuration={150}>
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
-      <div className={THREAD_HEADER_CLASS}>
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label={t('threadChrome.backToConversations')}
-            className="md:hidden -ml-1 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
-          >
-            <ArrowLeft size={16} />
-          </button>
-        ) : null}
-        <div className="min-w-0 flex-1 leading-tight">
-          <h2 className="truncate text-[13px] font-medium text-text-heading">
-            {translateDecisionText(thread.emailSubject, t)}
-          </h2>
-          <p className="truncate text-[11px] text-text-muted">
-            {isInternalThread(thread) ? (
-              <>
-                {`${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`}
-                <span className="text-text-muted/75">
-                  {' · '}
-                  {threadStatusLabel(thread.status, t)}
-                </span>
-              </>
-            ) : (
-              <>
-                {thread.contactId ? (
-                  <Link to={`/contacts/${thread.contactId}`} className="hover:text-accent hover:underline">
-                    {humanizeContactName(
-                      thread.contactName,
-                      thread.contactEmail,
-                      t('contactPanel.widgetVisitor'),
-                    ) ||
-                      (isPlaceholderContactAddress(thread.contactEmail)
-                        ? t('contactPanel.widgetVisitor')
-                        : thread.contactEmail || t('listItem.contact'))}
-                  </Link>
-                ) : (
-                  humanizeContactName(
-                    thread.contactName,
-                    thread.contactEmail,
-                    t('contactPanel.widgetVisitor'),
-                  ) ||
-                  (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
-                )}
-                {thread.contactEmail &&
-                !isPlaceholderContactAddress(thread.contactEmail) &&
-                contactDisplayName !== thread.contactEmail ? (
-                  <>
-                    {' · '}
-                    <button
-                      type="button"
-                      title={t('threadChrome.copyEmail')}
-                      onClick={() => {
-                        void navigator.clipboard.writeText(thread.contactEmail).then(
-                          () => toast.success(t('threadChrome.emailCopied')),
-                          () => toast.error(t('threadChrome.copyEmail')),
-                        )
-                      }}
-                      className="hover:text-accent hover:underline"
-                    >
-                      {thread.contactEmail}
-                    </button>
-                  </>
-                ) : null}
-                {previousCount > 0 && onToggleContact ? (
-                  <>
-                    {' · '}
-                    <button
-                      type="button"
-                      onClick={onToggleContact}
-                      className="hover:text-accent hover:underline"
-                    >
-                      {t('threadChrome.earlierConversations', { count: previousCount })}
-                    </button>
-                  </>
-                ) : null}
-                <span className="text-text-muted/75">
-                  {' · '}
-                  {threadStatusLabel(thread.status, t)}
-                  {thread.status === 'pending'
-                    ? ` · ${
-                        (thread.snoozedUntil
-                          ? formatWakeTime(thread.snoozedUntil, t, i18n.language)
-                          : null) ?? t('snooze.wakesOnReply')
-                      }`
-                    : ''}
-                </span>
-              </>
-            )}
-          </p>
-        </div>
-        {detail.csat ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="flex items-center gap-1 shrink-0 rounded-full border border-border/60 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary"
-                aria-label={t('threadChrome.customerRatingScore', { score: detail.csat.score })}
-              >
-                <Star size={11} className="text-amber-500 fill-amber-500" />
-                {detail.csat.score}/5
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-64">
-              {detail.csat.comment
-                ? t('threadChrome.customerRatingWithComment', { comment: detail.csat.comment })
-                : t('threadChrome.customerRating')}
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-        <div
-          className={THREAD_ACTION_CLUSTER_CLASS}
-          role="toolbar"
-          aria-label={t('threadChrome.threadActions')}
-        >
-          <AssigneeSelector
-            currentAssigneeId={thread.assignedToUserId}
-            disabled={saving}
-            onChange={(userId) => void onPatch({ assignedToUserId: userId ?? 0 })}
-          />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                disabled={saving || closeSignalsBusy}
-                onClick={() => {
-                  if (thread.status === 'closed') {
-                    void onPatch({ status: 'open' })
-                    return
-                  }
-                  void requestCloseThread()
-                }}
-                aria-label={thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
-                className={HEADER_ICON}
-              >
-                {thread.status === 'closed' ? <ArchiveRestore size={14} /> : <Archive size={14} />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
-            </TooltipContent>
-          </Tooltip>
-          {!isInternalThread(thread) && thread.status !== 'closed' && thread.status !== 'spam' ? (
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      aria-label={
-                        thread.status === 'pending' ? t('threadChrome.resumeNow') : t('threadChrome.snooze')
-                      }
-                      className={`${HEADER_ICON}${thread.status === 'pending' ? ' text-accent' : ''}`}
-                    >
-                      <Clock size={14} />
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {thread.status === 'pending' ? t('threadChrome.resumeNow') : t('threadChrome.snooze')}
-                </TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="min-w-44">
-                {thread.status === 'pending' ? (
-                  <DropdownMenuItem
-                    onClick={() => void onPatch({ status: 'open', snoozedUntil: null })}
-                  >
-                    {t('threadChrome.resumeNow')}
-                  </DropdownMenuItem>
-                ) : null}
-                {SNOOZE_PRESETS.map((preset) => (
-                  <DropdownMenuItem
-                    key={preset.key}
-                    onClick={() =>
-                      void onPatch({
-                        status: 'pending',
-                        snoozedUntil: snoozeUntilIso(preset),
-                      })
-                    }
-                  >
-                    {t(preset.labelKey)}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuItem
-                  onClick={() => {
-                    const raw = window.prompt(t('snooze.customTitle'), toLocalDateTimeValue())
-                    if (!raw) return
-                    const wake = new Date(raw)
-                    if (Number.isNaN(wake.getTime()) || wake.getTime() <= Date.now()) {
-                      toast.error(t('snooze.customInvalid'))
-                      return
-                    }
-                    void onPatch({ status: 'pending', snoozedUntil: wake.toISOString() })
-                  }}
-                >
-                  {t('snooze.custom')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-          {onToggleTakeover &&
-          ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') &&
-          // F-08: one primary takeover CTA — banner owns it when visible.
-          !(
-            !isInternalThread(thread) &&
-            (thread.aiPaused ||
-              Boolean(thread.hasOpenDecision) ||
-              Boolean(detail?.sessions?.some((s) => !s.closedAt)))
-          ) ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={saving || loading}
-                  onClick={() => void onToggleTakeover()}
-                  aria-label={thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
-                  aria-pressed={thread.aiPaused}
-                  className={`${HEADER_ICON}${thread.aiPaused ? ' text-accent' : ''}`}
-                >
-                  {thread.aiPaused ? <Bot size={14} /> : <Hand size={14} />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
-          <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      aria-label={t('threadChrome.moreActions')}
-                      className={HEADER_ICON}
-                    >
-                      <MoreHorizontal size={14} />
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{t('threadChrome.moreActions')}</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="min-w-44">
-                <DropdownMenuItem
-                  className="gap-2"
-                  onClick={() => {
-                    const url = `${window.location.origin}${threadHubPath(thread)}`
-                    void navigator.clipboard.writeText(url).then(
-                      () => toast.success(t('threadChrome.linkCopied')),
-                      () => toast.error(t('threadChrome.copyLink')),
-                    )
-                  }}
-                >
-                  <Link2 size={13} />
-                  {t('threadChrome.copyLink')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="gap-2"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(String(thread.id)).then(
-                      () => toast.success(t('threadChrome.threadIdCopied')),
-                      () => toast.error(t('threadChrome.copyThreadId')),
-                    )
-                  }}
-                >
-                  <Hash size={13} />
-                  {t('threadChrome.copyThreadId')}
-                </DropdownMenuItem>
-                {thread.graphConversationId ? (
-                  <DropdownMenuItem
-                    className="gap-2"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(thread.graphConversationId).then(
-                        () => toast.success(t('threadChrome.externalIdCopied')),
-                        () => toast.error(t('threadChrome.copyExternalId')),
-                      )
-                    }}
-                  >
-                    <Hash size={13} />
-                    {t('threadChrome.copyExternalId')}
-                  </DropdownMenuItem>
-                ) : null}
-                {onForward ? (
-                  <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => onForward()}>
-                    <Forward size={13} />
-                    {t('threadChrome.forwardAsEmail')}
-                  </DropdownMenuItem>
-                ) : null}
-                {!isInternalThread(thread) &&
-                thread.contactEmail &&
-                !isPlaceholderContactAddress(thread.contactEmail) ? (
-                  <DropdownMenuItem
-                    className="gap-2"
-                    disabled={closingSender}
-                    onClick={() => void handleAlwaysCloseSender()}
-                  >
-                    <Archive size={13} />
-                    {t('threadChrome.alwaysCloseFromSender')}
-                  </DropdownMenuItem>
-                ) : null}
-                {!isInternalThread(thread) ? (
-                  <DropdownMenuItem
-                    className="gap-2"
-                    onClick={() => void onPatch({ status: thread.status === 'spam' ? 'open' : 'spam' })}
-                  >
-                    <OctagonAlert size={13} />
-                    {thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
-                  </DropdownMenuItem>
-                ) : null}
-                {onMarkUnread && !thread.hasUnread ? (
-                  <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => void onMarkUnread()}>
-                    <Mail size={13} />
-                    {t('threadChrome.markUnread')}
-                  </DropdownMenuItem>
-                ) : null}
-                {onTogglePin ? (
-                  <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => void onTogglePin()}>
-                    {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
-                    {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
-                  </DropdownMenuItem>
-                ) : null}
-                {onDelete ? (
-                  <DropdownMenuItem
-                    disabled={deleting}
-                    className="gap-2 text-status-error"
-                    onClick={() => void onDelete()}
-                  >
-                    <Trash2 size={13} />
-                    {t('threadChrome.delete')}
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          {onToggleContact ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={onToggleContact}
-                  aria-label={contactOpen ? t('threadChrome.hideDetails') : t('threadChrome.showDetails')}
-                  aria-pressed={contactOpen}
-                  className={`${HEADER_ICON}${contactOpen ? ' text-accent' : ''}`}
-                >
-                  <PanelRight size={13} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {contactOpen ? t('threadChrome.hideDetails') : t('threadChrome.showDetails')}
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
-        </div>
-      </div>
-
-      {onToggleTakeover &&
-      !isInternalThread(thread) &&
-      ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') &&
-      (thread.aiPaused || Boolean(thread.hasOpenDecision) || Boolean(detail?.sessions?.some((s) => !s.closedAt))) ? (
-        <div
-          className={`flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-1 ${
-            thread.aiPaused
-              ? 'border-accent/20 bg-accent/[0.04]'
-              : 'border-border/30 bg-bg-surface'
-          }`}
-        >
-          <p className="text-[11px] text-text-muted">
-            {thread.aiPaused
-              ? thread.assignedToUserId == null
-                ? t('threadChrome.customerAskedBanner')
-                : t('threadChrome.youTookOverBanner')
-              : contactIsTeammate
-                ? t('threadChrome.teammateAiBanner')
-                : mailboxDisconnected
-                  ? t('threadChrome.aiHandlingBannerNoSend')
-                  : t('threadChrome.aiHandlingBanner')}
-          </p>
-          {contactIsTeammate && !thread.aiPaused ? null : (
-            <button
-              type="button"
-              disabled={saving || loading}
-              onClick={() => void onToggleTakeover()}
-              className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40"
-            >
-              {thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
-            </button>
-          )}
-        </div>
-      ) : null}
+      <ThreadHeader
+        thread={thread}
+        csat={detail.csat}
+        saving={saving}
+        loading={loading}
+        previousCount={previousCount}
+        onPatch={onPatch}
+        onRequestClose={() => void requestCloseThread()}
+        closeBusy={closeSignalsBusy}
+        onBack={onBack}
+        onToggleContact={onToggleContact}
+        contactOpen={contactOpen}
+        onToggleTakeover={onToggleTakeover}
+        onForward={onForward}
+        onMarkUnread={onMarkUnread}
+        onTogglePin={onTogglePin}
+        onDelete={onDelete}
+        deleting={deleting}
+        onAlwaysCloseSender={handleAlwaysCloseSender}
+        closingSender={closingSender}
+      />
 
       {!isInternalThread(thread) ? (
         <ThreadMetaRow
@@ -1837,8 +1166,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           priority={thread.priority}
           saving={saving}
           onPatch={onPatch}
-          agentId={thread.agentId}
-          agentName={thread.agentName}
           followUpLabel={
             thread.followUpAt
               ? thread.followUpTitle || thread.emailSubject || t('threadChrome.whatsNext')
@@ -1871,159 +1198,80 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             {t('threadChrome.newMessages', { count: unseenNew })}
           </button>
         ) : null}
-        <div
-          ref={scrollRef}
-          className="absolute inset-0 overflow-y-auto px-4 py-4"
-        >
-        <div ref={contentRef} className="mx-auto w-full max-w-[860px]">
-        {groups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center text-xs text-text-muted">
-            <p>{t('threadChrome.emptyTitle')}</p>
-            <p className="mt-1 text-[11px] opacity-70">
-              {thread.channel === 'email'
-                ? t('threadChrome.emptyEmail')
-                : t('threadChrome.emptyChat')}
-            </p>
-            <Link
-              to={talkToAssistantPath(t('threadChrome.emptyAskPrefill'))}
-              className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
-            >
-              {t('threadChrome.emptyAsk')}
-            </Link>
-            {thread.channel === 'email' ? (
+        <ThreadTimeline
+          ref={timelineRef}
+          rows={rows}
+          threadId={thread.id}
+          latestMessageRowId={latestMessageRowId}
+          language={i18n.language}
+          messageLayout={messageLayout}
+          membersById={membersById}
+          contactName={thread.contactName}
+          contactEmail={thread.contactEmail}
+          contactPhone={thread.contactPhone}
+          agentName={thread.agentName}
+          agentId={thread.agentId}
+          events={detail.events}
+          noteActions={
+            onUpdateNote && onDeleteNote
+              ? { onEdit: onUpdateNote, onDelete: onDeleteNote }
+              : undefined
+          }
+          focusedMessageId={focusedMessageId}
+          hasOlder={hasOlder}
+          loadingOlder={loadingOlder}
+          onLoadOlder={onLoadOlder}
+          activeSessionId={activeSessionId}
+          sessionMessages={sessionMessages}
+          sessionStream={sessionStream}
+          agentStreaming={agentStreaming}
+          onRefresh={onRefresh}
+          onUseSessionAsReply={(body) => {
+            applyComposerDraft({ body, key: `session-${Date.now()}` })
+            toast.success(t('aiChat.replyCopied', { defaultValue: t('agentSession.replyCopied') }))
+          }}
+          onDecisionResolved={onDecisionResolved}
+          onEditDraft={(draft) => {
+            applyComposerDraft({
+              body: draft.body,
+              subject: draft.subject,
+              key: `${draft.decisionMessageId}-${Date.now()}`,
+              decisionMessageId: draft.decisionMessageId,
+              sendAs: draft.sendAs,
+            })
+          }}
+          compactDecisionMessageIds={
+            composerDraft?.decisionMessageId ? [composerDraft.decisionMessageId] : []
+          }
+          onAtBottomChange={(atBottom) => {
+            anchorToBottomRef.current = atBottom
+          }}
+          liveTrace={
+            gatewayStream.streaming || agentStreaming ? (
+              <ThinkingTrace
+                steps={gatewayStream.steps}
+                active
+                streamText={gatewayStream.streamText || sessionStream.text}
+                thinkingText={gatewayStream.thinkingText || sessionStream.thinking}
+              />
+            ) : null
+          }
+          emptyState={
+            <div className="flex h-full flex-col items-center justify-center text-center text-xs text-text-muted">
+              <p>{t('threadChrome.emptyTitle')}</p>
+              <p className="mt-1 text-[11px] opacity-70">
+                {thread.channel === 'email'
+                  ? t('threadChrome.emptyEmail')
+                  : t('threadChrome.emptyChat')}
+              </p>
               <Link
-                to="/settings/channels"
+                to={talkToAssistantPath(t('threadChrome.emptyAskPrefill'))}
                 className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
               >
-                {t('threadChrome.openEmailSettings')}
+                {t('threadChrome.emptyAsk')}
               </Link>
-            ) : null}
-            {thread.channel && ['email', 'widget', 'chat', 'whatsapp'].includes(thread.channel) ? (
-              <Link
-                to="/settings/communication"
-                className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
-              >
-                {t('threadChrome.openInboxAi')}
-              </Link>
-            ) : null}
-          </div>
-        ) : (
-          groups.map((group) => (
-            <section key={group.dayKey} className="mb-2">
-              <div className="sticky top-0 z-20 flex justify-center py-2 pointer-events-none">
-                <span className="rounded-full bg-bg-hover/80 backdrop-blur px-3 py-0.5 text-[11px] font-medium text-text-secondary shadow-sm pointer-events-auto">
-                  {group.label}
-                </span>
-              </div>
-              {clusterEntries(group.entries).map((item, index, items) => {
-                const prevItem = index > 0 ? items[index - 1] : null
-                const showTime =
-                  item.kind === 'message' &&
-                  (!prevItem || formatHourMinute(prevItem.time, i18n.language) !== formatHourMinute(item.time, i18n.language))
-                return (
-                <div
-                  key={item.id}
-                  className={`${item.kind === 'events' ? 'mb-1.5' : 'mb-3'}${
-                    item.kind === 'message' &&
-                    focusedMessageId != null &&
-                    String(item.entry.data.id) === focusedMessageId
-                      ? ' rounded-xl ring-2 ring-accent/60 ring-offset-2 ring-offset-bg-base'
-                      : ''
-                  }`}
-                  data-message-id={item.kind === 'message' ? String(item.entry.data.id) : undefined}
-                  data-latest-message={item.id === latestMessageId ? 'true' : undefined}
-                >
-                  {showTime ? (
-                    <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
-                      <span
-                        title={formatAppDateTime(new Date(item.time), i18n.language)}
-                        className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40"
-                      >
-                        {formatHourMinute(item.time, i18n.language)}
-                      </span>
-                    </div>
-                  ) : null}
-                  {item.kind === 'session' ? (
-                    <AgentSessionCard
-                      session={item.session}
-                      threadId={String(thread.id)}
-                      liveMessages={
-                        item.session.id === activeSessionId
-                          ? mergeSessionLiveMessages(sessionMessages, sessionStream)
-                          : undefined
-                      }
-                      streaming={item.session.id === activeSessionId && agentStreaming}
-                      onChanged={onRefresh}
-                      onUseAsReply={(text) => {
-                        applyComposerDraft({ body: text, key: `session-${Date.now()}` })
-                        toast.success(t('agentSession.replyCopied'))
-                      }}
-                    />
-                  ) : item.kind === 'message' ? (
-                    item.entry.data.kind === 'decision_request' ? (
-                      <DecisionRequestMessage
-                        message={item.entry.data}
-                        threadId={thread.id}
-                        events={detail.events}
-                        agentName={thread.agentName}
-                        agentId={thread.agentId}
-                        onResolved={onDecisionResolved}
-                        onEditDraft={(draft) => {
-                          applyComposerDraft({
-                            body: draft.body,
-                            subject: draft.subject,
-                            key: `${draft.decisionMessageId}-${Date.now()}`,
-                            decisionMessageId: draft.decisionMessageId,
-                            sendAs: draft.sendAs,
-                          })
-                        }}
-                      />
-                    ) : (
-                      <MessageTimelineItem
-                        message={item.entry.data}
-                        layout={messageLayout}
-                        contactName={thread.contactName}
-                        contactEmail={thread.contactEmail}
-                        contactPhone={thread.contactPhone}
-                        agentName={thread.agentName}
-                        membersById={membersById}
-                        noteActions={
-                          onUpdateNote && onDeleteNote
-                            ? { onEdit: onUpdateNote, onDelete: onDeleteNote }
-                            : undefined
-                        }
-                      />
-                    )
-                  ) : (
-                    <EventClusterTimelineItem
-                      events={item.events}
-                      memberNameFor={(userId) =>
-                        userId != null ? membersById[userId]?.name : undefined
-                      }
-                    />
-                  )}
-                </div>
-                )
-              })}
-            </section>
-          ))
-        )}
-        {gatewayStream.streaming ? (
-          <div className="mb-3">
-            <ThinkingTrace
-              steps={gatewayStream.steps}
-              active
-              streamText={gatewayStream.streamText}
-              thinkingText={gatewayStream.thinkingText}
-            />
-          </div>
-        ) : null}
-        </div>
-        </div>
-        {/* Fade at the top of the timeline so messages recede under the day pill. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute top-0 left-0 right-0 h-10 z-[5] bg-gradient-to-b from-bg via-bg/85 to-transparent"
+            </div>
+          }
         />
       </div>
 
@@ -2078,6 +1326,26 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           draftBody={composerDraft?.body ?? null}
           draftKey={composerDraft?.key ?? null}
           persistKey={String(thread.id)}
+          proposal={
+            composerDraft?.decisionMessageId
+              ? {
+                  decisionMessageId: composerDraft.decisionMessageId,
+                  onDismiss: async () => {
+                    if (!token || !composerDraft.decisionMessageId) return
+                    await resolveThreadDecision(
+                      token,
+                      thread.id,
+                      composerDraft.decisionMessageId,
+                      'reject',
+                      { optionId: 'reject' },
+                    )
+                    setComposerDraft(null)
+                    appliedProposalRef.current = null
+                    onDecisionResolved?.()
+                  },
+                }
+              : null
+          }
           suggestedCc={suggestedCc}
           mentionExtras={mentionAgents}
           extraActions={

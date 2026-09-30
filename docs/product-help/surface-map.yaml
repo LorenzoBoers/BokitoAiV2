@@ -128,6 +128,8 @@ communication:
     - decision-card
     - open-queue
     - thread-composer
+    - composer-modes
+    - ai-status
 
 agent-runs:
   section: inbox

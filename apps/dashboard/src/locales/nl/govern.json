@@ -90,7 +90,7 @@
     "saved": "Autonomie-instelling bijgewerkt",
     "current": "Huidige instelling",
     "autonomousConfirm": "Overschakelen naar Autonoom? Agents kunnen dan meer wijzigingen toepassen zonder op jou te wachten. Je kunt altijd terug.",
-    "autonomousNeedsLiveModel": "Koppel eerst een live model onder Providers en modellen voordat je Autonoom kiest.",
+    "autonomousNeedsLiveModel": "Koppel eerst een live model onder Modellen voordat je Autonoom kiest.",
     "autonomousNeedsChannel": "Koppel eerst een kanaal dat kan versturen voordat je Autonoom kiest.",
     "manual": {
       "label": "Handmatig",

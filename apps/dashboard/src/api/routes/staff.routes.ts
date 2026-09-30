@@ -4,6 +4,8 @@
 export const staffRoutes = {
   ops: '/ops',
   opsTenant: (tenantId: string) => `/ops/tenants/${encodeURIComponent(tenantId)}`,
+  opsTenantFeatures: (tenantId: string) =>
+    `/ops/tenants/${encodeURIComponent(tenantId)}/features`,
   models: {
     list: '/models',
     byId: (id: string) => `/models/${encodeURIComponent(id)}`,

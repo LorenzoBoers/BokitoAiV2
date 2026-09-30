@@ -48,6 +48,9 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "audience": "VARCHAR DEFAULT 'internal'",
         "default_channels_json": "VARCHAR DEFAULT '[]'",
         "default_signal_types_json": "VARCHAR DEFAULT '[]'",
+        "managed_origin": "VARCHAR DEFAULT ''",
+        "managed_ref": "VARCHAR DEFAULT ''",
+        "template_slug": "VARCHAR DEFAULT ''",
     },
     "channel_accounts": {
         "default_agent_id": "VARCHAR",

@@ -238,9 +238,15 @@ async def resolve_model_call(
     kind: str = "chat",
     model_slug: str | None = None,
 ) -> ResolvedModelCall:
-    tenant_resolved = await _resolve_from_tenant_model(
-        session, tenant_id, kind=kind, model_slug=model_slug
-    )
+    from app.services import tenant_features
+
+    tenant = await tenant_features.get_tenant(session, tenant_id)
+    use_byok = bool(tenant and tenant_features.custom_models_active(tenant))
+    tenant_resolved = None
+    if use_byok:
+        tenant_resolved = await _resolve_from_tenant_model(
+            session, tenant_id, kind=kind, model_slug=model_slug
+        )
     resolved = tenant_resolved or await _resolve_from_platform_catalog(
         session, tenant_id, kind=kind, model_slug=model_slug
     )

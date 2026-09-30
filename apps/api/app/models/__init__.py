@@ -3,6 +3,7 @@ from app.models.audit import AuditEvent
 from app.models.auth import Invite, Membership, Session, Tenant, User, UserPreference
 from app.models.auth_token import AuthToken
 from app.models.oauth_state import OAuthState
+from app.models.user_identity import UserIdentity
 from app.models.channel import ChannelAccount, ChannelBinding, Company, Contact
 from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
@@ -62,6 +63,7 @@ __all__ = [
     "Invite",
     "AuthToken",
     "OAuthState",
+    "UserIdentity",
     "Notification",
     "UserNotificationPreference",
     "DecisionRequest",

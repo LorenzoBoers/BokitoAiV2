@@ -11,6 +11,8 @@ import {
 type Props = {
   hasUnread: boolean
   isPinned: boolean
+  /** When true, unread uses a soft pulse; other rows stay static (CPU). */
+  emphasize?: boolean
   onMarkRead: () => void
   onMarkUnread: () => void
   onTogglePin: () => void
@@ -34,6 +36,7 @@ type Props = {
 export default function ThreadIndicatorMenu({
   hasUnread,
   isPinned,
+  emphasize = false,
   onMarkRead,
   onMarkUnread,
   onTogglePin,
@@ -79,7 +82,10 @@ export default function ThreadIndicatorMenu({
             />
           ) : hasUnread ? (
             <span
-              className="pulse-dot h-2 w-2 rounded-full bg-accent transition-[filter,transform] duration-150 group-hover/indicator:scale-110 group-hover/indicator:brightness-110"
+              className={cn(
+                'h-2 w-2 rounded-full bg-accent transition-[filter,transform] duration-150 group-hover/indicator:scale-110 group-hover/indicator:brightness-110',
+                emphasize && 'pulse-dot',
+              )}
               aria-hidden
             />
           ) : (

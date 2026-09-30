@@ -116,25 +116,47 @@ export type ManagedAiStatus = {
   embedding: ManagedAiModel
 }
 
-export type TenantModelsPayload =
-  | {
-      source: 'tenant'
-      managed: ManagedAiStatus
-      models: TenantModelRow[]
-      connections: ProviderConnection[]
-      default_chat: string
-      default_embedding: string
-      presets: Record<ProviderType, ProviderPreset>
-    }
-  | {
-      source: 'platform'
-      managed: ManagedAiStatus
-      models: CatalogModel[]
-      prefs: TenantModelPrefs
-      byok: LlmKeyStatus[]
-      billable_providers: string[]
-      presets: Record<ProviderType, ProviderPreset>
-    }
+export type CustomModelsBlock = {
+  allowed: boolean
+  enabled: boolean
+  active: boolean
+  models: TenantModelRow[]
+  connections: ProviderConnection[]
+  presets: Record<ProviderType, ProviderPreset>
+  default_chat: string
+  default_embedding: string
+}
+
+export type SelectableChatModel = {
+  slug: string
+  display_name: string
+  provider?: string
+  provider_type?: string
+  kind: string
+  enabled: boolean
+  model_id?: string
+  is_default_chat?: boolean
+  input_cost_per_mtok_cents?: number
+  output_cost_per_mtok_cents?: number
+  connection_label?: string
+}
+
+/** Bokito-first models payload (custom block gated by env + staff entitlement). */
+export type TenantModelsPayload = {
+  source: 'managed' | 'tenant' | 'platform'
+  managed: ManagedAiStatus
+  custom_models: CustomModelsBlock
+  selectable_chat: SelectableChatModel[]
+  models: Array<TenantModelRow | CatalogModel | SelectableChatModel>
+  connections?: ProviderConnection[]
+  presets: Record<ProviderType, ProviderPreset>
+  default_chat: string
+  default_embedding: string
+  /** Legacy platform-mode fields (may be absent). */
+  prefs?: TenantModelPrefs
+  byok?: LlmKeyStatus[]
+  billable_providers?: string[]
+}
 
 export type ProvidersPayload = {
   connections: ProviderConnection[]
@@ -146,20 +168,33 @@ export type PlatformKeysPayload = {
   markup?: number
 }
 
-export function selectableChatModels(payload: TenantModelsPayload): Array<TenantModelRow | CatalogModel> {
-  if (payload.source === 'tenant') {
-    return payload.models.filter((m) => m.kind === 'chat' && m.enabled)
+export function selectableChatModels(payload: TenantModelsPayload): SelectableChatModel[] {
+  if (Array.isArray(payload.selectable_chat) && payload.selectable_chat.length > 0) {
+    return payload.selectable_chat.filter((m) => m.kind === 'chat' && m.enabled !== false)
   }
-  const allowed = payload.prefs.allowed_chat ?? []
-  return payload.models.filter((m) => {
-    if (m.kind !== 'chat' || !m.enabled) return false
-    return allowed.length === 0 || allowed.includes(m.slug)
-  })
+  // Legacy fallback while older APIs roll out.
+  if (payload.source === 'tenant') {
+    return (payload.models as TenantModelRow[]).filter((m) => m.kind === 'chat' && m.enabled)
+  }
+  const managed = payload.managed?.chat
+  if (managed?.slug) {
+    return [
+      {
+        slug: managed.slug,
+        display_name: managed.display_name,
+        provider: managed.provider,
+        kind: 'chat',
+        enabled: true,
+        model_id: '',
+        is_default_chat: true,
+      },
+    ]
+  }
+  return []
 }
 
 export function defaultChatSlug(payload: TenantModelsPayload): string {
-  if (payload.source === 'tenant') return payload.default_chat || ''
-  return payload.prefs.default_chat || ''
+  return payload.default_chat || payload.managed?.chat?.slug || ''
 }
 
 // --- Providers ---
@@ -226,6 +261,14 @@ export async function getLlmRuntime(token: string): Promise<LlmRuntimeStatus> {
 
 export async function getTenantModels(token: string) {
   return settingsGet<TenantModelsPayload>(settingsRoutes.models.list, token)
+}
+
+export async function setCustomModelsOptIn(token: string, enabled: boolean) {
+  return settingsPatch<TenantModelsPayload>(
+    settingsRoutes.models.custom,
+    { enabled },
+    token,
+  )
 }
 
 export async function createTenantModel(

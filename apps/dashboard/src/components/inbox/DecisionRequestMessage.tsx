@@ -75,6 +75,11 @@ type Props = {
   agentName?: string | null
   /** Agent id for loading the send-as signature preview. */
   agentId?: string | null
+  /**
+   * The draft already sits in the composer, so the timeline only notes that
+   * the AI proposed a reply instead of repeating the whole card.
+   */
+  compactReplyProposal?: boolean
 }
 
 function isDecisionResolved(message: InboxMessage, events: InboxEvent[]): boolean {
@@ -155,6 +160,40 @@ function internalNoteFromOptions(options: DecisionOption[]): string {
   return ''
 }
 
+/** True when this card's primary action is sending a reply to the customer. */
+function isReplyProposal(options: DecisionOption[]): boolean {
+  return options.some(
+    (option) =>
+      option.id === 'send' ||
+      option.action_type === 'send_reply' ||
+      option.action_type === 'send_email' ||
+      option.action_type === 'draft',
+  )
+}
+
+/**
+ * The reply an agent proposed on this conversation, ready to drop into the
+ * composer. Returns null for resolved cards and for non-reply decisions, so
+ * the caller can pick the newest open proposal without duplicating the option
+ * parsing rules.
+ */
+export function replyProposalFromMessage(
+  message: InboxMessage,
+  events: InboxEvent[],
+): { decisionMessageId: string; body: string; subject?: string } | null {
+  if (message.kind !== 'decision_request') return null
+  if (isDecisionResolved(message, events)) return null
+  const options = extractOptions(message)
+  if (!isReplyProposal(options)) return null
+  const body = draftBodyFromOptions(options, message.bodyText?.trim() || message.bodyPreview || '')
+  if (!body.trim()) return null
+  const send = options.find(
+    (o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email',
+  )
+  const subject = typeof send?.payload?.subject === 'string' ? send.payload.subject : undefined
+  return { decisionMessageId: String(message.id), body, subject }
+}
+
 /**
  * Known option ids/action types get a translated button label so the card
  * follows the user's platform language; unknown (agent-authored) options
@@ -216,6 +255,7 @@ export default function DecisionRequestMessage({
   onEditDraft,
   agentName,
   agentId,
+  compactReplyProposal = false,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
@@ -292,6 +332,8 @@ export default function DecisionRequestMessage({
     return raw ? translateDecisionText(raw, t) : null
   }, [toolCopy, message.subject, t])
   const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
+  // The composer holds this draft; the timeline only marks that it happened.
+  const asCompactProposal = compactReplyProposal && !resolved && isReplyProposal(options)
   // Automated/no-reply mail: the agent proposes an action instead of a reply.
   const isActionSuggestion = !isSuggestion && options.some((o) => o.action_type === 'close_thread')
   // Conversation-born work: the agent proposes adding an item to a project
@@ -548,6 +590,24 @@ export default function DecisionRequestMessage({
 
   const agentAvatar = <AiIconBox />
 
+  if (asCompactProposal && !ruleSuggestion) {
+    return (
+      <ChatMessageBubble
+        side="left"
+        avatar={agentAvatar}
+        variant="external"
+        body={
+          <div className="flex min-w-0 items-center gap-2">
+            <AiMark size={12} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-[11.5px] text-text-muted">
+              {t('decision.compactProposal')}
+            </span>
+          </div>
+        }
+      />
+    )
+  }
+
   if (resolved && !ruleSuggestion) {
     return (
       <ChatMessageBubble
@@ -594,7 +654,7 @@ export default function DecisionRequestMessage({
                 ? t('decisionCard.titleNoReply')
                 : isSuggestion
                   ? t('decisionCard.titleSuggestedReply')
-                  : t('decisionCard.titleDecision')}
+                  : t('decision.waitForOk')}
           </span>
           {resolved ? (
             <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">

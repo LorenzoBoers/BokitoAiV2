@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,6 +8,14 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { authRoutes } from '../../api/routes/auth.routes'
 import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders, resendVerificationEmail } from '../../lib/api'
+import {
+  getSsoIdentities,
+  startSsoLink,
+  unlinkSsoProvider,
+  type SsoIdentitiesPayload,
+  type SsoProviderId,
+} from '../../lib/sso-api'
+import { describeSsoError } from '../auth/sso-errors'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import SignatureEditor from '../inbox/SignatureEditor'
@@ -335,6 +343,82 @@ export function ProfileSettingsContent() {
   const [pwSaving, setPwSaving] = useState(false)
   const [pwError, setPwError] = useState<string | null>(null)
   const [pwSaved, setPwSaved] = useState(false)
+  const [pwJustSet, setPwJustSet] = useState(false)
+  const hasPassword = user?.hasPassword === true
+
+  // Connected SSO accounts
+  const [ssoStatus, setSsoStatus] = useState<SsoIdentitiesPayload | null>(null)
+  const [ssoBusy, setSsoBusy] = useState<SsoProviderId | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const reloadSso = useCallback(async () => {
+    if (!token) return
+    try {
+      const data = await getSsoIdentities(token)
+      setSsoStatus(data)
+      if (data.has_password !== user?.hasPassword) {
+        patchLocalUser({ hasPassword: data.has_password })
+      }
+    } catch {
+      toast.error(t('profile:errors.ssoLoad'))
+    }
+  }, [token, t, patchLocalUser, user?.hasPassword])
+
+  useEffect(() => {
+    void reloadSso()
+  }, [reloadSso])
+
+  useEffect(() => {
+    const linked = searchParams.get('sso')
+    const err = searchParams.get('sso_error')
+    if (!linked && !err) return
+    if (linked === 'linked') {
+      toast.success(t('profile:security.linkedToast'))
+      void reloadSso()
+    } else if (err) {
+      toast.error(t(`loginPage.sso.${err}`, { ns: 'nav', defaultValue: describeSsoError(err) }))
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('sso')
+    next.delete('sso_error')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, reloadSso, t])
+
+  const handleSsoConnect = useCallback(
+    async (provider: SsoProviderId) => {
+      if (!token || ssoBusy) return
+      setSsoBusy(provider)
+      try {
+        const returnUrl = `${window.location.origin}/settings/profile`
+        const { authorize_url } = await startSsoLink(token, provider, returnUrl)
+        window.location.assign(authorize_url)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t('profile:errors.ssoLink'))
+        setSsoBusy(null)
+      }
+    },
+    [token, ssoBusy, t],
+  )
+
+  const handleSsoDisconnect = useCallback(
+    async (provider: SsoProviderId) => {
+      if (!token || ssoBusy) return
+      const label = t(`profile:security.${provider}`)
+      if (!window.confirm(t('profile:security.disconnectConfirm', { provider: label }))) return
+      setSsoBusy(provider)
+      try {
+        const data = await unlinkSsoProvider(token, provider)
+        setSsoStatus(data)
+        toast.success(t('profile:security.disconnectedToast'))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : t('profile:errors.ssoUnlink')
+        toast.error(msg.includes('password') || msg.includes('wachtwoord') ? t('profile:security.unlinkBlocked') : msg)
+      } finally {
+        setSsoBusy(null)
+      }
+    },
+    [token, ssoBusy, t],
+  )
 
   const saveName = useCallback(async (next: string) => {
     if (!token) return
@@ -388,13 +472,24 @@ export function ProfileSettingsContent() {
   const handleChangePassword = async () => {
     if (newPw !== confirmPw) { setPwError(t('profile:security.passwordMismatch')); return }
     if (!token) return
+    if (hasPassword && !currentPw) {
+      setPwError(t('profile:security.currentPassword'))
+      return
+    }
     setPwSaving(true); setPwError(null)
     try {
-      await apiPostAuth(authRoutes.profile.changePassword, { current_password: currentPw, new_password: newPw }, token)
+      await apiPostAuth(
+        authRoutes.profile.changePassword,
+        { current_password: hasPassword ? currentPw : '', new_password: newPw },
+        token,
+      )
       setPwSaved(true)
+      setPwJustSet(!hasPassword)
+      patchLocalUser({ hasPassword: true })
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
       setShowPasswordForm(false)
-      setTimeout(() => setPwSaved(false), 3000)
+      setTimeout(() => { setPwSaved(false); setPwJustSet(false) }, 3000)
+      void reloadSso()
     } catch (err) {
       setPwError(err instanceof Error ? err.message : t('profile:errors.changePassword'))
     } finally {
@@ -650,10 +745,21 @@ export function ProfileSettingsContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-heading">{t('profile:security.passwordTitle')}</p>
-                <p className="text-xs text-text-muted">{t('profile:security.passwordDescription')}</p>
+                <p className="text-xs text-text-muted">
+                  {hasPassword
+                    ? t('profile:security.passwordDescription')
+                    : t('profile:security.passwordDescriptionSet')}
+                </p>
               </div>
               <div className="flex items-center gap-2">
-                {pwSaved && <span className="flex items-center gap-1 text-xs text-status-success"><Check size={12} />{t('profile:security.passwordSuccess')}</span>}
+                {pwSaved && (
+                  <span className="flex items-center gap-1 text-xs text-status-success">
+                    <Check size={12} />
+                    {pwJustSet
+                      ? t('profile:security.passwordSetSuccess')
+                      : t('profile:security.passwordSuccess')}
+                  </span>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -661,19 +767,27 @@ export function ProfileSettingsContent() {
                   onClick={() => { setShowPasswordForm((v) => !v); setPwError(null) }}
                 >
                   <Lock size={12} />
-                  {t('profile:security.changePassword')}
+                  {hasPassword
+                    ? t('profile:security.changePassword')
+                    : t('profile:security.setPassword')}
                 </Button>
               </div>
             </div>
 
             {showPasswordForm && (
               <div className="mt-3 space-y-2.5 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
-                <div className="grid gap-2.5 sm:grid-cols-3">
-                  {[
-                    { label: t('profile:security.currentPassword'), value: currentPw, set: setCurrentPw },
-                    { label: t('profile:security.newPassword'), value: newPw, set: setNewPw },
-                    { label: t('profile:security.confirmPassword'), value: confirmPw, set: setConfirmPw },
-                  ].map(({ label, value, set }) => (
+                <div className={`grid gap-2.5 ${hasPassword ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                  {(hasPassword
+                    ? [
+                        { label: t('profile:security.currentPassword'), value: currentPw, set: setCurrentPw },
+                        { label: t('profile:security.newPassword'), value: newPw, set: setNewPw },
+                        { label: t('profile:security.confirmPassword'), value: confirmPw, set: setConfirmPw },
+                      ]
+                    : [
+                        { label: t('profile:security.newPassword'), value: newPw, set: setNewPw },
+                        { label: t('profile:security.confirmPassword'), value: confirmPw, set: setConfirmPw },
+                      ]
+                  ).map(({ label, value, set }) => (
                     <div key={label} className="space-y-1">
                       <label className="text-[11px] uppercase tracking-wide text-text-muted">{label}</label>
                       <Input
@@ -693,10 +807,19 @@ export function ProfileSettingsContent() {
                   <Button
                     size="sm"
                     className="h-8 rounded-lg px-3 text-xs"
-                    disabled={pwSaving || !currentPw || !newPw || !confirmPw}
+                    disabled={
+                      pwSaving
+                      || !newPw
+                      || !confirmPw
+                      || (hasPassword && !currentPw)
+                    }
                     onClick={() => void handleChangePassword()}
                   >
-                    {pwSaving ? t('profile:personalInformation.saving') : t('profile:security.changePassword')}
+                    {pwSaving
+                      ? t('profile:personalInformation.saving')
+                      : hasPassword
+                        ? t('profile:security.changePassword')
+                        : t('profile:security.setPassword')}
                   </Button>
                   <Button
                     variant="secondary"
@@ -709,6 +832,61 @@ export function ProfileSettingsContent() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Connected accounts */}
+          <div className="border-b border-border/60 py-3.5">
+            <div className="mb-3">
+              <p className="text-sm font-medium text-text-heading">{t('profile:security.connectedTitle')}</p>
+              <p className="text-xs text-text-muted">{t('profile:security.connectedDescription')}</p>
+            </div>
+            <div className="space-y-2">
+              {(['google', 'microsoft'] as SsoProviderId[]).map((provider) => {
+                const row = ssoStatus?.providers.find((p) => p.id === provider)
+                const linked = Boolean(row?.linked)
+                const configured = row?.configured !== false
+                return (
+                  <div
+                    key={provider}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-text-heading">
+                        {t(`profile:security.${provider}`)}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {!configured
+                          ? t('profile:security.notConfigured')
+                          : linked
+                            ? t('profile:security.connected', { email: row?.email || '—' })
+                            : t('profile:security.notConnected')}
+                      </p>
+                    </div>
+                    {linked ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 rounded-lg px-3 text-xs"
+                        disabled={ssoBusy === provider || !configured}
+                        onClick={() => void handleSsoDisconnect(provider)}
+                      >
+                        {t('profile:security.disconnect')}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 rounded-lg px-3 text-xs"
+                        disabled={ssoBusy === provider || !configured}
+                        onClick={() => void handleSsoConnect(provider)}
+                      >
+                        {t('profile:security.connect')}
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {/* Two-factor authentication */}

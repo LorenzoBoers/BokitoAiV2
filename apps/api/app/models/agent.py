@@ -46,6 +46,11 @@ class Agent(SQLModel, table=True):
     acts_for_user: bool = Field(default=False, index=True)
     is_active: bool = True
     slug: str = ""
+    # Stack/module provenance for managed reconcile (empty = user-created).
+    # Match key: (tenant_id, managed_origin, managed_ref, template_slug).
+    managed_origin: str = Field(default="", index=True)  # "" | platform | module | stack | user
+    managed_ref: str = Field(default="", index=True)  # module/stack slug (trading, …)
+    template_slug: str = Field(default="", index=True)  # id within pack (strategy-optimizer, …)
     # Misc agent settings (e.g. email_signature_html used on outbound replies).
     settings_json: str = Field(default="{}")
     runtime_status: str = Field(default="standby")

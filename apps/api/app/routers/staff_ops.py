@@ -17,6 +17,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import Membership, Tenant, User
 from app.models.staff import StaffAccessLog
 from app.services.workspaces_portal import allows_platform_support, delete_workspace
+from app.services import tenant_features
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,10 @@ class StaffDeleteTenantBody(BaseModel):
     """Confirm by typing the workspace slug (case-insensitive)."""
 
     confirm_slug: str = Field(min_length=1, max_length=80)
+
+
+class StaffTenantFeaturesBody(BaseModel):
+    custom_models: bool | None = None
 
 
 def _require_staff(auth: AuthContext) -> None:
@@ -80,6 +85,7 @@ async def staff_ops_directory(
                 "slug": tenant.slug,
                 "name": tenant.name,
                 "support_allowed": allows_platform_support(tenant),
+                "custom_models": tenant_features.custom_models_entitled(tenant),
                 "member_count": member_counts.get(tenant.id, 0),
                 "created_at": _iso(tenant.created_at),
             }
@@ -190,3 +196,27 @@ async def staff_delete_tenant(
         name,
     )
     return {"ok": True, "id": str(tid), "slug": slug, "name": name}
+
+
+@router.patch("/ops/tenants/{tenant_id}/features")
+async def staff_patch_tenant_features(
+    tenant_id: str,
+    body: StaffTenantFeaturesBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Entitle a workspace for custom (BYOK) models. Requires FEATURE_CUSTOM_MODELS."""
+    _require_staff(auth)
+    try:
+        tid = UUID(tenant_id.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid tenant id") from exc
+    if body.custom_models is None:
+        raise HTTPException(status_code=400, detail="custom_models is required")
+    try:
+        features = await tenant_features.set_custom_models_entitlement(
+            session, tid, entitled=body.custom_models
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"ok": True, "tenant_id": str(tid), "custom_models": features}

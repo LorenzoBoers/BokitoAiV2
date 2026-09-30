@@ -273,6 +273,14 @@ export async function apiPostAuth<T>(path: string, body: object, token?: string)
   return request<T>(AUTH_API_BASE, path, 'POST', { body, token, requireAuth: false });
 }
 
+export async function apiGetAuth<T>(path: string, token?: string): Promise<T> {
+  return request<T>(AUTH_API_BASE, path, 'GET', { token });
+}
+
+export async function apiDeleteAuth<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return request<T>(AUTH_API_BASE, path, 'DELETE', { token });
+}
+
 export async function apiPatchAuth<T>(path: string, body: object, token?: string): Promise<T> {
   return request<T>(AUTH_API_BASE, path, 'PATCH', { body, token });
 }

@@ -3,6 +3,10 @@ export function describeSsoError(reason: string): string {
   switch (reason) {
     case 'no_email':
       return 'The identity provider did not share an email address for this account. Use an account with a verified email.';
+    case 'email_mismatch':
+      return 'That Google or Microsoft account uses a different email than this Bokito account.';
+    case 'subject_taken':
+      return 'That Google or Microsoft account is already linked to another Bokito user.';
     case 'provisioning_failed':
       return 'We could not set up your account after sign-in. Please try again or contact support.';
     case 'token_exchange_failed':

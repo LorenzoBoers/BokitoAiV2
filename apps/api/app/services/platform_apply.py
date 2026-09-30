@@ -78,16 +78,28 @@ async def apply_agent_change(
         agent = result.scalar_one_or_none()
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
-        for field in ("name", "role", "system_prompt", "model", "autonomy_level"):
+        if after.get("restore") or (
+            after.get("kind") == "company" and agent.kind == "archived"
+        ):
+            # Managed restore (or explicit un-archive): provenance stays intact.
+            agent.kind = "company"
+            agent.is_active = True
+            agent.runtime_status = str(after.get("runtime_status") or "standby")
+        for field in ("name", "role", "system_prompt", "model", "autonomy_level", "slug"):
             if field in after:
                 setattr(agent, field, after[field])
+        if "is_active" in after and not after.get("restore"):
+            agent.is_active = bool(after["is_active"])
         if "tools" in after:
             agent.tools_json = json.dumps(after["tools"])
         if "permission_scopes" in after:
             agent.permission_scopes_json = json.dumps(after["permission_scopes"])
         agent.updated_at = datetime.utcnow()
         await session.flush()
-        return {"agent_id": str(agent.id), "status": "updated"}
+        restored = bool(after.get("restore")) or (
+            before.get("kind") == "archived" and agent.kind == "company"
+        )
+        return {"agent_id": str(agent.id), "status": "restored" if restored else "updated"}
 
     name = after.get("name", "New agent")
     role = after.get("role", "assistant")

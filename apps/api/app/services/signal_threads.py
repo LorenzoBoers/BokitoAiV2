@@ -167,22 +167,42 @@ def _clean_thread_preview(text: str) -> str:
 async def _latest_message_previews(
     session: AsyncSession, tenant_id: UUID, signal_ids: list[UUID]
 ) -> dict[UUID, tuple[str, str]]:
+    """Newest useful preview per thread without scanning the full history.
+
+    Uses ``row_number()`` so each signal contributes at most a few recent
+    user/agent rows (enough to prefer a non-placeholder over a placeholder).
+    """
     if not signal_ids:
         return {}
-    result = await session.execute(
+    ranked = (
         select(
             SignalMessage.signal_id,
             SignalMessage.body_preview,
             SignalMessage.body_text,
             SignalMessage.kind,
             SignalMessage.direction,
+            func.row_number()
+            .over(
+                partition_by=SignalMessage.signal_id,
+                order_by=SignalMessage.created_at.desc(),
+            )
+            .label("rn"),
         )
         .where(
             SignalMessage.tenant_id == tenant_id,
             SignalMessage.signal_id.in_(signal_ids),
             SignalMessage.kind.in_(("user_message", "agent_message")),
         )
-        .order_by(SignalMessage.created_at.desc())
+        .subquery()
+    )
+    result = await session.execute(
+        select(
+            ranked.c.signal_id,
+            ranked.c.body_preview,
+            ranked.c.body_text,
+            ranked.c.kind,
+            ranked.c.direction,
+        ).where(ranked.c.rn <= 4)
     )
     user_previews: dict[UUID, tuple[str, str]] = {}
     other_previews: dict[UUID, tuple[str, str]] = {}
@@ -212,6 +232,7 @@ def serialize_thread(
     last_preview: str | None = None,
     last_direction: str | None = None,
     has_open_decision: bool = False,
+    ai_mode: str | None = None,
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
@@ -245,6 +266,7 @@ def serialize_thread(
         "assigned_to_user_id": assignee_num,
         "tags": json.loads(signal.tags_json or "[]"),
         "ai_paused": signal.ai_paused,
+        "ai_mode": ai_mode,
         "suggested_actions": json.loads(signal.suggested_actions_json or "[]"),
         # AI triage (INTERPRETATION layer) shown on the thread header.
         "category": signal.category,
@@ -275,7 +297,20 @@ def serialize_thread(
     return payload
 
 
-def serialize_message(message: SignalMessage, *, decision: DecisionRequest | None = None) -> dict[str, Any]:
+def serialize_message(
+    message: SignalMessage,
+    *,
+    decision: DecisionRequest | None = None,
+    include_html: bool = True,
+    include_trace: bool = True,
+) -> dict[str, Any]:
+    """Serialize a message for the timeline.
+
+    Timeline windows pass ``include_html=False`` / ``include_trace=False`` so
+    chat and assistant threads stay light. Email keeps HTML inline (the
+    composer and LazyEmailHtmlFrame need it). Full HTML/trace load via
+    ``get_message``.
+    """
     author_num = user_numeric_id(message.author_user_id) if message.author_user_id else None
     payload: dict[str, Any] = {}
     if message.decision_id:
@@ -305,11 +340,12 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
     usage = meta.get("usage")
     steps = meta.get("steps")
     thinking = meta.get("thinking")
-    if (
+    has_trace = bool(
         (isinstance(usage, dict) and usage)
         or (isinstance(steps, list) and steps)
         or (isinstance(thinking, dict) and thinking)
-    ):
+    )
+    if include_trace and has_trace:
         payload["agent_trace"] = {
             "usage": usage if isinstance(usage, dict) else {},
             "steps": steps if isinstance(steps, list) else [],
@@ -331,6 +367,8 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
     elif meta.get("llm_mode"):
         payload["llm_mode"] = meta.get("llm_mode")
     payload["delivered_to_customer"] = delivered
+    has_html = bool((message.body_html or "").strip())
+    body_html = (message.body_html or None) if include_html else None
     return {
         "id": str(message.id),
         "thread_id": str(message.signal_id),
@@ -343,9 +381,11 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
         "cc": str(meta.get("cc") or "") or None,
         "bcc": str(meta.get("bcc") or "") or None,
         "subject": message.subject,
-        "body_preview": message.body_preview or message.body_text[:200],
+        "body_preview": message.body_preview or (message.body_text or "")[:200],
         "body_text": message.body_text,
-        "body_html": message.body_html or None,
+        "body_html": body_html,
+        "has_html": has_html,
+        "has_agent_trace": has_trace,
         "graph_message_id": message.external_id,
         "in_reply_to": None,
         "author_user_id": author_num,
@@ -444,27 +484,72 @@ async def _pinned_ids(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> 
     return {row for row in result.scalars().all()}
 
 
-async def _signals_with_open_decisions(session: AsyncSession, tenant_id: UUID) -> set[UUID]:
+def _open_decision_filters(
+    tenant_id: UUID, *, signal_ids: list[UUID] | None = None
+) -> list[Any]:
+    """Shared WHERE clauses for awaiting (non tip-card) decisions."""
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+
+    filters: list[Any] = [
+        Signal.tenant_id == tenant_id,
+        Signal.status.notin_(("closed", "spam")),
+        SignalMessage.kind == "decision_request",
+        DecisionRequest.status == "awaiting_human",
+        DecisionRequest.title != NO_REPLY_DECISION_TITLE,
+    ]
+    if signal_ids is not None:
+        if not signal_ids:
+            filters.append(Signal.id.is_(None))
+        else:
+            filters.append(Signal.id.in_(signal_ids))
+    return filters
+
+
+async def _signals_with_open_decisions(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    signal_ids: list[UUID] | None = None,
+) -> set[UUID]:
     """Signals with a real awaiting decision (reply draft, tool gate, escalate).
 
     Excludes "No reply needed" tip cards on automated mail — those must not
     inflate Agents / Cockpit attention counts or the Decisions queue.
+    Pass ``signal_ids`` to scope to a list page instead of the whole tenant.
     """
-    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
-
     result = await session.execute(
         select(Signal.id)
         .join(SignalMessage, SignalMessage.signal_id == Signal.id)
         .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
-        .where(
-            Signal.tenant_id == tenant_id,
-            Signal.status.notin_(("closed", "spam")),
-            SignalMessage.kind == "decision_request",
-            DecisionRequest.status == "awaiting_human",
-            DecisionRequest.title != NO_REPLY_DECISION_TITLE,
-        )
+        .where(*_open_decision_filters(tenant_id, signal_ids=signal_ids))
     )
     return {row for row in result.scalars().all()}
+
+
+async def _signal_has_open_decision(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID
+) -> bool:
+    """EXISTS check for one thread — used by get_thread."""
+    result = await session.execute(
+        select(Signal.id)
+        .join(SignalMessage, SignalMessage.signal_id == Signal.id)
+        .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
+        .where(*_open_decision_filters(tenant_id, signal_ids=[signal_id]))
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _count_open_decisions(session: AsyncSession, tenant_id: UUID) -> int:
+    """Distinct-signal count for nav badges (no full ID set materialised)."""
+    result = await session.execute(
+        select(func.count(func.distinct(Signal.id)))
+        .select_from(Signal)
+        .join(SignalMessage, SignalMessage.signal_id == Signal.id)
+        .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
+        .where(*_open_decision_filters(tenant_id))
+    )
+    return int(result.scalar_one() or 0)
 
 
 async def count_no_reply_suggestions(session: AsyncSession, tenant_id: UUID) -> int:
@@ -538,8 +623,7 @@ async def nav_badge_counts(
     agents_attention = 0
     no_reply_suggestions = 0
     if include_agents_attention:
-        open_dec = await _signals_with_open_decisions(session, tenant_id)
-        agents_attention = len(open_dec)
+        agents_attention = await _count_open_decisions(session, tenant_id)
         no_reply_suggestions = await count_no_reply_suggestions(session, tenant_id)
 
     return {
@@ -554,24 +638,30 @@ async def nav_badge_counts(
     }
 
 
-async def _signals_with_message_kind(session: AsyncSession, tenant_id: UUID, kind: str) -> set[UUID]:
-    result = await session.execute(
-        select(SignalMessage.signal_id.distinct()).where(
+def _exists_message_kind(tenant_id: UUID, kind: str):
+    """EXISTS predicate: this Signal has at least one message of ``kind``."""
+    return (
+        select(SignalMessage.id)
+        .where(
+            SignalMessage.signal_id == Signal.id,
             SignalMessage.tenant_id == tenant_id,
             SignalMessage.kind == kind,
         )
+        .exists()
     )
-    return {row for row in result.scalars().all()}
 
 
-async def _signals_with_outbound_messages(session: AsyncSession, tenant_id: UUID) -> set[UUID]:
-    result = await session.execute(
-        select(SignalMessage.signal_id.distinct()).where(
+def _exists_outbound_message(tenant_id: UUID):
+    """EXISTS predicate: this Signal has at least one outbound message."""
+    return (
+        select(SignalMessage.id)
+        .where(
+            SignalMessage.signal_id == Signal.id,
             SignalMessage.tenant_id == tenant_id,
             SignalMessage.direction == "outbound",
         )
+        .exists()
     )
-    return {row for row in result.scalars().all()}
 
 
 async def list_threads(
@@ -672,16 +762,13 @@ async def list_threads(
         else:
             query = query.where(Signal.id.is_(None))
     elif view == "updates":
-        ids = await _signals_with_message_kind(session, tenant_id, "status_update")
-        query = query.where(Signal.id.in_(ids) if ids else Signal.id.is_(None))
+        query = query.where(_exists_message_kind(tenant_id, "status_update"))
     elif view == "results":
-        ids = await _signals_with_message_kind(session, tenant_id, "task_result")
-        query = query.where(Signal.id.in_(ids) if ids else Signal.id.is_(None))
+        query = query.where(_exists_message_kind(tenant_id, "task_result"))
     elif view == "outbound":
-        ids = await _signals_with_outbound_messages(session, tenant_id)
         query = query.where(
             Signal.channel.in_(EXTERNAL_CHANNELS),
-            Signal.id.in_(ids) if ids else Signal.id.is_(None),
+            _exists_outbound_message(tenant_id),
         )
     elif view == "external":
         query = query.where(Signal.channel.in_(EXTERNAL_CHANNELS), Signal.status == "open")
@@ -866,13 +953,37 @@ async def list_threads(
                     project_po_agents[project.id] = po_by_id[project.po_agent_id]
 
     previews = await _latest_message_previews(session, tenant_id, [t.id for t in threads])
-    open_dec = await _signals_with_open_decisions(session, tenant_id) if threads else set()
+    open_dec = (
+        await _signals_with_open_decisions(
+            session, tenant_id, signal_ids=[t.id for t in threads]
+        )
+        if threads
+        else set()
+    )
+
+    from app.models.auth import Tenant
+    from app.services.channel_ai import resolve_ai_mode
+
+    tenant = await session.get(Tenant, tenant_id)
+    account_ids = {t.channel_account_id for t in threads if t.channel_account_id}
+    accounts_by_id: dict[UUID, ChannelAccount] = {}
+    if account_ids:
+        account_rows = await session.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant_id,
+                ChannelAccount.id.in_(account_ids),
+            )
+        )
+        accounts_by_id = {a.id: a for a in account_rows.scalars().all()}
+
     items = []
     for t in threads:
         agent = agents_by_id.get(t.agent_id) if t.agent_id else None
         if not agent and t.project_id:
             agent = project_po_agents.get(t.project_id)
         preview, direction = previews.get(t.id, ("", ""))
+        account = accounts_by_id.get(t.channel_account_id) if t.channel_account_id else None
+        mode = resolve_ai_mode(tenant, account, t.channel or "email")
         items.append(
             serialize_thread(
                 t,
@@ -882,6 +993,7 @@ async def list_threads(
                 last_preview=preview,
                 last_direction=direction,
                 has_open_decision=t.id in open_dec,
+                ai_mode=mode,
             )
         )
     next_page = page + 1 if page * per_page < items_total else None
@@ -895,7 +1007,15 @@ async def get_thread(
     signal_id: UUID,
     *,
     visible_account_ids: set[UUID] | None = None,
+    limit: int = 80,
+    before: UUID | None = None,
 ) -> dict[str, Any] | None:
+    """Load a thread detail with a bounded message window.
+
+    Default returns the newest ``limit`` messages (chronological). Pass
+    ``before`` (a message id) to page older history. ``has_older`` tells the
+    client whether another page exists above the returned window.
+    """
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
     )
@@ -909,13 +1029,46 @@ async def get_thread(
     ):
         # Hidden accounts 404 for members: existence must not leak.
         return None
+
+    page_size = max(1, min(int(limit or 80), 200))
     pinned = await _pinned_ids(session, tenant_id, user_id)
+
+    msg_filters: list[Any] = [
+        SignalMessage.signal_id == signal_id,
+        SignalMessage.tenant_id == tenant_id,
+    ]
+    if before is not None:
+        before_row = (
+            await session.execute(
+                select(SignalMessage).where(
+                    SignalMessage.id == before,
+                    SignalMessage.signal_id == signal_id,
+                    SignalMessage.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if before_row is not None and before_row.created_at is not None:
+            msg_filters.append(
+                or_(
+                    SignalMessage.created_at < before_row.created_at,
+                    and_(
+                        SignalMessage.created_at == before_row.created_at,
+                        SignalMessage.id < before_row.id,
+                    ),
+                )
+            )
+
+    # Newest-first +1 to detect has_older, then reverse for chronological UI.
     messages_result = await session.execute(
         select(SignalMessage)
-        .where(SignalMessage.signal_id == signal_id, SignalMessage.tenant_id == tenant_id)
-        .order_by(SignalMessage.created_at)
+        .where(*msg_filters)
+        .order_by(SignalMessage.created_at.desc(), SignalMessage.id.desc())
+        .limit(page_size + 1)
     )
-    messages = list(messages_result.scalars().all())
+    newest_first = list(messages_result.scalars().all())
+    has_older = len(newest_first) > page_size
+    messages = list(reversed(newest_first[:page_size]))
+
     decision_ids = [m.decision_id for m in messages if m.decision_id]
     decisions_by_id: dict[UUID, DecisionRequest] = {}
     if decision_ids:
@@ -926,11 +1079,34 @@ async def get_thread(
             )
         )
         decisions_by_id = {d.id: d for d in dr.scalars().all()}
+
+    # Events in the same time window as the message page (plus any events
+    # after the newest message when this is the live tail). Cap so a noisy
+    # agent does not ship hundreds of pills with the first paint.
+    EVENT_PAGE_CAP = 100
+    event_filters: list[Any] = [
+        SignalEvent.signal_id == signal_id,
+        SignalEvent.tenant_id == tenant_id,
+    ]
+    if messages:
+        oldest_at = messages[0].created_at
+        newest_at = messages[-1].created_at
+        if before is not None:
+            # Older page: only events that fall inside this page's span.
+            event_filters.append(SignalEvent.created_at >= oldest_at)
+            if newest_at is not None:
+                event_filters.append(SignalEvent.created_at <= newest_at)
+        elif oldest_at is not None:
+            # Live tail: drop ancient events before the window.
+            event_filters.append(SignalEvent.created_at >= oldest_at)
     events_result = await session.execute(
         select(SignalEvent)
-        .where(SignalEvent.signal_id == signal_id, SignalEvent.tenant_id == tenant_id)
-        .order_by(SignalEvent.created_at)
+        .where(*event_filters)
+        .order_by(SignalEvent.created_at.desc(), SignalEvent.id.desc())
+        .limit(EVENT_PAGE_CAP + 1)
     )
+    newest_events = list(events_result.scalars().all())
+    events = list(reversed(newest_events[:EVENT_PAGE_CAP]))
     rev_map = {v: k for k, v in (await _user_map(session, tenant_id)).items()}
     agent = await _resolve_thread_agent(session, tenant_id, signal, messages)
 
@@ -949,10 +1125,16 @@ async def get_thread(
         )
         feedback_by_subject = {f.subject_id: f for f in fb_result.scalars().all()}
 
+    # Email needs HTML in the window (LazyEmailHtmlFrame). Chat / assistant /
+    # WhatsApp render plain text; agent traces load on expand via get_message.
+    include_html = (signal.channel or "").lower() == "email"
     serialized_messages = []
     for m in messages:
         row = serialize_message(
-            m, decision=decisions_by_id.get(m.decision_id) if m.decision_id else None
+            m,
+            decision=decisions_by_id.get(m.decision_id) if m.decision_id else None,
+            include_html=include_html,
+            include_trace=False,
         )
         fb = feedback_by_subject.get(str(m.id))
         if fb:
@@ -989,18 +1171,75 @@ async def get_thread(
         else None
     )
 
+    oldest_id = str(messages[0].id) if messages else None
+
+    from app.models.auth import Tenant
+    from app.services.channel_ai import resolve_ai_mode
+
+    tenant = await session.get(Tenant, tenant_id)
+    account = None
+    if signal.channel_account_id:
+        account = await session.get(ChannelAccount, signal.channel_account_id)
+        if account and account.tenant_id != tenant_id:
+            account = None
+    ai_mode = resolve_ai_mode(tenant, account, signal.channel or "email")
+
     return {
         "thread": serialize_thread(
             signal,
             is_pinned=signal_id in pinned,
             agent=agent,
-            has_open_decision=signal_id in await _signals_with_open_decisions(session, tenant_id),
+            has_open_decision=await _signal_has_open_decision(session, tenant_id, signal_id),
+            ai_mode=ai_mode,
         ),
         "messages": serialized_messages,
-        "events": [serialize_event(e, user_num_map=rev_map) for e in events_result.scalars().all()],
+        "events": [serialize_event(e, user_num_map=rev_map) for e in events],
         "sessions": sessions,
         "csat": csat,
+        "has_older": has_older,
+        "oldest_message_id": oldest_id,
     }
+
+
+async def get_message(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    message_id: UUID,
+    *,
+    visible_account_ids: set[UUID] | None = None,
+) -> dict[str, Any] | None:
+    """Full message payload (HTML + agent_trace) for lazy expand on the timeline."""
+    signal = (
+        await session.execute(
+            select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if not signal:
+        return None
+    if (
+        visible_account_ids is not None
+        and signal.channel_account_id
+        and signal.channel_account_id not in visible_account_ids
+    ):
+        return None
+    message = (
+        await session.execute(
+            select(SignalMessage).where(
+                SignalMessage.id == message_id,
+                SignalMessage.signal_id == signal_id,
+                SignalMessage.tenant_id == tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not message:
+        return None
+    decision = None
+    if message.decision_id:
+        decision = await session.get(DecisionRequest, message.decision_id)
+        if decision and decision.tenant_id != tenant_id:
+            decision = None
+    return serialize_message(message, decision=decision, include_html=True, include_trace=True)
 
 
 async def update_note(
@@ -1806,11 +2045,16 @@ async def reply_to_thread(
         author_name=(author.display_name or author.email) if author else "",
     )
     # Internal agent threads are two-way chats: when an operator posts a reply
-    # (not an internal note), run the thread's agent and append its response.
-    # External channels (email/whatsapp/widget) and assistant-channel threads
-    # (handled by /api/chat) are intentionally excluded.
+    # (not an internal note), run the thread's agent in the background so Send
+    # returns immediately. Deltas stream via gateway; the final message lands
+    # through append_signal_chat_message.
     if direction == "outbound" and signal.channel == "internal" and not signal.ai_paused and not scheduled:
-        await _generate_agent_reply(session, tenant_id, user_id, signal, attachments=attachments)
+        _schedule_agent_reply(
+            tenant_id,
+            user_id,
+            signal.id,
+            attachments=list(attachments) if attachments else None,
+        )
     return serialize_message(message)
 
 
@@ -2021,6 +2265,46 @@ async def notify_mentions(
     return notified
 
 
+def _schedule_agent_reply(
+    tenant_id: UUID,
+    user_id: UUID,
+    signal_id: UUID,
+    *,
+    attachments: list[dict] | None = None,
+) -> None:
+    """Fire-and-forget agent reply on a fresh DB session (does not block HTTP)."""
+    import asyncio
+
+    async def _run() -> None:
+        from app.db.session import async_session_factory
+
+        async with async_session_factory() as bg_session:
+            signal = await bg_session.get(Signal, signal_id)
+            if not signal or signal.tenant_id != tenant_id:
+                return
+            await _generate_agent_reply(
+                bg_session,
+                tenant_id,
+                user_id,
+                signal,
+                attachments=attachments,
+            )
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        logger.warning("No running loop to schedule agent reply for %s", signal_id)
+        return
+    task = loop.create_task(_run())
+    task.add_done_callback(
+        lambda t: logger.exception(
+            "Background agent reply failed for %s", signal_id, exc_info=t.exception()
+        )
+        if t.exception()
+        else None
+    )
+
+
 async def _generate_agent_reply(
     session: AsyncSession,
     tenant_id: UUID,
@@ -2032,7 +2316,8 @@ async def _generate_agent_reply(
     """Run the thread's agent and append its reply.
 
     Best-effort: the user's message is already committed, so any failure here
-    is logged and swallowed rather than surfaced to the caller.
+    is logged and swallowed rather than surfaced to the caller. Gateway events
+    (message.delta / agent.step / message) keep the open thread live.
     """
     from app.services.agent.loop import AgentLoop
     from app.services.assistant_threads import (

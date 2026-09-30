@@ -1,4 +1,5 @@
 import { FileText, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { MessageAttachment } from '../../lib/inbox-api'
 
@@ -20,6 +21,40 @@ function isImageAttachment(att: AttachmentLike): boolean {
   return IMAGE_EXT.test(att.name || '') || IMAGE_EXT.test(att.url || '')
 }
 
+function LazyThumb({ url, name }: { url: string; name: string }) {
+  const ref = useRef<HTMLAnchorElement>(null)
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setShow(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setShow(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '120px 0px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <a ref={ref} href={url} target="_blank" rel="noreferrer" className="block">
+      {show ? (
+        <img src={url} alt={name} loading="lazy" decoding="async" className="h-14 w-14 rounded object-cover" />
+      ) : (
+        <span className="block h-14 w-14 rounded bg-bg-hover/80" aria-hidden />
+      )}
+    </a>
+  )
+}
+
 export default function MessageAttachments({ attachments, onRemove, compact }: Props) {
   const { t } = useTranslation('communication')
   if (!attachments.length) return null
@@ -34,9 +69,7 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
             className="relative flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/60 px-2 py-1.5 text-xs"
           >
             {isImage ? (
-              <a href={att.url} target="_blank" rel="noreferrer" className="block">
-                <img src={att.url} alt={name} className="h-14 w-14 rounded object-cover" />
-              </a>
+              <LazyThumb url={att.url} name={name} />
             ) : (
               <a
                 href={att.url}

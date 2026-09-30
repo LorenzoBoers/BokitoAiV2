@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { memo, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Archive, ArrowLeft, ArrowRight, Bot, Trash2 } from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
@@ -67,7 +67,7 @@ const PRIORITY_DOT: Record<string, string> = {
   normal: '',
 }
 
-export default function ThreadListItem({
+function ThreadListItem({
   thread,
   isSelected,
   onSelect,
@@ -221,6 +221,7 @@ export default function ThreadListItem({
         <ThreadIndicatorMenu
           hasUnread={thread.hasUnread}
           isPinned={thread.isPinned}
+          emphasize={isSelected}
           onMarkRead={() => onMarkRead(thread.id)}
           onMarkUnread={() => onMarkUnread(thread.id)}
           onTogglePin={() => onTogglePin(thread.id, thread.isPinned)}
@@ -369,3 +370,5 @@ export default function ThreadListItem({
     </div>
   )
 }
+
+export default memo(ThreadListItem)

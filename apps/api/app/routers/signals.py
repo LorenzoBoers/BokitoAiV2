@@ -427,6 +427,8 @@ async def get_signal(
     signal_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 80,
+    before: UUID | None = None,
 ):
     detail = await svc.get_thread(
         session,
@@ -436,10 +438,34 @@ async def get_signal(
         visible_account_ids=await visible_channel_account_ids(
             session, auth.tenant.id, user_id=auth.user.id, role=auth.role
         ),
+        limit=limit,
+        before=before,
     )
     if not detail:
         raise HTTPException(status_code=404, detail="Signal not found")
     return detail
+
+
+@router.get("/{signal_id}/messages/{message_id}")
+async def get_signal_message(
+    signal_id: UUID,
+    message_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Full message (HTML + agent_trace) for lazy expand on the timeline."""
+    row = await svc.get_message(
+        session,
+        auth.tenant.id,
+        signal_id,
+        message_id,
+        visible_account_ids=await visible_channel_account_ids(
+            session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+        ),
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return row
 
 
 @router.patch("/{signal_id}")

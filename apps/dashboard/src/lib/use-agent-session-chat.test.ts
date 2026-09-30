@@ -40,4 +40,25 @@ describe('mergeSessionLiveMessages', () => {
     expect(merged?.[2]?.id).toBe('local-stream')
     expect(merged?.[2]?.content).toBe('Hello')
   })
+
+  it('builds a live transcript on an empty assistant thread', () => {
+    const stream: SessionStreamState = {
+      text: 'Working…',
+      thinking: 'plan',
+      active: true,
+      optimisticUsers: [
+        {
+          id: 'local-u',
+          role: 'user',
+          content: 'What should I reply?',
+          created_at: '2026-01-01T00:00:01Z',
+        },
+      ],
+    }
+    const merged = mergeSessionLiveMessages([], stream)
+    expect(merged).toHaveLength(2)
+    expect(merged?.[0]?.role).toBe('user')
+    expect(merged?.[1]?.id).toBe('local-stream')
+    expect(merged?.[1]?.content).toBe('Working…')
+  })
 })

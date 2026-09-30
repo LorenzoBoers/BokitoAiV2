@@ -55,18 +55,67 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh])
 
-  // Live updates: thread events refresh the session list (debounced).
+  // Live updates: thread events refresh the session list only when we cannot
+  // apply a row locally. Assistant-channel upserts patch the list in place.
   useEffect(() => {
     if (!token) return
     let timer: number | null = null
-    const trigger = () => {
+    const scheduleFullRefresh = () => {
       if (timer !== null) return
       timer = window.setTimeout(() => {
         timer = null
         void refresh()
       }, GATEWAY_DEBOUNCE_MS)
     }
-    const unsub = onGatewayEvent('threads', trigger)
+    const unsub = onGatewayEvent('threads', (event) => {
+      if (event.event !== 'message' && event.event !== 'thread') {
+        scheduleFullRefresh()
+        return
+      }
+      const data = event.data as Record<string, unknown>
+      const thread = (data.thread ?? data) as Record<string, unknown>
+      const channel = String(thread.channel ?? '')
+      if (channel !== 'assistant') {
+        scheduleFullRefresh()
+        return
+      }
+      const id = String(thread.id ?? '')
+      if (!id) {
+        scheduleFullRefresh()
+        return
+      }
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => c.id === id)
+        const title = String(
+          thread.email_subject ?? thread.subject ?? ((idx >= 0 ? prev[idx].title : '') || ''),
+        )
+        const nextRow: ConversationWithAgent = {
+          id,
+          title,
+          channel: 'assistant',
+          updated_at: String(
+            thread.last_message_at ?? (idx >= 0 ? prev[idx].updated_at : new Date().toISOString()),
+          ),
+          agent_id:
+            thread.agent_id != null
+              ? String(thread.agent_id)
+              : idx >= 0
+                ? prev[idx].agent_id ?? null
+                : null,
+          agent_name:
+            thread.agent_name != null
+              ? String(thread.agent_name)
+              : idx >= 0
+                ? prev[idx].agent_name ?? null
+                : null,
+          agent_kind: idx >= 0 ? prev[idx].agent_kind ?? null : null,
+        }
+        if (idx < 0) return [nextRow, ...prev]
+        const copy = [...prev]
+        copy[idx] = { ...prev[idx], ...nextRow }
+        return copy
+      })
+    })
     return () => {
       unsub()
       if (timer !== null) window.clearTimeout(timer)

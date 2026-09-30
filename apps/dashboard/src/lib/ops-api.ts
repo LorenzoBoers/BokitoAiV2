@@ -1,11 +1,12 @@
 import { staffRoutes } from '../api/routes'
-import { staffDelete, staffGet } from './api'
+import { staffDelete, staffGet, staffPatch } from './api'
 
 export type StaffOpsTenant = {
   id: string
   slug: string
   name: string
   support_allowed: boolean
+  custom_models: boolean
   member_count: number
   created_at: string | null
 }
@@ -59,4 +60,12 @@ export async function deleteStaffOpsTenant(
   return staffDelete(staffRoutes.opsTenant(tenantId), token, {
     confirm_slug: confirmSlug,
   }) as Promise<{ ok: boolean; id: string; slug: string; name: string }>
+}
+
+export async function setStaffTenantCustomModels(
+  token: string,
+  tenantId: string,
+  enabled: boolean,
+): Promise<{ ok: boolean; tenant_id: string; custom_models: Record<string, boolean> }> {
+  return staffPatch(staffRoutes.opsTenantFeatures(tenantId), { custom_models: enabled }, token)
 }

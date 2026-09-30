@@ -224,6 +224,17 @@ async def get_default_model(session: AsyncSession, kind: str) -> ModelCatalog | 
 
 
 async def get_markup_multiplier(session: AsyncSession) -> float:
+    """Customer list-price multiplier for platform-key (billable) usage.
+
+    Prefer ``TOKEN_MARKUP_MULTIPLIER`` env. Fall back to the legacy
+    ``platform_settings`` row for older installs, then ``DEFAULT_MARKUP``.
+    """
+    from app.config import get_settings
+
+    env_value = float(get_settings().token_markup_multiplier or 0)
+    if env_value >= 1.0:
+        return env_value
+
     result = await session.execute(
         select(PlatformSetting).where(PlatformSetting.key == MARKUP_SETTING_KEY)
     )
@@ -231,7 +242,7 @@ async def get_markup_multiplier(session: AsyncSession) -> float:
     if not row or not row.value:
         return DEFAULT_MARKUP
     try:
-        return float(row.value)
+        return max(1.0, float(row.value))
     except ValueError:
         return DEFAULT_MARKUP
 

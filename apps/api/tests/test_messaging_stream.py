@@ -119,7 +119,9 @@ async def test_chat_send_persists_error_reply(client: AsyncClient):
     assert body.get("error") is True
 
     listed = await client.get(f"/api/signals/conversations/{conv_id}/messages", headers=headers)
-    roles = [m["role"] for m in listed.json()]
+    payload = listed.json()
+    items = payload["items"] if isinstance(payload, dict) else payload
+    roles = [m["role"] for m in items]
     assert roles.count("assistant") >= 1
 
 

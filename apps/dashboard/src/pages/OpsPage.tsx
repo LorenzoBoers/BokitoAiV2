@@ -9,6 +9,7 @@ import { Input } from '../components/ui/input'
 import {
   deleteStaffOpsTenant,
   getStaffOpsDirectory,
+  setStaffTenantCustomModels,
   type StaffOpsDirectory,
   type StaffOpsTenant,
 } from '../lib/ops-api'
@@ -42,6 +43,7 @@ export default function OpsPage() {
   const [error, setError] = useState<string | null>(null)
   const [enteringId, setEnteringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [featuringId, setFeaturingId] = useState<string | null>(null)
 
   const load = useCallback(async (q: string) => {
     if (!token) return
@@ -87,6 +89,32 @@ export default function OpsPage() {
       }
     },
     [activeTenantId, enteringId, switchStaffTenant, t],
+  )
+
+  const onToggleCustomModels = useCallback(
+    async (tenant: StaffOpsTenant, enabled: boolean) => {
+      if (!token || featuringId) return
+      setFeaturingId(tenant.id)
+      setError(null)
+      try {
+        await setStaffTenantCustomModels(token, tenant.id, enabled)
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                tenants: prev.tenants.map((row) =>
+                  row.id === tenant.id ? { ...row, custom_models: enabled } : row,
+                ),
+              }
+            : prev,
+        )
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('ops.customModelsError'))
+      } finally {
+        setFeaturingId(null)
+      }
+    },
+    [token, featuringId, t],
   )
 
   const onDeleteTenant = useCallback(
@@ -205,12 +233,13 @@ export default function OpsPage() {
           <section className="space-y-2">
             <h2 className="text-sm font-semibold text-text">{t('ops.tenantsTitle')}</h2>
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="border-b border-border bg-surface-2 text-[11px] uppercase tracking-wide text-text-muted">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('ops.col.workspace')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.members')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.support')}</th>
+                    <th className="px-3 py-2 font-medium">{t('ops.col.customModels')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.created')}</th>
                     <th className="px-3 py-2 font-medium" />
                   </tr>
@@ -218,7 +247,7 @@ export default function OpsPage() {
                 <tbody>
                   {data.tenants.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-3 py-6 text-center text-text-muted">
+                      <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
                         {t('ops.emptyTenants')}
                       </td>
                     </tr>
@@ -245,6 +274,24 @@ export default function OpsPage() {
                                 {t('ops.supportOn')}
                               </span>
                             )}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <label className="inline-flex items-center gap-2 text-[12px] text-text">
+                              <input
+                                type="checkbox"
+                                checked={tenant.custom_models === true}
+                                disabled={featuringId === tenant.id}
+                                onChange={(e) => void onToggleCustomModels(tenant, e.target.checked)}
+                                className="rounded border-border"
+                              />
+                              {featuringId === tenant.id ? (
+                                <Loader2 size={12} className="animate-spin text-text-muted" />
+                              ) : tenant.custom_models ? (
+                                t('ops.customModelsOn')
+                              ) : (
+                                t('ops.customModelsOff')
+                              )}
+                            </label>
                           </td>
                           <td className="px-3 py-2.5 text-text-muted">
                             {formatWhen(tenant.created_at, i18n.language)}

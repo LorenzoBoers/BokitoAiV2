@@ -1,36 +1,36 @@
 ---
-title: Choose models
-intro: Pick which language and embedding models this workspace may use.
-description: Choose which AI models power your workspace and connect your own provider keys.
-keywords: models, llm, providers, byok, api keys, usage
+title: Models
+intro: Bokito AI runs your workspace by default. Custom models are an optional escape hatch.
+description: Use managed Bokito AI, or connect your own provider keys when your workspace is entitled.
+keywords: models, llm, providers, byok, api keys, bokito ai, usage
 sort: 30
 related: govern,agents,integrations
 ---
 
-# Choose models
+# Models
 
-Providers and models live under **Settings**, then **Providers & models**. Spend still shows on Cockpit **Usage**.
+Models live under **Settings**, then **Models**. Spend still shows on Cockpit **Usage**.
 
-## Enable a workspace model
+## Use Bokito AI
 
 ![Models settings](/api/docs/assets/models/catalog.png)
-*Enable the chat and embedding models this workspace needs.*
+*Bokito AI is the default managed intelligence for the workspace.*
 
-1. Open **Settings**, then **Providers & models**. The **Bokito AI** card is **Active** by default: Bokito picks chat and embedding models. Usage counts toward the workspace budget.
-2. Enable extra chat and embedding models this workspace needs. On a provider you added, use **Enable presets** (confirm first) or add a custom model. Filter the list, copy a model id, and read **Low cost** / **Medium cost** / **High cost** (hover for per-million prices).
-3. Open an [agent](/docs/ai/agents) and confirm or override the model. The agent page links **Open Providers & models**.
+1. Open **Settings**, then **Models**. The **Bokito AI** card shows **Active** when the platform key is live.
+2. Leave agents on Bokito AI unless you need your own keys. Usage is metered for this workspace and counts toward the budget.
+3. Open an [agent](/docs/ai/agents) to confirm the model. The picker shows Bokito AI only until custom models are allowed and turned on.
 
-## Add your own key
+## Add a custom model (when entitled)
 
-1. Stay on Providers & models. Under **Your own providers**, choose **Add provider**.
-2. Pick a **Provider type**, paste an **API key** (show or hide it), and optional **Label** or **Base URL** (for OpenAI-compatible endpoints). Press Enter or **Save provider**, then **Test**. A working key shows **Connection OK** in green and **Key set ····** plus the last four characters. **Remove** asks for confirmation.
-3. Models on your keys take precedence over Bokito AI; the Bokito AI card then shows **Standby**. The provider bills those calls. Remove the keys and Bokito AI becomes the fallback again.
+1. Custom models appear only when both the platform feature and your workspace entitlement are on. Otherwise you see a short **Own keys on request** note.
+2. Turn on **Use my own models**, then choose **Add model**. Pick a provider (Anthropic, OpenAI, or OpenAI-compatible), paste an **API key**, and **Save and test**.
+3. Choose a preset model or enter a custom model id, then save. Your models appear in agent pickers and are billed by the provider. Bokito AI stays as fallback when you turn custom models off or remove them.
 
 ## When AI runs without a live key
 
-1. Open **Settings**, then **Providers & models**. If Bokito AI shows **Not configured**, calls run in mock mode.
+1. Open **Settings**, then **Models**. If Bokito AI shows **Not configured**, calls run in mock mode.
 2. A workspace banner explains that replies are placeholders and are not sent to customers. Timeline labels those bubbles as placeholders, never **Sent to the customer**.
-3. Add a platform or provider key (or enable Bokito AI) before choosing **Autonomous** on [Govern](/docs/govern/autonomy).
+3. Contact Bokito support (or enable custom models with your own key when entitled) before choosing **Autonomous** on [Govern](/docs/govern/autonomy).
 
 ## Spend does not bypass approval
 
@@ -38,4 +38,4 @@ Token budgets sit on Cockpit **Usage** (daily token cap and monthly spend cap) a
 
 ## What to do next
 
-Confirm a chat model is enabled, then watch **Usage** on the [Cockpit](/docs/getting-started/cockpit).
+Confirm Bokito AI is Active, then watch **Usage** on the [Cockpit](/docs/getting-started/cockpit).

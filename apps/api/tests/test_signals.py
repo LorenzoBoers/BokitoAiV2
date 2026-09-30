@@ -290,6 +290,161 @@ async def test_inbox_open_includes_assistant_chat_as_assistant_folder(
 
 
 @pytest.mark.asyncio
+async def test_thread_detail_message_window(client: AsyncClient, session_override):
+    """Default detail returns the newest N messages and exposes has_older."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.signal import SignalMessage
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="Long thread",
+        status="open",
+        contact_email="long@example.com",
+        contact_name="Long",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    base = datetime.now(timezone.utc) - timedelta(hours=5)
+    ids: list[str] = []
+    for i in range(5):
+        msg = SignalMessage(
+            tenant_id=tenant.id,
+            signal_id=signal.id,
+            direction="inbound",
+            kind="user_message",
+            role="user",
+            body_text=f"msg-{i}",
+            created_at=base + timedelta(minutes=i),
+        )
+        session_override.add(msg)
+        await session_override.flush()
+        ids.append(str(msg.id))
+    await session_override.commit()
+
+    detail = await client.get(f"/api/signals/{signal.id}?limit=2", headers=headers)
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["has_older"] is True
+    assert [m["body_text"] for m in body["messages"]] == ["msg-3", "msg-4"]
+    assert body["oldest_message_id"] == ids[3]
+
+    older = await client.get(
+        f"/api/signals/{signal.id}?limit=2&before={ids[3]}",
+        headers=headers,
+    )
+    assert older.status_code == 200
+    older_body = older.json()
+    assert [m["body_text"] for m in older_body["messages"]] == ["msg-1", "msg-2"]
+    assert older_body["has_older"] is True
+
+    oldest = await client.get(
+        f"/api/signals/{signal.id}?limit=2&before={ids[1]}",
+        headers=headers,
+    )
+    assert oldest.status_code == 200
+    oldest_body = oldest.json()
+    assert [m["body_text"] for m in oldest_body["messages"]] == ["msg-0"]
+    assert oldest_body["has_older"] is False
+
+
+@pytest.mark.asyncio
+async def test_thread_detail_omits_html_and_trace_for_chat(client: AsyncClient, session_override):
+    """Chat windows stay lean; full HTML/trace load via GET message."""
+    import json
+    from datetime import datetime, timezone
+
+    from app.models.signal import SignalMessage
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        subject="Lean chat",
+        status="open",
+        contact_name="Operator",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    msg = SignalMessage(
+        tenant_id=tenant.id,
+        signal_id=signal.id,
+        direction="outbound",
+        kind="agent_message",
+        role="assistant",
+        body_text="Hello",
+        body_html="<p>Hello</p>",
+        metadata_json=json.dumps(
+            {
+                "usage": {"input_tokens": 10, "output_tokens": 4},
+                "steps": [{"step_type": "tool", "name": "search"}],
+                "thinking": {"text": "reasoned", "ms": 120},
+            }
+        ),
+        created_at=datetime.now(timezone.utc),
+    )
+    session_override.add(msg)
+    await session_override.commit()
+
+    detail = await client.get(f"/api/signals/{signal.id}", headers=headers)
+    assert detail.status_code == 200
+    row = detail.json()["messages"][0]
+    assert row["body_html"] is None
+    assert row["has_html"] is True
+    assert row["has_agent_trace"] is True
+    assert "agent_trace" not in (row.get("payload") or {})
+
+    full = await client.get(f"/api/signals/{signal.id}/messages/{msg.id}", headers=headers)
+    assert full.status_code == 200
+    full_row = full.json()
+    assert full_row["body_html"] == "<p>Hello</p>"
+    assert full_row["payload"]["agent_trace"]["thinking"]["text"] == "reasoned"
+
+
+@pytest.mark.asyncio
+async def test_thread_detail_keeps_email_html(client: AsyncClient, session_override):
+    """Email timeline windows still include body_html for LazyEmailHtmlFrame."""
+    from datetime import datetime, timezone
+
+    from app.models.signal import SignalMessage
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="HTML mail",
+        status="open",
+        contact_email="html@example.com",
+        contact_name="Html",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    msg = SignalMessage(
+        tenant_id=tenant.id,
+        signal_id=signal.id,
+        direction="inbound",
+        kind="user_message",
+        role="user",
+        body_text="Hi",
+        body_html="<p>Hi there</p>",
+        created_at=datetime.now(timezone.utc),
+    )
+    session_override.add(msg)
+    await session_override.commit()
+
+    detail = await client.get(f"/api/signals/{signal.id}", headers=headers)
+    assert detail.status_code == 200
+    row = detail.json()["messages"][0]
+    assert row["body_html"] == "<p>Hi there</p>"
+    assert row["has_html"] is True
+
+
+@pytest.mark.asyncio
 async def test_list_threads_and_flags(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()

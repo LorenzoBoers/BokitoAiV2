@@ -74,15 +74,18 @@ export function useThreads(
     pagesLoadedRef.current = 1
   }, [filterKey])
 
-  const fetchThreads = useCallback(async () => {
+  const fetchThreads = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!token) {
       setRawThreads([])
       setSyncedFilterKey(null)
       setLoading(false)
       return
     }
-    setLoading(true)
-    setError(null)
+    const quiet = Boolean(opts?.quiet)
+    if (!quiet) {
+      setLoading(true)
+      setError(null)
+    }
     const keyAtStart = filterKey
     try {
       const result = await listThreads(token, { ...filters, page: 1, perPage: PAGE_SIZE })
@@ -102,11 +105,13 @@ export function useThreads(
       }
     } catch (err) {
       if (keyAtStart !== filterKeyRef.current) return
-      setError(err instanceof Error ? err.message : 'Could not load threads.')
-      setRawThreads([])
-      setSyncedFilterKey(keyAtStart)
+      if (!quiet) {
+        setError(err instanceof Error ? err.message : 'Could not load threads.')
+        setRawThreads([])
+        setSyncedFilterKey(keyAtStart)
+      }
     } finally {
-      if (keyAtStart === filterKeyRef.current) setLoading(false)
+      if (!quiet && keyAtStart === filterKeyRef.current) setLoading(false)
     }
   }, [
     token,
@@ -167,10 +172,19 @@ export function useThreads(
 
   useEffect(() => {
     if (!token) return
-    const timer = window.setInterval(() => {
-      void fetchThreads()
-    }, pollMs)
-    return () => window.clearInterval(timer)
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return
+      void fetchThreads({ quiet: true })
+    }
+    const timer = window.setInterval(tick, pollMs)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void fetchThreads({ quiet: true })
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [token, pollMs, fetchThreads])
 
   // Mirror the latest list and filters into refs so the (stable) gateway
@@ -196,7 +210,7 @@ export function useThreads(
       if (debounceTimer !== null) return
       debounceTimer = window.setTimeout(() => {
         debounceTimer = null
-        void fetchThreads()
+        void fetchThreads({ quiet: true })
       }, 800)
     }
     const unsubscribe = onGatewayEvent('threads', (event) => {
@@ -243,7 +257,7 @@ export function useThreads(
         sawDisconnect = true
       } else if (status === 'connected' && sawDisconnect) {
         sawDisconnect = false
-        void fetchThreads()
+        void fetchThreads({ quiet: true })
       }
     })
     return () => unsubscribe()

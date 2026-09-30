@@ -5,13 +5,19 @@ import { agentChatPath, agentRunsPath, inboxPath } from './messages-paths'
 /** Outbound surface aligned with how Intercom picks reply channel per conversation. */
 export type ComposerChannel = 'email' | 'chat' | 'slack' | 'whatsapp' | 'internal' | 'assistant'
 
-export type ComposerTab = 'reply' | 'note'
+/**
+ * One composer, three destinations: the customer (`reply`), the AI on this
+ * conversation (`ask`), and the team (`note`).
+ */
+export type ComposerMode = 'reply' | 'ask' | 'note'
 
 export type ComposerSurface = {
   channel: ComposerChannel
-  defaultTab: ComposerTab
-  tabs: ComposerTab[]
+  defaultMode: ComposerMode
+  modes: ComposerMode[]
   replyLabel: string
+  /** Short counterparty name for the "Reply to {name}" chip. */
+  replyTargetName: string
   replyPlaceholder: string
   replyPlaceholderKey: string
   replyPlaceholderParams?: Record<string, string>
@@ -156,8 +162,9 @@ function mapSignalChannel(thread: InboxThread): ComposerChannel {
 }
 
 /**
- * Derive composer tabs and defaults from thread channel + counterparty.
- * Mirrors Intercom: reply channel matches the conversation source; notes are always internal.
+ * Derive composer modes and defaults from thread channel + counterparty.
+ * The reply destination matches the conversation source; `ask` and `note`
+ * never leave the workspace, so every channel offers them.
  */
 export function resolveComposerSurface(
   thread: InboxThread,
@@ -173,9 +180,12 @@ export function resolveComposerSurface(
     const awaitingDecision = Boolean(thread.hasOpenDecision)
     return {
       channel,
-      defaultTab: awaitingDecision ? 'note' : 'reply',
-      tabs: ['reply', 'note'],
+      // No customer sits on the other side: every line is either for the AI
+      // or for the team.
+      defaultMode: awaitingDecision ? 'note' : 'ask',
+      modes: ['ask', 'note'],
       replyLabel: channel === 'assistant' ? 'Chat' : 'Message',
+      replyTargetName: name,
       replyPlaceholder: `Message ${name}...`,
       replyPlaceholderKey: 'composer.placeholders.messageAgent',
       replyPlaceholderParams: { name },
@@ -192,9 +202,10 @@ export function resolveComposerSurface(
     const nonReceiving = isNonReceivingEmailAddress(email)
     return {
       channel: 'email',
-      defaultTab: nonReceiving ? 'note' : 'reply',
-      tabs: ['reply', 'note'],
+      defaultMode: nonReceiving ? 'note' : 'reply',
+      modes: ['reply', 'ask', 'note'],
       replyLabel: 'Email',
+      replyTargetName: name || email,
       replyPlaceholder: email ? `Reply to ${email}...` : 'Type an email...',
       replyPlaceholderKey: email ? 'composer.placeholders.replyEmail' : 'composer.placeholders.typeEmail',
       replyPlaceholderParams: email ? { email } : undefined,
@@ -208,9 +219,10 @@ export function resolveComposerSurface(
   if (channel === 'slack') {
     return {
       channel: 'slack',
-      defaultTab: 'reply',
-      tabs: ['reply', 'note'],
+      defaultMode: 'reply',
+      modes: ['reply', 'ask', 'note'],
       replyLabel: 'Slack',
+      replyTargetName: thread.contactName || 'Slack thread',
       replyPlaceholder: 'Type a Slack message...',
       replyPlaceholderKey: 'composer.placeholders.slack',
       includeSignature: false,
@@ -225,9 +237,10 @@ export function resolveComposerSurface(
     const name = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel) || 'contact'
     return {
       channel: 'whatsapp',
-      defaultTab: 'reply',
-      tabs: ['reply', 'note'],
+      defaultMode: 'reply',
+      modes: ['reply', 'ask', 'note'],
       replyLabel: 'WhatsApp',
+      replyTargetName: name,
       replyPlaceholder: `Reply on WhatsApp to ${name}...`,
       replyPlaceholderKey: 'composer.placeholders.whatsapp',
       replyPlaceholderParams: { name },
@@ -242,9 +255,10 @@ export function resolveComposerSurface(
   const name = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel) || undefined
   return {
     channel: 'chat',
-    defaultTab: 'reply',
-    tabs: ['reply', 'note'],
+    defaultMode: 'reply',
+    modes: ['reply', 'ask', 'note'],
     replyLabel: 'Chat',
+    replyTargetName: name || thread.contactEmail || '',
     replyPlaceholder: name ? `Reply in chat to ${name}...` : 'Reply in chat...',
     replyPlaceholderKey: name ? 'composer.placeholders.chat' : 'composer.placeholders.chatVisitor',
     replyPlaceholderParams: name ? { name } : undefined,

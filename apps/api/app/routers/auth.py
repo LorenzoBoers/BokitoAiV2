@@ -158,6 +158,7 @@ def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) ->
         "is_staff": is_staff,
         "email_verified": user.email_verified,
         "totp_enabled": user.totp_enabled,
+        "has_password": bool(user.password_hash),
         "email_signature_html": user_signature_html(user),
         "tenant": {"id": str(tenant.id), "slug": tenant.slug, "name": tenant.name},
     }
@@ -496,6 +497,79 @@ async def google_sso_start(
             detail="Google sign-in is not configured on this server.",
         )
     return {"authorize_url": authorize_url}
+
+
+@router.get("/sso/identities")
+async def list_sso_identities(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Linked Google/Microsoft accounts for Profile → Connected accounts."""
+    from app.services import user_identities as identity_svc
+
+    linked = await identity_svc.list_for_user(session, auth.user.id)
+    return identity_svc.identities_status_payload(user=auth.user, linked=linked)
+
+
+@router.get(
+    "/sso/{provider}/link/start",
+    dependencies=[Depends(rate_limit("auth-sso", limit=20))],
+)
+async def sso_link_start(
+    provider: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    return_url: str = "",
+):
+    """Start OAuth to link Google or Microsoft to the current account."""
+    from app.services import user_identities as identity_svc
+    from app.services.oauth_flow import start_real_oauth
+
+    oauth_slug = identity_svc.oauth_slug(provider)
+    if not oauth_slug:
+        raise HTTPException(status_code=400, detail="Unknown SSO provider")
+    target = return_url.strip() or f"{settings.public_app_url.rstrip('/')}/settings/profile"
+    authorize_url = await start_real_oauth(
+        session,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+        provider=oauth_slug,
+        flow="link",
+        return_url=target,
+    )
+    if not authorize_url:
+        raise HTTPException(
+            status_code=503,
+            detail=f"{provider.title()} sign-in is not configured on this server.",
+        )
+    return {"authorize_url": authorize_url}
+
+
+@router.delete("/sso/{provider}")
+async def sso_unlink(
+    provider: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Unlink Google or Microsoft. Blocked when it would leave no login method."""
+    from app.services import user_identities as identity_svc
+
+    try:
+        await identity_svc.unlink(session, user=auth.user, provider=provider)
+    except ValueError as exc:
+        detail = str(exc)
+        if detail == "not_linked":
+            raise HTTPException(status_code=404, detail="Provider is not linked") from exc
+        if detail == "unknown_provider":
+            raise HTTPException(status_code=400, detail="Unknown SSO provider") from exc
+        raise HTTPException(status_code=400, detail=detail) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="Set a password before unlinking your only sign-in method.",
+        ) from exc
+    linked = await identity_svc.list_for_user(session, auth.user.id)
+    return identity_svc.identities_status_payload(user=auth.user, linked=linked)
 
 
 @router.post("/staff-login", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-login", limit=10))])

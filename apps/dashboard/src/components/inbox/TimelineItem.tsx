@@ -13,7 +13,8 @@ import { useTranslation } from 'react-i18next'
 import { formatAppTime } from '../../lib/app-locale'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment } from '../../lib/inbox-api'
+import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment, ThreadId } from '../../lib/inbox-api'
+import { getMessage } from '../../lib/inbox-api'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
 import { AI_PILL_CLASS, AiIconBox, AiMark } from '../ai/AiMark'
 import { BubbleHeader, ChatMessageBubble, type BubbleVariant } from './ChatBubble'
@@ -31,6 +32,8 @@ export type NoteActions = {
 
 type MessageItemProps = {
   message: InboxMessage
+  /** Open thread id — used to lazy-fetch HTML / agent_trace on expand. */
+  threadId?: ThreadId | null
   layout?: MessageLayout
   contactName?: string
   contactEmail?: string
@@ -550,12 +553,83 @@ a { color: #2563eb; }
   )
 }
 
+/**
+ * Mount the heavy sandboxed iframe only near the viewport. Off-screen emails
+ * keep a light text preview so long threads do not hold dozens of iframe
+ * documents + decoded images in memory at once.
+ */
+function LazyEmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
+  const { t } = useTranslation('communication')
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  const [wasVisible, setWasVisible] = useState(false)
+
+  useEffect(() => {
+    const el = hostRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      setWasVisible(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return
+        if (entry.isIntersecting) {
+          setVisible(true)
+          setWasVisible(true)
+        } else if (entry.intersectionRatio === 0) {
+          // Drop the iframe once fully off-screen so memory can reclaim.
+          setVisible(false)
+        }
+      },
+      { rootMargin: '200px 0px', threshold: [0, 0.01] },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const plainPreview = useMemo(() => {
+    const text = html
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim()
+    return text.slice(0, 280)
+  }, [html])
+
+  return (
+    <div ref={hostRef} className="min-h-[4.5rem]">
+      {visible ? (
+        <EmailHtmlFrame html={html} isDark={isDark} />
+      ) : (
+        <div
+          className="rounded-md border border-border/40 bg-bg-elevated/40 px-3 py-2 text-[13px] leading-relaxed text-text-secondary"
+          aria-label={t('timeline.events.emailContent')}
+        >
+          {wasVisible ? (
+            <span className="text-text-muted">{t('timeline.showFullMessage')}</span>
+          ) : plainPreview ? (
+            <span className="line-clamp-4 whitespace-pre-wrap">{plainPreview}</span>
+          ) : (
+            <span className="text-text-muted">{t('timeline.events.emailContent')}</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function MessageHtmlBody({ html }: { html: string }) {
   const { isDark } = useTheme()
   if (isSimpleMessageHtml(html)) {
     return <SimpleMessageHtml html={html} />
   }
-  return <EmailHtmlFrame html={html} isDark={isDark} />
+  return <LazyEmailHtmlFrame html={html} isDark={isDark} />
 }
 
 type MemberNameResolver = (userId: number | null | undefined) => string | undefined
@@ -861,9 +935,49 @@ function MessageFeedbackControls({
   )
 }
 
-export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById, noteActions, agentName }: MessageItemProps) {
+export function MessageTimelineItem({
+  message: messageProp,
+  threadId,
+  layout = 'chat',
+  contactName,
+  contactEmail,
+  contactPhone,
+  membersById,
+  noteActions,
+  agentName,
+}: MessageItemProps) {
   const { t } = useTranslation('communication')
   const { user, token } = useAuth()
+  const [enriched, setEnriched] = useState<Pick<
+    InboxMessage,
+    'bodyHtml' | 'agentTrace' | 'hasHtml' | 'hasAgentTrace'
+  > | null>(null)
+  const [enriching, setEnriching] = useState(false)
+  const message = enriched ? { ...messageProp, ...enriched } : messageProp
+
+  const ensureFullMessage = useCallback(async () => {
+    if (!token || !threadId) return message
+    if (message.agentTrace && (message.bodyHtml || !message.hasHtml)) return message
+    if (enriching) return message
+    setEnriching(true)
+    try {
+      const full = await getMessage(token, threadId, String(message.id))
+      if (!full) return message
+      const next = {
+        bodyHtml: full.bodyHtml,
+        agentTrace: full.agentTrace,
+        hasHtml: full.hasHtml ?? Boolean(full.bodyHtml),
+        hasAgentTrace: full.hasAgentTrace ?? Boolean(full.agentTrace),
+      }
+      setEnriched(next)
+      return { ...message, ...next }
+    } catch {
+      return message
+    } finally {
+      setEnriching(false)
+    }
+  }, [token, threadId, message, enriching])
+
   const currentUserId = user?.id ?? null
   const isInternal = message.direction === 'internal'
   const isOutbound = message.direction === 'outbound'
@@ -938,7 +1052,8 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   const isAgentMessage =
     message.kind === 'agent_message' ||
     Boolean(message.payload?.agent_id) ||
-    Boolean(message.agentTrace)
+    Boolean(message.agentTrace) ||
+    Boolean(message.hasAgentTrace)
 
   const plainBody =
     message.bodyText ||
@@ -1261,7 +1376,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       </div>
     ) : null
 
-  if (!message.agentTrace && !feedbackRow) {
+  if (!message.agentTrace && !message.hasAgentTrace && !feedbackRow) {
     return (
       <div className="group/msg">
         {bubble}
@@ -1279,6 +1394,19 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
           usage={message.agentTrace.usage}
           className={cn(isOwn ? 'ml-auto mr-9' : 'ml-9', 'max-w-[78%]')}
         />
+      ) : message.hasAgentTrace ? (
+        <button
+          type="button"
+          disabled={enriching}
+          onClick={() => void ensureFullMessage()}
+          className={cn(
+            isOwn ? 'ml-auto mr-9' : 'ml-9',
+            'max-w-[78%] inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-text-muted hover:bg-bg-hover hover:text-text-secondary disabled:opacity-60',
+          )}
+        >
+          {enriching ? <Loader2 size={11} className="animate-spin" /> : null}
+          {t('timeline.showActivity')}
+        </button>
       ) : null}
       {bubble}
       {inspectRow}

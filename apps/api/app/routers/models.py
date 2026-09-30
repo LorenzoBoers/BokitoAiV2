@@ -12,7 +12,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.model_catalog import ModelCatalog
 from app.services import model_catalog as catalog_svc
-from app.services import platform_secrets, provider_connections, tenant_model_catalog
+from app.services import platform_secrets, provider_connections, tenant_features, tenant_model_catalog
 from app.services.provider_presets import serialize_presets
 
 router = APIRouter(prefix="/settings", tags=["models"])
@@ -22,6 +22,15 @@ staff_router = APIRouter(prefix="/staff", tags=["staff-models"])
 def _require_staff(auth: AuthContext) -> None:
     if not auth.is_staff:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff only")
+
+
+def _require_custom_models_write(tenant) -> None:
+    """Creating/updating BYOK providers or models needs entitlement + opt-in."""
+    if not tenant_features.custom_models_active(tenant):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Custom models are not enabled for this workspace",
+        )
 
 
 # --- Provider connections ---
@@ -47,6 +56,8 @@ async def list_providers(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    if not tenant_features.custom_models_allowed(auth.tenant):
+        return {"connections": [], "presets": serialize_presets()}
     connections = await provider_connections.list_connections(session, auth.tenant.id)
     return {
         "connections": [provider_connections.serialize_connection(c) for c in connections],
@@ -61,6 +72,7 @@ async def create_provider(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    _require_custom_models_write(auth.tenant)
     try:
         conn = await provider_connections.create_connection(
             session,
@@ -83,6 +95,7 @@ async def update_provider(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    _require_custom_models_write(auth.tenant)
     try:
         conn = await provider_connections.update_connection(
             session,
@@ -105,6 +118,7 @@ async def delete_provider(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    _require_custom_models_write(auth.tenant)
     deleted = await provider_connections.delete_connection(session, auth.tenant.id, connection_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -118,6 +132,8 @@ async def test_provider(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    if not tenant_features.custom_models_allowed(auth.tenant):
+        raise HTTPException(status_code=403, detail="Custom models are not available")
     try:
         return await provider_connections.test_connection(session, auth.tenant.id, connection_id)
     except ValueError as exc:
@@ -193,40 +209,101 @@ async def _managed_ai_status(
     }
 
 
-async def _tenant_models_payload(session: AsyncSession, tenant_id: UUID) -> dict:
-    has_tenant = await tenant_model_catalog.tenant_has_models(session, tenant_id)
-    managed = await _managed_ai_status(session, tenant_id, overridden=has_tenant)
-    if has_tenant:
-        models = await tenant_model_catalog.list_models_with_connections(session, tenant_id)
-        default_chat = next((m["slug"] for m in models if m.get("is_default_chat")), "")
-        default_embedding = next((m["slug"] for m in models if m.get("is_default_embedding")), "")
-        connections = await provider_connections.list_connections(session, tenant_id)
-        return {
-            "source": "tenant",
-            "managed": managed,
-            "models": models,
-            "connections": [provider_connections.serialize_connection(c) for c in connections],
-            "default_chat": default_chat,
-            "default_embedding": default_embedding,
-            "presets": serialize_presets(),
-        }
+async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
+    """Bokito-first payload: managed card always; custom block only when gated."""
+    tenant_id = tenant.id
+    status = tenant_features.custom_models_status(tenant)
+    active = status["active"]
+    has_tenant_rows = await tenant_model_catalog.tenant_has_models(session, tenant_id)
+    managed = await _managed_ai_status(
+        session, tenant_id, overridden=active and has_tenant_rows
+    )
 
-    # Managed default (Bokito AI): platform catalog + platform keys.
-    from app.services import tenant_models, tenant_secrets
-
-    platform_models = await catalog_svc.list_models(session, enabled_only=True)
-    prefs = await tenant_models.get_tenant_model_prefs(session, tenant_id)
-    byok = await tenant_secrets.list_status(session, tenant_id)
-    byok_providers = {row["provider"] for row in byok if row["is_set"]}
-    return {
-        "source": "platform",
-        "managed": managed,
-        "models": [catalog_svc.serialize_model(m) for m in platform_models],
-        "prefs": prefs,
-        "byok": byok,
-        "billable_providers": [p for p in ("anthropic", "openai") if p not in byok_providers],
+    custom_block: dict = {
+        "allowed": status["allowed"],
+        "enabled": status["enabled"],
+        "active": active,
+        "models": [],
+        "connections": [],
         "presets": serialize_presets(),
+        "default_chat": "",
+        "default_embedding": "",
     }
+    if status["allowed"]:
+        connections = await provider_connections.list_connections(session, tenant_id)
+        custom_block["connections"] = [
+            provider_connections.serialize_connection(c) for c in connections
+        ]
+        if active and has_tenant_rows:
+            models = await tenant_model_catalog.list_models_with_connections(session, tenant_id)
+            custom_block["models"] = models
+            custom_block["default_chat"] = next(
+                (m["slug"] for m in models if m.get("is_default_chat")), ""
+            )
+            custom_block["default_embedding"] = next(
+                (m["slug"] for m in models if m.get("is_default_embedding")), ""
+            )
+
+    # Selectable chat list for agent pickers: Bokito only, unless custom is active.
+    selectable = [
+        {
+            "slug": managed["chat"]["slug"],
+            "display_name": managed["chat"]["display_name"],
+            "provider": managed["chat"]["provider"],
+            "kind": "chat",
+            "enabled": True,
+            "model_id": "",
+            "is_default_chat": True,
+            "input_cost_per_mtok_cents": 0,
+            "output_cost_per_mtok_cents": 0,
+        }
+    ]
+    if active:
+        for row in custom_block["models"]:
+            if row.get("kind") == "chat" and row.get("enabled"):
+                selectable.append(row)
+
+    return {
+        "source": "managed" if not active else "tenant",
+        "managed": managed,
+        "custom_models": custom_block,
+        "selectable_chat": selectable,
+        # Backward-compat fields for older clients during rollout.
+        "models": selectable if not active else custom_block["models"],
+        "connections": custom_block["connections"],
+        "presets": custom_block["presets"],
+        "default_chat": (
+            custom_block["default_chat"] or managed["chat"]["slug"]
+        ),
+        "default_embedding": (
+            custom_block["default_embedding"] or managed["embedding"]["slug"]
+        ),
+    }
+
+
+class CustomModelsOptInBody(BaseModel):
+    enabled: bool
+
+
+@router.patch("/models/custom")
+async def patch_custom_models_opt_in(
+    body: CustomModelsOptInBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Tenant opt-in to use own models (requires staff entitlement + env)."""
+    auth.require_role("owner", "admin")
+    try:
+        await tenant_features.set_custom_models_opt_in(
+            session, auth.tenant.id, enabled=body.enabled
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    # Refresh auth.tenant settings from DB for the payload.
+    refreshed = await tenant_features.get_tenant(session, auth.tenant.id)
+    return await _tenant_models_payload(session, refreshed or auth.tenant)
 
 
 @router.get("/models/runtime")
@@ -253,7 +330,7 @@ async def get_tenant_models(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    return await _tenant_models_payload(session, auth.tenant.id)
+    return await _tenant_models_payload(session, auth.tenant)
 
 
 @router.post("/models")
@@ -263,6 +340,7 @@ async def create_tenant_model(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    _require_custom_models_write(auth.tenant)
     if body.enable_presets:
         if not body.connection_id:
             raise HTTPException(status_code=400, detail="connection_id required for preset enable")
@@ -308,6 +386,7 @@ async def update_tenant_model(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    _require_custom_models_write(auth.tenant)
     try:
         model = await tenant_model_catalog.update_model(
             session,
@@ -333,6 +412,7 @@ async def delete_tenant_model(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    _require_custom_models_write(auth.tenant)
     deleted = await tenant_model_catalog.delete_model(session, auth.tenant.id, model_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -380,7 +460,7 @@ async def update_tenant_model_prefs_legacy(
         default_embedding=body.default_embedding,
         allowed_chat=body.allowed_chat,
     )
-    return await _tenant_models_payload(session, auth.tenant.id)
+    return await _tenant_models_payload(session, auth.tenant)
 
 
 # --- Staff: catalog CRUD (platform resale) ---

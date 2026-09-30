@@ -36,6 +36,14 @@ New chats in Communication require a **company agent**. If none are available fo
 3. Set **Autonomy level** on the agent: **Manual — always ask**, **Approval — gated actions**, **Auto — act independently**, or **Workspace default**. This sits at or below the workspace ceiling on [Autonomy](/docs/govern/autonomy).
 4. In **Communication settings**, choose one default agent for each connected channel. A conversation-level agent pin always wins. **Archive** hides an agent and clears its channel defaults; run history stays.
 
+## Managed agents
+
+Some agents are owned by a platform stack or module (for example Trading). They show a **Managed** badge on the library card and the agent detail page.
+
+1. Open **Agents** and find a card with the **Managed** label.
+2. Open the agent. The badge names the owning pack when you hover.
+3. If you **Archive** a managed agent, stack seed/update runs do not bring it back by themselves. Bokito opens a restore Decision in Communication; approve it to return the agent to the library, or reject to keep it archived.
+
 ## Limit who can chat
 
 1. An idle agent shows **Ready**. Open **Communication** on the agent page (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.

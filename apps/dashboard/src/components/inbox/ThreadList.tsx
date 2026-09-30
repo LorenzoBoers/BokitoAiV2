@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Filter, X } from 'lucide-react'
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { listScrollStorageKey } from '../../lib/inbox-ops'
@@ -133,8 +134,9 @@ export default function ThreadList({
     for (const m of members) map.set(String(m.id), m.name || m.email)
     return map
   }, [members])
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const scrollTopRef = useRef(0)
+  const restoredRef = useRef(false)
   const channelOptions = useMemo(() => {
     // One option per display kind; prefer the canonical channel string when present
     // so filters match stored Signal.channel values (widget vs customer_widget).
@@ -151,40 +153,96 @@ export default function ThreadList({
   }, [allThreads])
 
   useEffect(() => {
-    const el = scrollRef.current
-    if (!el || !scrollKey) return
+    restoredRef.current = false
+    if (!scrollKey) return
     const key = listScrollStorageKey(scrollKey)
     try {
       const saved = sessionStorage.getItem(key)
-      if (saved) el.scrollTop = Number(saved) || 0
+      scrollTopRef.current = Number(saved) || 0
+    } catch {
+      scrollTopRef.current = 0
+    }
+  }, [scrollKey])
+
+  const handleRangeChanged = useCallback(() => {
+    if (!scrollKey) return
+    const key = listScrollStorageKey(scrollKey)
+    try {
+      sessionStorage.setItem(key, String(scrollTopRef.current))
     } catch {
       // ignore
     }
-    const onScroll = () => {
-      try {
-        sessionStorage.setItem(key, String(el.scrollTop))
-      } catch {
-        // ignore
-      }
-    }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
   }, [scrollKey])
 
-  useEffect(() => {
-    if (!onLoadMore || !hasMore) return
-    const node = sentinelRef.current
-    const root = scrollRef.current
-    if (!node || !root) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !loadingMore) onLoadMore()
-      },
-      { root, rootMargin: '120px' },
+  const renderItem = useCallback(
+    (index: number, thread: InboxThread) => (
+      <div className={cn(density === 'compact' ? 'pb-0' : 'pb-0.5')}>
+        <ThreadListItem
+          thread={thread}
+          isSelected={String(thread.id) === String(selectedId)}
+          onSelect={onSelectThread}
+          onMarkRead={onMarkRead}
+          onMarkUnread={onMarkUnread}
+          onTogglePin={onTogglePin}
+          onSnooze={onSnooze}
+          onClose={onClose}
+          onDelete={onDelete}
+          deleting={String(deletingThreadId) === String(thread.id)}
+          variant={variant}
+          checked={bulkSelectedIds?.has(String(thread.id))}
+          onToggleChecked={onToggleBulkSelect}
+          selectionActive={selectionActive}
+          assigneeName={
+            thread.assignedToUserId != null
+              ? memberNames.get(String(thread.assignedToUserId)) ?? null
+              : null
+          }
+          compact={density === 'compact'}
+          enterIndex={index}
+        />
+      </div>
+    ),
+    [
+      density,
+      selectedId,
+      onSelectThread,
+      onMarkRead,
+      onMarkUnread,
+      onTogglePin,
+      onSnooze,
+      onClose,
+      onDelete,
+      deletingThreadId,
+      variant,
+      bulkSelectedIds,
+      onToggleBulkSelect,
+      selectionActive,
+      memberNames,
+    ],
+  )
+
+  const footer = useCallback(() => {
+    if (!hasMore || !onLoadMore || threads.length === 0) return null
+    return (
+      <button
+        type="button"
+        onClick={onLoadMore}
+        disabled={loadingMore}
+        className="mt-1 mb-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+      >
+        {loadingMore ? (
+          <span className="inline-flex items-center justify-center gap-2">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border border-border border-t-accent" />
+            {t('threadList.loadingMore')}
+          </span>
+        ) : total != null ? (
+          t('threadList.loadMoreOf', { loaded: allThreads.length, total })
+        ) : (
+          t('threadList.loadMore')
+        )}
+      </button>
     )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [onLoadMore, hasMore, loadingMore, threads.length])
+  }, [hasMore, onLoadMore, threads.length, loadingMore, t, total, allThreads.length])
 
   return (
     <div
@@ -241,13 +299,12 @@ export default function ThreadList({
       ) : null}
 
       <div
-        ref={scrollRef}
         title={
           !hasMore && total != null && total > 0 && threads.length > 0 && allThreads.length >= total
             ? t('threadList.allLoaded', { total })
             : undefined
         }
-        className={cn('flex-1 overflow-y-auto min-h-0 p-1.5', density === 'compact' ? 'space-y-0' : 'space-y-0.5')}
+        className="flex min-h-0 flex-1 flex-col p-1.5"
       >
         {threads.length === 0 ? (
           loading ? (
@@ -292,53 +349,32 @@ export default function ThreadList({
             </div>
           )
         ) : (
-          threads.map((thread, index) => (
-            <ThreadListItem
-              key={thread.id}
-              thread={thread}
-              isSelected={String(thread.id) === String(selectedId)}
-              onSelect={onSelectThread}
-              onMarkRead={onMarkRead}
-              onMarkUnread={onMarkUnread}
-              onTogglePin={onTogglePin}
-              onSnooze={onSnooze}
-              onClose={onClose}
-              onDelete={onDelete}
-              deleting={String(deletingThreadId) === String(thread.id)}
-              variant={variant}
-              checked={bulkSelectedIds?.has(String(thread.id))}
-              onToggleChecked={onToggleBulkSelect}
-              selectionActive={selectionActive}
-              assigneeName={
-                thread.assignedToUserId != null
-                  ? memberNames.get(String(thread.assignedToUserId)) ?? null
-                  : null
+          <Virtuoso
+            ref={virtuosoRef}
+            className="h-full"
+            data={threads}
+            computeItemKey={(_index, thread) => String(thread.id)}
+            itemContent={renderItem}
+            endReached={() => {
+              if (hasMore && onLoadMore && !loadingMore) onLoadMore()
+            }}
+            increaseViewportBy={200}
+            components={{ Footer: footer }}
+            scrollerRef={(ref) => {
+              if (ref && !restoredRef.current && scrollTopRef.current > 0) {
+                restoredRef.current = true
+                const el = ref as HTMLElement
+                requestAnimationFrame(() => {
+                  el.scrollTop = scrollTopRef.current
+                })
               }
-              compact={density === 'compact'}
-              enterIndex={index}
-            />
-          ))
+            }}
+            onScroll={(e) => {
+              scrollTopRef.current = (e.target as HTMLElement).scrollTop
+              handleRangeChanged()
+            }}
+          />
         )}
-        {hasMore && onLoadMore && threads.length > 0 ? <div ref={sentinelRef} className="h-4" /> : null}
-        {hasMore && onLoadMore && threads.length > 0 ? (
-          <button
-            type="button"
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            className="mt-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
-          >
-            {loadingMore ? (
-              <span className="inline-flex items-center justify-center gap-2">
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border border-border border-t-accent" />
-                {t('threadList.loadingMore')}
-              </span>
-            ) : total != null ? (
-              t('threadList.loadMoreOf', { loaded: allThreads.length, total })
-            ) : (
-              t('threadList.loadMore')
-            )}
-          </button>
-        ) : null}
       </div>
     </div>
   )

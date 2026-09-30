@@ -19,7 +19,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import type { ComposerSurface, ComposerTab } from '../../lib/message-composer'
+import type { ComposerSurface, ComposerMode } from '../../lib/message-composer'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { listChannels, type ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
@@ -42,8 +42,7 @@ import MentionPopover from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
 import MessageAttachments from './MessageAttachments'
 
-/** Composer mode: customer reply, team internal, or sticky agent meta. */
-export type ComposerMode = 'reply' | 'note' | 'agent'
+export type { ComposerMode }
 
 type Props = {
   surface: ComposerSurface
@@ -71,12 +70,12 @@ type Props = {
   mentionExtras?: MentionItem[]
   /** Called when a mention is inserted (e.g. to invoke an agent on send). */
   onMentionInserted?: (item: MentionItem) => void
-  /** Controlled mode from the thread (agent sticky while session active). */
+  /** Controlled mode from the thread (ask sticky while an AI turn is active). */
   mode?: ComposerMode
   onModeChange?: (mode: ComposerMode) => void
   /** Slash verbs (/assign, /signal, …). Return true when handled. */
   onVerb?: (verb: import('../../lib/composer-verbs').ParsedComposerVerb) => Promise<boolean> | boolean
-  /** Active meta agent label for the agent tab. */
+  /** Active AI label for the Ask chip. */
   agentModeName?: string | null
   /** Stable id (thread id) to persist unsent drafts across thread switches. */
   persistKey?: string | null
@@ -90,6 +89,11 @@ type Props = {
   lastInboundText?: string | null
   /** Bound mailbox UUID for email threads (default From). */
   channelAccountId?: string | null
+  /** Open AI reply proposal loaded into the composer (Verstuur / Bewerk / Weg). */
+  proposal?: {
+    decisionMessageId: string
+    onDismiss: () => void | Promise<void>
+  } | null
 }
 
 const draftStorageKey = (persistKey: string) => `inbox.draft.${persistKey}`
@@ -136,6 +140,7 @@ export default function ReplyComposer({
   suggestedCc,
   lastInboundText,
   channelAccountId: boundChannelAccountId,
+  proposal = null,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -143,10 +148,9 @@ export default function ReplyComposer({
   const [selectedChannelAccountId, setSelectedChannelAccountId] = useState<string | null>(
     boundChannelAccountId ?? null,
   )
-  const [uncontrolledTab, setUncontrolledTab] = useState<ComposerTab>(surface.defaultTab)
+  const [uncontrolledMode, setUncontrolledMode] = useState<ComposerMode>(surface.defaultMode)
   const [dictationInterim, setDictationInterim] = useState('')
-  const mode: ComposerMode =
-    modeProp ?? (uncontrolledTab === 'note' ? 'note' : 'reply')
+  const mode: ComposerMode = modeProp ?? uncontrolledMode
   const setMode = (next: ComposerMode) => {
     if (next === 'reply' && mode !== 'reply') {
       // Structured mentions become plain @Name when returning to customer reply.
@@ -154,7 +158,7 @@ export default function ReplyComposer({
     }
     onModeChange?.(next)
     if (modeProp === undefined) {
-      setUncontrolledTab(next === 'reply' ? 'reply' : 'note')
+      setUncontrolledMode(next)
     }
   }
   // `body` keeps the raw mention markup (storage/API format); the textarea
@@ -242,7 +246,15 @@ export default function ReplyComposer({
   const replyTabLabel =
     surface.channel === 'email' && selectedMailbox
       ? mailboxDisplayLabel(selectedMailbox.displayName || selectedMailbox.label, selectedMailbox.address)
-      : t('composer.tabReply')
+      : surface.replyTargetName
+        ? t('composer.tabReplyTo', {
+            name: surface.replyTargetName,
+            defaultValue: `Reply to ${surface.replyTargetName}`,
+          })
+        : t('composer.tabReply')
+  const replyTooltip = t('composer.tabHintReply')
+  const noteTooltip = t('composer.tabHintNote')
+  const askTooltip = t('composer.tabHintAsk')
 
   const refreshMentionState = (value: string, caret: number) => {
     const next = activeMentionQuery(value, caret)
@@ -260,7 +272,7 @@ export default function ReplyComposer({
     setMentionIndex(0)
     // Selecting a mention is intentional: switch toward Intern (parent may
     // promote agent mentions further into agent mode).
-    if (mode === 'reply') setMode(item.type === 'agent' ? 'agent' : 'note')
+    if (mode === 'reply') setMode(item.type === 'agent' ? 'ask' : 'note')
     onMentionInserted?.(item)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
@@ -281,7 +293,7 @@ export default function ReplyComposer({
     // blocked the Reply tab shows the connect-mailbox notice — do not
     // silently dump the operator on Intern.
     if (modeProp === undefined) {
-      setUncontrolledTab(surface.defaultTab)
+      setUncontrolledMode(surface.defaultMode)
     }
     const stored = parseComposerDraft(readStoredDraft(persistKey))
     setBody(stored.body)
@@ -290,7 +302,7 @@ export default function ReplyComposer({
     setCcBccOpen(Boolean(stored.cc || stored.bcc))
     setDraftRestored(Boolean(stored.body || stored.cc || stored.bcc))
     setAttachments([])
-  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, surface.tabs, modeProp])
+  }, [surface.channel, surface.defaultMode, surface.recipientValue, persistKey, surface.modes, modeProp])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {
@@ -352,15 +364,16 @@ export default function ReplyComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- draftKey drives re-apply
   }, [draftKey, draftBody, agentStreaming])
 
-  const showReplyTab = surface.tabs.includes('reply')
-  const showNoteTab = surface.tabs.includes('note')
-  // One agent control: the tab. Session starts on first send (parent), not on click.
-  const showAgentTab = Boolean(onAgentMessage)
+  const showReplyTab = surface.modes.includes('reply')
+  const showNoteTab = surface.modes.includes('note')
+  // Ask AI: first send starts the session (parent), not the chip click.
+  const showAskTab = surface.modes.includes('ask') && Boolean(onAgentMessage)
   const showCustomerActions =
     showReplyTab && surface.channel !== 'internal' && surface.channel !== 'assistant'
   const isNote = mode === 'note'
-  const isAgent = mode === 'agent'
+  const isAsk = mode === 'ask'
   const isReply = mode === 'reply'
+  const isProposal = Boolean(proposal?.decisionMessageId) && isReply
   const busy = saving
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
@@ -394,7 +407,7 @@ export default function ReplyComposer({
 
     const payload = attachments.length ? attachments : undefined
     try {
-      if (isAgent) {
+      if (isAsk) {
         if (!onAgentMessage) return
         // Clear immediately so Enter cannot triple-submit the same body.
         setBody('')
@@ -430,7 +443,7 @@ export default function ReplyComposer({
       toast.error(
         formatApiErrorMessage(
           err,
-          isNote || isAgent ? t('composer.saveNoteError') : t('composer.sendError'),
+          isNote || isAsk ? t('composer.saveNoteError') : t('composer.sendError'),
         ),
       )
     }
@@ -492,10 +505,14 @@ export default function ReplyComposer({
   }
 
   const channelLabel = t(`composer.channel.${surface.channel}`, { defaultValue: surface.replyLabel })
-  const replyTooltip = t('composer.channelTooltip', {
-    channel: channelLabel,
-    detail: surface.recipientValue ? ` · ${surface.recipientValue}` : '',
-  })
+  // Keep channelLabel for email mailbox chip title when picking a From address.
+  const mailboxTooltip =
+    surface.channel === 'email'
+      ? t('composer.channelTooltip', {
+          channel: channelLabel,
+          detail: surface.recipientValue ? ` · ${surface.recipientValue}` : '',
+        })
+      : replyTooltip
   const recipientLabel = t(
     surface.recipientLabel === 'To'
       ? 'composer.recipient.to'
@@ -581,7 +598,7 @@ export default function ReplyComposer({
               <button
                 type="button"
                 onClick={() => setMode('reply')}
-                title={replyTooltip}
+                title={canPickMailbox ? mailboxTooltip : replyTooltip}
                 className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                   isReply
                     ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
@@ -604,7 +621,7 @@ export default function ReplyComposer({
             <button
               type="button"
               onClick={() => setMode('note')}
-              title={t('composer.tabHintNote')}
+              title={noteTooltip}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 isNote
                   ? 'bg-bg-elevated text-text-primary font-semibold ring-1 ring-border/70'
@@ -615,25 +632,59 @@ export default function ReplyComposer({
               {t('composer.tabNote')}
             </button>
           ) : null}
-          {showAgentTab ? (
+          {showAskTab ? (
             <button
               type="button"
-              onClick={() => setMode('agent')}
-              title={t('composer.tabHintAgent')}
+              onClick={() => setMode('ask')}
+              title={askTooltip}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                isAgent
+                isAsk
                   ? 'border border-ai/30 bg-ai/10 font-semibold text-ai-ink'
                   : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink'
               }`}
             >
               <AiMark size={11} />
-              {t('composer.tabAgent', { name: agentModeName || t('agentSession.title') })}
+              {t('composer.tabAsk', {
+                name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
+              })}
             </button>
           ) : null}
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
 
-        {/* Only on Reply — Intern/Agent already work; repeating the mailbox banner there feels broken. */}
+        {isProposal && proposal ? (
+          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ai/25 bg-ai/10 px-2.5 py-1.5">
+            <p className="text-[11px] text-ai-ink">{t('composer.proposalBanner')}</p>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={busy || disabled}
+                onClick={() => void handleSubmit('send')}
+                className="rounded-md bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+              >
+                {t('composer.proposalSend')}
+              </button>
+              <button
+                type="button"
+                disabled={busy || disabled}
+                onClick={() => requestAnimationFrame(() => textareaRef.current?.focus())}
+                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40"
+              >
+                {t('composer.proposalEdit')}
+              </button>
+              <button
+                type="button"
+                disabled={busy || disabled}
+                onClick={() => void proposal.onDismiss()}
+                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-muted hover:text-text-primary"
+              >
+                {t('composer.proposalDismiss')}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Only on Reply — Intern/Ask already work; repeating the mailbox banner there feels broken. */}
         {replyBlocked && isReply ? (
           <div className="space-y-2 rounded-xl border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[12px] text-text-secondary">
             {replyDisabledNotice}
@@ -649,7 +700,7 @@ export default function ReplyComposer({
           </div>
         ) : null}
 
-        {!isNote && !isAgent && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
+        {!isNote && !isAsk && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
           <div
             className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]"
             title={surface.includeSignature ? t('composer.withSignature') : undefined}
@@ -751,11 +802,11 @@ export default function ReplyComposer({
           </div>
         ) : null}
 
-        {!isNote && !isAgent && replyBlocked ? null : (
+        {!isNote && !isAsk && replyBlocked ? null : (
         <ComposerCard
           ref={textareaRef}
           id="inbox-reply-composer"
-          mode={isNote || isAgent ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
+          mode={isNote || isAsk ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
           value={composerValue}
           readOnly={dictation.listening}
           onChange={(e) => {
@@ -782,9 +833,9 @@ export default function ReplyComposer({
           placeholder={
             dictation.listening
               ? t('composer.dictationListening')
-              : isAgent
-                ? t('composer.agentPlaceholder', {
-                    name: agentModeName || t('agentSession.title'),
+              : isAsk
+                ? t('composer.askPlaceholder', {
+                    name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
                   })
                 : isNote
                   ? t('composer.notePlaceholder')
@@ -794,7 +845,7 @@ export default function ReplyComposer({
                     })
           }
           className={
-            isAgent
+            isAsk
               ? 'border-border/60 border-l-[3px] border-l-ai/50 bg-bg-surface'
               : isNote
                 ? 'border-border/70 border-l-[3px] border-l-border bg-bg-elevated/40'
@@ -818,7 +869,7 @@ export default function ReplyComposer({
             className="hidden"
             onChange={(e) => void onPickFiles(e.target.files)}
           />
-          {!isNote && !isAgent && showWriteAssist && threadIdForAi ? (
+          {!isNote && !isAsk && showWriteAssist && threadIdForAi ? (
             <ComposerWriteAssist
               threadId={threadIdForAi}
               body={body}
@@ -849,15 +900,15 @@ export default function ReplyComposer({
             <Paperclip size={14} />
           </button>
           <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-xl">
-            {isAgent && agentStreaming ? (
+            {isAsk && agentStreaming ? (
               <button
                 type="button"
                 onClick={() => onStopAgent?.()}
-                title={t('directChat.stop', { defaultValue: 'Stop' })}
+                title={t('composer.stop', { defaultValue: 'Stop' })}
                 className="flex h-8 items-center justify-center gap-1.5 rounded-xl bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover/80"
               >
                 <Square size={13} />
-                <span className="text-[11px] font-medium">{t('directChat.stop', { defaultValue: 'Stop' })}</span>
+                <span className="text-[11px] font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
               </button>
             ) : null}
             <button
@@ -865,8 +916,10 @@ export default function ReplyComposer({
               disabled={(!body.trim() && attachments.length === 0) || busy || disabled || uploading}
               onClick={() => void handleSubmit('send')}
               title={
-                isAgent
-                  ? t('composer.sendAgent', { name: agentModeName || t('agentSession.title') })
+                isAsk
+                  ? t('composer.sendAsk', {
+                      name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
+                    })
                   : isNote
                     ? t('composer.sendIntern')
                     : surface.channel === 'email'
@@ -874,14 +927,14 @@ export default function ReplyComposer({
                       : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
               }
               className={`flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40 ${
-                isAgent
+                isAsk
                   ? 'bg-ai text-ai-fg hover:opacity-90'
                   : isNote
                     ? 'bg-bg-elevated text-text-primary ring-1 ring-border/70 hover:bg-bg-hover'
                     : 'bg-accent text-accent-fg hover:bg-accent-hover'
               } ${isReply && showCustomerActions ? 'rounded-none' : 'rounded-xl'}`}
             >
-              {isAgent ? <AiMark size={13} /> : isNote ? <StickyNote size={13} /> : <Send size={13} />}
+              {isAsk ? <AiMark size={13} /> : isNote ? <StickyNote size={13} /> : <Send size={13} />}
               {isReply && surface.channel === 'email' ? (
                 <span className="text-[10px] font-medium opacity-90">{t('composer.sendShortcut')}</span>
               ) : null}

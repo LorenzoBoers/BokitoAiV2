@@ -112,18 +112,34 @@ export function NavBadgeProvider({ children }: { children: ReactNode }) {
   }, [token, refresh])
 
   // Live updates: any thread/message/decision event refreshes the badges (debounced).
+  // Prefer local patches from thread rows (unread flips) to avoid HTTP storms.
   useEffect(() => {
     if (!token) return
     let debounceTimer: number | null = null
-    const trigger = () => {
+    const scheduleHttpRefresh = () => {
       if (debounceTimer !== null) return
       debounceTimer = window.setTimeout(() => {
         debounceTimer = null
         void refresh()
       }, GATEWAY_DEBOUNCE_MS)
     }
-    const unsubThreads = onGatewayEvent('threads', trigger)
-    const unsubDecisions = onGatewayEvent('decisions', trigger)
+    const unsubThreads = onGatewayEvent('threads', (event) => {
+      if (event.event === 'message' || event.event === 'thread') {
+        const data = event.data as Record<string, unknown>
+        const thread = (data.thread ?? data) as Record<string, unknown>
+        const hasUnread = Boolean(thread.has_unread)
+        const status = String(thread.status ?? '')
+        const assigned = thread.assigned_to_user_id
+        // Conservative local nudge: if we can tell a thread left open+unread,
+        // schedule a full refresh rather than inventing per-queue math.
+        if (status === 'closed' || status === 'spam' || !hasUnread || assigned != null) {
+          scheduleHttpRefresh()
+          return
+        }
+      }
+      scheduleHttpRefresh()
+    })
+    const unsubDecisions = onGatewayEvent('decisions', scheduleHttpRefresh)
     return () => {
       unsubThreads()
       unsubDecisions()

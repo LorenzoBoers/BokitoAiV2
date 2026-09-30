@@ -1,36 +1,36 @@
 ---
-title: Modellen kiezen
-intro: Kies welke taal- en embeddingmodellen deze workspace mag gebruiken.
-description: Kies welke AI-modellen je workspace aandrijven en koppel je eigen providerkeys.
-keywords: modellen, llm, providers, byok, api-keys, verbruik
+title: Modellen
+intro: Bokito AI draait standaard je workspace. Eigen modellen zijn een optionele uitzondering.
+description: Gebruik beheerde Bokito AI, of koppel eigen providersleutels wanneer je workspace dat mag.
+keywords: modellen, llm, providers, byok, api-keys, bokito ai, verbruik
 sort: 30
 related: govern,agents,integrations
 ---
 
-# Modellen kiezen
+# Modellen
 
-Providers en modellen staan onder **Instellingen** en daarna **Providers en modellen**. Verbruik blijft zichtbaar op Cockpit **Verbruik**.
+Modellen staan onder **Instellingen** en daarna **Modellen**. Verbruik blijft zichtbaar op Cockpit **Verbruik**.
 
-## Zet een workspacemodel aan
+## Gebruik Bokito AI
 
 ![Modelinstellingen](/api/docs/assets/models/catalog.png)
-*Zet de chat- en embeddingmodellen aan die deze workspace nodig heeft.*
+*Bokito AI is de standaard beheerde intelligentie voor de workspace.*
 
-1. Open **Instellingen** en daarna **Providers en modellen**. De kaart **Bokito AI** is standaard **Actief**: Bokito kiest chat- en embeddingmodellen. Verbruik telt mee voor het workspacebudget.
-2. Zet extra chat- en embeddingmodellen aan. Op een provider die je zelf toevoegde gebruik je **Voorgestelde modellen inschakelen** (eerst bevestigen) of een eigen model. Filter de lijst, kopieer een model-id, en lees **Lage kosten** / **Gemiddelde kosten** / **Hoge kosten** (hover voor prijs per miljoen).
-3. Open een [agent](/docs/ai/agents) en bevestig of overschrijf het model. De agentpagina linkt **Providers en modellen openen**.
+1. Open **Instellingen** en daarna **Modellen**. De kaart **Bokito AI** toont **Actief** wanneer de platformsleutel live is.
+2. Laat agents op Bokito AI staan tenzij je eigen sleutels nodig hebt. Verbruik wordt gemeten voor deze workspace en telt mee voor het budget.
+3. Open een [agent](/docs/ai/agents) om het model te bevestigen. De kiezer toont alleen Bokito AI totdat eigen modellen zijn toegestaan en aangezet.
 
-## Voeg je eigen key toe
+## Voeg een eigen model toe (wanneer gerechtigd)
 
-1. Blijf op Providers en modellen. Onder **Eigen providers** kies je **Provider toevoegen**.
-2. Kies een **Providertype**, plak een **API-sleutel** (tonen of verbergen), en optioneel een **Label** of **Basis-URL** (voor OpenAI-compatibele endpoints). Druk op Enter of **Provider opslaan**, daarna **Testen**. Een werkende sleutel toont **Verbinding OK** in groen en **Sleutel ingesteld ····** plus de laatste vier tekens. **Verwijderen** vraagt om bevestiging.
-3. Modellen op je sleutels gaan voor op Bokito AI; de kaart Bokito AI toont dan **Stand-by**. De provider factureert die calls. Verwijder de sleutels en Bokito AI is weer de fallback.
+1. Eigen modellen verschijnen alleen wanneer zowel de platformfeature als je workspace-entitlement aan staan. Anders zie je een korte notitie **Eigen sleutels op aanvraag**.
+2. Zet **Gebruik eigen modellen** aan en kies **Model toevoegen**. Kies een provider (Anthropic, OpenAI of OpenAI-compatibel), plak een **API-sleutel**, en kies **Opslaan en testen**.
+3. Kies een voorgesteld model of vul een eigen model-id in, en sla op. Je modellen verschijnen in agent-kiezers en worden door de provider gefactureerd. Bokito AI blijft de fallback wanneer je eigen modellen uitzet of verwijdert.
 
 ## Als AI zonder live sleutel draait
 
-1. Open **Instellingen** en daarna **Providers en modellen**. Toont Bokito AI **Niet geconfigureerd**, dan draaien calls in mock-modus.
+1. Open **Instellingen** en daarna **Modellen**. Toont Bokito AI **Niet geconfigureerd**, dan draaien calls in mock-modus.
 2. Een workspacebanner legt uit dat antwoorden tijdelijke placeholders zijn en niet naar klanten gaan. De tijdlijn toont die bubbels als tijdelijk, nooit als **Verstuurd naar de klant**.
-3. Voeg een platform- of providersleutel toe (of activeer Bokito AI) voordat je **Autonoom** kiest op [Govern](/docs/govern/autonomy).
+3. Neem contact op met Bokito-support (of schakel eigen modellen in met je eigen sleutel wanneer gerechtigd) voordat je **Autonoom** kiest op [Govern](/docs/govern/autonomy).
 
 ## Verbruik omzeilt geen goedkeuring
 
@@ -38,4 +38,4 @@ Tokenbudgetten zitten op Cockpit **Verbruik** (dagelijks tokenplafond en maandel
 
 ## Wat nu
 
-Bevestig dat een chatmodel aan staat, en kijk daarna naar **Verbruik** op de [Cockpit](/docs/getting-started/cockpit).
+Bevestig dat Bokito AI Actief is, en kijk daarna naar **Verbruik** op de [Cockpit](/docs/getting-started/cockpit).

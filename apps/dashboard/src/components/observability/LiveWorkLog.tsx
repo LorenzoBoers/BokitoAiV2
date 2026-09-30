@@ -18,6 +18,18 @@ import { humanizeModelId } from '../../lib/model-label'
 import { workLogStatusLabel } from '../../lib/status-labels'
 import { agentRunsPath } from '../../lib/messages-paths'
 
+/** Keep the live buffer bounded — long runs otherwise grow forever in RAM. */
+const MAX_EVENTS = 500
+
+function appendCapped(prev: WorkLogEvent[], next: WorkLogEvent): WorkLogEvent[] {
+  const merged = [...prev, next]
+  return merged.length > MAX_EVENTS ? merged.slice(-MAX_EVENTS) : merged
+}
+
+function trimEvents(events: WorkLogEvent[]): WorkLogEvent[] {
+  return events.length > MAX_EVENTS ? events.slice(-MAX_EVENTS) : events
+}
+
 type Props = {
   workLogId: string
 }
@@ -48,10 +60,14 @@ export function LiveWorkLog({ workLogId }: Props) {
       if (ev.type === 'done' && typeof ev.payload === 'undefined') {
         return
       }
-      setEvents((prev) => [
-        ...prev,
-        { type: ev.type, title: ev.message || ev.type, body: ev.message, payload: ev.payload },
-      ])
+      setEvents((prev) =>
+        appendCapped(prev, {
+          type: ev.type,
+          title: ev.message || ev.type,
+          body: ev.message,
+          payload: ev.payload,
+        }),
+      )
     }
 
     const startGatewayStream = (lastSeq: number) => {
@@ -81,7 +97,7 @@ export function LiveWorkLog({ workLogId }: Props) {
       try {
         const data = await fetchWorkLogEvents(workLogId)
         if (cancelled) return
-        setEvents(data.events ?? [])
+        setEvents(trimEvents(data.events ?? []))
         setStatus(data.status ?? null)
         setTaskSubject(data.task_subject ?? null)
         setTokensUsed(data.tokens_used ?? null)
@@ -100,12 +116,14 @@ export function LiveWorkLog({ workLogId }: Props) {
         const orch = await fetchRunEvents(workLogId)
         if (cancelled) return
         setEvents(
-          orch.events.map((ev) => ({
-            type: ev.type,
-            title: ev.message || ev.type,
-            body: ev.message,
-            payload: ev.payload,
-          })),
+          trimEvents(
+            orch.events.map((ev) => ({
+              type: ev.type,
+              title: ev.message || ev.type,
+              body: ev.message,
+              payload: ev.payload,
+            })),
+          ),
         )
         setStatus(orch.status as WorkLogStatus)
         setRuntimeModel(typeof orch.runtime_snapshot?.model === 'string' ? orch.runtime_snapshot.model : null)

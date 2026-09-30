@@ -137,6 +137,9 @@ def serialize_runtime_agent(
     payload["email_signature_html"] = agent_signature_html(agent)
     payload["reply_send_as"] = agent_reply_send_as(agent)
     payload.update(avatar_payload(agent))
+    from app.services.managed_resources import management_payload
+
+    payload.update(management_payload(agent))
     return payload
 
 

@@ -120,6 +120,8 @@ interface User {
   emailVerified: boolean;
   /** TOTP two-factor authentication enrolled and active. */
   totpEnabled: boolean;
+  /** False for SSO-only accounts that have not set a password yet. */
+  hasPassword: boolean;
   tenant: Tenant;
   memberships: TenantMembership[];
   /** Channel kinds parked platform-wide; their connect surfaces stay hidden. */
@@ -173,7 +175,7 @@ interface AuthContextValue {
   hasPermission: (action: PermissionAction) => boolean;
   setUserRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
-  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled'>>) => void;
+  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled' | 'hasPassword'>>) => void;
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
   isStaff: boolean;
@@ -322,6 +324,7 @@ function normalizeAuthUser(raw: unknown): User {
     isStaff: Boolean(payload.is_staff),
     emailVerified: Boolean(payload.email_verified),
     totpEnabled: Boolean(payload.totp_enabled),
+    hasPassword: Boolean(payload.has_password),
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
@@ -733,7 +736,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token]);
 
-  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled'>>) => {
+  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled' | 'hasPassword'>>) => {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 

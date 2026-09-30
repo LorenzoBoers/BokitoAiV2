@@ -127,6 +127,10 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
     hasOpenDecision: Boolean(raw.has_open_decision),
     isPinned: Boolean(raw.is_pinned),
     aiPaused: Boolean(raw.ai_paused),
+    aiMode: (() => {
+      const mode = asString(raw.ai_mode)
+      return mode === 'suggest' || mode === 'auto' || mode === 'off' ? mode : null
+    })(),
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
       : [],
@@ -169,6 +173,9 @@ export function normalizeSignalMessage(row: unknown): InboxMessage | null {
     bodyPreview: asString(raw.body_preview ?? raw.body_text),
     bodyText: asString(raw.body_text),
     bodyHtml: typeof raw.body_html === 'string' ? raw.body_html : null,
+    hasHtml:
+      raw.has_html === true ||
+      (typeof raw.body_html === 'string' && raw.body_html.trim().length > 0),
     graphMessageId: asString(raw.graph_message_id ?? raw.external_id),
     inReplyTo: null,
     authorUserId:
@@ -179,6 +186,7 @@ export function normalizeSignalMessage(row: unknown): InboxMessage | null {
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
     myFeedback: normalizeMyFeedback(raw),
+    hasAgentTrace: raw.has_agent_trace === true || Boolean(normalizeAgentTrace(raw)),
     agentTrace: normalizeAgentTrace(raw),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asString(raw.created_at),
@@ -371,17 +379,40 @@ export async function discardAgentSession(
   await apiDelete<unknown>(appRoutes.signals.threadSession(threadId, sessionId), token)
 }
 
-export async function getSignalThread(token: string, threadId: string): Promise<ThreadDetail | null> {
+/** Full message payload (HTML + agent_trace) for lazy expand on the timeline. */
+export async function getSignalMessage(
+  token: string,
+  threadId: string,
+  messageId: string,
+): Promise<InboxMessage | null> {
+  const payload = await apiGet<unknown>(
+    appRoutes.signals.threadMessage(threadId, messageId),
+    token,
+  )
+  return normalizeSignalMessage(payload)
+}
+
+export async function getSignalThread(
+  token: string,
+  threadId: string,
+  opts?: { limit?: number; before?: string },
+): Promise<ThreadDetail | null> {
+  const params = new URLSearchParams()
+  if (opts?.limit != null) params.set('limit', String(opts.limit))
+  if (opts?.before) params.set('before', opts.before)
+  const qs = params.toString()
+  const path = qs
+    ? `${appRoutes.signals.thread(threadId)}?${qs}`
+    : appRoutes.signals.thread(threadId)
   const payload = await apiGet<{
     thread?: unknown
     messages?: unknown[]
     events?: unknown[]
     sessions?: unknown[]
     csat?: { score?: unknown; comment?: unknown; created_at?: unknown } | null
-  }>(
-    appRoutes.signals.thread(threadId),
-    token,
-  )
+    has_older?: unknown
+    oldest_message_id?: unknown
+  }>(path, token)
   const thread = normalizeSignalThread(payload.thread)
   if (!thread) return null
   const csat =
@@ -392,14 +423,24 @@ export async function getSignalThread(token: string, threadId: string): Promise<
           created_at: typeof payload.csat.created_at === 'string' ? payload.csat.created_at : '',
         }
       : null
+  const messages = (payload.messages ?? [])
+    .map(normalizeSignalMessage)
+    .filter((m): m is InboxMessage => m !== null)
   return {
     thread,
-    messages: (payload.messages ?? []).map(normalizeSignalMessage).filter((m): m is InboxMessage => m !== null),
+    messages,
     events: (payload.events ?? []).map(normalizeSignalEvent).filter((e): e is InboxEvent => e !== null),
     sessions: (payload.sessions ?? [])
       .map(normalizeThreadSession)
       .filter((s): s is ThreadSession => s !== null),
     csat,
+    hasOlder: Boolean(payload.has_older),
+    oldestMessageId:
+      typeof payload.oldest_message_id === 'string'
+        ? payload.oldest_message_id
+        : messages[0]
+          ? String(messages[0].id)
+          : null,
   }
 }
 
@@ -1032,7 +1073,12 @@ export async function bokitoDeleteConversation(token: string, conversationId: st
 }
 
 export async function bokitoListMessages(token: string, conversationId: string) {
-  return apiGet<ChatMessage[]>(appRoutes.signals.conversationMessages(conversationId), token)
+  const data = await apiGet<ChatMessage[] | { items?: ChatMessage[] }>(
+    appRoutes.signals.conversationMessages(conversationId),
+    token,
+  )
+  if (Array.isArray(data)) return data
+  return Array.isArray(data?.items) ? data.items : []
 }
 
 export async function bokitoSendMessage(

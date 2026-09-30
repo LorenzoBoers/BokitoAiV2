@@ -41,9 +41,27 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.channel).toBe('whatsapp')
     expect(surface.replyLabel).toBe('WhatsApp')
     expect(surface.includeSignature).toBe(false)
-    expect(surface.tabs).toEqual(['reply', 'note'])
+    expect(surface.modes).toEqual(['reply', 'ask', 'note'])
     expect(surface.replyPlaceholder).toContain('Jan Jansen')
     expect(surface.recipientValue).toBe('Jan Jansen')
+  })
+
+  it('exposes ask+note only on assistant threads', () => {
+    const surface = resolveComposerSurface(
+      thread({ channel: 'assistant', agentName: 'Bokito', folder: 'assistant' }),
+    )
+    expect(surface.channel).toBe('assistant')
+    expect(surface.modes).toEqual(['ask', 'note'])
+    expect(surface.defaultMode).toBe('ask')
+  })
+
+  it('exposes ask+note only on agent-run threads', () => {
+    const surface = resolveComposerSurface(
+      thread({ channel: 'internal', folder: 'internal', agentName: 'Ops' }),
+    )
+    expect(surface.channel).toBe('internal')
+    expect(surface.modes).toEqual(['ask', 'note'])
+    expect(surface.defaultMode).toBe('ask')
   })
 
   it('humanizes generic website visitor names in chat placeholders', () => {
@@ -130,7 +148,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
     )
     expect(surface.channel).toBe('email')
     expect(surface.includeSignature).toBe(true)
-    expect(surface.defaultTab).toBe('reply')
+    expect(surface.defaultMode).toBe('reply')
   })
 
   it('defaults noreply addresses to an internal note, not Reply to', () => {
@@ -138,7 +156,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
       thread({ channel: 'email', contactEmail: 'donotreply@broker.example', contactName: 'Broker' }),
     )
     expect(surface.channel).toBe('email')
-    expect(surface.defaultTab).toBe('note')
+    expect(surface.defaultMode).toBe('note')
     expect(surface.showRecipient).toBe(false)
   })
 
@@ -152,7 +170,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
       }),
     )
     expect(surface.channel).toBe('internal')
-    expect(surface.defaultTab).toBe('note')
+    expect(surface.defaultMode).toBe('note')
     expect(surface.showRecipient).toBe(false)
   })
 

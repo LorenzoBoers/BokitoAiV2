@@ -114,6 +114,18 @@ function AgentLibraryCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate font-medium text-text-heading">{agent.name}</p>
+              {agent.managed ? (
+                <span
+                  className="shrink-0 rounded border border-border/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted"
+                  title={
+                    agent.origin_label
+                      ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
+                      : t('workforce.agents.managedBadge')
+                  }
+                >
+                  {t('workforce.agents.managedBadgeShort')}
+                </span>
+              ) : null}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className={cn('text-xs font-medium', STATUS_CLASS[agentWorkState(agent)])}>

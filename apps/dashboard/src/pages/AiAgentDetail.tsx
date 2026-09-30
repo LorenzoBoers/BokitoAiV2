@@ -255,6 +255,18 @@ export default function AiAgentDetail() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
+                    {agent.managed ? (
+                      <span
+                        className="rounded border border-border/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted"
+                        title={
+                          agent.origin_label
+                            ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
+                            : t('workforce.agents.managedBadge')
+                        }
+                      >
+                        {t('workforce.agents.managedBadge')}
+                      </span>
+                    ) : null}
                     {isAdmin && agent.kind !== 'personal' ? (
                       <Button
                         type="button"
@@ -356,7 +368,13 @@ export default function AiAgentDetail() {
             </div>
             {archiveConfirmOpen ? (
               <div className="mt-3 rounded-lg border border-status-error/30 bg-status-error/5 px-3 py-2">
-                <p className="text-sm text-text-heading">{t('workforce.agents.archiveConfirm')}</p>
+                <p className="text-sm text-text-heading">
+                  {agent.managed
+                    ? t('workforce.agents.archiveConfirmManaged', {
+                        origin: agent.origin_label || t('workforce.agents.managedBadge'),
+                      })
+                    : t('workforce.agents.archiveConfirm')}
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button type="button" size="sm" variant="ghost" onClick={() => setArchiveConfirmOpen(false)}>
                     {t('workforce.agents.archiveCancel')}

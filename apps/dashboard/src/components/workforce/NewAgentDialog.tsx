@@ -19,8 +19,7 @@ import {
   defaultChatSlug,
   getTenantModels,
   selectableChatModels,
-  type CatalogModel,
-  type TenantModelRow,
+  type SelectableChatModel,
 } from '../../lib/models-api'
 
 type Props = {
@@ -36,8 +35,6 @@ const AUDIENCES = ['customers', 'partners', 'internal'] as const
 const SELECT_CLASS =
   'w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50'
 
-type ModelOption = TenantModelRow | CatalogModel
-
 export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }: Props) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
@@ -45,7 +42,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
   const [audience, setAudience] = useState<(typeof AUDIENCES)[number]>('internal')
   const [model, setModel] = useState('')
   const [purpose, setPurpose] = useState('')
-  const [models, setModels] = useState<ModelOption[]>([])
+  const [models, setModels] = useState<SelectableChatModel[]>([])
   const [modelsError, setModelsError] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

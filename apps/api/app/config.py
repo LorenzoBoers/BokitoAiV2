@@ -72,6 +72,12 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    # Customer list-price multiplier on platform-key (billable) usage. Invisible
+    # to tenants; set via env, not the Models settings page.
+    token_markup_multiplier: float = 1.3
+    # Global kill-switch for BYOK / custom models. Must also be entitled per
+    # tenant (`settings_json.features.custom_models`) before the UI appears.
+    feature_custom_models: bool = False
     # Raw provider fallback when a call bypasses the catalog; must be a real
     # API model id, not a virtual slug.
     default_chat_model: str = "claude-sonnet-4-6"

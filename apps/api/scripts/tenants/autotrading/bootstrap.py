@@ -325,86 +325,53 @@ async def refresh_retired_agent_models(session: AsyncSession, tenant_id: UUID) -
 
 
 async def get_or_create_orchestrator(session: AsyncSession, tenant_id: UUID) -> Agent:
-    """Strategy Optimizer (orchestrator) — weekly review + Govern drafts."""
-    by_slug = await session.execute(
-        select(Agent).where(
-            Agent.tenant_id == tenant_id,
-            Agent.slug == STRATEGY_OPTIMIZER_SLUG,
-        )
-    )
-    orchestrator = by_slug.scalar_one_or_none()
-    if not orchestrator:
-        result = await session.execute(
-            select(Agent).where(
-                Agent.tenant_id == tenant_id,
-                Agent.role.in_(("orchestrator", "po", "manager")),
-                Agent.is_active.is_(True),
-            )
-        )
-        orchestrator = result.scalars().first()
-    if not orchestrator:
-        # Reactivate an archived orchestrator rather than orphan weekly triggers.
-        archived = await session.execute(
-            select(Agent).where(
-                Agent.tenant_id == tenant_id,
-                Agent.role.in_(("orchestrator", "po", "manager")),
-            )
-        )
-        orchestrator = archived.scalars().first()
+    """Strategy Optimizer (orchestrator) — weekly review + Govern drafts.
 
-    if orchestrator:
-        orchestrator.name = STRATEGY_OPTIMIZER_NAME
-        orchestrator.slug = STRATEGY_OPTIMIZER_SLUG
-        orchestrator.role = "orchestrator"
-        orchestrator.kind = "company"
-        orchestrator.is_active = True
-        orchestrator.runtime_status = "standby"
-        orchestrator.chat_access = "everyone"
-        orchestrator.autonomy_level = "approval"
-        orchestrator.system_prompt = STRATEGY_OPTIMIZER_PROMPT
-        orchestrator.tools_json = json.dumps(
-            [
-                "list_docs",
-                "read_doc",
-                "write_doc",
-                "search_index",
-                "call_mcp_tool",
-                "create_decision_request",
-                "create_task",
-            ]
-        )
-        if orchestrator.model in RETIRED_MODEL_IDS:
-            orchestrator.model = RETIRED_MODEL_IDS[orchestrator.model]
+    Managed by the trading stack. Archive is respected: seed proposes restore
+    via PlatformChange instead of silently reactivating.
+    """
+    from app.services.managed_resources import ensure_managed_agent
+
+    tenant = await session.get(Tenant, tenant_id)
+    if not tenant:
+        raise ValueError(f"tenant {tenant_id} not found")
+
+    tools = [
+        "list_docs",
+        "read_doc",
+        "write_doc",
+        "search_index",
+        "call_mcp_tool",
+        "create_decision_request",
+        "create_task",
+    ]
+    fields = {
+        "name": STRATEGY_OPTIMIZER_NAME,
+        "slug": STRATEGY_OPTIMIZER_SLUG,
+        "role": "orchestrator",
+        "model": "claude-sonnet-4-6",
+        "runtime_status": "standby",
+        "chat_access": "everyone",
+        "autonomy_level": "approval",
+        "system_prompt": STRATEGY_OPTIMIZER_PROMPT,
+        "tools": tools,
+    }
+    result = await ensure_managed_agent(
+        session,
+        tenant,
+        managed_origin="stack",
+        managed_ref="trading",
+        template_slug=STRATEGY_OPTIMIZER_SLUG,
+        display_label="Trading",
+        create_fields=fields,
+        patch_fields=fields,
+        match_slugs=[STRATEGY_OPTIMIZER_SLUG],
+    )
+    orchestrator = result.agent
+    if orchestrator.model in RETIRED_MODEL_IDS:
+        orchestrator.model = RETIRED_MODEL_IDS[orchestrator.model]
         session.add(orchestrator)
         await session.flush()
-        return orchestrator
-
-    orchestrator = Agent(
-        tenant_id=tenant_id,
-        name=STRATEGY_OPTIMIZER_NAME,
-        role="orchestrator",
-        kind="company",
-        slug=STRATEGY_OPTIMIZER_SLUG,
-        model="claude-sonnet-4-6",
-        runtime_status="standby",
-        chat_access="everyone",
-        autonomy_level="approval",
-        system_prompt=STRATEGY_OPTIMIZER_PROMPT,
-        tools_json=json.dumps(
-            [
-                "list_docs",
-                "read_doc",
-                "write_doc",
-                "search_index",
-                "call_mcp_tool",
-                "create_decision_request",
-                "create_task",
-            ]
-        ),
-        is_active=True,
-    )
-    session.add(orchestrator)
-    await session.flush()
     return orchestrator
 
 
@@ -414,54 +381,43 @@ async def get_or_create_mmxm_trader(
     *,
     orchestrator_id: UUID | None = None,
 ) -> Agent:
-    result = await session.execute(
-        select(Agent).where(
-            Agent.tenant_id == tenant_id,
-            Agent.kind == "company",
-            Agent.slug == MMXM_TRADER_SLUG,
-        )
-    )
-    trader = result.scalar_one_or_none()
-    if not trader:
-        by_name = await session.execute(
-            select(Agent).where(
-                Agent.tenant_id == tenant_id,
-                Agent.name == MMXM_TRADER_NAME,
-            )
-        )
-        trader = by_name.scalar_one_or_none()
-    if trader:
-        trader.slug = MMXM_TRADER_SLUG
-        trader.name = MMXM_TRADER_NAME
-        if orchestrator_id and trader.parent_agent_id != orchestrator_id:
-            trader.parent_agent_id = orchestrator_id
-        trader.system_prompt = MMXM_TRADER_PROMPT
-        trader.chat_access = "everyone"
-        trader.autonomy_level = "auto"
-        trader.is_active = True
-        trader.tools_json = json.dumps(["call_mcp_tool", "read_doc", "list_docs", "search_index"])
-        if trader.model in RETIRED_MODEL_IDS:
-            trader.model = RETIRED_MODEL_IDS[trader.model]
-        session.add(trader)
-        return trader
+    """MMXM Trader — managed by the trading stack (archive → Decision, not force)."""
+    from app.services.managed_resources import ensure_managed_agent
 
-    trader = Agent(
-        tenant_id=tenant_id,
-        name=MMXM_TRADER_NAME,
-        role="assistant",
-        kind="company",
-        slug=MMXM_TRADER_SLUG,
-        model="claude-haiku-4-5-20251001",
-        runtime_status="standby",
-        chat_access="everyone",
-        autonomy_level="auto",
-        parent_agent_id=orchestrator_id,
-        system_prompt=MMXM_TRADER_PROMPT,
-        tools_json=json.dumps(["call_mcp_tool", "read_doc", "list_docs", "search_index"]),
-        is_active=True,
+    tenant = await session.get(Tenant, tenant_id)
+    if not tenant:
+        raise ValueError(f"tenant {tenant_id} not found")
+
+    fields: dict = {
+        "name": MMXM_TRADER_NAME,
+        "slug": MMXM_TRADER_SLUG,
+        "role": "assistant",
+        "model": "claude-haiku-4-5-20251001",
+        "runtime_status": "standby",
+        "chat_access": "everyone",
+        "autonomy_level": "auto",
+        "system_prompt": MMXM_TRADER_PROMPT,
+        "tools": ["call_mcp_tool", "read_doc", "list_docs", "search_index"],
+    }
+    if orchestrator_id:
+        fields["parent_agent_id"] = orchestrator_id
+
+    result = await ensure_managed_agent(
+        session,
+        tenant,
+        managed_origin="stack",
+        managed_ref="trading",
+        template_slug=MMXM_TRADER_SLUG,
+        display_label="Trading",
+        create_fields=fields,
+        patch_fields=fields,
+        match_slugs=[MMXM_TRADER_SLUG],
     )
-    session.add(trader)
-    await session.flush()
+    trader = result.agent
+    if trader.model in RETIRED_MODEL_IDS:
+        trader.model = RETIRED_MODEL_IDS[trader.model]
+        session.add(trader)
+        await session.flush()
     return trader
 
 

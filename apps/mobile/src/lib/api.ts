@@ -429,7 +429,9 @@ export const deleteConversation = (conversationId: string) =>
   apiDelete<{ ok: boolean }>(`/api/signals/conversations/${conversationId}`)
 
 export const listChatMessages = (conversationId: string) =>
-  apiGet<ChatMessage[]>(`/api/signals/conversations/${conversationId}/messages`)
+  apiGet<{ items?: ChatMessage[] } | ChatMessage[]>(
+    `/api/signals/conversations/${conversationId}/messages`,
+  ).then((data) => (Array.isArray(data) ? data : data?.items ?? []))
 
 export const sendChatMessage = (conversationId: string, content: string) =>
   apiPost<{ message: ChatMessage; usage?: unknown }>(

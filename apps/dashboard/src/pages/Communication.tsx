@@ -415,6 +415,9 @@ export default function Communication() {
   const {
     detail,
     loading: detailLoading,
+    loadingOlder,
+    hasOlder,
+    loadOlder,
     error: detailError,
     saving,
     refresh: refreshDetail,
@@ -435,23 +438,16 @@ export default function Communication() {
     navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
   }, [detailError, selectedThreadId, detailLoading, leaf, inboxQuery, navigate])
 
-  useEffect(() => {
-    if (detail?.thread && !detail.thread.hasUnread) {
-      void refreshNavBadges()
-    }
-  }, [detail?.thread?.id, detail?.thread?.hasUnread, refreshNavBadges])
-
   const handleSelectThread = useCallback(
     (id: ThreadId, replace = false, opts?: { markRead?: boolean }) => {
       if (opts?.markRead !== false) {
         setSkipMarkRead(false)
         setThreadReadState(id, false)
-        void refreshNavBadges()
       }
       navigate(`${leafPath(leaf, String(id))}${inboxQuery}`, replace ? { replace: true } : undefined)
       scrollActiveThreadIntoView()
     },
-    [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
+    [leaf, navigate, setThreadReadState, inboxQuery],
   )
 
   // Legacy ?compose=1 deep-links land on the draft surface (create-on-send).
@@ -1617,6 +1613,9 @@ export default function Communication() {
             onDeleteNote={handleDeleteNote}
             onMarkUnread={detail ? handleDetailMarkUnread : undefined}
             onRefresh={refreshDetail}
+            hasOlder={hasOlder}
+            loadingOlder={loadingOlder}
+            onLoadOlder={hasOlder ? loadOlder : undefined}
             onTogglePin={handleDetailTogglePin}
             onToggleTakeover={detail ? handleToggleTakeover : undefined}
             onDelete={

@@ -35,34 +35,32 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 4. You can also start mail from a contact card or the command palette. Forward from a thread still opens the compose dialog.
 5. An empty inbox still offers **New chat**, **Install widget**, and the setup guide — website chat does not wait for email.
 
-## Reply, note, or insert a saved reply
+## Choose what you send (Reply / Ask AI / Note)
 
-![Thread and composer in Communication](/api/docs/assets/communication/thread-composer.png)
-*The thread, contact and composer sit on one screen.*
+![Composer modes in Communication](/api/docs/assets/communication/composer-modes.png)
+*One composer with three destinations: the customer, the AI, or the team.*
 
-1. Select a thread. The title sits in the header; under it a meta row shows priority, cases on this conversation, and (right-aligned, purple) the channel agent. Contact details stay in the side panel — the agent is not listed there, because it owns the channel/thread, not the person.
-2. The composer sends on the same channel the customer used. On email threads the first tab shows the **mailbox name** (and provider icon) instead of a generic Reply label — hover for the send-from hint. When you have more than one mailbox, open that tab to pick another; sending from a different mailbox **moves** the conversation to that channel. **Ctrl+Enter** sends email and is printed on the Send button; Enter sends chat. The arrow next to **Send** holds **Send and close** and **Send and snooze**. **Send as:** **You** or the agent picks whose signature is appended and whose name appears as the email From display name (the mailbox address stays the connected account).
-3. Switch to **Internal** for a team message the customer never sees (hover the tab for the reminder). Typing `@` and selecting a person or agent from the picker switches you to Internal (or into an agent meta conversation). Plain `@text` without a selection stays customer reply text. Switching back to Reply flattens mentions to plain `@Name`. Internal messages still work if no mailbox can send. Closed or spam threads keep them too — a **Reopen** button sits on the composer.
-4. Open **Write** (sparkles) in the composer to describe what you want to send, or to rewrite, shorten, expand or change the tone of text already in the box. Under **What should this say?** you can dictate with the same microphone control. Dictation also works on Reply, Internal and the agent tab: hold to talk or click to start; while listening the button matches the chat widget (green glow and wave bars; hover shows a check). Click or release to confirm. Spoken text lands live in the box and the field grows with it. Saved replies live under that Write menu, or under **Settings**, then **Channels**.
-5. Email replies can add CC/BCC and append your mailbox signature. When the customer copied colleagues on their email, **Reply all** pre-fills their CC list (and other To recipients, not your mailbox). **Quote** inserts the last inbound lines, including HTML-only mail. **Forward as new email** keeps attachments. After you close or task the same sender several times, Bokito can ask to always do that — **Always do this** or **Not now**. From the thread menu you can also choose **Always close mail from this sender**. Those rules live under **Channels**.
-6. Search also matches company names and attachment filenames.
+1. Open a conversation. Under the timeline the composer shows a mode chip: **Reply to {name}**, **Ask {agent}**, and **Note**.
+2. **Reply** goes to the customer on the same channel they used. Placeholder text reminds you they will see it. On email, **Ctrl+Enter** sends; on chat, Enter sends.
+3. **Ask** talks only with the AI on this conversation (or starts an AI check-in). The customer sees nothing. A **Stop** control appears while the AI streams.
+4. **Note** is team-only. Use it for handoffs and context that must not leave the workspace.
+5. On an AI chat (`assistant` channel) or an AI check-in, Reply is hidden — only Ask and Note stay. Slash verbs and `@` mentions still work.
 
-## Use an AI draft
+## See and change what the AI does
 
-1. When [Inbox AI](/docs/inbox/inbox-ai) is on **Suggest replies**, a suggested-reply bubble sits in the thread on the left with the agent avatar — same chat chrome as other agent messages. The bubble shows only the customer-facing reply. Team context sits under it as an **Internal note** (not sent with the email).
-2. Choose **Send as:** **You** or the agent — the signature sits directly under the draft body in the same bubble (not under the internal note). The chosen identity also sets the From display name on the mail; the mailbox address does not change. When none is configured, Bokito shows a default built from name, role, company and workspace language, with a **Set signature** link to Profile or the agent page. Edit the wording, then send — or choose **Not now** / **I'll handle it myself**. Sending or approving one draft dismisses leftover suggestions. Older dismissed drafts collapse to one short bubble (**Earlier draft — dismissed**).
-3. Or use **Write** in the composer: type an intent (or leave it empty to draft from the thread), generate into the reply box, then edit and send yourself. Quick actions rewrite text already in the box. Nothing is sent until you press Send.
-4. A banner on the thread says when the AI is handling it, or when AI is paused. When a visitor asks for a human, the banner reads **Customer asked for a human — AI paused.** **Take over from AI** (on that banner) pauses the assistant so you can finish by hand; the composer opens on **Reply**. Sending a reply also pauses the AI and ends any open meta conversation. **Resume AI** hands it back. On **Reply automatically**, take over is how you stop a live send. In website chat the visitor sees a "team member is handling this" banner appear on takeover and disappear again on handback or close. Turn customer human-ask alerts on or off under **Settings**, then **Notifications**.
+![AI status chip in the thread header](/api/docs/assets/communication/ai-status.png)
+*The header chip shows whether AI suggests, replies, is off, or you took over.*
 
-## Talk with an agent in the thread
+1. Open a customer or AI conversation. The header shows an **AI status** chip: **AI suggests**, **AI replies**, **AI off**, or **You took over**.
+2. Open the chip menu. Choose **Take over** to pause the AI on this thread, or **Hand back to AI** when you are done.
+3. Choose **Set for all conversations on this channel** to open Communication settings (channel AI mode). There is no per-thread mode besides takeover (`ai_paused`).
+4. Live work appears as a thin strip under the timeline while the AI thinks or streams — the same place for customer replies and Ask turns.
 
-Pull an agent in when you want to think out loud, look something up, or hand the conversation over.
+## Approve an AI proposal from the composer
 
-1. Open the agent tab in the composer (named after the thread owner), or type `@` and select an agent. Switching to the tab alone does not start a meta conversation — your first message on that tab does. The customer never sees it.
-2. Type on the agent tab and press Enter. Your message appears as a right-aligned bubble; the agent streams a left-aligned bubble in the same timeline (no separate violet panel). A thin **internal** strip marks the session. You can send again while it replies: the current answer stops, your new message is queued, and the agent continues with the buffered texts. **Stop** cancels without queuing. The composer stays on the agent tab until you end the session or send a customer Reply.
-3. Ask for a reply and the agent proposes one as a suggested-reply bubble. Prefer **Write** in the composer when you only need text in the reply box — use the agent tab for research and coordination. Tagging a teammate mid-meta notifies them; the message still goes to the agent. Suggestions do not switch the composer to Reply while a stream is still running.
-4. When work is done — or after a few minutes of silence — the agent (or the system) offers a checkout decision: end the session, continue, or apply follow-ups. Approving **End session** collapses the meta chat to one shared summary bubble (agent avatar left, yours on the right) that you can expand later. Sending a customer Reply ends the meta session without running checkout actions. Agent messages that go out to the customer show **Sent to the customer** under the agent name so they stay distinct from internal meta bubbles.
-5. Changed your mind before you typed anything? **Cancel** removes the session. Once you have exchanged a message, use the checkout or **End session**.
+1. When Inbox AI suggests a reply, the draft loads into the composer with **Send**, **Edit**, and **Dismiss**. The timeline only shows a short line: **AI proposed a reply**.
+2. Edit the text if needed, then **Send** (or use the send menu for close / snooze). Sending resolves the decision and delivers the reply.
+3. **Dismiss** rejects the proposal without sending. Other decisions (platform, module, agenda, checkout) stay as cards titled **Waiting for your OK** with plain verb buttons — no tool names in the copy.
 
 ## Decide in the thread
 

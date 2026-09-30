@@ -57,6 +57,8 @@ export type InboxThread = {
   hasOpenDecision?: boolean
   /** True when a human operator has taken over and the AI is paused. */
   aiPaused?: boolean
+  /** Effective channel AI mode for this thread (account → tenant → default, Govern-clamped). */
+  aiMode?: 'suggest' | 'auto' | 'off' | null
   /** Next-action chips set by AI inbound processing (close / assign / create_task). */
   suggestedActions?: string[]
   /** AI triage (category / urgency 0-100 / certainty 0-100), null until triaged. */
@@ -92,6 +94,8 @@ export type InboxMessage = {
   bodyPreview: string
   bodyText?: string
   bodyHtml: string | null
+  /** True when HTML exists server-side but may be omitted from the timeline window. */
+  hasHtml?: boolean
   graphMessageId: string
   inReplyTo: string | null
   authorUserId: number | null
@@ -106,6 +110,8 @@ export type InboxMessage = {
   payload?: Record<string, unknown>
   /** The signed-in user's feedback on this message (thumbs state). */
   myFeedback?: { score: number | null; sentiment: 'up' | 'down' | null } | null
+  /** True when an agent_trace exists server-side but may be omitted from the window. */
+  hasAgentTrace?: boolean
   /** Persisted agent tool/think steps + token usage for Cursor-style activity log. */
   agentTrace?: {
     usage?: { input_tokens?: number; output_tokens?: number }
@@ -168,6 +174,10 @@ export type ThreadDetail = {
   sessions: ThreadSession[]
   /** End-customer satisfaction rating (widget CSAT prompt), if given. */
   csat?: { score: number; comment: string; created_at: string } | null
+  /** True when older messages exist above the current window. */
+  hasOlder?: boolean
+  /** Oldest message id in the current window (cursor for load-older). */
+  oldestMessageId?: string | null
 }
 
 export type ThreadFilters = {
@@ -384,6 +394,10 @@ function normalizeThread(row: unknown): InboxThread | null {
     hasOpenDecision: Boolean(raw.has_open_decision),
     isPinned: Boolean(raw.is_pinned),
     aiPaused: Boolean(raw.ai_paused),
+    aiMode: (() => {
+      const mode = asString(raw.ai_mode)
+      return mode === 'suggest' || mode === 'auto' || mode === 'off' ? mode : null
+    })(),
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
       : [],
@@ -471,6 +485,7 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     bodyPreview,
     bodyText,
     bodyHtml: asNullableString(raw.body_html),
+    hasHtml: raw.has_html === true || Boolean(asNullableString(raw.body_html)),
     graphMessageId: asString(raw.graph_message_id),
     inReplyTo: asNullableString(raw.in_reply_to),
     authorUserId: raw.author_user_id == null || raw.author_user_id === 0 ? null : asNumber(raw.author_user_id),
@@ -482,6 +497,7 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
     payload,
     myFeedback: normalizeMyFeedback(raw),
+    hasAgentTrace: raw.has_agent_trace === true || Boolean(normalizeAgentTrace(raw)),
     agentTrace: normalizeAgentTrace(raw),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asTimestampString(raw.created_at),
@@ -579,6 +595,7 @@ import {
   addNoteToSignalThread,
   deleteSignalNote,
   deleteSignalThread,
+  getSignalMessage,
   getSignalThread,
   listSignalMembers,
   listSignalPinnedThreadIds,
@@ -616,8 +633,20 @@ export async function listThreads(token: string, filters: ThreadFilters = {}): P
   return listSignalThreads(token, filters)
 }
 
-export async function getThread(token: string, threadId: ThreadId): Promise<ThreadDetail | null> {
-  return getSignalThread(token, String(threadId))
+export async function getThread(
+  token: string,
+  threadId: ThreadId,
+  opts?: { limit?: number; before?: string },
+): Promise<ThreadDetail | null> {
+  return getSignalThread(token, String(threadId), opts)
+}
+
+export async function getMessage(
+  token: string,
+  threadId: ThreadId,
+  messageId: string,
+): Promise<InboxMessage | null> {
+  return getSignalMessage(token, String(threadId), messageId)
 }
 
 export async function deleteThread(token: string, threadId: ThreadId): Promise<void> {

@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -230,17 +230,48 @@ async def list_messages(
     conversation_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 80,
+    before: Annotated[UUID | None, Query()] = None,
 ):
+    """Newest ``limit`` messages (chronological). Pass ``before`` to page older."""
     await _get_thread(session, conversation_id, auth.tenant.id)
+    page_size = max(1, min(int(limit or 80), 200))
+    msg_filters: list = [
+        SignalMessage.signal_id == conversation_id,
+        SignalMessage.tenant_id == auth.tenant.id,
+    ]
+    if before is not None:
+        before_row = (
+            await session.execute(
+                select(SignalMessage).where(
+                    SignalMessage.id == before,
+                    SignalMessage.signal_id == conversation_id,
+                    SignalMessage.tenant_id == auth.tenant.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if before_row is not None and before_row.created_at is not None:
+            from sqlalchemy import and_, or_
+
+            msg_filters.append(
+                or_(
+                    SignalMessage.created_at < before_row.created_at,
+                    and_(
+                        SignalMessage.created_at == before_row.created_at,
+                        SignalMessage.id < before_row.id,
+                    ),
+                )
+            )
+
     result = await session.execute(
         select(SignalMessage)
-        .where(
-            SignalMessage.signal_id == conversation_id,
-            SignalMessage.tenant_id == auth.tenant.id,
-        )
-        .order_by(SignalMessage.created_at)
+        .where(*msg_filters)
+        .order_by(SignalMessage.created_at.desc(), SignalMessage.id.desc())
+        .limit(page_size + 1)
     )
-    messages = result.scalars().all()
+    newest_first = list(result.scalars().all())
+    has_older = len(newest_first) > page_size
+    messages = list(reversed(newest_first[:page_size]))
 
     # Batch-load attached decisions so cards render server-driven state
     # (options, resolved status) that survives reloads.
@@ -255,10 +286,14 @@ async def list_messages(
         )
         decisions_by_id = {d.id: d for d in dec_result.scalars().all()}
 
-    return [
-        serialize_chat_message(m, decision=decisions_by_id.get(m.decision_id))
-        for m in messages
-    ]
+    return {
+        "items": [
+            serialize_chat_message(m, decision=decisions_by_id.get(m.decision_id))
+            for m in messages
+        ],
+        "has_older": has_older,
+        "oldest_message_id": str(messages[0].id) if messages else None,
+    }
 
 
 @router.post("/conversations/{conversation_id}/messages")

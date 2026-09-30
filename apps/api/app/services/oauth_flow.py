@@ -74,9 +74,9 @@ async def start_real_oauth(
     await session.commit()
     scopes = None
     prompt = None
-    if flow == "login" and provider == oauth_providers.MICROSOFT:
+    if flow in ("login", "link") and provider == oauth_providers.MICROSOFT:
         scopes = oauth_providers.MICROSOFT_SSO_SCOPES
-    elif flow == "login" and provider == oauth_providers.GOOGLE:
+    elif flow in ("login", "link") and provider == oauth_providers.GOOGLE:
         scopes = oauth_providers.GOOGLE_SSO_SCOPES
         prompt = "select_account"
     if flow == "email" and provider == oauth_providers.MICROSOFT:
@@ -95,7 +95,7 @@ def _success_params(flow: str, provider: str) -> dict[str, str]:
 
 
 def _error_redirect(return_url: str, flow: str, provider: str, reason: str) -> str:
-    if flow == "login":
+    if flow in ("login", "link"):
         return _append_query(
             return_url or get_settings().public_app_url, {"sso_error": reason}
         )
@@ -318,23 +318,86 @@ async def _complete_sso_login(
 ) -> tuple[str, str | None]:
     """Provision the user and mint a refresh session for an SSO login."""
     from app.services.auth import create_refresh_session
-    from app.services.sso import provision_sso_user
+    from app.services.user_identities import resolve_user_for_sso
 
     email = str(identity.get("email") or "").strip().lower()
-    if not email:
+    subject = str(identity.get("subject") or "").strip()
+    if not email and not subject:
         return _error_redirect(return_url, "login", provider, "no_email"), None
     try:
-        user, _tenant = await provision_sso_user(
-            session, email=email, name=str(identity.get("name") or "")
+        user = await resolve_user_for_sso(
+            session,
+            provider=provider,
+            subject=subject,
+            email=email,
+            name=str(identity.get("name") or ""),
         )
+    except ValueError as exc:
+        reason = str(exc) if str(exc) in {"no_email", "subject_taken"} else "provisioning_failed"
+        if reason == "no_email":
+            return _error_redirect(return_url, "login", provider, "no_email"), None
+        logger.exception("SSO provisioning failed for %s", email or subject)
+        return _error_redirect(return_url, "login", provider, "provisioning_failed"), None
     except Exception:
-        logger.exception("SSO provisioning failed for %s", email)
+        logger.exception("SSO provisioning failed for %s", email or subject)
         return _error_redirect(return_url, "login", provider, "provisioning_failed"), None
     refresh_token, _ = await create_refresh_session(session, user.id)
     url = _append_query(
         return_url or get_settings().public_app_url, {"sso": "connected"}
     )
     return url, refresh_token
+
+
+async def _complete_sso_link(
+    session: AsyncSession,
+    *,
+    return_url: str,
+    provider: str,
+    user_id: UUID,
+    identity: dict[str, Any],
+) -> tuple[str, str | None]:
+    """Attach an IdP identity to an already authenticated user."""
+    from app.models.auth import User
+    from app.services.user_identities import upsert_identity
+
+    user = await session.get(User, user_id)
+    if user is None:
+        return _error_redirect(return_url, "link", provider, "provisioning_failed"), None
+
+    email = str(identity.get("email") or "").strip().lower()
+    subject = str(identity.get("subject") or "").strip()
+    if not subject:
+        return _error_redirect(return_url, "link", provider, "no_email"), None
+    if email and email != (user.email or "").strip().lower():
+        return _error_redirect(return_url, "link", provider, "email_mismatch"), None
+    if not email:
+        # Require email so operators see which address was linked.
+        return _error_redirect(return_url, "link", provider, "no_email"), None
+
+    try:
+        await upsert_identity(
+            session,
+            user_id=user.id,
+            provider=provider,
+            subject=subject,
+            email=email,
+            commit=True,
+        )
+    except ValueError as exc:
+        reason = str(exc)
+        if reason == "subject_taken":
+            return _error_redirect(return_url, "link", provider, "subject_taken"), None
+        return _error_redirect(return_url, "link", provider, "provisioning_failed"), None
+
+    if not user.email_verified:
+        user.email_verified = True
+        session.add(user)
+        await session.commit()
+
+    url = _append_query(
+        return_url or get_settings().public_app_url, {"sso": "linked"}
+    )
+    return url, None
 
 
 async def complete_oauth(
@@ -363,6 +426,7 @@ async def complete_oauth(
     # async session cannot be lazily refreshed afterwards.
     return_url, flow, provider = row.return_url, row.flow, row.provider
     tenant_id = row.tenant_id
+    link_user_id = row.user_id
     redirect_uri = row.redirect_uri
     expires_at = row.expires_at
     try:
@@ -397,6 +461,17 @@ async def complete_oauth(
     if flow == "login":
         return await _complete_sso_login(
             session, return_url=return_url, provider=provider, identity=identity
+        )
+
+    if flow == "link":
+        if link_user_id is None:
+            return _error_redirect(return_url, "link", provider, "provisioning_failed"), None
+        return await _complete_sso_link(
+            session,
+            return_url=return_url,
+            provider=provider,
+            user_id=link_user_id,
+            identity=identity,
         )
 
     try:

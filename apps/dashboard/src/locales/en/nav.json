@@ -538,7 +538,7 @@
       "govern": "Govern",
       "knowledge": "Knowledge",
       "developers": "Developer settings",
-      "agentRuns": "Agent runs",
+      "agentRuns": "AI check-ins",
       "widget": "Website chat widget",
       "automations": "Automations",
       "models": "Models",
@@ -1278,6 +1278,8 @@
     "languageEn": "English",
     "sso": {
       "no_email": "The identity provider did not share an email address for this account. Use an account with a verified email.",
+      "email_mismatch": "That Google or Microsoft account uses a different email than this Bokito account.",
+      "subject_taken": "That Google or Microsoft account is already linked to another Bokito user.",
       "provisioning_failed": "We could not set up your account after sign-in. Please try again or contact support.",
       "token_exchange_failed": "Sign-in could not be completed. Please try again.",
       "state_expired": "The sign-in request expired. Please try again.",
@@ -1612,7 +1614,7 @@
     "startChat": "Start assistant chat",
     "openAgents": "Open Agents",
     "openSetup": "Open setup guide",
-    "openModels": "Open models & providers",
+    "openModels": "Open Models",
     "tokens": "{{count}} tokens",
     "billableRow": "billable {{amount}}",
     "byok": "Your own key (no charge)",
@@ -2234,7 +2236,7 @@
     "decisionsHint": "Open approvals across all channels",
     "needsReply": "Needs reply",
     "needsDecision": "Needs decision",
-    "agentRuns": "Agent runs",
+    "agentRuns": "AI check-ins",
     "groupKnowledge": "Knowledge",
     "unnamedContact": "Unnamed contact",
     "untitledConversation": "Untitled conversation",
@@ -2330,7 +2332,7 @@
       "nav": "Agents"
     },
     "links": {
-      "runs": "Agent runs"
+      "runs": "AI check-ins"
     }
   },
   "inbox": {
@@ -2495,7 +2497,7 @@
     },
     "newChat": "New chat",
     "decisions": {
-      "label": "Decisions",
+      "label": "Waiting on you",
       "hint": "Everything waiting on a yes, no, or approved draft"
     },
     "activity": {
@@ -2574,7 +2576,7 @@
     "agents": {
       "loading": "Loading agents...",
       "empty": "No agents available for chat.",
-      "runs": "Agent runs",
+      "runs": "AI check-ins",
       "activity": "Activity",
       "activityHint": "Work log for this agent",
       "settingsAria": "Manage agents"
@@ -3702,7 +3704,7 @@
       "modelBody": "The model this agent uses for reasoning and chat.",
       "modelLoadError": "Could not load the model list.",
       "modelUpdateError": "Could not update model.",
-      "openModels": "Open Providers & models",
+      "openModels": "Open Models",
       "instructionsSaveError": "Could not save changes.",
       "nameRequired": "Name cannot be empty.",
       "chatAccessLoadError": "Could not load chat access.",
@@ -3760,10 +3762,14 @@
         "error": "Error"
       },
       "archiveConfirm": "Archive this agent? It will disappear from the agent list. Run history is kept.",
+      "archiveConfirmManaged": "This agent belongs to {{origin}}. Archiving hides it from the list and stops stack updates from bringing it back until you accept a restore proposal. Run history is kept.",
       "statusUpdateError": "Could not update agent status.",
       "archiveError": "Could not archive agent.",
       "leadBadge": "Default",
       "leadBadgeShort": "Default",
+      "managedBadge": "Managed",
+      "managedBadgeShort": "Managed",
+      "managedBadgeHint": "Owned by {{origin}}. Archive is respected until you accept a restore proposal.",
       "leadHint": "Used when nothing more specific is assigned.",
       "makeLead": "Make default agent",
       "makeLeadConfirm": "Make this the default agent? It will handle work and conversations that have no more specific assignment.",
@@ -4618,7 +4624,7 @@
       "trust": "Trust & privacy",
       "reports": "Overview",
       "developers": "Developers",
-      "models": "Providers & models",
+      "models": "Models",
       "billing": "Billing",
       "accessSecurity": "Access & Security",
       "users": "Users",
@@ -4648,7 +4654,7 @@
       "trust": "Retention, data subject requests, and AI data use",
       "reports": "Daily scan, attention and usage",
       "developers": "API keys and webhooks",
-      "models": "Which AI models to use"
+      "models": "Bokito AI and optional own keys"
     },
     "signals": {
       "intro": "Types are the shared vocabulary for recognizing a conversation. Agents and operators classify a thread with one of these, and bindings route it to a playbook or project. Filed signals stay on the conversation in Communication."
@@ -5264,7 +5270,7 @@
     "loadError": "Could not load assistant settings.",
     "saveError": "Could not save settings.",
     "openCommunication": "Open a new chat",
-    "openModels": "Open Providers & models",
+    "openModels": "Open Models",
     "openKnowledge": "Open Knowledge",
     "openInboxAi": "Open AI replies",
     "openNotifications": "Open Notifications",
@@ -5359,8 +5365,8 @@
     "testFailed": "Test failed",
     "noKey": "No key",
     "keySet": "Key set ····{{last4}}",
-    "pageTitle": "AI providers",
-    "pageSubtitle": "Bokito AI runs your workspace by default. Optionally bring your own provider keys to take control over models and pay the provider directly.",
+    "pageTitle": "Models",
+    "pageSubtitle": "Bokito AI runs your workspace by default. Custom models are available only when your plan includes them.",
     "saved": "Saved",
     "ownProvidersTitle": "Your own providers",
     "ownProvidersBody": "Optional. Models enabled on your own keys take precedence over Bokito AI; usage is then billed by the provider, not through Bokito. Keys are encrypted; only the last four characters are shown.",
@@ -5384,9 +5390,11 @@
     "openUsage": "View usage",
     "openGovern": "Open Govern policy",
     "pricingInOut": "in {{in}} / million tokens · out {{out}} / million tokens",
+    "removeModelConfirm": "Remove model \"{{name}}\"?",
     "managed": {
       "title": "Bokito AI",
       "body": "Managed by Bokito: we select and maintain the best model for each task automatically. Usage is metered per token for this workspace and counts toward your budget.",
+      "bodyLearn": "Chooses and learns with your organization. Agents use Bokito AI unless you opt into custom models.",
       "active": "Active",
       "standby": "Standby",
       "notConfigured": "Not configured",
@@ -5394,8 +5402,27 @@
       "embeddings": "Embeddings",
       "viewUsage": "View usage",
       "standbyHint": "This workspace runs on your own provider keys below; Bokito AI stays available as fallback when you remove them.",
+      "standbyHintNew": "Agents use your own models below. Bokito AI stays available as fallback when you turn custom models off or remove them.",
       "mockModeHint": "No platform key is configured, so AI calls run in mock mode. Contact Bokito support or add your own provider key below.",
+      "mockModeHintShort": "No live platform key is configured, so AI calls run in mock mode. Contact Bokito support.",
       "legacyKeyHint": "Runs on your own {{provider}} key (legacy), so usage is not billed through Bokito."
+    },
+    "custom": {
+      "title": "Custom models",
+      "body": "Connect your own Anthropic, OpenAI, or OpenAI-compatible keys. Those models appear in agent pickers and are billed by the provider.",
+      "optIn": "Use my own models",
+      "empty": "No custom models yet. Add a provider key and pick a model.",
+      "addModel": "Add model",
+      "wizardTitle": "Add model (step {{step}} of 3)",
+      "next": "Next",
+      "back": "Back",
+      "saveAndTest": "Save and test",
+      "pickPreset": "Choose a model",
+      "pickPresetPlaceholder": "Select a preset",
+      "orCustomId": "Or enter a custom model id",
+      "replaceKey": "Replace key",
+      "lockedTitle": "Own keys on request",
+      "lockedBody": "Custom models (bring your own API keys) are available for eligible workspaces. Contact Bokito if you need them for compliance or cost control."
     },
     "staff": {
       "title": "Platform administration (staff)",
@@ -5489,7 +5516,7 @@
   "ops": {
     "title": "Platform ops",
     "subtitle": "Tenants, users and support access on this API environment. Enter only workspaces that allow platform support.",
-    "modelsLink": "Model catalog",
+    "modelsLink": "Models settings",
     "searchPlaceholder": "Search workspace, slug or email",
     "search": "Search",
     "loading": "Loading…",
@@ -5500,6 +5527,9 @@
     "deleteConfirm": "Delete workspace {{name}} and all of its data? This cannot be undone.",
     "deleteSlugMismatch": "The slug did not match. Nothing was deleted.",
     "deleteError": "Could not delete the workspace.",
+    "customModelsError": "Could not update custom models entitlement.",
+    "customModelsOn": "On",
+    "customModelsOff": "Off",
     "stats": {
       "tenants": "Tenants",
       "users": "Users",
@@ -5517,6 +5547,7 @@
       "workspace": "Workspace",
       "members": "Members",
       "support": "Support",
+      "customModels": "Custom models",
       "created": "Created",
       "user": "User",
       "role": "Type",

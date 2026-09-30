@@ -56,6 +56,7 @@ export function useThreadDetail(
   const { token, user } = useAuth()
   const [rawDetail, setRawDetail] = useState<ThreadDetail | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   // Bumps whenever the open thread changes (or a new fetch starts) so in-flight
@@ -73,7 +74,8 @@ export function useThreadDetail(
 
   // `quiet` reloads (gateway-driven and post-reply reconciles) skip the loading
   // spinner and never clear the thread on transient errors, so live updates
-  // never flicker the open conversation.
+  // never flicker the open conversation. Quiet refetch replaces the newest
+  // window but keeps any older pages the operator already loaded.
   const fetchDetail = useCallback(
     async (quiet = false) => {
       if (!token || !threadId) {
@@ -89,17 +91,56 @@ export function useThreadDetail(
         setError(null)
       }
       try {
-        const result = await getThread(token, threadId)
+        const result = await getThread(token, threadId, { limit: 80 })
         if (generation !== fetchGeneration.current) return
+        const applyResult = (next: ThreadDetail | null) => {
+          if (!next) {
+            setRawDetail(null)
+            return
+          }
+          if (quiet) {
+            setRawDetail((prev) => {
+              if (!prev || String(prev.thread.id) !== String(next.thread.id)) return next
+              const freshIds = new Set(next.messages.map((m) => String(m.id)))
+              const oldestFreshAt = next.messages[0]?.createdAt ?? next.messages[0]?.receivedAt
+              const keepOlder = oldestFreshAt
+                ? prev.messages.filter((m) => {
+                    if (freshIds.has(String(m.id))) return false
+                    const at = m.createdAt ?? m.receivedAt
+                    return Boolean(at && at < oldestFreshAt)
+                  })
+                : []
+              const eventIds = new Set(next.events.map((e) => String(e.id)))
+              const keepOlderEvents = oldestFreshAt
+                ? prev.events.filter((e) => {
+                    if (eventIds.has(String(e.id))) return false
+                    return Boolean(e.createdAt && e.createdAt < oldestFreshAt)
+                  })
+                : []
+              return {
+                ...next,
+                messages: [...keepOlder, ...next.messages],
+                events: [...keepOlderEvents, ...next.events],
+                hasOlder: keepOlder.length > 0 ? prev.hasOlder : next.hasOlder,
+                oldestMessageId:
+                  keepOlder[0] != null
+                    ? String(keepOlder[0].id)
+                    : next.oldestMessageId,
+              }
+            })
+            return
+          }
+          setRawDetail(next)
+        }
         // Auto-mark as read when a thread is opened. The server call is
         // fire-and-forget so the UI never blocks on it; the local state already
         // reflects the read status. If the request fails the next list poll
-        // (every 30s) will reconcile.
+        // will reconcile.
         if (result && result.thread.hasUnread && !options?.skipMarkRead) {
-          setRawDetail({ ...result, thread: { ...result.thread, hasUnread: false } })
+          applyResult({ ...result, thread: { ...result.thread, hasUnread: false } })
           void markThreadRead(token, threadId).catch(() => {})
         } else {
-          setRawDetail(result)
+          applyResult(result)
         }
       } catch (err) {
         if (generation !== fetchGeneration.current) return
@@ -127,11 +168,20 @@ export function useThreadDetail(
 
   // Live updates for the open thread, published on the `signal:{id}` topic.
   // `message` events carry the full serialized message and are appended
-  // directly; everything else (decision resolution, thread triage, old
-  // payload shapes) falls back to a quiet refetch. Skip high-frequency
-  // stream events — those only drive the live ThinkingTrace.
+  // directly; `thread` events patch the row. Everything else falls back to a
+  // debounced quiet refetch so triage bursts do not reload the newest 80
+  // messages on every event. Skip high-frequency stream events — those only
+  // drive the live ThinkingTrace.
   useEffect(() => {
     if (!token || !threadId) return
+    let quietTimer: number | null = null
+    const scheduleQuietRefetch = () => {
+      if (quietTimer != null) window.clearTimeout(quietTimer)
+      quietTimer = window.setTimeout(() => {
+        quietTimer = null
+        void fetchDetail(true)
+      }, 400)
+    }
     const unsub = onGatewayEvent(`signal:${threadId}`, (event) => {
       if (
         event.event === 'message.delta' ||
@@ -139,6 +189,16 @@ export function useThreadDetail(
         event.event === 'agent.step'
       ) {
         return
+      }
+      if (event.event === 'thread') {
+        const threadRow = extractLiveThreadRow(event)
+        if (threadRow && String(threadRow.id) === String(threadId)) {
+          setRawDetail((prev) => {
+            if (!prev || String(prev.thread.id) !== String(threadId)) return prev
+            return { ...prev, thread: { ...prev.thread, ...threadRow } }
+          })
+          return
+        }
       }
       if (event.event === 'message') {
         const msg = extractLiveMessage(event)
@@ -178,9 +238,12 @@ export function useThreadDetail(
           return
         }
       }
-      void fetchDetail(true)
+      scheduleQuietRefetch()
     })
-    return () => unsub()
+    return () => {
+      unsub()
+      if (quietTimer != null) window.clearTimeout(quietTimer)
+    }
   }, [token, threadId, fetchDetail])
 
   // Derive isPinned client-side from the shared pinnedIds list. The detail
@@ -252,11 +315,8 @@ export function useThreadDetail(
             }
           })
         }
-        // Agent threads generate a reply synchronously inside the reply
-        // request; pull authoritative state so the assistant message shows.
-        // The gateway event for the assistant fires while `saving` is still
-        // true, so a quiet reload here guarantees it appears.
-        void fetchDetail(true)
+        // Prefer gateway `message` events for the assistant follow-up. Avoid
+        // a full quiet refetch on every send (was blocking the UI feel).
         return msg
       } catch (err) {
         throw err instanceof Error ? err : new Error('Could not send message.')
@@ -264,7 +324,7 @@ export function useThreadDetail(
         setSaving(false)
       }
     },
-    [token, threadId, user?.signatureUrl, user?.tenant?.logo, fetchDetail],
+    [token, threadId, user?.signatureUrl, user?.tenant?.logo],
   )
 
   const addNote = useCallback(
@@ -389,5 +449,57 @@ export function useThreadDetail(
     [token, threadId],
   )
 
-  return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote, updateNote, deleteNote, markUnread, togglePin, toggleTakeover }
+  const loadOlder = useCallback(async () => {
+    if (!token || !threadId || loadingOlder) return
+    const cursor =
+      rawDetail?.oldestMessageId ||
+      (rawDetail?.messages[0] ? String(rawDetail.messages[0].id) : null)
+    if (!cursor || !rawDetail?.hasOlder) return
+    setLoadingOlder(true)
+    const generation = fetchGeneration.current
+    try {
+      const page = await getThread(token, threadId, { limit: 80, before: cursor })
+      if (generation !== fetchGeneration.current || !page) return
+      setRawDetail((prev) => {
+        if (!prev || String(prev.thread.id) !== String(threadId)) return prev
+        const knownMsg = new Set(prev.messages.map((m) => String(m.id)))
+        const knownEv = new Set(prev.events.map((e) => String(e.id)))
+        const prependMsgs = page.messages.filter((m) => !knownMsg.has(String(m.id)))
+        const prependEvs = page.events.filter((e) => !knownEv.has(String(e.id)))
+        return {
+          ...prev,
+          messages: [...prependMsgs, ...prev.messages],
+          events: [...prependEvs, ...prev.events],
+          hasOlder: Boolean(page.hasOlder),
+          oldestMessageId:
+            prependMsgs[0] != null
+              ? String(prependMsgs[0].id)
+              : page.oldestMessageId ?? prev.oldestMessageId,
+        }
+      })
+    } catch {
+      // Leave hasOlder true so the operator can retry.
+    } finally {
+      if (generation === fetchGeneration.current) setLoadingOlder(false)
+    }
+  }, [token, threadId, loadingOlder, rawDetail?.hasOlder, rawDetail?.oldestMessageId, rawDetail?.messages])
+
+  return {
+    detail,
+    loading,
+    loadingOlder,
+    hasOlder: Boolean(detail?.hasOlder),
+    loadOlder,
+    error,
+    saving,
+    refresh: fetchDetail,
+    patch,
+    reply,
+    addNote,
+    updateNote,
+    deleteNote,
+    markUnread,
+    togglePin,
+    toggleTakeover,
+  }
 }

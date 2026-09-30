@@ -15,6 +15,10 @@ export const authRoutes = {
   sso: {
     microsoftStart: '/microsoft/start',
     googleStart: '/google/start',
+    identities: '/sso/identities',
+    linkStart: (provider: 'google' | 'microsoft') =>
+      `/sso/${encodeURIComponent(provider)}/link/start`,
+    unlink: (provider: 'google' | 'microsoft') => `/sso/${encodeURIComponent(provider)}`,
   },
   proxy: {
     login: '/login',

@@ -538,7 +538,7 @@
       "govern": "Govern",
       "knowledge": "Kennis",
       "developers": "Developer-instellingen",
-      "agentRuns": "Agent-runs",
+      "agentRuns": "AI check-ins",
       "widget": "Website-chatwidget",
       "automations": "Automatiseringen",
       "models": "Modellen",
@@ -1272,6 +1272,8 @@
     "languageEn": "English",
     "sso": {
       "no_email": "De identiteitsprovider deelde geen e-mailadres voor dit account. Gebruik een account met een geverifieerd e-mailadres.",
+      "email_mismatch": "Dat Google- of Microsoft-account gebruikt een ander e-mailadres dan dit Bokito-account.",
+      "subject_taken": "Dat Google- of Microsoft-account is al gekoppeld aan een andere Bokito-gebruiker.",
       "provisioning_failed": "Je account kon na inloggen niet worden ingesteld. Probeer het opnieuw of neem contact op met support.",
       "token_exchange_failed": "Inloggen kon niet worden afgerond. Probeer het opnieuw.",
       "state_expired": "Het inlogverzoek is verlopen. Probeer het opnieuw.",
@@ -1606,7 +1608,7 @@
     "startChat": "Start assistant-chat",
     "openAgents": "Agents openen",
     "openSetup": "Setupgids openen",
-    "openModels": "Modellen en providers openen",
+    "openModels": "Modellen openen",
     "tokens": "{{count}} tokens",
     "billableRow": "factureerbaar {{amount}}",
     "byok": "Eigen sleutel (geen kosten)",
@@ -1637,7 +1639,7 @@
   },
   "mockAiBanner": {
     "body": "AI draait in mock-modus — antwoorden zijn tijdelijke placeholders en gaan niet naar klanten.",
-    "cta": "Providers en modellen"
+    "cta": "Modellen"
   },
   "notificationsUi": {
     "aria": "Notificaties",
@@ -2228,7 +2230,7 @@
     "decisionsHint": "Open goedkeuringen over alle kanalen",
     "needsReply": "Jij aan zet",
     "needsDecision": "Wacht op beslissing",
-    "agentRuns": "Agent-runs",
+    "agentRuns": "AI check-ins",
     "groupKnowledge": "Kennis",
     "unnamedContact": "Naamloos contact",
     "untitledConversation": "Naamloos gesprek",
@@ -2324,7 +2326,7 @@
       "nav": "Agenten"
     },
     "links": {
-      "runs": "Agent-runs"
+      "runs": "AI check-ins"
     }
   },
   "inbox": {
@@ -2489,7 +2491,7 @@
     },
     "newChat": "Nieuwe chat",
     "decisions": {
-      "label": "Beslissingen",
+      "label": "Wacht op jou",
       "hint": "Alles wat wacht op een ja, nee of goedgekeurd concept"
     },
     "activity": {
@@ -2568,7 +2570,7 @@
     "agents": {
       "loading": "Agents laden...",
       "empty": "Geen agents beschikbaar voor chat.",
-      "runs": "Agent-runs",
+      "runs": "AI check-ins",
       "activity": "Activiteit",
       "activityHint": "Werklog van deze agent",
       "settingsAria": "Agents beheren"
@@ -3696,7 +3698,7 @@
       "modelBody": "Het model dat deze agent gebruikt voor redeneren en chat.",
       "modelLoadError": "Kon de modellijst niet laden.",
       "modelUpdateError": "Kon model niet bijwerken.",
-      "openModels": "Providers en modellen openen",
+      "openModels": "Modellen openen",
       "instructionsSaveError": "Kon wijzigingen niet opslaan.",
       "nameRequired": "Naam mag niet leeg zijn.",
       "chatAccessLoadError": "Kon chattoegang niet laden.",
@@ -3754,10 +3756,14 @@
         "error": "Fout"
       },
       "archiveConfirm": "Deze agent archiveren? Die verdwijnt uit de agentlijst. Run-geschiedenis blijft bewaard.",
+      "archiveConfirmManaged": "Deze agent hoort bij {{origin}}. Archiveren verbergt hem uit de lijst en voorkomt dat stack-updates hem terugzetten tot je een herstelvoorstel accepteert. Run-geschiedenis blijft bewaard.",
       "statusUpdateError": "Kon de agentstatus niet bijwerken.",
       "archiveError": "Kon de agent niet archiveren.",
       "leadBadge": "Standaard",
       "leadBadgeShort": "Standaard",
+      "managedBadge": "Beheerd",
+      "managedBadgeShort": "Beheerd",
+      "managedBadgeHint": "Beheerd door {{origin}}. Archiveren blijft gelden tot je een herstelvoorstel accepteert.",
       "leadHint": "Wordt gebruikt als niets specifiekers is toegewezen.",
       "makeLead": "Maak standaardagent",
       "makeLeadConfirm": "Deze agent de standaardagent maken? Die behandelt werk en gesprekken zonder specifiekere toewijzing.",
@@ -4611,7 +4617,7 @@
       "trust": "Vertrouwen en privacy",
       "reports": "Overview",
       "developers": "Voor ontwikkelaars",
-      "models": "Providers en modellen",
+      "models": "Modellen",
       "billing": "Facturatie",
       "accessSecurity": "Toegang en beveiliging",
       "users": "Gebruikers",
@@ -4642,7 +4648,7 @@
       "trust": "Bewaartermijnen, inzageverzoeken en AI-datagebruik",
       "reports": "Dagelijkse scan, aandacht en verbruik",
       "developers": "API-sleutels en webhooks",
-      "models": "Welke AI-modellen je gebruikt"
+      "models": "Bokito AI en optioneel eigen sleutels"
     },
     "signals": {
       "intro": "Types zijn de gedeelde woordenschat om een gesprek te herkennen. Agents en operators classificeren een gesprek met een type, en koppelingen sturen het door naar een draaiboek of project. Vastgelegde signalen blijven bij het gesprek in Communicatie."
@@ -5258,7 +5264,7 @@
     "loadError": "Kon assistentinstellingen niet laden.",
     "saveError": "Kon instellingen niet opslaan.",
     "openCommunication": "Nieuwe chat openen",
-    "openModels": "Providers en modellen openen",
+    "openModels": "Modellen openen",
     "openKnowledge": "Kennis openen",
     "openInboxAi": "AI-antwoorden openen",
     "openNotifications": "Meldingen openen",
@@ -5353,8 +5359,8 @@
     "testFailed": "Test mislukt",
     "noKey": "Geen sleutel",
     "keySet": "Sleutel ingesteld ····{{last4}}",
-    "pageTitle": "AI-providers",
-    "pageSubtitle": "Bokito AI draait standaard je workspace. Voeg optioneel je eigen providersleutels toe om modellen te kiezen en rechtstreeks bij de provider te betalen.",
+    "pageTitle": "Modellen",
+    "pageSubtitle": "Bokito AI draait standaard je workspace. Eigen modellen zijn alleen beschikbaar wanneer je plan dat toelaat.",
     "saved": "Opgeslagen",
     "ownProvidersTitle": "Eigen providers",
     "ownProvidersBody": "Optioneel. Modellen op je eigen sleutels gaan voor op Bokito AI; verbruik wordt dan door de provider gefactureerd, niet via Bokito. Sleutels worden versleuteld; alleen de laatste vier tekens zijn zichtbaar.",
@@ -5378,9 +5384,11 @@
     "openUsage": "Verbruik bekijken",
     "openGovern": "Govern-beleid openen",
     "pricingInOut": "invoer {{in}} / miljoen tokens · uitvoer {{out}} / miljoen tokens",
+    "removeModelConfirm": "Model \"{{name}}\" verwijderen?",
     "managed": {
       "title": "Bokito AI",
       "body": "Beheerd door Bokito: wij kiezen en onderhouden automatisch het beste model per taak. Verbruik wordt per token gemeten voor deze workspace en telt mee voor je budget.",
+      "bodyLearn": "Kiest en leert mee met jouw organisatie. Agents gebruiken Bokito AI tenzij je eigen modellen inschakelt.",
       "active": "Actief",
       "standby": "Stand-by",
       "notConfigured": "Niet geconfigureerd",
@@ -5388,8 +5396,27 @@
       "embeddings": "Embeddings",
       "viewUsage": "Verbruik bekijken",
       "standbyHint": "Deze workspace draait op je eigen providersleutels hieronder; Bokito AI blijft beschikbaar als fallback wanneer je ze verwijdert.",
+      "standbyHintNew": "Agents gebruiken je eigen modellen hieronder. Bokito AI blijft beschikbaar als fallback wanneer je eigen modellen uitzet of verwijdert.",
       "mockModeHint": "Geen platformsleutel geconfigureerd, dus AI-aanroepen draaien in mock-modus. Neem contact op met Bokito-support of voeg hieronder je eigen providersleutel toe.",
+      "mockModeHintShort": "Geen live platformsleutel geconfigureerd, dus AI-aanroepen draaien in mock-modus. Neem contact op met Bokito-support.",
       "legacyKeyHint": "Draait op je eigen {{provider}}-sleutel (legacy), dus verbruik wordt niet via Bokito gefactureerd."
+    },
+    "custom": {
+      "title": "Eigen modellen",
+      "body": "Koppel je eigen Anthropic-, OpenAI- of OpenAI-compatibele sleutels. Die modellen verschijnen in agent-kiezers en worden door de provider gefactureerd.",
+      "optIn": "Gebruik eigen modellen",
+      "empty": "Nog geen eigen modellen. Voeg een providersleutel toe en kies een model.",
+      "addModel": "Model toevoegen",
+      "wizardTitle": "Model toevoegen (stap {{step}} van 3)",
+      "next": "Volgende",
+      "back": "Terug",
+      "saveAndTest": "Opslaan en testen",
+      "pickPreset": "Kies een model",
+      "pickPresetPlaceholder": "Kies een voorstel",
+      "orCustomId": "Of vul een eigen model-id in",
+      "replaceKey": "Sleutel vervangen",
+      "lockedTitle": "Eigen sleutels op aanvraag",
+      "lockedBody": "Eigen modellen (eigen API-sleutels) zijn beschikbaar voor in aanmerking komende workspaces. Neem contact op met Bokito voor compliance of kostencontrole."
     },
     "staff": {
       "title": "Platformbeheer (staff)",
@@ -5483,7 +5510,7 @@
   "ops": {
     "title": "Platform ops",
     "subtitle": "Tenants, users en supporttoegang op deze API-omgeving. Ga alleen workspaces binnen die platform support toestaan.",
-    "modelsLink": "Modelcatalogus",
+    "modelsLink": "Modelinstellingen",
     "searchPlaceholder": "Zoek workspace, slug of e-mail",
     "search": "Zoeken",
     "loading": "Laden…",
@@ -5494,6 +5521,9 @@
     "deleteConfirm": "Workspace {{name}} en alle data verwijderen? Dit kan niet ongedaan worden gemaakt.",
     "deleteSlugMismatch": "De slug kwam niet overeen. Er is niets verwijderd.",
     "deleteError": "Kon de workspace niet verwijderen.",
+    "customModelsError": "Kon custom-modellen entitlement niet bijwerken.",
+    "customModelsOn": "Aan",
+    "customModelsOff": "Uit",
     "stats": {
       "tenants": "Tenants",
       "users": "Users",
@@ -5511,6 +5541,7 @@
       "workspace": "Workspace",
       "members": "Leden",
       "support": "Support",
+      "customModels": "Eigen modellen",
       "created": "Aangemaakt",
       "user": "User",
       "role": "Type",

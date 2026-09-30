@@ -103,6 +103,12 @@ export interface RuntimeAgent {
   kind?: 'company' | 'personal'
   /** Exactly one company agent per workspace carries the lead label. */
   is_lead?: boolean
+  /** Stack/module-owned agent; archive is respected until a restore Decision is accepted. */
+  managed?: boolean
+  managed_origin?: string | null
+  managed_ref?: string | null
+  template_slug?: string | null
+  origin_label?: string | null
   current_session_id: string | null
   current_activity_id: string | null
   current_activity_summary: string | null

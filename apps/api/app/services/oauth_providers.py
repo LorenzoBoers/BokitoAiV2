@@ -257,6 +257,7 @@ async def fetch_identity(provider: str, access_token: str) -> dict[str, Any]:
                 "email": email,
                 "login": user.get("login", ""),
                 "name": user.get("name") or user.get("login", ""),
+                "subject": str(user.get("id") or user.get("node_id") or ""),
             }
         if key == GOOGLE:
             info = (
@@ -264,20 +265,33 @@ async def fetch_identity(provider: str, access_token: str) -> dict[str, Any]:
                     "https://www.googleapis.com/oauth2/v2/userinfo", headers=headers
                 )
             ).json()
+            subject = str(info.get("id") or info.get("sub") or "")
+            if not subject and info.get("email"):
+                logger = __import__("logging").getLogger(__name__)
+                logger.warning("Google identity missing subject; falling back to email")
+                subject = f"email:{info.get('email', '').strip().lower()}"
             return {
                 "email": info.get("email", ""),
                 "login": info.get("email", ""),
                 "name": info.get("name", ""),
+                "subject": subject,
             }
         if key == MICROSOFT:
             info = (
                 await client.get("https://graph.microsoft.com/v1.0/me", headers=headers)
             ).json()
             email = info.get("mail") or info.get("userPrincipalName") or ""
+            # Prefer Entra object id when Graph returns it; id is the oid for /me.
+            subject = str(info.get("id") or "")
+            if not subject and email:
+                logger = __import__("logging").getLogger(__name__)
+                logger.warning("Microsoft identity missing subject; falling back to email")
+                subject = f"email:{str(email).strip().lower()}"
             return {
                 "email": email,
                 "login": email,
                 "name": info.get("displayName", ""),
+                "subject": subject,
             }
         if key == ALPACA:
             from app.services.alpaca import ALPACA_LIVE_BASE, ALPACA_PAPER_BASE
@@ -294,5 +308,6 @@ async def fetch_identity(provider: str, access_token: str) -> dict[str, Any]:
                 "email": "",
                 "login": number,
                 "name": number or "Alpaca",
+                "subject": number,
             }
-    return {"email": "", "login": "", "name": ""}
+    return {"email": "", "login": "", "name": "", "subject": ""}
