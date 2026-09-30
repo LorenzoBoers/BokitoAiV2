@@ -1,92 +1,69 @@
 ---
-description: Bokito product north star and Intelligence Stack alignment for all coding tasks
+description: Bokito product north star (V2) and OODA alignment for all coding tasks
 alwaysApply: true
 ---
 
 # Bokito Core Intent
 
-Before implementing any feature, align with the product north star. Full detail: [`docs/CORE_INTENT.md`](docs/CORE_INTENT.md). Market positioning: [`docs/POSITIONING.md`](docs/POSITIONING.md).
+Before implementing any feature, align with the product north star. Full detail: [`docs/CORE_INTENT.md`](docs/CORE_INTENT.md). Strategy: [`docs/STRATEGY_2026-09.md`](docs/STRATEGY_2026-09.md). Positioning: [`docs/POSITIONING.md`](docs/POSITIONING.md). V2 next to V1: [`docs/adr/002-v2-coexistence.md`](docs/adr/002-v2-coexistence.md).
+
+## Two generations
+
+- **V2** (`apps/api-v2` package `bokito`, `apps/web-v2`) is where product work happens.
+- **V1** (`apps/api`, `apps/dashboard`, `apps/mobile`) is legacy: fixes only, never new features, never imported by V2. Port by copying and simplifying.
 
 ## Why we exist
 
-**Drive the company from the conversation.**
+**Drive the company from the conversation.** Bokito is the shared conversation of a company: customers and partners write where they already write (email, WhatsApp, widget, phone); the company answers in one list next to colleagues and AI agents. Agents propose, people decide inline, one dial governs autonomy, everything is audited. ChatGPT, Claude, Copilot and coding agents operate the workspace through MCP under the same policy. EU-hosted by default.
 
-Bokito is one chat surface for the company. Clients and partners write where they already write (email, WhatsApp, web widget); the company answers in one list next to colleagues and AI agents. Everything that runs in the background is started, watched, and changed from those conversations.
+## One mental model: OODA
 
-Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on top: decide what those tools may do, hand them work from a conversation, see the result next to the customer message. Platform changes itself through chat under Govern. Long-term: an operational **digital twin** you can run on, observe (Overview, Govern), and improve through feedback.
+Observe (inbound becomes a Message in a Conversation) → Orient (Contact, Knowledge, Signal recognition) → Decide (Policy allows, asks via a Decision, or denies) → Act (one executor, one Run) → Feedback (UsageEvent, Outcome, Feedback, AuditEvent, Change). A feature that is not one of these steps does not belong in the core.
 
 ## Decision rules
 
-1. **Everything is reachable from a conversation** — pages for browsing; every action also has a chat path
-2. **One object per idea** — Conversation, Signal, Playbook, Project, Contact (+ Organization), Agent, Decision
-3. **Modules add types and playbooks; never screens**
-4. **The system reads first; people correct**
-5. **Autonomy is one dial in Govern** (workspace ceiling; type/playbook may sit below)
-6. **The thread is the log**
-7. **Ask inline; record in Govern**
-8. **Delete the old surface in the same change**
-9. **Hand work to tools people already use** — workbench connections, not an in-app IDE
+1. Everything is reachable from a conversation: every mutation is a tool; REST, agents, MCP and the command palette call the same `execute_tool` with a trust level.
+2. Five operator nouns: Conversation, Contact (+ Organization), Agent, Playbook, Decision. Signal is a typed label on a Conversation. No Task, no Project noun.
+3. Modules add types, playbooks and tools; never screens or nouns. Verticals are modules.
+4. The system reads first; people correct.
+5. Autonomy is one dial in Govern (workspace ceiling; type, playbook or agent may sit below). Consequential tools always ask.
+6. The thread is the log. 7. Ask inline, record in Govern.
+8. One ledger (`runs`), one connection table (`connections`), one decision resolve path.
+9. Hand work to Codex, Claude Code, Cursor via workbench connections; never rebuild them.
+10. EU by default: data in region, EU managed model, BYOK allowed, Article 50 disclosure per connection.
+11. Count what the customer pays for: resolved conversations, time saved, channel costs.
+12. Delete the old surface in the same change.
 
-## Operator vocabulary (Set C)
+## Vocabulary
 
-Conversation/Gesprek · Signal/Signaal · Playbook/Draaiboek · Project · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie.
+Conversation/Gesprek · Signal/Signaal · Playbook/Draaiboek · Contact · Organization/Organisatie · Agent · Decision/Beslissing. Surfaces: Communication, Overview, Govern, Work, Knowledge, Connections, Settings.
 
-## What we are building
+## Design constraints (V2)
 
-A **node-based agentic OS** for AI-driven SMBs. Canonical entities:
-
-- **Sensing:** `Signal` / `SignalMessage` — Communication hub (external + internal threads)
-- **Signals (product):** `Case` / `CaseType` — typed recognition; operator word Signal
-- **Orchestration:** `Agent`, `Workstream` (Playbook), Agenda triggers; AI OS canvas at `/os`
-- **Knowledge:** docs + examples + connected sources
-- **Decisions:** `DecisionRequest` as messages **in** threads
-- **Govern:** `PlatformChange`, `AuditEvent`, apply modes, Autonomy Posture
-- **Learning:** `Feedback`, `EvalScore` (heuristic V1)
-
-**V1 track:** FastAPI `apps/api` + dashboard bokito mode. Prefer Signal and stack APIs over parallel legacy stacks.
-
-## Build phase
-
-Prefer the cleanest design over backward-compatibility shims. Breaking schema/API/UI changes are acceptable when they align with the north star.
-
-## Principles
-
-| Principle | In practice |
-|-----------|-------------|
-| **Chat-first ops** | Land via Communication; expand to canvas and Govern — one thread model, one decision object |
-| **Node-first** | Extend canonical entities; avoid parallel inbox/decision/graph stacks |
-| **Intelligence flow** | Connect features to sensing → … → learning; avoid isolated CRUD |
-| **Governed autonomy** | Tenant posture ceiling; per-type/playbook dials; consequential tools always ask |
-| **Learning by default** | Corrections as examples; outcomes recorded |
-| **Human at exceptions** | Inline decisions; structural review on `/govern` |
-
-## Design constraints
-
-- **Simplicity** — smallest schema/UI that fits the node model
-- **Minimalist UI** — calm, obvious; shared primitives; no emoji in copy
-- **Scalability** — tenant isolation; composable graph
-- **Alignment test** — if it is not nodes + flow + optional human gate, redesign first
+- Postgres as Postgres: native enums or CHECK, JSONB, pgvector, unique constraints, one Alembic baseline; tests on Postgres.
+- Files under ~500 lines; tools per domain; services per aggregate.
+- Strict tenant isolation. Minimalist UI, shared primitives, no emoji.
+- API paths in the web app only from `apps/web-v2/src/api/routes/`.
 
 ## Pre-flight checklist (state before coding)
 
-1. **Layer** — Sensing / Interpretation / Orchestration / Integration / Learning / Govern?
-2. **Nodes** — Which entities? New type justified?
-3. **Flow** — Trigger and next step in the loop?
-4. **Human gate** — none | inline decision | Govern draft | manual-only
-5. **Autonomy posture** — Does this respect tenant posture and apply modes?
-6. **Learning hook** — What outcome is captured?
-7. **Trust** — Permissions, audit, rollback for agent mutations?
-8. **UI surface** — Communication, `/os`, `/govern`, Overview, or settings — not a duplicate hub
-9. **Docs** — Operators/integrators see something different? Update `docs/product-help/` EN+NL, recapture screenshots, run `sync_product_help.py`. Internal facts → `BOKITO_KNOWLEDGE.md`.
+1. **Step** — Observe / Orient / Decide / Act / Feedback?
+2. **Nouns** — Which noun or plumbing object? New type justified?
+3. **Tool** — Which tool runs the mutation? Trust: operator, agent, api, external.
+4. **Gate** — none | Decision card | Change draft | manual only
+5. **Posture** — Respects workspace posture and per-tool overrides?
+6. **Feedback** — Which usage, outcome or audit record is written?
+7. **Surface** — Communication, Overview, Govern, Work, Knowledge, Connections, Settings; never a new hub.
+8. **EU** — Data in region? Channel discloses AI?
+9. **Docs** — Operators or integrators see something different? Update `docs/product-help/` EN+NL, run `sync_product_help.py`. Internal facts → `BOKITO_KNOWLEDGE.md`.
 
 ## Anti-patterns
 
-- Parallel inbox/decision APIs for the same mental model
-- Rail tabs per Intelligence Stack layer
-- Agent writes bypassing govern / apply modes / posture
-- Results with no learning or audit hook
-- Hardcoded API paths outside `apps/dashboard/src/api/routes/`
-- Back-compat shims that duplicate mental models during initial build phase
-- Rebuilding coding tools inside Bokito instead of workbench connections
+- Second inbox, decision list, work ledger or connection table
+- Rail items per loop step; Decisions or Tasks tabs
+- Agent writes bypassing executor, policy or audit
+- Results without usage, outcome or audit record
+- Hardcoded API paths outside `apps/web-v2/src/api/routes/`
+- Importing V1 code into V2
 
-Operational facts discovered while coding → update [`BOKITO_KNOWLEDGE.md`](BOKITO_KNOWLEDGE.md) (see `bokito-platform-knowledge.mdc`).
+Operational facts discovered while coding → update [`BOKITO_KNOWLEDGE.md`](BOKITO_KNOWLEDGE.md).

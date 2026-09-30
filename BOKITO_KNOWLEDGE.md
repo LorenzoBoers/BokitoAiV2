@@ -4,6 +4,10 @@
 >
 > **English company handbook:** structured docs for onboarding and ops live in [`docs/company/README.md`](docs/company/README.md).
 
+### V2 en legacy (2026-09-30)
+
+De repository bevat twee generaties. **V2** (`apps/api-v2`, Python-package `bokito`; `apps/web-v2`) is de herontworpen "bestuurde gesprekslaag voor AI-gerunde bedrijven" op basis van `docs/STRATEGY_2026-09.md`, met de OODA-loop als enig mentaal model, vijf operator-nouns (Conversation, Contact/Organization, Agent, Playbook, Decision; Signal als typering), een tools-first API (elke mutatie is een tool; REST, agents, MCP en command palette delen `execute_tool`), één werkledger (`runs`), één connectietabel (`connections`), één decision-resolve-pad, Postgres-native types en één Alembic-baseline. V2 draait op eigen database `bokito_v2`, eigen compose-project `bokito-v2` (poort 8090) en host `v2.bokito.ai` (staging `v2-staging.bokito.ai`). **V1** (`apps/api`, `apps/dashboard`, `apps/mobile`) is legacy: blijft draaien voor bestaande tenants, alleen fixes. Geen datamigratie; tenants stappen per tenant over. Zie `docs/adr/002-v2-coexistence.md` en `docs/CORE_INTENT.md`. Alles hieronder in dit bestand beschrijft V1, tenzij de sectie expliciet V2 noemt.
+
 ### Repo-scope (bokitoAiV2)
 
 Deze repository bevat `apps/dashboard` (portal), `apps/chat-widget`, `apps/api` (FastAPI backend), `apps/mobile` (Expo), en `packages/shared`. Lokale dev: `docker compose -f docker-compose.dev.yml up`, daarna `uvicorn` in `apps/api` en `npm run dev` in `apps/dashboard`. Zie `README.md` en `docs/architecture.md`.

@@ -1,8 +1,8 @@
-# Bokito AI OS Architecture
+# Bokito V1 Architecture (legacy)
 
-This document describes the Intelligence Stack backbone implemented in `apps/api` (FastAPI) and `apps/dashboard`. The dashboard runs in a single mode against the FastAPI backend (the FastAPI stack is fully sunset).
+> **Legacy.** This document describes **V1**: `apps/api` (FastAPI) and `apps/dashboard`. V1 is frozen and receives fixes only. The redesigned **V2** lives in `apps/api-v2` and `apps/web-v2`; its intent and architecture are in [`CORE_INTENT.md`](CORE_INTENT.md), the coexistence decisions in [`adr/002-v2-coexistence.md`](adr/002-v2-coexistence.md), and the strategy in [`STRATEGY_2026-09.md`](STRATEGY_2026-09.md).
 
-**Product intent (north star for features and agents):** [`CORE_INTENT.md`](CORE_INTENT.md)
+This document describes the Intelligence Stack backbone implemented in `apps/api` (FastAPI) and `apps/dashboard`. The dashboard runs in a single mode against the FastAPI backend.
 
 ## Intelligence Stack layers
 
