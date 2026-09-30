@@ -1,7 +1,8 @@
 """Fail when the SQLAlchemy models drift from the Alembic head.
 
-Runs `alembic upgrade head` against DATABASE_URL, then autogenerates a diff.
-Any pending operation means a migration is missing.
+Resets the `public` schema of DATABASE_URL (a throwaway database: CI service
+container or embedded pgserver), runs `alembic upgrade head`, then autogenerates
+a diff. Any pending operation means a migration is missing.
 """
 
 from __future__ import annotations
@@ -16,6 +17,16 @@ from sqlalchemy import text
 
 from bokito.db import get_engine
 from bokito.domain import Base
+
+
+async def _reset_schema() -> None:
+    """Drop everything pytest or an earlier run left behind; migrations start from zero."""
+    engine = get_engine()
+    async with engine.begin() as conn:
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    await engine.dispose()
 
 
 def _upgrade() -> None:
@@ -37,6 +48,7 @@ async def _drift() -> list:
 
 
 def main() -> int:
+    asyncio.run(_reset_schema())
     _upgrade()
     diff = asyncio.run(_drift())
     if diff:
