@@ -7,7 +7,7 @@ import { agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import ContentHeader from '../components/shell/ContentHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
@@ -399,27 +399,32 @@ export default function GovernPage() {
 
   return (
     <PageContent width="xl" className="space-y-6">
-      <PageGuideBanner page="govern" />
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-text-heading flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" aria-hidden />
-            {t('title')}
-          </h1>
-          <p className="text-sm text-text-muted mt-1">{t('subtitle')}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {refreshedAt ? (
-            <span className="text-[11px] text-text-muted">
-              {t('refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
-            </span>
-          ) : null}
-          <Button type="button" size="sm" variant="outline" onClick={load} disabled={loading}>
-            <RefreshCw className={cn('h-4 w-4 mr-1.5', loading && 'animate-spin')} aria-hidden />
-            {t('refresh')}
-          </Button>
-        </div>
-      </header>
+      <ContentHeader
+        guide="govern"
+        title={t('title')}
+        subtitle={t('subtitle')}
+        className="mb-0"
+        meta={
+          <>
+            {refreshedAt ? (
+              <span className="hidden text-xs text-text-muted sm:inline">
+                {t('refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={load}
+              disabled={loading}
+              title={t('refresh')}
+              aria-label={t('refresh')}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} aria-hidden />
+            </Button>
+          </>
+        }
+      />
 
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
 
@@ -427,16 +432,16 @@ export default function GovernPage() {
         <TableRowsSkeleton rows={8} />
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="flex h-auto w-full flex-wrap items-start justify-start gap-4 p-2">
+          <TabsList className="flex h-auto w-full flex-wrap items-end justify-start gap-1">
             <div className="space-y-1">
-              <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+              <p className="px-2 text-xs font-semibold text-text-muted">
                 {t('sections.ledger')}
               </p>
               <div className="flex flex-wrap gap-1">
                 <TabsTrigger value="drafts">
                   {t('tabs.drafts')}
                   {changes.length > 0 ? (
-                    <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
+                    <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-2xs">
                       {changes.length}
                     </Badge>
                   ) : null}
@@ -446,7 +451,7 @@ export default function GovernPage() {
               </div>
             </div>
             <div className="space-y-1">
-              <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+              <p className="px-2 text-xs font-semibold text-text-muted">
                 {t('sections.autonomy')}
               </p>
               <div className="flex flex-wrap gap-1">
@@ -485,7 +490,7 @@ export default function GovernPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium text-text-heading">{change.summary}</p>
-                            <Badge variant={STATUS_BADGE[change.status] ?? 'outline'} className="text-[10px]">
+                            <Badge variant={STATUS_BADGE[change.status] ?? 'outline'} className="text-2xs">
                               {governChangeStatusLabel(change.status, t)}
                             </Badge>
                           </div>
@@ -591,16 +596,16 @@ export default function GovernPage() {
                         <p className="mt-1 text-xs text-text-muted leading-relaxed">
                           {t(`posture.${id}.summary`)}
                         </p>
-                        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-text-muted">
+                        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-text-muted">
                           <li>{t(`posture.${id}.effects.inbox`)}</li>
                           <li>{t(`posture.${id}.effects.tools`)}</li>
                           <li>{t(`posture.${id}.effects.structure`)}</li>
                         </ul>
                         {blocked ? (
-                          <p className="mt-2 text-[11px] text-status-warning">{autonomousBlockedReason}</p>
+                          <p className="mt-2 text-xs text-status-warning">{autonomousBlockedReason}</p>
                         ) : null}
                         {active ? (
-                          <Badge variant="default" className="mt-2 text-[10px]">
+                          <Badge variant="default" className="mt-2 text-2xs">
                             {t('posture.current')}
                           </Badge>
                         ) : null}
@@ -624,7 +629,7 @@ export default function GovernPage() {
                   ] as const
                 ).map(([kind, title, rows]) => (
                   <section key={kind} className="space-y-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</h3>
+                    <h3 className="text-xs font-semibold text-text-muted">{title}</h3>
                     {rows.length === 0 ? (
                       <p className="text-xs text-text-muted">{t('scopes.empty')}</p>
                     ) : (
@@ -650,7 +655,7 @@ export default function GovernPage() {
                                 className={cn(
                                   'rounded-md px-3 py-1 text-xs transition-colors',
                                   row.autonomy_level === level
-                                    ? 'bg-accent/10 font-medium text-accent'
+                                    ? 'bg-bg-hover font-medium text-text-heading'
                                     : 'text-text-muted hover:text-text-heading',
                                 )}
                               >
@@ -676,7 +681,7 @@ export default function GovernPage() {
                 </p>
                 {learningHistory.length > 0 ? (
                   <div className="rounded-lg border border-border/60 bg-bg-muted/40 px-3 py-2 space-y-1.5">
-                    <p className="text-[11px] text-text-muted">{t('allowances.learningIntro')}</p>
+                    <p className="text-xs text-text-muted">{t('allowances.learningIntro')}</p>
                     {learningHistory.slice(0, 3).map((note, index) => (
                       <p
                         key={`${note.category ?? 'cat'}-${note.at ?? index}`}
@@ -726,7 +731,7 @@ export default function GovernPage() {
                                   ? mode === 'deny'
                                     ? 'bg-destructive/10 text-destructive font-medium'
                                     : mode === 'allow'
-                                      ? 'bg-accent/10 text-accent font-medium'
+                                      ? 'bg-bg-hover font-medium text-text-heading'
                                       : 'bg-bg-muted text-text-heading font-medium'
                                   : 'text-text-muted hover:text-text-heading',
                               )}
@@ -736,7 +741,7 @@ export default function GovernPage() {
                           ))}
                         </div>
                       </div>
-                      <p className="mt-1.5 text-[11px] text-text-muted">
+                      <p className="mt-1.5 text-xs text-text-muted">
                         {allowanceModeHint(current, t)}
                       </p>
                     </div>
@@ -805,7 +810,7 @@ export default function GovernPage() {
                           {formatChangeMeta(row.resource_type, row.change_kind, row.status, t)} · v{row.version} ·{' '}
                           {formatGovernTimestamp(row.resolved_at ?? row.created_at, i18n.language)}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-text-muted">
+                        <p className="mt-0.5 text-xs text-text-muted">
                           {row.can_rollback
                             ? t('history.revertUntil', {
                                 date: formatGovernTimestamp(row.rollback_deadline, i18n.language),
@@ -986,7 +991,7 @@ export default function GovernPage() {
                         </p>
                         {openAuditId === event.id ? (
                           <div className="mt-1.5">
-                            <pre className="max-h-40 overflow-auto rounded-md bg-bg-elevated/70 px-2 py-1.5 text-[11px] text-text-secondary">
+                            <pre className="max-h-40 overflow-auto rounded-md bg-bg-elevated/70 px-2 py-1.5 text-xs text-text-secondary">
                               {JSON.stringify(event, null, 2)}
                             </pre>
                             <button
@@ -997,7 +1002,7 @@ export default function GovernPage() {
                                   () => toast.error(t('audit.copyFailed')),
                                 )
                               }}
-                              className="mt-1 text-[11px] font-medium text-accent hover:underline"
+                              className="mt-1 text-xs font-medium text-accent hover:underline"
                             >
                               {t('audit.copyPayload')}
                             </button>

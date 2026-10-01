@@ -33,8 +33,10 @@ export function countForInboxQueue(
       return counts.inboxByQueue.all
     case 'awaiting-decision':
     case 'awaiting_decision':
-    case 'decisions':
       return counts.agentsAttention
+    case 'decisions':
+      // The hub's "You" leaf: open decisions + customer replies that wait on you.
+      return counts.yourTurn
     default:
       return 0
   }

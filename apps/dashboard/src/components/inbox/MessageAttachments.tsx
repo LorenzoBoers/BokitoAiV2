@@ -78,7 +78,7 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
                 className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
               >
                 <FileText size={14} />
-                <span className="max-w-[140px] truncate">{name}</span>
+                <span className="max-w-[140px] truncate-fade">{name}</span>
               </a>
             )}
             {onRemove ? (

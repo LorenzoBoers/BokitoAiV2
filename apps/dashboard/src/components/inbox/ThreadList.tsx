@@ -6,7 +6,6 @@ import type { InboxListQuickFilter } from '../../context/InboxCommunicationConte
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
-import { threadNeedsReply } from '../../lib/message-composer'
 import { cn } from '../../lib/utils'
 import { useMembers } from '../../hooks/useMembers'
 import { channelKind } from '../ui/ChannelGlyph'
@@ -69,8 +68,6 @@ function buildFilterCounts(threads: InboxThread[]) {
   return {
     all: threads.length,
     unread: threads.filter((t) => t.hasUnread).length,
-    needsReply: threads.filter((t) => threadNeedsReply(t)).length,
-    needsDecision: threads.filter((t) => t.hasOpenDecision).length,
     pinned: threads.filter((t) => t.isPinned).length,
   }
 }
@@ -228,7 +225,7 @@ export default function ThreadList({
         type="button"
         onClick={onLoadMore}
         disabled={loadingMore}
-        className="mt-1 mb-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+        className="mt-1 mb-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
       >
         {loadingMore ? (
           <span className="inline-flex items-center justify-center gap-2">
@@ -284,7 +281,7 @@ export default function ThreadList({
       {scopeLabel && onClearScope ? (
         <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
           <Filter size={11} className="shrink-0 text-accent" />
-          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-text-heading">
+          <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-heading">
             {scopeLabel}
           </span>
           <button
@@ -316,7 +313,7 @@ export default function ThreadList({
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
+                  className="mt-2 text-xs font-medium text-accent hover:underline"
                 >
                   {t('onboarding.retry')}
                 </button>
@@ -327,18 +324,16 @@ export default function ThreadList({
               <p>
                 {quickFilter === 'unread'
                   ? t('threadList.emptyUnread')
-                  : quickFilter === 'needsReply'
-                    ? t('threadList.emptyNeedsReply')
-                    : quickFilter === 'pinned'
-                      ? t('threadList.emptyPinned')
-                      : emptyLabel ?? t('threadList.empty')}
+                  : quickFilter === 'pinned'
+                    ? t('threadList.emptyPinned')
+                    : emptyLabel ?? t('threadList.empty')}
               </p>
               {quickFilter !== 'all' ? (
                 <div className="mt-2 flex flex-col items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => onQuickFilterChange('all')}
-                    className="text-[11px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('threadList.showAllConversations')}
                   </button>

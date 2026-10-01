@@ -46,7 +46,7 @@ export function DocsHeader({ lang, setLang, activePage = 'docs' }: DocsHeaderPro
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-3.5">
         <Link
           to="/docs"
-          className="flex items-center gap-2 text-[15px] font-semibold tracking-tight transition-colors hover:text-accent"
+          className="flex items-center gap-2 text-lg font-semibold tracking-tight transition-colors hover:text-accent"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/12 text-accent">
             <BookOpen className="h-4 w-4" aria-hidden />
@@ -82,7 +82,7 @@ export function DocsHeader({ lang, setLang, activePage = 'docs' }: DocsHeaderPro
                 key={code}
                 type="button"
                 onClick={() => setLang(code)}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase transition-colors ${
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
                   helpLang(lang) === code
                     ? 'bg-accent/15 text-accent'
                     : 'text-muted-foreground hover:text-foreground'
@@ -154,12 +154,12 @@ function DocsSearch({ lang }: { lang: string }) {
         }}
         onFocus={() => setOpen(true)}
         placeholder={t('docs.searchPlaceholder')}
-        className="w-full rounded-full border border-border/70 bg-muted/20 py-2 pl-9 pr-3 text-[13px] outline-none transition-[border-color,box-shadow] focus:border-accent/50 focus:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.15)]"
+        className="w-full rounded-full border border-border/70 bg-muted/20 py-2 pl-9 pr-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-accent/50 focus:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.15)]"
       />
       {open && results !== null ? (
         <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border bg-background shadow-overlay">
           {results.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-muted-foreground">{t('docs.noResults')}</p>
+            <p className="px-4 py-3 text-sm text-muted-foreground">{t('docs.noResults')}</p>
           ) : (
             results.map((row) => (
               <Link
@@ -171,7 +171,7 @@ function DocsSearch({ lang }: { lang: string }) {
                 }}
                 className="block border-b px-4 py-2.5 last:border-b-0 hover:bg-muted/50"
               >
-                <p className="text-[13px] font-medium">
+                <p className="text-sm font-medium">
                   {row.title}
                   {row.heading !== row.title ? (
                     <span className="text-muted-foreground"> - {row.heading}</span>

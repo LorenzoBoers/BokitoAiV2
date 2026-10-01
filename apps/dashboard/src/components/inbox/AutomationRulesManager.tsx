@@ -174,13 +174,13 @@ export default function AutomationRulesManager() {
               </Button>
               <Link
                 to={inboxPath('open')}
-                className="text-[12px] font-medium text-accent hover:underline"
+                className="text-xs font-medium text-accent hover:underline"
               >
                 {t('automationRules.openCommunication')}
               </Link>
               <Link
                 to={AGENDA_AUTOMATIONS_PATH}
-                className="text-[12px] font-medium text-accent hover:underline"
+                className="text-xs font-medium text-accent hover:underline"
               >
                 {t('automationRules.openAgendaAutomations')}
               </Link>
@@ -194,7 +194,7 @@ export default function AutomationRulesManager() {
               className={rule.status === 'active' ? 'shrink-0 text-accent' : 'shrink-0 text-text-muted'}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-medium text-text-heading">
+              <p className="truncate-fade text-sm font-medium text-text-heading">
                 {rule.matchValue}
               </p>
               <p className="text-xs text-text-secondary">

@@ -3,19 +3,31 @@ import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listAgents } from '../../lib/agents-api'
-import type { InboxThread } from '../../lib/inbox-api'
+import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import ContactPanel from './ContactPanel'
 import AgentContextPanel from './AgentContextPanel'
 import { ConversationWorkSection } from './ConversationWorkSection'
+import ScrollFade from '../ui/ScrollFade'
 
 type Props = {
   thread: InboxThread
   onClose: () => void
   onThreadUpdated?: () => void
+  /** External threads: edits under "This conversation" (priority, look again). */
+  saving?: boolean
+  onPatch?: (input: PatchThreadInput) => Promise<void>
+  onWhatsNext?: () => void
 }
 
-export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: Props) {
+export default function AgentThreadPanel({
+  thread,
+  onClose,
+  onThreadUpdated,
+  saving,
+  onPatch,
+  onWhatsNext,
+}: Props) {
   const { t } = useTranslation(['nav', 'communication'])
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [targetAgent, setTargetAgent] = useState<RuntimeAgent | null>(null)
@@ -111,15 +123,15 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
   }, [targetAgent, orchestrator, thread.agentId, thread.agentName, thread.agentKind, thread.organisationId, t])
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col border-l border-border/60 bg-bg-surface">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+    <aside className="flex h-full min-h-0 w-full flex-col border-l border-border/60 bg-bg">
+      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border/60 pl-3 pr-1.5">
+        <span className="text-xs font-medium text-text-secondary">
           {t('sidePanel.who', { ns: 'communication', defaultValue: 'Who' })}
         </span>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-sm p-0.5 text-text-muted hover:text-text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
           aria-label={t('directChat.closeContextPanel', { ns: 'communication' })}
           title={t('directChat.close', { ns: 'communication' })}
         >
@@ -127,7 +139,7 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <ScrollFade>
         {isExternal ? (
           <>
             <ContactPanel
@@ -138,12 +150,17 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
               threadSubject={thread.emailSubject}
               threadPreview={thread.lastMessagePreview}
             />
-            <ConversationWorkSection threadId={thread.id} />
+            <ConversationWorkSection
+              thread={thread}
+              saving={saving}
+              onPatch={onPatch}
+              onWhatsNext={onWhatsNext}
+            />
           </>
         ) : (
           <AgentContextPanel thread={thread} agent={contextAgent} onThreadUpdated={onThreadUpdated} />
         )}
-      </div>
+      </ScrollFade>
     </aside>
   )
 }

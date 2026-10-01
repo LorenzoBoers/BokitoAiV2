@@ -77,13 +77,13 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
     return (
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+          <p className="text-2xs font-semibold text-text-muted">
             {t('workforce.agents.allowedTools')}
           </p>
           {canEdit ? (
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
               onClick={() => setEditing(true)}
             >
               <Pencil size={11} aria-hidden />
@@ -92,13 +92,13 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
           ) : null}
           <Link
             to="/settings/govern?tab=policy"
-            className="text-[11px] text-accent hover:underline"
+            className="text-xs text-accent hover:underline"
           >
             {t('workforce.agents.openGovern')}
           </Link>
           <Link
             to="/connections/connected"
-            className="text-[11px] text-accent hover:underline"
+            className="text-xs text-accent hover:underline"
           >
             {t('workforce.agents.openIntegrations')}
           </Link>
@@ -109,7 +109,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
               <span
                 key={tool}
                 title={tool}
-                className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] text-text-secondary"
+                className="rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-xs text-text-secondary"
               >
                 {humanizeLabel(tool)}
               </span>
@@ -125,7 +125,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
                 {[...new Set(available.map((tool) => tool.category))].map((category) => (
                   <span
                     key={category}
-                    className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] text-text-secondary"
+                    className="rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-xs text-text-secondary"
                   >
                     {toolCategoryLabel(category, t)}
                   </span>
@@ -141,7 +141,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+        <p className="text-2xs font-semibold text-text-muted">
           {t('workforce.agents.allowedTools')}
         </p>
         <div className="flex items-center gap-1.5">
@@ -166,7 +166,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
         <div className="mt-2 max-h-72 space-y-3 overflow-y-auto pr-1">
           {byCategory.map(([category, tools]) => (
             <div key={category}>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+              <p className="text-2xs font-semibold text-text-muted">
                 {toolCategoryLabel(category, t)}
               </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
@@ -179,7 +179,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
                       title={tool.description}
                       onClick={() => toggle(tool.name)}
                       className={cn(
-                        'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                        'rounded-md border px-2 py-0.5 text-xs transition-colors',
                         active
                           ? 'border-accent/50 bg-accent/12 text-accent'
                           : 'border-border/60 bg-bg-elevated/60 text-text-secondary hover:border-border',

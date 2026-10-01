@@ -109,7 +109,7 @@ export function WebhookTriggerPanel({
       <div className="space-y-1.5">
         <Label className="text-xs text-text-muted">{t('agendaPage.webhookHookUrl')}</Label>
         <div className="flex gap-2">
-          <code className="flex-1 truncate rounded-md border border-border/60 bg-bg-base px-2 py-1.5 text-xs text-text-secondary">
+          <code className="flex-1 truncate-fade rounded-md border border-border/60 bg-bg-base px-2 py-1.5 text-xs text-text-secondary">
             {hookUrl}
           </code>
           <Button
@@ -133,7 +133,7 @@ export function WebhookTriggerPanel({
       <div className="space-y-1.5">
         <Label className="text-xs text-text-muted">{t('agendaPage.webhookTriggerId')}</Label>
         <div className="flex gap-2">
-          <code className="flex-1 truncate rounded-md border border-border/60 bg-bg-base px-2 py-1.5 text-xs text-text-secondary">
+          <code className="flex-1 truncate-fade rounded-md border border-border/60 bg-bg-base px-2 py-1.5 text-xs text-text-secondary">
             {trigger.id}
           </code>
           <Button
@@ -187,7 +187,7 @@ export function WebhookTriggerPanel({
 
       <div className="space-y-1.5">
         <Label className="text-xs text-text-muted">{t('agendaPage.webhookEnvLabel')}</Label>
-        <pre className="overflow-x-auto rounded-md border border-border/60 bg-bg-base p-2 text-[11px] text-text-secondary whitespace-pre-wrap">
+        <pre className="overflow-x-auto rounded-md border border-border/60 bg-bg-base p-2 text-xs text-text-secondary whitespace-pre-wrap">
           {envSnippet}
         </pre>
         <Button

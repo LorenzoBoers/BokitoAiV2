@@ -9,7 +9,6 @@ import { Switch } from '../components/ui/switch'
 import {
   AGENT_AVATAR_ICON_KEYS,
   AGENT_AVATAR_ICONS,
-  DEFAULT_AGENT_AVATAR_COLOR,
 } from '../lib/agent-avatar'
 import { bokitoUpdateAgent } from '../lib/bokito-api'
 import { applyUiLanguageLocally, persistUiLanguage } from '../lib/language-preference'
@@ -72,9 +71,9 @@ function ChoiceGrid({
             onClick={() => onChange(id)}
             aria-pressed={selected}
             className={cn(
-              'rounded-xl border px-3.5 py-2.5 text-left text-[13px] font-medium transition-colors',
+              'rounded-lg border px-3.5 py-2.5 text-left text-sm font-medium transition-colors',
               selected
-                ? 'border-accent/50 bg-accent/10 text-text-heading'
+                ? 'border-border-light bg-bg-hover text-text-heading'
                 : 'border-border/60 bg-bg-elevated/40 text-text-secondary hover:border-border hover:text-text-heading',
             )}
           >
@@ -214,7 +213,6 @@ export default function OnboardingWizardPage() {
             name,
             avatar_kind: avatarKind,
             avatar_icon: avatarKind === 'icon' ? avatarIcon : null,
-            avatar_color: DEFAULT_AGENT_AVATAR_COLOR,
             avatar_image_url: null,
           })
         }
@@ -298,22 +296,22 @@ export default function OnboardingWizardPage() {
     <div className="app-atmosphere flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b border-border/40 px-5 py-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">Bokito</p>
-          <h1 className="text-[15px] font-semibold text-text-heading">
+          <p className="text-xs font-semibold text-accent">Bokito</p>
+          <h1 className="text-lg font-semibold text-text-heading">
             {isOwnerScope ? t('title') : t('memberTitle')}
           </h1>
         </div>
         <button
           type="button"
           onClick={() => void logout()}
-          className="rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted hover:bg-bg-hover/60 hover:text-text-primary"
+          className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted hover:bg-bg-hover/60 hover:text-text-primary"
         >
           {t('logout')}
         </button>
       </header>
 
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-5 py-8">
-        <p className="text-[12px] text-text-muted">
+        <p className="text-xs text-text-muted">
           {t('progress', { current: stepIndex + 1, total: steps.length })}
         </p>
         <div className="mt-2 mb-6 flex gap-1">
@@ -332,10 +330,10 @@ export default function OnboardingWizardPage() {
           <section className="space-y-6">
             <div>
               <h2 className="text-lg font-semibold text-text-heading">{t('intake.title')}</h2>
-              <p className="mt-1 text-[13px] text-text-secondary">{t('intake.subtitle')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('intake.subtitle')}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-[12px] font-medium text-text-secondary">{t('intake.source')}</p>
+              <p className="text-xs font-medium text-text-secondary">{t('intake.source')}</p>
               <ChoiceGrid
                 options={INTAKE_SOURCES}
                 value={intake.source}
@@ -344,7 +342,7 @@ export default function OnboardingWizardPage() {
               />
             </div>
             <div className="space-y-2">
-              <p className="text-[12px] font-medium text-text-secondary">{t('intake.orgSize')}</p>
+              <p className="text-xs font-medium text-text-secondary">{t('intake.orgSize')}</p>
               <ChoiceGrid
                 options={ORG_SIZES}
                 value={intake.org_size}
@@ -353,7 +351,7 @@ export default function OnboardingWizardPage() {
               />
             </div>
             <div className="space-y-2">
-              <p className="text-[12px] font-medium text-text-secondary">{t('intake.useCase')}</p>
+              <p className="text-xs font-medium text-text-secondary">{t('intake.useCase')}</p>
               <ChoiceGrid
                 options={USE_CASES}
                 value={intake.use_case}
@@ -368,10 +366,10 @@ export default function OnboardingWizardPage() {
           <section className="space-y-6">
             <div>
               <h2 className="text-lg font-semibold text-text-heading">{t('languages.title')}</h2>
-              <p className="mt-1 text-[13px] text-text-secondary">{t('languages.subtitle')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('languages.subtitle')}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-[12px] font-medium text-text-secondary">{t('languages.uiLabel')}</p>
+              <p className="text-xs font-medium text-text-secondary">{t('languages.uiLabel')}</p>
               <div className="flex gap-2">
                 {(['nl', 'en'] as const).map((lang) => (
                   <button
@@ -383,9 +381,9 @@ export default function OnboardingWizardPage() {
                       applyUiLanguageLocally(i18n, lang)
                     }}
                     className={cn(
-                      'rounded-xl border px-4 py-2 text-[13px] font-medium',
+                      'rounded-lg border px-4 py-2 text-sm font-medium',
                       uiLang === lang
-                        ? 'border-accent/50 bg-accent/10 text-text-heading'
+                        ? 'border-border-light bg-bg-hover text-text-heading'
                         : 'border-border/60 text-text-secondary',
                     )}
                   >
@@ -396,10 +394,10 @@ export default function OnboardingWizardPage() {
             </div>
             {isOwnerScope ? (
               <div className="space-y-2">
-                <p className="text-[12px] font-medium text-text-secondary">
+                <p className="text-xs font-medium text-text-secondary">
                   {t('languages.workspaceLabel')}
                 </p>
-                <p className="text-[12px] text-text-muted">{t('languages.workspaceHint')}</p>
+                <p className="text-xs text-text-muted">{t('languages.workspaceHint')}</p>
                 <div className="flex flex-wrap gap-2">
                   {WORKSPACE_LANGS.map((lang) => (
                     <button
@@ -408,9 +406,9 @@ export default function OnboardingWizardPage() {
                       aria-pressed={workspaceLang === lang}
                       onClick={() => setWorkspaceLang(lang)}
                       className={cn(
-                        'rounded-xl border px-3 py-1.5 text-[12.5px] font-medium uppercase',
+                        'rounded-lg border px-3 py-1.5 text-sm font-medium ',
                         workspaceLang === lang
-                          ? 'border-accent/50 bg-accent/10 text-text-heading'
+                          ? 'border-border-light bg-bg-hover text-text-heading'
                           : 'border-border/60 text-text-secondary',
                       )}
                     >
@@ -427,14 +425,14 @@ export default function OnboardingWizardPage() {
           <section className="space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-text-heading">{t('notifications.title')}</h2>
-              <p className="mt-1 text-[13px] text-text-secondary">{t('notifications.subtitle')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('notifications.subtitle')}</p>
             </div>
-            <ul className="divide-y divide-border/40 rounded-xl border border-border/50 bg-bg-surface">
+            <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-bg-surface">
               {notifRows.map((row) => (
                 <li key={row.id} className="flex items-center justify-between gap-3 px-3.5 py-3">
-                  <span className="text-[13px] text-text-heading">{row.label}</span>
+                  <span className="text-sm text-text-heading">{row.label}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-text-muted">{t('notifications.desktop')}</span>
+                    <span className="text-xs text-text-muted">{t('notifications.desktop')}</span>
                     <Switch
                       checked={Boolean(row.channels.desktop)}
                       onCheckedChange={(checked) => updateNotifDesktop(row.id, checked)}
@@ -443,7 +441,7 @@ export default function OnboardingWizardPage() {
                 </li>
               ))}
             </ul>
-            <p className="text-[12px] text-text-muted">{t('notifications.hint')}</p>
+            <p className="text-xs text-text-muted">{t('notifications.hint')}</p>
           </section>
         ) : null}
 
@@ -451,7 +449,7 @@ export default function OnboardingWizardPage() {
           <section className="space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-text-heading">{t('govern.title')}</h2>
-              <p className="mt-1 text-[13px] text-text-secondary">{t('govern.subtitle')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('govern.subtitle')}</p>
             </div>
             <div className="space-y-2">
               {POSTURES.map((id) => {
@@ -463,16 +461,16 @@ export default function OnboardingWizardPage() {
                     aria-pressed={selected}
                     onClick={() => setPostureLocal(id)}
                     className={cn(
-                      'w-full rounded-xl border px-4 py-3 text-left transition-colors',
+                      'w-full rounded-lg border px-4 py-3 text-left transition-colors',
                       selected
-                        ? 'border-accent/50 bg-accent/10'
+                        ? 'border-border-light bg-bg-hover'
                         : 'border-border/60 bg-bg-elevated/30 hover:border-border',
                     )}
                   >
-                    <span className="block text-[13.5px] font-semibold text-text-heading">
+                    <span className="block text-base font-semibold text-text-heading">
                       {tg(`posture.${id}.label`)}
                     </span>
-                    <span className="mt-0.5 block text-[12.5px] text-text-secondary">
+                    <span className="mt-0.5 block text-sm text-text-secondary">
                       {tg(`posture.${id}.summary`)}
                     </span>
                   </button>
@@ -486,7 +484,7 @@ export default function OnboardingWizardPage() {
           <section className="space-y-5">
             <div>
               <h2 className="text-lg font-semibold text-text-heading">{t('agent.title')}</h2>
-              <p className="mt-1 text-[13px] text-text-secondary">{t('agent.subtitle')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('agent.subtitle')}</p>
             </div>
             <div className="flex items-center gap-3">
               <AiAvatar
@@ -495,15 +493,14 @@ export default function OnboardingWizardPage() {
                 size={48}
                 kind={avatarKind}
                 icon={avatarKind === 'icon' ? avatarIcon : null}
-                color={DEFAULT_AGENT_AVATAR_COLOR}
               />
               <label className="flex-1">
-                <span className="text-[12px] font-medium text-text-secondary">{t('agent.nameLabel')}</span>
+                <span className="text-xs font-medium text-text-secondary">{t('agent.nameLabel')}</span>
                 <input
                   value={agentName}
                   onChange={(e) => setAgentName(e.target.value)}
                   placeholder={t('agent.namePlaceholder')}
-                  className="mt-1 w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-heading outline-none focus:border-accent/50"
+                  className="mt-1 w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-heading outline-none focus:border-accent/50"
                 />
               </label>
             </div>
@@ -515,9 +512,9 @@ export default function OnboardingWizardPage() {
                   aria-pressed={avatarKind === kind}
                   onClick={() => setAvatarKind(kind)}
                   className={cn(
-                    'rounded-lg border px-3 py-1.5 text-[12px] font-medium',
+                    'rounded-lg border px-3 py-1.5 text-xs font-medium',
                     avatarKind === kind
-                      ? 'border-accent/50 bg-accent/10 text-text-heading'
+                      ? 'border-border-light bg-bg-hover text-text-heading'
                       : 'border-border/60 text-text-secondary',
                   )}
                 >
@@ -557,7 +554,7 @@ export default function OnboardingWizardPage() {
           <section className="space-y-5">
             <div>
               <h2 className="text-lg font-semibold text-text-heading">{t('channel.title')}</h2>
-              <p className="mt-1 text-[13px] text-text-secondary">{t('channel.subtitle')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('channel.subtitle')}</p>
             </div>
             <button
               type="button"
@@ -574,11 +571,11 @@ export default function OnboardingWizardPage() {
                   }
                 })()
               }}
-              className="w-full rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-[13px] font-semibold text-text-heading hover:bg-accent/15 disabled:opacity-60"
+              className="w-full rounded-lg border border-border-light bg-bg-hover px-4 py-3 text-sm font-semibold text-text-heading hover:bg-accent/15 disabled:opacity-60"
             >
               {t('channel.openChannels')}
             </button>
-            <p className="text-center text-[12px] text-text-muted">{t('channel.later')}</p>
+            <p className="text-center text-xs text-text-muted">{t('channel.later')}</p>
           </section>
         ) : null}
 
@@ -587,7 +584,7 @@ export default function OnboardingWizardPage() {
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0 || busy}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[12.5px] font-medium text-text-muted disabled:opacity-40 hover:bg-bg-hover/60 hover:text-text-primary"
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted disabled:opacity-40 hover:bg-bg-hover/60 hover:text-text-primary"
           >
             <ArrowLeft size={13} />
             {t('back')}
@@ -596,7 +593,7 @@ export default function OnboardingWizardPage() {
             type="button"
             onClick={() => void goNext()}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60"
           >
             {busy ? t('saving') : stepIndex >= steps.length - 1 ? t('finish') : t('next')}
             {!busy ? <ArrowRight size={13} /> : <Loader2 size={13} className="animate-spin" />}

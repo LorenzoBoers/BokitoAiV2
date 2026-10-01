@@ -21,6 +21,8 @@ export type NavBadgeCounts = {
   inboxByQueue: { my: number; unassigned: number; all: number }
   agentsAttention: number
   noReplySuggestions: number
+  /** Open decisions + customer replies due: the hub's "You" leaf. */
+  yourTurn: number
 }
 
 const EMPTY_COUNTS: NavBadgeCounts = {
@@ -28,6 +30,7 @@ const EMPTY_COUNTS: NavBadgeCounts = {
   inboxByQueue: { my: 0, unassigned: 0, all: 0 },
   agentsAttention: 0,
   noReplySuggestions: 0,
+  yourTurn: 0,
 }
 
 function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCounts>>): NavBadgeCounts {
@@ -40,6 +43,7 @@ function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCount
     },
     agentsAttention: payload.agents_attention,
     noReplySuggestions: payload.no_reply_suggestions,
+    yourTurn: payload.your_turn,
   }
 }
 

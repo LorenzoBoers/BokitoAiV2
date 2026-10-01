@@ -48,7 +48,9 @@ import { listAgents } from '../../lib/agents-api'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import { AI_TEXT_CLASS, AiIconBox, AiMark } from '../ai/AiMark'
+import { AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
+import { AiAvatar } from '../ui/AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ChatMessageBubble } from './ChatBubble'
 
 type DecisionOption = {
@@ -75,6 +77,10 @@ type Props = {
   agentName?: string | null
   /** Agent id for loading the send-as signature preview. */
   agentId?: string | null
+  agentAvatarKind?: string | null
+  agentAvatarIcon?: string | null
+  agentAvatarColor?: string | null
+  agentAvatarImageUrl?: string | null
   /**
    * The draft already sits in the composer, so the timeline only notes that
    * the AI proposed a reply instead of repeating the whole card.
@@ -255,6 +261,10 @@ export default function DecisionRequestMessage({
   onEditDraft,
   agentName,
   agentId,
+  agentAvatarKind,
+  agentAvatarIcon,
+  agentAvatarColor,
+  agentAvatarImageUrl,
   compactReplyProposal = false,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
@@ -588,8 +598,23 @@ export default function DecisionRequestMessage({
     await resolve('approve', option.id)
   }
 
-  const agentAvatar = <AiIconBox />
-
+  const agentAvatar = (
+    <AiAvatar
+      {...toAiAvatarProps(
+        {
+          name: agentName || agentDisplayName,
+          agentId,
+          agentAvatarKind,
+          agentAvatarIcon,
+          agentAvatarColor,
+          agentAvatarImageUrl,
+        },
+        'Agent',
+      )}
+      size={28}
+      decorative
+    />
+  )
   if (asCompactProposal && !ruleSuggestion) {
     return (
       <ChatMessageBubble
@@ -599,7 +624,7 @@ export default function DecisionRequestMessage({
         body={
           <div className="flex min-w-0 items-center gap-2">
             <AiMark size={12} className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate text-[11.5px] text-text-muted">
+            <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
               {t('decision.compactProposal')}
             </span>
           </div>
@@ -616,11 +641,11 @@ export default function DecisionRequestMessage({
         variant="external"
         body={
           <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-[11.5px] text-text-muted">
+            <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
               {t('decisionCard.earlierDraft')}
               {excerpt ? ` — ${excerpt}` : ''}
             </span>
-            <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+            <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary">
               {t('decisionCard.resolved')}
             </span>
           </div>
@@ -644,7 +669,7 @@ export default function DecisionRequestMessage({
           )}
           <span
             className={cn(
-              'text-xs font-semibold uppercase tracking-wide',
+              'text-xs font-semibold ',
               resolved ? 'text-text-muted' : AI_TEXT_CLASS,
             )}
           >
@@ -657,13 +682,13 @@ export default function DecisionRequestMessage({
                   : t('decision.waitForOk')}
           </span>
           {resolved ? (
-            <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
+            <span className="rounded-full bg-bg-hover px-2 py-0.5 text-2xs font-medium text-text-secondary">
               {t('decisionCard.resolved')}
             </span>
           ) : null}
         </div>
         {decisionSource ? (
-          <p className="mb-1.5 text-[11px] text-text-muted">
+          <p className="mb-1.5 text-xs text-text-muted">
             {t('decisionCard.source.prefix', { defaultValue: 'From' })}{' '}
             <Link
               to={decisionSourcePath(decisionSource)}
@@ -677,11 +702,11 @@ export default function DecisionRequestMessage({
         ) : null}
         {message.decisionId ? (
           <details className="mb-1.5 group/tech">
-            <summary className="cursor-pointer list-none text-[10px] font-medium uppercase tracking-wide text-text-muted/80 hover:text-text-muted [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-2xs font-medium text-text-muted/80 hover:text-text-muted [&::-webkit-details-marker]:hidden">
               {t('decisionCard.technical', { defaultValue: 'Technical' })}
             </summary>
             <div className="mt-1 flex items-center gap-1.5">
-              <span className="truncate font-mono text-[10px] text-text-muted">
+              <span className="truncate-fade font-mono text-2xs text-text-muted">
                 {String(message.decisionId)}
               </span>
               <button
@@ -735,19 +760,19 @@ export default function DecisionRequestMessage({
                 <div className="border-t border-border/40 px-3 py-2">
                   <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
+                      <span className="text-2xs font-medium text-text-muted">
                         {t('decisionCard.sendAs.signaturePreview')}
                       </span>
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-text-muted">{t('decisionCard.sendAs.label')}</span>
+                        <span className="text-2xs text-text-muted">{t('decisionCard.sendAs.label')}</span>
                         <button
                           type="button"
                           disabled={busy}
                           onClick={() => chooseSendAs('user')}
                           className={cn(
-                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium transition-colors',
+                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium transition-colors',
                             sendAs === 'user'
-                              ? 'border-accent/50 bg-accent/10 text-text-primary'
+                              ? 'border-border-light bg-bg-hover text-text-heading'
                               : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
                           )}
                         >
@@ -759,7 +784,7 @@ export default function DecisionRequestMessage({
                           disabled={busy}
                           onClick={() => chooseSendAs('agent')}
                           className={cn(
-                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium transition-colors',
+                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium transition-colors',
                             sendAs === 'agent'
                               ? 'border-ai/40 bg-ai/10 text-text-primary'
                               : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
@@ -772,7 +797,7 @@ export default function DecisionRequestMessage({
                     </div>
                     <Link
                       to={signatureSettingsPath}
-                      className="md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 text-[11px] font-medium text-accent no-underline transition-colors hover:border-accent/45 hover:bg-bg-hover/70"
+                      className="md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 text-xs font-medium text-accent no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70"
                     >
                       {signatureIsDefault
                         ? t('decisionCard.sendAs.customizeSignature')
@@ -789,7 +814,7 @@ export default function DecisionRequestMessage({
             {moduleProposal ? <ModuleProposalBlock proposal={moduleProposal} /> : null}
             {internalNote ? (
               <div className="mt-3 border-l-2 border-border/70 pl-3">
-                <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
+                <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-text-muted">
                   <StickyNote size={12} className="shrink-0 text-text-muted" aria-hidden />
                   <span>{t('decisionCard.internalNote.title')}</span>
                   <span className="font-normal text-text-muted/80">

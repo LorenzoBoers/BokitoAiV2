@@ -104,58 +104,58 @@ export default function WorkspaceSettings() {
         {t('description')}
       </p>
 
-      <div className="rounded-xl border border-border/60 bg-bg-elevated/40 p-4">
+      <div className="rounded-lg border border-border/60 bg-bg-elevated/40 p-4">
         <p className="text-sm font-medium text-text-heading">{t('startHereTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">{t('startHereBody')}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             to="/settings/setup"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <ListChecks size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-text-heading">{t('startHereSetup')}</span>
-              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.setupGuide')}</span>
+              <span className="block text-xs text-text-muted">{t('nav:settings.hints.setupGuide')}</span>
             </span>
           </Link>
           <Link
             to="/settings/channels"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <Mail size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-text-heading">{t('startHereEmail')}</span>
-              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.emailMessages')}</span>
+              <span className="block text-xs text-text-muted">{t('nav:settings.hints.emailMessages')}</span>
             </span>
           </Link>
           <Link
             to="/settings/communication"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <Bot size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-text-heading">{t('startHereInboxAi')}</span>
-              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.inboxAi')}</span>
+              <span className="block text-xs text-text-muted">{t('nav:settings.hints.inboxAi')}</span>
             </span>
           </Link>
           <Link
             to={WEBSITE_WIDGET_PATH}
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <MessageSquare size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-text-heading">{t('startHereWidget')}</span>
-              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.chatWidget')}</span>
+              <span className="block text-xs text-text-muted">{t('nav:settings.hints.chatWidget')}</span>
             </span>
           </Link>
           <Link
             to="/connections/marketplace"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <Puzzle size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-text-heading">{t('startHereMarketplace')}</span>
-              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.integrations')}</span>
+              <span className="block text-xs text-text-muted">{t('nav:settings.hints.integrations')}</span>
             </span>
           </Link>
         </div>

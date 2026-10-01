@@ -43,7 +43,7 @@ function IconTile({ children, className }: { children: ReactNode; className?: st
   return (
     <span
       className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-bg-elevated/80',
+        'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-bg-elevated/80',
         className,
       )}
     >
@@ -60,7 +60,7 @@ function EmailLogoStack() {
         <span
           key={logo}
           className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated shadow-sm',
+            'flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated ',
             index > 0 && '-ml-2.5',
           )}
           style={{ zIndex: EMAIL_LOGOS.length - index }}
@@ -95,7 +95,7 @@ function ChoiceRow({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-xl border border-border/50 bg-bg-elevated/30 px-3 py-3 text-left transition-all',
+        'group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated/30 px-3 py-3 text-left transition-all',
         'hover:border-border hover:bg-bg-hover/50',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
         'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated/30',
@@ -105,7 +105,7 @@ function ChoiceRow({
       {icon}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-text-heading">{title}</span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-text-secondary">{hint}</span>
+        <span className="mt-0.5 block text-xs leading-snug text-text-secondary">{hint}</span>
       </span>
       {trailing ?? (
         <ChevronRight
@@ -138,14 +138,14 @@ function ProviderCard({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'relative flex flex-col items-start gap-3 rounded-xl border border-border/50 bg-bg-elevated/30 p-3.5 text-left transition-all',
-        'hover:border-border hover:bg-bg-hover/50 hover:shadow-sm',
+        'relative flex flex-col items-start gap-3 rounded-lg border border-border/50 bg-bg-elevated/30 p-3.5 text-left transition-all',
+        'hover:border-border hover:bg-bg-hover/50 ',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
         'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated/30 disabled:hover:shadow-none',
       )}
     >
       {badge ? (
-        <span className="absolute right-2.5 top-2.5 rounded-full bg-bg-input px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+        <span className="absolute right-2.5 top-2.5 rounded-full bg-bg-input px-1.5 py-0.5 text-2xs font-medium text-text-muted">
           {badge}
         </span>
       ) : null}
@@ -154,7 +154,7 @@ function ProviderCard({
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-medium text-text-heading">{title}</span>
-        <span className="mt-0.5 block text-[11.5px] leading-snug text-text-secondary">{hint}</span>
+        <span className="mt-0.5 block text-xs leading-snug text-text-secondary">{hint}</span>
       </span>
     </button>
   )
@@ -316,7 +316,7 @@ export default function AddChannelDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border/70 bg-bg-surface p-5 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border/70 bg-bg-surface p-5">
           <div className="flex items-start gap-2.5">
             {choice !== 'menu' ? (
               <button
@@ -329,10 +329,10 @@ export default function AddChannelDialog({
               </button>
             ) : null}
             <div className="min-w-0">
-              <Dialog.Title className="text-[17px] font-semibold tracking-tight text-text-heading">
+              <Dialog.Title className="text-xl font-semibold tracking-tight text-text-heading">
                 {title}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-[12.5px] leading-snug text-text-secondary">
+              <Dialog.Description className="mt-0.5 text-sm leading-snug text-text-secondary">
                 {description}
               </Dialog.Description>
             </div>
@@ -372,7 +372,7 @@ export default function AddChannelDialog({
                 <Link
                   to={WEBSITE_WIDGET_PATH}
                   onClick={() => onOpenChange(false)}
-                  className="group flex w-full items-center gap-3 rounded-xl border border-border/50 bg-bg-elevated/30 px-3 py-3 text-left transition-all hover:border-border hover:bg-bg-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated/30 px-3 py-3 text-left transition-all hover:border-border hover:bg-bg-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <IconTile className="text-text-secondary">
                     <MessageSquare size={16} />
@@ -381,7 +381,7 @@ export default function AddChannelDialog({
                     <span className="block text-sm font-medium text-text-heading">
                       {t('channelsPage.option.widget')}
                     </span>
-                    <span className="mt-0.5 block text-[12px] leading-snug text-text-secondary">
+                    <span className="mt-0.5 block text-xs leading-snug text-text-secondary">
                       {t('channelsPage.option.widgetHint')}
                     </span>
                   </span>
@@ -442,7 +442,7 @@ export default function AddChannelDialog({
                   disabled={connectBusy !== null}
                   id="oauth-sync-window"
                 />
-                <p className="text-[12px] leading-snug text-text-muted">
+                <p className="text-xs leading-snug text-text-muted">
                   {t('channelsPage.oauthInstallProgress')}
                 </p>
                 {connectError ? <p className="text-xs text-status-error">{connectError}</p> : null}
@@ -464,10 +464,10 @@ export default function AddChannelDialog({
             {choice === 'relay' ? (
               createdAddress ? (
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-border/50 bg-bg-elevated/40 px-4 py-4">
+                  <div className="rounded-lg border border-border/50 bg-bg-elevated/40 px-4 py-4">
                     <p className="text-sm text-text-secondary">{t('channelsPage.relay.created')}</p>
                     <div className="mt-3 flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate rounded-lg border border-border/60 bg-bg-surface px-2.5 py-2 text-xs font-medium text-text-heading">
+                      <code className="min-w-0 flex-1 truncate-fade rounded-lg border border-border/60 bg-bg-surface px-2.5 py-2 text-xs font-medium text-text-heading">
                         {createdAddress}
                       </code>
                       <Button variant="secondary" size="sm" onClick={() => void copyAddress()}>
@@ -490,14 +490,14 @@ export default function AddChannelDialog({
                       onChange={(e) => setPrefix(e.target.value)}
                       placeholder={t('channelsPage.relay.prefixPlaceholder')}
                       autoFocus
-                      className="rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 font-mono text-[12.5px] text-text-primary outline-none transition-colors focus:border-accent/60"
+                      className="rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 font-mono text-sm text-text-primary outline-none transition-colors focus:border-accent/60"
                     />
                   </label>
                   <div className="rounded-lg border border-dashed border-border/60 bg-bg-elevated/20 px-3 py-2.5">
-                    <p className="text-[11px] uppercase tracking-wide text-text-muted">
+                    <p className="text-xs text-text-muted">
                       {t('channelsPage.relay.preview')}
                     </p>
-                    <code className="mt-1 block truncate text-[12.5px] font-medium text-text-heading">
+                    <code className="mt-1 block truncate-fade text-sm font-medium text-text-heading">
                       {preview || t('channelsPage.relay.previewEmpty')}
                     </code>
                   </div>

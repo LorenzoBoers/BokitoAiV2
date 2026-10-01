@@ -141,7 +141,7 @@ export default function ChannelBindingsPanel() {
         <p className="mt-0.5 text-xs text-text-muted">
           {t('channelsPage.bindings.body')}
         </p>
-        <p className="text-[11px] text-text-muted">{t('channelsPage.bindings.leadHint')}</p>
+        <p className="text-xs text-text-muted">{t('channelsPage.bindings.leadHint')}</p>
       </div>
 
       {loading ? (
@@ -154,7 +154,7 @@ export default function ChannelBindingsPanel() {
                 {t('channelsPage.bindings.empty')}
               </p>
               {agents.length === 0 ? null : (
-                <p className="mt-1.5 text-[11px] text-text-muted">{t('channelsPage.bindings.emptyHint')}</p>
+                <p className="mt-1.5 text-xs text-text-muted">{t('channelsPage.bindings.emptyHint')}</p>
               )}
               <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
                 <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
@@ -176,10 +176,10 @@ export default function ChannelBindingsPanel() {
                   className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2 text-sm"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-text-heading">
+                    <p className="truncate-fade font-medium text-text-heading">
                       {scopeLabel(row)} → {agentName(row.agent_id)}
                     </p>
-                    <p className="text-[11px] text-text-muted">
+                    <p className="text-xs text-text-muted">
                       {t('channelsPage.bindings.priority', { priority: row.priority })}
                       {!row.enabled ? ` · ${t('channelsPage.bindings.disabled')}` : ''}
                     </p>

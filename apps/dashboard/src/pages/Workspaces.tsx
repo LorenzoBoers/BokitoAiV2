@@ -70,7 +70,7 @@ function AssistantThreadsSection({
   return (
     <section className="space-y-3">
       <div className="space-y-1 text-center">
-        <h3 className="text-[15px] font-semibold text-text-heading">{t('assistant.title')}</h3>
+        <h3 className="text-lg font-semibold text-text-heading">{t('assistant.title')}</h3>
         <p className="text-xs text-text-secondary">{t('assistant.description')}</p>
       </div>
       <ul className="space-y-1.5">
@@ -79,13 +79,13 @@ function AssistantThreadsSection({
             <button
               type="button"
               onClick={() => void onOpen(thread)}
-              className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-2.5 text-left hover:border-accent/40 hover:bg-bg-hover/60"
+              className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover/60"
             >
               <Sparkles size={14} className="shrink-0 text-ai-ink" aria-hidden />
-              <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+              <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">
                 {thread.title}
               </span>
-              <span className="shrink-0 text-[11px] uppercase tracking-[0.08em] text-text-muted">
+              <span className="shrink-0 text-xs text-text-muted">
                 {thread.workspace_id === currentWorkspaceId
                   ? t('assistant.thisWorkspace')
                   : thread.workspace_name}
@@ -211,9 +211,9 @@ export default function Workspaces() {
                     await switchWorkspace(workspace.id)
                     navigate(inboxPath('open'), { replace: true })
                   }}
-                  className={`rounded-xl border p-5 text-left shadow-card hover-lift ${
+                  className={`rounded-lg border p-5 text-left hover-lift ${
                     isCurrent
-                      ? 'border-accent/45 bg-accent/10'
+                      ? 'border-border-light bg-bg-hover'
                       : 'border-border/60 bg-bg-surface hover:border-border'
                   }`}
                 >
@@ -228,15 +228,15 @@ export default function Workspaces() {
                         />
                       ) : (
                         <span
-                          className="w-10 h-10 rounded-lg flex items-center justify-center text-[15px] font-bold shrink-0"
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold shrink-0"
                           style={{ background: bg, color: text }}
                         >
                           {initials}
                         </span>
                       )}
                       <div className="space-y-0.5 min-w-0">
-                        <p className="text-[18px] font-semibold text-text-heading leading-tight">{workspace.name}</p>
-                        <p className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-text-muted">
+                        <p className="text-xl font-semibold text-text-heading leading-tight">{workspace.name}</p>
+                        <p className="flex items-center gap-1 text-xs text-text-muted">
                           <span>{workspace.slug || t('cards.workspace.defaultSlug')}</span>
                           {workspace.slug ? (
                             <span
@@ -264,14 +264,14 @@ export default function Workspaces() {
                           ) : null}
                         </p>
                         {tenantUrl ? (
-                          <p className="text-[11px] text-text-secondary truncate">{tenantUrl}</p>
+                          <p className="text-xs text-text-secondary truncate-fade">{tenantUrl}</p>
                         ) : !hasSubdomain ? (
-                          <p className="text-[11px] text-status-error">{t('cards.workspace.subdomainRequired')}</p>
+                          <p className="text-xs text-status-error">{t('cards.workspace.subdomainRequired')}</p>
                         ) : null}
                       </div>
                     </div>
                     {isCurrent ? (
-                      <span className="rounded-md border border-border/60 bg-bg-hover px-2 py-1 text-[11px] text-text-muted shrink-0">
+                      <span className="rounded-md border border-border/60 bg-bg-hover px-2 py-1 text-xs text-text-muted shrink-0">
                         {t('cards.workspace.current')}
                       </span>
                     ) : null}
@@ -291,13 +291,13 @@ export default function Workspaces() {
                 setError(null)
                 setCreateDialogOpen(true)
               }}
-              className="attention-glow rounded-xl border border-dashed border-accent/45 p-5 text-left transition-colors hover:bg-bg-hover/50"
+              className="attention-glow rounded-lg border border-dashed border-accent/45 p-5 text-left transition-colors hover:bg-bg-hover/50"
             >
               <div className="space-y-2">
                 <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-bg-hover/70">
                   <CirclePlus size={18} className="text-text-muted" />
                 </div>
-                <p className="text-[18px] font-semibold text-text-heading">{t('cards.create.title')}</p>
+                <p className="text-xl font-semibold text-text-heading">{t('cards.create.title')}</p>
                 <p className="text-sm text-text-secondary">{t('cards.create.description')}</p>
               </div>
               <div className="mt-5 flex items-center gap-2 text-sm text-text-secondary">
@@ -369,7 +369,7 @@ export default function Workspaces() {
                   placeholder={t('cards.create.subdomainPlaceholder')}
                   className="rounded-r-none"
                 />
-                <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 text-[12px] text-text-muted whitespace-nowrap rounded-r-md">
+                <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 text-xs text-text-muted whitespace-nowrap rounded-r-md">
                   .bokito.ai
                 </span>
               </div>

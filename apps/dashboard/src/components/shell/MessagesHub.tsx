@@ -4,7 +4,7 @@ import { Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessagesHubNav from '../inbox/MessagesHubNav'
 import SidebarCustomizeDialog from '../inbox/SidebarCustomizeDialog'
-import { PageGuideBanner } from '../layout/PageGuideBanner'
+import { PageGuideLink } from '../layout/PageGuideLink'
 import { SidebarPrefsProvider } from '../../context/SidebarPrefsContext'
 import { SplitPane, SplitRow } from '../ui/SplitRow'
 
@@ -35,20 +35,26 @@ export default function MessagesHub() {
           label={t('split.nav', { ns: 'communication' })}
           className="hidden md:flex"
         >
-          <aside className="flex h-full min-h-0 w-full flex-col border-r border-border/40 bg-bg-sidebar/50 px-2.5 py-3">
-            <div className="flex items-center justify-between px-2.5 pb-2">
-              <p className="text-[15px] font-semibold leading-none text-text-heading">
-                {t('sectionTitle.inbox')}
-              </p>
-              <button
-                type="button"
-                onClick={() => setCustomizeOpen(true)}
-                className="rounded-md p-1 text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
-                aria-label={t('support.customize.title')}
-                data-testid="customize-sidebar"
-              >
-                <Settings2 size={14} />
-              </button>
+          <aside className="flex h-full min-h-0 w-full flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5">
+            <div className="flex h-7 items-center justify-between pl-2 pr-0.5 pb-1">
+              <p className="text-sm font-medium leading-none text-text-heading">{t('sectionTitle.inbox')}</p>
+              <div className="flex items-center">
+                <PageGuideLink
+                  page="communication"
+                  variant={runsGuide ? 'runs' : undefined}
+                  compact
+                  className="h-6 w-6"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCustomizeOpen(true)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+                  aria-label={t('support.customize.title')}
+                  data-testid="customize-sidebar"
+                >
+                  <Settings2 size={13} />
+                </button>
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <MessagesHubNav />
@@ -57,13 +63,6 @@ export default function MessagesHub() {
         </SplitPane>
         <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
           <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="hidden shrink-0 md:block">
-              <PageGuideBanner
-                page="communication"
-                variant={runsGuide ? 'runs' : undefined}
-                className="mx-3 mt-3"
-              />
-            </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <Outlet />
             </div>

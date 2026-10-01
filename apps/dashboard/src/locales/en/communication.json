@@ -829,7 +829,7 @@
     "assignPicker": "Open assignee picker",
     "copyLink": "Copy conversation link",
     "copyId": "Copy thread ID",
-    "quickFilters": "All / Needs reply / Unread / Pinned / Needs decision",
+    "quickFilters": "All / Unread / Pinned / You",
     "jumpUnread": "Next or previous unread",
     "markRead": "Mark as read",
     "selectAll": "Select all loaded conversations",
@@ -1132,7 +1132,10 @@
     "agent": "Agent",
     "handling": "Handling",
     "who": "Who",
-    "thisConversation": "This conversation"
+    "thisConversation": "This conversation",
+    "priority": "Priority",
+    "lookAgain": "Look again",
+    "plan": "Plan"
   },
   "actions": {
     "takeoverError": "Could not change AI replies.",

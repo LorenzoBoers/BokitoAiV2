@@ -19,7 +19,7 @@ const ROWS: Array<{ keys: string; labelKey: string }> = [
   { keys: 'R', labelKey: 'shortcuts.reply' },
   { keys: 'C', labelKey: 'shortcuts.compose' },
   { keys: 'N', labelKey: 'shortcuts.newChat' },
-  { keys: '1–5', labelKey: 'shortcuts.quickFilters' },
+  { keys: '1–4', labelKey: 'shortcuts.quickFilters' },
   { keys: '/', labelKey: 'shortcuts.search' },
   { keys: 'Cmd+K', labelKey: 'shortcuts.commandPalette' },
   { keys: 'Cmd+Enter', labelKey: 'shortcuts.send' },
@@ -59,24 +59,24 @@ export default function InboxShortcutHelp({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay"
+        className="w-full max-w-sm rounded-lg border border-border/60 bg-bg-surface p-4 shadow-overlay"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-[13px] font-semibold text-text-heading">{t('shortcuts.title')}</h2>
+          <h2 className="text-sm font-semibold text-text-heading">{t('shortcuts.title')}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-[11px] font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
+            className="rounded-md px-2 py-1 text-xs font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
           >
             {t('shortcuts.closeHelp')}
           </button>
         </div>
         <ul className="space-y-1.5">
           {ROWS.map((row) => (
-            <li key={row.keys} className="flex items-center justify-between gap-3 text-[12px]">
+            <li key={row.keys} className="flex items-center justify-between gap-3 text-xs">
               <span className="text-text-secondary">{t(row.labelKey)}</span>
-              <kbd className="shrink-0 rounded border border-border/70 bg-bg-elevated px-1.5 py-0.5 font-mono text-[11px] text-text-heading">
+              <kbd className="shrink-0 rounded border border-border/70 bg-bg-elevated px-1.5 py-0.5 font-mono text-xs text-text-heading">
                 {row.keys}
               </kbd>
             </li>

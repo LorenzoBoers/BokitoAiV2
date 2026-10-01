@@ -6,41 +6,33 @@
   :root {
     color-scheme: dark;
     /*
-     * Dashboard surface hierarchy (Featurebase-like, cool blue, hue ~225).
+     * Dashboard surfaces (design system v2, 2026-10): warm-neutral greys that sit
+     * within a few points of each other. Depth comes from hairline borders and
+     * faint light steps, not from shadows or tinted fills.
      *
-     *   bg          rail + body              #101319   outermost canvas
-     *   bg-sidebar  section sidebar          #14171F   1-step lighter than bg
-     *   bg-canvas   shell main panel         #161A22   featurebase-shell-panel
-     *   bg-surface  cards / panels           #1D202B   THE blessed surface
-     *   bg-elevated inputs / inline controls #242835   sub-panels, chips
-     *   bg-hover    hover state              #2D313F
+     *   bg          chrome: rail, topbar, section navs, page canvas   #121213
+     *   bg-surface  cards, dialogs, main sheets                       #19191B
+     *   bg-elevated insets inside a surface, inputs, chips            #1E1E21
+     *   bg-hover    hover / selected rows                             #26262A
      *
-     * Usage rule:
-     *   - Page backgrounds rely on Layout (no class needed).
-     *   - Cards / sections wrap content with the `Card` primitive (bg-surface).
-     *   - Sub-panels inside a Card use bg-bg-elevated.
-     *   - Hover/selected rows use bg-bg-hover with /40-/60 opacity.
-     *
-     * Legacy aliases (do NOT use in new code; covered by deprecation pass):
-     *   bg-surface-raised  -> bg-bg-surface
-     *   bg-surface-muted   -> bg-bg-elevated
-     *   border-border-subtle -> border-border/60 (or /40 for very soft lines)
+     * bg-sidebar / bg-canvas / bg-root are aliases of bg (kept for existing
+     * class names). Use `.panel` / <Card> for cards and `.nav-row` for rails.
      */
-    --color-bg: 16 19 25;
-    --color-bg-root: 16 19 25; /* alias of --color-bg, used by messenger preview CSS */
-    --color-bg-sidebar: 20 23 31;
-    --color-bg-canvas: 22 26 34;
-    --color-bg-surface: 29 32 43;
-    --color-bg-elevated: 36 40 53;
-    --color-bg-hover: 45 49 63;
-    --color-bg-input: 36 40 53;
-    --color-border: 50 56 71;
-    --color-border-light: 70 76 92;
+    --color-bg: 18 18 19;
+    --color-bg-root: 18 18 19;
+    --color-bg-sidebar: 18 18 19;
+    --color-bg-canvas: 18 18 19;
+    --color-bg-surface: 25 25 27;
+    --color-bg-elevated: 30 30 33;
+    --color-bg-hover: 38 38 42;
+    --color-bg-input: 30 30 33;
+    --color-border: 44 44 49;
+    --color-border-light: 62 62 68;
     --color-border-focus: 13 148 136;
-    --color-text-primary: 224 228 235;
-    --color-text-secondary: 175 181 198;
-    --color-text-muted: 130 135 150;
-    --color-text-heading: 244 247 251;
+    --color-text-primary: 226 226 224;
+    --color-text-secondary: 168 168 166;
+    --color-text-muted: 122 122 120;
+    --color-text-heading: 245 245 243;
     --color-accent: 13 148 136;
     --color-accent-hover: 16 168 155;
     --color-accent-dark: 11 127 117;
@@ -49,59 +41,52 @@
     --color-ai: 139 92 246;
     --color-ai-ink: 196 181 253;
     --color-ai-fg: 255 255 255;
-    --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 1px 2px rgba(0, 0, 0, 0.28);
-    --color-status-success: 47 190 135;
-    --color-status-warning: 232 158 39;
-    --color-status-error: 226 88 92;
-    --color-status-info: 88 142 255;
-    --body-bg: #101319;
-    --body-glow-top: rgba(13, 148, 136, 0.06);
-    --body-glow-bottom: rgba(13, 148, 136, 0.025);
+    --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    --color-status-success: 52 199 141;
+    --color-status-warning: 236 165 48;
+    --color-status-error: 232 96 100;
+    --color-status-info: 96 150 255;
+    --body-bg: #121213;
+    --body-glow-top: transparent;
+    --body-glow-bottom: transparent;
     /*
-     * Elevation tokens (exposed as shadow-card / shadow-card-hover / shadow-overlay).
-     * Cards get one soft diffuse shadow + hairline inset highlight; overlays go deeper.
-     * --shadow-inset-highlight / --shadow-chip-active are for inputs, tabs, active chips.
+     * Elevation. Cards are flat (border carries the edge); only overlays float.
+     * --shadow-inset-highlight / --shadow-chip-active stay as very soft helpers.
      */
-    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
-    --shadow-chip-active:
-      0 1px 0 rgba(255, 255, 255, 0.08) inset,
-      0 8px 18px -14px rgba(0, 0, 0, 0.45);
-    --shadow-card:
-      0 1px 0 rgba(255, 255, 255, 0.03) inset,
-      0 10px 24px -18px rgba(0, 0, 0, 0.5);
-    --shadow-card-hover:
-      0 1px 0 rgba(255, 255, 255, 0.045) inset,
-      0 16px 32px -18px rgba(0, 0, 0, 0.62);
-    --shadow-overlay: 0 24px 60px -24px rgba(0, 0, 0, 0.75);
+    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
+    --shadow-card: 0 0 0 0 transparent;
+    --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.9);
+    --shadow-overlay:
+      0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 16px 48px -16px rgba(0, 0, 0, 0.7);
   }
 
   :root[data-theme='light'] {
     color-scheme: light;
     /*
-     * Light theme — simple paper system (matches dark ladder, fewer steps).
-     * One cool gray canvas; white is reserved for cards / main sheets.
-     * Depth = one soft shadow + border/60 — not multi-layer glow stacks.
+     * Light theme: warm paper canvas, white reserved for cards and sheets.
      *
-     *   bg / sidebar / canvas   #F4F6F9   shared page chrome
-     *   bg-surface              #FFFFFF   cards, dialogs, main panels
-     *   bg-elevated / input     #F1F4F8   inset controls, chips
-     *   bg-hover                #E8ECF2
+     *   bg / sidebar / canvas   #FAFAF9
+     *   bg-surface              #FFFFFF
+     *   bg-elevated / input     #F4F4F2
+     *   bg-hover                #EEEEEB
      */
-    --color-bg: 244 246 249;
-    --color-bg-root: 244 246 249;
-    --color-bg-sidebar: 244 246 249;
-    --color-bg-canvas: 244 246 249;
+    --color-bg: 250 250 249;
+    --color-bg-root: 250 250 249;
+    --color-bg-sidebar: 250 250 249;
+    --color-bg-canvas: 250 250 249;
     --color-bg-surface: 255 255 255;
-    --color-bg-elevated: 241 244 248;
-    --color-bg-hover: 232 236 242;
+    --color-bg-elevated: 244 244 242;
+    --color-bg-hover: 238 238 235;
     --color-bg-input: 255 255 255;
-    --color-border: 220 225 234;
-    --color-border-light: 205 212 224;
+    --color-border: 228 228 225;
+    --color-border-light: 210 210 206;
     --color-border-focus: 13 148 136;
-    --color-text-primary: 30 41 59;
-    --color-text-secondary: 100 116 139;
-    --color-text-muted: 128 140 160;
-    --color-text-heading: 15 23 42;
+    --color-text-primary: 38 38 36;
+    --color-text-secondary: 100 100 96;
+    --color-text-muted: 134 134 128;
+    --color-text-heading: 24 24 22;
     --color-accent: 13 148 136;
     --color-accent-hover: 11 127 117;
     --color-accent-dark: 9 107 99;
@@ -110,30 +95,21 @@
     --color-ai: 109 40 217;
     --color-ai-ink: 76 29 149;
     --color-ai-fg: 255 255 255;
-    --shadow-btn:
-      0 1px 0 rgba(255, 255, 255, 0.7) inset,
-      0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
     --color-status-success: 22 163 113;
     --color-status-warning: 217 119 6;
     --color-status-error: 220 38 38;
     --color-status-info: 37 99 235;
-    --body-bg: #f4f6f9;
-    --body-glow-top: rgba(13, 148, 136, 0.045);
-    --body-glow-bottom: rgba(13, 148, 136, 0.02);
-    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
-    --shadow-chip-active:
-      0 1px 0 rgba(255, 255, 255, 0.7) inset,
-      0 1px 2px rgba(15, 23, 42, 0.05);
-    /* One soft elevation — recognizable and easy to reuse. */
-    --shadow-card:
-      0 1px 2px rgba(15, 23, 42, 0.04),
-      0 2px 8px -2px rgba(15, 23, 42, 0.06);
-    --shadow-card-hover:
-      0 1px 2px rgba(15, 23, 42, 0.05),
-      0 8px 20px -6px rgba(15, 23, 42, 0.1);
+    --body-bg: #fafaf9;
+    --body-glow-top: transparent;
+    --body-glow-bottom: transparent;
+    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
+    --shadow-card: 0 0 0 0 transparent;
+    --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.9);
     --shadow-overlay:
-      0 4px 16px rgba(15, 23, 42, 0.08),
-      0 16px 40px -12px rgba(15, 23, 42, 0.16);
+      0 0 0 1px rgba(24, 24, 22, 0.04),
+      0 12px 32px -12px rgba(24, 24, 22, 0.18);
   }
 
   * {
@@ -159,15 +135,13 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 160ms ease, color 160ms ease;
-    line-height: 1.4;
+    line-height: 1.45;
+    font-feature-settings: 'cv11', 'ss01';
   }
 
-  /* Soft brand atmosphere on the shell (hue from --body-glow-*). */
+  /* Shell background. Flat by design; kept as a class for Login/Onboarding. */
   .app-atmosphere {
     background-color: rgb(var(--color-bg));
-    background-image:
-      radial-gradient(1100px 520px at 10% -12%, var(--body-glow-top), transparent 58%),
-      radial-gradient(880px 460px at 100% 112%, var(--body-glow-bottom), transparent 52%);
   }
 
   ::-webkit-scrollbar {
@@ -191,20 +165,135 @@
 
 @layer components {
   /*
-   * THE card recipe. Solid surface, one border weight, one radius, one shadow.
+   * THE card recipe. Solid surface, hairline border, no shadow.
    * Use `.panel` or `<Card>` — do not hand-roll shadows/borders for new UI.
-   * Radius nesting: shell panel 2xl (16) > cards xl (12) > inner panels /
-   * inputs lg (8) > chips md (6) > pills full. Children always one step
+   * Radius nesting: shell sheet xl (12) > cards lg (8) > inner panels /
+   * inputs md (6) > chips sm (4) > pills full. Children always one step
    * smaller than their parent.
    */
   .panel {
-    @apply bg-bg-surface border border-border/60 rounded-xl;
-    box-shadow: var(--shadow-card);
+    @apply bg-bg-surface border border-border/70 rounded-lg;
   }
 
-  /* Flat inset region inside a panel (filters, sublists) — no second shadow. */
+  /* Flat inset region inside a panel (filters, sublists) — no second border weight. */
   .panel-inset {
-    @apply rounded-lg border border-border/40 bg-bg-elevated;
+    @apply rounded-md border border-border/50 bg-bg-elevated;
+  }
+
+  /*
+   * Rail / section-nav row. Compact (28px), neutral active state: background
+   * step + heading ink. Never an accent tint; icons stay monochrome.
+   */
+  .nav-row {
+    @apply flex h-7 w-full items-center gap-2 rounded-md px-2 text-sm text-text-secondary;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+  .nav-row:hover {
+    @apply bg-bg-hover/70 text-text-primary;
+  }
+  .nav-row[data-active='true'],
+  .nav-row[aria-current='page'] {
+    @apply bg-bg-hover text-text-heading font-medium;
+  }
+  .nav-row > svg {
+    @apply h-4 w-4 shrink-0 text-text-muted;
+  }
+  .nav-row > span:first-child {
+    @apply shrink-0;
+  }
+  .nav-row:hover > svg,
+  .nav-row[data-active='true'] > svg,
+  .nav-row[aria-current='page'] > svg {
+    @apply text-text-primary;
+  }
+
+  /* Folder header above a group of nav rows: sentence case, left chevron. */
+  .nav-folder {
+    @apply flex h-6 w-full items-center gap-1 rounded-md px-1.5 text-xs text-text-muted;
+    transition: color 120ms ease, background-color 120ms ease;
+  }
+  .nav-folder:hover {
+    @apply text-text-secondary bg-bg-hover/50;
+  }
+  .nav-folder > svg {
+    @apply h-3 w-3 shrink-0 transition-transform duration-150;
+  }
+  .nav-folder[data-open='false'] > svg {
+    transform: rotate(-90deg);
+  }
+
+  /*
+   * Single-line overflow that fades out instead of ending in an ellipsis.
+   * Use on a flex child with `min-w-0 flex-1` (or a fixed width) so the
+   * fade only shows when the text really overflows.
+   */
+  .truncate-fade {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  /*
+   * Browsers with scroll-driven animations: the overflow box is its own
+   * scroll container, so a `scroll(self inline)` timeline is only active
+   * when the text really overflows. That is the moment the mask applies.
+   */
+  @supports (animation-timeline: scroll()) {
+    .truncate-fade {
+      text-overflow: clip;
+      animation: truncate-fade-mask linear both;
+      animation-timeline: scroll(self inline);
+    }
+    @keyframes truncate-fade-mask {
+      from,
+      to {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+      }
+    }
+  }
+
+  /* Trailing count in a nav row. Accent only when it signals unread. */
+  .nav-count {
+    @apply ml-auto text-2xs tabular-nums text-text-muted;
+  }
+  .nav-count[data-unread='true'] {
+    @apply text-accent font-medium;
+  }
+
+  /*
+   * Scrollable vertical list with fading edges. <ScrollFade> toggles
+   * data-fade-top / data-fade-bottom; the gradient uses the surrounding bg.
+   */
+  .scroll-fade {
+    position: relative;
+    min-height: 0;
+    --scroll-fade-color: rgb(var(--color-bg));
+  }
+  .scroll-fade::before,
+  .scroll-fade::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 28px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 160ms ease;
+    z-index: 1;
+  }
+  .scroll-fade::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--scroll-fade-color), transparent);
+  }
+  .scroll-fade::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--scroll-fade-color), transparent);
+  }
+  .scroll-fade[data-fade-top='true']::before,
+  .scroll-fade[data-fade-bottom='true']::after {
+    opacity: 1;
   }
 
   /* Blinking caret at the end of a streaming AI reply. */
@@ -241,43 +330,20 @@
     }
   }
 
-  /* Interactive cards/rows: subtle lift + shadow deepening on hover. */
+  /* Interactive cards/rows: border steps up on hover. No translate, no shadow. */
   .hover-lift {
     transition:
-      transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 160ms ease,
-      background-color 160ms ease;
+      border-color 140ms ease,
+      background-color 140ms ease,
+      box-shadow 140ms ease;
   }
   .hover-lift:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-card-hover);
-  }
-  .hover-lift:active {
-    transform: translateY(0);
-    transition-duration: 90ms;
+    border-color: rgb(var(--color-border-light));
   }
 
-  /* Primary-button light sweep on hover. */
+  /* Kept as a no-op for any remaining call sites; the sweep is retired. */
   .btn-sheen {
     position: relative;
-    overflow: hidden;
-  }
-  .btn-sheen::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      115deg,
-      transparent 28%,
-      rgba(255, 255, 255, 0.22) 48%,
-      transparent 68%
-    );
-    transform: translateX(-130%);
-  }
-  .btn-sheen:hover::after {
-    animation: sheen-sweep 640ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   /* Staggered list/card entrance. Set --stagger: N on each child. */
@@ -327,14 +393,13 @@
     bottom: 18%;
     width: 2px;
     border-radius: 999px;
-    background: rgb(var(--color-accent));
+    background: rgb(var(--color-text-heading));
     opacity: 0;
     transform: scaleY(0.35);
     transition:
       opacity 140ms ease,
       transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .row-interactive:hover::before,
   .row-interactive[data-active='true']::before {
     opacity: 1;
     transform: scaleY(1);
@@ -440,68 +505,40 @@
     @apply inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold rounded-full;
   }
 
-  .sidebar-item {
-    @apply flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] text-text-secondary cursor-pointer transition-colors duration-100 bg-transparent;
-  }
-
-  .sidebar-item:hover {
-    @apply bg-bg-hover/60 text-text-primary;
-  }
-
-  .sidebar-item.active {
-    @apply bg-accent/10 text-accent;
-  }
-
-  .sidebar-item.active:hover {
-    @apply bg-accent/15 text-accent;
-  }
-
+  /* Legacy row recipes: now aliases of .nav-row so old call sites follow the new look. */
+  .sidebar-item,
   .nav-item {
-    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-[14px] text-text-secondary cursor-pointer transition-colors duration-100 bg-transparent;
+    @apply flex h-7 items-center gap-2 rounded-md px-2 text-sm text-text-secondary cursor-pointer transition-colors duration-100 bg-transparent;
   }
 
+  .sidebar-item:hover,
   .nav-item:hover {
-    @apply bg-bg-hover/60 text-text-primary;
+    @apply bg-bg-hover/70 text-text-primary;
   }
 
-  .nav-item.active {
-    @apply bg-accent/10 text-accent;
-  }
-
+  .sidebar-item.active,
+  .nav-item.active,
+  .sidebar-item.active:hover,
   .nav-item.active:hover {
-    @apply bg-accent/15 text-accent;
+    @apply bg-bg-hover text-text-heading font-medium;
   }
 
   .stat-card {
-    @apply panel p-4 flex flex-col gap-1.5;
+    @apply panel p-3.5 flex flex-col gap-1;
   }
 
   .section-label {
-    @apply text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted px-3 py-1.5;
+    @apply text-xs text-text-muted px-2 py-1;
   }
 
   .featurebase-main {
-    background: linear-gradient(
-      180deg,
-      rgba(var(--color-bg-surface), 0.16) 0%,
-      rgba(var(--color-bg), 0.04) 42%,
-      rgba(var(--color-bg), 0) 100%
-    );
-  }
-
-  .featurebase-shell-panel {
-    @apply rounded-2xl border border-border/60;
-    background-color: rgb(var(--color-bg-surface));
-    box-shadow: var(--shadow-card);
-  }
-
-  :root[data-theme='dark'] .featurebase-shell-panel {
-    background-color: rgb(var(--color-bg-canvas));
-    box-shadow: 0 22px 56px -34px rgba(4, 8, 20, 0.6);
-  }
-
-  :root[data-theme='light'] .featurebase-main {
     background: transparent;
+  }
+
+  /* Hub sheet (Docs, Workspaces hub): a hairline panel, same for both themes. */
+  .featurebase-shell-panel {
+    @apply rounded-lg border border-border/70;
+    background-color: rgb(var(--color-bg-surface));
   }
 
   :root[data-theme='light'] .app-atmosphere {
@@ -959,50 +996,15 @@
   min-height: 0;
 }
 
-.nav-row {
-  transition:
-    color 140ms ease-out,
-    background-color 140ms ease-out,
-    border-color 140ms ease-out,
-    box-shadow 140ms ease-out,
-    transform 100ms ease-out;
+/* Sub-rows fade in with the fold; no stagger, no translate (calm motion). */
+.nav-fold[data-open='true'] .nav-sub-row {
+  animation: nav-sub-in 140ms ease-out both;
 }
-.nav-row:active {
-  transform: scale(0.985);
-}
-
 @keyframes nav-sub-in {
   from {
     opacity: 0;
-    transform: translate3d(0, -4px, 0);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
   }
-}
-
-.nav-fold[data-open='true'] .nav-sub-row {
-  animation: nav-sub-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.nav-fold[data-open='true'] .nav-sub-row:nth-child(1) {
-  animation-delay: 10ms;
-}
-.nav-fold[data-open='true'] .nav-sub-row:nth-child(2) {
-  animation-delay: 30ms;
-}
-.nav-fold[data-open='true'] .nav-sub-row:nth-child(3) {
-  animation-delay: 50ms;
-}
-.nav-fold[data-open='true'] .nav-sub-row:nth-child(4) {
-  animation-delay: 70ms;
-}
-.nav-fold[data-open='true'] .nav-sub-row:nth-child(5) {
-  animation-delay: 90ms;
-}
-.nav-fold[data-open='true'] .nav-sub-row:nth-child(6) {
-  animation-delay: 110ms;
-}
-.nav-fold[data-open='true'] .nav-sub-row:nth-child(n + 7) {
-  animation-delay: 120ms;
 }

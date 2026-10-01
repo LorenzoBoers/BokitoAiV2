@@ -23,7 +23,7 @@ import MarkdownView from '../components/docs/MarkdownView'
 import { KnowledgeMarkdownEditor } from '../components/knowledge/KnowledgeMarkdownEditor'
 import { DocSectionsEditor } from '../components/knowledge/DocSections'
 import { LinkedRequestsChips } from '../components/knowledge/LinkedRequestsChips'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import { PageGuideLink } from '../components/layout/PageGuideLink'
 import { KnowledgeMark, KnowledgeTile, LearnedChip } from '../components/knowledge/KnowledgeMark'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
@@ -157,7 +157,7 @@ export default function WorkspaceDocs() {
     cn(
       'inline-flex max-w-[12rem] flex-col items-start gap-0 rounded-lg border px-2 py-1 text-left leading-tight',
       selected
-        ? 'border-accent/40 bg-accent/10 text-accent'
+        ? 'border-border-light bg-bg-hover text-text-heading'
         : 'border-border/60 text-text-muted hover:text-text-secondary',
     )
 
@@ -450,7 +450,6 @@ export default function WorkspaceDocs() {
 
   return (
     <div className="flex h-full min-h-0 flex-col p-3 animate-page-enter">
-      <PageGuideBanner page="knowledge" className="mb-3 shrink-0" />
       <div className="featurebase-shell-panel flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border/40">
           <div className="space-y-2.5 border-b border-border/40 px-3 pb-3 pt-3.5">
@@ -458,13 +457,14 @@ export default function WorkspaceDocs() {
               <div className="flex min-w-0 items-center gap-2.5">
                 <KnowledgeTile />
                 <div className="min-w-0 leading-tight">
-                  <h2 className="truncate text-sm font-semibold text-text-heading">{t('knowledgePage.title')}</h2>
-                  <p className="text-[11px] leading-snug text-text-muted line-clamp-2">
+                  <h2 className="truncate-fade text-sm font-semibold text-text-heading">{t('knowledgePage.title')}</h2>
+                  <p className="text-xs leading-snug text-text-muted line-clamp-2">
                     {t('knowledgePage.subtitle')}
                   </p>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-0.5">
+                <PageGuideLink page="knowledge" compact />
                 <Button
                   variant="ghost"
                   size="icon"
@@ -537,8 +537,8 @@ export default function WorkspaceDocs() {
                 className={entityChipClass(scope === 'organization')}
                 title={`${organizationName} · ${scopeTypeLabel('organization')}`}
               >
-                <span className="max-w-full truncate text-[11px] font-medium">{organizationName}</span>
-                <span className="text-[9px] font-normal opacity-70">{scopeTypeLabel('organization')}</span>
+                <span className="max-w-full truncate-fade text-xs font-medium">{organizationName}</span>
+                <span className="text-2xs font-normal opacity-70">{scopeTypeLabel('organization')}</span>
               </button>
               {sortedProjects.map((project) => (
                 <button
@@ -552,8 +552,8 @@ export default function WorkspaceDocs() {
                   className={entityChipClass(scope === 'project' && scopeProjectId === project.id)}
                   title={`${project.name} · ${scopeTypeLabel('project')}`}
                 >
-                  <span className="max-w-full truncate text-[11px] font-medium">{project.name}</span>
-                  <span className="text-[9px] font-normal opacity-70">{scopeTypeLabel('project')}</span>
+                  <span className="max-w-full truncate-fade text-xs font-medium">{project.name}</span>
+                  <span className="text-2xs font-normal opacity-70">{scopeTypeLabel('project')}</span>
                 </button>
               ))}
               {sortedAgents.map((agent) => (
@@ -568,8 +568,8 @@ export default function WorkspaceDocs() {
                   className={entityChipClass(scope === 'agent' && scopeAgentId === agent.id)}
                   title={`${agent.name} · ${scopeTypeLabel('agent')}`}
                 >
-                  <span className="max-w-full truncate text-[11px] font-medium">{agent.name}</span>
-                  <span className="text-[9px] font-normal opacity-70">{scopeTypeLabel('agent')}</span>
+                  <span className="max-w-full truncate-fade text-xs font-medium">{agent.name}</span>
+                  <span className="text-2xs font-normal opacity-70">{scopeTypeLabel('agent')}</span>
                 </button>
               ))}
             </div>
@@ -592,7 +592,7 @@ export default function WorkspaceDocs() {
               </Button>
             </div>
             {refreshedAt ? (
-              <p className="text-[10px] text-text-muted">
+              <p className="text-2xs text-text-muted">
                 {t('knowledgePage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
               </p>
             ) : null}
@@ -622,10 +622,10 @@ export default function WorkspaceDocs() {
                         if (hit.doc_id) navigate(`/knowledge/${hit.doc_id}`)
                       }}
                     >
-                      <span className="block truncate text-xs font-medium text-text-primary">
+                      <span className="block truncate-fade text-xs font-medium text-text-primary">
                         {hit.title}
                       </span>
-                      <span className="block truncate text-[11px] text-text-muted">
+                      <span className="block truncate-fade text-xs text-text-muted">
                         {hit.content.slice(0, 80)}
                       </span>
                     </button>
@@ -637,18 +637,11 @@ export default function WorkspaceDocs() {
             ) : error ? (
               <p className="px-2 py-4 text-xs text-status-error">{error}</p>
             ) : docs.length === 0 ? (
-              <div className="space-y-1.5 px-2 py-4">
-                <p className="text-xs text-text-muted">
-                  {t('knowledgePage.emptyHint')}
-                </p>
-                <Link to="/docs/ai/knowledge" className="text-[11px] font-medium text-accent hover:underline">
-                  {t('pageGuides.learnMore')}
-                </Link>
-              </div>
+              <p className="px-2 py-4 text-xs text-text-muted">{t('knowledgePage.emptyHint')}</p>
             ) : (
               presentSections.map(({ kind, rows }) => (
                   <div key={kind} className="mb-3">
-                    <p className="flex items-center gap-1.5 px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                    <p className="flex items-center gap-1.5 px-2 pb-1 text-xs font-medium text-text-muted">
                       {kindLabel(kind)}
                       {AI_MAINTAINED_KINDS.has(kind) ? <KnowledgeMark size={11} /> : null}
                     </p>
@@ -656,7 +649,7 @@ export default function WorkspaceDocs() {
                       <button
                         key={doc.id}
                         className={cn(
-                          'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary',
+                          'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary',
                           active?.id === doc.id &&
                             'bg-ai/10 font-medium text-ai-ink',
                         )}
@@ -667,7 +660,7 @@ export default function WorkspaceDocs() {
                         ) : (
                           <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
                         )}
-                        <span className="min-w-0 flex-1 truncate">{docTitle(doc)}</span>
+                        <span className="min-w-0 flex-1 truncate-fade">{docTitle(doc)}</span>
                         {isPublished(doc) ? (
                           <span
                             title={t('knowledgePage.publishedHelp')}
@@ -709,7 +702,7 @@ export default function WorkspaceDocs() {
                     }}
                     onClick={() => uploadInputRef.current?.click()}
                     className={cn(
-                      'rounded-xl border border-dashed px-6 py-5 text-xs text-text-muted transition-colors',
+                      'rounded-lg border border-dashed px-6 py-5 text-xs text-text-muted transition-colors',
                       dragOver ? 'border-accent/50 bg-accent/5 text-text-secondary' : 'border-border/60',
                     )}
                   >
@@ -732,11 +725,11 @@ export default function WorkspaceDocs() {
               {error ? <p className="mb-3 text-xs text-status-error">{error}</p> : null}
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-2xl font-semibold tracking-tight text-text-heading">
+                  <h1 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">
                     {docTitle(active)}
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="inline-flex items-center rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                    <span className="inline-flex items-center rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-xs font-medium text-text-secondary">
                       {kindLabel(active.kind)}
                     </span>
                     <button
@@ -748,7 +741,7 @@ export default function WorkspaceDocs() {
                         )
                       }}
                       title={t('knowledgePage.copyPath')}
-                      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-[11px] text-text-muted hover:text-text-secondary"
+                      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-xs text-text-muted hover:text-text-secondary"
                     >
                       <Copy size={10} />
                       {active.path}
@@ -757,18 +750,18 @@ export default function WorkspaceDocs() {
                       <LearnedChip label={t('knowledgePage.aiMaintained')} />
                     ) : null}
                     {isPublished(active) ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                         <Globe size={11} />
                         {t('knowledgePage.publishedBadge')}
                       </span>
                     ) : null}
                   </div>
                   {AI_MAINTAINED_KINDS.has(active.kind) ? (
-                    <p className="mt-2 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-[12px] text-text-muted">
+                    <p className="mt-2 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
                       {t('knowledgePage.aiMaintainedBanner')}
                     </p>
                   ) : null}
-                  <p className="mt-2 text-[12px] text-text-muted">
+                  <p className="mt-2 text-xs text-text-muted">
                     {t('knowledgePage.usedByAgents')}{' '}
                     <Link to="/agents" className="font-medium text-accent hover:underline">
                       {t('knowledgePage.openAgents')}
@@ -860,10 +853,10 @@ export default function WorkspaceDocs() {
                   {frontmatterEntries.map(([k, v]) => (
                     <span
                       key={k}
-                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/40 bg-bg-elevated/40 px-2 py-0.5 text-[11px]"
+                      className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/40 bg-bg-elevated/40 px-2 py-0.5 text-xs"
                     >
                       <span className="font-medium text-text-muted">{k}</span>
-                      <span className="truncate text-text-secondary">{String(v)}</span>
+                      <span className="truncate-fade text-text-secondary">{String(v)}</span>
                     </span>
                   ))}
                 </div>

@@ -42,7 +42,7 @@ export function ConnectionsNextSteps({ needsChannel, needsAgenda, needsModule }:
 
   return (
     <section className="space-y-2">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+      <h2 className="text-xs font-semibold text-text-muted">
         {t('integrations.connected.nextTitle')}
       </h2>
       <div className="flex flex-wrap gap-2">

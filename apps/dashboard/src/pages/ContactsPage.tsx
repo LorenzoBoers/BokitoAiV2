@@ -21,12 +21,12 @@ import {
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { ChannelGlyph, ChannelLabel, channelKind } from '../components/ui/ChannelGlyph'
+import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
 import { DomainFavicon } from '../components/ui/DomainFavicon'
 import { PersonAvatar } from '../components/ui/PersonAvatar'
 import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import {
   backfillCompanies,
@@ -230,7 +230,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
 
   const field = (label: string, key: keyof typeof draft, placeholder: string) => (
     <label className="block">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</span>
+      <span className="text-xs font-semibold text-text-muted">{label}</span>
       <input
         value={draft[key]}
         onChange={(e) => {
@@ -238,7 +238,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
           setDirty(true)
         }}
         placeholder={placeholder}
-        className="mt-1 w-full rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+        className="mt-1 w-full rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
       />
     </label>
   )
@@ -252,7 +252,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
               {t('contactsPage.allContacts')}
@@ -260,7 +260,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
             {threads[0] ? (
               <Link
                 to={inboxPath('open', String(threads[0].id))}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   canComposeToAddress(contact.channel, contact.address)
                     ? 'border border-border/60 text-text-secondary hover:bg-bg-hover/60'
                     : 'bg-accent text-accent-fg hover:bg-accent-hover'
@@ -274,7 +274,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
             {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
               <Link
                 to={composeEmailPath({ to: contact.address })}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
                 title={t('contactsPage.writeEmailHint')}
               >
                 <Mail size={12} />
@@ -286,7 +286,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
               >
                 <ShieldCheck size={12} />
                 {t('contactsPage.approve')}
@@ -297,7 +297,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('blocked')}
-                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
               >
                 <ShieldBan size={12} />
                 {t('contactsPage.block')}
@@ -307,7 +307,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void removeContact()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
               {t('contactsPage.delete')}
@@ -317,14 +317,14 @@ function ContactDetail({ contactId }: { contactId: string }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2.5">
               <PersonAvatar name={contact.displayName} email={contact.address} size={32} />
-              <h2 className="truncate text-[14px] font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
+              <h2 className="truncate-fade text-base font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
             </span>
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[displayContactStatus(contact)]}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-semibold ${STATUS_STYLE[displayContactStatus(contact)]}`}
             >
               {isAnonymousContact(contact.displayName, contact.address)
                 ? t('contactsPage.statusAwaitingEmail')
@@ -332,12 +332,12 @@ function ContactDetail({ contactId }: { contactId: string }) {
             </span>
           </div>
           <div className="mt-3 space-y-3">
-            <p className="flex items-center gap-2 text-[12.5px] text-text-secondary">
+            <p className="flex items-center gap-2 text-sm text-text-secondary">
               <ChannelGlyph channel={contact.channel} size={13} />
               {isPlaceholderContactAddress(contact.address)
                 ? t('contactsPage.alsoSeenAsVisitor')
                 : contact.address || t('contactsPage.noAddress')}
-              <span className="ml-auto text-[11px] text-text-muted">
+              <span className="ml-auto text-xs text-text-muted">
                 <ChannelLabel
                   channel={contact.channel}
                   label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
@@ -345,7 +345,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 />
               </span>
             </p>
-            <p className="text-[11px] text-text-muted">
+            <p className="text-xs text-text-muted">
               {lastSeenAt
                 ? t('contactsPage.lastSeen', { time: timeAgo(lastSeenAt, t) })
                 : t('contactsPage.neverSeen')}
@@ -358,29 +358,29 @@ function ContactDetail({ contactId }: { contactId: string }) {
             {contact.companyId ? (
               <Link
                 to={`/contacts/companies/${contact.companyId}`}
-                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
               >
                 <Building2 size={12} />
                 {t('contactsPage.viewCompany')}
               </Link>
             ) : (
               <div className="space-y-1">
-                <p className="text-[11px] text-text-muted">{t('contactsPage.noCompanyHint')}</p>
+                <p className="text-xs text-text-muted">{t('contactsPage.noCompanyHint')}</p>
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   <Link
                     to="/contacts?view=companies"
-                    className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
                   >
                     <Building2 size={12} />
                     {t('contactsPage.viewCompanies')}
                   </Link>
-                  <span className="text-[11px] text-text-muted">{t('contactsPage.linkContactsHint')}</span>
+                  <span className="text-xs text-text-muted">{t('contactsPage.linkContactsHint')}</span>
                 </div>
               </div>
             )}
             {field(t('contactsPage.fieldPhone'), 'phone', t('contactsPage.phonePlaceholder'))}
             <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('contactsPage.notes')}</span>
+              <span className="text-xs font-semibold text-text-muted">{t('contactsPage.notes')}</span>
               <textarea
                 value={draft.notes}
                 onChange={(e) => {
@@ -389,7 +389,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 }}
                 rows={4}
                 placeholder={t('contactsPage.notesPlaceholder')}
-                className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
             </label>
             {dirty ? (
@@ -397,7 +397,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void save()}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 <Check size={12} />
                 {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
@@ -406,35 +406,35 @@ function ContactDetail({ contactId }: { contactId: string }) {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
-          <p className="text-[12px] text-text-muted">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
+          <p className="text-xs text-text-muted">
             {t('contactsPage.threadCount', { count: threads.length })}
           </p>
           <div className="mt-3 space-y-1.5">
             {threads.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
-                <p className="text-[12px] text-text-muted">{t('contactsPage.noConversations')}</p>
-                <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noConversationsHint')}</p>
+                <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
+                <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
                     <Link
                       to={composeEmailPath({ to: contact.address })}
-                      className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
                     >
                       {t('contactsPage.writeEmail')}
                     </Link>
                   ) : (
                     <Link
                       to="/settings/channels"
-                      className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
                     >
                       {t('contactsPage.connectChannels')}
                     </Link>
                   )}
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.openCommunication')}
                   </Link>
@@ -445,14 +445,14 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 <Link
                   key={String(thread.id)}
                   to={inboxPath('open', String(thread.id))}
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
                 >
-                  <MessageSquare size={13} className="shrink-0 text-text-muted" />
+                  <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                    <span className="block truncate-fade text-sm font-medium text-text-primary">
                       {thread.emailSubject || t('contactsPage.noSubject')}
                     </span>
-                    <span className="block truncate text-[11px] text-text-muted">
+                    <span className="block truncate-fade text-xs text-text-muted">
                       {threadStatusLabel(thread.status, t)}
                       {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                     </span>
@@ -557,7 +557,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
 
   const field = (label: string, key: keyof typeof draft, placeholder: string) => (
     <label className="block">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</span>
+      <span className="text-xs font-semibold text-text-muted">{label}</span>
       <input
         value={draft[key]}
         onChange={(e) => {
@@ -565,7 +565,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
           setDirty(true)
         }}
         placeholder={placeholder}
-        className="mt-1 w-full rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+        className="mt-1 w-full rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
       />
     </label>
   )
@@ -579,7 +579,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
               {t('contactsPage.allContacts')}
@@ -588,7 +588,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void remove()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
               {t('contactsPage.delete')}
@@ -598,8 +598,8 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="flex items-center gap-2.5 text-[14px] font-semibold text-text-heading">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <h2 className="flex items-center gap-2.5 text-base font-semibold text-text-heading">
             <DomainFavicon host={company.domain} name={company.name || company.domain} size={28} />
             {t('contactsPage.companySection')}
           </h2>
@@ -607,7 +607,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
             {field(t('contactsPage.fieldName'), 'name', t('contactsPage.companyNamePlaceholder'))}
             {field(t('contactsPage.colWebsite'), 'website', t('contactsPage.websitePlaceholder'))}
             <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('contactsPage.notes')}</span>
+              <span className="text-xs font-semibold text-text-muted">{t('contactsPage.notes')}</span>
               <textarea
                 value={draft.notes}
                 onChange={(e) => {
@@ -616,7 +616,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 }}
                 rows={4}
                 placeholder={t('contactsPage.companyNotesPlaceholder')}
-                className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
             </label>
             {dirty ? (
@@ -624,7 +624,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void save()}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 <Check size={12} />
                 {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
@@ -632,22 +632,22 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
             ) : null}
           </div>
 
-          <h3 className="mt-5 text-[13px] font-semibold text-text-heading">{t('contactsPage.peopleSection')}</h3>
+          <h3 className="mt-5 text-sm font-semibold text-text-heading">{t('contactsPage.peopleSection')}</h3>
           <div className="mt-2 space-y-1.5">
             {company.contacts.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
-                <p className="text-[12px] text-text-muted">{t('contactsPage.noLinkedContacts')}</p>
-                <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noLinkedContactsHint')}</p>
+                <p className="text-xs text-text-muted">{t('contactsPage.noLinkedContacts')}</p>
+                <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noLinkedContactsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to="/settings/channels"
-                    className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
                   >
                     {t('contactsPage.connectChannels')}
                   </Link>
                   <Link
                     to="/contacts"
-                    className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.browseContacts')}
                   </Link>
@@ -658,15 +658,15 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 <Link
                   key={c.id}
                   to={`/contacts/${c.id}`}
-                  className="flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
                 >
                   <PersonAvatar name={c.displayName} email={c.address} size={24} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                    <span className="block truncate-fade text-sm font-medium text-text-primary">
                       {humanizeContactName(c.displayName, c.address, t('contactsPage.widgetVisitor')) ||
                         c.address}
                     </span>
-                    <span className="block truncate text-[11px] text-text-muted">
+                    <span className="block truncate-fade text-xs text-text-muted">
                       {isPlaceholderContactAddress(c.address) ? t('contactsPage.widgetVisitor') : c.address}
                     </span>
                   </span>
@@ -676,24 +676,24 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
-          <p className="text-[12px] text-text-muted">{t('contactsPage.companyThreadsHint')}</p>
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
+          <p className="text-xs text-text-muted">{t('contactsPage.companyThreadsHint')}</p>
           <div className="mt-3 space-y-1.5">
             {company.threads.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
-                <p className="text-[12px] text-text-muted">{t('contactsPage.noConversations')}</p>
-                <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noConversationsHint')}</p>
+                <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
+                <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to="/settings/channels"
-                    className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
                   >
                     {t('contactsPage.connectChannels')}
                   </Link>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.openCommunication')}
                   </Link>
@@ -704,14 +704,14 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 <Link
                   key={String(thread.id)}
                   to={inboxPath('open', String(thread.id))}
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
                 >
-                  <MessageSquare size={13} className="shrink-0 text-text-muted" />
+                  <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                    <span className="block truncate-fade text-sm font-medium text-text-primary">
                       {thread.emailSubject || t('contactsPage.noSubject')}
                     </span>
-                    <span className="block truncate text-[11px] text-text-muted">
+                    <span className="block truncate-fade text-xs text-text-muted">
                       {threadStatusLabel(thread.status, t)}
                       {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                     </span>
@@ -930,8 +930,8 @@ export default function ContactsPage() {
 
   return (
     <PageContent width="xl">
-      <PageGuideBanner page="contacts" className="mb-4" />
       <ContentHeader
+        guide="contacts"
         title={t('tabs.contacts.title')}
         subtitle={t('tabs.contacts.subtitle')}
         meta={
@@ -939,7 +939,7 @@ export default function ContactsPage() {
             <button
               type="button"
               onClick={() => void load()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               {t('contactsPage.refresh')}
@@ -949,7 +949,7 @@ export default function ContactsPage() {
                 type="button"
                 disabled={backfilling}
                 onClick={() => void handleBackfill()}
-                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
               >
                 {backfilling ? <Loader2 size={12} className="animate-spin" /> : <Building2 size={12} />}
                 {t('contactsPage.linkContacts')}
@@ -958,7 +958,7 @@ export default function ContactsPage() {
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
               >
                 <Plus size={12} />
                 {t('contactsPage.newContact')}
@@ -978,12 +978,12 @@ export default function ContactsPage() {
               ? t('contactsPage.searchCompanies')
               : t('contactsPage.searchPeople')
           }
-          className="w-full bg-transparent text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none"
+          className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
         />
       </div>
 
       {view === 'people' && anonymousCount > 0 ? (
-        <p className="mb-3 rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2 text-[12px] text-text-secondary">
+        <p className="mb-3 rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2 text-xs text-text-secondary">
           {t('contactsPage.anonymousGroupHint', { count: anonymousCount })}
         </p>
       ) : null}
@@ -997,8 +997,8 @@ export default function ContactsPage() {
               onClick={() => handleViewChange(v)}
               className={
                 view === v
-                  ? 'rounded-md bg-accent/15 px-2.5 py-1 text-[12px] font-medium text-accent'
-                  : 'rounded-md px-2.5 py-1 text-[12px] text-text-secondary hover:text-text-primary'
+                  ? 'rounded-md bg-accent/15 px-2.5 py-1 text-xs font-medium text-accent'
+                  : 'rounded-md px-2.5 py-1 text-xs text-text-secondary hover:text-text-primary'
               }
             >
               {v === 'people' ? t('contactsPage.people') : t('contactsPage.companies')}
@@ -1014,8 +1014,8 @@ export default function ContactsPage() {
                 onClick={() => setStatusFilter(f.key)}
                 className={
                   statusFilter === f.key
-                    ? 'rounded-full bg-accent/15 px-2.5 py-0.5 text-[12px] font-medium text-accent'
-                    : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-[12px] text-text-secondary hover:text-text-primary'
+                    ? 'rounded-md bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-heading'
+                    : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-xs text-text-secondary hover:text-text-primary'
                 }
               >
                 {t(f.labelKey)}
@@ -1025,14 +1025,14 @@ export default function ContactsPage() {
       </div>
       {view === 'people' && statusFilter === 'pending' ? (
         <div className="-mt-2 mb-3 flex flex-wrap items-center gap-2">
-          <p className="text-[11px] text-text-muted">{t('contactsPage.statusPendingHint')}</p>
+          <p className="text-xs text-text-muted">{t('contactsPage.statusPendingHint')}</p>
           {sorted.length > 0 ? (
             <>
               <button
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkStatus('approved')}
-                className="rounded-lg border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:text-text-primary disabled:opacity-50"
+                className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:text-text-primary disabled:opacity-50"
               >
                 {t('contactsPage.approveAll')}
               </button>
@@ -1040,7 +1040,7 @@ export default function ContactsPage() {
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkStatus('blocked')}
-                className="rounded-lg border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:text-status-error disabled:opacity-50"
+                className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:text-status-error disabled:opacity-50"
               >
                 {t('contactsPage.blockAll')}
               </button>
@@ -1050,9 +1050,9 @@ export default function ContactsPage() {
       ) : null}
 
       {createOpen ? (
-        <div className="mb-4 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <div className="mb-4 rounded-lg border border-border/60 bg-bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.newContact')}</h2>
+            <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.newContact')}</h2>
             <button
               type="button"
               aria-label={t('contactsPage.closeAria')}
@@ -1067,7 +1067,7 @@ export default function ContactsPage() {
               aria-label={t('contactsPage.channelLabel')}
               value={createDraft.channel}
               onChange={(e) => setCreateDraft((p) => ({ ...p, channel: e.target.value }))}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               {withoutParkedChannels(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
                 <option key={channel} value={channel}>
@@ -1087,28 +1087,28 @@ export default function ContactsPage() {
                       ? 'contactsPage.slackPlaceholder'
                       : 'contactsPage.emailPlaceholder',
               )}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <input
               value={createDraft.displayName}
               onChange={(e) => setCreateDraft((p) => ({ ...p, displayName: e.target.value }))}
               placeholder={t('contactsPage.namePlaceholder')}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <input
               value={createDraft.company}
               onChange={(e) => setCreateDraft((p) => ({ ...p, company: e.target.value }))}
               placeholder={t('contactsPage.companyPlaceholder')}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
           </div>
-          {createError ? <p className="mt-2 text-[12px] text-status-error">{createError}</p> : null}
+          {createError ? <p className="mt-2 text-xs text-status-error">{createError}</p> : null}
           <div className="mt-3 flex justify-end">
             <button
               type="button"
               disabled={creating || !createDraft.address.trim()}
               onClick={() => void handleCreate()}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {creating ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               {creating ? t('contactsPage.creating') : t('contactsPage.create')}
@@ -1120,26 +1120,26 @@ export default function ContactsPage() {
       {loading && (view === 'companies' ? companies.length === 0 : contacts.length === 0) ? (
         <TableRowsSkeleton rows={8} />
       ) : listError ? (
-        <div className="rounded-xl border border-dashed border-status-error/40 px-4 py-12 text-center">
+        <div className="rounded-lg border border-dashed border-status-error/40 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />
-          <h2 className="mt-3 text-[15px] font-semibold text-text-heading">{t('contactsPage.couldNotLoad')}</h2>
-          <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">{listError}</p>
+          <h2 className="mt-3 text-lg font-semibold text-text-heading">{t('contactsPage.couldNotLoad')}</h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">{listError}</p>
           <button
             type="button"
             onClick={() => void load()}
-            className="mt-4 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:border-accent/40 hover:text-text-primary"
+            className="mt-4 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-border-light hover:text-text-primary"
           >
             {t('contactsPage.tryAgain')}
           </button>
         </div>
       ) : view === 'companies' ? (
         companies.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 px-4 py-12 text-center">
+          <div className="rounded-lg border border-dashed border-border/60 px-4 py-12 text-center">
             <Building2 size={22} className="mx-auto text-text-muted" />
-            <h2 className="mt-3 text-[15px] font-semibold text-text-heading">
+            <h2 className="mt-3 text-lg font-semibold text-text-heading">
               {search.trim() ? t('contactsPage.noMatchingCompanies') : t('contactsPage.noCompanies')}
             </h2>
-            <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">
+            <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
               {search.trim()
                 ? t('contactsPage.tryDifferentSearch')
                 : t('contactsPage.noCompaniesHint')}
@@ -1161,10 +1161,10 @@ export default function ContactsPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-card">
+          <div className="overflow-hidden rounded-lg border border-border/60 bg-bg-surface">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                <tr className="border-b border-border/60 text-xs font-semibold text-text-muted">
                   <th className="px-4 py-2.5">{t('contactsPage.colCompany')}</th>
                   <th className="hidden px-4 py-2.5 sm:table-cell">{t('contactsPage.colDomain')}</th>
                   <th className="hidden px-4 py-2.5 md:table-cell">{t('contactsPage.colWebsite')}</th>
@@ -1181,18 +1181,18 @@ export default function ContactsPage() {
                     <td className="px-4 py-2.5">
                       <span className="flex items-center gap-2.5">
                         <DomainFavicon host={company.domain} name={company.name || company.domain} size={28} />
-                        <span className="truncate text-[13px] font-medium text-text-primary">
+                        <span className="truncate-fade text-sm font-medium text-text-primary">
                           {company.name || company.domain}
                         </span>
                       </span>
                     </td>
-                    <td className="hidden px-4 py-2.5 text-[12.5px] text-text-secondary sm:table-cell">
+                    <td className="hidden px-4 py-2.5 text-sm text-text-secondary sm:table-cell">
                       {company.domain}
                     </td>
-                    <td className="hidden px-4 py-2.5 text-[12.5px] text-text-secondary md:table-cell">
+                    <td className="hidden px-4 py-2.5 text-sm text-text-secondary md:table-cell">
                       {company.website || '-'}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-[12.5px] text-text-secondary">
+                    <td className="px-4 py-2.5 text-right text-sm text-text-secondary">
                       {company.contactCount}
                     </td>
                   </tr>
@@ -1202,12 +1202,12 @@ export default function ContactsPage() {
           </div>
         )
       ) : sorted.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 px-4 py-12 text-center">
+        <div className="rounded-lg border border-dashed border-border/60 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />
-          <h2 className="mt-3 text-[15px] font-semibold text-text-heading">
+          <h2 className="mt-3 text-lg font-semibold text-text-heading">
             {search.trim() || statusFilter !== 'all' ? t('contactsPage.noMatchingContacts') : t('contactsPage.noContacts')}
           </h2>
-          <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">
+          <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
             {search.trim() || statusFilter !== 'all'
               ? t('contactsPage.clearFilters')
               : t('contactsPage.noContactsHint')}
@@ -1247,10 +1247,10 @@ export default function ContactsPage() {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-card">
+        <div className="overflow-hidden rounded-lg border border-border/60 bg-bg-surface">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+              <tr className="border-b border-border/60 text-xs font-semibold text-text-muted">
                 <th className="px-4 py-2.5">{t('contactsPage.colName')}</th>
                 <th className="hidden px-4 py-2.5 sm:table-cell">{t('contactsPage.colChannel')}</th>
                 <th className="hidden px-4 py-2.5 md:table-cell">{t('contactsPage.colCompany')}</th>
@@ -1275,7 +1275,7 @@ export default function ContactsPage() {
                       >
                         <PersonAvatar name={contact.displayName} email={contact.address} size={28} />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium text-text-primary">
+                          <span className="block truncate-fade text-sm font-medium text-text-primary">
                             {humanizeContactName(
                               contact.displayName,
                               contact.address,
@@ -1284,7 +1284,7 @@ export default function ContactsPage() {
                               contact.address ||
                               t('contactsPage.noAddress')}
                           </span>
-                          <span className="block truncate text-[11px] text-text-muted">
+                          <span className="block truncate-fade text-xs text-text-muted">
                             {isPlaceholderContactAddress(contact.address)
                               ? t('contactsPage.alsoSeenAsVisitor')
                               : contact.address}
@@ -1307,7 +1307,7 @@ export default function ContactsPage() {
                               navigate(`/contacts/${contact.id}`)
                             }
                           }}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-accent/10 hover:text-accent"
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
                         >
                           <MessageSquare size={13} />
                         </button>
@@ -1318,14 +1318,14 @@ export default function ContactsPage() {
                           onClick={(event) => event.stopPropagation()}
                           title={t('contactsPage.writeEmail')}
                           aria-label={t('contactsPage.writeEmail')}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-accent/10 hover:text-accent"
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
                         >
                           <Mail size={13} />
                         </Link>
                       ) : null}
                     </span>
                   </td>
-                  <td className="hidden px-4 py-2.5 text-[12.5px] text-text-secondary sm:table-cell">
+                  <td className="hidden px-4 py-2.5 text-sm text-text-secondary sm:table-cell">
                     <ChannelLabel
                       channel={contact.channel}
                       label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
@@ -1333,18 +1333,18 @@ export default function ContactsPage() {
                   </td>
                   <td className="hidden px-4 py-2.5 md:table-cell">
                     {contact.company ? (
-                      <span className="flex items-center gap-1.5 text-[12.5px] text-text-secondary">
+                      <span className="flex items-center gap-1.5 text-sm text-text-secondary">
                         <Building2 size={12} className="text-text-muted" />
                         {contact.company}
                       </span>
                     ) : (
-                      <span className="text-[12px] text-text-muted">-</span>
+                      <span className="text-xs text-text-muted">-</span>
                     )}
                   </td>
-                  <td className="hidden px-4 py-2.5 text-[12.5px] text-text-secondary lg:table-cell">
+                  <td className="hidden px-4 py-2.5 text-sm text-text-secondary lg:table-cell">
                     {timeAgo(contact.lastSeenAt, t)}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-[12.5px] text-text-secondary">
+                  <td className="px-4 py-2.5 text-right text-sm text-text-secondary">
                     {contact.threadCount > 0 ? (
                       <button
                         type="button"
@@ -1382,7 +1382,7 @@ export default function ContactsPage() {
                       const awaiting = isAnonymousContact(contact.displayName, contact.address)
                       return (
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[shown]}`}
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold ${STATUS_STYLE[shown]}`}
                         >
                           {shown === 'blocked' ? <ShieldBan size={10} /> : null}
                           {shown === 'approved' ? <Check size={10} /> : null}

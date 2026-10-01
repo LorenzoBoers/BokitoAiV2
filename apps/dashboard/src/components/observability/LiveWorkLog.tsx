@@ -159,11 +159,11 @@ export function LiveWorkLog({ workLogId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3 shadow-card">
-        <p className="text-[15px] font-semibold text-text-heading">
+      <div className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
+        <p className="text-lg font-semibold text-text-heading">
           {formatWorkLogSubject(taskSubject, t, t('workforce.runLog.title'))}
         </p>
-        <p className="mt-1 text-[13px] text-text-muted">
+        <p className="mt-1 text-sm text-text-muted">
           {workLogStatusLabel(status, t) || t('workforce.runLog.unknown')}
           {runtimeModel ? ` · ${humanizeModelId(runtimeModel)}` : null}
           {tokensUsed != null ? ` · ${tokensUsed} ${t('workforce.runLog.tokens').toLowerCase()}` : null}
@@ -180,23 +180,23 @@ export function LiveWorkLog({ workLogId }: Props) {
           </div>
         ) : null}
         <div className="mt-3 flex flex-wrap gap-3">
-          <Link to={agentRunsPath('all')} className="text-[12.5px] font-medium text-accent hover:underline">
+          <Link to={agentRunsPath('all')} className="text-sm font-medium text-accent hover:underline">
             {t('workforce.runLog.openConversation')}
           </Link>
-          <Link to="/agenda" className="text-[12.5px] font-medium text-accent hover:underline">
+          <Link to="/agenda" className="text-sm font-medium text-accent hover:underline">
             {t('workforce.runLog.backToAgenda')}
           </Link>
         </div>
       </div>
 
-      <div className="max-h-96 space-y-1.5 overflow-y-auto rounded-xl border border-border/60 bg-bg-surface p-3">
-        <p className="mb-2 text-[11px] text-text-muted">{t('workforce.runLog.stepsHint')}</p>
+      <div className="max-h-96 space-y-1.5 overflow-y-auto rounded-lg border border-border/60 bg-bg-surface p-3">
+        <p className="mb-2 text-xs text-text-muted">{t('workforce.runLog.stepsHint')}</p>
         {loading && events.length === 0 && !error ? (
-          <p className="text-[13px] text-text-muted">{t('workforce.runLog.loadingEvents')}</p>
+          <p className="text-sm text-text-muted">{t('workforce.runLog.loadingEvents')}</p>
         ) : error ? (
-          <p className="text-[13px] text-status-error">{error}</p>
+          <p className="text-sm text-status-error">{error}</p>
         ) : visibleEvents.length === 0 ? (
-          <p className="text-[13px] text-text-muted">{t('workforce.runLog.waiting')}</p>
+          <p className="text-sm text-text-muted">{t('workforce.runLog.waiting')}</p>
         ) : (
           visibleEvents.map((ev, i) => {
             const label =
@@ -205,9 +205,9 @@ export function LiveWorkLog({ workLogId }: Props) {
               t('workforce.runLog.eventFallback')
             return (
               <details key={i} className="rounded-lg bg-bg-elevated px-2.5 py-2">
-                <summary className="cursor-pointer text-[13px] text-text-primary">{label}</summary>
+                <summary className="cursor-pointer text-sm text-text-primary">{label}</summary>
                 {ev.body && ev.body !== ev.title ? (
-                  <p className="mt-1 whitespace-pre-wrap text-[12px] text-text-muted">{ev.body}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-xs text-text-muted">{ev.body}</p>
                 ) : null}
               </details>
             )

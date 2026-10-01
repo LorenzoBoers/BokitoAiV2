@@ -57,7 +57,7 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
                     className={`flex w-full items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5 text-left ${
                       planned
                         ? 'cursor-not-allowed opacity-60'
-                        : 'hover:border-accent/40 hover:bg-bg-hover/50'
+                        : 'hover:border-border-light hover:bg-bg-hover/50'
                     }`}
                     onClick={() => {
                       if (planned) return
@@ -78,19 +78,19 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
                       <span className="flex flex-wrap items-center gap-1.5">
                         <span className="text-sm font-medium text-text-heading">{item.name}</span>
                         {planned ? (
-                          <Badge variant="neutral" className="text-[10px]">
+                          <Badge variant="neutral" className="text-2xs">
                             {t('integrations.modules.plannedBadge', { defaultValue: 'Planned' })}
                           </Badge>
                         ) : null}
                       </span>
                       {item.description ? (
-                        <span className="mt-0.5 block truncate text-xs text-text-muted">
+                        <span className="mt-0.5 block truncate-fade text-xs text-text-muted">
                           {item.description}
                         </span>
                       ) : null}
                     </span>
                     {planned ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-text-muted">
+                      <span className="inline-flex items-center gap-1 text-xs text-text-muted">
                         <Clock size={12} aria-hidden />
                         {t('integrations.actions.comingSoon', { defaultValue: 'Coming soon' })}
                       </span>

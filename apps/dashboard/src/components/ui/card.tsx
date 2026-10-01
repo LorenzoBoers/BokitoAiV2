@@ -12,7 +12,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
       ref={ref}
       className={cn(
         'panel',
-        interactive && 'hover-lift cursor-pointer hover:border-accent/30',
+        interactive && 'hover-lift cursor-pointer',
         className,
       )}
       {...props}
@@ -25,7 +25,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex items-center justify-between border-b border-border/40 px-5 py-4', className)}
+      className={cn('flex items-center justify-between border-b border-border/60 px-4 py-3', className)}
       {...props}
     />
   ),
@@ -36,7 +36,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('text-base font-semibold text-text-heading', className)}
+      className={cn('text-sm font-semibold text-text-heading', className)}
       {...props}
     />
   ),
@@ -57,7 +57,7 @@ CardDescription.displayName = 'CardDescription'
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-5', className)} {...props} />
+    <div ref={ref} className={cn('p-4', className)} {...props} />
   ),
 )
 CardContent.displayName = 'CardContent'

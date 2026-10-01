@@ -1337,10 +1337,7 @@ class BokitoChatWidget extends HTMLElement {
       || (typeof t.widget_favicon_url === 'string' && t.widget_favicon_url.trim())
       || null;
     const url = imageUrl ? this.#attachmentSrc(imageUrl) : null;
-    const color =
-      typeof t.agent_avatar_color === 'string' && /^#[0-9a-fA-F]{6}$/i.test(t.agent_avatar_color.trim())
-        ? t.agent_avatar_color.trim()
-        : null;
+    const color = '#7c3aed';
     const name =
       typeof t.chatbot_name === 'string' && t.chatbot_name.trim()
         ? t.chatbot_name.trim()

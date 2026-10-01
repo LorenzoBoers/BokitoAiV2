@@ -228,21 +228,21 @@ export function ModuleAgentsSection({
                     />
                   </Link>
                   {row.is_default ? (
-                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
                       {t('integrations.modules.agents.defaultBadge', { defaultValue: 'Default' })}
                     </Badge>
                   ) : null}
                   {row.can_write ? (
-                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
                       {t('integrations.modules.agents.writeBadge', { defaultValue: 'Write' })}
                     </Badge>
                   ) : (
-                    <Badge variant="neutral" className="px-1.5 py-0 text-[10px]">
+                    <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
                       {t('integrations.modules.agents.readOnlyBadge', { defaultValue: 'Read-only' })}
                     </Badge>
                   )}
                   {row.company_ids && row.company_ids.length > 0 ? (
-                    <Badge variant="neutral" className="px-1.5 py-0 text-[10px]">
+                    <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
                       {t('integrations.modules.agents.scopeBadge', {
                         defaultValue: '{{count}} administration(s)',
                         count: row.company_ids.length,
@@ -313,7 +313,7 @@ export function ModuleAgentsSection({
                           defaultValue: 'Write access',
                         })}
                       </p>
-                      <p className="text-[11px] text-text-muted">
+                      <p className="text-xs text-text-muted">
                         {t('integrations.modules.agents.canWriteHint', {
                           defaultValue:
                             'Allow proposing accounting writes. Applying still needs human approval and the workspace write switch.',
@@ -335,7 +335,7 @@ export function ModuleAgentsSection({
                           defaultValue: 'Administration scope',
                         })}
                       </p>
-                      <p className="text-[11px] text-text-muted">
+                      <p className="text-xs text-text-muted">
                         {t('integrations.modules.agents.scopeHint', {
                           defaultValue: 'No selection = access to all administrations.',
                         })}
@@ -350,8 +350,8 @@ export function ModuleAgentsSection({
                               disabled={busyId !== null}
                               className={
                                 selected
-                                  ? 'rounded-full border border-accent/60 bg-accent/10 px-2 py-0.5 text-[11px] text-accent'
-                                  : 'rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-text-secondary hover:border-accent/40'
+                                  ? 'rounded-md border border-accent/60 bg-accent/10 px-2 py-0.5 text-xs text-accent'
+                                  : 'rounded-md border border-border/60 px-2 py-0.5 text-xs text-text-secondary hover:border-border-light'
                               }
                               onClick={() => toggleCompany(row, company.id)}
                             >

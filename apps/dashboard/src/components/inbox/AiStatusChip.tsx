@@ -71,18 +71,20 @@ export default function AiStatusChip({
 
   const tone =
     state === 'paused'
-      ? 'border-accent/35 bg-accent/10 text-accent'
+      ? 'text-accent'
       : state === 'off'
-        ? 'border-border/60 bg-bg-elevated/50 text-text-muted'
-        : 'border-ai/25 bg-ai/10 text-ai-ink'
+        ? 'text-text-muted'
+        : 'text-ai-ink'
 
   const icon =
     state === 'paused' ? (
-      <Hand size={10} className="shrink-0" />
+      <Hand size={11} className={`shrink-0 ${tone}`} />
     ) : state === 'off' ? (
-      <ShieldOff size={10} className="shrink-0" />
+      <ShieldOff size={11} className={`shrink-0 ${tone}`} />
     ) : (
-      <AiMark size={10} />
+      <span className={tone}>
+        <AiMark size={11} />
+      </span>
     )
 
   return (
@@ -93,14 +95,14 @@ export default function AiStatusChip({
           disabled={saving}
           title={hint}
           aria-label={label}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors hover:brightness-105 disabled:opacity-50 ${tone}`}
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover/70 disabled:opacity-50"
         >
           {icon}
-          <span className="max-w-[10rem] truncate">{label}</span>
+          <span className="max-w-[10rem] truncate-fade">{label}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
-        <p className="px-2 py-1.5 text-[11px] leading-snug text-text-muted">{hint}</p>
+        <p className="px-2 py-1.5 text-xs leading-snug text-text-muted">{hint}</p>
         {state === 'paused' ? (
           onHandBack ? (
             <DropdownMenuItem className="gap-2 text-xs" onSelect={() => void onHandBack()}>

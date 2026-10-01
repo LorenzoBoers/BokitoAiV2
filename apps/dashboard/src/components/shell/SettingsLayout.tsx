@@ -2,6 +2,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Info } from 'lucide-react'
 import ContentHeader from './ContentHeader'
+import ScrollFade from '../ui/ScrollFade'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { MY_ASSISTANT_SETTINGS_PATH, WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
@@ -105,34 +106,41 @@ export function SettingsHomeRedirect() {
   return <Navigate to="/settings/general" replace />
 }
 
+/** Settings pages that render their own `ContentHeader` (title + controls). */
+const OWN_HEADER_PATHS = ['/settings/govern', '/settings/trust', '/settings/models', '/settings/mcp-catalog']
+
 export default function SettingsLayout() {
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
   const activeLink = SETTINGS_PALETTE_LINKS.find((link) => linkIsActive(pathname, link))
-  const activeLabel = activeLink ? t(activeLink.labelKey) : t('tabs.settings.subtitle')
-
-  const subtitle = activeLabel
+  const ownsHeader = OWN_HEADER_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+  // One title per page: the active section name, with its hint as subtitle.
+  // The topbar breadcrumb already reads "Settings / {section}".
+  const title = activeLink ? t(activeLink.labelKey) : t('tabs.settings.title')
+  const subtitle = activeLink?.hintKey ? t(activeLink.hintKey) : undefined
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      <aside className="hidden w-[240px] shrink-0 flex-col border-r border-border/40 bg-bg-sidebar/50 px-2.5 py-3 lg:flex">
-        <p className="px-2.5 pb-3 text-[15px] font-semibold leading-none text-text-heading">
+      <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5 lg:flex">
+        <p className="flex h-7 items-center pl-2 pb-1 text-sm font-medium leading-none text-text-heading">
           {t('tabs.settings.title')}
         </p>
-        <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label={t('tabs.settings.title')}>
-          <SettingsNav pathname={pathname} />
-        </nav>
+        <ScrollFade className="pb-1">
+          <nav className="flex min-h-0 flex-col" aria-label={t('tabs.settings.title')}>
+            <SettingsNav pathname={pathname} />
+          </nav>
+        </ScrollFade>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <nav
-          className="shrink-0 overflow-x-auto border-b border-border/40 bg-bg-sidebar/50 px-3 py-2 lg:hidden"
+          className="shrink-0 overflow-x-auto border-b border-border/60 bg-bg px-3 py-2 lg:hidden"
           aria-label={t('tabs.settings.title')}
         >
           <SettingsNav pathname={pathname} compact />
         </nav>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-5 lg:px-8">
-          <ContentHeader title={t('tabs.settings.title')} subtitle={subtitle} />
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-4 lg:px-8">
+          {ownsHeader ? null : <ContentHeader title={title} subtitle={subtitle} />}
           <Outlet />
         </div>
       </div>
@@ -144,7 +152,7 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
   const { t } = useTranslation('nav')
   return (
     <TooltipProvider delayDuration={250}>
-      <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex h-full min-h-0 flex-col gap-y-5'}>
+      <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex min-h-0 flex-col gap-y-3'}>
         {SETTINGS_GROUPS.map((group) => {
           if (group.accent) {
             const link = group.links[0]
@@ -152,21 +160,13 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
             const active = linkIsActive(pathname, link)
             const hint = link.hintKey ? t(link.hintKey) : ''
             const item = (
-              <NavLink
-                to={link.to}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors',
-                  active
-                    ? 'bg-accent/12 font-medium text-accent'
-                    : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary',
-                )}
-              >
-                <Info size={14} className="shrink-0" aria-hidden />
+              <NavLink to={link.to} className="nav-row" data-active={active ? 'true' : undefined}>
+                <Info aria-hidden />
                 {t(link.labelKey)}
               </NavLink>
             )
             return (
-              <div key={group.labelKey} className={compact ? 'min-w-[140px]' : 'mt-auto w-full'}>
+              <div key={group.labelKey} className={compact ? 'min-w-[140px]' : 'mt-2 w-full border-t border-border/60 pt-2'}>
                 {hint ? (
                   <Tooltip>
                     <TooltipTrigger asChild>{item}</TooltipTrigger>
@@ -187,9 +187,7 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
           }
           return (
             <section key={group.labelKey} className={compact ? 'min-w-[140px]' : undefined}>
-              <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                {t(group.labelKey)}
-              </p>
+              <p className="flex h-6 items-center px-2 text-xs text-text-muted">{t(group.labelKey)}</p>
               <div className="space-y-px">
                 {group.links.map((link) => {
                   const active = linkIsActive(pathname, link)
@@ -197,14 +195,10 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
                   const item = (
                     <NavLink
                       to={link.to}
-                      className={cn(
-                        'block rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors',
-                        active
-                          ? 'bg-accent/12 font-medium text-accent'
-                          : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary',
-                      )}
+                      className={cn('nav-row', !compact && 'pl-4')}
+                      data-active={active ? 'true' : undefined}
                     >
-                      {t(link.labelKey)}
+                      <span className="min-w-0 flex-1 truncate-fade">{t(link.labelKey)}</span>
                     </NavLink>
                   )
                   if (!hint) return <div key={link.to}>{item}</div>

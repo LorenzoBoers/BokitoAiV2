@@ -56,11 +56,12 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     case 'decisions':
-      // Open DecisionRequests across customer and internal threads — no folder
-      // scope, or Overview / Agents deep links open an empty list.
+      // "You": open DecisionRequests across customer and internal threads plus
+      // customer conversations whose last word is theirs. No folder scope, or
+      // Overview / Agents deep links open an empty list.
       return {
-        filters: { view: 'awaiting_decision' },
-        mode: 'agent',
+        filters: { view: 'your_turn' },
+        mode: 'customer',
         variant: 'customer',
       }
     case 'runs':

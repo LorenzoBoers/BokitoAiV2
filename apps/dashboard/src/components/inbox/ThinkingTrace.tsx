@@ -53,7 +53,7 @@ function StatusLine({
       )}
       <span
         className={cn(
-          'min-w-0 truncate text-[13.5px] font-medium',
+          'min-w-0 truncate-fade text-base font-medium',
           current ? 'thinking-shimmer-text agent-live-ink' : 'text-ai-ink/70',
         )}
       >
@@ -101,7 +101,7 @@ export function AgentLiveStatus({
         })}
       </div>
       {expanded ? (
-        <div className="mt-1.5 space-y-1.5 pl-5 text-[12px] leading-relaxed text-text-muted">
+        <div className="mt-1.5 space-y-1.5 pl-5 text-xs leading-relaxed text-text-muted">
           {trimmedThinking ? (
             <p className="whitespace-pre-wrap break-words line-clamp-6">{trimmedThinking}</p>
           ) : null}
@@ -112,7 +112,7 @@ export function AgentLiveStatus({
                 {isKnowledgeStep(step) ? <KnowledgeMark size={11} /> : null}
                 <span className="min-w-0">
                   {stepHeadline(step, t)}
-                  {detail ? <span className="block truncate text-[11px] opacity-70">{detail}</span> : null}
+                  {detail ? <span className="block truncate-fade text-xs opacity-70">{detail}</span> : null}
                 </span>
               </p>
             )
@@ -136,7 +136,7 @@ export function AgentStreamBubble({ streamText, active = false }: { streamText: 
         <AiMark size={13} />
       </span>
       <div
-        className="min-w-0 max-w-[82%] rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary"
+        className="min-w-0 max-w-[82%] rounded-xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-base leading-relaxed text-text-primary"
         style={active ? { minHeight: '1.5em' } : undefined}
       >
         {active ? (

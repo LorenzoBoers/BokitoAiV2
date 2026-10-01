@@ -36,7 +36,7 @@ type Props = {
 }
 
 const FIELD =
-  'w-full rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none'
+  'w-full rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none'
 
 export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Props) {
   const { t } = useTranslation('communication')
@@ -168,7 +168,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         </DialogHeader>
 
         {noMailbox ? (
-          <div className="rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[13px] text-text-secondary">
+          <div className="rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-sm text-text-secondary">
             <p>{t('compose.noMailbox')}</p>
             <Link
               to="/settings/channels"
@@ -181,10 +181,10 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         ) : null}
 
         {enabledConnections.length > 0 ? (
-          <label className="flex items-center gap-2 text-[12px] text-text-secondary" title={t('compose.fromHint')}>
+          <label className="flex items-center gap-2 text-xs text-text-secondary" title={t('compose.fromHint')}>
             <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
             {enabledConnections.length === 1 ? (
-              <span className="truncate text-[13px] text-text-primary">{enabledConnections[0].mailboxEmail}</span>
+              <span className="truncate-fade text-sm text-text-primary">{enabledConnections[0].mailboxEmail}</span>
             ) : (
               <select
                 value={connectionId ?? ''}
@@ -201,7 +201,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           </label>
         ) : null}
 
-        <div className="flex items-center gap-2 text-[12px]">
+        <div className="flex items-center gap-2 text-xs">
           <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.to')}</span>
           <input
             ref={toInputRef}
@@ -214,7 +214,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           <button
             type="button"
             onClick={() => setCcBccOpen((v) => !v)}
-            className={`shrink-0 text-[11px] font-medium transition-colors ${
+            className={`shrink-0 text-xs font-medium transition-colors ${
               ccBccOpen || cc || bcc ? 'text-accent' : 'text-text-muted hover:text-text-primary'
             }`}
           >
@@ -224,18 +224,18 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
 
         {ccBccOpen ? (
           <>
-            <div className="flex items-center gap-2 text-[12px]">
+            <div className="flex items-center gap-2 text-xs">
               <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.cc')}</span>
               <input type="text" value={cc} onChange={(e) => setCc(e.target.value)} className={FIELD} />
             </div>
-            <div className="flex items-center gap-2 text-[12px]">
+            <div className="flex items-center gap-2 text-xs">
               <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.bcc')}</span>
               <input type="text" value={bcc} onChange={(e) => setBcc(e.target.value)} className={FIELD} />
             </div>
           </>
         ) : null}
 
-        <div className="flex items-center gap-2 text-[12px]">
+        <div className="flex items-center gap-2 text-xs">
           <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.subject')}</span>
           <input
             type="text"
@@ -258,7 +258,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           }}
           placeholder={t('compose.bodyPlaceholder')}
           rows={10}
-          className="max-h-[320px] min-h-[160px] w-full resize-y rounded-md border border-border/60 bg-bg-input px-2.5 py-2 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+          className="max-h-[320px] min-h-[160px] w-full resize-y rounded-md border border-border/60 bg-bg-input px-2.5 py-2 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
         />
 
         <MessageAttachments
@@ -312,7 +312,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
                     onSelect={() => insertSavedReply(row)}
                   >
                     <span className="font-medium text-text-heading">{row.title}</span>
-                    <span className="line-clamp-1 text-[11px] text-text-muted">{row.bodyText}</span>
+                    <span className="line-clamp-1 text-xs text-text-muted">{row.bodyText}</span>
                   </DropdownMenuItem>
                 ))
               )}

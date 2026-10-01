@@ -120,17 +120,17 @@ function McpOAuthGrantsSection() {
   }
 
   return (
-    <section className="mt-6 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-      <h2 className="text-[15px] font-semibold text-text-heading">
+    <section className="mt-6 rounded-lg border border-border/60 bg-bg-surface p-4">
+      <h2 className="text-lg font-semibold text-text-heading">
         {t('developersPage.oauthGrants.title')}
       </h2>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
+      <p className="mt-1 text-sm leading-relaxed text-text-secondary">
         {t('developersPage.oauthGrants.body')}
       </p>
       {loading ? (
-        <p className="mt-3 text-[12px] text-text-muted">{t('developersPage.oauthGrants.loading')}</p>
+        <p className="mt-3 text-xs text-text-muted">{t('developersPage.oauthGrants.loading')}</p>
       ) : grants.length === 0 ? (
-        <p className="mt-3 text-[12px] text-text-muted">{t('developersPage.oauthGrants.empty')}</p>
+        <p className="mt-3 text-xs text-text-muted">{t('developersPage.oauthGrants.empty')}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {grants.map((grant) => (
@@ -139,8 +139,8 @@ function McpOAuthGrantsSection() {
               className="flex items-start justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
             >
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-text-heading">{grant.client_name}</p>
-                <p className="text-[11.5px] text-text-muted">
+                <p className="text-sm font-medium text-text-heading">{grant.client_name}</p>
+                <p className="text-xs text-text-muted">
                   {grant.tenant_name}
                   {grant.scopes.length ? ` · ${grant.scopes.join(', ')}` : ` · ${t('developersPage.fullAccess')}`}
                 </p>
@@ -247,11 +247,11 @@ function ApiTokensSection() {
     <section id="mcp-setup">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="flex items-center gap-1.5 text-[15px] font-semibold text-text-heading">
+          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-text-heading">
             <KeyRound size={15} className="text-text-muted" />
             {t('developersPage.tokensTitle')}
           </h2>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
+          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
             {t('developersPage.tokensBody')}
           </p>
         </div>
@@ -261,7 +261,7 @@ function ApiTokensSection() {
       </div>
 
       {showAdd ? (
-        <div className="mt-4 space-y-3 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <div className="mt-4 space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
           <div>
             <Label htmlFor="token-name">{t('developersPage.tokenName')}</Label>
             <Input
@@ -279,7 +279,7 @@ function ApiTokensSection() {
                   key={preset.id}
                   type="button"
                   onClick={() => setScopes([...preset.scopes])}
-                  className="rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
+                  className="rounded-md border border-border/60 px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-border-light hover:text-accent"
                 >
                   {t(`developersPage.preset.${preset.id}`)}
                 </button>
@@ -289,12 +289,12 @@ function ApiTokensSection() {
               {TOKEN_SCOPE_GROUPS.map((group) => (
                 <div key={group.labelKey}>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-medium text-text-muted">
+                    <p className="text-xs font-medium text-text-muted">
                       {t(`developersPage.${group.labelKey}`)}
                     </p>
                     <button
                       type="button"
-                      className="text-[11px] font-medium text-accent hover:underline"
+                      className="text-xs font-medium text-accent hover:underline"
                       onClick={() => toggleGroup(group.scopes)}
                     >
                       {group.labelKey === 'restApi'
@@ -308,9 +308,9 @@ function ApiTokensSection() {
                         key={scope}
                         type="button"
                         onClick={() => toggleScope(scope)}
-                        className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
+                        className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
                           scopes.includes(scope)
-                            ? 'border-accent/50 bg-accent/10 text-accent'
+                            ? 'border-border-light bg-bg-hover text-text-heading'
                             : 'border-border/60 text-text-secondary hover:bg-bg-hover'
                         }`}
                       >
@@ -322,7 +322,7 @@ function ApiTokensSection() {
               ))}
             </div>
             {scopes.length === 0 ? (
-              <p className="mt-2 text-[11.5px] text-amber-600">{t('developersPage.fullAccessWarning')}</p>
+              <p className="mt-2 text-xs text-amber-600">{t('developersPage.fullAccessWarning')}</p>
             ) : null}
           </div>
           <div className="flex gap-2">
@@ -338,10 +338,10 @@ function ApiTokensSection() {
       ) : null}
 
       {createdToken ? (
-        <div className="mt-4 space-y-2 rounded-xl border border-accent/40 bg-accent/5 p-3">
-          <p className="text-[12px] text-text-secondary">{t('developersPage.created')}</p>
+        <div className="mt-4 space-y-2 rounded-lg border border-accent/40 bg-accent/5 p-3">
+          <p className="text-xs text-text-secondary">{t('developersPage.created')}</p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 break-all font-mono text-[11.5px]">{createdToken}</code>
+            <code className="flex-1 break-all font-mono text-xs">{createdToken}</code>
             <Button
               size="sm"
               variant="outline"
@@ -425,9 +425,9 @@ function ApiTokensSection() {
       ) : null}
 
       {/* OAuth URL-only is primary; bearer token snippets stay as automation fallback. */}
-      <div className="mt-4 space-y-3 rounded-xl border border-border/50 bg-bg-elevated/40 p-3">
-        <p className="text-[12px] font-medium text-text-heading">{t('developersPage.mcpOauthTitle')}</p>
-        <p className="text-[11.5px] text-text-muted">{t('developersPage.mcpOauthHint')}</p>
+      <div className="mt-4 space-y-3 rounded-lg border border-border/50 bg-bg-elevated/40 p-3">
+        <p className="text-xs font-medium text-text-heading">{t('developersPage.mcpOauthTitle')}</p>
+        <p className="text-xs text-text-muted">{t('developersPage.mcpOauthHint')}</p>
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
@@ -453,12 +453,12 @@ function ApiTokensSection() {
             'integrations.mcp.bokito.steps.oauth3',
           ]}
         />
-        <p className="pt-1 text-[12px] font-medium text-text-heading">{t('developersPage.mcpSetupTitle')}</p>
-        <p className="text-[11.5px] text-text-muted">{t('developersPage.mcpSetupHint')}</p>
+        <p className="pt-1 text-xs font-medium text-text-heading">{t('developersPage.mcpSetupTitle')}</p>
+        <p className="text-xs text-text-muted">{t('developersPage.mcpSetupHint')}</p>
         {!createdToken ? (
-          <p className="text-[11px] text-text-muted">{t('developersPage.mcpSetupPlaceholderHint')}</p>
+          <p className="text-xs text-text-muted">{t('developersPage.mcpSetupPlaceholderHint')}</p>
         ) : null}
-        <p className="text-[11px] text-text-muted">{t('developersPage.cursorDeeplinkHint')}</p>
+        <p className="text-xs text-text-muted">{t('developersPage.cursorDeeplinkHint')}</p>
         <McpClientSetupCard
           clientId="cursorToken"
           configSnippet={buildCursorMcpConfig(
@@ -498,12 +498,12 @@ function ApiTokensSection() {
       </div>
 
       {loading ? (
-        <div className="mt-4 flex items-center gap-2 text-[12.5px] text-text-muted">
+        <div className="mt-4 flex items-center gap-2 text-sm text-text-muted">
           <Loader2 size={14} className="animate-spin" /> {t('developersPage.loading')}
         </div>
       ) : tokens.length === 0 ? (
         <div className="mt-4">
-          <p className="text-[12.5px] text-text-muted">{t('developersPage.empty')}</p>
+          <p className="text-sm text-text-muted">{t('developersPage.empty')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {showAdd ? null : (
               <Button size="sm" variant="secondary" onClick={() => setShowAdd(true)}>
@@ -521,19 +521,19 @@ function ApiTokensSection() {
           {tokens.filter((row) => showRevoked || !row.revoked_at).map((row) => (
             <div
               key={row.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-bg-surface px-4 py-3 shadow-card"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-text-heading">
+                <p className="truncate-fade text-sm font-medium text-text-heading">
                   {row.name}{' '}
-                  <span className="font-mono text-[11px] text-text-muted">bok_…</span>
+                  <span className="font-mono text-xs text-text-muted">bok_…</span>
                   {row.revoked_at ? (
-                    <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-[10.5px] font-medium text-red-500">
+                    <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-2xs font-medium text-red-500">
                       {t('developersPage.revokedBadge')}
                     </span>
                   ) : null}
                 </p>
-                <p className="mt-0.5 text-[11.5px] text-text-muted">
+                <p className="mt-0.5 text-xs text-text-muted">
                   {row.scopes.length ? row.scopes.join(', ') : t('developersPage.fullAccess')}
                   {row.last_used_at
                     ? ` · ${t('developersPage.lastUsed', { time: formatLastUsed(row.last_used_at) })}`
@@ -556,7 +556,7 @@ function ApiTokensSection() {
           {tokens.some((row) => row.revoked_at) ? (
             <button
               type="button"
-              className="text-[11.5px] font-medium text-accent hover:underline"
+              className="text-xs font-medium text-accent hover:underline"
               onClick={() => setShowRevoked((v) => !v)}
             >
               {showRevoked ? t('developersPage.hideRevoked') : t('developersPage.showRevoked')}
@@ -571,12 +571,12 @@ function ApiTokensSection() {
 function StatusPill({ endpoint }: { endpoint: WebhookEndpoint }) {
   const { t } = useTranslation('nav')
   if (!endpoint.last_status) {
-    return <span className="text-[11px] text-text-muted">{t('developersPage.webhooks.noDeliveriesYet')}</span>
+    return <span className="text-xs text-text-muted">{t('developersPage.webhooks.noDeliveriesYet')}</span>
   }
   const ok = endpoint.last_status !== 'failed'
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[10.5px] font-medium ${
+      className={`rounded-full px-2 py-0.5 text-2xs font-medium ${
         ok ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'
       }`}
     >
@@ -727,8 +727,8 @@ export default function DeveloperSettings() {
         <section>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-[15px] font-semibold text-text-heading">{t('developersPage.webhooks.title')}</h2>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
+              <h2 className="text-lg font-semibold text-text-heading">{t('developersPage.webhooks.title')}</h2>
+              <p className="mt-1 text-sm leading-relaxed text-text-secondary">
                 {t('developersPage.webhooks.body')}
               </p>
             </div>
@@ -738,7 +738,7 @@ export default function DeveloperSettings() {
           </div>
 
           {showAdd ? (
-            <div className="mt-4 space-y-3 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+            <div className="mt-4 space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
               <div>
                 <Label htmlFor="wh-url">{t('developersPage.webhooks.url')}</Label>
             <Input
@@ -763,9 +763,9 @@ export default function DeveloperSettings() {
                   <button
                     type="button"
                     onClick={() => toggleNewEvent('*')}
-                    className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
+                    className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
                       newEvents.includes('*')
-                        ? 'border-accent/50 bg-accent/10 text-accent'
+                        ? 'border-border-light bg-bg-hover text-text-heading'
                         : 'border-border/60 text-text-secondary hover:bg-bg-hover'
                     }`}
                   >
@@ -776,9 +776,9 @@ export default function DeveloperSettings() {
                       key={event}
                       type="button"
                       onClick={() => toggleNewEvent(event)}
-                      className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
+                      className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
                         newEvents.includes(event)
-                          ? 'border-accent/50 bg-accent/10 text-accent'
+                          ? 'border-border-light bg-bg-hover text-text-heading'
                           : 'border-border/60 text-text-secondary hover:bg-bg-hover'
                       }`}
                     >
@@ -800,20 +800,20 @@ export default function DeveloperSettings() {
           ) : null}
 
           {loading ? (
-            <div className="mt-6 flex items-center gap-2 text-[12.5px] text-text-muted">
+            <div className="mt-6 flex items-center gap-2 text-sm text-text-muted">
               <Loader2 size={14} className="animate-spin" /> {t('developersPage.webhooks.loading')}
             </div>
           ) : error ? (
-            <p className="mt-6 text-[12.5px] text-red-500">{error}</p>
+            <p className="mt-6 text-sm text-red-500">{error}</p>
           ) : items.length === 0 ? (
-            <div className="mt-6 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 py-10 text-center">
+            <div className="mt-6 flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 py-10 text-center">
               <WebhookIcon size={20} className="text-text-muted" />
-              <p className="text-[12.5px] text-text-muted">
+              <p className="text-sm text-text-muted">
                 {t('developersPage.webhooks.empty')}
               </p>
               <Link
                 to="/settings/communication"
-                className="text-[12px] font-medium text-accent hover:underline"
+                className="text-xs font-medium text-accent hover:underline"
               >
                 {t('developersPage.webhooks.emptyCommunicationLink')}
               </Link>
@@ -829,15 +829,15 @@ export default function DeveloperSettings() {
               {items.map((endpoint) => (
                 <div
                   key={endpoint.id}
-                  className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card"
+                  className="rounded-lg border border-border/60 bg-bg-surface p-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate font-mono text-[12.5px] text-text-primary">
+                      <p className="truncate-fade font-mono text-sm text-text-primary">
                         {endpoint.url}
                       </p>
                       {endpoint.description ? (
-                        <p className="text-[11.5px] text-text-muted">{endpoint.description}</p>
+                        <p className="text-xs text-text-muted">{endpoint.description}</p>
                       ) : null}
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -865,14 +865,14 @@ export default function DeveloperSettings() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {!endpoint.active ? (
-                      <span className="rounded-full bg-bg-surface-hover px-2 py-0.5 text-[10.5px] font-medium text-text-muted">
+                      <span className="rounded-full bg-bg-surface-hover px-2 py-0.5 text-2xs font-medium text-text-muted">
                         {t('developersPage.webhooks.disabled')}
                       </span>
                     ) : null}
                     {endpoint.events.map((event) => (
                       <span
                         key={event}
-                        className="rounded-full border border-border/60 px-2 py-0.5 text-[10.5px] text-text-secondary"
+                        className="rounded-md border border-border/60 px-2 py-0.5 text-2xs text-text-secondary"
                       >
                         {event === '*' ? t('developersPage.webhooks.allEvents') : event}
                       </span>
@@ -880,14 +880,14 @@ export default function DeveloperSettings() {
                   </div>
                   {endpoint.secret ? (
                     <div className="mt-2 flex items-center gap-1.5">
-                      <span className="text-[11px] text-text-muted">{t('developersPage.webhooks.signingSecret')}</span>
-                      <code className="rounded bg-bg-surface-hover px-1.5 py-0.5 font-mono text-[11px] text-text-secondary">
+                      <span className="text-xs text-text-muted">{t('developersPage.webhooks.signingSecret')}</span>
+                      <code className="rounded bg-bg-surface-hover px-1.5 py-0.5 font-mono text-xs text-text-secondary">
                         {endpoint.secret.slice(0, 12)}...
                       </code>
                       <button
                         type="button"
                         onClick={() => handleCopySecret(endpoint)}
-                        className="flex items-center gap-1 text-[11px] text-text-muted hover:text-text-primary"
+                        className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
                       >
                         {copiedId === endpoint.id ? (
                           <>
@@ -904,7 +904,7 @@ export default function DeveloperSettings() {
                   <button
                     type="button"
                     onClick={() => handleToggleDeliveries(endpoint.id)}
-                    className="mt-2 text-[11.5px] font-medium text-accent hover:underline"
+                    className="mt-2 text-xs font-medium text-accent hover:underline"
                   >
                     {expandedId === endpoint.id
                       ? t('developersPage.webhooks.hideDeliveries')
@@ -913,11 +913,11 @@ export default function DeveloperSettings() {
                   {expandedId === endpoint.id ? (
                     <div className="mt-2 overflow-hidden rounded-lg border border-border/60">
                       {(deliveries[endpoint.id] || []).length === 0 ? (
-                        <p className="px-3 py-2.5 text-[11.5px] text-text-muted">
+                        <p className="px-3 py-2.5 text-xs text-text-muted">
                           {t('developersPage.webhooks.noDeliveries')}
                         </p>
                       ) : (
-                        <table className="w-full text-[11.5px]">
+                        <table className="w-full text-xs">
                           <thead>
                             <tr className="border-b border-border/60 text-left text-text-muted">
                               <th className="px-3 py-1.5 font-medium">{t('developersPage.webhooks.colEvent')}</th>
@@ -964,9 +964,9 @@ export default function DeveloperSettings() {
         <ApiTokensSection />
         <McpOAuthGrantsSection />
 
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="text-[15px] font-semibold text-text-heading">{t('developersPage.publicTitle')}</h2>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <h2 className="text-lg font-semibold text-text-heading">{t('developersPage.publicTitle')}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
             {t('developersPage.publicBody')}
           </p>
           <Button size="sm" variant="secondary" className="mt-3" asChild>

@@ -40,7 +40,7 @@ export function SectionStatusChip({
     return (
       <span
         className={cn(
-          'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium',
+          'inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium',
           STATUS_STYLES[status],
         )}
       >
@@ -57,7 +57,7 @@ export function SectionStatusChip({
         next: t(`knowledgePage.sectionStatus.${next}`, { defaultValue: next }),
       })}
       className={cn(
-        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
+        'inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium transition-colors',
         STATUS_STYLES[status],
         disabled ? 'opacity-60' : 'hover:opacity-80',
       )}
@@ -184,7 +184,7 @@ export function DocSectionsEditor({
           <div
             key={section.id}
             className={cn(
-              'group rounded-xl border border-transparent px-3 py-2 transition-colors',
+              'group rounded-lg border border-transparent px-3 py-2 transition-colors',
               isEditing ? 'border-border/60 bg-bg-elevated/40' : 'hover:border-border/40',
             )}
           >
@@ -196,7 +196,7 @@ export function DocSectionsEditor({
                   className="h-7 flex-1 text-sm font-semibold"
                 />
               ) : (
-                <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-text-heading">
+                <h2 className="min-w-0 flex-1 truncate-fade text-base font-semibold text-text-heading">
                   {section.heading || t('knowledgePage.sectionIntro')}
                 </h2>
               )}
@@ -229,7 +229,7 @@ export function DocSectionsEditor({
               ) : null}
             </div>
             {section.summary && !isEditing ? (
-              <p className="mt-0.5 text-[11px] text-text-muted">{section.summary}</p>
+              <p className="mt-0.5 text-xs text-text-muted">{section.summary}</p>
             ) : null}
             {isEditing ? (
               <div className="mt-2 space-y-2">
@@ -240,7 +240,7 @@ export function DocSectionsEditor({
                   writeLabel={t('knowledgePage.editorWrite')}
                   markdownLabel={t('knowledgePage.editorMarkdown')}
                 />
-                <p className="text-[10px] text-text-muted">{t('knowledgePage.sectionGuideline')}</p>
+                <p className="text-2xs text-text-muted">{t('knowledgePage.sectionGuideline')}</p>
                 <div className="flex items-center justify-end gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setEditingId(null)} disabled={busy}>
                     {t('knowledgePage.cancel')}
@@ -265,7 +265,7 @@ export function DocSectionsEditor({
       })}
       {!readOnly ? (
         adding ? (
-          <div className="rounded-xl border border-border/60 bg-bg-elevated/40 px-3 py-2">
+          <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2">
             <Input
               value={newHeading}
               onChange={(e) => setNewHeading(e.target.value)}
@@ -280,7 +280,7 @@ export function DocSectionsEditor({
               writeLabel={t('knowledgePage.editorWrite')}
               markdownLabel={t('knowledgePage.editorMarkdown')}
             />
-            <p className="mt-1.5 text-[10px] text-text-muted">{t('knowledgePage.sectionGuideline')}</p>
+            <p className="mt-1.5 text-2xs text-text-muted">{t('knowledgePage.sectionGuideline')}</p>
             <div className="mt-2 flex items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setAdding(false)} disabled={busyId === 'new'}>
                 {t('knowledgePage.cancel')}
@@ -295,7 +295,7 @@ export function DocSectionsEditor({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 px-3 py-2 text-xs text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary"
           >
             <Plus className="h-3.5 w-3.5" />
             {t('knowledgePage.sectionAdd')}

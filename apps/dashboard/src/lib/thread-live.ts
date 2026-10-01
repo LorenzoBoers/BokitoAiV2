@@ -119,6 +119,16 @@ export function threadMatchesFilters(
     case 'internal':
       viewMatch = channel === 'internal'
       break
+    case 'your_turn':
+      // Row payloads carry hasOpenDecision and the last direction, so the
+      // "You" leaf can evict / keep rows live without a refetch.
+      viewMatch =
+        Boolean(thread.hasOpenDecision) ||
+        (thread.status === 'open' &&
+          channel !== 'internal' &&
+          channel !== 'assistant' &&
+          threadNeedsReply(thread))
+      break
     // pinned / awaiting_decision / updates / results / outbound need
     // server-side joins (pins, open decisions, message kinds).
     default:

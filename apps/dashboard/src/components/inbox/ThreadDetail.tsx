@@ -1,7 +1,7 @@
-import { AlertCircle, Flag, ListPlus, Radio, RefreshCw, Sparkles } from 'lucide-react'
+import { AlertCircle, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   createInboxRule,
@@ -35,13 +35,7 @@ import ThreadHeader from './ThreadHeader'
 import ThreadTimeline, { buildTimelineRows, type ThreadTimelineHandle } from './ThreadTimeline'
 import { Button } from '../ui/button'
 import { InboxThreadSkeleton } from '../ui/skeleton'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
+import { TooltipProvider } from '../ui/tooltip'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboundQuoteText, suggestedReplyAllRecipients } from '../../lib/thread-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
@@ -65,7 +59,6 @@ import { useAiChatStream } from '../../lib/use-agent-session-chat'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
-import { WhatsNextDialog, scheduledForIso, type FollowUpWhen } from './WhatsNextDialog'
 import { toast } from 'sonner'
 
 type Props = {
@@ -128,183 +121,12 @@ type Props = {
    * "Ask assistant" action.
    */
   mode?: 'customer' | 'agent'
-  /** Internal threads only: open a standalone assistant chat with context. */
-  onAskAssistant?: () => void
-}
-
-const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
-  normal: { labelKey: 'priority.normal', dot: 'bg-text-muted/40' },
-  high: { labelKey: 'priority.high', dot: 'bg-status-warning' },
-  urgent: { labelKey: 'priority.urgent', dot: 'bg-status-error' },
-}
-
-/**
- * Compact chips row under the thread header: priority, cases on this
- * conversation, and optional AI triage. Who handles the conversation is the
- * header's AI status chip, not a chip here.
- */
-function ThreadMetaRow({
-  signalId,
-  priority,
-  saving,
-  onPatch,
-  triage,
-  onWhatsNext,
-  followUpLabel,
-}: {
-  signalId: string
-  priority: string
-  saving: boolean
-  onPatch: (input: PatchThreadInput) => Promise<void>
-  triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
+  /** Opens the look-again planner (owned by the page; also reachable from the panel). */
   onWhatsNext?: () => void
-  /** When set, replaces the Wat nu button with a clickable look-at chip. */
-  followUpLabel?: string | null
-}) {
-  const { t } = useTranslation(['communication', 'nav'])
-  const [cases, setCases] = useState<CaseRow[]>([])
-
-  useEffect(() => {
-    let cancelled = false
-    void listCasesForSignal(signalId)
-      .then((rows) => {
-        if (!cancelled) setCases(rows)
-      })
-      .catch(() => {
-        if (!cancelled) setCases([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [signalId])
-
-  const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
-  const priorityLabel = t(priorityMeta.labelKey, { ns: 'communication' })
-
-  return (
-    <div className="flex shrink-0 items-center gap-1.5 border-b border-border/30 bg-bg-surface px-3 py-1">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              disabled={saving}
-              aria-label={t('threadChrome.setPriority', { ns: 'communication' })}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
-                priority === 'normal'
-                  ? 'border-border/60 text-text-muted hover:border-border hover:text-text-secondary'
-                  : 'border-border/60 bg-bg-surface text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              <Flag size={10} />
-              <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
-              {priorityLabel}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-36">
-            {Object.entries(PRIORITY_META).map(([value, meta]) => (
-              <DropdownMenuItem
-                key={value}
-                className="gap-2 text-xs"
-                onSelect={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                {t(meta.labelKey, { ns: 'communication' })}
-                {value === priority ? <span className="ml-auto text-accent">•</span> : null}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {onWhatsNext ? (
-          followUpLabel ? (
-            <button
-              type="button"
-              onClick={onWhatsNext}
-              className="inline-flex max-w-[14rem] items-center gap-1 truncate rounded-full border border-accent/30 bg-accent/5 px-2 py-0.5 text-[11px] text-accent hover:border-accent/50"
-            >
-              <ListPlus size={10} className="shrink-0" />
-              <span className="truncate">
-                {t('threadChrome.followUpChip', {
-                  ns: 'communication',
-                  title: followUpLabel,
-                })}
-              </span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onWhatsNext}
-              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-            >
-              <ListPlus size={10} />
-              {t('threadChrome.whatsNext', { ns: 'communication' })}
-            </button>
-          )
-        ) : null}
-
-        {cases.map((row) => {
-          const labelOnly = (row.case_type?.follow_up_mode ?? 'track') === 'label'
-          const name = row.title || row.case_type?.name || row.case_type?.slug || row.id
-          const active = !labelOnly && ['proposed', 'open', 'waiting'].includes(row.status)
-          // The signal lives on this conversation; there is no separate hub to
-          // open, so the chip reads as state rather than navigation.
-          return (
-            <span
-              key={row.id}
-              title={
-                labelOnly
-                  ? t('cases.labelChip', { ns: 'nav', defaultValue: 'Label' })
-                  : t(`casesPage.statuses.${row.status}`, {
-                      ns: 'nav',
-                      defaultValue: row.status.replace(/_/g, ' '),
-                    })
-              }
-              className={`inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[11px] ${
-                labelOnly
-                  ? 'border-border/60 text-text-muted'
-                  : active
-                    ? 'border-accent/40 bg-accent/5 text-accent'
-                    : 'border-border/60 text-text-secondary'
-              }`}
-            >
-              <Radio size={10} className="shrink-0 opacity-70" />
-              <span className="truncate">{name}</span>
-            </span>
-          )
-        })}
-
-        {triage && (triage.category || triage.certainty != null) ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] text-ai-ink">
-                <Sparkles size={10} className="text-ai-ink" />
-                {triage.category ? <span className="capitalize">{triage.category}</span> : null}
-                {triage.urgency != null ? (
-                  <span className="text-text-muted">
-                    {t('triage.urgency', { ns: 'communication', value: triage.urgency })}
-                  </span>
-                ) : null}
-                {triage.certainty != null ? (
-                  <span className="text-text-muted">
-                    {t('triage.certainty', { ns: 'communication', value: triage.certainty })}
-                  </span>
-                ) : null}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs text-xs">
-              {triage.summary?.trim() || t('triage.summaryFallback', { ns: 'communication' })}
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-      </div>
-    </div>
-  )
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
   const { t, i18n } = useTranslation('communication')
-  const navigate = useNavigate()
   const { token, user } = useAuth()
   const { connections } = useMailboxConnections()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
@@ -619,11 +441,40 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return Object.values(membersById).some((m) => m.email?.trim().toLowerCase() === email)
   }, [detail?.thread.contactEmail, membersById])
 
-  const [creatingTask, setCreatingTask] = useState(false)
-  const [followUpOpen, setFollowUpOpen] = useState(false)
-  const [followUpTitle, setFollowUpTitle] = useState('')
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
+  // Open Signals on this conversation: feeds the count on the panel toggle
+  // while the right panel is closed. Internal threads carry no Signals.
+  const [openSignalCount, setOpenSignalCount] = useState(0)
+  const countThreadId = detail ? String(detail.thread.id) : null
+  const countsSignals = Boolean(detail && !isInternalThread(detail.thread))
+  const countVersion = `${detail?.thread.lastMessageAt ?? ''}|${detail?.thread.status ?? ''}|${detail?.thread.followUpAt ?? ''}`
+
+  useEffect(() => {
+    if (!countThreadId || !countsSignals) {
+      setOpenSignalCount(0)
+      return
+    }
+    let cancelled = false
+    void listCasesForSignal(countThreadId)
+      .then((rows) => {
+        if (cancelled) return
+        setOpenSignalCount(
+          rows.filter(
+            (row) =>
+              (row.case_type?.follow_up_mode ?? 'track') !== 'label' &&
+              ['proposed', 'open', 'waiting'].includes(row.status),
+          ).length,
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setOpenSignalCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+    // countVersion re-counts after a reply, status change or planned look-again.
+  }, [countThreadId, countsSignals, countVersion])
 
   useEffect(() => {
     if (!token || !detail?.thread.contactId) {
@@ -668,41 +519,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [token, detail, t])
 
-  const openFollowUpPlanner = useCallback(() => {
-    if (!detail) return
-    setFollowUpTitle(
-      detail.thread.emailSubject ||
-        t('threadChrome.followUp', { name: detail.thread.contactName || 'thread' }),
-    )
-    setFollowUpOpen(true)
-  }, [detail, t])
-
-  const handleSaveReminder = useCallback(
-    async (input: { title: string; when: FollowUpWhen }) => {
-      if (!detail || creatingTask) return
-      setCreatingTask(true)
-      try {
-        await onPatch({
-          followUpAt: scheduledForIso(input.when),
-          followUpTitle: input.title,
-        })
-        setFollowUpOpen(false)
-        toast.success(t('threadChrome.taskCreated', { title: input.title }), {
-          description: t('threadChrome.taskCreatedHint'),
-          action: {
-            label: t('threadChrome.openAgenda'),
-            onClick: () => navigate('/agenda?view=timeline&source=wakes'),
-          },
-        })
-        onRefresh()
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : t('threadChrome.taskCreateError'))
-      } finally {
-        setCreatingTask(false)
-      }
-    },
-    [detail, creatingTask, onPatch, t, navigate, onRefresh],
-  )
   const threadIdString = detail ? String(detail.thread.id) : null
 
   const activeSession = useMemo(
@@ -1117,13 +933,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <Link
               to="/communication/new"
-              className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('threadChrome.startNewChat')}
             </Link>
             <Link
               to="/settings/setup"
-              className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('threadChrome.openSetupGuide')}
             </Link>
@@ -1158,34 +974,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         deleting={deleting}
         onAlwaysCloseSender={handleAlwaysCloseSender}
         closingSender={closingSender}
+        onWhatsNext={onWhatsNext}
+        panelCount={openSignalCount + (thread.followUpAt ? 1 : 0)}
       />
 
-      {!isInternalThread(thread) ? (
-        <ThreadMetaRow
-          signalId={String(thread.id)}
-          priority={thread.priority}
-          saving={saving}
-          onPatch={onPatch}
-          followUpLabel={
-            thread.followUpAt
-              ? thread.followUpTitle || thread.emailSubject || t('threadChrome.whatsNext')
-              : null
-          }
-          onWhatsNext={
-            thread.status !== 'closed' && thread.status !== 'spam'
-              ? () => openFollowUpPlanner()
-              : undefined
-          }
-          triage={{
-            category: thread.category,
-            urgency: thread.urgency,
-            certainty: thread.certainty,
-            summary: thread.aiSummary,
-          }}
-        />
-      ) : null}
-
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         {unseenNew > 0 ? (
           <button
             type="button"
@@ -1193,7 +986,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               setUnseenNew(0)
               pinToBottom('smooth')
             }}
-            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-accent/30 bg-accent px-3 py-1 text-[11px] font-medium text-accent-fg shadow-md"
+            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-accent/30 bg-accent px-3 py-1 text-xs font-medium text-accent-fg"
           >
             {t('threadChrome.newMessages', { count: unseenNew })}
           </button>
@@ -1211,6 +1004,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           contactPhone={thread.contactPhone}
           agentName={thread.agentName}
           agentId={thread.agentId}
+          agentAvatarKind={thread.agentAvatarKind}
+          agentAvatarIcon={thread.agentAvatarIcon}
+          agentAvatarColor={thread.agentAvatarColor}
+          agentAvatarImageUrl={thread.agentAvatarImageUrl}
           events={detail.events}
           noteActions={
             onUpdateNote && onDeleteNote
@@ -1259,14 +1056,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           emptyState={
             <div className="flex h-full flex-col items-center justify-center text-center text-xs text-text-muted">
               <p>{t('threadChrome.emptyTitle')}</p>
-              <p className="mt-1 text-[11px] opacity-70">
+              <p className="mt-1 text-xs opacity-70">
                 {thread.channel === 'email'
                   ? t('threadChrome.emptyEmail')
                   : t('threadChrome.emptyChat')}
               </p>
               <Link
                 to={talkToAssistantPath(t('threadChrome.emptyAskPrefill'))}
-                className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
+                className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
               >
                 {t('threadChrome.emptyAsk')}
               </Link>
@@ -1302,7 +1099,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </span>
                 <Link
                   to="/settings/channels"
-                  className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
+                  className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover"
                 >
                   {mailboxNeedsSetup
                     ? t('composer.finishMailboxSetup')
@@ -1315,7 +1112,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <span>{thread.status === 'spam' ? t('composer.spamBlocked') : t('shortcuts.replyBlocked')}</span>
                 <button
                   type="button"
-                  className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
+                  className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover"
                   onClick={() => void onPatch({ status: 'open' })}
                 >
                   {t('threadChrome.reopen')}
@@ -1348,25 +1145,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
           suggestedCc={suggestedCc}
           mentionExtras={mentionAgents}
-          extraActions={
-            onAskAssistant && isInternalThread(thread) ? (
-              <Button size="sm" variant="secondary" onClick={onAskAssistant} className="gap-1.5 border-ai/25 bg-ai/10 text-ai-ink hover:bg-ai/15">
-                <Sparkles size={12} />
-                {t('threadChrome.askAssistant')}
-              </Button>
-            ) : null
-          }
         />
       ) : null}
-      <WhatsNextDialog
-        open={followUpOpen}
-        onOpenChange={setFollowUpOpen}
-        signalId={String(thread.id)}
-        defaultTitle={followUpTitle}
-        saving={creatingTask}
-        onSaveReminder={handleSaveReminder}
-        onSignalCreated={onRefresh}
-      />
       <Dialog
         open={closeSignalsPrompt != null}
         onOpenChange={(open) => {
@@ -1390,7 +1170,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           </DialogHeader>
           <ul className="max-h-40 space-y-1 overflow-y-auto text-sm text-text-secondary">
             {(closeSignalsPrompt?.cases ?? []).map((row) => (
-              <li key={row.id} className="truncate rounded-md border border-border/50 px-2.5 py-1.5">
+              <li key={row.id} className="truncate-fade rounded-md border border-border/50 px-2.5 py-1.5">
                 {row.title || row.case_type?.name || t('threadChrome.closeWithSignalsFallback')}
               </li>
             ))}

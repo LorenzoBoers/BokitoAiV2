@@ -1,19 +1,23 @@
 import type { ReactNode } from 'react'
+import type { PageGuideSlug } from '../../lib/page-guides'
 import { cn } from '../../lib/utils'
+import { PageGuideLink } from './PageGuideLink'
 
 interface PageIntroProps {
   description?: ReactNode
   actions?: ReactNode
+  /** Page-guide slug: adds a quiet "Learn more" link to the actions. */
+  guide?: PageGuideSlug
   className?: string
 }
 
 /**
- * Subtitle row that appears below `AppHeader`. Never renders an `<h1>` —
- * the page title lives in `AppHeader` (driven by portal-nav meta). Use this
- * for a description + primary action pair only.
+ * Subtitle row that appears below the shell breadcrumb. Never renders an
+ * `<h1>` — the page title lives in the topbar (driven by portal-nav meta).
+ * Use this for a description + primary action pair only.
  */
-export function PageIntro({ description, actions, className }: PageIntroProps) {
-  if (!description && !actions) return null
+export function PageIntro({ description, actions, guide, className }: PageIntroProps) {
+  if (!description && !actions && !guide) return null
   return (
     <div
       className={cn(
@@ -26,7 +30,12 @@ export function PageIntro({ description, actions, className }: PageIntroProps) {
       ) : (
         <span aria-hidden />
       )}
-      {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
+      {actions || guide ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {guide ? <PageGuideLink page={guide} /> : null}
+          {actions}
+        </div>
+      ) : null}
     </div>
   )
 }

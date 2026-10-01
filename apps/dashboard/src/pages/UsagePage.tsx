@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { OctagonAlert, RefreshCw } from 'lucide-react'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import ContentHeader from '../components/shell/ContentHeader'
 import CockpitTabs from '../components/shell/CockpitTabs'
 import { useAuth } from '../context/AuthContext'
@@ -53,7 +52,7 @@ function BudgetBar({
       : 'bg-accent'
   return (
     <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between text-[12px]">
+      <div className="flex items-baseline justify-between text-xs">
         <span className="font-medium text-text-primary">{label}</span>
         <span className="text-text-muted">
           {period.cap
@@ -232,8 +231,8 @@ export default function UsagePage() {
 
   return (
     <div>
-      <PageGuideBanner page="cockpit" className="mb-4" />
       <ContentHeader
+        guide="cockpit"
         title={t('tabs.overview.title', { defaultValue: 'Overview' })}
         subtitle={t('pageHeaders.cockpitUsage')}
         meta={
@@ -249,7 +248,7 @@ export default function UsagePage() {
                     else params.set('days', String(value))
                     setSearchParams(params, { replace: true })
                   }}
-                  className={`rounded-md px-2 py-1 text-[11.5px] font-medium ${
+                  className={`rounded-md px-2 py-1 text-xs font-medium ${
                     days === value ? 'bg-bg-hover text-text-heading' : 'text-text-muted hover:text-text-primary'
                   }`}
                 >
@@ -258,7 +257,7 @@ export default function UsagePage() {
               ))}
             </div>
             {refreshedAt ? (
-              <span className="text-[11px] text-text-muted">
+              <span className="text-xs text-text-muted">
                 {t('usagePage.refreshedAt', { time: formatAppTime(refreshedAt, locale) })}
               </span>
             ) : null}
@@ -275,7 +274,7 @@ export default function UsagePage() {
                   URL.revokeObjectURL(url)
                   toast.success(t('usagePage.exported'))
                 }}
-                className="rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                className="rounded-lg border border-border/60 px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 {t('usagePage.exportCsv')}
               </button>
@@ -283,7 +282,7 @@ export default function UsagePage() {
             <button
               type="button"
               onClick={load}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               {t('usagePage.refresh')}
@@ -298,19 +297,19 @@ export default function UsagePage() {
         <div className="space-y-2">
           <ApiErrorBanner message={error} onRetry={load} />
           {!summary ? (
-            <div className="rounded-xl border border-dashed border-border/60 px-4 py-3">
-              <p className="text-[12px] text-text-muted">{t('usagePage.errorRecoveryHint')}</p>
+            <div className="rounded-lg border border-dashed border-border/60 px-4 py-3">
+              <p className="text-xs text-text-muted">{t('usagePage.errorRecoveryHint')}</p>
               <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                <Link to="/communication/new" className="text-[12px] font-medium text-accent hover:underline">
+                <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
                   {t('usagePage.startChat')}
                 </Link>
-                <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
                   {t('usagePage.openAgents')}
                 </Link>
-                <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
                   {t('usagePage.openSetup')}
                 </Link>
-                <Link to="/settings/models" className="text-[12px] font-medium text-accent hover:underline">
+                <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
                   {t('usagePage.openModels')}
                 </Link>
               </div>
@@ -320,7 +319,7 @@ export default function UsagePage() {
       ) : null}
 
       {budget?.status.blocked ? (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-status-error/40 bg-status-error/10 px-4 py-3 text-[12.5px] text-text-primary">
+        <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-status-error/40 bg-status-error/10 px-4 py-3 text-sm text-text-primary">
           <OctagonAlert size={15} className="shrink-0 text-status-error" />
           <span>
             {t('usagePage.budgetBlocked')}
@@ -329,14 +328,14 @@ export default function UsagePage() {
       ) : null}
 
       {budget ? (
-        <div className="mb-5 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <div className="mb-5 rounded-lg border border-border/60 bg-bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-[13px] font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h3>
+            <h3 className="text-sm font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h3>
             {capDraft ? null : (
               <button
                 type="button"
                 onClick={startEditCaps}
-                className="rounded-md border border-border/60 px-2.5 py-1 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 {t('usagePage.editCaps')}
               </button>
@@ -356,7 +355,7 @@ export default function UsagePage() {
           </div>
           {capDraft ? (
             <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
-              <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
+              <label className="flex flex-col gap-1 text-xs text-text-muted">
                 {t('usagePage.dailyCap')}
                 <input
                   value={capDraft.tokens}
@@ -369,10 +368,10 @@ export default function UsagePage() {
                   }}
                   placeholder={t('usagePage.noCap')}
                   inputMode="numeric"
-                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
                 />
               </label>
-              <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
+              <label className="flex flex-col gap-1 text-xs text-text-muted">
                 {t('usagePage.monthlyCap')}
                 <input
                   value={capDraft.usd}
@@ -385,7 +384,7 @@ export default function UsagePage() {
                   }}
                   placeholder={t('usagePage.noCap')}
                   inputMode="decimal"
-                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
                 />
               </label>
               <div className="flex items-center gap-2">
@@ -393,22 +392,22 @@ export default function UsagePage() {
                   type="button"
                   onClick={saveCaps}
                   disabled={savingCaps}
-                  className="rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-[11.5px] font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+                  className="rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
                 >
                   {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCapDraft(null)}
-                  className="rounded-md px-2.5 py-1.5 text-[11.5px] font-medium text-text-muted transition-colors hover:text-text-primary"
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
                 >
                   {t('usagePage.cancel')}
                 </button>
               </div>
-              {capError ? <p className="w-full text-[11.5px] text-status-error">{capError}</p> : null}
+              {capError ? <p className="w-full text-xs text-status-error">{capError}</p> : null}
             </div>
           ) : null}
-          <p className="mt-3 text-[11.5px] text-text-muted">
+          <p className="mt-3 text-xs text-text-muted">
             {t('usagePage.capsHint')}
           </p>
         </div>
@@ -416,11 +415,11 @@ export default function UsagePage() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {stats.map((stat) => (
-          <div key={stat.key} className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 shadow-card">
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">{stat.label}</p>
+          <div key={stat.key} className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3.5">
+            <p className="text-xs font-medium text-text-muted">{stat.label}</p>
             <p className="mt-2 text-[22px] font-semibold leading-none text-text-heading">{stat.value}</p>
             {stat.hint && stat.hintTo && stat.hintLink ? (
-              <p className="mt-2 text-[11px] leading-snug text-text-muted">
+              <p className="mt-2 text-xs leading-snug text-text-muted">
                 {stat.hint}{' '}
                 <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
                   {stat.hintLink}
@@ -430,34 +429,34 @@ export default function UsagePage() {
           </div>
         ))}
         {!summary && !error ? (
-          <p className="col-span-full px-1 py-6 text-[12.5px] text-text-muted">{t('usagePage.loading')}</p>
+          <p className="col-span-full px-1 py-6 text-sm text-text-muted">{t('usagePage.loading')}</p>
         ) : null}
       </div>
 
       {breakdown ? (
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
             <div className="mb-3 flex items-baseline justify-between">
-              <h3 className="text-[13px] font-semibold text-text-heading">{t('usagePage.byModel', { days: breakdown.days })}</h3>
-              <span className="text-[11px] text-text-muted">
+              <h3 className="text-sm font-semibold text-text-heading">{t('usagePage.byModel', { days: breakdown.days })}</h3>
+              <span className="text-xs text-text-muted">
                 {t('usagePage.billable', { amount: usd(breakdown.total_customer_cost_micros) })}
               </span>
             </div>
             <div className="space-y-2">
               {breakdown.by_model.length === 0 ? (
                 <div>
-                  <p className="text-[12px] text-text-muted">{t('usagePage.noModelUsage')}</p>
+                  <p className="text-xs text-text-muted">{t('usagePage.noModelUsage')}</p>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                    <Link to="/communication/new" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.startChat')}
                     </Link>
-                    <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.openAgents')}
                     </Link>
-                    <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.openSetup')}
                     </Link>
-                    <Link to="/settings/models" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.openModels')}
                     </Link>
                   </div>
@@ -467,13 +466,13 @@ export default function UsagePage() {
                   <Link
                     key={`${row.model}-${row.key_source}`}
                     to="/settings/models"
-                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[12.5px] hover:bg-bg-hover/50"
+                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-text-primary">
+                      <p className="truncate-fade font-medium text-text-primary">
                         {humanizeModelId(row.model) || t('usagePage.unknown')}
                       </p>
-                      <p className="text-[11px] text-text-muted">
+                      <p className="text-xs text-text-muted">
                         {t('usagePage.tokens', { count: num(row.tokens) })} ·{' '}
                         {row.billable ? (
                           <span className="text-amber-500">
@@ -490,23 +489,23 @@ export default function UsagePage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">{t('usagePage.byAgent', { days: breakdown.days })}</h3>
+          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+            <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byAgent', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {breakdown.by_agent.length === 0 ? (
                 <div>
-                  <p className="text-[12px] text-text-muted">{t('usagePage.noAgentUsage')}</p>
+                  <p className="text-xs text-text-muted">{t('usagePage.noAgentUsage')}</p>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                    <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.openAgents')}
                     </Link>
-                    <Link to="/communication/new" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.startChat')}
                     </Link>
-                    <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.openSetup')}
                     </Link>
-                    <Link to="/settings/models" className="text-[12px] font-medium text-accent hover:underline">
+                    <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
                       {t('usagePage.openModels')}
                     </Link>
                   </div>
@@ -515,8 +514,8 @@ export default function UsagePage() {
                 breakdown.by_agent.map((row) => {
                   const body = (
                     <>
-                      <p className="min-w-0 truncate font-medium text-text-primary">{row.agent_name}</p>
-                      <p className="shrink-0 text-[11px] text-text-muted">
+                      <p className="min-w-0 truncate-fade font-medium text-text-primary">{row.agent_name}</p>
+                      <p className="shrink-0 text-xs text-text-muted">
                         {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
                       </p>
                     </>
@@ -525,14 +524,14 @@ export default function UsagePage() {
                     <Link
                       key={row.agent_id}
                       to={`/agents/${row.agent_id}`}
-                      className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[12.5px] hover:bg-bg-hover/50"
+                      className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
                     >
                       {body}
                     </Link>
                   ) : (
                     <div
                       key="system"
-                      className="flex items-center justify-between gap-3 text-[12.5px]"
+                      className="flex items-center justify-between gap-3 text-sm"
                     >
                       {body}
                     </div>
@@ -542,21 +541,21 @@ export default function UsagePage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">{t('usagePage.byUser', { days: breakdown.days })}</h3>
+          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+            <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byUser', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {(breakdown.by_user ?? []).length === 0 ? (
                 <div>
-                  <p className="text-[12px] text-text-muted">{t('usagePage.noUserUsage')}</p>
+                  <p className="text-xs text-text-muted">{t('usagePage.noUserUsage')}</p>
                   <Link
                     to="/communication/new"
-                    className="mt-2 inline-block text-[12px] font-medium text-accent hover:underline"
+                    className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
                   >
                     {t('usagePage.startChat')}
                   </Link>
                   <Link
                     to="/settings/setup"
-                    className="mt-2 ml-3 inline-block text-[12px] font-medium text-accent hover:underline"
+                    className="mt-2 ml-3 inline-block text-xs font-medium text-accent hover:underline"
                   >
                     {t('usagePage.openSetup')}
                   </Link>
@@ -565,49 +564,49 @@ export default function UsagePage() {
                 (breakdown.by_user ?? []).map((row) => (
                   <div
                     key={row.user_id ?? 'system'}
-                    className="flex items-center justify-between gap-3 text-[12.5px]"
+                    className="flex items-center justify-between gap-3 text-sm"
                   >
-                    <p className="min-w-0 truncate font-medium text-text-primary">
+                    <p className="min-w-0 truncate-fade font-medium text-text-primary">
                       {isSystemUsageName(row.user_name) ? t('usagePage.systemUser') : row.user_name}
                     </p>
-                    <p className="shrink-0 text-[11px] text-text-muted">
+                    <p className="shrink-0 text-xs text-text-muted">
                       {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
                     </p>
                   </div>
                 ))
               )}
             </div>
-            <p className="mt-3 text-[11px] text-text-muted">
+            <p className="mt-3 text-xs text-text-muted">
               {t('usagePage.userHint')}
             </p>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">{t('usagePage.byRegion', { days: breakdown.days })}</h3>
+          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+            <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byRegion', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {(breakdown.by_region ?? []).length === 0 ? (
-                <p className="text-[12px] text-text-muted">{t('usagePage.noRegionUsage')}</p>
+                <p className="text-xs text-text-muted">{t('usagePage.noRegionUsage')}</p>
               ) : (
                 (breakdown.by_region ?? []).map((row) => (
                   <Link
                     key={row.region}
                     to="/settings/models"
-                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[12.5px] hover:bg-bg-hover/50"
+                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
                   >
                     <RegionBadge region={row.region} />
-                    <p className="shrink-0 text-[11px] text-text-muted">
+                    <p className="shrink-0 text-xs text-text-muted">
                       {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
                     </p>
                   </Link>
                 ))
               )}
             </div>
-            <p className="mt-3 text-[11px] text-text-muted">{t('usagePage.euShareHint')}</p>
+            <p className="mt-3 text-xs text-text-muted">{t('usagePage.euShareHint')}</p>
           </div>
         </div>
       ) : null}
 
-      <p className="mt-4 text-[12px] text-text-muted">
+      <p className="mt-4 text-xs text-text-muted">
         {t('usagePage.byokFooter')}
       </p>
     </div>

@@ -33,7 +33,7 @@ type QueueSublistProps = {
 export function QueueSublist({ baseLeaf, activeLeaf, children }: QueueSublistProps) {
   const { t } = useTranslation('nav')
   return (
-    <div className="space-y-0.5 border-l border-border/40 pl-2 ml-4">
+    <div className="ml-[15px] space-y-px border-l border-border/70 pl-2">
       {SUB_QUEUES.map((queue) => {
         const leaf = { ...baseLeaf, queue } as HubLeaf
         const isActive = activeLeaf != null && leafKey(activeLeaf) === leafKey(leaf)
@@ -41,16 +41,10 @@ export function QueueSublist({ baseLeaf, activeLeaf, children }: QueueSublistPro
           <NavLink
             key={queue}
             to={leafPath(leaf)}
-            className={() =>
-              cn(
-                'nav-row nav-sub-row flex items-center gap-2 rounded-lg border px-3 py-1 text-[12px] font-medium',
-                isActive
-                  ? 'border-border/60 bg-bg-hover/85 text-text-heading'
-                  : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
-              )
-            }
+            data-active={isActive ? 'true' : undefined}
+            className={cn('nav-row nav-sub-row h-[26px] text-xs')}
           >
-            <span className="min-w-0 flex-1 truncate">{t(SUB_QUEUE_LABEL_KEYS[queue])}</span>
+            <span className="min-w-0 flex-1 truncate-fade">{t(SUB_QUEUE_LABEL_KEYS[queue])}</span>
           </NavLink>
         )
       })}
@@ -121,28 +115,17 @@ export function SidebarFolder({
   }
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-px">
       <button
         type="button"
         title={title || label}
         onClick={toggleFolder}
         aria-expanded={expanded}
-        className={cn(
-          'nav-row group flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-[13px] font-medium',
-          headerActive || (scopeActive && !expanded)
-            ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-chip-active'
-            : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
-        )}
+        data-active={headerActive || (scopeActive && !expanded) ? 'true' : undefined}
+        className={cn('nav-row group text-left')}
       >
-        <span
-          className={cn(
-            'shrink-0 transition-transform duration-150 ease-out',
-            expanded && 'scale-[1.04]',
-          )}
-        >
-          {icon}
-        </span>
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-text-muted">{icon}</span>
+        <span className="min-w-0 flex-1 truncate-fade">{label}</span>
         {headerAction ? (
           <span
             className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"

@@ -8,6 +8,12 @@
 
 Er is één product: `apps/api`, `apps/dashboard`, `apps/mobile`. De V2-herbouw van 30 september is op 1 oktober 2026 verwijderd (zie sectie 42). Richting: `docs/STRATEGY_2026-09.md` en `docs/POSITIONING.md`, toegepast op het bestaande platform.
 
+### Shell + Communication UX + agent marks (2026-10-01)
+
+- **Shell:** denser tokens/recipes, shared `NavRow`/`NavFolder`, `SidebarWorkspaceSwitcher` + `SidebarUserMenu`, compact Card/Button/Badge. Page guides are a link (`PageGuideLink`), not a banner.
+- **Communication:** simplified list rows (no `ThreadIndicatorMenu`); filters include **Your turn** / **Jij aan zet**; follow-up / meta live under **This conversation** / **Dit gesprek**; redundant composer **Ask assistant** removed. Thread timeline must be `h-full` under a sized flex parent so Virtuoso does not collapse to empty.
+- **Agent marks:** `AiAvatar` always uses platform AI violet (`--color-ai` tokens). Operators pick **name** and **icon** (or initials) only — no per-agent color. API `avatar_payload` always returns `#7c3aed`; legacy stored colors are ignored. Role defaults: Front desk = headset, orchestrator/PO = briefcase, Bokito helper = sparkles.
+
 ### Repo-scope (bokitoAiV2)
 
 Deze repository bevat `apps/dashboard` (portal), `apps/chat-widget`, `apps/api` (FastAPI backend), `apps/mobile` (Expo), en `packages/shared`. Lokale dev: `docker compose -f docker-compose.dev.yml up`, daarna `uvicorn` in `apps/api` en `npm run dev` in `apps/dashboard`. Zie `README.md` en `docs/architecture.md`.

@@ -112,7 +112,7 @@ export function DictationMicButton({
         dim,
         listening
           ? 'border-status-success bg-status-success text-white shadow-[0_0_0_3px_rgb(var(--color-status-success)/0.22)] hover:bg-[rgb(21_128_61)]'
-          : 'border-border/60 bg-bg-surface text-text-muted hover:border-accent/50 hover:text-accent',
+          : 'border-border/60 bg-bg-surface text-text-muted hover:border-border-light hover:text-accent',
         className,
       )}
     >

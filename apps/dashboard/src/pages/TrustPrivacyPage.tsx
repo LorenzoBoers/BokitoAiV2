@@ -105,7 +105,7 @@ export default function TrustPrivacyPage() {
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
-      <section className="space-y-3 rounded-xl border border-border/60 bg-bg-surface p-4">
+      <section className="space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.legalTitle')}</h2>
         <p className="text-xs text-text-muted">{t('trustPage.legalBody')}</p>
         <ul className="space-y-1 text-sm">
@@ -138,7 +138,7 @@ export default function TrustPrivacyPage() {
         </ul>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border/60 bg-bg-surface p-4">
+      <section className="space-y-4 rounded-lg border border-border/60 bg-bg-surface p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.retentionTitle')}</h2>
         {loading || !settings ? (
           <p className="text-sm text-text-muted">{t('trustPage.loading')}</p>
@@ -184,7 +184,7 @@ export default function TrustPrivacyPage() {
         )}
       </section>
 
-      <section className="space-y-3 rounded-xl border border-border/60 bg-bg-surface p-4">
+      <section className="space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.dsarTitle')}</h2>
         <p className="text-xs text-text-muted">{t('trustPage.dsarBody')}</p>
         <div className="space-y-1.5">

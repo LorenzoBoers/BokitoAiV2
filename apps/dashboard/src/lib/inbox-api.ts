@@ -193,6 +193,8 @@ export type ThreadFilters = {
     | 'outbound'
     | 'pinned'
     | 'awaiting_decision'
+    /** Open decision or a customer reply due: the hub's "You" leaf. */
+    | 'your_turn'
     | 'updates'
     | 'results'
     | 'external'

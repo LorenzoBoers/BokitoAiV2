@@ -27,7 +27,7 @@ export function ChannelCapabilityChips({ capabilities }: { capabilities: Channel
       {capabilities.map((capability) => (
         <span
           key={capability}
-          className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted"
+          className="rounded border border-border/60 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
         >
           {t(`channelsPage.capability.${capability}`)}
         </span>

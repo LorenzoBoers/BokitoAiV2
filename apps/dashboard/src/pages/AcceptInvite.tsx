@@ -201,7 +201,7 @@ export default function AcceptInvite() {
           <span className="text-sm text-text-secondary mt-1">{headerSubtitle}</span>
         </div>
 
-        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
+        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
           {step === 'welcome' ? (
             <div className="space-y-5">
               <p className="text-sm text-text-secondary">
@@ -367,7 +367,7 @@ export default function AcceptInvite() {
                   </button>
                 </div>
                 {info?.existing_user ? (
-                  <p className="mt-1 text-[11px] text-text-muted">
+                  <p className="mt-1 text-xs text-text-muted">
                     {t('acceptInvitePage.existingAccountHint')}
                   </p>
                 ) : null}

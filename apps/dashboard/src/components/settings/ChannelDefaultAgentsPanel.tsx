@@ -77,10 +77,10 @@ export default function ChannelDefaultAgentsPanel() {
               className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"
             >
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-text-heading">
+                <span className="block truncate-fade text-sm font-medium text-text-heading">
                   {account.displayName || account.address}
                 </span>
-                <span className="text-[11px] capitalize text-text-muted">{account.channel}</span>
+                <span className="text-xs capitalize text-text-muted">{account.channel}</span>
               </span>
               <select
                 value={account.defaultAgentId ?? ''}

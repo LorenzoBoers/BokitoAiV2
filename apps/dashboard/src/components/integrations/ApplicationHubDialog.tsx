@@ -141,7 +141,7 @@ export function ApplicationHubDialog({
             ) : null}
             <p className="text-sm text-text-secondary leading-relaxed">{localized.description}</p>
             <ModuleUsageNote modules={usableModules} />
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            <p className="text-2xs font-semibold text-text-muted">
               {t('integrations.application.connectionTypes')}
             </p>
             <ul className="space-y-2">
@@ -161,7 +161,7 @@ export function ApplicationHubDialog({
                           <span className="text-sm font-medium text-text-primary">
                             {offer.integration.name}
                           </span>
-                          <Badge variant="neutral" className="text-[10px] uppercase">
+                          <Badge variant="neutral" className="text-2xs">
                             {t(kindLabelKey(offer.kind))}
                           </Badge>
                         </div>
@@ -174,11 +174,11 @@ export function ApplicationHubDialog({
                         </p>
                       </div>
                       {offer.connectionCount > 0 ? (
-                        <span className="text-[10px] text-status-success shrink-0">
+                        <span className="text-2xs text-status-success shrink-0">
                           {t('integrations.application.connectedShort')}
                         </span>
                       ) : offer.integration.status === 'coming_soon' ? (
-                        <span className="text-[10px] text-text-muted shrink-0">
+                        <span className="text-2xs text-text-muted shrink-0">
                           {t('integrations.actions.comingSoon')}
                         </span>
                       ) : null}

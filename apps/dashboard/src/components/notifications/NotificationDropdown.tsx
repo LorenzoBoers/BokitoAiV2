@@ -73,7 +73,7 @@ export default function NotificationDropdown() {
       <div className="p-3">
         <div className="mb-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="min-w-0 truncate font-semibold text-sm text-text-heading">
+            <h3 className="min-w-0 truncate-fade font-semibold text-sm text-text-heading">
               {t('notificationsUi.title')}
             </h3>
             <div className="flex shrink-0 items-center gap-0.5">
@@ -82,7 +82,7 @@ export default function NotificationDropdown() {
                   variant="ghost"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="h-7 px-2 text-[11px] text-text-secondary"
+                  className="h-7 px-2 text-xs text-text-secondary"
                 >
                   {t('notificationsUi.markAll')}
                 </Button>
@@ -99,7 +99,7 @@ export default function NotificationDropdown() {
             </div>
           </div>
           {notifications.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
               <button
                 type="button"
                 onClick={() => navigate(inboxPath('open'))}
@@ -124,7 +124,7 @@ export default function NotificationDropdown() {
           {notifications.length === 0 ? (
             <div className="py-6 text-center">
               <p className="text-sm text-text-muted">{t('notificationsUi.empty')}</p>
-              <p className="mt-1 text-[11px] text-text-muted">{t('notificationsUi.emptyHint')}</p>
+              <p className="mt-1 text-xs text-text-muted">{t('notificationsUi.emptyHint')}</p>
               <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
                 <button
                   type="button"
@@ -155,7 +155,7 @@ export default function NotificationDropdown() {
               return (
                 <div key={notification.id}>
                 {showDay ? (
-                  <p className="px-1 pt-2 pb-1 text-[11px] font-medium text-text-muted">
+                  <p className="px-1 pt-2 pb-1 text-xs font-medium text-text-muted">
                     {t(day === 'today' ? 'notificationsUi.dayToday' : 'notificationsUi.dayOlder')}
                   </p>
                 ) : null}
@@ -196,7 +196,7 @@ export default function NotificationDropdown() {
                           event.stopPropagation()
                           for (const id of notification.ids) markAsRead(id)
                         }}
-                        className="shrink-0 self-start text-[11px] font-medium text-accent hover:underline"
+                        className="shrink-0 self-start text-xs font-medium text-accent hover:underline"
                       >
                         {t('notificationsUi.markRead')}
                       </button>

@@ -1,10 +1,15 @@
 import { inboxPath, INBOX_QUEUES, type InboxQueue } from './messages-paths'
 
 const LAST_QUEUE_KEY = 'bokito.inbox.lastQueue'
-const QUICK_FILTER_KEY = 'bokito.inbox.quickFilter'
+const LEGACY_QUICK_FILTER_KEY = 'bokito.inbox.quickFilter'
 const DENSITY_KEY = 'bokito.inbox.density'
 
-export type InboxListQuickFilter = 'all' | 'unread' | 'needsReply' | 'needsDecision' | 'pinned'
+/**
+ * List quick filter. Lives in the URL of the current folder only — it is not
+ * remembered across folders or sessions. "Needs reply" and "Needs decision"
+ * are no filters anymore: they are the hub's "You" leaf.
+ */
+export type InboxListQuickFilter = 'all' | 'unread' | 'pinned'
 export type InboxDensity = 'comfortable' | 'compact'
 
 function readStorage(key: string): string | null {
@@ -37,19 +42,19 @@ export function lastInboxPath(threadId?: string | null): string {
   return inboxPath(readLastInboxQueue(), threadId)
 }
 
-const QUICK_FILTERS: readonly InboxListQuickFilter[] = ['all', 'unread', 'needsReply', 'needsDecision', 'pinned']
+const QUICK_FILTERS: readonly InboxListQuickFilter[] = ['all', 'unread', 'pinned']
 
-export function readQuickFilter(): InboxListQuickFilter {
-  const raw = readStorage(QUICK_FILTER_KEY)
-  // Legacy sticky Needs-decision chip — Decisions is its own hub leaf now.
-  if (raw === 'needsDecision') return 'all'
-  if (raw && (QUICK_FILTERS as readonly string[]).includes(raw)) return raw as InboxListQuickFilter
-  return 'all'
+export function isQuickFilter(value: string | null | undefined): value is InboxListQuickFilter {
+  return Boolean(value) && (QUICK_FILTERS as readonly string[]).includes(value as string)
 }
 
-export function writeQuickFilter(value: InboxListQuickFilter): void {
-  // Never persist Needs decision: that intent opens `/communication/decisions`.
-  writeStorage(QUICK_FILTER_KEY, value === 'needsDecision' ? 'all' : value)
+/** Drop the sticky filter older builds stored; the URL is the only source now. */
+export function clearLegacyQuickFilter(): void {
+  try {
+    window.localStorage.removeItem(LEGACY_QUICK_FILTER_KEY)
+  } catch {
+    // ignore
+  }
 }
 
 export function readInboxDensity(): InboxDensity {

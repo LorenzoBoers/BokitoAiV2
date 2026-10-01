@@ -2314,8 +2314,10 @@
     "signOut": "Sign out"
   },
   "theme": {
+    "label": "Theme",
     "dark": "Dark",
-    "light": "Light"
+    "light": "Light",
+    "system": "System"
   },
   "sectionTitle": {
     "inbox": "Communication"
@@ -2509,7 +2511,7 @@
     "newChat": "New chat",
     "decisions": {
       "label": "Waiting on you",
-      "hint": "Everything waiting on a yes, no, or approved draft"
+      "hint": "Everything waiting on you: a customer reply, a yes or no, or an approved draft"
     },
     "activity": {
       "label": "Activity",

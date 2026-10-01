@@ -76,14 +76,14 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
         <p>{t('slackCard.finishSetup')}</p>
         <p className="flex items-center gap-1.5">
           <span className="font-medium text-text-secondary">{t('slackCard.eventsUrl')}</span>
-          <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">{eventsUrl}</code>
+          <code className="rounded bg-bg-input px-1 py-0.5 text-xs">{eventsUrl}</code>
           <button type="button" className="text-accent hover:underline" onClick={() => void copyEventsUrl()}>
             {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
           </button>
         </p>
         <p>
           <span className="font-medium text-text-secondary">{t('slackCard.interactivityUrl')}</span>{' '}
-          <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">{interactionsUrl}</code>
+          <code className="rounded bg-bg-input px-1 py-0.5 text-xs">{interactionsUrl}</code>
         </p>
         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
           <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
@@ -109,7 +109,7 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
             value={workspaceName}
             onChange={(e) => setWorkspaceName(e.target.value)}
             placeholder={t('slackCard.workspaceNamePlaceholder')}
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-muted">
@@ -118,7 +118,7 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
             value={notifyChannelId}
             onChange={(e) => setNotifyChannelId(e.target.value)}
             placeholder={t('slackCard.notifyChannelPlaceholder')}
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-muted">
@@ -129,7 +129,7 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
             placeholder={t('slackCard.botTokenPlaceholder')}
             type="password"
             autoComplete="off"
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-sm text-text-primary outline-none focus:border-accent/60"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-muted">
@@ -140,7 +140,7 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
             placeholder={t('slackCard.signingPlaceholder')}
             type="password"
             autoComplete="off"
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-sm text-text-primary outline-none focus:border-accent/60"
           />
         </label>
       </div>

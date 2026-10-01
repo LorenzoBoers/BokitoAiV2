@@ -118,7 +118,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
   return (
     <div
       className={cn(
-        'group/composer relative rounded-2xl border bg-bg-elevated/40 px-3 pb-2 pt-3 shadow-card transition-[border-color,box-shadow] duration-200',
+        'group/composer relative rounded-xl border bg-bg-elevated/40 px-3 pb-2 pt-3 transition-[border-color,box-shadow] duration-200',
         'focus-within:border-accent/55 focus-within:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.16)]',
         className,
       )}
@@ -176,7 +176,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
             <div
               ref={highlightRef}
               aria-hidden
-              className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words text-[13.5px] leading-[22px] text-text-primary"
+              className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words text-base leading-[22px] text-text-primary"
             >
               {highlighter}
             </div>
@@ -191,7 +191,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
               textareaProps.onScroll?.(event)
             }}
             className={cn(
-              'relative block min-h-0 w-full resize-none bg-transparent text-[13.5px] leading-[22px] placeholder:text-text-muted focus:outline-none disabled:opacity-50',
+              'relative block min-h-0 w-full resize-none bg-transparent text-base leading-[22px] placeholder:text-text-muted focus:outline-none disabled:opacity-50',
               highlighter ? 'text-transparent caret-text-primary' : 'text-text-primary',
               textareaClassName,
             )}

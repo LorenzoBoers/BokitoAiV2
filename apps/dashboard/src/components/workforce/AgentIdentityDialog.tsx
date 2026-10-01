@@ -19,7 +19,6 @@ import { bokitoUpdateAgent } from '../../lib/bokito-api'
 import {
   AGENT_AVATAR_ICON_KEYS,
   AGENT_AVATAR_ICONS,
-  DEFAULT_AGENT_AVATAR_COLOR,
   type AgentAvatarKind,
 } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
@@ -84,7 +83,6 @@ export function AgentIdentityDialog({
         name: trimmed,
         avatar_kind: kind,
         avatar_icon: kind === 'icon' ? icon : null,
-        avatar_color: DEFAULT_AGENT_AVATAR_COLOR,
         avatar_image_url: null,
       })
       toast.success(t('workforce.agents.identitySaved'))
@@ -113,7 +111,6 @@ export function AgentIdentityDialog({
               size={48}
               kind={kind}
               icon={kind === 'icon' ? icon : null}
-              color={DEFAULT_AGENT_AVATAR_COLOR}
               imageUrl={null}
             />
             <div className="min-w-0 flex-1 space-y-1.5">
@@ -178,7 +175,7 @@ export function AgentIdentityDialog({
             </TabsContent>
           </Tabs>
 
-          {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
+          {error ? <p className="text-xs text-status-error">{error}</p> : null}
         </div>
 
         <DialogFooter>

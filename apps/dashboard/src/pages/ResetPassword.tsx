@@ -87,7 +87,7 @@ export default function ResetPassword() {
             />
             <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
           </div>
-          <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter text-center">
+          <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter text-center">
             <AlertCircle className="w-16 h-16 text-status-error mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">{t('resetPage.missingTitle')}</h1>
             <p className="text-text-secondary mb-6">{t('resetPage.missingBody')}</p>
@@ -130,7 +130,7 @@ export default function ResetPassword() {
           </div>
 
           {/* Success Card */}
-          <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter text-center">
+          <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
               {t('resetPage.successTitle')}
@@ -176,7 +176,7 @@ export default function ResetPassword() {
         </div>
 
         {/* Card */}
-        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
+        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* New Password */}
             <div>

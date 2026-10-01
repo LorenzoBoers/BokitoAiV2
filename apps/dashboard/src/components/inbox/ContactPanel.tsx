@@ -5,6 +5,7 @@ import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { toast } from 'sonner'
 import { Building2, Check, Loader2, Mail, Phone, ShieldBan, Users, UserRound } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
+import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { useAuth } from '../../context/AuthContext'
@@ -68,9 +69,9 @@ function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unkn
 function FieldRow({ icon: Icon, value }: { icon: typeof Mail; value?: string | null }) {
   if (!value) return null
   return (
-    <p className="flex items-center gap-2 text-[12.5px]">
+    <p className="flex items-center gap-2 text-sm">
       <Icon size={13} className="shrink-0 text-text-muted" />
-      <span className="min-w-0 truncate text-text-primary">{value}</span>
+      <span className="min-w-0 truncate-fade text-text-primary">{value}</span>
     </p>
   )
 }
@@ -223,14 +224,14 @@ export default function ContactPanel({
               size={36}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13.5px] font-semibold text-text-heading">
+              <p className="truncate-fade text-base font-semibold text-text-heading">
                 {teammate.name || teammate.email}
               </p>
-              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-accent/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
+              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-accent/10 px-1.5 py-px text-2xs font-semibold text-accent">
                 <Users size={9} />
                 {isSelf ? t('contactPanel.you') : t('contactPanel.teammate')}
               </span>
-              <p className="mt-1 truncate text-[11.5px] text-text-muted">
+              <p className="mt-1 truncate-fade text-xs text-text-muted">
                 {roleLabel(teammate.role, t)}
               </p>
             </div>
@@ -238,11 +239,11 @@ export default function ContactPanel({
           <div className="mt-3 space-y-1.5">
             <FieldRow icon={Mail} value={teammate.email} />
           </div>
-          <p className="mt-2 text-[11px] text-text-muted">{t('contactPanel.teammateHint')}</p>
+          <p className="mt-2 text-xs text-text-muted">{t('contactPanel.teammateHint')}</p>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <Link
               to="/settings/members"
-              className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               {t('contactPanel.openMembers')}
             </Link>
@@ -259,19 +260,19 @@ export default function ContactPanel({
       <div className="px-4 py-4">
         <div className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center">
           <UserRound size={18} className="mx-auto text-text-muted" />
-          <p className="mt-2 text-[12.5px] font-medium text-text-primary">
+          <p className="mt-2 text-sm font-medium text-text-primary">
             {humanizeContactName(fallbackName, fallbackEmail, t('contactPanel.widgetVisitor')) ||
               t('contactPanel.noContact')}
           </p>
-          {readableEmail ? <p className="text-[11.5px] text-text-muted">{readableEmail}</p> : null}
-          <p className="mt-2 text-[11px] text-text-muted">
+          {readableEmail ? <p className="text-xs text-text-muted">{readableEmail}</p> : null}
+          <p className="mt-2 text-xs text-text-muted">
             {t('contactPanel.noContactHint')}
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             {readableEmail ? (
               <Link
                 to={newContactPath(readableEmail)}
-                className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
+                className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover"
               >
                 {t('contactPanel.addContact')}
               </Link>
@@ -279,14 +280,14 @@ export default function ContactPanel({
             {readableEmail && canSendEmail && canComposeToAddress('email', readableEmail) ? (
               <Link
                 to={composeEmailPath({ to: readableEmail })}
-                className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
               >
                 {t('contactPanel.writeEmail')}
               </Link>
             ) : null}
             <Link
               to="/contacts"
-              className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+              className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
             >
               {t('contactPanel.openContacts')}
             </Link>
@@ -323,9 +324,9 @@ export default function ContactPanel({
         <div className="flex items-start gap-2.5">
           <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13.5px] font-semibold text-text-heading">{headlineName}</p>
+            <p className="truncate-fade text-base font-semibold text-text-heading">{headlineName}</p>
             <span
-              className={`mt-0.5 inline-flex rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
+              className={`mt-0.5 inline-flex rounded-full px-1.5 py-px text-2xs font-semibold ${
                 contact.status === 'blocked'
                   ? 'bg-status-error/12 text-status-error'
                   : statusPending
@@ -342,7 +343,7 @@ export default function ContactPanel({
                   : t('contactPanel.statusApproved')}
             </span>
             {contact.title || contact.company ? (
-              <p className="truncate text-[11.5px] text-text-muted">
+              <p className="truncate-fade text-xs text-text-muted">
                 {[contact.title, contact.company].filter(Boolean).join(' - ')}
               </p>
             ) : null}
@@ -354,9 +355,9 @@ export default function ContactPanel({
             <FieldRow icon={Mail} value={contact.address} />
           ) : null}
           {alsoSeenAsVisitor ? (
-            <p className="flex items-center gap-2 text-[12px] text-text-muted">
+            <p className="flex items-center gap-2 text-xs text-text-muted">
               <ChannelGlyph channel={contact.channel || 'widget'} size={13} className="shrink-0" />
-              <span className="min-w-0 truncate">
+              <span className="min-w-0 truncate-fade">
                 {t('contactPanel.alsoSeenAs', { label: t('contactPanel.widgetVisitor') })}
               </span>
             </p>
@@ -369,15 +370,15 @@ export default function ContactPanel({
                   ? `/contacts/companies/${contact.companyId}`
                   : `/contacts?q=${encodeURIComponent(contact.company)}`
               }
-              className="flex items-center gap-2 text-[12.5px] text-text-primary hover:text-accent"
+              className="flex items-center gap-2 text-sm text-text-primary hover:text-accent"
             >
               <Building2 size={13} className="shrink-0 text-text-muted" />
-              <span className="min-w-0 truncate">{contact.company}</span>
+              <span className="min-w-0 truncate-fade">{contact.company}</span>
             </Link>
           ) : null}
         </div>
         {contact.lastSeenAt || latestThreadActivityAt(threads) ? (
-          <p className="mt-2 text-[11px] text-text-muted">
+          <p className="mt-2 text-xs text-text-muted">
             {t('contactPanel.lastSeen', {
               time: timeAgo(contact.lastSeenAt || latestThreadActivityAt(threads), t),
             })}
@@ -391,25 +392,25 @@ export default function ContactPanel({
               void saveIdentity()
             }}
           >
-            <p className="text-[11px] text-text-muted">{t('contactPanel.askForEmail')}</p>
+            <p className="text-xs text-text-muted">{t('contactPanel.askForEmail')}</p>
             <input
               type="text"
               value={captureName}
               onChange={(e) => setCaptureName(e.target.value)}
               placeholder={t('contactPanel.namePlaceholder')}
-              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <input
               type="email"
               value={captureEmail}
               onChange={(e) => setCaptureEmail(e.target.value)}
               placeholder={t('contactPanel.emailPlaceholder')}
-              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
             >
               {saving ? t('contactPanel.saving') : t('contactPanel.saveEmail')}
             </button>
@@ -421,7 +422,7 @@ export default function ContactPanel({
               type="button"
               disabled={saving}
               onClick={() => void setStatus('approved')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
             >
               <Check size={11} />
               {t('contactPanel.approve')}
@@ -438,7 +439,7 @@ export default function ContactPanel({
                 }
               }}
               title={t('contactPanel.block')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
             >
               <ShieldBan size={11} />
               {t('contactPanel.block')}
@@ -448,7 +449,7 @@ export default function ContactPanel({
               type="button"
               disabled={saving}
               onClick={() => void setStatus('approved')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
             >
               <Check size={11} />
               {t('contactPanel.unblock')}
@@ -463,7 +464,7 @@ export default function ContactPanel({
                   : undefined,
               })}
               title={t('contactPanel.writeEmail')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <Mail size={11} />
               {t('contactPanel.writeEmail')}
@@ -471,7 +472,7 @@ export default function ContactPanel({
           ) : null}
           <Link
             to={`/contacts/${contact.id}`}
-            className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-1 text-[11px] font-medium text-accent hover:underline"
+            className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-1 text-xs font-medium text-accent hover:underline"
           >
             {t('contactPanel.fullProfile')}
           </Link>
@@ -480,7 +481,7 @@ export default function ContactPanel({
 
       {/* Notes */}
       <div className="border-b border-border/40 px-4 py-3">
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('contactPanel.notes')}</h3>
+        <h3 className="mb-2 text-xs font-semibold text-text-muted">{t('contactPanel.notes')}</h3>
         <textarea
           value={notesDraft}
           onChange={(e) => {
@@ -489,7 +490,7 @@ export default function ContactPanel({
           }}
           rows={3}
           placeholder={t('contactPanel.notesPlaceholder')}
-          className="w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+          className="w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
         {notesDirty ? (
           <div className="mt-1.5 flex items-center gap-2">
@@ -497,25 +498,25 @@ export default function ContactPanel({
               type="button"
               disabled={saving}
               onClick={() => void saveNotes()}
-              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               <Check size={11} />
               {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
             </button>
-            <span className="text-[11px] text-status-warning">{t('contactPanel.notesUnsaved')}</span>
+            <span className="text-xs text-status-warning">{t('contactPanel.notesUnsaved')}</span>
           </div>
         ) : null}
       </div>
 
       {/* Previous conversations (Who — history with this person) */}
       <div className="border-b border-border/40 px-4 py-3">
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+        <h3 className="mb-2 text-xs font-semibold text-text-muted">
           {t('contactPanel.previous')}
         </h3>
         {previousThreads.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 px-3 py-3 space-y-1.5">
-            <p className="text-[11.5px] text-text-muted">{t('contactPanel.noPrevious')}</p>
-            <p className="text-[11px] text-text-muted/90">
+            <p className="text-xs text-text-muted">{t('contactPanel.noPrevious')}</p>
+            <p className="text-xs text-text-muted/90">
               {isGenericVisitorName(contact?.displayName || fallbackName) ||
               isPlaceholderContactAddress(contact?.address || fallbackEmail)
                 ? t('contactPanel.noPreviousVisitorHint')
@@ -525,7 +526,7 @@ export default function ContactPanel({
               {contact?.address && canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
                 <Link
                   to={composeEmailPath({ to: contact.address })}
-                  className="text-[11px] font-medium text-accent hover:underline"
+                  className="text-xs font-medium text-accent hover:underline"
                 >
                   {t('contactPanel.writeEmail')}
                 </Link>
@@ -533,7 +534,7 @@ export default function ContactPanel({
               {!contactId ? (
                 <Link
                   to="/contacts"
-                  className="text-[11px] font-medium text-accent hover:underline"
+                  className="text-xs font-medium text-accent hover:underline"
                 >
                   {t('contactPanel.openContacts')}
                 </Link>
@@ -546,14 +547,14 @@ export default function ContactPanel({
               <Link
                 key={String(thread.id)}
                 to={inboxPath('open', String(thread.id))}
-                className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
+                className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 transition-colors hover:bg-bg-hover/70"
               >
-                <ChannelGlyph channel={thread.channel ?? 'email'} size={12} className="shrink-0 text-text-muted" />
+                <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] font-medium text-text-primary">
+                  <span className="block truncate-fade text-xs font-medium text-text-primary">
                     {thread.emailSubject || t('contactPanel.noSubject')}
                   </span>
-                  <span className="block truncate text-[10.5px] text-text-muted">
+                  <span className="block truncate-fade text-2xs text-text-muted">
                     {threadStatusLabel(thread.status, t)}
                     {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                   </span>

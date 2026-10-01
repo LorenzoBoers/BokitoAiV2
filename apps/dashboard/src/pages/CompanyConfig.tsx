@@ -87,9 +87,9 @@ function SettingRow({
   return (
     <div className="grid grid-cols-[1fr_1.7fr] gap-6 py-4 border-b border-border/40 last:border-0 items-start">
       <div className="pt-0.5">
-        <p className="text-[13px] font-medium text-text-primary">{label}</p>
+        <p className="text-sm font-medium text-text-primary">{label}</p>
         {description && (
-          <p className="text-[12px] text-text-muted mt-0.5 leading-relaxed">{description}</p>
+          <p className="text-xs text-text-muted mt-0.5 leading-relaxed">{description}</p>
         )}
       </div>
       <div>{children}</div>
@@ -108,7 +108,7 @@ function ColorField({
     <div className="flex items-center gap-2.5">
       <label className="relative cursor-pointer shrink-0">
         <span
-          className="block w-9 h-9 rounded-lg border border-border/60 shadow-sm transition-transform hover:scale-105"
+          className="block w-9 h-9 rounded-lg border border-border/60 transition-transform hover:scale-105"
           style={{ background: value }}
         />
         <input
@@ -122,7 +122,7 @@ function ColorField({
         type="text"
         value={value.toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-28 bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-[13px] text-text-primary font-mono focus:outline-none focus:border-accent/55 transition-colors"
+        className="w-28 bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-sm text-text-primary font-mono focus:outline-none focus:border-accent/55 transition-colors"
       />
     </div>
   )
@@ -312,16 +312,16 @@ export default function CompanyConfig() {
 
           {/* ── Branding ─────────────────────────────────────────────────── */}
           <div>
-            <h2 className="text-[15px] font-semibold text-text-heading mb-1">{t('brandingPage.title')}</h2>
-            <p className="text-[13px] text-text-secondary mb-4">{t('brandingPage.subtitle')}</p>
+            <h2 className="text-lg font-semibold text-text-heading mb-1">{t('brandingPage.title')}</h2>
+            <p className="text-sm text-text-secondary mb-4">{t('brandingPage.subtitle')}</p>
 
-            <div className="rounded-xl border border-border/60 bg-bg-elevated/30 px-5">
+            <div className="rounded-lg border border-border/60 bg-bg-elevated/30 px-5">
               <SettingRow label={t('brandingPage.name')}>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
+                  className="w-full bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                 />
               </SettingRow>
 
@@ -341,7 +341,7 @@ export default function CompanyConfig() {
                         setLogoFile(null)
                         setClearLogo(true)
                       }}
-                      className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
+                      className="px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       {t('brandingPage.delete')}
                     </button>
@@ -349,7 +349,7 @@ export default function CompanyConfig() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       <Upload size={12} />
                       {t('brandingPage.upload')}
@@ -375,7 +375,7 @@ export default function CompanyConfig() {
                         setFaviconFile(null)
                         setClearFavicon(true)
                       }}
-                      className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
+                      className="px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       {t('brandingPage.delete')}
                     </button>
@@ -383,7 +383,7 @@ export default function CompanyConfig() {
                     <button
                       type="button"
                       onClick={() => faviconInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       <Upload size={12} />
                       {t('brandingPage.upload')}
@@ -398,7 +398,7 @@ export default function CompanyConfig() {
                   <ColorField value={brandColor} onChange={setBrandColor} />
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover"
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-hover"
                     onClick={() => {
                       void navigator.clipboard.writeText(brandColor)
                       toast.success(t('brandingPage.copiedColor'))
@@ -427,9 +427,9 @@ export default function CompanyConfig() {
                         void handleSave()
                       }
                     }}
-                    className="flex-1 bg-bg-input border border-border/60 rounded-l-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
+                    className="flex-1 bg-bg-input border border-border/60 rounded-l-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                   />
-                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 rounded-r-lg text-[12px] text-text-muted whitespace-nowrap">.bokito.ai</span>
+                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 rounded-r-lg text-xs text-text-muted whitespace-nowrap">.bokito.ai</span>
                 </div>
                 {subdomainError ? (
                   <p className="mt-2 text-xs text-status-error">{subdomainError}</p>
@@ -438,7 +438,7 @@ export default function CompanyConfig() {
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                     <button
                       type="button"
-                      className="text-[12px] font-medium text-accent hover:underline"
+                      className="text-xs font-medium text-accent hover:underline"
                       onClick={() => {
                         void navigator.clipboard.writeText(`https://${subdomain.trim().toLowerCase()}.bokito.ai`).then(
                           () => toast.success(t('brandingPage.copiedUrl')),
@@ -450,7 +450,7 @@ export default function CompanyConfig() {
                     </button>
                     <Link
                       to={`/help/${subdomain.trim().toLowerCase()}`}
-                      className="text-[12px] font-medium text-accent hover:underline"
+                      className="text-xs font-medium text-accent hover:underline"
                     >
                       {t('brandingPage.helpPreview')}
                     </Link>
@@ -464,22 +464,22 @@ export default function CompanyConfig() {
           <button
             type="button"
             onClick={() => navigate(WEBSITE_WIDGET_CUSTOMIZE_PATH)}
-            className="w-full flex items-center gap-4 rounded-xl border border-border/60 bg-bg-elevated/30 px-5 py-4 hover:border-accent/35 hover:bg-bg-hover/40 transition-all group text-left"
+            className="w-full flex items-center gap-4 rounded-lg border border-border/60 bg-bg-elevated/30 px-5 py-4 hover:border-border-light hover:bg-bg-hover/40 transition-all group text-left"
           >
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
               <MessageSquare size={16} className="text-accent" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-text-primary">{t('brandingPage.chatWidgetTitle')}</p>
-              <p className="text-[12px] text-text-muted mt-0.5">{t('brandingPage.chatWidgetDescription')}</p>
+              <p className="text-sm font-medium text-text-primary">{t('brandingPage.chatWidgetTitle')}</p>
+              <p className="text-xs text-text-muted mt-0.5">{t('brandingPage.chatWidgetDescription')}</p>
             </div>
             <ArrowRight size={15} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
           </button>
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
-            <Link to={inboxPath('open')} className="text-[12px] font-medium text-accent hover:underline">
+            <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">
               {t('brandingPage.openCommunication')}
             </Link>
-            <Link to="/ai/assistant/external/installation" className="text-[12px] font-medium text-accent hover:underline">
+            <Link to="/ai/assistant/external/installation" className="text-xs font-medium text-accent hover:underline">
               {t('brandingPage.openInstall')}
             </Link>
           </div>
@@ -493,7 +493,7 @@ export default function CompanyConfig() {
               type="button"
               onClick={() => void handleSave()}
               disabled={saving || !brandingDirty}
-              className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-semibold transition-all ${
+              className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
                 saved
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                   : 'bg-accent text-accent-fg hover:bg-accent-hover shadow-[0_4px_14px_rgba(70,82,242,0.3)]'

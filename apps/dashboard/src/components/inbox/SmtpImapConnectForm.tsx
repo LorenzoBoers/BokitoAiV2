@@ -309,7 +309,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                   setShowUsername(true)
                   if (!username) setUsername(email)
                 }}
-                className="text-[12px] font-medium text-accent hover:underline"
+                className="text-xs font-medium text-accent hover:underline"
               >
                 {t('channelsPage.email.smtp.showUsername')}
               </button>
@@ -343,7 +343,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                     type="button"
                     onClick={() => applyPreset(preset.id)}
                     className={cn(
-                      'rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors',
+                      'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
                       selected
                         ? 'border-accent/50 bg-accent/15 text-text-heading'
                         : 'border-border/50 bg-bg-elevated/40 text-text-secondary hover:border-border hover:bg-bg-hover',
@@ -409,7 +409,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               </div>
             </ServerCard>
 
-            <label className="flex items-center gap-2 rounded-lg border border-border/45 bg-bg-elevated/20 px-3 py-2.5 text-[12.5px] text-text-secondary">
+            <label className="flex items-center gap-2 rounded-lg border border-border/45 bg-bg-elevated/20 px-3 py-2.5 text-sm text-text-secondary">
               <input
                 type="checkbox"
                 checked={sameHost}
@@ -488,7 +488,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
             <button
               type="button"
               onClick={() => setTipsOpen((v) => !v)}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[12.5px] font-medium text-text-secondary hover:text-text-heading"
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium text-text-secondary hover:text-text-heading"
               aria-expanded={tipsOpen}
             >
               <Info size={14} className="shrink-0 text-accent" aria-hidden />
@@ -500,7 +500,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               />
             </button>
             {tipsOpen ? (
-              <ol className="space-y-1.5 border-t border-border/40 px-3 py-2.5 pl-8 text-[12px] leading-snug text-text-muted list-decimal">
+              <ol className="space-y-1.5 border-t border-border/40 px-3 py-2.5 pl-8 text-xs leading-snug text-text-muted list-decimal">
                 <li>{t('channelsPage.email.smtp.step1ItemImap')}</li>
                 <li>{t('channelsPage.email.smtp.step1ItemPassword')}</li>
                 <li>{t('channelsPage.email.smtp.step1ItemPorts')}</li>
@@ -525,25 +525,25 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
           </div>
         </>
       ) : (
-        <section className="rounded-xl border border-border/60 bg-bg-elevated/30 p-3.5">
+        <section className="rounded-lg border border-border/60 bg-bg-elevated/30 p-3.5">
           <header className="mb-2 flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-[10px] font-semibold text-accent">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-2xs font-semibold text-accent">
               3
             </span>
-            <h3 className="text-[13px] font-semibold text-text-heading">
+            <h3 className="text-sm font-semibold text-text-heading">
               {t('channelsPage.email.smtp.step3Title')}
             </h3>
           </header>
-          <p className="text-[12.5px] leading-relaxed text-text-secondary">
+          <p className="text-sm leading-relaxed text-text-secondary">
             {t('channelsPage.email.smtp.step3Body')}
           </p>
           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border/40 pt-3">
-            <Link to={inboxPath('open')} className="text-[12.5px] font-medium text-accent hover:underline">
+            <Link to={inboxPath('open')} className="text-sm font-medium text-accent hover:underline">
               {t('channelsPage.email.smtp.openCommunication')}
             </Link>
             <Link
               to="/settings/communication"
-              className="text-[12.5px] font-medium text-accent hover:underline"
+              className="text-sm font-medium text-accent hover:underline"
             >
               {t('channelsPage.email.smtp.openChannels')}
             </Link>
@@ -555,21 +555,21 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
 }
 
 const fieldClass =
-  'w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60'
+  'w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
 
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="space-y-0.5">
-      <h3 className="text-[13px] font-semibold text-text-heading">{title}</h3>
-      {subtitle ? <p className="text-[12px] text-text-muted">{subtitle}</p> : null}
+      <h3 className="text-sm font-semibold text-text-heading">{title}</h3>
+      {subtitle ? <p className="text-xs text-text-muted">{subtitle}</p> : null}
     </div>
   )
 }
 
 function ServerCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-3 rounded-xl border border-border/55 bg-bg-elevated/25 p-3.5">
-      <h4 className="text-[12.5px] font-semibold tracking-wide text-text-heading">{title}</h4>
+    <section className="space-y-3 rounded-lg border border-border/55 bg-bg-elevated/25 p-3.5">
+      <h4 className="text-sm font-semibold text-text-heading">{title}</h4>
       {children}
     </section>
   )
@@ -595,7 +595,7 @@ function Field({
         {required ? <span className="text-status-error">*</span> : null}
       </span>
       {children}
-      <span className="text-[11px] leading-snug text-text-muted">{hint}</span>
+      <span className="text-xs leading-snug text-text-muted">{hint}</span>
     </label>
   )
 }

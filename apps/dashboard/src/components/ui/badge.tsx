@@ -3,20 +3,20 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+  'inline-flex items-center gap-1 rounded-md border px-1.5 py-px text-2xs font-medium leading-4',
   {
     variants: {
       variant: {
-        neutral: 'border border-border/60 bg-bg-hover/70 text-text-secondary',
-        default: 'bg-accent-muted text-accent',
-        outline: 'border border-border/60 bg-transparent text-text-secondary',
-        secondary: 'border border-border/60 bg-bg-elevated text-text-secondary',
-        accent: 'bg-accent-muted text-accent',
-        success: 'bg-status-success/12 text-status-success',
-        warning: 'bg-status-warning/12 text-status-warning',
-        error: 'bg-status-error/12 text-status-error',
-        destructive: 'bg-status-error/12 text-status-error',
-        info: 'bg-status-info/12 text-status-info',
+        neutral: 'border-border/70 bg-transparent text-text-secondary',
+        default: 'border-accent/25 bg-accent/10 text-accent',
+        outline: 'border-border/70 bg-transparent text-text-secondary',
+        secondary: 'border-border/70 bg-bg-elevated text-text-secondary',
+        accent: 'border-accent/25 bg-accent/10 text-accent',
+        success: 'border-status-success/25 bg-status-success/10 text-status-success',
+        warning: 'border-status-warning/25 bg-status-warning/10 text-status-warning',
+        error: 'border-status-error/25 bg-status-error/10 text-status-error',
+        destructive: 'border-status-error/25 bg-status-error/10 text-status-error',
+        info: 'border-status-info/25 bg-status-info/10 text-status-info',
       },
     },
     defaultVariants: {

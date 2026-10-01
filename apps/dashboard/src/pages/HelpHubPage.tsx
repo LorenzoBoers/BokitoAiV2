@@ -71,10 +71,10 @@ export default function HelpHubPage() {
       <p className="mb-6 max-w-xl text-sm text-text-secondary">{t('helpHub.intro')}</p>
 
       <section className="mb-8">
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+        <h3 className="mb-2 text-xs font-semibold text-text-muted">
           {t('helpHub.guidesTitle')}
         </h3>
-        <ul className="divide-y divide-border/40 overflow-hidden rounded-xl border border-border/50 bg-bg-surface/40">
+        <ul className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border/50 bg-bg-surface/40">
           {guides.map((item) => (
             <HubRow key={item.key} item={item} />
           ))}
@@ -82,12 +82,12 @@ export default function HelpHubPage() {
       </section>
 
       <section>
-        <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+        <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-accent">
           <LifeBuoy size={12} />
           {t('helpHub.supportTitle')}
         </h3>
         <p className="mb-2 max-w-xl text-xs text-text-muted">{t('helpHub.supportIntro')}</p>
-        <ul className="divide-y divide-border/40 overflow-hidden rounded-xl border border-accent/25 bg-accent/5">
+        <ul className="divide-y divide-border/40 overflow-hidden rounded-lg border border-accent/25 bg-accent/5">
           {support.map((item) => (
             <HubRow key={item.key} item={item} />
           ))}
@@ -111,11 +111,11 @@ function HubRow({ item }: { item: HubLink }) {
         <Icon size={15} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[13px] font-medium text-text-heading">
+        <span className="flex items-center gap-1.5 text-sm font-medium text-text-heading">
           {title}
           {item.external ? <ExternalLink size={12} className="text-text-muted" /> : null}
         </span>
-        <span className="mt-0.5 block text-[12px] text-text-muted">{description}</span>
+        <span className="mt-0.5 block text-xs text-text-muted">{description}</span>
       </span>
     </>
   )

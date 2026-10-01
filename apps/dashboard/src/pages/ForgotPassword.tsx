@@ -64,7 +64,7 @@ export default function ForgotPassword() {
           </div>
 
           {/* Success Card */}
-          <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter text-center">
+          <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
               {t('forgotPage.sentTitle')}
@@ -141,7 +141,7 @@ export default function ForgotPassword() {
         </div>
 
         {/* Card */}
-        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
+        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
           <div className="text-center mb-6">
             <Mail className="w-12 h-12 text-accent mx-auto mb-3" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">

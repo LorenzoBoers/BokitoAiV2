@@ -26,7 +26,7 @@ export default function ConnectStepRail({
             className={cn(
               'flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-2',
               isActive
-                ? 'border-accent/40 bg-accent/10'
+                ? 'border-border-light bg-bg-hover'
                 : isDone || isOpen
                   ? 'border-border/50 bg-bg-elevated/40'
                   : 'border-border/40 bg-transparent opacity-55',
@@ -34,7 +34,7 @@ export default function ConnectStepRail({
           >
             <span
               className={cn(
-                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
+                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-2xs font-semibold',
                 isActive
                   ? 'bg-accent text-white'
                   : isDone
@@ -49,7 +49,7 @@ export default function ConnectStepRail({
             </span>
             <span
               className={cn(
-                'min-w-0 truncate text-[11px] font-medium leading-tight',
+                'min-w-0 truncate-fade text-xs font-medium leading-tight',
                 isActive || isOpen ? 'text-text-heading' : 'text-text-secondary',
               )}
             >

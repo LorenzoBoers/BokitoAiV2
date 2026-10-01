@@ -24,6 +24,8 @@ import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
+import { WhatsNextDialog } from '../components/inbox/WhatsNextDialog'
+import { useFollowUpPlanner } from '../components/inbox/useFollowUpPlanner'
 import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
 import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
 import { useMediaQuery } from '../hooks/useMediaQuery'
@@ -49,12 +51,10 @@ import {
   isInternalThread,
   pickPreferredInboxThread,
   threadHubPath,
-  threadNeedsReply,
 } from '../lib/message-composer'
 import { loadOpenSignalCases, resolveOpenSignalCases } from '../lib/close-thread-signals'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { InboxSplitSkeleton } from '../components/ui/skeleton'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
@@ -98,10 +98,6 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
   switch (quickFilter) {
     case 'unread':
       return threads.filter((t) => t.hasUnread)
-    case 'needsReply':
-      return threads.filter((t) => threadNeedsReply(t))
-    case 'needsDecision':
-      return threads.filter((t) => t.hasOpenDecision)
     case 'pinned':
       return threads.filter((t) => t.isPinned)
     default:
@@ -207,17 +203,18 @@ export default function Communication() {
   const selectedThreadId: ThreadId | null = threadIdParam ?? null
   const [skipMarkRead, setSkipMarkRead] = useState(false)
 
-  const { search, setSearch, listSearch, quickFilter, setQuickFilter } = useInboxCommunication()
+  const { search, setSearch, listSearch, quickFilter, setQuickFilter, resetQuickFilter } =
+    useInboxCommunication()
   const inboxQuery = useMemo(() => {
     const params = new URLSearchParams()
     if (projectId) params.set('project_id', projectId)
     if (agentIdFilter) params.set('agent', agentIdFilter)
     if (caseTypeId) params.set('case_type_id', caseTypeId)
-    // Never stick Needs decision on folder URLs — that intent is the Decisions leaf.
-    if (quickFilter !== 'all' && quickFilter !== 'needsDecision') params.set('filter', quickFilter)
+    // The quick filter belongs to the folder on screen; it is not carried
+    // into other folders or thread links.
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [projectId, agentIdFilter, caseTypeId, quickFilter])
+  }, [projectId, agentIdFilter, caseTypeId])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
   // current browser session (sessionStorage), so it returns on the next visit.
@@ -273,34 +270,27 @@ export default function Communication() {
 
   const applyQuickFilterChange = useCallback(
     (value: InboxListQuickFilter) => {
-      // Needs decision is its own hub leaf — never stick it on an inbox folder.
-      if (value === 'needsDecision') {
-        setQuickFilter('all')
-        navigate(decisionsPath(threadIdParam ?? undefined), { replace: true })
-        return
-      }
       setQuickFilter(value)
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev)
-        if (value === 'all') next.delete('filter')
-        else next.set('filter', value)
-        return next
-      }, { replace: true })
     },
-    [navigate, setQuickFilter, setSearchParams, threadIdParam],
+    [setQuickFilter],
   )
 
+  // `?filter=` is a deep-link input (Cmd+K, old bookmarks), consumed once:
+  // unread / pinned apply to this folder; the legacy needs-reply and
+  // needs-decision values open the "You" leaf instead.
   const urlFilter = searchParams.get('filter')
   useEffect(() => {
     const fromUrl = parseQuickFilterParam(urlFilter)
-    if (fromUrl === 'needsDecision') {
-      const next = new URLSearchParams(searchParams)
-      next.delete('filter')
+    if (!fromUrl) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('filter')
+    if (fromUrl === 'yourTurn') {
       navigate(decisionsPath(threadIdParam ?? undefined, next), { replace: true })
       return
     }
-    if (fromUrl) setQuickFilter(fromUrl)
-  }, [urlFilter, setQuickFilter, navigate, searchParams, threadIdParam])
+    setQuickFilter(fromUrl)
+    setSearchParams(next, { replace: true })
+  }, [urlFilter, setQuickFilter, setSearchParams, navigate, searchParams, threadIdParam])
 
   const {
     threads,
@@ -320,7 +310,6 @@ export default function Communication() {
       projectId,
       agentId: agentIdFilter,
       unread: mode === 'customer' && quickFilter === 'unread',
-      needsReply: mode === 'customer' && quickFilter === 'needsReply',
       pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
       channelFilter,
@@ -334,33 +323,16 @@ export default function Communication() {
     if (leaf.type !== 'inbox') setChannelFilter(null)
   }, [leaf.type])
 
-  // Customer list chips (Needs reply / Unread / …) must not stick on Agent-runs
-  // or Decisions — they hide runs and show the wrong empty copy.
-  useEffect(() => {
-    if (mode === 'customer') return
-    if (quickFilter === 'all') return
-    setQuickFilter('all')
-    setSearchParams((prev) => {
-      if (!prev.has('filter')) return prev
-      const next = new URLSearchParams(prev)
-      next.delete('filter')
-      return next
-    }, { replace: true })
-  }, [mode, quickFilter, setQuickFilter, setSearchParams])
-
   const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}:${caseTypeId ?? ''}`
 
-  // Folder switches must not carry a sticky Needs-decision chip.
+  // The quick filter is per folder: every folder opens on "all", unless the
+  // URL that opened it carries a deep-linked filter (consumed above).
+  const urlFilterRef = useRef(urlFilter)
+  urlFilterRef.current = urlFilter
   useEffect(() => {
-    if (quickFilter !== 'needsDecision') return
-    setQuickFilter('all')
-    setSearchParams((prev) => {
-      if (prev.get('filter') !== 'needsDecision') return prev
-      const next = new URLSearchParams(prev)
-      next.delete('filter')
-      return next
-    }, { replace: true })
-  }, [listContextKey, quickFilter, setQuickFilter, setSearchParams])
+    if (parseQuickFilterParam(urlFilterRef.current)) return
+    resetQuickFilter()
+  }, [listContextKey, resetQuickFilter])
 
   useEffect(() => {
     if (leaf.type === 'inbox' && leaf.queue) writeLastInboxQueue(leaf.queue)
@@ -881,6 +853,17 @@ export default function Communication() {
     ],
   )
 
+  const followUp = useFollowUpPlanner({
+    thread: detail?.thread ?? null,
+    onPatch: handlePatch,
+    onRefresh: refreshDetail,
+  })
+  const canPlanFollowUp =
+    Boolean(detail) &&
+    !isInternalThread(detail!.thread) &&
+    detail!.thread.status !== 'closed' &&
+    detail!.thread.status !== 'spam'
+
   useInboxListShortcuts({
     dialogOpen: composeOpen,
     helpOpen: shortcutHelpOpen,
@@ -993,19 +976,12 @@ export default function Communication() {
       )
     },
     onDigitFilter: (digit) => {
-      if (digit === 5) {
+      // 1 all · 2 unread · 3 pinned · 4 "You" (open decisions + replies due).
+      if (digit === 4 || digit === 5) {
         navigate(decisionsPath())
         return
       }
-      const next =
-        digit === 1
-          ? 'all'
-          : digit === 2
-            ? 'needsReply'
-            : digit === 3
-              ? 'unread'
-              : 'pinned'
-      applyQuickFilterChange(next)
+      applyQuickFilterChange(digit === 1 ? 'all' : digit === 2 ? 'unread' : 'pinned')
     },
   })
 
@@ -1227,13 +1203,6 @@ export default function Communication() {
 
   // "Ask assistant" on internal agent threads opens a fresh standalone chat.
   // External threads use the inline agent session launcher inside ThreadDetail.
-  const handleAskAssistant = useCallback(() => {
-    if (!detail || !isInternalThread(detail.thread)) return
-    const subject = detail.thread.emailSubject || detail.thread.contactName || 'this thread'
-    const prefill = `Help me with the thread "${subject}" (thread id ${detail.thread.id}). Summarize what happened and suggest the next step.`
-    navigate(`/communication/new?prefill=${encodeURIComponent(prefill)}`)
-  }, [detail, navigate])
-
   if (connectionsLoading) {
     return <InboxSplitSkeleton />
   }
@@ -1324,7 +1293,7 @@ export default function Communication() {
     }
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
+        <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mb-4">
           <MessageSquare size={28} className="text-accent" />
         </div>
         <h2 className="text-lg font-semibold text-text-heading">{t('onboarding.emptyInboxTitle')}</h2>
@@ -1377,19 +1346,12 @@ export default function Communication() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-      {!(onboardingStatus && !onboardingStatus.completed && !onboardingDismissed) ? (
-      <PageGuideBanner
-        page="communication"
-        variant={leaf.type === 'runs' ? 'runs' : leaf.type === 'decisions' ? 'decisions' : undefined}
-        className="mx-3 mt-3 shrink-0 md:hidden"
-      />
-      ) : null}
       {showActivityChips ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-2">
-          <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
+          <span className="mr-1 text-xs font-medium text-text-muted">
             {t('runsChips.heading')}
           </span>
-          <span className="mr-2 hidden text-[11px] font-normal normal-case tracking-normal text-text-muted sm:inline">
+          <span className="mr-2 hidden text-xs font-normal normal-case tracking-normal text-text-muted sm:inline">
             {t('runsChips.subtitle')}
           </span>
           {ACTIVITY_CHIPS.map((chip) => {
@@ -1400,8 +1362,8 @@ export default function Communication() {
                 to={agentRunsPath(chip.queue)}
                 className={
                   active
-                    ? 'rounded-full bg-accent/15 px-2.5 py-0.5 text-[12px] font-medium text-accent'
-                    : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-[12px] text-text-secondary hover:text-text-primary'
+                    ? 'rounded-md bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-heading'
+                    : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-xs text-text-secondary hover:text-text-primary'
                 }
               >
                 {t(chip.labelKey)}
@@ -1495,7 +1457,7 @@ export default function Communication() {
                 <button
                   type="button"
                   onClick={() => setSearch('')}
-                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
+                  className="mt-2 text-xs font-medium text-accent hover:underline"
                 >
                   {t('inboxSearchClear')}
                 </button>
@@ -1503,52 +1465,52 @@ export default function Communication() {
                 <button
                   type="button"
                   onClick={clearScope}
-                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
+                  className="mt-2 text-xs font-medium text-accent hover:underline"
                 >
                   {t('threadList.clearScope')}
                 </button>
               ) : leaf.type === 'inbox' && leaf.queue === 'snoozed' ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
-                  <p className="text-[11px] text-text-muted">{t('threadList.emptySnoozedHint')}</p>
+                  <p className="text-xs text-text-muted">{t('threadList.emptySnoozedHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
                 </div>
               ) : leaf.type === 'inbox' && leaf.queue === 'spam' ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
-                  <p className="text-[11px] text-text-muted">{t('threadList.emptySpamHint')}</p>
+                  <p className="text-xs text-text-muted">{t('threadList.emptySpamHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
                 </div>
               ) : leaf.type === 'inbox' && leaf.queue === 'closed' ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
-                  <p className="text-[11px] text-text-muted">{t('threadList.emptyClosedHint')}</p>
+                  <p className="text-xs text-text-muted">{t('threadList.emptyClosedHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
                 </div>
               ) : leaf.type === 'decisions' ? (
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  <p className="w-full text-[11px] text-text-muted">{t('threadList.emptyDecisionsHint')}</p>
+                  <p className="w-full text-xs text-text-muted">{t('threadList.emptyDecisionsHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
                   <Link
                     to="/agents"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openAgents')}
                   </Link>
@@ -1557,19 +1519,19 @@ export default function Communication() {
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to="/agents"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openAgents')}
                   </Link>
                   <Link
                     to="/agenda"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openAgenda')}
                   </Link>
                   <Link
                     to="/communication/new"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('onboarding.startChat')}
                   </Link>
@@ -1578,19 +1540,19 @@ export default function Communication() {
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to="/settings/setup"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('onboarding.openGuide')}
                   </Link>
                   <Link
                     to="/settings/channels"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadChrome.openEmailSettings')}
                   </Link>
                   <Link
                     to="/communication/new"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('onboarding.startChat')}
                   </Link>
@@ -1630,7 +1592,7 @@ export default function Communication() {
             contactOpen={showContactPanel}
             onDecisionResolved={handleDecisionResolved}
             mode={mode}
-            onAskAssistant={detail ? handleAskAssistant : undefined}
+            onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
             canSendEmail={enabledConnections.length > 0}
             mailboxNeedsSetup={mailboxNeedsSetup}
             onForward={
@@ -1656,6 +1618,9 @@ export default function Communication() {
               thread={detail.thread}
               onClose={toggleContactPanel}
               onThreadUpdated={handleThreadUpdated}
+              saving={saving}
+              onPatch={handlePatch}
+              onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
             />
           </SplitPane>
         ) : null}
@@ -1669,14 +1634,28 @@ export default function Communication() {
             aria-label={t('split.closeContext')}
             onClick={toggleContactPanel}
           />
-          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-2xl border-t border-border/60 bg-bg-surface shadow-overlay sm:inset-y-0 sm:left-auto sm:w-[min(100%,20rem)] sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0">
+          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-xl border-t border-border/60 bg-bg-surface shadow-overlay sm:inset-y-0 sm:left-auto sm:w-[min(100%,20rem)] sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0">
             <AgentThreadPanel
               thread={detail.thread}
               onClose={toggleContactPanel}
               onThreadUpdated={handleThreadUpdated}
+              saving={saving}
+              onPatch={handlePatch}
+              onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
             />
           </div>
         </div>
+      ) : null}
+      {detail ? (
+        <WhatsNextDialog
+          open={followUp.open}
+          onOpenChange={followUp.setOpen}
+          signalId={String(detail.thread.id)}
+          defaultTitle={followUp.title}
+          saving={followUp.saving}
+          onSaveReminder={followUp.save}
+          onSignalCreated={refreshDetail}
+        />
       ) : null}
       <ComposeEmailModal
         open={composeOpen}
@@ -1694,22 +1673,22 @@ export default function Communication() {
           onClick={() => setCustomSnoozeOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay"
+            className="w-full max-w-sm rounded-lg border border-border/60 bg-bg-surface p-4 shadow-overlay"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 className="text-[13px] font-semibold text-text-heading">{t('snooze.customTitle')}</h2>
-            <p className="mt-1 text-[12px] text-text-muted">{t('snooze.customHint')}</p>
+            <h2 className="text-sm font-semibold text-text-heading">{t('snooze.customTitle')}</h2>
+            <p className="mt-1 text-xs text-text-muted">{t('snooze.customHint')}</p>
             <input
               type="datetime-local"
               value={customSnoozeValue}
               onChange={(event) => setCustomSnoozeValue(event.target.value)}
-              className="mt-3 h-9 w-full rounded-md border border-border/60 bg-bg-elevated px-2 text-[13px] text-text-primary"
+              className="mt-3 h-9 w-full rounded-md border border-border/60 bg-bg-elevated px-2 text-sm text-text-primary"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setCustomSnoozeOpen(false)}
-                className="rounded-md px-2.5 py-1 text-[12px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                className="rounded-md px-2.5 py-1 text-xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
               >
                 {t('decisionCard.cancel')}
               </button>
@@ -1724,7 +1703,7 @@ export default function Communication() {
                   setCustomSnoozeOpen(false)
                   void handlePatch({ status: 'pending', snoozedUntil: wake.toISOString() })
                 }}
-                className="rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-fg"
+                className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg"
               >
                 {t('snooze.customApply')}
               </button>

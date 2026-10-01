@@ -104,7 +104,7 @@ export function ThreadCasesList({ signalId }: Props) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+        <p className="text-xs font-medium text-text-muted">
           {t('cases.listTitle', { defaultValue: 'Signals' })}
         </p>
         {types.length > 0 ? (
@@ -115,7 +115,7 @@ export function ThreadCasesList({ signalId }: Props) {
                 size="sm"
                 variant="outline"
                 disabled={busy}
-                className="h-7 gap-1 px-2 text-[11px]"
+                className="h-7 gap-1 px-2 text-xs"
               >
                 <Plus size={12} />
                 {t('cases.addMissed', { defaultValue: 'Add a signal' })}
@@ -143,7 +143,7 @@ export function ThreadCasesList({ signalId }: Props) {
         ) : (
           <Link
             to="/settings/signals"
-            className="shrink-0 text-[10.5px] font-medium text-accent hover:underline"
+            className="shrink-0 text-2xs font-medium text-accent hover:underline"
           >
             {t('cases.manageTypes', { defaultValue: 'Set up signal types' })}
           </Link>
@@ -175,12 +175,12 @@ export function ThreadCasesList({ signalId }: Props) {
                       : 'border-border/50',
                 )}
               >
-                <p className="truncate text-[12px] font-medium text-text-primary">
+                <p className="truncate-fade text-xs font-medium text-text-primary">
                   {row.title || caseTypeName}
                 </p>
                 {proposed ? (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10.5px] text-text-muted">
+                    <span className="text-2xs text-text-muted">
                       {t('cases.confirmChip', {
                         defaultValue: 'Looks like {{type}} — confirm?',
                         type: caseTypeName || t('cases.listTitle', { defaultValue: 'Signal' }),
@@ -190,7 +190,7 @@ export function ThreadCasesList({ signalId }: Props) {
                       type="button"
                       size="sm"
                       disabled={busy}
-                      className="h-6 px-2 text-[10.5px]"
+                      className="h-6 px-2 text-2xs"
                       onClick={() => void setLifecycle(row.id, 'open')}
                     >
                       {t('cases.confirm', { defaultValue: 'Confirm' })}
@@ -200,21 +200,21 @@ export function ThreadCasesList({ signalId }: Props) {
                       size="sm"
                       variant="ghost"
                       disabled={busy}
-                      className="h-6 px-2 text-[10.5px]"
+                      className="h-6 px-2 text-2xs"
                       onClick={() => void setLifecycle(row.id, 'done')}
                     >
                       {t('cases.dismiss', { defaultValue: 'Dismiss' })}
                     </Button>
                   </div>
                 ) : (
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10.5px] text-text-muted">
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-2xs text-text-muted">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
                           disabled={busy}
                           className={cn(
-                            'inline-flex items-center rounded-md border px-1.5 py-0 text-[10px]',
+                            'inline-flex items-center rounded-md border px-1.5 py-0 text-2xs',
                             active ? 'border-accent/50 text-accent' : 'border-border',
                           )}
                         >
@@ -236,7 +236,7 @@ export function ThreadCasesList({ signalId }: Props) {
                       </DropdownMenuContent>
                     </DropdownMenu>
                     {labelOnly ? (
-                      <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-text-muted">
+                      <Badge variant="outline" className="px-1.5 py-0 text-2xs text-text-muted">
                         {t('cases.labelChip', { defaultValue: 'Label' })}
                       </Badge>
                     ) : null}

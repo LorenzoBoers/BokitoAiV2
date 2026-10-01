@@ -40,6 +40,7 @@ export function filterOrchestratorAgents(agents: RuntimeAgent[]): RuntimeAgent[]
 export function filterLibraryAgents(agents: RuntimeAgent[]): RuntimeAgent[] {
   return agents.filter((agent) => {
     if (agent.kind === 'personal') return false
+    if (agent.is_active === false) return false
     return !PLATFORM_ROLE_SLUGS.has(normalizeRoleSlug(agent))
   })
 }

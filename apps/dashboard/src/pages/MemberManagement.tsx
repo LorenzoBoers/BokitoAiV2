@@ -434,8 +434,8 @@ export default function MemberManagement() {
         </div>
         <p className="text-xs text-text-muted">{t(`membersPage.roleHint.${inviteRole}`)}</p>
         <div className="rounded-lg border border-border/60 bg-bg-input/30 px-3 py-2">
-          <p className="text-[11px] font-medium text-text-heading">{t('membersPage.roleMatrixTitle')}</p>
-          <table className="mt-1.5 w-full text-left text-[11px] text-text-muted">
+          <p className="text-xs font-medium text-text-heading">{t('membersPage.roleMatrixTitle')}</p>
+          <table className="mt-1.5 w-full text-left text-xs text-text-muted">
             <thead>
               <tr>
                 <th className="py-0.5 font-medium text-text-secondary" />
@@ -478,14 +478,14 @@ export default function MemberManagement() {
                 key={tab.id}
                 type="button"
                 onClick={() => setFilterTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 pb-3 text-[13px] font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-1.5 px-3 pb-3 text-sm font-medium border-b-2 transition-colors ${
                   filterTab === tab.id
                     ? 'border-accent text-text-heading'
                     : 'border-transparent text-text-muted hover:text-text-secondary'
                 }`}
               >
                 {tab.label}
-                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
                   filterTab === tab.id ? 'bg-accent/15 text-accent' : 'bg-bg-hover text-text-muted'
                 }`}>
                   {tab.count}
@@ -500,7 +500,7 @@ export default function MemberManagement() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('membersPage.search')}
-              className="pl-8 pr-3 py-1.5 text-[13px] bg-bg-input/60 border border-border/60 rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/55 transition-colors w-48"
+              className="pl-8 pr-3 py-1.5 text-sm bg-bg-input/60 border border-border/60 rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/55 transition-colors w-48"
             />
           </div>
         </div>
@@ -587,7 +587,7 @@ export default function MemberManagement() {
                             onValueChange={(value) => void changeMemberRole(m, asRole(value))}
                             disabled={busy}
                           >
-                            <SelectTrigger className="h-7 w-[110px] text-[12px]">
+                            <SelectTrigger className="h-7 w-[110px] text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

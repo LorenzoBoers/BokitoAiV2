@@ -95,7 +95,7 @@ export function AgentInstructionsCard({ agentId, name, systemPrompt, canEdit, on
               placeholder={t('workforce.agents.instructionsPlaceholder')}
             />
           </div>
-          {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
+          {error ? <p className="text-xs text-status-error">{error}</p> : null}
           <div className="flex items-center gap-2">
             <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>
               {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
@@ -115,7 +115,7 @@ export function AgentInstructionsCard({ agentId, name, systemPrompt, canEdit, on
       ) : (
         <div className="mt-3">
           {systemPrompt.trim() ? (
-            <pre className="whitespace-pre-wrap rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 font-sans text-[13px] leading-relaxed text-text-secondary">
+            <pre className="whitespace-pre-wrap rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 font-sans text-sm leading-relaxed text-text-secondary">
               {systemPrompt}
             </pre>
           ) : (

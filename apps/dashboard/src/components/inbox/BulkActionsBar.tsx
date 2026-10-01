@@ -21,7 +21,7 @@ type Props = {
 }
 
 const BUTTON =
-  'inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40'
+  'inline-flex h-6 items-center gap-1 rounded px-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40'
 
 /** Action bar shown above the thread list while threads are selected. */
 export default function BulkActionsBar({ count, busy, onAction, onPin, onClear, onSelectAll }: Props) {
@@ -35,7 +35,7 @@ export default function BulkActionsBar({ count, busy, onAction, onPin, onClear, 
 
   return (
     <div className="flex items-center gap-1 border-b border-border/60 bg-accent/5 px-2 py-1.5">
-      <span className="mr-1 text-[11px] font-medium text-text-heading">
+      <span className="mr-1 text-xs font-medium text-text-heading">
         {t('bulkActions.selected', { count })}
       </span>
       {onSelectAll ? (

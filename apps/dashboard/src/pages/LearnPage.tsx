@@ -72,10 +72,10 @@ function LearnIndex() {
       {lastLearn ? (
         <Link
           to={lastLearn.path}
-          className="block rounded-xl border border-accent/30 bg-accent/5 px-4 py-3"
+          className="block rounded-lg border border-accent/30 bg-accent/5 px-4 py-3"
         >
-          <p className="text-[12px] font-medium text-accent">{t('pageGuides.continueReading')}</p>
-          <p className="mt-0.5 text-[13px] text-text-heading">
+          <p className="text-xs font-medium text-accent">{t('pageGuides.continueReading')}</p>
+          <p className="mt-0.5 text-sm text-text-heading">
             {t('pageGuides.continueReadingHint', { title: lastLearn.title })}
           </p>
         </Link>
@@ -91,22 +91,22 @@ function LearnIndex() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={t('pageGuides.search')}
-          className="w-full rounded-lg border border-border/60 bg-bg-elevated/40 py-2 pl-9 pr-3 text-[13px] outline-none focus:border-accent/50"
+          className="w-full rounded-lg border border-border/60 bg-bg-elevated/40 py-2 pl-9 pr-3 text-sm outline-none focus:border-accent/50"
         />
       </div>
 
       {error ? (
-        <p className="text-[13px] text-status-error">{t('pageGuides.loadError')}</p>
+        <p className="text-sm text-status-error">{t('pageGuides.loadError')}</p>
       ) : !index ? (
-        <p className="text-[13px] text-text-muted">{t('pageGuides.loading')}</p>
+        <p className="text-sm text-text-muted">{t('pageGuides.loading')}</p>
       ) : sections.length === 0 ? (
-        <p className="text-[13px] text-text-muted">
+        <p className="text-sm text-text-muted">
           {query.trim() ? t('pageGuides.emptySearch') : t('pageGuides.empty')}
         </p>
       ) : (
         sections.map((section) => (
           <section key={section.id} className="space-y-2">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+            <h2 className="text-xs font-semibold text-text-muted">
               {t(`docs.sections.${section.id}.title`)}
             </h2>
             <div className="space-y-2">
@@ -114,11 +114,11 @@ function LearnIndex() {
                 <Link
                   key={item.slug}
                   to={`/learn/${item.slug}`}
-                  className="block rounded-xl border border-border/60 px-4 py-3 transition-colors hover:border-accent/40 hover:bg-bg-hover/40"
+                  className="block rounded-lg border border-border/60 px-4 py-3 transition-colors hover:border-accent/40 hover:bg-bg-hover/40"
                 >
-                  <p className="text-[13.5px] font-medium text-text-heading">{item.title}</p>
+                  <p className="text-base font-medium text-text-heading">{item.title}</p>
                   {item.description ? (
-                    <p className="mt-0.5 line-clamp-2 text-[12.5px] text-text-muted">{item.description}</p>
+                    <p className="mt-0.5 line-clamp-2 text-sm text-text-muted">{item.description}</p>
                   ) : null}
                 </Link>
               ))}
@@ -127,7 +127,7 @@ function LearnIndex() {
         ))
       )}
 
-      <p className="text-[12px] text-text-muted">
+      <p className="text-xs text-text-muted">
         <Link to={publicDocsPath()} className="text-accent hover:underline">
           {t('pageGuides.publicLink')}
         </Link>
@@ -182,14 +182,14 @@ function LearnArticle({ slug }: { slug: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={backTo}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} aria-hidden />
               {t('pageGuides.back')}
             </Link>
             <Link
               to="/learn"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <BookOpen size={12} aria-hidden />
               {t('pageGuides.allArticles')}
@@ -198,36 +198,36 @@ function LearnArticle({ slug }: { slug: string }) {
         }
       />
 
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-bg-elevated/40 px-4 py-4">
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-4">
         <div className="min-w-0">
-          <p className="text-[13px] font-medium text-text-heading">{t('pageGuides.getStartedTitle')}</p>
-          <p className="mt-0.5 text-[12.5px] text-text-muted">{t('pageGuides.getStartedBody')}</p>
+          <p className="text-sm font-medium text-text-heading">{t('pageGuides.getStartedTitle')}</p>
+          <p className="mt-0.5 text-sm text-text-muted">{t('pageGuides.getStartedBody')}</p>
         </div>
         <Link
           to="/settings/setup"
-          className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-accent transition-colors hover:bg-bg-hover/60"
+          className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-bg-hover/60"
         >
           {t('pageGuides.getStartedCta')}
         </Link>
       </div>
 
       {loading ? (
-        <p className="text-[13px] text-text-muted">{t('pageGuides.loading')}</p>
+        <p className="text-sm text-text-muted">{t('pageGuides.loading')}</p>
       ) : error ? (
-        <p className="text-[13px] text-status-error">{error}</p>
+        <p className="text-sm text-status-error">{error}</p>
       ) : article ? (
         <MarkdownView content={article.content} />
       ) : null}
 
       {relatedArticles.length > 0 ? (
-        <section className="rounded-xl border border-border/60 bg-bg-elevated/30 px-4 py-4">
-          <p className="text-[13px] font-medium text-text-heading">{t('pageGuides.relatedArticlesTitle')}</p>
+        <section className="rounded-lg border border-border/60 bg-bg-elevated/30 px-4 py-4">
+          <p className="text-sm font-medium text-text-heading">{t('pageGuides.relatedArticlesTitle')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {relatedArticles.map((item) => (
               <Link
                 key={item.slug}
                 to={`/learn/${item.slug}`}
-                className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
+                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
               >
                 {item.title}
               </Link>
@@ -237,15 +237,15 @@ function LearnArticle({ slug }: { slug: string }) {
       ) : null}
 
       {quickLinks.length > 0 ? (
-        <section className="rounded-xl border border-border/60 bg-bg-elevated/30 px-4 py-4">
-          <p className="text-[13px] font-medium text-text-heading">{t('pageGuides.relatedTitle')}</p>
-          <p className="mt-0.5 text-[12px] text-text-muted">{t('pageGuides.relatedBody')}</p>
+        <section className="rounded-lg border border-border/60 bg-bg-elevated/30 px-4 py-4">
+          <p className="text-sm font-medium text-text-heading">{t('pageGuides.relatedTitle')}</p>
+          <p className="mt-0.5 text-xs text-text-muted">{t('pageGuides.relatedBody')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {quickLinks.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
+                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
               >
                 {t(item.labelKey)}
               </Link>
@@ -256,7 +256,7 @@ function LearnArticle({ slug }: { slug: string }) {
 
       {article ? <ArticleFeedback slug={article.slug} /> : null}
 
-      <p className="text-[12px] text-text-muted">
+      <p className="text-xs text-text-muted">
         <Link to={publicDocsPath(article?.path)} className="text-accent hover:underline">
           {t('pageGuides.publicLink')}
         </Link>

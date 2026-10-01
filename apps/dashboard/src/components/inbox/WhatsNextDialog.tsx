@@ -106,7 +106,7 @@ export function WhatsNextDialog({
               className={cn(
                 'flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
                 mode === value
-                  ? 'bg-bg-surface text-text-primary shadow-sm'
+                  ? 'bg-bg-surface text-text-primary '
                   : 'text-text-muted hover:text-text-secondary',
               )}
             >
@@ -141,8 +141,8 @@ export function WhatsNextDialog({
                     onClick={() => setWhen(value)}
                     className={
                       when === value
-                        ? 'rounded-md border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-left text-xs font-medium text-accent'
-                        : 'rounded-md border border-border/60 bg-bg-surface px-2.5 py-1.5 text-left text-xs text-text-secondary hover:border-accent/30'
+                        ? 'rounded-md border border-border-light bg-bg-hover px-2.5 py-1.5 text-left text-xs font-medium text-accent'
+                        : 'rounded-md border border-border/60 bg-bg-surface px-2.5 py-1.5 text-left text-xs text-text-secondary hover:border-border-light'
                     }
                   >
                     {t(`threadChrome.${key}`)}
@@ -164,13 +164,13 @@ export function WhatsNextDialog({
                   type="button"
                   disabled={creatingTypeId != null}
                   onClick={() => void handleSignal(type)}
-                  className="flex w-full items-center justify-between rounded-lg border border-transparent px-2.5 py-1.5 text-left text-[12.5px] text-text-primary transition-colors hover:border-border/60 hover:bg-bg-hover/60 disabled:opacity-50"
+                  className="flex w-full items-center justify-between rounded-lg border border-transparent px-2.5 py-1.5 text-left text-sm text-text-primary transition-colors hover:border-border/60 hover:bg-bg-hover/60 disabled:opacity-50"
                 >
-                  <span className="min-w-0 flex-1 truncate">
+                  <span className="min-w-0 flex-1 truncate-fade">
                     {signalTypeLabel(type, i18n.language)}
                   </span>
                   {creatingTypeId === type.id ? (
-                    <span className="text-[10.5px] text-text-muted">{t('threadChrome.creating')}</span>
+                    <span className="text-2xs text-text-muted">{t('threadChrome.creating')}</span>
                   ) : null}
                 </button>
               ))

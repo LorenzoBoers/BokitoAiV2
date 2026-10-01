@@ -129,11 +129,11 @@ export default function AppShell() {
       <InboxCommunicationProvider>
         <ChatSessionsProvider>
           <TourProvider>
-          <div className="app-atmosphere flex h-screen overflow-hidden">
+          <div className="flex h-screen overflow-hidden bg-bg">
             {/* Desktop sidebar */}
             <aside
-              className={`hidden shrink-0 border-r border-border/40 transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] lg:block ${
-                navCollapsed ? 'w-[64px]' : 'w-[248px]'
+              className={`hidden shrink-0 border-r border-border/60 transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] lg:block ${
+                navCollapsed ? 'w-[52px]' : 'w-[232px]'
               }`}
             >
               <ShellSidebar collapsed={navCollapsed} onToggleCollapsed={toggleCollapsed} />
@@ -148,7 +148,7 @@ export default function AppShell() {
                   className="absolute inset-0 bg-black/50 animate-fade-in"
                   onClick={() => setDrawerOpen(false)}
                 />
-                <div className="absolute inset-y-0 left-0 w-[268px] border-r border-border/60 bg-bg-sidebar shadow-2xl animate-slide-in-left">
+                <div className="absolute inset-y-0 left-0 w-[260px] border-r border-border/60 bg-bg shadow-overlay animate-slide-in-left">
                   <ShellSidebar
                     collapsed={false}
                     onToggleCollapsed={() => setDrawerOpen(false)}
@@ -176,7 +176,7 @@ export default function AppShell() {
                     <Outlet />
                   </div>
                 ) : (
-                  <div className="h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-5">
+                  <div className="h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-4">
                     <div className="mx-auto w-full max-w-[1240px]">
                       <Outlet />
                     </div>

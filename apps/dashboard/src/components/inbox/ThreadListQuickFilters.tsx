@@ -1,19 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  Filter,
-  Gavel,
-  List,
-  Mail,
-  MessageSquareReply,
-  Pin,
-  Rows3,
-  Search,
-  Settings,
-  SquarePen,
-  X,
-} from 'lucide-react'
+import { Filter, List, Mail, Pin, Rows3, Search, Settings, SquarePen, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import type { InboxDensity } from '../../lib/inbox-prefs'
@@ -49,8 +37,6 @@ type Props = {
   counts: {
     all: number
     unread: number
-    needsReply: number
-    needsDecision: number
     pinned: number
   }
   /** When set, shows a compose button (new outbound email). */
@@ -78,14 +64,12 @@ const FILTERS: Array<{
   icon?: typeof Mail
 }> = [
   { id: 'all', labelKey: 'listFilters.all' },
-  { id: 'needsReply', labelKey: 'listFilters.needsReply', icon: MessageSquareReply },
-  { id: 'needsDecision', labelKey: 'listFilters.needsDecision', icon: Gavel },
   { id: 'unread', labelKey: 'listFilters.unread', icon: Mail },
   { id: 'pinned', labelKey: 'listFilters.pinned', icon: Pin },
 ]
 
 const SELECT_CLASS =
-  'mt-1 h-7 w-full rounded-md border border-border/60 bg-bg-elevated px-2 text-[12px] text-text-primary outline-none focus:border-accent/50'
+  'mt-1 h-7 w-full rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-primary outline-none focus:border-accent/50'
 
 /**
  * Compact list toolbar: search + one Filters menu (quick filters and dropdowns),
@@ -187,7 +171,7 @@ export default function ThreadListQuickFilters({
               event.currentTarget.blur()
             }}
             className={cn(
-              'h-8 w-full rounded-lg border border-border/60 bg-bg-elevated/50 pl-8 pr-8 text-[12.5px] text-text-primary',
+              'h-8 w-full rounded-md border border-border/70 bg-bg-surface pl-8 pr-8 text-sm text-text-primary',
               'placeholder:text-text-muted/80',
               'outline-none transition-colors focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',
               !setSearch && 'opacity-60',
@@ -212,16 +196,16 @@ export default function ThreadListQuickFilters({
               aria-label={t('threadList.filters')}
               title={t('threadList.filters')}
               className={cn(
-                'inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border px-2 text-[12px] font-medium transition-colors',
+                'inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium transition-colors',
                 filtersActive
-                  ? 'border-accent/40 bg-accent/10 text-accent'
-                  : 'border-border/60 bg-bg-elevated/40 text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+                  ? 'border-border-light bg-bg-hover text-text-heading'
+                  : 'border-border/70 text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
               )}
             >
               <Filter size={13} />
               <span className="hidden min-[280px]:inline">{t('threadList.filters')}</span>
               {filtersActive ? (
-                <span className="tabular-nums text-[10px] opacity-90">{activeFilterCount}</span>
+                <span className="tabular-nums text-2xs opacity-90">{activeFilterCount}</span>
               ) : null}
             </button>
           </DropdownMenuTrigger>
@@ -244,7 +228,7 @@ export default function ThreadListQuickFilters({
                     {Icon ? <Icon size={13} className="text-text-muted" /> : null}
                     <span className="flex-1">{t(filter.labelKey)}</span>
                     {count > 0 && filter.id !== 'all' ? (
-                      <span className="tabular-nums text-[11px] text-text-muted">
+                      <span className="tabular-nums text-xs text-text-muted">
                         {countsArePartial ? `${count}+` : count}
                       </span>
                     ) : null}
@@ -262,7 +246,7 @@ export default function ThreadListQuickFilters({
                   onPointerDown={(event) => event.preventDefault()}
                 >
                   {onAssigneeFilter ? (
-                    <label className="block text-[11px] text-text-muted">
+                    <label className="block text-xs text-text-muted">
                       {t('threadList.filterAssignee')}
                       <select
                         value={assigneeFilter == null ? '' : String(assigneeFilter)}
@@ -281,7 +265,7 @@ export default function ThreadListQuickFilters({
                     </label>
                   ) : null}
                   {onPriorityFilter ? (
-                    <label className="block text-[11px] text-text-muted">
+                    <label className="block text-xs text-text-muted">
                       {t('threadList.filterPriority')}
                       <select
                         value={priorityFilter ?? ''}
@@ -296,7 +280,7 @@ export default function ThreadListQuickFilters({
                     </label>
                   ) : null}
                   {onChannelFilter ? (
-                    <label className="block text-[11px] text-text-muted">
+                    <label className="block text-xs text-text-muted">
                       {t('threadList.filterChannel')}
                       <select
                         value={channelFilter ?? ''}
@@ -322,7 +306,7 @@ export default function ThreadListQuickFilters({
                 <button
                   type="button"
                   onClick={onSelectAll}
-                  className="rounded-md px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                 >
                   {t('bulkActions.selectAll')}
                 </button>
@@ -331,7 +315,7 @@ export default function ThreadListQuickFilters({
                 <button
                   type="button"
                   onClick={onMarkAllRead}
-                  className="rounded-md px-2 py-1 text-[11px] text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                 >
                   {t('threadList.markAllRead')}
                 </button>
@@ -340,7 +324,7 @@ export default function ThreadListQuickFilters({
                 <button
                   type="button"
                   onClick={clearAllFilters}
-                  className="rounded-md px-2 py-1 text-[11px] text-accent hover:bg-accent/10"
+                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-heading"
                 >
                   {t('threadList.clearFilters')}
                 </button>
@@ -349,10 +333,10 @@ export default function ThreadListQuickFilters({
             {syncHint ? (
               <Link
                 to="/settings/channels"
-                className="mx-1 mb-1 flex items-center gap-1.5 truncate rounded-md px-2 py-1.5 text-[10.5px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                className="mx-1 mb-1 flex items-center gap-1.5 truncate-fade rounded-md px-2 py-1.5 text-2xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
               >
                 <Settings size={11} className="shrink-0" />
-                <span className="truncate">{syncHint}</span>
+                <span className="truncate-fade">{syncHint}</span>
               </Link>
             ) : null}
           </DropdownMenuContent>
@@ -388,13 +372,13 @@ export default function ThreadListQuickFilters({
 
       {filtersActive ? (
         <div className="flex items-center gap-1.5 border-t border-border/40 px-2.5 py-1.5">
-          <span className="min-w-0 flex-1 truncate text-[11px] text-text-secondary">
+          <span className="min-w-0 flex-1 truncate-fade text-xs text-text-secondary">
             {activeSummary.join(' · ')}
           </span>
           <button
             type="button"
             onClick={clearAllFilters}
-            className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-medium text-accent hover:bg-accent/10"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"
           >
             <X size={11} />
             {t('threadList.clearFilters')}

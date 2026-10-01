@@ -878,6 +878,7 @@ export type SignalBadgeCounts = {
   inbox_by_queue: { my: number; unassigned: number; all: number }
   agents_attention: number
   no_reply_suggestions: number
+  your_turn: number
 }
 
 export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadgeCounts> {
@@ -899,6 +900,7 @@ export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadge
     },
     agents_attention: Number(raw.agents_attention ?? 0),
     no_reply_suggestions: Number(raw.no_reply_suggestions ?? 0),
+    your_turn: Number(raw.your_turn ?? 0),
   }
 }
 

@@ -4,27 +4,27 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default:
-          'btn-elevated btn-sheen border border-black/5 bg-accent text-accent-fg hover:bg-accent-hover hover:brightness-105',
+        default: 'btn-elevated bg-accent text-accent-fg hover:bg-accent-hover',
+        // Hairline family: one look for secondary / outline / subtle.
         secondary:
-          'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover',
-        ghost: 'text-text-secondary hover:bg-bg-hover/75 hover:text-text-primary',
-        subtle:
-          'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:bg-bg-hover',
+          'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
         outline:
-          'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:bg-bg-hover',
-        ai: 'btn-elevated btn-sheen border border-ai/30 bg-ai text-ai-fg hover:brightness-110',
-        destructive: 'bg-status-error/12 text-status-error hover:bg-status-error/18',
+          'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
+        subtle:
+          'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
+        ghost: 'text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
+        ai: 'btn-elevated bg-ai text-ai-fg hover:brightness-110',
+        destructive: 'border border-status-error/30 text-status-error hover:bg-status-error/10',
       },
       size: {
-        sm: 'h-9 px-3.5 text-xs',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-11 px-5 text-sm',
-        icon: 'h-9 w-9',
+        sm: 'h-8 px-3 text-xs',
+        md: 'h-9 px-3.5 text-sm',
+        lg: 'h-10 px-4 text-sm',
+        icon: 'h-8 w-8',
       },
     },
     defaultVariants: {

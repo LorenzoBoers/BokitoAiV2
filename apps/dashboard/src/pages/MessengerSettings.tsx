@@ -15,7 +15,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import { PageGuideLink } from '../components/layout/PageGuideLink'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
@@ -75,7 +75,7 @@ function ColorField({
     <div className="flex items-center gap-2.5">
       <label className="relative shrink-0 cursor-pointer">
         <span
-          className="block h-9 w-9 rounded-lg border border-border/60 shadow-sm transition-transform hover:scale-105"
+          className="block h-9 w-9 rounded-lg border border-border/60 transition-transform hover:scale-105"
           style={{ background: value }}
         />
         <input
@@ -89,7 +89,7 @@ function ColorField({
         type="text"
         value={value.toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-28 rounded-lg border border-border/60 bg-bg-surface/50 px-3 py-2 font-mono text-[13px] text-text-primary focus:border-accent/55 focus:outline-none"
+        className="w-28 rounded-lg border border-border/60 bg-bg-surface/50 px-3 py-2 font-mono text-sm text-text-primary focus:border-accent/55 focus:outline-none"
       />
     </div>
   )
@@ -115,7 +115,7 @@ function SegmentedControl<T extends string>({
     <div
       role="tablist"
       className={cn(
-        'max-w-full gap-0.5 rounded-xl border border-border/60 bg-bg-input/40 p-1 dark:bg-bg-input/55',
+        'max-w-full gap-0.5 rounded-lg border border-border/60 bg-bg-input/40 p-1 dark:bg-bg-input/55',
         stretch ? 'flex w-full' : 'inline-flex flex-wrap',
         className,
       )}
@@ -134,7 +134,7 @@ function SegmentedControl<T extends string>({
               stretch && 'min-w-0 flex-1',
               pad,
               active
-                ? 'bg-bg-surface text-text-heading shadow-sm ring-1 ring-border/40'
+                ? 'bg-bg-surface text-text-heading ring-1 ring-border/40'
                 : 'text-text-secondary hover:text-text-primary',
             )}
           >
@@ -158,13 +158,13 @@ function FoldableSection({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="mb-3 overflow-hidden rounded-xl border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
+    <div className="mb-3 overflow-hidden rounded-lg border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-bg-hover/40"
       >
-        <span className="text-[15px] font-medium text-text-heading">{title}</span>
+        <span className="text-lg font-medium text-text-heading">{title}</span>
         <ChevronDown
           className={cn('h-4 w-4 shrink-0 text-text-muted transition-transform duration-200', open && 'rotate-180')}
         />
@@ -556,10 +556,9 @@ function MessengerSettingsContent({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      <PageGuideBanner page="widget" className="mb-4" />
       <div className="flex flex-col gap-3 border-b border-border/60 pb-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
-          <h2 className="shrink-0 text-[17px] font-semibold leading-none text-text-heading">{t('messengerPage.title')}</h2>
+          <h2 className="shrink-0 text-lg font-semibold leading-none tracking-[-0.01em] text-text-heading">{t('messengerPage.title')}</h2>
           <SegmentedControl
             value={section}
             onChange={(v) => navigate(assistantSettingsPath('external', v))}
@@ -568,6 +567,7 @@ function MessengerSettingsContent({
           />
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+          <PageGuideLink page="widget" />
           {saveError ? <p className="order-last w-full text-xs text-status-error sm:order-none sm:w-auto">{saveError}</p> : null}
           <Button size="sm" disabled={!dirty || saving} onClick={() => void handleSave()}>
             {saving ? (
@@ -624,7 +624,7 @@ function MessengerSettingsContent({
                         {MESSENGER_MODULE_KEYS.map((key) => (
                           <div
                             key={key}
-                            className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-surface/80 px-3 py-2.5 shadow-sm backdrop-blur-sm dark:bg-bg-surface/40"
+                            className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-surface/80 px-3 py-2.5 backdrop-blur-sm dark:bg-bg-surface/40"
                           >
                             <span className="text-sm text-text-primary">{t(`messengerPage.modules.${key}`)}</span>
                             <Switch
@@ -711,12 +711,12 @@ function MessengerSettingsContent({
                           <button
                             type="button"
                             onClick={clearWidgetFavicon}
-                            className="rounded-md border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover"
+                            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover"
                           >
                             {t('messengerPage.remove')}
                           </button>
                         ) : (
-                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover">
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover">
                             <Upload size={12} />
                             {t('messengerPage.upload')}
                             <input type="file" accept="image/*" className="hidden" onChange={handleWidgetFaviconPick} />
@@ -830,7 +830,7 @@ function MessengerSettingsContent({
                                   className={cn(
                                     'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
                                     active
-                                      ? 'border-accent/50 bg-accent/10 text-accent'
+                                      ? 'border-border-light bg-bg-hover text-text-heading'
                                       : 'border-border/60 text-text-secondary hover:text-text-primary',
                                   )}
                                 >
@@ -910,7 +910,7 @@ function MessengerSettingsContent({
                 {snippetUsesLocalOrigin ? (
                   <div
                     role="status"
-                    className="rounded-xl border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm text-text-primary"
+                    className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm text-text-primary"
                   >
                     <p className="font-medium text-text-heading">
                       {t('messengerPage.localSnippetTitle', {
@@ -943,7 +943,7 @@ function MessengerSettingsContent({
                     },
                   ] as const
                 ).map((card) => (
-                  <div key={card.key} className="rounded-xl border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
+                  <div key={card.key} className="rounded-lg border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
                       <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
                         {card.icon}
@@ -973,7 +973,7 @@ function MessengerSettingsContent({
                     <p className="px-4 pt-3 text-xs text-text-secondary">{card.body}</p>
                     <div className="p-4 pt-2">
                       <pre className="max-h-[min(40vh,320px)] overflow-auto rounded-lg border border-border/60 bg-[#141824] p-4 text-left shadow-inner">
-                        <code className="block whitespace-pre font-mono text-[12px] leading-relaxed text-[#e2e8f0]">
+                        <code className="block whitespace-pre font-mono text-xs leading-relaxed text-[#e2e8f0]">
                           {card.html}
                         </code>
                       </pre>
@@ -985,7 +985,7 @@ function MessengerSettingsContent({
                     <button
                       type="button"
                       onClick={() => navigate(assistantSettingsPath('external', 'customization'))}
-                      className="text-[12px] font-medium text-accent hover:underline"
+                      className="text-xs font-medium text-accent hover:underline"
                       title={t('messengerPage.checkInstallationHint')}
                     >
                       {t('messengerPage.checkInstallation')}
@@ -993,13 +993,13 @@ function MessengerSettingsContent({
                   ) : null}
                   <Link
                     to={inboxPath('open')}
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('messengerPage.openCommunication')}
                   </Link>
                   <Link
                     to="/settings/setup"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('messengerPage.openSetup')}
                   </Link>

@@ -53,18 +53,18 @@ export default function DocsApiReference() {
         </div>
 
         <section className="relative border-b border-border/60 py-10 sm:py-12">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+          <p className="mb-2 text-xs font-semibold text-accent">
             {t('docs.sections.developers.title')}
           </p>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 max-w-2xl">
               <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-accent/20 bg-accent/10 text-accent">
                   <Code2 className="h-5 w-5" aria-hidden />
                 </span>
                 {t('docs.apiReference')}
               </h1>
-              <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+              <p className="mt-3 text-lg leading-relaxed text-muted-foreground">
                 {t('docs.apiReferenceIntro')}
               </p>
             </div>

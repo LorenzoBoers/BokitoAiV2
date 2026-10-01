@@ -32,7 +32,7 @@ export function ConnectionSections({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">{title}</h2>
+      <h2 className="text-xs font-semibold text-text-muted">{title}</h2>
       {loading ? (
         <CardGridSkeleton />
       ) : groups.length === 0 ? (
@@ -47,7 +47,7 @@ export function ConnectionSections({
                     {t(`integrations.kind.${group.kind}`)}
                   </h3>
                   {group.kind === 'repository' ? (
-                    <p className="text-[11px] text-text-muted">
+                    <p className="text-xs text-text-muted">
                       {t('integrations.connected.codeHint')}
                     </p>
                   ) : null}
@@ -57,7 +57,7 @@ export function ConnectionSections({
                 {group.programs.map((program) => (
                   <div
                     key={program.programKey}
-                    className="rounded-xl border border-border/60 bg-bg-surface"
+                    className="rounded-lg border border-border/60 bg-bg-surface"
                   >
                     <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2">
                       <div className="flex min-w-0 items-center gap-2">
@@ -70,8 +70,8 @@ export function ConnectionSections({
                           hostSlug={program.brand.hostSlug}
                           size="sm"
                         />
-                        <p className="truncate text-sm font-medium">{program.programName}</p>
-                        <span className="text-[11px] tabular-nums text-text-muted">
+                        <p className="truncate-fade text-sm font-medium">{program.programName}</p>
+                        <span className="text-xs tabular-nums text-text-muted">
                           {t('integrations.application.alreadyCount', {
                             count: program.items.length,
                           })}
@@ -98,8 +98,8 @@ export function ConnectionSections({
                             className="flex flex-wrap items-center justify-between gap-3 border-t border-border/30 px-3 py-2 first:border-t-0"
                           >
                             <div className="min-w-0">
-                              <p className="truncate text-sm text-text-heading">{row.title}</p>
-                              <p className="truncate text-[11px] text-text-muted">
+                              <p className="truncate-fade text-sm text-text-heading">{row.title}</p>
+                              <p className="truncate-fade text-xs text-text-muted">
                                 {row.attachedModules.length > 0
                                   ? row.attachedModules
                                       .map((slug) =>

@@ -356,9 +356,9 @@ export default function SignalTypesSettings() {
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium text-text-heading">{row.name}</span>
+                        <span className="truncate-fade text-sm font-medium text-text-heading">{row.name}</span>
                         {row.module_slug ? (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge variant="outline" className="text-2xs">
                             {row.module_slug}
                           </Badge>
                         ) : null}
@@ -370,12 +370,12 @@ export default function SignalTypesSettings() {
                           </span>
                         ) : null}
                       </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-text-muted">
+                      <span className="mt-0.5 block truncate-fade text-xs text-text-muted">
                         {row.description?.trim()
                           ? row.description
                           : t('signalTypes.noDescription', { defaultValue: 'No description yet' })}
                       </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-text-secondary">
+                      <span className="mt-0.5 block truncate-fade text-xs text-text-secondary">
                         {summaryLine(row)}
                       </span>
                     </span>
@@ -566,7 +566,7 @@ function SignalTypeEditor({
   return (
     <div className="space-y-4 border-t border-border/60 bg-bg-elevated/30 px-3 py-4">
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+        <p className="text-xs font-semibold text-text-muted">
           {t('signalTypes.whatItIs', { defaultValue: 'What it is' })}
         </p>
         <Input
@@ -587,12 +587,12 @@ function SignalTypeEditor({
       </div>
 
       <div className="space-y-3 border-t border-border/60 pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+        <p className="text-xs font-semibold text-text-muted">
           {t('signalTypes.whatWeDo', { defaultValue: 'What we do' })}
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <Label htmlFor={`outcome-${row.id}`} className="mb-1 block text-[11px] font-medium">
+            <Label htmlFor={`outcome-${row.id}`} className="mb-1 block text-xs font-medium">
               {t('signalTypes.outcomeLabel', { defaultValue: 'Outcome' })}
             </Label>
             <Select value={followUpMode} onValueChange={(v) => setFollowUpMode(v as CaseFollowUpMode)}>
@@ -610,7 +610,7 @@ function SignalTypeEditor({
           </div>
           {followUpMode === 'route' ? (
             <div>
-              <Label htmlFor={`playbook-${row.id}`} className="mb-1 block text-[11px] font-medium">
+              <Label htmlFor={`playbook-${row.id}`} className="mb-1 block text-xs font-medium">
                 {t('signalTypes.playbookLabel', { defaultValue: 'Playbook' })}
               </Label>
               <Select
@@ -636,7 +636,7 @@ function SignalTypeEditor({
             </div>
           ) : null}
           <div>
-            <Label htmlFor={`project-${row.id}`} className="mb-1 block text-[11px] font-medium">
+            <Label htmlFor={`project-${row.id}`} className="mb-1 block text-xs font-medium">
               {t('signalTypes.projectLabel', { defaultValue: 'Project (optional)' })}
             </Label>
             <Select value={projectId || NONE} onValueChange={(v) => setProjectId(v === NONE ? '' : v)}>
@@ -656,7 +656,7 @@ function SignalTypeEditor({
             </Select>
           </div>
         </div>
-        <p className="text-[11px] text-text-muted">
+        <p className="text-xs text-text-muted">
           {followUpMode === 'label'
             ? t('signalTypes.outcomeHints.label', {
                 defaultValue: 'Stamps the conversation for reporting and never appears in the queue.',
@@ -681,7 +681,7 @@ function SignalTypeEditor({
         <button
           type="button"
           onClick={() => setShowGates((prev) => !prev)}
-          className="flex items-center gap-1.5 text-[11px] font-medium text-text-secondary hover:text-text-primary"
+          className="flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary"
           aria-expanded={showGates}
         >
           <ChevronDown size={13} className={cn('transition-transform', showGates && 'rotate-180')} />
@@ -690,7 +690,7 @@ function SignalTypeEditor({
         {showGates ? (
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <div>
-              <Label htmlFor={`create-mode-${row.id}`} className="mb-1 block text-[11px] font-medium">
+              <Label htmlFor={`create-mode-${row.id}`} className="mb-1 block text-xs font-medium">
                 {t('signalTypes.createModeLabel', { defaultValue: 'When the AI recognizes it' })}
               </Label>
               <Select value={createMode} onValueChange={(v) => setCreateMode(v as CaseCreateMode)}>
@@ -707,7 +707,7 @@ function SignalTypeEditor({
               </Select>
             </div>
             <div>
-              <Label htmlFor={`audience-${row.id}`} className="mb-1 block text-[11px] font-medium">
+              <Label htmlFor={`audience-${row.id}`} className="mb-1 block text-xs font-medium">
                 {t('signalTypes.audienceLabel', { defaultValue: 'Audience' })}
               </Label>
               <Select value={audience} onValueChange={(v) => setAudience(v as CaseTypeRow['audience'])}>
@@ -788,16 +788,16 @@ function BacklogRow({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
-            <span className="truncate">{entry.name}</span>
-            <Badge variant={entry.ready ? 'accent' : 'outline'} className="text-[10px]">
+            <span className="truncate-fade">{entry.name}</span>
+            <Badge variant={entry.ready ? 'accent' : 'outline'} className="text-2xs">
               {t('signalTypes.backlogCount', { defaultValue: 'seen {{count}}x', count: entry.count })}
             </Badge>
           </p>
           {entry.sentence ? (
-            <p className="mt-0.5 text-[11px] text-text-muted">{entry.sentence}</p>
+            <p className="mt-0.5 text-xs text-text-muted">{entry.sentence}</p>
           ) : null}
           {entry.examples[0] ? (
-            <p className="mt-1 border-l-2 border-border/60 pl-2 text-[11px] italic text-text-secondary">
+            <p className="mt-1 border-l-2 border-border/60 pl-2 text-xs italic text-text-secondary">
               {entry.examples[0]}
             </p>
           ) : null}
@@ -911,7 +911,7 @@ function CreateSignalTypeDialog({
               ))}
             </SelectContent>
           </Select>
-          <p className="flex items-start gap-1.5 text-[11px] text-text-muted">
+          <p className="flex items-start gap-1.5 text-xs text-text-muted">
             <Inbox size={13} className="mt-0.5 shrink-0" aria-hidden />
             {t('signalTypes.newTypeFooter', {
               defaultValue: 'You can pick a playbook and project after creating the type.',

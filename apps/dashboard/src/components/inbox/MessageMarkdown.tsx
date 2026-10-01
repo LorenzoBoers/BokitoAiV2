@@ -51,8 +51,8 @@ function formatMarkdown(text: string): string {
       return (
         `<a href="${href}" data-app-link="1" class="md-app-link inline-flex ` +
         `items-center gap-1 rounded-md border border-border/55 bg-bg-elevated ` +
-        `px-1.5 py-0.5 align-baseline text-[12px] font-medium text-accent no-underline ` +
-        `transition-colors hover:border-accent/45 hover:bg-bg-hover/70">${label}</a>`
+        `px-1.5 py-0.5 align-baseline text-xs font-medium text-accent no-underline ` +
+        `transition-colors hover:border-border-light hover:bg-bg-hover/70">${label}</a>`
       )
     }
     if (/^(https?:\/\/|mailto:)/i.test(href)) {

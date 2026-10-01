@@ -22,7 +22,7 @@ export default function WorkspaceHubNav() {
     <aside className="flex h-full w-[220px] shrink-0 flex-col px-4 py-4">
       <div className="flex items-center gap-2.5 px-3 pb-4">
         <img src="/bokito-logo.svg" alt="Bokito" className="h-6 w-6 opacity-90" />
-        <span className="text-[15px] font-semibold text-text-heading">Bokito portal</span>
+        <span className="text-lg font-semibold text-text-heading">Bokito portal</span>
       </div>
       <nav className="space-y-1">
         <NavLink to="/workspaces" className={({ isActive }) => navItemClass(isActive)}>
@@ -50,8 +50,8 @@ export default function WorkspaceHubNav() {
             className="rounded-md"
           />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm text-text-heading">{displayName}</span>
-            <span className="block truncate text-xs text-text-muted">{email}</span>
+            <span className="block truncate-fade text-sm text-text-heading">{displayName}</span>
+            <span className="block truncate-fade text-xs text-text-muted">{email}</span>
           </span>
         </NavLink>
         <button

@@ -82,7 +82,7 @@ function WidgetShell({
     <Card className={cn('flex h-full min-h-0 flex-col overflow-hidden border-border/50 shadow-none', className)}>
       {(title || (canEdit && onRemove)) && (
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 px-3 py-2">
-          <CardTitle className="truncate text-sm font-medium text-text-heading">
+          <CardTitle className="truncate-fade text-sm font-medium text-text-heading">
             {title || ''}
           </CardTitle>
           {canEdit && onRemove ? (
@@ -111,11 +111,11 @@ function MetricWidget({ widget }: { widget: ProjectCanvasWidget }) {
   return (
     <WidgetShell title={widget.title}>
       <div className="flex h-full flex-col justify-center gap-1 py-2">
-        <p className="text-[11px] uppercase tracking-wide text-text-muted">{label}</p>
+        <p className="text-xs text-text-muted">{label}</p>
         <p className="text-2xl font-semibold tabular-nums text-text-heading">{value}</p>
-        <div className="flex items-center gap-2 text-[11px] text-text-muted">
-          {trend ? <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{trend}</Badge> : null}
-          {hint ? <span className="truncate">{hint}</span> : null}
+        <div className="flex items-center gap-2 text-xs text-text-muted">
+          {trend ? <Badge variant="secondary" className="px-1.5 py-0 text-2xs">{trend}</Badge> : null}
+          {hint ? <span className="truncate-fade">{hint}</span> : null}
         </div>
       </div>
     </WidgetShell>
@@ -134,7 +134,7 @@ function StatusWidget({ widget }: { widget: ProjectCanvasWidget }) {
           <StatusIcon level={level} />
           {label}
         </div>
-        {detail ? <p className="text-[12px] leading-relaxed opacity-90">{detail}</p> : null}
+        {detail ? <p className="text-xs leading-relaxed opacity-90">{detail}</p> : null}
       </div>
     </WidgetShell>
   )
@@ -151,17 +151,17 @@ function QueueSummaryWidget({ widget, t }: { widget: ProjectCanvasWidget; t: (k:
       <div className="flex h-full flex-col gap-3 py-1">
         <div className="flex items-end gap-3">
           <div>
-            <p className="text-[11px] text-text-muted">{t('projects.canvas.openItems')}</p>
+            <p className="text-xs text-text-muted">{t('projects.canvas.openItems')}</p>
             <p className="text-2xl font-semibold tabular-nums text-text-heading">{open}</p>
           </div>
-          <p className="pb-1 text-[11px] text-text-muted">{t('projects.canvas.ofTotal', { total })}</p>
+          <p className="pb-1 text-xs text-text-muted">{t('projects.canvas.ofTotal', { total })}</p>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {entries.length === 0 ? (
-            <span className="text-[12px] text-text-muted">{t('projects.canvas.queueEmpty')}</span>
+            <span className="text-xs text-text-muted">{t('projects.canvas.queueEmpty')}</span>
           ) : (
             entries.map(([status, count]) => (
-              <Badge key={status} variant="outline" className="px-1.5 py-0 text-[10px] font-normal">
+              <Badge key={status} variant="outline" className="px-1.5 py-0 text-2xs font-normal">
                 {status}: {String(count)}
               </Badge>
             ))
@@ -186,7 +186,7 @@ function QueueListWidget({
   return (
     <WidgetShell title={widget.title || t('projects.canvas.widgets.queueList')}>
       {items.length === 0 ? (
-        <p className="py-4 text-[12px] text-text-muted">{t('projects.canvas.queueEmpty')}</p>
+        <p className="py-4 text-xs text-text-muted">{t('projects.canvas.queueEmpty')}</p>
       ) : (
         <ul className="divide-y divide-border/40">
           {items.map((raw) => {
@@ -195,14 +195,14 @@ function QueueListWidget({
             return (
               <li key={id} className="flex items-center justify-between gap-2 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] text-text-primary">{String(item.title ?? '')}</p>
-                  <p className="text-[11px] text-text-muted">
+                  <p className="truncate-fade text-sm text-text-primary">{String(item.title ?? '')}</p>
+                  <p className="text-xs text-text-muted">
                     {String(item.kind ?? '')} · {String(item.status ?? '')}
                   </p>
                 </div>
                 <Link
                   to={`/projects/${projectId}?tab=queue`}
-                  className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+                  className="shrink-0 text-xs font-medium text-accent hover:underline"
                 >
                   {t('projects.canvas.open')}
                 </Link>
@@ -221,15 +221,15 @@ function ResourcesWidget({ widget, t }: { widget: ProjectCanvasWidget; t: (k: st
   return (
     <WidgetShell title={widget.title || t('projects.canvas.widgets.resources')}>
       {items.length === 0 ? (
-        <p className="py-4 text-[12px] text-text-muted">{t('projects.canvas.resourcesEmpty')}</p>
+        <p className="py-4 text-xs text-text-muted">{t('projects.canvas.resourcesEmpty')}</p>
       ) : (
         <ul className="space-y-2 py-1">
           {items.slice(0, 8).map((raw) => {
             const item = asRecord(raw)
             return (
-              <li key={String(item.id)} className="flex items-center justify-between gap-2 text-[12px]">
-                <span className="min-w-0 truncate text-text-primary">{String(item.label || item.resource_type)}</span>
-                <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
+              <li key={String(item.id)} className="flex items-center justify-between gap-2 text-xs">
+                <span className="min-w-0 truncate-fade text-text-primary">{String(item.label || item.resource_type)}</span>
+                <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-2xs">
                   {String(item.resource_type ?? '')}
                 </Badge>
               </li>
@@ -260,7 +260,7 @@ function BudgetWidget({
       <div className="flex h-full flex-col justify-center gap-2 py-1">
         <div className="flex items-center gap-2 text-text-muted">
           <Wallet size={14} />
-          <span className="text-[11px]">{t('projects.canvas.tokensToday')}</span>
+          <span className="text-xs">{t('projects.canvas.tokensToday')}</span>
         </div>
         <p className="text-xl font-semibold tabular-nums text-text-heading">
           {formatAppNumber(used, locale)}
@@ -272,7 +272,7 @@ function BudgetWidget({
         <div className="h-1.5 overflow-hidden rounded-full bg-bg-input">
           <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
         </div>
-        <p className="text-[11px] text-text-muted">
+        <p className="text-xs text-text-muted">
           {t('projects.canvas.remaining')}: {formatAppNumber(remaining, locale)}
         </p>
       </div>
@@ -296,9 +296,9 @@ function LinksWidget({ widget }: { widget: ProjectCanvasWidget }) {
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex max-w-full items-center gap-1.5 text-[13px] font-medium text-accent hover:underline"
+                className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-accent hover:underline"
               >
-                <span className="truncate">{label}</span>
+                <span className="truncate-fade">{label}</span>
                 <ExternalLink size={11} className="shrink-0 opacity-70" />
               </a>
             </li>
@@ -317,7 +317,7 @@ function TableWidget({ widget }: { widget: ProjectCanvasWidget }) {
   return (
     <WidgetShell title={widget.title}>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[240px] text-left text-[12px]">
+        <table className="w-full min-w-[240px] text-left text-xs">
           {columns.length > 0 ? (
             <thead>
               <tr className="border-b border-border/50 text-text-muted">
@@ -365,7 +365,7 @@ function ChartWidget({ widget }: { widget: ProjectCanvasWidget }) {
     <WidgetShell title={widget.title}>
       <div className="flex h-full items-end gap-1.5 py-2">
         {values.length === 0 ? (
-          <p className="text-[12px] text-text-muted">—</p>
+          <p className="text-xs text-text-muted">—</p>
         ) : (
           values.map((item, idx) => (
             <div key={`${item.label}-${idx}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
@@ -374,7 +374,7 @@ function ChartWidget({ widget }: { widget: ProjectCanvasWidget }) {
                 style={{ height: `${Math.max(8, Math.round((item.value / max) * 88))}px` }}
                 title={`${item.label}: ${item.value}`}
               />
-              <span className="w-full truncate text-center text-[10px] text-text-muted">{item.label}</span>
+              <span className="w-full truncate-fade text-center text-2xs text-text-muted">{item.label}</span>
             </div>
           ))
         )}
@@ -388,7 +388,7 @@ function IframeWidget({ widget, t }: { widget: ProjectCanvasWidget; t: (k: strin
   return (
     <WidgetShell title={widget.title}>
       {!url ? (
-        <p className="py-4 text-[12px] text-text-muted">{t('projects.canvas.iframeEmpty')}</p>
+        <p className="py-4 text-xs text-text-muted">{t('projects.canvas.iframeEmpty')}</p>
       ) : (
         <iframe
           title={widget.title || 'Embed'}
@@ -406,7 +406,7 @@ function MarkdownWidget({ widget }: { widget: ProjectCanvasWidget }) {
   const markdown = String(widget.config.markdown ?? '')
   return (
     <WidgetShell title={widget.title}>
-      <div className="prose-sm max-w-none py-1 text-[13px] leading-relaxed text-text-primary">
+      <div className="prose-sm max-w-none py-1 text-sm leading-relaxed text-text-primary">
         <ChatMarkdown content={markdown || '_Empty_'} />
       </div>
     </WidgetShell>
@@ -428,7 +428,7 @@ function WithRemove({
         <button
           type="button"
           onClick={onRemove}
-          className="absolute right-2 top-2 z-10 rounded-md border border-border/50 bg-bg-surface/90 p-1 text-text-muted opacity-0 shadow-sm transition-opacity hover:text-status-error group-hover/widget:opacity-100 focus-visible:opacity-100"
+          className="absolute right-2 top-2 z-10 rounded-md border border-border/50 bg-bg-surface/90 p-1 text-text-muted opacity-0 transition-opacity hover:text-status-error group-hover/widget:opacity-100 focus-visible:opacity-100"
           aria-label="Remove widget"
         >
           <Trash2 size={12} />
@@ -479,7 +479,7 @@ function renderWidget(
       <IframeWidget widget={widget} t={ctx.t} />
     ) : (
       <WidgetShell title={widget.title || type}>
-        <p className="py-3 text-[12px] text-text-muted">
+        <p className="py-3 text-xs text-text-muted">
           {ctx.t('projects.canvas.unknownWidget', { type })}
         </p>
       </WidgetShell>
@@ -618,18 +618,18 @@ export function ProjectCanvasBoard({ projectId, canEdit }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/50 bg-gradient-to-br from-bg-surface via-bg-surface to-accent/[0.04] px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/50 bg-gradient-to-br from-bg-surface via-bg-surface to-accent/[0.04] px-3 py-3">
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2 text-text-heading">
             <LayoutDashboard size={16} className="text-accent" />
             <h2 className="text-sm font-semibold">{canvas.title || t('projects.detail.tabCanvas')}</h2>
-            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+            <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
               r{canvas.revision}
             </Badge>
           </div>
-          <p className="max-w-2xl text-[12px] text-text-muted">{t('projects.canvas.subtitle')}</p>
+          <p className="max-w-2xl text-xs text-text-muted">{t('projects.canvas.subtitle')}</p>
           {canvas.notes ? (
-            <p className="flex items-center gap-1.5 text-[11px] text-text-muted">
+            <p className="flex items-center gap-1.5 text-xs text-text-muted">
               <Sparkles size={11} className="text-ai" />
               {canvas.notes}
             </p>
@@ -674,7 +674,7 @@ export function ProjectCanvasBoard({ projectId, canEdit }: Props) {
         </Card>
       ) : null}
 
-      <div className="flex items-center gap-2 text-[11px] text-text-muted">
+      <div className="flex items-center gap-2 text-xs text-text-muted">
         <Activity size={12} />
         {t('projects.canvas.aiHint')}
       </div>

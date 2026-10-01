@@ -106,7 +106,7 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                 >
                   {row.url}
                 </a>
-                <p className="mt-1 text-[11px] text-text-muted">
+                <p className="mt-1 text-xs text-text-muted">
                   {row.origin} · {row.status}
                   {row.last_synced_at
                     ? ` · ${new Date(row.last_synced_at).toLocaleString()}`

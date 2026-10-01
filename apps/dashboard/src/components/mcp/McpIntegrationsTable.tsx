@@ -144,7 +144,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                   </div>
                 </TableCell>
                 <TableCell className="font-medium text-text-primary">{row.displayName}</TableCell>
-                <TableCell className="max-w-[220px] truncate font-mono text-xs text-text-secondary">
+                <TableCell className="max-w-[220px] truncate-fade font-mono text-xs text-text-secondary">
                   {row.endpoint}
                 </TableCell>
                 <TableCell>
@@ -158,7 +158,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                   <div className="flex flex-col gap-1">
                     <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                     {testResults[row.id] ? (
-                      <span className={`text-[10px] ${testResults[row.id].ok ? 'text-status-success' : 'text-status-error'}`}>
+                      <span className={`text-2xs ${testResults[row.id].ok ? 'text-status-success' : 'text-status-error'}`}>
                         {testResults[row.id].ok
                           ? t('integrations.mcp.servers.testCount', { count: testResults[row.id].toolCount })
                           : testResults[row.id].error ?? t('integrations.mcp.servers.testFailed')}

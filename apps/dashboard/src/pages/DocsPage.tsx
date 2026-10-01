@@ -141,19 +141,19 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
       </div>
 
       <section className="relative py-16 text-center sm:py-20">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+        <p className="mb-3 text-xs font-semibold text-accent">
           {t('docs.title')}
         </p>
         <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
           {t('docs.heroTitle')}
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
           {t('docs.heroBody')}
         </p>
         {lastDocs ? (
           <Link
             to={lastDocs.path}
-            className="mt-7 inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-[13px] font-medium text-accent transition-colors hover:bg-accent/15"
+            className="mt-7 inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/15"
           >
             <span className="text-accent/70">{t('docs.continueLast')}</span>
             <span className="text-foreground">{lastDocs.title}</span>
@@ -171,21 +171,21 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
               key={section.id}
               to={first ? `/docs/${first.path}` : '/docs'}
               style={{ animationDelay: `${i * 40}ms` }}
-              className="group relative overflow-hidden rounded-2xl border border-border/70 bg-background/60 p-5 shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-0.5 hover:border-accent/45 hover:bg-muted/25 hover:shadow-md"
+              className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/60 p-5 transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-0.5 hover:border-accent/45 hover:bg-muted/25"
             >
               <div
                 aria-hidden
                 className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-accent/0 transition-colors duration-200 group-hover:bg-accent/10"
               />
               <div className="flex items-center gap-3">
-                <span className="rounded-xl border border-accent/20 bg-accent/10 p-2.5 text-accent transition-colors group-hover:bg-accent/15">
+                <span className="rounded-lg border border-accent/20 bg-accent/10 p-2.5 text-accent transition-colors group-hover:bg-accent/15">
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
-                <h2 className="text-[15px] font-semibold tracking-tight">
+                <h2 className="text-lg font-semibold tracking-tight">
                   {t(`docs.sections.${section.id}.title`)}
                 </h2>
               </div>
-              <p className="mt-3 text-[13px] leading-5 text-muted-foreground">
+              <p className="mt-3 text-sm leading-5 text-muted-foreground">
                 {t(`docs.sections.${section.id}.blurb`)}
               </p>
               <p className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-accent">
@@ -202,7 +202,7 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
 
       {popular.length > 0 ? (
         <section className="relative mt-14">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent/80">
+          <h2 className="text-xs font-semibold text-accent/80">
             {t('docs.popular')}
           </h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -210,13 +210,13 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
               <Link
                 key={item.slug}
                 to={`/docs/${item.path}`}
-                className="group flex items-start gap-3 rounded-xl border border-transparent px-4 py-3.5 transition-colors hover:border-border/80 hover:bg-muted/35"
+                className="group flex items-start gap-3 rounded-lg border border-transparent px-4 py-3.5 transition-colors hover:border-border/80 hover:bg-muted/35"
               >
                 <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent opacity-80 transition-opacity group-hover:opacity-100">
                   <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <p className="text-[13px] font-medium text-foreground group-hover:text-accent">
+                  <p className="text-sm font-medium text-foreground group-hover:text-accent">
                     {item.title}
                   </p>
                   <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
@@ -303,7 +303,7 @@ function ArticleView({
         <nav className="sticky top-0 max-h-[calc(100vh-4.5rem)] space-y-5 overflow-y-auto py-1 pr-1">
           {(index?.sections ?? []).map((navSection) => (
             <div key={navSection.id}>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold text-muted-foreground">
                 {t(`docs.sections.${navSection.id}.title`)}
               </p>
               <ul className="mt-1.5 space-y-0.5">
@@ -311,7 +311,7 @@ function ArticleView({
                   <li key={item.slug}>
                     <Link
                       to={`/docs/${item.path}`}
-                      className={`block rounded-md px-2 py-1 text-[13px] ${
+                      className={`block rounded-md px-2 py-1 text-sm ${
                         item.slug === slug
                           ? 'bg-muted font-medium text-foreground'
                           : 'text-muted-foreground hover:text-foreground'
@@ -370,7 +370,7 @@ function ArticleView({
             </div>
 
             {article.related.length > 0 && index ? (
-              <section className="mt-10 rounded-xl border px-4 py-4">
+              <section className="mt-10 rounded-lg border px-4 py-4">
                 <p className="text-sm font-medium">{t('pageGuides.relatedArticlesTitle')}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {article.related.map((rel) => {
@@ -396,12 +396,12 @@ function ArticleView({
 
             <nav className="mt-8 grid gap-3 sm:grid-cols-2">
               {previous ? (
-                <Link to={`/docs/${previous.path}`} className="rounded-xl border p-4 transition-colors hover:bg-muted/40">
+                <Link to={`/docs/${previous.path}`} className="rounded-lg border p-4 transition-colors hover:bg-muted/40">
                   <p className="flex items-center gap-1 text-xs text-muted-foreground">
                     <ArrowLeft className="h-3 w-3" aria-hidden />
                     {t('docs.previous')}
                   </p>
-                  <p className="mt-1 text-[13px] font-medium">{previous.title}</p>
+                  <p className="mt-1 text-sm font-medium">{previous.title}</p>
                 </Link>
               ) : (
                 <span />
@@ -409,13 +409,13 @@ function ArticleView({
               {next ? (
                 <Link
                   to={`/docs/${next.path}`}
-                  className="rounded-xl border p-4 text-right transition-colors hover:bg-muted/40"
+                  className="rounded-lg border p-4 text-right transition-colors hover:bg-muted/40"
                 >
                   <p className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
                     {t('docs.next')}
                     <ArrowRight className="h-3 w-3" aria-hidden />
                   </p>
-                  <p className="mt-1 text-[13px] font-medium">{next.title}</p>
+                  <p className="mt-1 text-sm font-medium">{next.title}</p>
                 </Link>
               ) : null}
             </nav>
@@ -426,13 +426,13 @@ function ArticleView({
       {toc.length > 1 ? (
         <aside className="hidden w-48 shrink-0 self-start xl:block">
           <nav className="sticky top-0 max-h-[calc(100vh-4.5rem)] overflow-y-auto py-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs font-semibold text-muted-foreground">
               {t('docs.onThisPage')}
             </p>
             <ul className="mt-2 space-y-1 border-l pl-3">
               {toc.map((item) => (
                 <li key={item.id}>
-                  <a href={`#${item.id}`} className="block text-[12.5px] text-muted-foreground hover:text-foreground">
+                  <a href={`#${item.id}`} className="block text-sm text-muted-foreground hover:text-foreground">
                     {item.text}
                   </a>
                 </li>

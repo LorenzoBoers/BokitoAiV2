@@ -1,36 +1,17 @@
-import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-
-const TABS = [
-  { labelKey: 'cockpitTabs.overview', defaultLabel: 'Overview', to: '/cockpit', end: true },
-  { labelKey: 'cockpitTabs.usage', defaultLabel: 'Usage', to: '/cockpit/usage', end: false },
-] as const
+import RouteTabs from './RouteTabs'
 
 /** Inner tab strip for the Reports surface (Overview / Usage) — the live
  * activity log moved to `/activity` (standalone timeline). */
 export default function CockpitTabs() {
   const { t } = useTranslation('nav')
   return (
-    <nav
-      className="mb-4 flex items-center gap-1 border-b border-border/60"
-      aria-label={t('cockpitTabs.aria', { defaultValue: 'Cockpit sections' })}
-    >
-      {TABS.map((tab) => (
-        <NavLink
-          key={tab.to}
-          to={tab.to}
-          end={tab.end}
-          className={({ isActive }) =>
-            `-mb-px border-b-2 px-3 py-2 text-[12.5px] font-medium transition-[color,border-color,background-color] duration-200 ${
-              isActive
-                ? 'border-accent text-accent'
-                : 'border-transparent text-text-muted hover:bg-bg-hover/40 hover:text-text-primary'
-            }`
-          }
-        >
-          {t(tab.labelKey, { defaultValue: tab.defaultLabel })}
-        </NavLink>
-      ))}
-    </nav>
+    <RouteTabs
+      ariaLabel={t('cockpitTabs.aria', { defaultValue: 'Cockpit sections' })}
+      tabs={[
+        { to: '/cockpit', end: true, label: t('cockpitTabs.overview', { defaultValue: 'Overview' }) },
+        { to: '/cockpit/usage', label: t('cockpitTabs.usage', { defaultValue: 'Usage' }) },
+      ]}
+    />
   )
 }

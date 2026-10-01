@@ -139,7 +139,7 @@ export default function Signup() {
           <span className="text-sm text-text-secondary mt-1">{t('signupPage.subtitle')}</span>
         </div>
 
-        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
+        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-1.5">
@@ -189,7 +189,7 @@ export default function Signup() {
                   className={`${inputClass} pr-10`}
                   placeholder={t('signupPage.passwordPlaceholder')}
                 />
-                <p className="mt-1 text-[11px] text-text-muted">
+                <p className="mt-1 text-xs text-text-muted">
                   {t('signupPage.passwordHint', { count: password.length })}
                 </p>
                 <button
@@ -235,7 +235,7 @@ export default function Signup() {
                 className={`${inputClass} font-mono`}
                 placeholder={t('signupPage.slugPlaceholder')}
               />
-              <p className="mt-1 text-[11px] text-text-muted">
+              <p className="mt-1 text-xs text-text-muted">
                 {effectiveSlug
                   ? t('signupPage.slugPreview', { slug: effectiveSlug })
                   : t('signupPage.slugHint')}
@@ -297,7 +297,7 @@ export default function Signup() {
         <p className="text-center text-xs text-text-muted mt-6">
           © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
-        <p className="text-center text-[10px] text-text-muted/80 mt-1">
+        <p className="text-center text-2xs text-text-muted/80 mt-1">
           build: {APP_VERSION}
         </p>
       </div>

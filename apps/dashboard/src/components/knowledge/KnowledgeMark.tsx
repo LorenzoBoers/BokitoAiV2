@@ -27,7 +27,7 @@ export function KnowledgeTile({
   size?: 'md' | 'lg'
   className?: string
 }) {
-  const box = size === 'lg' ? 'h-12 w-12 rounded-xl' : 'h-8 w-8 rounded-lg'
+  const box = size === 'lg' ? 'h-12 w-12 rounded-lg' : 'h-8 w-8 rounded-lg'
   const icon = size === 'lg' ? 24 : 16
   return (
     <div
@@ -55,7 +55,7 @@ export function LearnedChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
         AI_PILL_CLASS,
         glow && 'knowledge-glow',
         className,

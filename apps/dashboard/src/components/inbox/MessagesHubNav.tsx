@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
-  Bot,
-  ChevronRight,
+  ChevronDown,
   Gavel,
   Inbox,
   Plus,
@@ -10,6 +9,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { AgentOptionRow } from '../ui/AgentOptionRow'
 import { NavSectionSkeleton } from '../ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
@@ -36,15 +36,11 @@ import {
 import { SidebarFolder } from './QueueSublist'
 import NavCountBadge from '../layout/NavCountBadge'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
-import { cn } from '../../lib/utils'
+import ScrollFade from '../ui/ScrollFade'
 
-function navLinkClass(isActive: boolean) {
-  return cn(
-    'nav-row flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
-    isActive
-      ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-chip-active'
-      : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
-  )
+function navLinkClass(_isActive: boolean) {
+  // Active state is carried by data-active / aria-current (see `.nav-row`).
+  return 'nav-row'
 }
 
 const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
@@ -127,32 +123,21 @@ function CollapsibleSection({ section, title, count, headerAction, children }: C
   }, [open])
 
   return (
-    <section data-section={section} className="group/section space-y-0.5">
-      <div className="flex items-center gap-0.5 px-2 pb-1">
+    <section data-section={section} className="group/section space-y-px">
+      <div className="flex items-center gap-0.5">
         <button
           type="button"
           onClick={() => {
             if (collapsed) setMounted(true)
             setSectionCollapsed(section, !collapsed)
           }}
-          className="nav-row flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted hover:text-text-secondary"
+          className="nav-folder min-w-0 flex-1"
           aria-expanded={open}
+          data-open={open ? 'true' : 'false'}
         >
-          <ChevronRight
-            size={11}
-            strokeWidth={2.25}
-            aria-hidden
-            className={cn(
-              'shrink-0 text-text-muted/55 transition-transform duration-150 ease-out',
-              open && 'rotate-90 text-text-muted/80',
-            )}
-          />
-          <span className="min-w-0 truncate text-left">{title}</span>
-          {count != null ? (
-            <span className="shrink-0 font-medium normal-case tracking-normal text-text-muted/65">
-              ({count})
-            </span>
-          ) : null}
+          <ChevronDown aria-hidden />
+          <span className="min-w-0 shrink truncate-fade text-left">{title}</span>
+          {count != null ? <span className="shrink-0 tabular-nums text-text-muted/70">{count}</span> : null}
           <span className="min-w-0 flex-1" aria-hidden />
         </button>
         {/* Section tools stay hidden until the section (or a row in it) is
@@ -178,7 +163,7 @@ function ComposePlusLink({ to, label }: { to: string; label: string }) {
       to={to}
       title={label}
       aria-label={label}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-accent"
+      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
     >
       <Plus size={13} />
     </Link>
@@ -287,16 +272,14 @@ function ChannelsSection({ folders, loading, activeLeaf, defaultQueueFor, t }: C
     <div className="space-y-0.5">
       {loading ? <NavSectionSkeleton rows={3} /> : null}
       {!loading && !hasAnyChannel ? (
-        <div className="space-y-1.5 px-0.5">
-          <Link
-            to="/settings/channels"
-            title={t('support.channels.connectChannel')}
-            className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-1.5 text-[12px] font-medium text-accent transition-colors duration-150 hover:bg-bg-hover/55 active:scale-[0.985]"
-          >
-            <Plus size={14} className="shrink-0" />
-            <span className="min-w-0 truncate">{t('support.channels.connectChannel')}</span>
-          </Link>
-        </div>
+        <Link
+          to="/settings/channels"
+          title={t('support.channels.connectChannel')}
+          className="nav-row border border-dashed border-border/80 text-xs"
+        >
+          <Plus aria-hidden />
+          <span className="min-w-0 flex-1 truncate-fade">{t('support.channels.connectChannel')}</span>
+        </Link>
       ) : null}
       {folders.map((folder) => (
         <SidebarFolder
@@ -336,18 +319,19 @@ type AgentsSectionProps = {
 /** Talk to a company agent — one row each, no duplicated Open/Mine queue tree. */
 function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-px">
       {loading ? <NavSectionSkeleton rows={2} /> : null}
       {!loading && agents.length === 0 ? (
-        <div className="space-y-1 px-3 py-1">
-          <p className="text-[12px] text-text-muted">
-            {t('support.agents.empty')}
-          </p>
+        <div className="space-y-1 px-2 py-1">
+          <p className="text-xs text-text-muted">{t('support.agents.empty')}</p>
           <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-            <Link to="/agents" className="text-[11px] font-medium text-accent hover:underline">
+            <Link to="/agents" className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline">
               {t('tabs.agents.title')}
             </Link>
-            <Link to="/settings/setup" className="text-[11px] font-medium text-accent hover:underline">
+            <Link
+              to="/settings/setup"
+              className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline"
+            >
               {t('settings.links.setupGuide')}
             </Link>
           </div>
@@ -355,29 +339,23 @@ function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
       ) : null}
       {agents.map((agent) => {
         const openLeaf: HubLeaf = { type: 'agent', agentId: agent.id, queue: 'open' }
-        const isActive =
-          activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id
+        const isActive = activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id
         return (
-          <div key={agent.id} className="flex items-center gap-0.5">
+          <div key={agent.id} className="group/agent flex items-center gap-0.5">
             <NavLink
               to={leafPath(openLeaf)}
               title={t('support.composeToAgent')}
-              className={() =>
-                cn(
-                  'nav-row flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
-                  isActive
-                    ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-chip-active'
-                    : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
-                )
-              }
+              data-active={isActive ? 'true' : undefined}
+              className="nav-row min-w-0 flex-1"
             >
-              <Bot size={14} className="shrink-0 text-ai-ink" />
-              <span className="min-w-0 flex-1 truncate">{agent.name}</span>
+              <AgentOptionRow agent={agent} size={16} className="min-w-0 flex-1" />
             </NavLink>
-            <ComposePlusLink
-              to={newConversationPath({ intent: 'agent', agentId: agent.id })}
-              label={t('support.composeToAgent')}
-            />
+            <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/agent:opacity-100">
+              <ComposePlusLink
+                to={newConversationPath({ intent: 'agent', agentId: agent.id })}
+                label={t('support.composeToAgent')}
+              />
+            </span>
           </div>
         )
       })}
@@ -466,26 +444,19 @@ export default function MessagesHubNav() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+      <ScrollFade className="space-y-3 pb-1">
         {/* Fixed block: New chat + Inbox */}
-        <section className="space-y-0.5">
+        <section>
           <NavLink
             to={newConversationPath()}
-            className={({ isActive }) =>
-              cn(
-                'nav-row flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
-                isActive
-                  ? 'border-accent/35 bg-accent/12 text-accent'
-                  : 'border-border/50 bg-bg-surface text-text-primary shadow-inset-highlight hover:border-accent/40 hover:bg-accent/5',
-              )
-            }
+            className="nav-row border border-border/70 bg-bg-surface text-text-heading hover:border-border-light"
           >
-            <Plus size={14} className="shrink-0 text-accent" />
+            <Plus aria-hidden />
             <span>{t('support.newChat')}</span>
           </NavLink>
         </section>
 
-        <section className="space-y-0.5">
+        <section className="space-y-px">
           <SidebarFolder
             baseLeaf={inboxBaseLeaf}
             label={t('support.inbox.allCommunication')}
@@ -504,16 +475,10 @@ export default function MessagesHubNav() {
                       key={item.queue}
                       to={inboxPath(item.queue)}
                       title={t(`${item.labelKey}Hint`)}
-                      className={() =>
-                        cn(
-                          'nav-row nav-sub-row flex items-center gap-2 rounded-lg border px-3 py-1 text-[12px] font-medium',
-                          isActive
-                            ? 'border-border/60 bg-bg-hover/85 text-text-heading'
-                            : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
-                        )
-                      }
+                      data-active={isActive ? 'true' : undefined}
+                      className="nav-row nav-sub-row h-[26px] text-xs"
                     >
-                      <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                      <span className="min-w-0 flex-1 truncate-fade">{t(item.labelKey)}</span>
                       <NavCountBadge count={countForInboxQueue(counts, item.queue)} placement="inline" />
                     </NavLink>
                   )
@@ -523,14 +488,15 @@ export default function MessagesHubNav() {
           />
         </section>
 
-        <section className="space-y-0.5">
+        <section>
           <NavLink
             to={decisionsPath()}
             title={t('support.decisions.hint')}
-            className={() => navLinkClass(decisionsActive)}
+            data-active={decisionsActive ? 'true' : undefined}
+            className={navLinkClass(decisionsActive)}
           >
-            <Gavel size={14} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
+            <Gavel aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{t('support.decisions.label')}</span>
             <NavCountBadge count={decisionsBadge} placement="inline" />
           </NavLink>
         </section>
@@ -556,28 +522,20 @@ export default function MessagesHubNav() {
             </CollapsibleSection>
           )
         })}
-      </div>
+      </ScrollFade>
 
       {/* Pinned bottom: platform-wide views that are not communication folders.
           Agent runs and the activity terminal are not listed — agent work shows
           up in the thread it belongs to. */}
-      <div className="mt-2 shrink-0 space-y-0.5 border-t border-border/40 pt-2">
-        <NavLink
-          to="/contacts"
-          title={t('support.contacts.hint')}
-          className={({ isActive }) => navLinkClass(isActive)}
-        >
-          <Users size={14} className="shrink-0 text-text-muted" />
-          <span className="min-w-0 flex-1 truncate">{t('support.contacts.label')}</span>
+      <div className="mt-1 shrink-0 space-y-px border-t border-border/60 pt-1.5">
+        <NavLink to="/contacts" title={t('support.contacts.hint')} className={navLinkClass(false)}>
+          <Users aria-hidden />
+          <span className="min-w-0 flex-1 truncate-fade">{t('support.contacts.label')}</span>
         </NavLink>
         {settingsVisible ? (
-          <NavLink
-            to="/settings/channels"
-            title={t('support.settings.channels')}
-            className={({ isActive }) => navLinkClass(isActive)}
-          >
-            <Settings size={14} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">{t('support.settings.channels')}</span>
+          <NavLink to="/settings/channels" title={t('support.settings.channels')} className={navLinkClass(false)}>
+            <Settings aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{t('support.settings.channels')}</span>
           </NavLink>
         ) : null}
       </div>

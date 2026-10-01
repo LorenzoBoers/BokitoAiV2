@@ -104,7 +104,7 @@ function CheckLine({ check }: { check: ChannelCheck }) {
         <span className="text-text-secondary">{label}</span>
         <span className="text-text-muted"> · {t(`channelsPage.checkState.${check.state}`)}</span>
         {detail ? (
-          <span className="block truncate text-text-muted" title={detail}>
+          <span className="block truncate-fade text-text-muted" title={detail}>
             {detail}
           </span>
         ) : null}
@@ -266,17 +266,17 @@ export default function ChannelList({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-text-heading">{row.label}</span>
-                  <Badge variant="neutral" className="px-1.5 py-0 text-[10px] uppercase tracking-wide">
+                  <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
                     {t(`channelsPage.kind.${row.kind}`, { defaultValue: row.kind })}
                   </Badge>
                   {row.isPrimary ? (
-                    <Badge variant="success" className="px-1.5 py-0 text-[10px] uppercase tracking-wide">
+                    <Badge variant="success" className="px-1.5 py-0 text-2xs">
                       {t('channelsPage.primary')}
                     </Badge>
                   ) : null}
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-secondary">
-                  {row.address ? <span className="truncate">{row.address}</span> : null}
+                  {row.address ? <span className="truncate-fade">{row.address}</span> : null}
                   <span className="text-text-muted">
                     {lastActivity
                       ? t('channelsPage.lastActivity', {
@@ -406,7 +406,7 @@ export default function ChannelList({
             {isOpen ? (
               <div className="mt-3 grid gap-4 rounded-lg border border-border/50 bg-bg-elevated/30 p-3 sm:grid-cols-2">
                 <div>
-                  <h4 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  <h4 className="text-xs font-semibold text-text-muted">
                     {t('channelsPage.checksTitle')}
                   </h4>
                   <ul className="mt-2 space-y-1.5">
@@ -423,10 +423,10 @@ export default function ChannelList({
                 <div className="space-y-3">
                   {canSync ? (
                     <div>
-                      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <h4 className="text-xs font-semibold text-text-muted">
                         {t('channelsPage.history')}
                       </h4>
-                      <p className="mt-1 text-[11px] leading-snug text-text-muted">
+                      <p className="mt-1 text-xs leading-snug text-text-muted">
                         {t('channelsPage.historyAdvancedHint')}
                       </p>
                       <select
@@ -449,7 +449,7 @@ export default function ChannelList({
                     </div>
                   ) : null}
                   <div>
-                    <h4 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <h4 className="text-xs font-semibold text-text-muted">
                       {t('channelsPage.colAgent')}
                     </h4>
                     <div className="mt-2">
@@ -461,7 +461,7 @@ export default function ChannelList({
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <h4 className="text-xs font-semibold text-text-muted">
                       {t('channelsPage.colVisibility')}
                     </h4>
                     <div className="mt-2">
@@ -509,7 +509,7 @@ export default function ChannelList({
                 onChange={(e) => setRenameDraft(e.target.value)}
                 placeholder={renameTarget?.address || ''}
                 autoFocus
-                className="w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[13px] text-text-primary outline-none focus:border-accent/60"
+                className="w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && renameTarget) {
                     e.preventDefault()
@@ -520,7 +520,7 @@ export default function ChannelList({
                 }}
               />
             </label>
-            <p className="mt-1.5 text-[11px] text-text-muted">{t('channelsPage.renameHint')}</p>
+            <p className="mt-1.5 text-xs text-text-muted">{t('channelsPage.renameHint')}</p>
             <div className="mt-4 flex justify-end gap-2">
               <Button
                 variant="secondary"

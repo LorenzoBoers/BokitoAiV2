@@ -529,7 +529,7 @@ export default function ReplyComposer({
   )
 
   return (
-    <div className="shrink-0 border-t border-border/40 px-4 pb-4 pt-2">
+    <div className="shrink-0 border-t border-border/60 px-4 pb-4 pt-2">
       <div className="mx-auto w-full max-w-[860px]">
         <div className="mb-1.5 flex items-center gap-1">
           {showReplyTab ? (
@@ -546,7 +546,7 @@ export default function ReplyComposer({
                     })}
                     className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                       isReply
-                        ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
+                        ? 'bg-bg-hover font-medium text-text-heading'
                         : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
                     }`}
                   >
@@ -558,12 +558,12 @@ export default function ReplyComposer({
                     ) : (
                       <ChannelGlyph channel={surface.channel} size={12} />
                     )}
-                    <span className="max-w-[10rem] truncate">{replyTabLabel}</span>
+                    <span className="max-w-[10rem] truncate-fade">{replyTabLabel}</span>
                     <ChevronDown size={11} className="shrink-0 opacity-70" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
-                  <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                  <p className="px-2 py-1.5 text-2xs font-semibold text-text-muted">
                     {t('composer.sendFrom', { defaultValue: 'Send from' })}
                   </p>
                   {emailChannels.map((row) => {
@@ -583,9 +583,9 @@ export default function ReplyComposer({
                           className="h-3.5 w-3.5 shrink-0 object-contain"
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium text-text-heading">{label}</span>
+                          <span className="block truncate-fade font-medium text-text-heading">{label}</span>
                           {row.address && label !== row.address ? (
-                            <span className="block truncate text-[10px] text-text-muted">{row.address}</span>
+                            <span className="block truncate-fade text-2xs text-text-muted">{row.address}</span>
                           ) : null}
                         </span>
                         {active ? <Check size={12} className="shrink-0 text-accent" /> : null}
@@ -601,7 +601,7 @@ export default function ReplyComposer({
                 title={canPickMailbox ? mailboxTooltip : replyTooltip}
                 className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                   isReply
-                    ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
+                    ? 'bg-bg-hover font-medium text-text-heading'
                     : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
                 }`}
               >
@@ -613,7 +613,7 @@ export default function ReplyComposer({
                 ) : (
                   <ChannelGlyph channel={surface.channel} size={12} />
                 )}
-                <span className="max-w-[12rem] truncate">{replyTabLabel}</span>
+                <span className="max-w-[12rem] truncate-fade">{replyTabLabel}</span>
               </button>
             )
           ) : null}
@@ -624,7 +624,7 @@ export default function ReplyComposer({
               title={noteTooltip}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 isNote
-                  ? 'bg-bg-elevated text-text-primary font-semibold ring-1 ring-border/70'
+                  ? 'bg-bg-hover font-medium text-text-heading'
                   : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
               }`}
             >
@@ -639,7 +639,7 @@ export default function ReplyComposer({
               title={askTooltip}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 isAsk
-                  ? 'border border-ai/30 bg-ai/10 font-semibold text-ai-ink'
+                  ? 'bg-bg-hover font-medium text-ai-ink'
                   : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink'
               }`}
             >
@@ -654,13 +654,13 @@ export default function ReplyComposer({
 
         {isProposal && proposal ? (
           <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ai/25 bg-ai/10 px-2.5 py-1.5">
-            <p className="text-[11px] text-ai-ink">{t('composer.proposalBanner')}</p>
+            <p className="text-xs text-ai-ink">{t('composer.proposalBanner')}</p>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 disabled={busy || disabled}
                 onClick={() => void handleSubmit('send')}
-                className="rounded-md bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+                className="rounded-md bg-accent px-2 py-0.5 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
               >
                 {t('composer.proposalSend')}
               </button>
@@ -668,7 +668,7 @@ export default function ReplyComposer({
                 type="button"
                 disabled={busy || disabled}
                 onClick={() => requestAnimationFrame(() => textareaRef.current?.focus())}
-                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40"
+                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-xs font-medium text-text-primary hover:border-border-light"
               >
                 {t('composer.proposalEdit')}
               </button>
@@ -676,7 +676,7 @@ export default function ReplyComposer({
                 type="button"
                 disabled={busy || disabled}
                 onClick={() => void proposal.onDismiss()}
-                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-muted hover:text-text-primary"
+                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-xs font-medium text-text-muted hover:text-text-primary"
               >
                 {t('composer.proposalDismiss')}
               </button>
@@ -686,13 +686,13 @@ export default function ReplyComposer({
 
         {/* Only on Reply — Intern/Ask already work; repeating the mailbox banner there feels broken. */}
         {replyBlocked && isReply ? (
-          <div className="space-y-2 rounded-xl border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[12px] text-text-secondary">
+          <div className="space-y-2 rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-xs text-text-secondary">
             {replyDisabledNotice}
             {showNoteTab ? (
               <button
                 type="button"
                 onClick={() => setMode('note')}
-                className="text-[11px] font-medium text-accent hover:underline"
+                className="text-xs font-medium text-accent hover:underline"
               >
                 {t('composer.switchToNote', { defaultValue: 'Write an internal note instead' })}
               </button>
@@ -702,12 +702,12 @@ export default function ReplyComposer({
 
         {!isNote && !isAsk && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
           <div
-            className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]"
+            className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-xs"
             title={surface.includeSignature ? t('composer.withSignature') : undefined}
           >
             <div className="flex items-center gap-2">
               <span className="shrink-0 font-medium text-text-muted">{recipientLabel}</span>
-              <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
+              <span className="min-w-0 truncate-fade text-text-primary">{surface.recipientValue}</span>
               <span className="ml-auto flex items-center gap-2">
                   {lastInboundText?.trim() ? (
                     <button
@@ -722,7 +722,7 @@ export default function ReplyComposer({
                         setBody((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${quoted}` : quoted))
                         requestAnimationFrame(() => textareaRef.current?.focus())
                       }}
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-text-muted hover:text-text-primary"
+                      className="inline-flex items-center gap-1 text-2xs font-medium text-text-muted hover:text-text-primary"
                     >
                       <Quote size={10} />
                       {t('composer.quote')}
@@ -739,7 +739,7 @@ export default function ReplyComposer({
                         return !open
                       })
                     }
-                    className={`shrink-0 text-[10px] font-medium transition-colors ${
+                    className={`shrink-0 text-2xs font-medium transition-colors ${
                       ccBccOpen || cc || bcc
                         ? 'text-accent'
                         : 'text-text-muted hover:text-text-primary'
@@ -784,7 +784,7 @@ export default function ReplyComposer({
 
         {draftRestored && !isNote ? (
           <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-bg-elevated/70 px-2 py-1">
-            <span className="text-[11px] text-text-muted">{t('composer.draftRestored')}</span>
+            <span className="text-xs text-text-muted">{t('composer.draftRestored')}</span>
             <button
               type="button"
               onClick={() => {
@@ -795,7 +795,7 @@ export default function ReplyComposer({
                 setDraftRestored(false)
                 writeStoredDraft(persistKey, '')
               }}
-              className="text-[11px] font-medium text-accent hover:underline"
+              className="text-xs font-medium text-accent hover:underline"
             >
               {t('composer.discardDraft')}
             </button>
@@ -895,20 +895,20 @@ export default function ReplyComposer({
             disabled={uploading || saving || disabled}
             onClick={() => fileInputRef.current?.click()}
             title={t('composer.attachFile')}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
           >
             <Paperclip size={14} />
           </button>
-          <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-xl">
+          <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-lg">
             {isAsk && agentStreaming ? (
               <button
                 type="button"
                 onClick={() => onStopAgent?.()}
                 title={t('composer.stop', { defaultValue: 'Stop' })}
-                className="flex h-8 items-center justify-center gap-1.5 rounded-xl bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover/80"
+                className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover/80"
               >
                 <Square size={13} />
-                <span className="text-[11px] font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
+                <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
               </button>
             ) : null}
             <button
@@ -932,11 +932,11 @@ export default function ReplyComposer({
                   : isNote
                     ? 'bg-bg-elevated text-text-primary ring-1 ring-border/70 hover:bg-bg-hover'
                     : 'bg-accent text-accent-fg hover:bg-accent-hover'
-              } ${isReply && showCustomerActions ? 'rounded-none' : 'rounded-xl'}`}
+              } ${isReply && showCustomerActions ? 'rounded-none' : 'rounded-lg'}`}
             >
               {isAsk ? <AiMark size={13} /> : isNote ? <StickyNote size={13} /> : <Send size={13} />}
               {isReply && surface.channel === 'email' ? (
-                <span className="text-[10px] font-medium opacity-90">{t('composer.sendShortcut')}</span>
+                <span className="text-2xs font-medium opacity-90">{t('composer.sendShortcut')}</span>
               ) : null}
             </button>
             {isReply && showCustomerActions ? (

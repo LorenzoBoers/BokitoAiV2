@@ -265,7 +265,7 @@ export default function StaffIntegrationCatalog() {
                     <td className="py-2 pr-3">{row.name}</td>
                     <td className="py-2 pr-3 text-xs">{row.auth_type}</td>
                     <td className="py-2 pr-3 text-xs">{row.status}</td>
-                    <td className="max-w-[220px] truncate py-2 pr-3 text-xs text-text-muted">
+                    <td className="max-w-[220px] truncate-fade py-2 pr-3 text-xs text-text-muted">
                       {row.mcp_remote_url || '—'}
                     </td>
                     <td className="py-2 pr-3 text-xs">{row.enabled ? 'yes' : 'no'}</td>

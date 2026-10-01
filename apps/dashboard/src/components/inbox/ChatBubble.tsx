@@ -36,14 +36,14 @@ export function BubbleHeader({
       {hasTop ? (
         <div className="flex w-full min-w-0 items-center gap-1.5">
           {name != null ? (
-            <span className="truncate text-xs font-medium text-text-heading">{name}</span>
+            <span className="truncate-fade text-xs font-medium text-text-heading">{name}</span>
           ) : null}
           {chip}
           {trailing}
         </div>
       ) : null}
       {subtitle != null ? (
-        <p className="truncate text-[10px] leading-snug text-text-muted">{subtitle}</p>
+        <p className="truncate-fade text-2xs leading-snug text-text-muted">{subtitle}</p>
       ) : null}
     </div>
   )
@@ -87,7 +87,7 @@ export function ChatMessageBubble({
       {isRight ? endAvatar : avatar}
       <div
         className={cn(
-          'max-w-[78%] min-w-0 rounded-2xl border px-3 py-2',
+          'max-w-[78%] min-w-0 rounded-xl border px-3 py-2',
           isRight ? 'rounded-br-sm' : 'rounded-bl-sm',
           BUBBLE_VARIANT_CLASSES[variant],
           bubbleClassName,

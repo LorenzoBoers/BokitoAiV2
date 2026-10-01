@@ -130,13 +130,13 @@ export default function WorkstreamsPage() {
                       <span
                         className={
                           ws.enabled
-                            ? 'block truncate font-medium text-text-heading'
-                            : 'block truncate font-medium text-text-muted opacity-70'
+                            ? 'block truncate-fade font-medium text-text-heading'
+                            : 'block truncate-fade font-medium text-text-muted opacity-70'
                         }
                       >
                         {ws.name}
                       </span>
-                      <span className="block truncate text-xs text-text-muted">
+                      <span className="block truncate-fade text-xs text-text-muted">
                         {t('workstreamsPage.stepCount', { count: ws.steps_count ?? 0 })}
                         {ws.project_id && projectNames.get(ws.project_id)
                           ? ` · ${projectNames.get(ws.project_id)}`
@@ -146,12 +146,12 @@ export default function WorkstreamsPage() {
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       {ws.is_default ? (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-2xs">
                           {t('workstreamsPage.default')}
                         </Badge>
                       ) : null}
                       {!ws.enabled ? (
-                        <Badge variant="outline" className="border-border text-[10px] text-text-muted">
+                        <Badge variant="outline" className="border-border text-2xs text-text-muted">
                           {t('workstreamsPage.paused')}
                         </Badge>
                       ) : null}
@@ -189,10 +189,10 @@ export default function WorkstreamsPage() {
                     className="row-interactive flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm transition-colors hover:border-border hover:bg-bg-muted/40"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate font-medium text-text-heading">
+                      <span className="block truncate-fade font-medium text-text-heading">
                         {run.workstream_name || t('workstreamsPage.runFallbackTitle')}
                       </span>
-                      <span className="block truncate text-xs text-text-muted">
+                      <span className="block truncate-fade text-xs text-text-muted">
                         {run.started_at
                           ? formatAppDateTime(new Date(run.started_at), i18n.language)
                           : ''}

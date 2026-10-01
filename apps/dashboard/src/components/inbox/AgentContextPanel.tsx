@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Cpu,
   Loader2,
-  MessageSquare,
   Plug,
   ShieldCheck,
   Wrench,
@@ -30,6 +29,7 @@ import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { permissionScopeLabel } from '../../lib/permission-scope-label'
 import { AiAvatar } from '../ui/AiAvatar'
+import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { ConversationWorkSection } from './ConversationWorkSection'
 
 type Props = {
@@ -81,7 +81,7 @@ function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unkn
 
 function SectionHeading({ title }: { title: string }) {
   return (
-    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</h3>
+    <h3 className="mb-2 text-xs font-semibold text-text-muted">{title}</h3>
   )
 }
 
@@ -112,8 +112,8 @@ function DisclosureRow({
         className="flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-bg-hover/40 disabled:cursor-default disabled:hover:bg-transparent"
       >
         <Icon size={13} className="shrink-0 text-text-muted" />
-        <span className="flex-1 text-[12.5px] font-medium text-text-primary">{label}</span>
-        <span className="rounded-full bg-bg-elevated px-1.5 py-px text-[10.5px] font-semibold text-text-secondary">
+        <span className="flex-1 text-sm font-medium text-text-primary">{label}</span>
+        <span className="rounded-full bg-bg-elevated px-1.5 py-px text-2xs font-semibold text-text-secondary">
           {countLabel ?? count}
         </span>
         {!empty ? (
@@ -205,7 +205,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         {agent && agentId ? (
           <Link
             to={`/agents/${agentId}`}
-            className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2.5 transition-colors hover:border-accent/50"
+            className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2.5 transition-colors hover:border-border-light"
           >
             <AiAvatar
               name={agent.name}
@@ -214,19 +214,18 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               className="mt-0.5"
               kind={agent.avatar_kind}
               icon={agent.avatar_icon}
-              color={agent.avatar_color}
               imageUrl={agent.avatar_image_url}
               decorative
             />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-text-heading">{agent.name}</span>
+              <span className="block truncate-fade text-sm font-semibold text-text-heading">{agent.name}</span>
               <span className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
                 <Bot size={11} />
                 {role}
               </span>
               {status ? (
                 <span
-                  className={`mt-1 inline-flex items-center text-[10px] font-semibold ${
+                  className={`mt-1 inline-flex items-center text-2xs font-semibold ${
                     STATUS_CLASS[status] ?? 'text-text-muted'
                   }`}
                 >
@@ -234,7 +233,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                 </span>
               ) : null}
               {agent.current_activity_summary ? (
-                <span className="mt-2 flex items-start gap-1.5 text-[11px] text-text-secondary">
+                <span className="mt-2 flex items-start gap-1.5 text-xs text-text-secondary">
                   <Activity size={11} className="mt-0.5 shrink-0 text-text-muted" />
                   <span className="line-clamp-3">{agent.current_activity_summary}</span>
                 </span>
@@ -250,46 +249,46 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           </div>
         )}
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-          <Link to="/settings/communication" className="text-[11px] font-medium text-accent hover:underline">
+          <Link to="/settings/communication" className="text-xs font-medium text-accent hover:underline">
             {t('agentContext.inboxAiSettings')}
           </Link>
           {agentId ? (
-            <Link to={`/agenda?agent=${agentId}`} className="text-[11px] font-medium text-accent hover:underline">
+            <Link to={`/agenda?agent=${agentId}`} className="text-xs font-medium text-accent hover:underline">
               {t('agentContext.schedule')}
             </Link>
           ) : null}
-          <Link to="/settings/govern?tab=policy" className="text-[11px] font-medium text-accent hover:underline">
+          <Link to="/settings/govern?tab=policy" className="text-xs font-medium text-accent hover:underline">
             {t('agentContext.govern')}
           </Link>
-          <Link to="/connections/connected" className="text-[11px] font-medium text-accent hover:underline">
+          <Link to="/connections/connected" className="text-xs font-medium text-accent hover:underline">
             {t('agentContext.openIntegrations')}
           </Link>
         </div>
         {model ? (
-          <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-text-secondary">
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary">
             <Cpu size={12} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 truncate">{formatAgentModelLine(model, provider, t)}</span>
+            <span className="min-w-0 truncate-fade">{formatAgentModelLine(model, provider, t)}</span>
           </p>
         ) : null}
       </div>
 
       {loadFailed && !loading ? (
         <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 px-3 py-2">
-          <span className="text-[11px] text-text-secondary">{t('agentContext.loadFailed')}</span>
+          <span className="text-xs text-text-secondary">{t('agentContext.loadFailed')}</span>
           <button
             type="button"
             onClick={() => void load()}
-            className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+            className="shrink-0 text-xs font-medium text-accent hover:underline"
           >
             {t('agentContext.retry')}
           </button>
         </div>
       ) : null}
 
-      <ConversationWorkSection threadId={thread.id} />
+      <ConversationWorkSection thread={thread} />
 
       {loading ? (
-        <div className="flex items-center gap-2 px-4 py-3 text-[12px] text-text-muted">
+        <div className="flex items-center gap-2 px-4 py-3 text-xs text-text-muted">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           {t('agentContext.loading')}
         </div>
@@ -304,7 +303,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
       >
         {mcpRows.length > 0 ? (
           <div className="mb-2">
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+            <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
               <Plug size={10} />
               {t('agentContext.integrations')}
             </p>
@@ -313,18 +312,18 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                 <Link
                   key={row.id}
                   to="/connections/connected"
-                  className="flex items-center gap-2 rounded-md border border-border/40 bg-bg-elevated/45 px-2 py-1 transition-colors hover:border-accent/40"
+                  className="flex items-center gap-2 rounded-md border border-transparent px-2 py-1 transition-colors hover:bg-bg-hover/70"
                 >
                   <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[9px] font-semibold text-white"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-2xs font-semibold text-white"
                     style={{ backgroundColor: row.brandColor }}
                   >
                     {row.initials}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11.5px] text-text-primary">{row.displayName}</span>
+                    <span className="block truncate-fade text-xs text-text-primary">{row.displayName}</span>
                     {row.endpoint ? (
-                      <span className="block truncate text-[10px] text-text-muted">{row.endpoint}</span>
+                      <span className="block truncate-fade text-2xs text-text-muted">{row.endpoint}</span>
                     ) : null}
                   </span>
                 </Link>
@@ -333,7 +332,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           </div>
         ) : null}
         <div>
-          <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
             <Wrench size={10} />
             {t('agentContext.tools')}
             {unrestricted ? (
@@ -348,13 +347,13 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                 <span
                   key={t.name}
                   title={t.description}
-                  className="rounded-md bg-bg-elevated px-1.5 py-px text-[10.5px] text-text-secondary"
+                  className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
                 >
                   {t.name}
                 </span>
               ))}
               {toolCatalog.length === 0 ? (
-                <span className="text-[11px] text-text-muted">{t('agentContext.allToolsAvailable')}</span>
+                <span className="text-xs text-text-muted">{t('agentContext.allToolsAvailable')}</span>
               ) : null}
             </div>
           ) : (
@@ -363,7 +362,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                 <span
                   key={name}
                   title={toolDescription.get(name)?.description}
-                  className="rounded-md bg-bg-elevated px-1.5 py-px text-[10.5px] text-text-secondary"
+                  className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
                 >
                   {name}
                 </span>
@@ -384,7 +383,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           {scopes.map((scope) => (
             <span
               key={scope}
-              className="rounded-md bg-bg-elevated px-1.5 py-px text-[10.5px] text-text-secondary"
+              className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
             >
               {permissionScopeLabel(scope, t)}
             </span>
@@ -398,10 +397,10 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           <SectionHeading title={t('agentContext.activeTask')} />
           <Link
             to={agentRunsPath('all', task.signal_id || String(thread.id))}
-            className="block rounded-lg border border-border/60 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-accent/40"
+            className="block rounded-lg border border-border/60 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-border-light"
           >
-            <p className="truncate text-[12.5px] font-medium text-text-primary">{task.title}</p>
-            <p className="mt-0.5 text-[11px] text-text-muted">
+            <p className="truncate-fade text-sm font-medium text-text-primary">{task.title}</p>
+            <p className="mt-0.5 text-xs text-text-muted">
               {workLogStatusLabel(task.status, t)}
               {task.pause_reason ? ` (${humanizeLabel(task.pause_reason)})` : ''}
               {' · '}{t('agentContext.openRun')}
@@ -415,11 +414,11 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         <SectionHeading title={t('agentContext.recentConversations')} />
         {recent.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 px-3 py-3">
-            <p className="text-[11.5px] text-text-muted">{t('agentContext.noOtherConversations')}</p>
+            <p className="text-xs text-text-muted">{t('agentContext.noOtherConversations')}</p>
             {agent?.id ? (
               <Link
                 to={agentChatPath(agent.id)}
-                className="mt-1.5 inline-block text-[11px] font-medium text-accent hover:underline"
+                className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
               >
                 {t('agentContext.chatWithAgent')}
               </Link>
@@ -431,14 +430,14 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               <Link
                 key={String(thread.id)}
                 to={threadHubPath(thread)}
-                className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
+                className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 transition-colors hover:bg-bg-hover/70"
               >
-                <MessageSquare size={12} className="shrink-0 text-text-muted" />
+                <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] font-medium text-text-primary">
+                  <span className="block truncate-fade text-xs font-medium text-text-primary">
                     {translateDecisionText(thread.emailSubject, t) || t('listItem.noSubject')}
                   </span>
-                  <span className="block truncate text-[10.5px] text-text-muted">
+                  <span className="block truncate-fade text-2xs text-text-muted">
                     {threadStatusLabel(thread.status, t)}
                     {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                   </span>

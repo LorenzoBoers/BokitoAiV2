@@ -625,6 +625,8 @@ async def nav_badge_counts(
     if include_agents_attention:
         agents_attention = await _count_open_decisions(session, tenant_id)
         no_reply_suggestions = await count_no_reply_suggestions(session, tenant_id)
+    open_dec = await _signals_with_open_decisions(session, tenant_id)
+    your_turn = await _count(_your_turn_predicate(tenant_id, open_dec))
 
     return {
         "inbox_unread": my_unread + unassigned_unread,
@@ -635,6 +637,8 @@ async def nav_badge_counts(
         },
         "agents_attention": agents_attention,
         "no_reply_suggestions": no_reply_suggestions,
+        # Badge for the hub's "You" leaf (open decisions + customer replies due).
+        "your_turn": your_turn,
     }
 
 
@@ -662,6 +666,61 @@ def _exists_outbound_message(tenant_id: UUID):
         )
         .exists()
     )
+
+
+def _needs_reply_predicate(tenant_id: UUID):
+    """Open thread where the other side spoke last (or it is unread).
+
+    "Spoke last" compares the newest inbound user message with the newest
+    real outbound reply; mock/placeholder bodies do not count as a reply.
+    """
+    last_user = (
+        select(SignalMessage.signal_id, func.max(SignalMessage.created_at).label("at"))
+        .where(
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.kind == "user_message",
+            SignalMessage.direction == "inbound",
+        )
+        .group_by(SignalMessage.signal_id)
+        .subquery()
+    )
+    last_agent = (
+        select(SignalMessage.signal_id, func.max(SignalMessage.created_at).label("at"))
+        .where(
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.direction == "outbound",
+            SignalMessage.kind.in_(("user_message", "agent_message")),
+            # Same skip as list previews: mock/placeholder bodies are not a reply.
+            ~func.lower(SignalMessage.body_text).like("[mock]%"),
+            ~func.lower(SignalMessage.body_text).like("i received your message about:%"),
+        )
+        .group_by(SignalMessage.signal_id)
+        .subquery()
+    )
+    inbound_last = (
+        select(last_user.c.signal_id)
+        .select_from(last_user.outerjoin(last_agent, last_user.c.signal_id == last_agent.c.signal_id))
+        .where(or_(last_agent.c.at.is_(None), last_user.c.at > last_agent.c.at))
+    )
+    return and_(
+        Signal.status == "open",
+        or_(Signal.has_unread.is_(True), Signal.id.in_(inbound_last)),
+    )
+
+
+def _your_turn_predicate(tenant_id: UUID, open_decision_ids: list[UUID] | set[UUID]):
+    """The hub's "You" view: open decision, or a customer thread awaiting a reply.
+
+    Agent-run threads (``internal``) only qualify through a decision card;
+    their status updates never read as "waiting on you".
+    """
+    waiting_reply = and_(
+        Signal.channel.notin_(("internal", "assistant")),
+        _needs_reply_predicate(tenant_id),
+    )
+    if open_decision_ids:
+        return or_(Signal.id.in_(open_decision_ids), waiting_reply)
+    return waiting_reply
 
 
 async def list_threads(
@@ -761,6 +820,11 @@ async def list_threads(
             query = query.where(Signal.id.in_(open_dec))
         else:
             query = query.where(Signal.id.is_(None))
+    elif view == "your_turn":
+        # "You" in the hub: every conversation that waits on a person — an
+        # open decision card, or a customer thread whose last word is theirs.
+        open_dec = await _signals_with_open_decisions(session, tenant_id)
+        query = query.where(_your_turn_predicate(tenant_id, open_dec))
     elif view == "updates":
         query = query.where(_exists_message_kind(tenant_id, "status_update"))
     elif view == "results":
@@ -815,40 +879,7 @@ async def list_threads(
     if pinned_only:
         query = query.where(Signal.id.in_(pinned) if pinned else Signal.id.is_(None))
     if needs_reply:
-        last_user = (
-            select(SignalMessage.signal_id, func.max(SignalMessage.created_at).label("at"))
-            .where(
-                SignalMessage.tenant_id == tenant_id,
-                SignalMessage.kind == "user_message",
-                SignalMessage.direction == "inbound",
-            )
-            .group_by(SignalMessage.signal_id)
-            .subquery()
-        )
-        last_agent = (
-            select(SignalMessage.signal_id, func.max(SignalMessage.created_at).label("at"))
-            .where(
-                SignalMessage.tenant_id == tenant_id,
-                SignalMessage.direction == "outbound",
-                SignalMessage.kind.in_(("user_message", "agent_message")),
-                # Same skip as list previews: mock/placeholder bodies are not a reply.
-                ~func.lower(SignalMessage.body_text).like("[mock]%"),
-                ~func.lower(SignalMessage.body_text).like("i received your message about:%"),
-            )
-            .group_by(SignalMessage.signal_id)
-            .subquery()
-        )
-        inbound_last = (
-            select(last_user.c.signal_id)
-            .select_from(
-                last_user.outerjoin(last_agent, last_user.c.signal_id == last_agent.c.signal_id)
-            )
-            .where(or_(last_agent.c.at.is_(None), last_user.c.at > last_agent.c.at))
-        )
-        query = query.where(
-            Signal.status == "open",
-            or_(Signal.has_unread.is_(True), Signal.id.in_(inbound_last)),
-        )
+        query = query.where(_needs_reply_predicate(tenant_id))
     if needs_decision:
         open_dec = await _signals_with_open_decisions(session, tenant_id)
         query = query.where(Signal.id.in_(open_dec) if open_dec else Signal.id.is_(None))

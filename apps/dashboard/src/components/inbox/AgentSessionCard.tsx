@@ -13,7 +13,9 @@ import {
 } from '../../lib/signals-api'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
-import { AiIconBox, AiMark } from '../ai/AiMark'
+import { AiMark } from '../ai/AiMark'
+import { AiAvatar } from '../ui/AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { BubbleHeader, ChatMessageBubble } from './ChatBubble'
 import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
@@ -30,6 +32,11 @@ type Props = {
   liveMessages?: ChatMessage[]
   /** True while the operator's message is streaming a reply. */
   streaming?: boolean
+  /** Shared agent mark for this thread (icon / initials / image). */
+  agentAvatarKind?: string | null
+  agentAvatarIcon?: string | null
+  agentAvatarColor?: string | null
+  agentAvatarImageUrl?: string | null
 }
 
 function formatTime(iso: string): string {
@@ -48,11 +55,13 @@ function actionLabel(action: ThreadSession['actions'][number]): string {
 function MetaBubble({
   message,
   agentName,
+  agentAvatar,
   operatorAvatar,
   onUseAsReply,
 }: {
   message: ChatMessage
   agentName?: string | null
+  agentAvatar: ReactNode
   operatorAvatar: ReactNode
   onUseAsReply?: (text: string) => void
 }) {
@@ -64,26 +73,26 @@ function MetaBubble({
         side="right"
         avatar={operatorAvatar}
         variant="self"
-        body={<p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed">{message.content}</p>}
+        body={<p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>}
       />
     )
   }
   return (
     <ChatMessageBubble
       side="left"
-      avatar={<AiIconBox size="sm" />}
+      avatar={agentAvatar}
       variant="agent"
       header={
         <BubbleHeader name={agentName || t('agentSession.title')} />
       }
       body={
-        <div className="text-[13px] leading-relaxed">
+        <div className="text-sm leading-relaxed">
           <ChatMarkdown content={translateMockAgentBody(message.content, t)} />
           {onUseAsReply && message.content.trim() && message.id !== 'local-stream' ? (
             <button
               type="button"
               onClick={() => onUseAsReply(message.content)}
-              className="mt-1.5 text-[11px] font-medium text-ai-ink/80 hover:text-ai-ink"
+              className="mt-1.5 text-xs font-medium text-ai-ink/80 hover:text-ai-ink"
             >
               {t('agentSession.useAsReply')}
             </button>
@@ -97,6 +106,7 @@ function MetaBubble({
 function SessionTranscript({
   sessionId,
   agentName,
+  agentAvatar,
   messages: controlled,
   operatorAvatar,
   onUseAsReply,
@@ -104,6 +114,7 @@ function SessionTranscript({
 }: {
   sessionId: string
   agentName?: string | null
+  agentAvatar: ReactNode
   messages?: ChatMessage[]
   operatorAvatar: ReactNode
   onUseAsReply?: (text: string) => void
@@ -134,7 +145,7 @@ function SessionTranscript({
   }, [token, sessionId, controlled])
 
   if (error) {
-    return <p className="px-1 py-2 text-[12px] text-status-error">{t('agentSession.transcriptError')}</p>
+    return <p className="px-1 py-2 text-xs text-status-error">{t('agentSession.transcriptError')}</p>
   }
   if (messages === null) {
     return (
@@ -145,7 +156,7 @@ function SessionTranscript({
   }
   if (messages.length === 0 && !streaming) {
     return (
-      <p className="px-1 py-2 text-[12px] text-text-muted">{t('agentSession.emptyTranscript')}</p>
+      <p className="px-1 py-2 text-xs text-text-muted">{t('agentSession.emptyTranscript')}</p>
     )
   }
   return (
@@ -155,12 +166,13 @@ function SessionTranscript({
           key={m.id}
           message={m}
           agentName={agentName}
+          agentAvatar={agentAvatar}
           operatorAvatar={operatorAvatar}
           onUseAsReply={onUseAsReply}
         />
       ))}
       {streaming && !messages.some((m) => m.id === 'local-stream') ? (
-        <div className="flex items-center gap-2 px-1 py-1 text-[12px] text-text-muted">
+        <div className="flex items-center gap-2 px-1 py-1 text-xs text-text-muted">
           <Loader2 size={12} className="animate-spin text-ai" />
           {t('agentSession.thinking', { defaultValue: 'Thinking…' })}
         </div>
@@ -185,18 +197,18 @@ function SessionToolbar({
   const { t } = useTranslation('communication')
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] font-medium text-ai-ink">
+      <span className="inline-flex items-center gap-1.5 rounded-md border border-ai/25 bg-ai/10 px-2 py-0.5 text-xs font-medium text-ai-ink">
         <AiMark size={11} />
         {t('agentSession.segmentActive', {
           name: session.agentName ?? t('agentSession.title'),
         })}
       </span>
-      <span className="text-[10.5px] text-text-muted">{t('agentSession.internalHint')}</span>
+      <span className="text-2xs text-text-muted">{t('agentSession.internalHint')}</span>
       <div className="ml-auto flex items-center gap-1">
         {session.agentId ? (
           <Link
             to={`/agents/${session.agentId}`}
-            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
+            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
           >
             <ExternalLink size={11} />
             {t('agentSession.openAgent')}
@@ -208,7 +220,7 @@ function SessionToolbar({
             variant="secondary"
             disabled={closing}
             onClick={onEnd}
-            className="h-7 gap-1.5 px-2.5 text-[11.5px]"
+            className="h-7 gap-1.5 px-2.5 text-xs"
           >
             {closing ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
             {closing ? t('agentSession.ending') : t('agentSession.endSession')}
@@ -219,7 +231,7 @@ function SessionToolbar({
             variant="ghost"
             disabled={closing}
             onClick={onCancel}
-            className="h-7 gap-1.5 px-2.5 text-[11.5px] text-text-muted"
+            className="h-7 gap-1.5 px-2.5 text-xs text-text-muted"
           >
             {closing ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
             {t('agentSession.cancel')}
@@ -235,24 +247,24 @@ function ExpandedExtras({ session }: { session: ThreadSession }) {
   return (
     <div className="space-y-2 py-1">
       {session.summary ? (
-        <p className="whitespace-pre-wrap break-words px-1 text-[12px] leading-relaxed text-text-secondary">
+        <p className="whitespace-pre-wrap break-words px-1 text-xs leading-relaxed text-text-secondary">
           {translateMockAgentBody(session.summary, t)}
         </p>
       ) : null}
       <div className="px-1">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+        <p className="mb-1 text-2xs font-semibold text-text-muted">
           {t('agentSession.actionsTitle')}
         </p>
         {session.actions.length === 0 ? (
-          <p className="text-[11.5px] text-text-muted">{t('agentSession.noActions')}</p>
+          <p className="text-xs text-text-muted">{t('agentSession.noActions')}</p>
         ) : (
           <ul className="space-y-1">
             {session.actions.map((action, idx) => (
-              <li key={idx} className="flex items-center gap-1.5 text-[11.5px] text-text-secondary">
+              <li key={idx} className="flex items-center gap-1.5 text-xs text-text-secondary">
                 <Wrench size={10} className="shrink-0 text-text-muted" />
-                <span className="truncate font-mono">{actionLabel(action)}</span>
+                <span className="truncate-fade font-mono">{actionLabel(action)}</span>
                 {action.at ? (
-                  <span className="ml-auto shrink-0 text-[10px] text-text-muted">
+                  <span className="ml-auto shrink-0 text-2xs text-text-muted">
                     {formatTime(action.at)}
                   </span>
                 ) : null}
@@ -277,6 +289,10 @@ export default function AgentSessionCard({
   onUseAsReply,
   liveMessages,
   streaming,
+  agentAvatarKind,
+  agentAvatarIcon,
+  agentAvatarColor,
+  agentAvatarImageUrl,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token, user } = useAuth()
@@ -295,8 +311,23 @@ export default function AgentSessionCard({
       decorative
     />
   )
-  const agentAvatar = <AiIconBox size="sm" />
-
+  const agentAvatar = (
+    <AiAvatar
+      {...toAiAvatarProps(
+        {
+          name: session.agentName,
+          agentId: session.agentId,
+          agentAvatarKind,
+          agentAvatarIcon,
+          agentAvatarColor,
+          agentAvatarImageUrl,
+        },
+        t('agentSession.title'),
+      )}
+      size={28}
+      decorative
+    />
+  )
   const endSession = async () => {
     if (!token || closing) return
     setClosing(true)
@@ -337,6 +368,7 @@ export default function AgentSessionCard({
         <SessionTranscript
           sessionId={session.id}
           agentName={session.agentName}
+          agentAvatar={agentAvatar}
           messages={liveMessages}
           operatorAvatar={operatorAvatar}
           onUseAsReply={onUseAsReply}
@@ -382,9 +414,9 @@ export default function AgentSessionCard({
         }
         body={
           <div className="min-w-0">
-            <p className="truncate text-[11px] text-text-muted">{summaryLine}</p>
+            <p className="truncate-fade text-xs text-text-muted">{summaryLine}</p>
             {session.summary && !expanded ? (
-              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-text-secondary">
+              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-text-secondary">
                 {translateMockAgentBody(session.summary, t)}
               </p>
             ) : null}
@@ -398,6 +430,7 @@ export default function AgentSessionCard({
           <SessionTranscript
             sessionId={session.id}
             agentName={session.agentName}
+            agentAvatar={agentAvatar}
             operatorAvatar={operatorAvatar}
           />
         </div>

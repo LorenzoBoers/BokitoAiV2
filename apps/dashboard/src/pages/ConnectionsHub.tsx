@@ -15,7 +15,7 @@ import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import ContentHeader from '../components/shell/ContentHeader'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
 import { useChannelStatus } from '../hooks/useChannelStatus'
@@ -393,19 +393,21 @@ export default function ConnectionsHub() {
 
   return (
     <PageContent width="xl" className="space-y-8">
-      <PageGuideBanner page="integrations" />
+      <ContentHeader
+        guide="integrations"
+        title={t('tabs.modules.title', { defaultValue: 'Connections' })}
+        subtitle={t('integrations.pageMeta.connected.description')}
+        className="mb-0"
+      />
       <IntegrationsTabs />
-      <p className="max-w-2xl text-sm text-text-secondary">
-        {t('integrations.pageMeta.connected.description')}
-      </p>
 
-      <section className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3 shadow-card">
+      <section className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-text-heading">
+            <p className="text-sm font-semibold text-text-heading">
               {t('developersPage.controlFromCursor')}
             </p>
-            <p className="mt-0.5 text-[12px] text-text-secondary">
+            <p className="mt-0.5 text-xs text-text-secondary">
               {t('developersPage.controlFromCursorBody')}
             </p>
           </div>
@@ -418,7 +420,7 @@ export default function ConnectionsHub() {
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <h2 className="text-xs font-semibold text-text-muted">
               {t('integrations.connected.installedModulesTitle', {
                 defaultValue: 'Installed modules',
               })}
@@ -509,7 +511,7 @@ export default function ConnectionsHub() {
         hideKindHeading
       />
 
-      <section className="rounded-xl border border-dashed border-border/60 px-4 py-3">
+      <section className="rounded-lg border border-dashed border-border/60 px-4 py-3">
         <p className="text-sm text-text-secondary">
           {t('integrations.connected.marketplaceHint', {
             defaultValue: 'Looking for something else? Add modules and connections on the marketplace.',

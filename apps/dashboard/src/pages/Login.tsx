@@ -246,20 +246,20 @@ export default function Login() {
         </div>
 
         {/* Card */}
-        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
+        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
           {workspaceSetup ? (
             <div className="space-y-5">
               <div className="flex flex-col items-center text-center">
                 <Building2 size={28} className="mb-2 text-accent" />
                 <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.noWorkspaceTitle')}</h2>
-                <p className="mt-1 text-[12.5px] text-text-secondary">
+                <p className="mt-1 text-sm text-text-secondary">
                   {t('loginPage.noWorkspaceBody', { email: workspaceSetup.email })}
                 </p>
               </div>
 
               {workspaceSetup.pendingInvites.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-[0.06em] text-text-muted">
+                  <p className="text-xs font-medium text-text-muted">
                     {t('loginPage.pendingInvites')}
                   </p>
                   {workspaceSetup.pendingInvites.map((invite) => (
@@ -268,7 +268,7 @@ export default function Login() {
                       className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-input px-3 py-2.5"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-text-heading">
+                        <p className="truncate-fade text-sm font-medium text-text-heading">
                           {invite.tenant_name}
                         </p>
                         <p className="text-xs text-text-muted">
@@ -291,7 +291,7 @@ export default function Login() {
               )}
 
               <form onSubmit={handleCreateWorkspace} className="space-y-2.5">
-                <p className="text-xs font-medium uppercase tracking-[0.06em] text-text-muted">
+                <p className="text-xs font-medium text-text-muted">
                   {workspaceSetup.pendingInvites.length > 0 ? t('loginPage.orStartFresh') : t('loginPage.startFresh')}
                 </p>
                 <input
@@ -333,7 +333,7 @@ export default function Login() {
               <div className="flex flex-col items-center text-center">
                 <ShieldCheck size={28} className="mb-2 text-accent" />
                 <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.totpTitle')}</h2>
-                <p className="mt-1 text-[12.5px] text-text-secondary">
+                <p className="mt-1 text-sm text-text-secondary">
                   {t('loginPage.totpBody')}
                 </p>
               </div>
@@ -405,7 +405,7 @@ export default function Login() {
                 placeholder={t('loginPage.emailPlaceholder')}
               />
               {email && email === readLastLoginEmail() ? (
-                <p className="mt-1 text-[11px] text-text-muted">{t('loginPage.lastEmailHint')}</p>
+                <p className="mt-1 text-xs text-text-muted">{t('loginPage.lastEmailHint')}</p>
               ) : null}
             </div>
 
@@ -529,11 +529,11 @@ export default function Login() {
         <p className="text-center text-xs text-text-muted mt-3">
           © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
-        <p className="text-center text-[10px] text-text-muted/80 mt-1">
+        <p className="text-center text-2xs text-text-muted/80 mt-1">
           build: {APP_VERSION}
         </p>
         {import.meta.env.DEV ? (
-          <p className="text-center text-[11px] text-text-muted mt-3 max-w-sm mx-auto leading-relaxed">
+          <p className="text-center text-xs text-text-muted mt-3 max-w-sm mx-auto leading-relaxed">
             {t('loginPage.localDevHint', { email: 'admin@bokito.ai', password: 'bokito-test-password' })}
           </p>
         ) : null}

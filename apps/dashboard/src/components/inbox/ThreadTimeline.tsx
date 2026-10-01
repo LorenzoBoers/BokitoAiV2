@@ -160,6 +160,10 @@ type Props = {
   contactPhone?: string
   agentName?: string | null
   agentId?: string | null
+  agentAvatarKind?: string | null
+  agentAvatarIcon?: string | null
+  agentAvatarColor?: string | null
+  agentAvatarImageUrl?: string | null
   events: InboxEvent[]
   noteActions?: NoteActions
   /** Deep-linked card (`?message=`): highlighted and scrolled into view. */
@@ -201,6 +205,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     contactPhone,
     agentName,
     agentId,
+    agentAvatarKind,
+    agentAvatarIcon,
+    agentAvatarColor,
+    agentAvatarImageUrl,
     events,
     noteActions,
     focusedMessageId,
@@ -265,8 +273,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   )
 
   if (rows.length === 0) {
+    // h-full (not flex-1): the parent in ThreadDetail is a sized block box,
+    // so flex-1 would collapse to 0 and hide the empty state / live trace.
     return (
-      <div className="relative flex-1 min-h-0">
+      <div className="relative h-full min-h-0">
         <div className="absolute inset-0 overflow-y-auto px-4 py-4">
           <div className="mx-auto w-full max-w-[860px]">
             {emptyState}
@@ -281,7 +291,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     if (row.kind === 'day') {
       return (
         <div className="flex justify-center py-2">
-          <span className="rounded-full bg-bg-hover/80 px-3 py-0.5 text-[11px] font-medium text-text-secondary shadow-sm backdrop-blur">
+          <span className="rounded-full bg-bg-hover/80 px-3 py-0.5 text-xs font-medium text-text-secondary backdrop-blur">
             {row.label}
           </span>
         </div>
@@ -311,6 +321,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             streaming={row.session.id === activeSessionId && agentStreaming}
             onChanged={onRefresh}
             onUseAsReply={onUseSessionAsReply}
+            agentAvatarKind={agentAvatarKind}
+            agentAvatarIcon={agentAvatarIcon}
+            agentAvatarColor={agentAvatarColor}
+            agentAvatarImageUrl={agentAvatarImageUrl}
           />
         </div>
       )
@@ -320,13 +334,13 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     return (
       <div
         data-message-id={String(message.id)}
-        className={`mb-3${focused ? ' rounded-xl ring-2 ring-accent/60 ring-offset-2 ring-offset-bg-base' : ''}`}
+        className={`mb-3${focused ? ' rounded-lg ring-2 ring-accent/60 ring-offset-2 ring-offset-bg-base' : ''}`}
       >
         {row.showTime ? (
           <div className="mb-1 flex justify-center">
             <span
               title={formatAppDateTime(new Date(row.time), language)}
-              className="rounded-full border border-border/40 bg-bg-surface/85 px-2 py-0.5 text-[10px] text-text-muted shadow-sm backdrop-blur"
+              className="rounded-md border border-border/40 bg-bg-surface/85 px-2 py-0.5 text-2xs text-text-muted backdrop-blur"
             >
               {formatHourMinute(row.time, language)}
             </span>
@@ -339,6 +353,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             events={events}
             agentName={agentName}
             agentId={agentId}
+            agentAvatarKind={agentAvatarKind}
+            agentAvatarIcon={agentAvatarIcon}
+            agentAvatarColor={agentAvatarColor}
+            agentAvatarImageUrl={agentAvatarImageUrl}
             compactReplyProposal={compact.has(String(message.id))}
             onResolved={onDecisionResolved}
             onEditDraft={onEditDraft}
@@ -352,6 +370,11 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             contactEmail={contactEmail}
             contactPhone={contactPhone}
             agentName={agentName}
+            agentId={agentId}
+            agentAvatarKind={agentAvatarKind}
+            agentAvatarIcon={agentAvatarIcon}
+            agentAvatarColor={agentAvatarColor}
+            agentAvatarImageUrl={agentAvatarImageUrl}
             membersById={membersById}
             noteActions={noteActions}
           />
@@ -361,7 +384,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   }
 
   return (
-    <div className="relative flex-1 min-h-0">
+    <div className="relative h-full min-h-0">
       <Virtuoso
         ref={virtuosoRef}
         data={rows}
@@ -386,7 +409,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
                     type="button"
                     disabled={loadingOlder}
                     onClick={() => void onLoadOlder()}
-                    className="rounded-full border border-border/50 bg-bg-elevated/70 px-3 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+                    className="rounded-md border border-border/50 bg-bg-elevated/70 px-3 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
                   >
                     {loadingOlder ? t('threadChrome.loadingOlder') : t('threadChrome.loadOlder')}
                   </button>

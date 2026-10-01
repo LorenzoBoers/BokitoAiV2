@@ -196,21 +196,21 @@ export default function NotificationSettings() {
         <button
           type="button"
           onClick={() => applyRows(pauseAllDesktop(rows))}
-          className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60"
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
         >
           {t('notificationsPage.pauseInApp')}
         </button>
         <button
           type="button"
           onClick={() => applyRows(restoreDefaultNotificationRows())}
-          className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60"
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
         >
           {t('notificationsPage.restoreDefaults')}
         </button>
         <button
           type="button"
           onClick={() => toast.message(t('notificationsPage.previewTitle'), { description: t('notificationsPage.previewBody') })}
-          className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60"
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
         >
           {t('notificationsPage.preview')}
         </button>
@@ -218,7 +218,7 @@ export default function NotificationSettings() {
 
       <Card className="overflow-hidden">
         <div
-          className={`grid ${gridCols} border-b border-border/60 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted`}
+          className={`grid ${gridCols} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}
         >
           <span>{t('notificationsPage.notifyMe')}</span>
           <span className="text-center">{t('notificationsPage.inApp')}</span>

@@ -16,7 +16,9 @@ import { useAuth } from '../../context/AuthContext'
 import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment, ThreadId } from '../../lib/inbox-api'
 import { getMessage } from '../../lib/inbox-api'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
-import { AI_PILL_CLASS, AiIconBox, AiMark } from '../ai/AiMark'
+import { AI_PILL_CLASS, AiMark } from '../ai/AiMark'
+import { AiAvatar } from '../ui/AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { BubbleHeader, ChatMessageBubble, type BubbleVariant } from './ChatBubble'
 import MessageAttachments from './MessageAttachments'
 import MessageMarkdown from './MessageMarkdown'
@@ -42,6 +44,11 @@ type MessageItemProps = {
   noteActions?: NoteActions
   /** Name of the agent bound to this thread, shown on AI messages. */
   agentName?: string | null
+  agentId?: string | null
+  agentAvatarKind?: string | null
+  agentAvatarIcon?: string | null
+  agentAvatarColor?: string | null
+  agentAvatarImageUrl?: string | null
 }
 
 type EventItemProps = {
@@ -79,7 +86,7 @@ function ContactHoverInfo({
       {hasName ? (
         <div className="flex items-center gap-2 text-text-heading">
           <User size={12} className="text-text-muted shrink-0" />
-          <span className="text-xs font-semibold truncate">{name}</span>
+          <span className="text-xs font-semibold truncate-fade">{name}</span>
         </div>
       ) : null}
       {hasEmail ? (
@@ -87,7 +94,7 @@ function ContactHoverInfo({
           <Mail size={12} className="text-text-muted shrink-0" />
           <a
             href={`mailto:${email}`}
-            className="text-[11px] text-text-secondary truncate hover:text-accent"
+            className="text-xs text-text-secondary truncate-fade hover:text-accent"
             onClick={(e) => e.stopPropagation()}
           >
             {email}
@@ -99,7 +106,7 @@ function ContactHoverInfo({
           <Phone size={12} className="text-text-muted shrink-0" />
           <a
             href={`tel:${phone}`}
-            className="text-[11px] text-text-secondary truncate hover:text-accent"
+            className="text-xs text-text-secondary truncate-fade hover:text-accent"
             onClick={(e) => e.stopPropagation()}
           >
             {phone}
@@ -529,7 +536,7 @@ a { color: #2563eb; }
         {hasQuotes ? (
           <button
             type="button"
-            className="text-[11px] font-medium text-text-muted hover:text-text-primary"
+            className="text-xs font-medium text-text-muted hover:text-text-primary"
             onClick={() => {
               const next = !quotesCollapsed
               setQuotesCollapsed(next)
@@ -542,7 +549,7 @@ a { color: #2563eb; }
         {capped || (expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX) ? (
           <button
             type="button"
-            className="text-[11px] font-medium text-text-muted hover:text-text-primary"
+            className="text-xs font-medium text-text-muted hover:text-text-primary"
             onClick={() => setExpandedFull((v) => !v)}
           >
             {expandedFull ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
@@ -608,7 +615,7 @@ function LazyEmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean })
         <EmailHtmlFrame html={html} isDark={isDark} />
       ) : (
         <div
-          className="rounded-md border border-border/40 bg-bg-elevated/40 px-3 py-2 text-[13px] leading-relaxed text-text-secondary"
+          className="rounded-md border border-border/40 bg-bg-elevated/40 px-3 py-2 text-sm leading-relaxed text-text-secondary"
           aria-label={t('timeline.events.emailContent')}
         >
           {wasVisible ? (
@@ -775,7 +782,7 @@ function EventPill({
     <span
       title={payloadTitle}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] leading-4 whitespace-nowrap',
+        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
         ai
           ? cn(AI_PILL_CLASS, 'ai-glow')
           : 'border-border/40 bg-bg-surface text-text-muted',
@@ -793,7 +800,7 @@ function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
   return (
     <span
       className={cn(
-        'shrink-0 rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide leading-3',
+        'shrink-0 rounded border px-1 py-px text-2xs font-medium leading-3',
         kind === 'ai'
           ? AI_PILL_CLASS
           : 'border-border/60 bg-bg-elevated text-text-muted',
@@ -818,7 +825,7 @@ function EmailMessageBlock({
   return (
     <div className="flex w-full items-start gap-2">
       {avatar}
-      <div className="w-full min-w-0 rounded-2xl rounded-bl-sm border border-border/60 bg-bg-surface px-3 py-2">
+      <div className="w-full min-w-0 rounded-xl rounded-bl-sm border border-border/60 bg-bg-surface px-3 py-2">
         {header}
         {body}
       </div>
@@ -945,6 +952,11 @@ export function MessageTimelineItem({
   membersById,
   noteActions,
   agentName,
+  agentId,
+  agentAvatarKind,
+  agentAvatarIcon,
+  agentAvatarColor,
+  agentAvatarImageUrl,
 }: MessageItemProps) {
   const { t } = useTranslation('communication')
   const { user, token } = useAuth()
@@ -1083,7 +1095,7 @@ export function MessageTimelineItem({
           type="button"
           disabled={noteBusy || !noteDraft.trim()}
           onClick={() => void saveNote()}
-          className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent/90 disabled:opacity-40"
+          className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-accent-fg hover:bg-accent/90 disabled:opacity-40"
         >
           {t('timeline.events.save')}
         </button>
@@ -1091,7 +1103,7 @@ export function MessageTimelineItem({
           type="button"
           disabled={noteBusy}
           onClick={() => setEditingNote(false)}
-          className="rounded-md px-2 py-1 text-[11px] text-text-muted hover:text-text-primary disabled:opacity-40"
+          className="rounded-md px-2 py-1 text-xs text-text-muted hover:text-text-primary disabled:opacity-40"
         >
           {t('composer.cancel')}
         </button>
@@ -1113,7 +1125,21 @@ export function MessageTimelineItem({
     <ContactAvatar email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
   )
   const agentAvatar = (
-    <AiIconBox />
+    <AiAvatar
+      {...toAiAvatarProps(
+        {
+          name: agentName,
+          agentId,
+          agentAvatarKind,
+          agentAvatarIcon,
+          agentAvatarColor,
+          agentAvatarImageUrl,
+        },
+        t('timeline.aiAgent'),
+      )}
+      size={28}
+      decorative
+    />
   )
 
   // Group-chat author model: customer (external), teammate, AI agent, or the
@@ -1179,9 +1205,9 @@ export function MessageTimelineItem({
 
   const inboundHeader = (
     <div className="flex items-baseline gap-1.5 mb-1 min-w-0">
-      <span className="font-medium text-text-heading text-xs truncate">{inboundName}</span>
+      <span className="font-medium text-text-heading text-xs truncate-fade">{inboundName}</span>
       {inboundEmail && inboundEmail !== inboundName ? (
-        <span className="text-[10px] text-text-muted truncate">{inboundEmail}</span>
+        <span className="text-2xs text-text-muted truncate-fade">{inboundEmail}</span>
       ) : null}
     </div>
   )
@@ -1224,7 +1250,7 @@ export function MessageTimelineItem({
     if (authorKind === 'teammate') {
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-xs font-medium text-text-heading">{authorName}</span>
+          <span className="truncate-fade text-xs font-medium text-text-heading">{authorName}</span>
           <RoleChip kind="team" />
         </div>
       )
@@ -1248,7 +1274,7 @@ export function MessageTimelineItem({
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
           <span
-            className="truncate text-[10px] font-medium text-status-error"
+            className="truncate-fade text-2xs font-medium text-status-error"
             title={String(message.sendStatus)}
           >
             {t('timeline.notDelivered')}
@@ -1263,7 +1289,7 @@ export function MessageTimelineItem({
                   () => toast.error(t('timeline.copyFailed')),
                 )
               }}
-              className="text-[10px] font-medium text-accent hover:underline"
+              className="text-2xs font-medium text-accent hover:underline"
             >
               {t('timeline.copyBody')}
             </button>
@@ -1274,7 +1300,7 @@ export function MessageTimelineItem({
     if (message.sendStatus === 'scheduled') {
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
-          <span className="text-[10px] font-medium text-text-muted">{t('timeline.sending')}</span>
+          <span className="text-2xs font-medium text-text-muted">{t('timeline.sending')}</span>
           {token && typeof message.id === 'string' ? (
             <button
               type="button"
@@ -1284,7 +1310,7 @@ export function MessageTimelineItem({
                   () => toast.error(t('timeline.cancelSendFailed')),
                 )
               }}
-              className="text-[10px] font-medium text-accent hover:underline"
+              className="text-2xs font-medium text-accent hover:underline"
             >
               {t('timeline.cancelSend')}
             </button>
@@ -1328,7 +1354,7 @@ export function MessageTimelineItem({
   // Outbound email: show CC recipients so the sender can verify who was copied.
   const ccLine =
     layout === 'email' && message.cc ? (
-      <div className="mb-1 truncate text-[10px] text-text-muted" title={message.cc}>
+      <div className="mb-1 truncate-fade text-2xs text-text-muted" title={message.cc}>
         {t('timeline.ccLine', { recipients: message.cc })}
       </div>
     ) : null
@@ -1401,7 +1427,7 @@ export function MessageTimelineItem({
           onClick={() => void ensureFullMessage()}
           className={cn(
             isOwn ? 'ml-auto mr-9' : 'ml-9',
-            'max-w-[78%] inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-text-muted hover:bg-bg-hover hover:text-text-secondary disabled:opacity-60',
+            'max-w-[78%] inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-secondary disabled:opacity-60',
           )}
         >
           {enriching ? <Loader2 size={11} className="animate-spin" /> : null}

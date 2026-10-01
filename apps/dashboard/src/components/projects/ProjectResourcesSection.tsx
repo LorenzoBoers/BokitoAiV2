@@ -146,10 +146,10 @@ export function ProjectResourcesSection({
               >
                 <Icon size={14} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-text-primary">
+                  <span className="block truncate-fade text-sm text-text-primary">
                     {resource.label || resource.external_ref || t(`projects.work.resourceType.${resource.resource_type}`)}
                   </span>
-                  <span className="block truncate text-[11px] text-text-muted">
+                  <span className="block truncate-fade text-xs text-text-muted">
                     {t(`projects.work.resourceType.${resource.resource_type}`)}
                     {resource.provider ? ` · ${resource.provider}` : ''}
                     {resource.external_ref && resource.label ? ` · ${resource.external_ref}` : ''}
@@ -157,7 +157,7 @@ export function ProjectResourcesSection({
                 </span>
                 <Badge
                   variant={STATUS_VARIANT[resource.status] ?? 'neutral'}
-                  className="px-1.5 py-0 text-[10px]"
+                  className="px-1.5 py-0 text-2xs"
                 >
                   {t(`projects.work.resourceStatus.${resource.status}`, {
                     defaultValue: resource.status,
@@ -211,7 +211,7 @@ export function ProjectResourcesSection({
               placeholder={t('projects.work.resourceRefPlaceholder')}
               className="h-8 text-sm"
             />
-            <p className="text-[11px] text-text-muted">{t('projects.work.resourceHint')}</p>
+            <p className="text-xs text-text-muted">{t('projects.work.resourceHint')}</p>
             <div className="flex justify-end gap-1.5">
               <Button type="button" size="sm" variant="ghost" className="h-7" onClick={() => setAdding(false)}>
                 <X size={12} className="mr-1" />

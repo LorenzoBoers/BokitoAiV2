@@ -7,9 +7,11 @@ import {
   ArchiveRestore,
   ArrowLeft,
   Clock,
+  Flag,
   Forward,
   Hash,
   Link2,
+  ListPlus,
   Mail,
   MoreHorizontal,
   OctagonAlert,
@@ -37,11 +39,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import AssigneeSelector from './AssigneeSelector'
 import AiStatusChip from './AiStatusChip'
+import { PRIORITY_META } from './ConversationWorkSection'
 
 const HEADER_ICON = THREAD_HEADER_ICON_CLASS
 
@@ -67,6 +74,10 @@ type Props = {
   deleting?: boolean
   onAlwaysCloseSender?: () => void | Promise<void>
   closingSender?: boolean
+  /** Opens the look-again planner (external, open threads). */
+  onWhatsNext?: () => void
+  /** Items under "This conversation" in the panel; shown while the panel is closed. */
+  panelCount?: number
 }
 
 export default function ThreadHeader({
@@ -89,9 +100,14 @@ export default function ThreadHeader({
   deleting = false,
   onAlwaysCloseSender,
   closingSender = false,
+  onWhatsNext,
+  panelCount = 0,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const internal = isInternalThread(thread)
+  const canSnooze = !internal && thread.status !== 'closed' && thread.status !== 'spam'
+  const priority = thread.priority || 'normal'
+  const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
 
   // The " · email" suffix is skipped when the name already is the address, to
   // avoid reading "x@y · x@y".
@@ -112,10 +128,16 @@ export default function ThreadHeader({
         </button>
       ) : null}
       <div className="min-w-0 flex-1 leading-tight">
-        <h2 className="truncate text-[13px] font-medium text-text-heading">
-          {translateDecisionText(thread.emailSubject, t)}
+        <h2 className="flex items-center gap-1.5 text-sm font-medium text-text-heading">
+          {priority !== 'normal' ? (
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${priorityMeta.dot}`}
+              title={`${t('threadChrome.setPriority')}: ${t(priorityMeta.labelKey)}`}
+            />
+          ) : null}
+          <span className="truncate-fade">{translateDecisionText(thread.emailSubject, t)}</span>
         </h2>
-        <p className="truncate text-[11px] text-text-muted">
+        <p className="truncate-fade text-xs text-text-muted">
           {internal ? (
             <>
               {`${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`}
@@ -187,7 +209,7 @@ export default function ThreadHeader({
         <Tooltip>
           <TooltipTrigger asChild>
             <span
-              className="flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary"
+              className="flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 px-2 text-xs font-medium text-text-primary"
               aria-label={t('threadChrome.customerRatingScore', { score: csat.score })}
             >
               <Star size={11} className="fill-amber-500 text-amber-500" />
@@ -238,58 +260,6 @@ export default function ThreadHeader({
             {thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
           </TooltipContent>
         </Tooltip>
-        {!internal && thread.status !== 'closed' && thread.status !== 'spam' ? (
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    aria-label={
-                      thread.status === 'pending' ? t('threadChrome.resumeNow') : t('threadChrome.snooze')
-                    }
-                    className={`${HEADER_ICON}${thread.status === 'pending' ? ' text-accent' : ''}`}
-                  >
-                    <Clock size={14} />
-                  </button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {thread.status === 'pending' ? t('threadChrome.resumeNow') : t('threadChrome.snooze')}
-              </TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="min-w-44">
-              {thread.status === 'pending' ? (
-                <DropdownMenuItem onClick={() => void onPatch({ status: 'open', snoozedUntil: null })}>
-                  {t('threadChrome.resumeNow')}
-                </DropdownMenuItem>
-              ) : null}
-              {SNOOZE_PRESETS.map((preset) => (
-                <DropdownMenuItem
-                  key={preset.key}
-                  onClick={() => void onPatch({ status: 'pending', snoozedUntil: snoozeUntilIso(preset) })}
-                >
-                  {t(preset.labelKey)}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem
-                onClick={() => {
-                  const raw = window.prompt(t('snooze.customTitle'), toLocalDateTimeValue())
-                  if (!raw) return
-                  const wake = new Date(raw)
-                  if (Number.isNaN(wake.getTime()) || wake.getTime() <= Date.now()) {
-                    toast.error(t('snooze.customInvalid'))
-                    return
-                  }
-                  void onPatch({ status: 'pending', snoozedUntil: wake.toISOString() })
-                }}
-              >
-                {t('snooze.custom')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
         <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -306,7 +276,77 @@ export default function ThreadHeader({
             </TooltipTrigger>
             <TooltipContent side="bottom">{t('threadChrome.moreActions')}</TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="end" className="min-w-44">
+          <DropdownMenuContent align="end" className="min-w-48">
+            {!internal ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-2">
+                  <Flag size={13} />
+                  {t('threadChrome.setPriority')}
+                  <span className={`ml-auto h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="min-w-36">
+                  {Object.entries(PRIORITY_META).map(([value, meta]) => (
+                    <DropdownMenuItem
+                      key={value}
+                      className="gap-2"
+                      onClick={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                      {t(meta.labelKey)}
+                      {value === priority ? (
+                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-text-heading" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : null}
+            {canSnooze ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-2">
+                  <Clock size={13} />
+                  {t('threadChrome.snooze')}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="min-w-44">
+                  {thread.status === 'pending' ? (
+                    <DropdownMenuItem onClick={() => void onPatch({ status: 'open', snoozedUntil: null })}>
+                      {t('threadChrome.resumeNow')}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {SNOOZE_PRESETS.map((preset) => (
+                    <DropdownMenuItem
+                      key={preset.key}
+                      onClick={() =>
+                        void onPatch({ status: 'pending', snoozedUntil: snoozeUntilIso(preset) })
+                      }
+                    >
+                      {t(preset.labelKey)}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const raw = window.prompt(t('snooze.customTitle'), toLocalDateTimeValue())
+                      if (!raw) return
+                      const wake = new Date(raw)
+                      if (Number.isNaN(wake.getTime()) || wake.getTime() <= Date.now()) {
+                        toast.error(t('snooze.customInvalid'))
+                        return
+                      }
+                      void onPatch({ status: 'pending', snoozedUntil: wake.toISOString() })
+                    }}
+                  >
+                    {t('snooze.custom')}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : null}
+            {canSnooze && onWhatsNext ? (
+              <DropdownMenuItem className="gap-2" onClick={() => onWhatsNext()}>
+                <ListPlus size={13} />
+                {t('threadChrome.whatsNext')}
+              </DropdownMenuItem>
+            ) : null}
+            {!internal ? <DropdownMenuSeparator /> : null}
             <DropdownMenuItem
               className="gap-2"
               onClick={() => {
@@ -406,9 +446,14 @@ export default function ThreadHeader({
                 onClick={onToggleContact}
                 aria-label={contactOpen ? t('threadChrome.hideDetails') : t('threadChrome.showDetails')}
                 aria-pressed={contactOpen}
-                className={`${HEADER_ICON}${contactOpen ? ' text-accent' : ''}`}
+                className={`relative ${HEADER_ICON}${contactOpen ? ' text-text-heading' : ''}`}
               >
                 <PanelRight size={13} />
+                {!contactOpen && panelCount > 0 ? (
+                  <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-text-heading px-1 text-[9px] font-medium leading-none text-bg tabular-nums">
+                    {panelCount > 9 ? '9+' : panelCount}
+                  </span>
+                ) : null}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">

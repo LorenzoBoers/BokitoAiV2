@@ -50,7 +50,7 @@ export function ModulePartnerLogos({
         </span>
       ))}
       {overflow > 0 ? (
-        <span className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated text-[10px] font-medium tabular-nums text-text-muted">
+        <span className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted">
           +{overflow}
         </span>
       ) : null}
@@ -85,7 +85,7 @@ export function InstalledModuleCard({
   return (
     <Link
       to={moduleHomePath(module)}
-      className="flex gap-3 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card transition-colors hover:border-accent/40 hover:bg-bg-hover/30"
+      className="flex gap-3 rounded-lg border border-border/60 bg-bg-surface p-4 transition-colors hover:border-border-light hover:bg-bg-hover/30"
     >
       <ModuleIcon slug={module.slug} />
       <span className="min-w-0 flex-1">
@@ -93,12 +93,12 @@ export function InstalledModuleCard({
           <span className="text-sm font-semibold text-text-heading">{name}</span>
           <ModuleStatusBadge module={module} />
         </span>
-        <span className="mt-1 line-clamp-2 block text-[12.5px] leading-snug text-text-secondary">
+        <span className="mt-1 line-clamp-2 block text-sm leading-snug text-text-secondary">
           {description}
         </span>
         <span className="mt-3 flex items-center justify-between gap-3">
           <ModulePartnerLogos applications={applications} />
-          <span className="text-[11px] tabular-nums text-text-muted">
+          <span className="text-xs tabular-nums text-text-muted">
             {t('integrations.modules.attachedCount', {
               defaultValue: '{{count}} connections',
               count: attached,
@@ -129,7 +129,7 @@ export function MarketplaceModuleCard({
   const planned = applications.length === 0 ? module.planned_provider_slugs : []
 
   return (
-    <article className="flex h-full flex-col rounded-xl border border-border/60 bg-bg-elevated/40 p-4 shadow-card">
+    <article className="flex h-full flex-col rounded-lg border border-border/60 bg-bg-elevated/40 p-4">
       <div className="flex items-start gap-3">
         <ModuleIcon slug={module.slug} />
         <div className="min-w-0 flex-1">
@@ -137,13 +137,13 @@ export function MarketplaceModuleCard({
             <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
             <ModuleStatusBadge module={module} />
           </div>
-          <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-text-secondary">
+          <p className="mt-1 line-clamp-2 text-sm leading-snug text-text-secondary">
             {description}
           </p>
         </div>
       </div>
       {planned.length > 0 ? (
-        <p className="mt-3 text-[11px] leading-snug text-text-muted">
+        <p className="mt-3 text-xs leading-snug text-text-muted">
           {t('integrations.modules.planned', {
             defaultValue: 'Planned connectors: {{providers}}',
             providers: planned.map(plannedProviderLabel).join(', '),

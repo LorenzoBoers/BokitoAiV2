@@ -123,7 +123,7 @@ export default function SavedRepliesManager() {
               </Button>
               <Link
                 to={inboxPath('open')}
-                className="text-[12px] font-medium text-accent hover:underline"
+                className="text-xs font-medium text-accent hover:underline"
               >
                 {t('savedReplies.openCommunication')}
               </Link>
@@ -134,7 +134,7 @@ export default function SavedRepliesManager() {
           editingId === row.id ? null : (
             <div key={row.id} className="flex items-start gap-3 px-4 py-2.5">
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-text-heading">{row.title}</p>
+                <p className="text-sm font-medium text-text-heading">{row.title}</p>
                 <p className="line-clamp-2 text-xs text-text-secondary">{row.bodyText}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">

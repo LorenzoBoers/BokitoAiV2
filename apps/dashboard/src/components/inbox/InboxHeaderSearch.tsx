@@ -40,7 +40,7 @@ export default function InboxHeaderSearch() {
           event.currentTarget.blur()
         }}
         className={cn(
-          'h-9 w-full rounded-full border border-border/60 bg-bg-surface pl-9 pr-16 text-sm text-text-primary',
+          'h-8 w-full rounded-md border border-border/70 bg-bg-surface pl-9 pr-16 text-sm text-text-primary',
           'placeholder:text-text-muted/80 shadow-inset-highlight',
           'transition-[border-color,box-shadow,background-color] duration-150',
           'focus:outline-none focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',
@@ -89,9 +89,9 @@ export default function InboxHeaderSearch() {
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setSearch(row.query)}
-              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary"
             >
-              <span className="truncate">{row.name}</span>
+              <span className="truncate-fade">{row.name}</span>
               <span
                 role="button"
                 tabIndex={-1}
@@ -101,7 +101,7 @@ export default function InboxHeaderSearch() {
                   writeSavedSearches(next)
                   setSaved(next)
                 }}
-                className="text-[10px] text-text-muted hover:text-status-error"
+                className="text-2xs text-text-muted hover:text-status-error"
               >
                 {t('inboxSearchForget')}
               </span>

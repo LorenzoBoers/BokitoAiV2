@@ -44,7 +44,7 @@ export function AgentSelect({
         {selected ? (
           <AgentOptionRow agent={selected} size={18} />
         ) : emptyOption && (!value || value === emptyOption.value) ? (
-          <span className="truncate text-sm text-text-secondary">{emptyOption.label}</span>
+          <span className="truncate-fade text-sm text-text-secondary">{emptyOption.label}</span>
         ) : (
           <SelectValue placeholder={placeholder} />
         )}

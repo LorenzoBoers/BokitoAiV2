@@ -1,9 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import {
-  readQuickFilter,
-  writeQuickFilter,
-  type InboxListQuickFilter,
-} from '../lib/inbox-prefs'
+import { clearLegacyQuickFilter, type InboxListQuickFilter } from '../lib/inbox-prefs'
 import { leafFromPath } from '../lib/messages-paths'
 
 export type { InboxListQuickFilter }
@@ -13,6 +9,7 @@ type InboxCommunicationContextValue = {
   setSearch: (value: string) => void
   /** Debounced copy of `search` used for list fetches. */
   listSearch: string
+  /** Quick filter of the list that is on screen; folders start on `all`. */
   quickFilter: InboxListQuickFilter
   setQuickFilter: (value: InboxListQuickFilter) => void
   resetQuickFilter: () => void
@@ -27,7 +24,11 @@ export function isInboxCommunicationRoute(pathname: string): boolean {
 export function InboxCommunicationProvider({ children }: { children: ReactNode }) {
   const [search, setSearchState] = useState('')
   const [listSearch, setListSearch] = useState('')
-  const [quickFilter, setQuickFilterState] = useState<InboxListQuickFilter>(readQuickFilter)
+  const [quickFilter, setQuickFilterState] = useState<InboxListQuickFilter>('all')
+
+  useEffect(() => {
+    clearLegacyQuickFilter()
+  }, [])
 
   useEffect(() => {
     if (!search.trim()) {
@@ -45,12 +46,10 @@ export function InboxCommunicationProvider({ children }: { children: ReactNode }
 
   const setQuickFilter = useCallback((value: InboxListQuickFilter) => {
     setQuickFilterState(value)
-    writeQuickFilter(value)
   }, [])
 
   const resetQuickFilter = useCallback(() => {
     setQuickFilterState('all')
-    writeQuickFilter('all')
   }, [])
 
   const value = useMemo(

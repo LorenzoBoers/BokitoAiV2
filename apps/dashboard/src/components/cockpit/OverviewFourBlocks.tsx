@@ -74,12 +74,12 @@ function Block({
 }) {
   return (
     <section
-      className="stagger-in rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card"
+      className="stagger-in rounded-lg border border-border/60 bg-bg-surface p-4"
       style={{ '--stagger': index } as CSSProperties}
     >
       <div>
-        <h2 className="text-[14px] font-semibold text-text-heading">{title}</h2>
-        <p className="mt-0.5 text-[12px] text-text-muted">{hint}</p>
+        <h2 className="text-base font-semibold text-text-heading">{title}</h2>
+        <p className="mt-0.5 text-xs text-text-muted">{hint}</p>
       </div>
       <div className="mt-3 space-y-1.5">{children}</div>
     </section>
@@ -88,7 +88,7 @@ function Block({
 
 function EmptyRow({ children }: { children: ReactNode }) {
   return (
-    <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
+    <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-xs text-text-muted">
       {children}
     </div>
   )
@@ -108,13 +108,13 @@ function Metric({
   return (
     <Link
       to={to}
-      className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
+      className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] font-medium text-text-primary">{label}</span>
-        <span className="block truncate text-[11px] text-text-muted">{detail}</span>
+        <span className="block text-sm font-medium text-text-primary">{label}</span>
+        <span className="block truncate-fade text-xs text-text-muted">{detail}</span>
       </span>
-      <span key={value} className="count-pop tabular-nums text-[14px] font-semibold text-text-heading">
+      <span key={value} className="count-pop tabular-nums text-base font-semibold text-text-heading">
         {value}
       </span>
       <ArrowRight
@@ -296,7 +296,7 @@ export default function OverviewFourBlocks() {
 
   return (
     <div className="space-y-4">
-      {error ? <p className="text-right text-[11px] text-status-warning">{copy.loadError}</p> : null}
+      {error ? <p className="text-right text-xs text-status-warning">{copy.loadError}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Block title={copy.needs} hint={copy.needsHint} index={0}>
@@ -304,7 +304,7 @@ export default function OverviewFourBlocks() {
             <Link
               key={String(thread.id)}
               to={attentionThreadPath(thread)}
-              className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
+              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
             >
               {thread.hasOpenDecision ? (
                 <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
@@ -312,8 +312,8 @@ export default function OverviewFourBlocks() {
                 <GitPullRequest size={13} className="shrink-0 text-text-muted" />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12.5px] font-medium text-text-primary">{thread.emailSubject || thread.contactName}</span>
-                <span className="block truncate text-[11px] text-text-muted">{thread.hasOpenDecision ? copy.decisions : copy.assigned}</span>
+                <span className="block truncate-fade text-sm font-medium text-text-primary">{thread.emailSubject || thread.contactName}</span>
+                <span className="block truncate-fade text-xs text-text-muted">{thread.hasOpenDecision ? copy.decisions : copy.assigned}</span>
               </span>
               <ArrowRight
                 size={12}
@@ -321,7 +321,7 @@ export default function OverviewFourBlocks() {
               />
             </Link>
           ))}
-          <Link to={data.needsYou.some((thread) => thread.hasOpenDecision) ? decisionsPath() : inboxPath('mine')} className="link-draw block pt-1 text-right text-[11px] font-medium text-accent">
+          <Link to={data.needsYou.some((thread) => thread.hasOpenDecision) ? decisionsPath() : inboxPath('mine')} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
             {nl ? 'Alles openen' : 'Open all'}
           </Link>
         </Block>
@@ -343,15 +343,15 @@ export default function OverviewFourBlocks() {
             <Link
               key={row.id}
               to={row.to}
-              className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
+              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
             >
               <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
                 <span className="pulse-dot absolute h-1.5 w-1.5 rounded-full bg-accent" />
                 <Play size={13} className="relative text-accent opacity-90" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12.5px] font-medium text-text-primary">{row.label}</span>
-                <span className="block truncate text-[11px] text-text-muted">{row.detail}</span>
+                <span className="block truncate-fade text-sm font-medium text-text-primary">{row.label}</span>
+                <span className="block truncate-fade text-xs text-text-muted">{row.detail}</span>
               </span>
               <ArrowRight
                 size={12}
@@ -379,14 +379,14 @@ export default function OverviewFourBlocks() {
           />
           <Link
             to="/cockpit/usage"
-            className="row-interactive group flex items-center gap-3 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-[border-color,background-color,transform] duration-150 hover:border-accent/40 hover:bg-bg-elevated/70 active:scale-[0.99]"
+            className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
           >
             <CircleDollarSign size={13} className="shrink-0 text-text-muted" />
             <span className="min-w-0 flex-1">
-              <span className="block text-[12.5px] font-medium text-text-primary">{copy.cost}</span>
-              <span className="block text-[11px] text-text-muted">{copy.costUnavailable}</span>
+              <span className="block text-sm font-medium text-text-primary">{copy.cost}</span>
+              <span className="block text-xs text-text-muted">{copy.costUnavailable}</span>
             </span>
-            <span className="text-[12px] font-semibold text-text-heading">
+            <span className="text-xs font-semibold text-text-heading">
               {data.usage ? formatAppUsdCents(data.usage.total_customer_cost_micros / 10_000, i18n.language) : '—'}
             </span>
             <ArrowRight

@@ -44,9 +44,9 @@ export function ModulePackageGrid({ items, onOpen, className }: Props) {
           <li key={item.key}>
             <article
               className={cn(
-                'flex h-full flex-col rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card',
+                'flex h-full flex-col rounded-lg border border-border/60 bg-bg-surface p-4 ',
                 planned && 'opacity-70',
-                !planned && onOpen && 'cursor-pointer hover:border-accent/40',
+                !planned && onOpen && 'cursor-pointer hover:border-border-light',
               )}
               onClick={() => {
                 if (!planned && onOpen) onOpen(item)
@@ -66,15 +66,15 @@ export function ModulePackageGrid({ items, onOpen, className }: Props) {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <h3 className="text-sm font-semibold text-text-heading">{item.name}</h3>
                     {planned ? (
-                      <Badge variant="neutral" className="text-[10px]">
+                      <Badge variant="neutral" className="text-2xs">
                         {t('integrations.modules.plannedBadge', { defaultValue: 'Planned' })}
                       </Badge>
                     ) : connected ? (
-                      <Badge variant="success" className="text-[10px]">
+                      <Badge variant="success" className="text-2xs">
                         {t('integrations.modules.integrationOn', { defaultValue: 'On' })}
                       </Badge>
                     ) : (
-                      <Badge variant="neutral" className="text-[10px]">
+                      <Badge variant="neutral" className="text-2xs">
                         {t('integrations.modules.integrationOff', { defaultValue: 'Optional' })}
                       </Badge>
                     )}

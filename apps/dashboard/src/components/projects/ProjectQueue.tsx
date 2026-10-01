@@ -263,7 +263,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
             ) : null}
             <Link
               to={inboxPath('open')}
-              className="rounded-md border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-md border border-border/60 px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('projects.work.openCommunication')}
             </Link>
@@ -273,7 +273,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
         groups.map((group) => (
           <section key={group.status} className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <Badge variant={QUEUE_STATUS_VARIANT[group.status]} className="px-2 py-0.5 text-[11px]">
+              <Badge variant={QUEUE_STATUS_VARIANT[group.status]} className="px-2 py-0.5 text-xs">
                 {t(`projects.work.status.${group.status}`)}
               </Badge>
               <span className="text-xs text-text-muted">{group.items.length}</span>
@@ -295,14 +295,14 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                         ) : (
                           <ChevronRight size={14} className="shrink-0 text-text-muted" />
                         )}
-                        <span className="min-w-0 flex-1 truncate text-sm text-text-primary">{item.title}</span>
-                        <Badge variant={QUEUE_KIND_VARIANT[item.kind]} className="px-1.5 py-0 text-[10px]">
+                        <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">{item.title}</span>
+                        <Badge variant={QUEUE_KIND_VARIANT[item.kind]} className="px-1.5 py-0 text-2xs">
                           {t(`projects.work.kind.${item.kind}`)}
                         </Badge>
                         {item.priority !== 'normal' ? (
                           <Badge
                             variant={item.priority === 'low' ? 'neutral' : 'warning'}
-                            className="px-1.5 py-0 text-[10px]"
+                            className="px-1.5 py-0 text-2xs"
                           >
                             {t(`projects.work.priority.${item.priority}`)}
                           </Badge>
@@ -311,7 +311,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                           <MessageSquare size={13} className="shrink-0 text-text-muted" aria-hidden />
                         ) : null}
                         {item.links.length > 0 ? (
-                          <span className="shrink-0 text-[11px] text-text-muted">
+                          <span className="shrink-0 text-xs text-text-muted">
                             {t('projects.work.linkedDocs', { count: item.links.length })}
                           </span>
                         ) : null}
@@ -324,7 +324,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                           ) : null}
                           {item.impact_summary ? (
                             <div className="rounded-md border border-border/50 bg-bg-input/40 px-2.5 py-2">
-                              <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                              <p className="text-xs font-medium text-text-muted">
                                 {t('projects.work.impactSummary')}
                               </p>
                               <p className="mt-0.5 whitespace-pre-wrap text-sm text-text-secondary">
@@ -342,7 +342,7 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
                                       ? SECTION_STATUS_VARIANT[link.section_status]
                                       : 'neutral'
                                   }
-                                  className="px-2 py-0.5 text-[11px] font-normal"
+                                  className="px-2 py-0.5 text-xs font-normal"
                                   title={
                                     link.section_status
                                       ? t(`projects.work.sectionStatus.${link.section_status}`)

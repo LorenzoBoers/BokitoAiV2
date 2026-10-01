@@ -65,8 +65,8 @@ function SectionToggles({
       style={sortable ? { transform: CSS.Transform.toString(transform), transition } : undefined}
       data-customize-section={section}
       className={cn(
-        'flex items-center gap-3 rounded-xl border border-border/60 bg-bg-elevated/60 px-3 py-2.5',
-        isDragging && 'z-10 border-accent/50 shadow-lg',
+        'flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2.5',
+        isDragging && 'z-10 border-accent/50 ',
         hidden && 'opacity-60',
       )}
     >
@@ -83,8 +83,8 @@ function SectionToggles({
       ) : (
         <span className="w-7 shrink-0" aria-hidden />
       )}
-      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">{label}</span>
-      <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted">
+      <span className="min-w-0 flex-1 truncate-fade text-sm font-medium text-text-primary">{label}</span>
+      <label className="flex shrink-0 items-center gap-1.5 text-xs text-text-muted">
         {collapsedLabel}
         <Switch
           checked={collapsed}
@@ -93,7 +93,7 @@ function SectionToggles({
           className="h-5 w-9 [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-[16px]"
         />
       </label>
-      <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted">
+      <label className="flex shrink-0 items-center gap-1.5 text-xs text-text-muted">
         {visibleLabel}
         <Switch
           checked={!hidden}
@@ -175,7 +175,7 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
             </div>
           </SortableContext>
         </DndContext>
-        <p className="pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
+        <p className="pt-2 text-xs font-medium text-text-muted">
           {t('support.customize.anchored')}
         </p>
         <SectionToggles
@@ -196,7 +196,7 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
           <button
             type="button"
             onClick={resetPrefs}
-            className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+            className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
           >
             {t('support.customize.reset')}
           </button>

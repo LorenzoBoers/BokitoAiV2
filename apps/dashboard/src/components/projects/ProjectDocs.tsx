@@ -63,7 +63,7 @@ function SectionRow({
             ) : (
               <ChevronRight size={13} className="shrink-0 text-text-muted" />
             )}
-            <span className="truncate">{section.heading || section.anchor}</span>
+            <span className="truncate-fade">{section.heading || section.anchor}</span>
           </button>
           {canEdit ? (
             <div className="relative">
@@ -75,7 +75,7 @@ function SectionRow({
               >
                 <Badge
                   variant={SECTION_STATUS_VARIANT[section.status]}
-                  className="cursor-pointer px-1.5 py-0 text-[10px]"
+                  className="cursor-pointer px-1.5 py-0 text-2xs"
                 >
                   {busy ? <Loader2 size={10} className="mr-0.5 animate-spin" /> : null}
                   {t(`projects.work.sectionStatus.${section.status}`)}
@@ -105,12 +105,12 @@ function SectionRow({
               ) : null}
             </div>
           ) : (
-            <Badge variant={SECTION_STATUS_VARIANT[section.status]} className="px-1.5 py-0 text-[10px]">
+            <Badge variant={SECTION_STATUS_VARIANT[section.status]} className="px-1.5 py-0 text-2xs">
               {t(`projects.work.sectionStatus.${section.status}`)}
             </Badge>
           )}
           {items.length > 0 ? (
-            <span className="text-[11px] text-text-muted">
+            <span className="text-xs text-text-muted">
               {t('projects.work.linkedItems', { count: items.length })}
             </span>
           ) : null}
@@ -125,11 +125,11 @@ function SectionRow({
             ) : (
               items.map((item) => (
                 <div key={`${item.queue_item_id}-${item.relation}`} className="flex items-center gap-1.5">
-                  <Badge variant={QUEUE_STATUS_VARIANT[item.status]} className="px-1.5 py-0 text-[10px]">
+                  <Badge variant={QUEUE_STATUS_VARIANT[item.status]} className="px-1.5 py-0 text-2xs">
                     {t(`projects.work.status.${item.status}`)}
                   </Badge>
-                  <span className="min-w-0 truncate text-xs text-text-secondary">{item.title}</span>
-                  <span className="text-[10px] text-text-muted">
+                  <span className="min-w-0 truncate-fade text-xs text-text-secondary">{item.title}</span>
+                  <span className="text-2xs text-text-muted">
                     {t(`projects.work.relation.${item.relation}`, { defaultValue: item.relation })}
                   </span>
                 </div>
@@ -252,9 +252,9 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
             }}
           >
             <FileText size={14} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">{doc.title || doc.path}</span>
+            <span className="min-w-0 flex-1 truncate-fade">{doc.title || doc.path}</span>
             {doc.sections.length > 0 ? (
-              <span className="text-[11px] text-text-muted">{doc.sections.length}</span>
+              <span className="text-xs text-text-muted">{doc.sections.length}</span>
             ) : null}
           </button>
         ))}
@@ -293,7 +293,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
         ) : null}
         <Link
           to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
-          className="mt-2 block px-1 text-[11px] font-medium text-accent hover:underline"
+          className="mt-2 block px-1 text-xs font-medium text-accent hover:underline"
         >
           {t('projects.work.openInKnowledge')}
         </Link>
@@ -326,7 +326,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
 
             {selected.sections.length > 0 ? (
               <details className="rounded-lg border border-border/50 bg-bg-surface/40 p-3">
-                <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                <summary className="cursor-pointer text-xs font-medium text-text-muted">
                   {t('projects.work.sections')}
                 </summary>
                 <ul className="mt-2 space-y-1.5">
@@ -344,7 +344,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
 
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="min-w-0 truncate text-xs text-text-muted">{selected.path}</p>
+                <p className="min-w-0 truncate-fade text-xs text-text-muted">{selected.path}</p>
                 {canEdit ? (
                   editing ? (
                     <div className="flex gap-1.5">

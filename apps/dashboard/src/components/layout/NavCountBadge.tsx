@@ -27,10 +27,12 @@ export default function NavCountBadge({
       ? 'bg-text-muted text-bg'
       : 'bg-accent text-accent-fg border border-bg'
 
+  // Inline (nav rows): quiet tabular text, accent only when it signals unread.
   if (placement === 'inline') {
     return (
       <span
-        className={`count-pop ml-auto inline-flex min-h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${colorClass} ${className}`}
+        className={`nav-count shrink-0 ${className}`}
+        data-unread={variant === 'default' ? 'true' : 'false'}
         aria-hidden
       >
         {label}
@@ -40,7 +42,7 @@ export default function NavCountBadge({
 
   return (
     <span
-      className={`count-pop pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none shadow-sm ${colorClass} ${className}`}
+      className={`count-pop pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none ${colorClass} ${className}`}
       aria-hidden
     >
       {label}

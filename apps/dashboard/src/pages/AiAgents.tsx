@@ -8,7 +8,7 @@ import { AiAvatar } from '../components/ui/AiAvatar'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { useIsAdmin } from '../hooks/useIsAdmin'
@@ -38,7 +38,7 @@ function AgentQuickLinks({
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 px-2 text-[11px]"
+        className="h-7 px-2 text-xs"
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -51,7 +51,7 @@ function AgentQuickLinks({
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 px-2 text-[11px]"
+        className="h-7 px-2 text-xs"
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -64,7 +64,7 @@ function AgentQuickLinks({
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 px-2 text-[11px]"
+        className="h-7 px-2 text-xs"
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -107,16 +107,15 @@ function AgentLibraryCard({
             className="mt-0.5"
             kind={agent.avatar_kind}
             icon={agent.avatar_icon}
-            color={agent.avatar_color}
             imageUrl={agent.avatar_image_url}
             decorative
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="truncate font-medium text-text-heading">{agent.name}</p>
+              <p className="truncate-fade font-medium text-text-heading">{agent.name}</p>
               {agent.managed ? (
                 <span
-                  className="shrink-0 rounded border border-border/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted"
+                  className="shrink-0 rounded border border-border/70 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
                   title={
                     agent.origin_label
                       ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
@@ -149,7 +148,7 @@ function AgentLibraryCard({
                       e.stopPropagation()
                       navigate(`/agents/${agent.id}#conversations`)
                     }}
-                    className="text-[11px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('workforce.agents.openConversationsCount', { count: openCount })}
                   </button>
@@ -162,7 +161,7 @@ function AgentLibraryCard({
                       e.stopPropagation()
                       navigate(decisionsPath(null, { agent: agent.id }))
                     }}
-                    className="text-[11px] font-medium text-text-heading hover:underline"
+                    className="text-xs font-medium text-text-heading hover:underline"
                   >
                     {t('workforce.agents.awaitingDecisionCount', { count: decisionCount })}
                   </button>
@@ -187,7 +186,7 @@ function AgentLibraryCard({
           {agent.model ? (
             <span
               title={agent.model}
-              className="truncate text-[10px] text-text-muted/80"
+              className="truncate-fade text-2xs text-text-muted/80"
             >
               {formatAgentModelLine(agent.model, agent.provider, t)}
             </span>
@@ -266,25 +265,33 @@ export default function AiAgents() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <PageGuideBanner page="agents" />
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-heading">{t('workforce.agents.title')}</h1>
-          <p className="text-sm text-text-muted mt-1">{t('workforce.agents.listDescription')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-            {t('workforce.agents.refresh')}
-          </Button>
-          {isAdmin ? (
-            <Button type="button" size="sm" onClick={() => setShowNewAgent(true)}>
-              <Plus className="mr-1 h-4 w-4" aria-hidden />
-              {t('workforce.agents.newAgent')}
+      <ContentHeader
+        guide="agents"
+        title={t('workforce.agents.title')}
+        subtitle={t('workforce.agents.listDescription')}
+        className="mb-0"
+        meta={
+          <>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => void load()}
+              disabled={loading}
+              title={t('workforce.agents.refresh')}
+              aria-label={t('workforce.agents.refresh')}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
             </Button>
-          ) : null}
-        </div>
-      </header>
+            {isAdmin ? (
+              <Button type="button" size="sm" onClick={() => setShowNewAgent(true)}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {t('workforce.agents.newAgent')}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       {agents.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -306,8 +313,8 @@ export default function AiAgents() {
               onClick={() => setStatusFilter(id)}
               className={
                 statusFilter === id
-                  ? 'rounded-full bg-accent/15 px-2.5 py-0.5 text-[11px] font-medium text-accent'
-                  : 'rounded-full border border-border/60 px-2.5 py-0.5 text-[11px] text-text-secondary hover:text-text-primary'
+                  ? 'rounded-md bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-heading'
+                  : 'rounded-md border border-border/70 px-2 py-0.5 text-xs text-text-secondary hover:bg-bg-hover/60 hover:text-text-heading'
               }
             >
               {t(`workforce.agents.filters.${id}`)}
@@ -354,7 +361,7 @@ export default function AiAgents() {
         )
       ) : (
         visibleAgents.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center">
+          <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center">
             <p className="text-sm text-text-muted">{t('workforce.agents.emptySearch')}</p>
             <button
               type="button"
@@ -394,7 +401,6 @@ export default function AiAgents() {
                 { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
               ]
             : []),
-          { to: '/docs/ai/agents', label: t('pageGuides.learnMore') },
         ]}
       />
     </PageContent>

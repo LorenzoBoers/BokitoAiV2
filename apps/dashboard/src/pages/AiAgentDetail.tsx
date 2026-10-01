@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { Archive, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, ShieldCheck } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
+import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
@@ -249,7 +250,6 @@ export default function AiAgentDetail() {
                   className="mt-0.5"
                   kind={agent.avatar_kind}
                   icon={agent.avatar_icon}
-                  color={agent.avatar_color}
                   imageUrl={agent.avatar_image_url}
                 />
                 <div>
@@ -257,7 +257,7 @@ export default function AiAgentDetail() {
                     <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
                     {agent.managed ? (
                       <span
-                        className="rounded border border-border/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted"
+                        className="rounded border border-border/70 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
                         title={
                           agent.origin_label
                             ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
@@ -442,14 +442,14 @@ export default function AiAgentDetail() {
                         <Link
                           key={String(thread.id)}
                           to={agentChatPath(agent.id, { queue: 'open', threadId: String(thread.id) })}
-                          className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm transition-colors hover:border-accent/40"
+                          className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover/70"
                         >
-                          <MessageSquare size={13} className="shrink-0 text-text-muted" aria-hidden />
-                          <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
+                          <ThreadStatusDot status={thread.status} unread={thread.hasUnread} />
+                          <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
                             {thread.emailSubject || t('workforce.agents.conversationUntitled')}
                           </span>
                           {needsDecision ? (
-                            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-accent">
+                            <span className="shrink-0 text-2xs font-medium text-accent">
                               {t('workforce.agents.needsDecisionBadge')}
                             </span>
                           ) : null}
@@ -516,10 +516,10 @@ export default function AiAgentDetail() {
                         <Link
                           key={item.id}
                           to={href}
-                          className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm transition-colors hover:border-accent/40"
+                          className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover/70"
                         >
                           <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
-                          <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
+                          <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
                             {translateDecisionText(item.name, t) || item.name}
                           </span>
                           <span className="shrink-0 text-xs text-text-muted">{agendaKindLabel(item.kind, t)}</span>

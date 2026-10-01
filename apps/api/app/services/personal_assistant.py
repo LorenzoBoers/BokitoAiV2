@@ -123,11 +123,20 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "remember_about_me",
 )
 
-_AVATAR_SETTINGS = {"avatar_kind": "icon", "avatar_icon": "sparkles", "avatar_color": "#0d9488"}
+# Violet + sparkles = platform helper (distinct from Front desk teal headset).
+_AVATAR_SETTINGS = {"avatar_kind": "icon", "avatar_icon": "sparkles", "avatar_color": "#7c3aed"}
 
 
 def _settings_json() -> str:
     return json.dumps({**_AVATAR_SETTINGS, "platform_owned": True})
+
+
+def _settings(raw: str | None) -> dict:
+    try:
+        data = json.loads(raw or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 async def get_personal_assistant(session: AsyncSession, tenant_id: UUID) -> Agent | None:
@@ -179,6 +188,18 @@ async def ensure_personal_assistant(
         session.add(agent)
     else:
         changed = False
+        # Name, slug and avatar are platform identity: "Bokito" with the
+        # sparkles mark looks the same in every list, header and widget.
+        if agent.name != PERSONAL_ASSISTANT_NAME:
+            agent.name = PERSONAL_ASSISTANT_NAME
+            changed = True
+        if agent.slug != PERSONAL_ASSISTANT_SLUG:
+            agent.slug = PERSONAL_ASSISTANT_SLUG
+            changed = True
+        stored = _settings(agent.settings_json)
+        if any(stored.get(key) != value for key, value in _AVATAR_SETTINGS.items()):
+            agent.settings_json = json.dumps({**stored, **_AVATAR_SETTINGS, "platform_owned": True})
+            changed = True
         if agent.system_prompt != SYSTEM_PROMPT:
             agent.system_prompt = SYSTEM_PROMPT
             changed = True

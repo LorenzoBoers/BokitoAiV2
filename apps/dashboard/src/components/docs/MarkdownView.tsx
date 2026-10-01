@@ -188,7 +188,7 @@ export default function MarkdownView({ content }: { content: string }) {
       }
       blocks.push(
         <div key={key++} className="overflow-x-auto rounded-lg border border-border/40">
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border/40 bg-bg-elevated/60">
                 {header.map((cell, idx) => (

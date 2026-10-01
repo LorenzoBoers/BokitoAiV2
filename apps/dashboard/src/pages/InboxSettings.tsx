@@ -8,7 +8,6 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../components/ui/button'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { PageIntro } from '../components/layout/PageIntro'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { SettingsSection } from '../components/layout/SettingsSection'
@@ -82,7 +81,7 @@ function ChannelKindsMark() {
         <span
           key={index}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated shadow-sm',
+            'flex h-6 w-6 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated ',
             index > 0 && '-ml-1.5',
           )}
           style={{ zIndex: chips.length - index }}
@@ -397,8 +396,7 @@ export default function InboxSettings() {
 
   return (
     <PageContent width="full" className="flex min-h-0 flex-col gap-5">
-      <PageGuideBanner page="channels" />
-      <PageIntro description={t('pageHeaders.emailMessages')} />
+      <PageIntro description={t('pageHeaders.emailMessages')} guide="channels" />
 
       {channels.some((row) => row.state === 'setup_required' || row.state === 'action_required' || row.state === 'error') ? (
         <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm">
@@ -593,7 +591,7 @@ export default function InboxSettings() {
                           onChange={() => handleToggleFolder(folder.id)}
                           className="accent-accent"
                         />
-                        <span className="truncate text-sm text-text-heading">{folder.displayName}</span>
+                        <span className="truncate-fade text-sm text-text-heading">{folder.displayName}</span>
                         {folder.totalItems > 0 ? (
                           <span className="shrink-0 text-xs text-text-muted">{folder.totalItems}</span>
                         ) : null}
@@ -640,7 +638,6 @@ export default function InboxSettings() {
           { to: '/settings/communication', label: t('channelsPage.crossLinks.inboxAi') },
           { to: WEBSITE_WIDGET_PATH, label: t('channelsPage.crossLinks.widget') },
           { to: '/connections/marketplace?kind=inbox', label: t('channelsPage.crossLinks.integrations') },
-          { to: '/docs/inbox/channels', label: t('pageGuides.learnMore') },
         ]}
       />
     </PageContent>

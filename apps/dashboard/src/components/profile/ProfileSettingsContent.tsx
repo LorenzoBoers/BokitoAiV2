@@ -140,7 +140,7 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-[15px] font-semibold text-text-heading">{title}</h3>
+        <h3 className="text-lg font-semibold text-text-heading">{title}</h3>
         {description ? <p className="mt-0.5 text-sm text-text-muted">{description}</p> : null}
       </div>
       {children}
@@ -150,7 +150,7 @@ function Section({ title, description, children }: { title: string; description?
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-bg-surface px-4 shadow-card">
+    <div className="rounded-lg border border-border/60 bg-bg-surface px-4">
       {children}
     </div>
   )
@@ -226,7 +226,7 @@ function ThemeOption({ label, icon, active, onClick, variant }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-xl border p-2.5 transition-all ${
+      className={`flex-1 rounded-lg border p-2.5 transition-all ${
         active
           ? 'border-accent shadow-[0_0_0_1px_rgba(99,91,255,0.4)]'
           : 'border-border/60 hover:border-border'
@@ -663,7 +663,7 @@ export function ProfileSettingsContent() {
           mailboxEmail={user?.email ?? ''}
           contextLabel={t('profile:signature.editorContext')}
         />
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
           <Link to="/settings/channels" className="font-medium text-accent hover:underline">
             {t('profile:links.openMailboxSignatures')}
           </Link>
@@ -689,7 +689,7 @@ export function ProfileSettingsContent() {
               }}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
-                  ? 'border-accent bg-accent/10 text-accent'
+                  ? 'border-border-light bg-bg-hover text-text-heading'
                   : 'border-border/60 text-text-secondary hover:border-border hover:text-text-primary'
               }`}
             >
@@ -718,7 +718,7 @@ export function ProfileSettingsContent() {
               }}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 defaultLanding === option.id
-                  ? 'border-accent bg-accent/10 text-accent'
+                  ? 'border-border-light bg-bg-hover text-text-heading'
                   : 'border-border/60 text-text-secondary hover:border-border hover:text-text-primary'
               }`}
             >
@@ -730,7 +730,7 @@ export function ProfileSettingsContent() {
 
       {/* ── Appearance ── */}
       <Section title={t('profile:theme.title')} description={t('profile:theme.description')}>
-        <div className="grid grid-cols-3 gap-2.5 rounded-xl border border-border/60 bg-bg-surface p-3 shadow-card">
+        <div className="grid grid-cols-3 gap-2.5 rounded-lg border border-border/60 bg-bg-surface p-3">
           <ThemeOption variant="light" label={t('profile:theme.light')} icon={<Sun size={12} />} active={mode === 'light'} onClick={() => setMode('light')} />
           <ThemeOption variant="dark" label={t('profile:theme.dark')} icon={<Moon size={12} />} active={mode === 'dark'} onClick={() => setMode('dark')} />
           <ThemeOption variant="system" label={t('profile:theme.system')} icon={<LaptopMinimal size={12} />} active={mode === 'system'} onClick={() => setMode('system')} />
@@ -789,7 +789,7 @@ export function ProfileSettingsContent() {
                       ]
                   ).map(({ label, value, set }) => (
                     <div key={label} className="space-y-1">
-                      <label className="text-[11px] uppercase tracking-wide text-text-muted">{label}</label>
+                      <label className="text-xs text-text-muted">{label}</label>
                       <Input
                         type="password"
                         value={value}
@@ -933,13 +933,13 @@ export function ProfileSettingsContent() {
                   {t('profile:security.totpStep1')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <code className="rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 font-mono text-[12px] tracking-wider text-text-primary">
+                  <code className="rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 font-mono text-xs text-text-primary">
                     {totpSetup.secret}
                   </code>
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="h-7 rounded-lg px-2.5 text-[11px]"
+                    className="h-7 rounded-lg px-2.5 text-xs"
                     onClick={() => {
                       void navigator.clipboard.writeText(totpSetup.secret)
                       toast.success(t('common:actions.copied'))
@@ -949,7 +949,7 @@ export function ProfileSettingsContent() {
                   </Button>
                   <a
                     href={totpSetup.otpauthUri}
-                    className="text-[11.5px] font-medium text-accent hover:text-accent-hover"
+                    className="text-xs font-medium text-accent hover:text-accent-hover"
                   >
                     {t('profile:security.totpOpenApp')}
                   </a>
@@ -1027,7 +1027,7 @@ export function ProfileSettingsContent() {
 
       {/* ── Danger zone ── */}
       <Section title={t('profile:dangerZone.title')} description={t('profile:dangerZone.description')}>
-        <div className="rounded-xl border border-status-error/30 bg-status-error/[0.03] px-4 shadow-card">
+        <div className="rounded-lg border border-status-error/30 bg-status-error/[0.03] px-4">
           <div className="flex items-center justify-between py-3.5">
             <div>
               <p className="text-sm font-medium text-text-heading">{t('profile:account.deleteTitle')}</p>

@@ -291,9 +291,9 @@ export default function ActivityTerminalPage() {
                 type="button"
                 onClick={() => setFollow((v) => !v)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors',
+                  'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
                   follow
-                    ? 'border-accent/45 bg-accent/10 text-accent'
+                    ? 'border-border-light bg-bg-hover text-text-heading'
                     : 'border-border/60 text-text-secondary hover:bg-bg-hover/60',
                 )}
               >
@@ -303,7 +303,7 @@ export default function ActivityTerminalPage() {
               <button
                 type="button"
                 onClick={() => void load()}
-                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                 {t('activityPage.refresh')}
@@ -318,7 +318,7 @@ export default function ActivityTerminalPage() {
                 type="button"
                 onClick={() => patchParams({ agent: null })}
                 className={cn(
-                  'shrink-0 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors',
+                  'shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                   !agentFilter ? 'bg-accent/12 text-accent' : 'text-text-secondary hover:text-text-primary',
                 )}
               >
@@ -330,7 +330,7 @@ export default function ActivityTerminalPage() {
                   type="button"
                   onClick={() => patchParams({ agent: agentFilter === agent.id ? null : agent.id })}
                   className={cn(
-                    'shrink-0 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors',
+                    'shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                     agentFilter === agent.id
                       ? 'bg-ai/15 text-ai-ink'
                       : 'text-text-secondary hover:text-text-primary',
@@ -349,34 +349,34 @@ export default function ActivityTerminalPage() {
                 value={query}
                 onChange={(e) => patchParams({ q: e.target.value })}
                 placeholder={t('activityPage.filterPlaceholder')}
-                className="h-8 w-full rounded-lg border border-border/60 bg-bg-input pl-8 pr-3 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                className="h-8 w-full rounded-lg border border-border/60 bg-bg-input pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
             </div>
-            <span className="ml-auto text-[11px] text-text-muted">
+            <span className="ml-auto text-xs text-text-muted">
               {t('activityPage.events', { count: visible.length })}
             </span>
           </div>
 
           {loadError ? (
-            <div className="flex items-center justify-between rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-[12.5px] text-status-error">
+            <div className="flex items-center justify-between rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
               <span>{loadError}</span>
               <button
                 type="button"
                 onClick={() => void load()}
-                className="rounded-md border border-status-error/40 px-2 py-0.5 text-[11.5px] font-medium hover:bg-status-error/15"
+                className="rounded-md border border-status-error/40 px-2 py-0.5 text-xs font-medium hover:bg-status-error/15"
               >
                 {t('activityPage.retry')}
               </button>
             </div>
           ) : null}
 
-          <div className="min-h-[420px] rounded-xl border border-border/50 bg-bg-surface/80 px-3 py-4 shadow-sm md:px-5">
+          <div className="min-h-[420px] rounded-lg border border-border/50 bg-bg-surface/80 px-3 py-4 md:px-5">
             {hasMore && entries.length > 0 ? (
               <button
                 type="button"
                 onClick={() => void loadOlder()}
                 disabled={loadingOlder}
-                className="mb-4 flex items-center gap-1.5 text-[12px] font-medium text-text-muted transition-colors hover:text-text-primary"
+                className="mb-4 flex items-center gap-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
               >
                 <ChevronUp size={13} />
                 {loadingOlder ? t('activityPage.loadingOlder') : t('activityPage.loadOlder')}
@@ -388,7 +388,7 @@ export default function ActivityTerminalPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bg-hover text-text-muted">
                   <AiMark size={18} />
                 </div>
-                <p className="text-[13px] text-text-secondary">
+                <p className="text-sm text-text-secondary">
                   {loading
                     ? t('activityPage.loading')
                     : entries.length > 0
@@ -418,7 +418,7 @@ export default function ActivityTerminalPage() {
                     <li key={entry.id} className="relative">
                       {day !== prevDay ? (
                         <div className="sticky top-0 z-10 mb-3 mt-1 flex justify-center first:mt-0">
-                          <span className="rounded-full border border-border/50 bg-bg-elevated px-3 py-0.5 text-[11px] font-medium text-text-secondary shadow-sm">
+                          <span className="rounded-md border border-border/50 bg-bg-elevated px-3 py-0.5 text-xs font-medium text-text-secondary">
                             {day === 'today'
                               ? t('activityPage.dayToday')
                               : day === 'yesterday'
@@ -461,20 +461,20 @@ export default function ActivityTerminalPage() {
                           )}
                         >
                           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-[11px] tabular-nums text-text-muted">
+                            <span className="text-xs tabular-nums text-text-muted">
                               {clock(entry.createdAt)}
                             </span>
-                            <span className="text-[12.5px] font-medium text-text-primary">{actor}</span>
+                            <span className="text-sm font-medium text-text-primary">{actor}</span>
                             {entry.live ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-status-success">
+                              <span className="inline-flex items-center gap-1 text-2xs font-medium text-status-success">
                                 <span className={cn('h-1.5 w-1.5 rounded-full', TONE_DOT[tone].split(' ')[0])} />
                                 {t('activityPage.live')}
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-0.5 text-[12.5px] font-medium text-text-secondary">{label}</p>
+                          <p className="mt-0.5 text-sm font-medium text-text-secondary">{label}</p>
                           {message && message !== label ? (
-                            <p className="mt-0.5 line-clamp-2 text-[12.5px] text-text-muted">{message}</p>
+                            <p className="mt-0.5 line-clamp-2 text-sm text-text-muted">{message}</p>
                           ) : null}
                         </button>
                       </div>

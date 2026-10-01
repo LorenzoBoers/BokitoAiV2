@@ -1,19 +1,39 @@
 import { memo, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, ArrowLeft, ArrowRight, Bot, Trash2 } from 'lucide-react'
+import {
+  Archive,
+  ArrowLeft,
+  Clock,
+  Mail,
+  MailOpen,
+  MoreHorizontal,
+  Pin,
+  PinOff,
+  Trash2,
+} from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
-import { AI_PILL_CLASS } from '../ai/AiMark'
-import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { PersonAvatar } from '../ui/PersonAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { ThreadStatusDot } from '../ui/ThreadStatusDot'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import { THREAD_ROW_AI_CLASS, THREAD_ROW_SELECTED_CLASS } from '../../lib/chat-chrome'
 import { cn } from '../../lib/utils'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
-import { isInternalThread, threadCounterpartyName, threadNeedsReply, threadSecondaryLine } from '../../lib/message-composer'
+import {
+  isInternalThread,
+  threadCounterpartyName,
+  threadNeedsReply,
+  threadSecondaryLine,
+} from '../../lib/message-composer'
 import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
-import ThreadIndicatorMenu from './ThreadIndicatorMenu'
 
 type Props = {
   thread: InboxThread
@@ -67,6 +87,22 @@ const PRIORITY_DOT: Record<string, string> = {
   normal: '',
 }
 
+/** Hover-revealed icon button in the row's right cluster. */
+const ROW_ICON_BUTTON = cn(
+  'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted transition-opacity',
+  'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
+  'data-[state=open]:opacity-100 data-[state=open]:pointer-events-auto',
+  'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+)
+
+/**
+ * One conversation in the list: lead slot · avatar · name + time · preview.
+ *
+ * The lead slot carries one 8px state dot (unread, status, pinned). When the
+ * list can bulk-select, the same slot turns into the checkbox on hover or
+ * while a selection is active, so the avatar never shifts. Row actions
+ * (read state, pin, snooze, close) sit in a hover cluster on the right.
+ */
 function ThreadListItem({
   thread,
   isSelected,
@@ -131,17 +167,15 @@ function ThreadListItem({
       : thread.lastMessageDirection === 'outbound' && rawPreview
         ? `${t('listItem.you')}: ${rawPreview}`
         : rawPreview
-  const showNeedsReply = !isDirect && !isAgentThread && threadNeedsReply(thread)
-  // Answered and waiting on them: open thread whose last line was ours.
-  const showTheirTurn =
-    !isDirect &&
-    !isAgentThread &&
-    !showNeedsReply &&
-    thread.status === 'open' &&
-    thread.lastMessageDirection === 'outbound'
+  // One arrow at most: a decision card waits (AI colour) or the customer
+  // spoke last (accent). "Their turn" has no mark — the preview reads "You:".
+  const showDecision = !isAgentThread && Boolean(thread.hasOpenDecision)
+  const showNeedsReply = !isDirect && !isAgentThread && !showDecision && threadNeedsReply(thread)
   // Purple cue only when AI has real work on the thread (open decision).
-  // Default !aiPaused ownership no longer paints every customer row violet.
-  const aiActive = !isDirect && !isAgentThread && Boolean(thread.hasOpenDecision)
+  const aiActive = !isDirect && !isAgentThread && showDecision
+  const selectable = Boolean(onToggleChecked)
+  const checkboxVisible = selectable && (selectionActive || Boolean(checked))
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
   return (
     <div
@@ -157,7 +191,7 @@ function ThreadListItem({
       data-active={isSelected || undefined}
       data-ai-managed={aiActive || undefined}
       className={cn(
-        'row-interactive group/thread w-full cursor-pointer rounded-md border border-transparent px-3 text-left',
+        'row-interactive group/thread w-full cursor-pointer rounded-md border border-transparent px-2.5 text-left',
         compact ? 'py-1.5' : 'py-2',
         isSelected ? THREAD_ROW_SELECTED_CLASS : 'hover:bg-bg-hover/45',
         aiActive && THREAD_ROW_AI_CLASS,
@@ -170,101 +204,69 @@ function ThreadListItem({
       }
       data-channel={thread.channel ?? undefined}
     >
-      <div className="flex items-start gap-2 min-w-0">
-        {onToggleChecked ? (
-          <input
-            type="checkbox"
-            checked={Boolean(checked)}
-            aria-label={t('threadList.selectThread')}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            onChange={(event) =>
-              onToggleChecked(thread.id, (event.nativeEvent as MouseEvent).shiftKey)
-            }
+      <div className="flex min-w-0 items-start gap-2">
+        {/* Lead slot: state dot, or the checkbox when selecting. */}
+        <span className="relative mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center">
+          <span
+            aria-hidden
             className={cn(
-              'mt-1 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border accent-[rgb(var(--color-accent))] transition-opacity',
-              selectionActive || checked
-                ? 'opacity-100'
-                : 'opacity-0 group-hover/thread:opacity-100 focus-visible:opacity-100',
+              'absolute inset-0 flex items-center justify-center transition-opacity',
+              checkboxVisible && 'opacity-0',
+              selectable && !checkboxVisible && 'group-hover/thread:opacity-0',
             )}
-          />
-        ) : null}
-        {isDirect || isAgentThread ? (
-          thread.agentAvatarKind ||
-          thread.agentAvatarIcon ||
-          thread.agentAvatarColor ||
-          thread.agentAvatarImageUrl ? (
-            <AiAvatar
-              name={thread.agentName || 'Agent'}
-              seed={thread.agentId || String(thread.id)}
-              size={28}
-              className="mt-0.5"
-              kind={thread.agentAvatarKind}
-              icon={thread.agentAvatarIcon}
-              color={thread.agentAvatarColor}
-              imageUrl={thread.agentAvatarImageUrl}
-              decorative
+          >
+            {thread.isPinned ? (
+              <Pin size={10} className="rotate-45 fill-text-muted text-text-muted" />
+            ) : (
+              <ThreadStatusDot
+                status={thread.status}
+                unread={thread.hasUnread}
+                className={cn(thread.hasUnread && isSelected && 'pulse-dot')}
+              />
+            )}
+          </span>
+          {selectable ? (
+            <input
+              type="checkbox"
+              checked={Boolean(checked)}
+              aria-label={t('threadList.selectThread')}
+              onClick={stop}
+              onKeyDown={stop}
+              onChange={(event) =>
+                onToggleChecked?.(thread.id, (event.nativeEvent as MouseEvent).shiftKey)
+              }
+              className={cn(
+                'absolute h-3.5 w-3.5 cursor-pointer rounded border-border accent-[rgb(var(--color-accent))] transition-opacity',
+                checkboxVisible
+                  ? 'opacity-100'
+                  : 'opacity-0 group-hover/thread:opacity-100 focus-visible:opacity-100',
+              )}
             />
-          ) : (
-            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
-              <Bot size={13} />
-            </span>
-          )
-        ) : (
-          <PersonAvatar
-            name={thread.contactName}
-            email={thread.contactEmail}
+          ) : null}
+        </span>
+
+        {isDirect || isAgentThread ? (
+          <AiAvatar
+            {...toAiAvatarProps(thread)}
             size={28}
             className="mt-0.5"
+            decorative
           />
+        ) : (
+          <PersonAvatar name={thread.contactName} email={thread.contactEmail} size={28} className="mt-0.5" />
         )}
-        <ThreadIndicatorMenu
-          hasUnread={thread.hasUnread}
-          isPinned={thread.isPinned}
-          emphasize={isSelected}
-          onMarkRead={() => onMarkRead(thread.id)}
-          onMarkUnread={() => onMarkUnread(thread.id)}
-          onTogglePin={() => onTogglePin(thread.id, thread.isPinned)}
-          onSnooze={onSnooze ? () => onSnooze(thread.id) : undefined}
-        />
+
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-1 mb-0.5">
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span
-                className={cn(
-                  'truncate text-[13px] font-medium',
-                  thread.hasUnread ? 'text-text-heading' : 'text-text-primary',
-                )}
-              >
-                {primaryLabel}
-              </span>
-              {isDirect ? (
-                <span className="shrink-0 rounded-full border border-ai/25 bg-ai/[0.06] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-ai-ink">
-                  {t('listItem.assistant')}
-                </span>
-              ) : null}
-              {isAgentThread && !isDirect ? (
-                <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated/70 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-text-muted">
-                  {t('listItem.internal')}
-                </span>
-              ) : null}
-              {!isAgentThread && thread.hasOpenDecision ? (
-                <span
-                  className={cn(
-                    'shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide',
-                    AI_PILL_CLASS,
-                  )}
-                >
-                  {t('listItem.needsDecision')}
-                </span>
-              ) : null}
-              {thread.status === 'pending' ? (
-                <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated/70 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-text-muted">
-                  {t('listItem.snoozed')}
-                </span>
-              ) : null}
+          <div className="mb-0.5 flex items-center justify-between gap-1">
+            <span
+              className={cn(
+                'min-w-0 truncate-fade text-sm font-medium',
+                thread.hasUnread ? 'text-text-heading' : 'text-text-primary',
+              )}
+            >
+              {primaryLabel}
             </span>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-0.5">
               {thread.status === 'closed' || thread.status === 'spam' ? (
                 <button
                   type="button"
@@ -273,15 +275,10 @@ function ThreadListItem({
                     e.stopPropagation()
                     onDelete(thread.id)
                   }}
-                  onKeyDown={(e) => e.stopPropagation()}
+                  onKeyDown={stop}
                   title={t('threadList.deleteThread')}
                   aria-label={t('threadList.deleteThread')}
-                  className={cn(
-                    'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
-                    'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
-                    'hover:bg-status-error/10 hover:text-status-error transition-opacity',
-                    'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
-                  )}
+                  className={cn(ROW_ICON_BUTTON, 'hover:bg-status-error/10 hover:text-status-error')}
                 >
                   <Trash2 size={13} />
                 </button>
@@ -293,31 +290,63 @@ function ThreadListItem({
                     e.stopPropagation()
                     onClose(thread.id)
                   }}
-                  onKeyDown={(e) => e.stopPropagation()}
+                  onKeyDown={stop}
                   title={t('threadList.closeThread')}
                   aria-label={t('threadList.closeThread')}
-                  className={cn(
-                    'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
-                    'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
-                    'hover:bg-bg-hover hover:text-text-heading transition-opacity',
-                    'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
-                  )}
+                  className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
                 >
                   <Archive size={13} />
                 </button>
               ) : null}
-              {!isDirect && !isAgentThread ? (
-                <span
-                  title={t(`composer.channel.${thread.channel ?? 'email'}`, {
-                    defaultValue: thread.channel ?? '',
-                  })}
-                  className="inline-flex items-center gap-0.5 rounded border border-border/40 bg-bg-elevated/50 px-1 py-px text-text-muted"
-                >
-                  <ChannelGlyph channel={thread.channel ?? 'email'} size={10} className="text-text-muted" />
-                </span>
-              ) : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={stop}
+                    onPointerDown={stop}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') stop(e)
+                    }}
+                    aria-label={t('threadChrome.threadActions')}
+                    title={t('threadChrome.threadActions')}
+                    className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
+                  >
+                    <MoreHorizontal size={13} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={4} onClick={stop}>
+                  {thread.hasUnread ? (
+                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkRead(thread.id)}>
+                      <MailOpen size={13} className="text-text-muted" />
+                      {t('threadChrome.markRead')}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkUnread(thread.id)}>
+                      <Mail size={13} className="text-text-muted" />
+                      {t('threadChrome.markUnread')}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    className="gap-2"
+                    onSelect={() => onTogglePin(thread.id, thread.isPinned)}
+                  >
+                    {thread.isPinned ? (
+                      <PinOff size={13} className="text-text-muted" />
+                    ) : (
+                      <Pin size={13} className="text-text-muted" />
+                    )}
+                    {thread.isPinned ? t('threadChrome.unpin') : t('threadChrome.pin')}
+                  </DropdownMenuItem>
+                  {onSnooze ? (
+                    <DropdownMenuItem className="gap-2" onSelect={() => onSnooze(thread.id)}>
+                      <Clock size={13} className="text-text-muted" />
+                      {t('snooze.tomorrow')}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <span
-                className="text-[11px] tabular-nums text-text-muted"
+                className="text-xs tabular-nums text-text-muted"
                 title={
                   thread.lastMessageAt
                     ? formatAppDateTime(new Date(thread.lastMessageAt), i18n.language)
@@ -333,12 +362,26 @@ function ThreadListItem({
 
           <div className="flex items-center gap-1.5">
             {priorityDot && !isDirect ? (
-              <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot, thread.priority === 'urgent' && 'pulse-dot')} />
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 shrink-0 rounded-full',
+                  priorityDot,
+                  thread.priority === 'urgent' && 'pulse-dot',
+                )}
+              />
             ) : null}
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-secondary">
+            <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-secondary">
               {secondaryLabel}
             </span>
-            {showNeedsReply ? (
+            {showDecision ? (
+              <span
+                title={t('listItem.needsDecision')}
+                aria-label={t('listItem.needsDecision')}
+                className="ml-auto inline-flex shrink-0 text-ai-ink"
+              >
+                <ArrowLeft size={13} strokeWidth={2.25} aria-hidden />
+              </span>
+            ) : showNeedsReply ? (
               <span
                 title={t('listItem.needsReply')}
                 aria-label={t('listItem.needsReply')}
@@ -346,23 +389,17 @@ function ThreadListItem({
               >
                 <ArrowLeft size={13} strokeWidth={2.25} aria-hidden />
               </span>
-            ) : showTheirTurn ? (
-              <span
-                title={t('listItem.theirTurn')}
-                aria-label={t('listItem.theirTurn')}
-                className="ml-auto inline-flex shrink-0 text-text-muted"
-              >
-                <ArrowRight size={13} strokeWidth={2} aria-hidden />
-              </span>
             ) : null}
           </div>
 
           {thread.assignedToUserId && !isDirect ? (
             <div className="mt-1 flex items-center gap-1">
-              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent/15 text-[8px] font-semibold uppercase text-accent">
+              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-bg-hover text-[8px] font-semibold text-text-secondary">
                 {(assigneeName ?? '?').slice(0, 1)}
               </span>
-              <span className="truncate text-xs text-text-muted">{assigneeName ?? t('listItem.assigned')}</span>
+              <span className="truncate-fade text-xs text-text-muted">
+                {assigneeName ?? t('listItem.assigned')}
+              </span>
             </div>
           ) : null}
         </div>

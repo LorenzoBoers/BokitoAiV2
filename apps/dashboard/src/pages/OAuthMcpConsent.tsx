@@ -120,49 +120,49 @@ export default function OAuthMcpConsent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-      <div className="w-full max-w-md rounded-xl border border-border/60 bg-bg-surface p-6 shadow-card">
+      <div className="w-full max-w-md rounded-lg border border-border/60 bg-bg-surface p-6">
         <div className="mb-5 flex items-center gap-2 text-text-heading">
           <ShieldCheck size={20} className="text-text-muted" />
-          <h1 className="text-[17px] font-semibold">{t('oauthMcp.title')}</h1>
+          <h1 className="text-xl font-semibold">{t('oauthMcp.title')}</h1>
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-2 text-[13px] text-text-secondary">
+          <div className="flex items-center gap-2 text-sm text-text-secondary">
             <Loader2 size={16} className="animate-spin" />
             {t('oauthMcp.loading')}
           </div>
         ) : error && !ctx ? (
           <div className="space-y-3">
-            <p className="text-[13px] text-destructive">{error}</p>
-            <Link to="/login" className="text-[13px] text-accent underline">
+            <p className="text-sm text-destructive">{error}</p>
+            <Link to="/login" className="text-sm text-accent underline">
               {t('oauthMcp.backToLogin')}
             </Link>
           </div>
         ) : ctx ? (
           <form onSubmit={onAuthorize} className="space-y-4">
-            <p className="text-[13px] leading-relaxed text-text-secondary">
+            <p className="text-sm leading-relaxed text-text-secondary">
               {t('oauthMcp.intro', {
                 client: ctx.client_name || ctx.client_id,
                 email: ctx.user.email,
               })}
             </p>
             {redirectHost ? (
-              <p className="text-[11.5px] text-text-muted">
+              <p className="text-xs text-text-muted">
                 {t('oauthMcp.redirectTo', { host: redirectHost })}
               </p>
             ) : null}
 
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-text-heading">
+              <label className="mb-1.5 block text-xs font-medium text-text-heading">
                 {t('oauthMcp.pickWorkspace')}
               </label>
               {ctx.memberships.length === 0 ? (
-                <p className="text-[13px] text-destructive">{t('oauthMcp.noWorkspaces')}</p>
+                <p className="text-sm text-destructive">{t('oauthMcp.noWorkspaces')}</p>
               ) : (
                 <ul className="space-y-1.5">
                   {ctx.memberships.map((m) => (
                     <li key={m.tenant_id}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-[13px] hover:bg-bg-hover">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm hover:bg-bg-hover">
                         <input
                           type="radio"
                           name="tenant"
@@ -181,7 +181,7 @@ export default function OAuthMcpConsent() {
             </div>
 
             <div>
-              <p className="mb-1.5 text-[12px] font-medium text-text-heading">
+              <p className="mb-1.5 text-xs font-medium text-text-heading">
                 {t('oauthMcp.scopesTitle')}
               </p>
               <ul className="flex flex-wrap gap-1.5">
@@ -195,9 +195,9 @@ export default function OAuthMcpConsent() {
                         <button
                           type="button"
                           onClick={() => toggleScope(scope)}
-                          className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${
+                          className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
                             on
-                              ? 'border-accent/50 bg-accent/10 text-accent'
+                              ? 'border-border-light bg-bg-hover text-text-heading'
                               : 'border-border/60 text-text-secondary hover:bg-bg-hover'
                           }`}
                         >
@@ -209,11 +209,11 @@ export default function OAuthMcpConsent() {
                 )}
               </ul>
               {!selectedScopes.length ? (
-                <p className="mt-1.5 text-[11.5px] text-amber-600">{t('oauthMcp.scopesFull')}</p>
+                <p className="mt-1.5 text-xs text-amber-600">{t('oauthMcp.scopesFull')}</p>
               ) : null}
             </div>
 
-            {error ? <p className="text-[13px] text-destructive">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <Button

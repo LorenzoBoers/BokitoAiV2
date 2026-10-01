@@ -227,13 +227,13 @@ export default function SetupHubPage() {
 
       <div className="mx-auto max-w-3xl space-y-6">
         {loading ? (
-          <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-4 py-5 text-sm text-text-muted">
+          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-4 py-5 text-sm text-text-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('setupGuidePage.checking')}
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-bg-surface px-4 py-3 shadow-card">
+            <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent">
                 <Sparkles size={16} />
               </div>
@@ -249,7 +249,7 @@ export default function SetupHubPage() {
               </div>
               <Link
                 to={talkToAssistantPath(assistantPrompt)}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
               >
                 <Bot size={13} />
                 {t('setupGuidePage.startAssistant')}
@@ -262,7 +262,7 @@ export default function SetupHubPage() {
                 return (
                   <li
                     key={step.id}
-                    className={`rounded-xl border p-4 shadow-card ${
+                    className={`rounded-lg border p-4 ${
                       step.done
                         ? 'border-border/60 bg-bg-elevated/30'
                         : 'border-border/60 bg-bg-surface'
@@ -282,7 +282,7 @@ export default function SetupHubPage() {
                         <h2 className="text-sm font-semibold text-text-heading">
                           {index + 1}. {step.title}
                         </h2>
-                        <p className="mt-0.5 text-[12.5px] text-text-secondary">{step.description}</p>
+                        <p className="mt-0.5 text-sm text-text-secondary">{step.description}</p>
                         <div className="mt-2.5 flex flex-wrap gap-2">
                           {step.actions.map((action) =>
                             action.onClick ? (
@@ -324,10 +324,10 @@ export default function SetupHubPage() {
             </ol>
 
             <section>
-              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+              <h2 className="mb-2 text-xs font-semibold text-text-muted">
                 {t('setupGuidePage.later.title', { defaultValue: 'Later' })}
               </h2>
-              <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-bg-surface">
+              <ul className="divide-y divide-border/50 rounded-lg border border-border/60 bg-bg-surface">
                 {later.map((item) => (
                   <li key={item.to}>
                     <Link

@@ -1,9 +1,6 @@
 import { getInitials } from '../../lib/avatar'
-import {
-  DEFAULT_AGENT_AVATAR_COLOR,
-  resolveAgentAvatarIcon,
-  type AgentAvatarKind,
-} from '../../lib/agent-avatar'
+import { resolveAgentAvatarIcon, type AgentAvatarKind } from '../../lib/agent-avatar'
+import { cn } from '../../lib/utils'
 
 interface AiAvatarProps {
   name?: string | null
@@ -12,25 +9,11 @@ interface AiAvatarProps {
   className?: string
   kind?: AgentAvatarKind | string | null
   icon?: string | null
+  /** Ignored — agents always use the platform AI violet. Kept for call-site compat. */
   color?: string | null
   imageUrl?: string | null
   /** Hide the name from assistive tech when a parent already labels the control. */
   decorative?: boolean
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const normalized = hex.replace('#', '')
-  const value =
-    normalized.length === 3
-      ? normalized
-          .split('')
-          .map((ch) => ch + ch)
-          .join('')
-      : normalized
-  const r = Number.parseInt(value.slice(0, 2), 16)
-  const g = Number.parseInt(value.slice(2, 4), 16)
-  const b = Number.parseInt(value.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 function resolveKind(
@@ -48,8 +31,8 @@ function resolveKind(
 }
 
 /**
- * AI avatar style: image, Lucide icon, or tinted initials with border glow.
- * Distinguishes agents from human user avatars.
+ * Agent mark: image, Lucide icon, or initials — always platform AI violet.
+ * Personality is the icon + name; color is never per-agent.
  */
 export function AiAvatar({
   name,
@@ -58,14 +41,12 @@ export function AiAvatar({
   className = '',
   kind,
   icon,
-  color,
+  color: _color,
   imageUrl,
   decorative = false,
 }: AiAvatarProps) {
   const displayName = name?.trim() || 'Agent'
   const initials = getInitials(displayName)
-  // Prefer explicit color, else platform AI violet (not per-name seed hues).
-  const accent = (color?.trim() || DEFAULT_AGENT_AVATAR_COLOR).toLowerCase()
   const resolved = resolveKind(kind, icon, imageUrl)
   const Icon = resolved === 'icon' ? resolveAgentAvatarIcon(icon) : null
   const fontSize = Math.round(size * 0.36)
@@ -78,14 +59,8 @@ export function AiAvatar({
   if (resolved === 'image' && imageUrl) {
     return (
       <span
-        style={{
-          width: size,
-          height: size,
-          borderRadius,
-          border: `1px solid ${hexToRgba(accent, 0.55)}`,
-          boxShadow: `0 0 0 2px ${hexToRgba(accent, 0.16)}, 0 0 12px ${hexToRgba(accent, 0.22)}`,
-        }}
-        className={`inline-flex shrink-0 overflow-hidden ${className}`}
+        style={{ width: size, height: size, borderRadius }}
+        className={cn('inline-flex shrink-0 overflow-hidden border border-ai/35', className)}
         {...a11yProps}
       >
         <img src={imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />
@@ -95,17 +70,11 @@ export function AiAvatar({
 
   return (
     <span
-      style={{
-        width: size,
-        height: size,
-        borderRadius,
-        color: accent,
-        fontSize,
-        background: hexToRgba(accent, 0.08),
-        border: `1px solid ${hexToRgba(accent, 0.55)}`,
-        boxShadow: `0 0 0 2px ${hexToRgba(accent, 0.16)}, 0 0 12px ${hexToRgba(accent, 0.22)}`,
-      }}
-      className={`inline-flex shrink-0 select-none items-center justify-center font-semibold ${className}`}
+      style={{ width: size, height: size, borderRadius, fontSize }}
+      className={cn(
+        'inline-flex shrink-0 select-none items-center justify-center border border-ai/35 bg-ai/10 font-semibold text-ai-ink',
+        className,
+      )}
       {...a11yProps}
     >
       {Icon ? <Icon size={iconSize} strokeWidth={1.75} aria-hidden /> : initials}

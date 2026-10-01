@@ -89,14 +89,14 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-text-primary">{row.name}</div>
               <p className="mt-0.5 text-xs text-text-secondary">{row.description}</p>
-              <p className="mt-1 text-[11px] text-text-muted">
+              <p className="mt-1 text-xs text-text-muted">
                 {t('integrations.modules.templates.stepCount', {
                   defaultValue: '{{count}} steps',
                   count: row.steps_count,
                 })}
               </p>
               {row.problems.length > 0 ? (
-                <ul className="mt-1 space-y-0.5 text-[11px] text-status-warning">
+                <ul className="mt-1 space-y-0.5 text-xs text-status-warning">
                   {row.problems.map((problem) => (
                     <li key={problem}>{problem}</li>
                   ))}

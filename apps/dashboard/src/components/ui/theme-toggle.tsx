@@ -41,7 +41,7 @@ export function ThemeToggle({ className, showLabel = false, variant = 'button' }
           className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
             mode === 'light'
-              ? 'bg-bg-surface text-text-primary shadow-sm'
+              ? 'bg-bg-surface text-text-primary '
               : 'text-text-secondary hover:text-text-primary'
           )}
         >
@@ -53,7 +53,7 @@ export function ThemeToggle({ className, showLabel = false, variant = 'button' }
           className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
             mode === 'dark'
-              ? 'bg-bg-surface text-text-primary shadow-sm'
+              ? 'bg-bg-surface text-text-primary '
               : 'text-text-secondary hover:text-text-primary'
           )}
         >
@@ -65,7 +65,7 @@ export function ThemeToggle({ className, showLabel = false, variant = 'button' }
           className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
             mode === 'system'
-              ? 'bg-bg-surface text-text-primary shadow-sm'
+              ? 'bg-bg-surface text-text-primary '
               : 'text-text-secondary hover:text-text-primary'
           )}
         >

@@ -93,7 +93,7 @@ export function CaseBindingsCard({ targetKind, targetId, canEdit = false }: Prop
           return (
             <li key={type.id} className="rounded-lg border border-border/50 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-sm text-text-heading">{type.name}</span>
+                <span className="min-w-0 truncate-fade text-sm text-text-heading">{type.name}</span>
                 <Switch
                   checked={Boolean(binding)}
                   disabled={!canEdit || busyId === type.id}
@@ -101,7 +101,7 @@ export function CaseBindingsCard({ targetKind, targetId, canEdit = false }: Prop
                 />
               </div>
               {binding && targetKind === 'workstream' && canEdit ? (
-                <label className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-text-muted">
+                <label className="mt-1.5 flex items-center justify-between gap-2 text-xs text-text-muted">
                   {t('cases.autoStart', { defaultValue: 'Start a run when linked' })}
                   <Switch
                     checked={binding.auto_start_run}

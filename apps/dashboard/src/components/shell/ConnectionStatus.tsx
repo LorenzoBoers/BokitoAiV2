@@ -37,7 +37,7 @@ export default function ConnectionStatus({ showLabel = true }: { showLabel?: boo
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="inline-flex items-center gap-1.5 text-[11px] text-text-muted hover:text-text-primary"
+        className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary"
         title={title}
       >
         {body}
@@ -46,7 +46,7 @@ export default function ConnectionStatus({ showLabel = true }: { showLabel?: boo
     )
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] text-text-muted" title={title}>
+    <span className="inline-flex items-center gap-1.5 text-xs text-text-muted" title={title}>
       {body}
     </span>
   )

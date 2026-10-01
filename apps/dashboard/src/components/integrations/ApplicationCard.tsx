@@ -29,18 +29,18 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
           onOpenDetail()
         }
       }}
-      className="flex flex-col rounded-xl border border-border/60 bg-bg-surface p-5 shadow-card hover-lift hover:border-border cursor-pointer"
+      className="flex flex-col rounded-lg border border-border/60 bg-bg-surface p-5 hover-lift hover:border-border cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h3 className="text-sm font-semibold text-text-heading">{localized.name}</h3>
             {offerCount > 1 ? (
-              <Badge variant="neutral" className="text-[10px] font-medium">
+              <Badge variant="neutral" className="text-2xs font-medium">
                 {t('integrations.application.offerCount', { count: offerCount })}
               </Badge>
             ) : application.module ? null : (
-              <Badge variant="neutral" className="text-[10px] font-medium">
+              <Badge variant="neutral" className="text-2xs font-medium">
                 {t(`integrations.kind.${offers[0].kind}`)}
               </Badge>
             )}
@@ -87,7 +87,7 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
             }}
           >
             {t('integrations.actions.connectAnother')}
-            <span className="ml-1.5 text-[10px] text-text-muted">
+            <span className="ml-1.5 text-2xs text-text-muted">
               {t('integrations.application.alreadyCount', { count: connectionCount })}
             </span>
           </Button>

@@ -829,7 +829,7 @@
     "assignPicker": "Toewijzer openen",
     "copyLink": "Gesprekslink kopiëren",
     "copyId": "Gespreks-ID kopiëren",
-    "quickFilters": "Alles / Jij aan zet / Ongelezen / Gepind / Wacht op beslissing",
+    "quickFilters": "Alles / Ongelezen / Vastgepind / Wacht op jou",
     "jumpUnread": "Volgende of vorige ongelezen",
     "markRead": "Als gelezen markeren",
     "selectAll": "Alle geladen gesprekken selecteren",
@@ -1132,7 +1132,10 @@
     "agent": "Agent",
     "handling": "Behandelt",
     "who": "Wie",
-    "thisConversation": "Dit gesprek"
+    "thisConversation": "Dit gesprek",
+    "priority": "Prioriteit",
+    "lookAgain": "Opnieuw kijken",
+    "plan": "Plannen"
   },
   "actions": {
     "takeoverError": "Kon AI-antwoorden niet wijzigen.",

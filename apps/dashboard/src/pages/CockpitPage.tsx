@@ -24,7 +24,6 @@ import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
 import { OnboardingCompactCard, useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { CockpitPanelsSkeleton, CockpitSnapshotSkeleton } from '../components/ui/skeleton'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
@@ -40,7 +39,6 @@ import { patchSignalThread } from '../lib/signals-api'
 import { snoozeUntilIso, SNOOZE_PRESETS } from '../lib/snooze'
 import { translateDecisionText } from '../lib/activity-labels'
 import { agentRunsPath, attentionThreadPath, channelPath, decisionsPath, inboxPath } from '../lib/messages-paths'
-import { isPageGuideDismissed } from '../lib/page-guides'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { enrichContactsFromThreads, listContacts, type ContactRow } from '../lib/contacts-api'
 import {
@@ -106,10 +104,10 @@ function PlatformWatchCard() {
   if (!ready || !checkIn || checkIn.enabled) return null
 
   return (
-    <section className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
+    <section className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3">
       <div className="min-w-0">
-        <p className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.watchTitle')}</p>
-        <p className="mt-0.5 text-[12px] text-text-muted">{t('cockpitPage.watchHint')}</p>
+        <p className="text-base font-semibold text-text-heading">{t('cockpitPage.watchTitle')}</p>
+        <p className="mt-0.5 text-xs text-text-muted">{t('cockpitPage.watchHint')}</p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <button
@@ -151,7 +149,7 @@ function HowItFitsCard() {
       return false
     }
   })
-  if (hidden || !isPageGuideDismissed('cockpit')) return null
+  if (hidden) return null
   const steps = [
     {
       to: inboxPath('open'),
@@ -179,11 +177,11 @@ function HowItFitsCard() {
     },
   ]
   return (
-    <section className="mb-4 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+    <section className="mb-4 rounded-lg border border-border/60 bg-bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.loopTitle')}</h2>
-          <p className="mt-0.5 text-[12px] text-text-muted">{t('cockpitPage.loopHint')}</p>
+          <h2 className="text-base font-semibold text-text-heading">{t('cockpitPage.loopTitle')}</h2>
+          <p className="mt-0.5 text-xs text-text-muted">{t('cockpitPage.loopHint')}</p>
         </div>
         <button
           type="button"
@@ -209,13 +207,13 @@ function HowItFitsCard() {
             <Link
               key={step.to}
               to={step.to}
-              className="group rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-colors hover:border-accent/40"
+              className="group rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
             >
-              <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-text-primary">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
                 <Icon size={13} className="text-text-muted group-hover:text-accent" />
                 {step.title}
               </span>
-              <span className="mt-1 block text-[11px] leading-snug text-text-muted">{step.hint}</span>
+              <span className="mt-1 block text-xs leading-snug text-text-muted">{step.hint}</span>
             </Link>
           )
         })}
@@ -241,11 +239,11 @@ function StatCard({
 }) {
   const body = (
     <div
-      className="hover-lift flex h-full flex-col rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 shadow-card stagger-in"
+      className="hover-lift flex h-full flex-col rounded-lg border border-border/60 bg-bg-surface px-4 py-3.5 stagger-in"
       style={{ '--stagger': index } as CSSProperties}
     >
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">{label}</p>
+        <p className="text-xs font-medium text-text-muted">{label}</p>
         <Icon size={13} className="text-text-muted transition-colors duration-200 group-hover:text-accent" />
       </div>
       <p className="mt-2 text-[22px] font-semibold leading-none tracking-tight text-text-heading">
@@ -253,7 +251,7 @@ function StatCard({
           {value}
         </span>
       </p>
-      {sub ? <p className="mt-1.5 text-[11px] text-text-muted">{sub}</p> : null}
+      {sub ? <p className="mt-1.5 text-xs text-text-muted">{sub}</p> : null}
     </div>
   )
   return to ? (
@@ -438,22 +436,22 @@ function LegacyCockpitPage() {
 
   return (
     <PageContent width="xl">
-      {!onboardingVisible ? <PageGuideBanner page="cockpit" className="mb-4" /> : null}
       <ContentHeader
+        guide="cockpit"
         title={t('tabs.overview.title', { defaultValue: 'Overview' })}
         subtitle={`${t(greetingKey, { name: greetingName })} · ${formatAppDate(new Date(), i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })}`}
         meta={
           <>
             <ConnectionStatus />
             {refreshedAt ? (
-              <span className="text-[11px] text-text-muted">
+              <span className="text-xs text-text-muted">
                 {t('cockpitPage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
               </span>
             ) : null}
             <button
               type="button"
               onClick={load}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               {t('cockpitPage.refresh')}
@@ -466,12 +464,12 @@ function LegacyCockpitPage() {
 
       <OnboardingCompactCard />
       {onboardingStatus && !onboardingStatus.completed && onboardingDismissed ? (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-border/60 px-4 py-2.5">
-          <p className="text-[12.5px] text-text-muted">{t('communication:onboarding.dismissedHint')}</p>
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border/60 px-4 py-2.5">
+          <p className="text-sm text-text-muted">{t('communication:onboarding.dismissedHint')}</p>
           <button
             type="button"
             onClick={undismiss}
-            className="shrink-0 text-[12px] font-medium text-accent hover:underline"
+            className="shrink-0 text-xs font-medium text-accent hover:underline"
           >
             {t('cockpitPage.showSetupAgain')}
           </button>
@@ -599,30 +597,30 @@ function LegacyCockpitPage() {
 
       {/* Attention + event log */}
       <div className={loading && !summary ? 'hidden' : 'mt-5 grid gap-4 lg:grid-cols-2'}>
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.needsAttention')}</h2>
-              <p className="text-[12px] text-text-muted">{t('cockpitPage.needsAttentionHint')}</p>
+              <h2 className="text-base font-semibold text-text-heading">{t('cockpitPage.needsAttention')}</h2>
+              <p className="text-xs text-text-muted">{t('cockpitPage.needsAttentionHint')}</p>
             </div>
             {attentionCount > 0 ? (
               <div className="flex items-center gap-2">
                 {firstAttention ? (
                   <Link
                     to={attentionThreadPath(firstAttention)}
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openFirst')}
                   </Link>
                 ) : pendingChanges > 0 ? (
                   <Link
                     to="/settings/govern?tab=drafts"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openFirst')}
                   </Link>
                 ) : null}
-                <span className="inline-flex items-center gap-1 rounded-full bg-status-warning/15 px-2 py-0.5 text-[11px] font-semibold text-status-warning">
+                <span className="inline-flex items-center gap-1 rounded-full bg-status-warning/15 px-2 py-0.5 text-xs font-semibold text-status-warning">
                   <AlertTriangle size={11} />
                   {attentionCount}
                 </span>
@@ -632,23 +630,23 @@ function LegacyCockpitPage() {
           <div className="mt-3 space-y-1.5">
             {attentionThreads.length === 0 && pendingChanges === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
-                <p className="text-[12px] text-text-muted">{t('cockpitPage.nothingAttention')}</p>
+                <p className="text-xs text-text-muted">{t('cockpitPage.nothingAttention')}</p>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
                   <Link
                     to={inboxPath('open')}
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openCommunication')}
                   </Link>
                   <Link
                     to="/agenda"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openAgenda')}
                   </Link>
                   <Link
                     to="/settings/govern?tab=drafts"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openGovernDrafts')}
                   </Link>
@@ -664,11 +662,11 @@ function LegacyCockpitPage() {
                   return (
                   <div key={String(thread.id)}>
                     {showStaleHeading ? (
-                      <p className="mb-1.5 mt-2 text-[11px] font-medium text-text-muted">
+                      <p className="mb-1.5 mt-2 text-xs font-medium text-text-muted">
                         {t('cockpitPage.staleAttention')}
                       </p>
                     ) : null}
-                  <div className="row-interactive group flex items-center gap-1 rounded-lg border border-border/40 bg-bg-elevated/45 px-2 py-1.5 hover:border-accent/40">
+                  <div className="row-interactive group flex items-center gap-1 rounded-md border border-transparent px-2 py-1.5 hover:bg-bg-hover/70">
                     <Link
                       to={attentionThreadPath(thread)}
                       title={String(thread.id)}
@@ -677,13 +675,13 @@ function LegacyCockpitPage() {
                     <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
                     <ChannelGlyph channel={thread.channel ?? 'email'} size={12} className="shrink-0 text-text-muted" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                      <span className="block truncate-fade text-sm font-medium text-text-primary">
                         {translateDecisionText(
                           thread.emailSubject || thread.contactName,
                           t,
                         ) || t('cockpitPage.decisionNeeded')}
                       </span>
-                      <span className="block truncate text-[11px] text-text-muted">
+                      <span className="block truncate-fade text-xs text-text-muted">
                         {waitingDays >= 7
                           ? t('cockpitPage.waitingDays', { count: waitingDays })
                           : `${thread.contactName ||
@@ -714,14 +712,14 @@ function LegacyCockpitPage() {
                 {pendingChanges > 0 ? (
                   <Link
                     to="/settings/govern?tab=drafts"
-                    className="row-interactive group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 hover:border-accent/40"
+                    className="row-interactive group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 hover:bg-bg-hover/70"
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[12.5px] font-medium text-text-primary">
+                      <span className="block text-sm font-medium text-text-primary">
                         {t('cockpitPage.changesAwaiting', { count: pendingChanges })}
                       </span>
-                      <span className="block text-[11px] text-text-muted">{t('cockpitPage.reviewGovern')}</span>
+                      <span className="block text-xs text-text-muted">{t('cockpitPage.reviewGovern')}</span>
                     </span>
                     <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
                   </Link>
@@ -731,16 +729,16 @@ function LegacyCockpitPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.recentEvents')}</h2>
-              <p className="text-[12px] text-text-muted">{t('cockpitPage.recentEventsHint')}</p>
+              <h2 className="text-base font-semibold text-text-heading">{t('cockpitPage.recentEvents')}</h2>
+              <p className="text-xs text-text-muted">{t('cockpitPage.recentEventsHint')}</p>
             </div>
             {/* Activity is a raw log, not a place operators start their day. */}
             <Link
               to="/activity"
-              className="text-[12px] font-medium text-text-muted hover:text-text-primary hover:underline"
+              className="text-xs font-medium text-text-muted hover:text-text-primary hover:underline"
             >
               {t('cockpitPage.openActivity')}
             </Link>
@@ -748,23 +746,23 @@ function LegacyCockpitPage() {
           <div className="mt-3 max-h-[340px] space-y-px overflow-y-auto">
             {headlineEvents.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
-                <p className="text-[12px] text-text-muted">{t('cockpitPage.noEvents')}</p>
+                <p className="text-xs text-text-muted">{t('cockpitPage.noEvents')}</p>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to={inboxPath('open')}
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openCommunication')}
                   </Link>
                   <Link
                     to="/agents"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openAgents')}
                   </Link>
                   <Link
                     to="/settings/setup"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openSetup')}
                   </Link>
@@ -794,10 +792,10 @@ function LegacyCockpitPage() {
                       }`}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12px] text-text-primary">
+                      <span className="block truncate-fade text-xs text-text-primary">
                         {activityEventMessage(ev.message, t) || activityEventTypeLabel(ev.event_type, t)}
                       </span>
-                      <span className="block text-[10px] text-text-muted">
+                      <span className="block text-2xs text-text-muted">
                         {ev.actor_name ? `${ev.actor_name} - ` : ''}
                         {activityEventTypeLabel(ev.event_type, t)} - {timeAgo(ev.created_at, t)}
                         {ev.repeatCount > 1 ? ` · ${t('cockpitPage.eventRepeats', { count: ev.repeatCount })}` : ''}
@@ -826,25 +824,25 @@ function LegacyCockpitPage() {
 
       {/* Agenda + contacts */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.todayAgenda')}</h2>
-              <p className="text-[12px] text-text-muted">{t('cockpitPage.todayAgendaHint')}</p>
+              <h2 className="text-base font-semibold text-text-heading">{t('cockpitPage.todayAgenda')}</h2>
+              <p className="text-xs text-text-muted">{t('cockpitPage.todayAgendaHint')}</p>
             </div>
-            <Link to="/agenda" className="text-[12px] font-medium text-accent hover:underline">
+            <Link to="/agenda" className="text-xs font-medium text-accent hover:underline">
               {t('cockpitPage.openAgenda')}
             </Link>
           </div>
           <div className="mt-3 space-y-1.5">
             {agendaItems.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
-                <p className="text-[12px] text-text-muted">{t('cockpitPage.nothingScheduled')}</p>
+                <p className="text-xs text-text-muted">{t('cockpitPage.nothingScheduled')}</p>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-                  <Link to="/agenda" className="text-[12px] font-medium text-accent hover:underline">
+                  <Link to="/agenda" className="text-xs font-medium text-accent hover:underline">
                     {t('cockpitPage.openAgenda')}
                   </Link>
-                  <Link to="/agenda?view=list" className="text-[12px] font-medium text-accent hover:underline">
+                  <Link to="/agenda?view=list" className="text-xs font-medium text-accent hover:underline">
                     {t('cockpitPage.planAutomation')}
                   </Link>
                 </div>
@@ -854,14 +852,14 @@ function LegacyCockpitPage() {
                 <Link
                   key={item.id}
                   to={item.trigger_id ? `/agenda?trigger=${item.trigger_id}` : '/agenda'}
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
                 >
                   <CalendarDays size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                    <span className="block truncate-fade text-sm font-medium text-text-primary">
                       {translateDecisionText(item.name, t) || item.name}
                     </span>
-                    <span className="block truncate text-[11px] text-text-muted">
+                    <span className="block truncate-fade text-xs text-text-muted">
                       {formatAppTime(
                         new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`),
                         i18n.language,
@@ -876,36 +874,36 @@ function LegacyCockpitPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.recentContacts')}</h2>
-              <p className="text-[12px] text-text-muted">{t('cockpitPage.recentContactsHint')}</p>
+              <h2 className="text-base font-semibold text-text-heading">{t('cockpitPage.recentContacts')}</h2>
+              <p className="text-xs text-text-muted">{t('cockpitPage.recentContactsHint')}</p>
             </div>
-            <Link to="/contacts" className="text-[12px] font-medium text-accent hover:underline">
+            <Link to="/contacts" className="text-xs font-medium text-accent hover:underline">
               {t('cockpitPage.openContacts')}
             </Link>
           </div>
           <div className="mt-3 space-y-1.5">
             {recentContacts.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
-                <p className="text-[12px] text-text-muted">
+                <p className="text-xs text-text-muted">
                   {t('cockpitPage.noContacts')}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to="/settings/channels"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.connectEmail')}
                   </Link>
                   <Link
                     to="/ai/assistant/external/installation"
-                    className="text-[12px] font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.installWidget')}
                   </Link>
-                  <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                  <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
                     {t('cockpitPage.openSetup')}
                   </Link>
                 </div>
@@ -914,19 +912,19 @@ function LegacyCockpitPage() {
               recentContacts.map((contact) => (
                 <div
                   key={contact.id}
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
                 >
                   <Link to={`/contacts/${contact.id}`} className="flex min-w-0 flex-1 items-center gap-2.5">
                     <PersonAvatar name={contact.displayName} email={contact.address} size={28} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                      <span className="block truncate-fade text-sm font-medium text-text-primary">
                         {humanizeContactName(
                           contact.displayName,
                           contact.address,
                           t('contactsPage.widgetVisitor'),
                         ) || contact.address}
                       </span>
-                      <span className="block truncate text-[11px] text-text-muted">
+                      <span className="block truncate-fade text-xs text-text-muted">
                         {contact.company ||
                           (contact.channel
                             ? t(`contactsPage.channels.${channelKind(contact.channel)}`, {
@@ -942,7 +940,7 @@ function LegacyCockpitPage() {
                       to={composeEmailPath({ to: contact.address })}
                       title={t('cockpitPage.writeEmail')}
                       aria-label={t('cockpitPage.writeEmail')}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-accent/10 hover:text-accent"
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
                     >
                       <Mail size={13} />
                     </Link>

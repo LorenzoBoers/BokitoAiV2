@@ -37,7 +37,7 @@ export function ModuleStatusBadge({
   const { t } = useTranslation('nav')
   const key = moduleStatusLabelKey(module)
   return (
-    <Badge variant={VARIANT[key]} className="px-2 py-0.5 text-[10px] uppercase tracking-wide">
+    <Badge variant={VARIANT[key]} className="px-2 py-0.5 text-2xs">
       {t(`integrations.modules.${key}`, { defaultValue: DEFAULTS[key] })}
     </Badge>
   )

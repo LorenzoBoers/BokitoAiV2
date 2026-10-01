@@ -113,7 +113,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
             {t('workforce.agents.chatAccessBody')}
           </p>
         </div>
-        <span className="flex items-center gap-1.5 text-[12px] text-text-muted">
+        <span className="flex items-center gap-1.5 text-xs text-text-muted">
           {saving ? <Loader2 size={12} className="animate-spin" /> : null}
           {saved ? (
             <span className="inline-flex items-center gap-1 text-status-success">
@@ -123,7 +123,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
         </span>
       </div>
 
-      {error ? <p className="mt-2 text-[12px] text-status-error">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
 
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {modes.map((m) => (
@@ -132,23 +132,23 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
             type="button"
             onClick={() => chooseMode(m.value)}
             className={cn(
-              'rounded-xl border px-3 py-2.5 text-left transition-colors',
+              'rounded-lg border px-3 py-2.5 text-left transition-colors',
               mode === m.value
                 ? 'border-accent/50 bg-accent/8'
                 : 'border-border/60 bg-bg-elevated/40 hover:border-border hover:bg-bg-hover/50',
             )}
           >
-            <p className={cn('text-[13px] font-medium', mode === m.value ? 'text-accent' : 'text-text-heading')}>
+            <p className={cn('text-sm font-medium', mode === m.value ? 'text-accent' : 'text-text-heading')}>
               {m.label}
             </p>
-            <p className="mt-0.5 text-[11.5px] text-text-muted">{m.description}</p>
+            <p className="mt-0.5 text-xs text-text-muted">{m.description}</p>
           </button>
         ))}
       </div>
 
       {mode === 'selected' ? (
         <div className="mt-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+          <p className="text-2xs font-semibold text-text-muted">
             {t('workforce.agents.chatAccessMembers')}
           </p>
           <div className="mt-1.5 space-y-1">
@@ -166,10 +166,10 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
                     className="h-3.5 w-3.5 accent-[var(--accent,#6366f1)]"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] text-text-primary">{member.name}</span>
-                    <span className="block truncate text-[10.5px] text-text-muted">{member.email}</span>
+                    <span className="block truncate-fade text-sm text-text-primary">{member.name}</span>
+                    <span className="block truncate-fade text-2xs text-text-muted">{member.email}</span>
                   </span>
-                  <span className="shrink-0 rounded-full border border-border/60 bg-bg-surface px-1.5 py-px text-[10px] capitalize text-text-muted">
+                  <span className="shrink-0 rounded-md border border-border/60 bg-bg-surface px-1.5 py-px text-2xs capitalize text-text-muted">
                     {member.role}
                   </span>
                 </label>

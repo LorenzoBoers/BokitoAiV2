@@ -97,8 +97,8 @@ export function ModuleOverview({ module }: Props) {
   return (
     <div className="space-y-8">
       <section className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-border/60 bg-bg-surface p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+        <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <p className="text-xs font-medium text-text-muted">
             {t('integrations.modules.workspace.status', { defaultValue: 'Status' })}
           </p>
           <p className="mt-1 text-sm font-medium text-text-heading">
@@ -111,8 +111,8 @@ export function ModuleOverview({ module }: Props) {
                 })}
           </p>
         </div>
-        <div className="rounded-xl border border-border/60 bg-bg-surface p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+        <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <p className="text-xs font-medium text-text-muted">
             {t('integrations.modules.usesIntegrations', { defaultValue: 'Uses integrations' })}
           </p>
           <p className="mt-1 text-sm font-medium text-text-heading">
@@ -122,8 +122,8 @@ export function ModuleOverview({ module }: Props) {
             })}
           </p>
         </div>
-        <div className="rounded-xl border border-border/60 bg-bg-surface p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+        <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <p className="text-xs font-medium text-text-muted">
             {t('integrations.modules.toolset', { defaultValue: 'AI toolset' })}
           </p>
           <p className="mt-1 text-sm font-medium text-text-heading">
@@ -135,7 +135,7 @@ export function ModuleOverview({ module }: Props) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border/60 bg-bg-surface p-4">
+      <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-2.5">
             <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-bg-muted/40 text-text-secondary">
@@ -181,7 +181,7 @@ export function ModuleOverview({ module }: Props) {
       </section>
 
       {customerCards.length > 0 ? (
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4">
+        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <h2 className="text-sm font-semibold text-text-heading">
             {t('integrations.modules.workspace.customerToolsTitle', {
               defaultValue: 'Customer chat tools',
@@ -235,7 +235,7 @@ export function ModuleOverview({ module }: Props) {
             {roster.map((row) => (
               <li
                 key={row.id}
-                className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2.5"
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5"
               >
                 <Link
                   to={`/agents/${row.agent_id}`}
@@ -254,20 +254,20 @@ export function ModuleOverview({ module }: Props) {
                   />
                 </Link>
                 {row.is_default ? (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                  <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
                     {t('integrations.modules.agents.defaultBadge', { defaultValue: 'Default' })}
                   </Badge>
                 ) : null}
                 {row.can_write ? (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                  <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
                     {t('integrations.modules.agents.writeBadge', { defaultValue: 'Write' })}
                   </Badge>
                 ) : (
-                  <Badge variant="neutral" className="px-1.5 py-0 text-[10px]">
+                  <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
                     {t('integrations.modules.agents.readOnlyBadge', { defaultValue: 'Read-only' })}
                   </Badge>
                 )}
-                <Badge variant="neutral" className="px-1.5 py-0 text-[10px]">
+                <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
                   {row.company_ids && row.company_ids.length > 0
                     ? t('integrations.modules.agents.scopeBadge', {
                         defaultValue: '{{count}} administration(s)',
@@ -299,26 +299,26 @@ export function ModuleOverview({ module }: Props) {
         <div className="flex flex-wrap gap-2">
           <Link
             to="/agents"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-accent/40 hover:text-text-heading"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
             {t('integrations.connected.openAgents', { defaultValue: 'Open Agents' })}
           </Link>
           <Link
             to={inboxPath('open')}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-accent/40 hover:text-text-heading"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
             <MessageSquare size={13} aria-hidden />
             {t('integrations.connected.openCommunication', { defaultValue: 'Open Communication' })}
           </Link>
           <Link
             to={`${moduleHomePath(module)}?tab=sources`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-accent/40 hover:text-text-heading"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
             {t('integrations.modules.workspace.sources', { defaultValue: 'Knowledge sources' })}
           </Link>
           <Link
             to="/settings/govern?tab=policy"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-accent/40 hover:text-text-heading"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
             {t('integrations.connected.openGovern', { defaultValue: 'Open Govern' })}
           </Link>

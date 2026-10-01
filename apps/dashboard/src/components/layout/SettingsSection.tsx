@@ -18,7 +18,7 @@ interface SettingsSectionProps {
 /**
  * Standard settings form grouping. Wraps content in `Card` with a
  * compact header (title + optional description + actions) and a content
- * region. Replaces ad hoc `<Card p-6>` and `<div rounded-2xl border>` patterns
+ * region. Replaces ad hoc `<Card p-6>` and `<div rounded-xl border>` patterns
  * across the settings pages.
  */
 export function SettingsSection({

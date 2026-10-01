@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
@@ -180,13 +179,13 @@ function AgendaChip({
             {showDate ? `${formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })} ` : ''}
             {formatTime(at, i18n.language)}
           </span>
-          <span className="rounded border border-current/30 px-1 py-px text-[9px] uppercase tracking-wide opacity-80">
+          <span className="rounded border border-current/30 px-1 py-px text-2xs opacity-80">
             {t(`agendaPage.kinds.${item.kind}`, { defaultValue: KIND_LABELS[item.kind] ?? item.kind })}
           </span>
         </div>
-        <p className="mt-0.5 truncate font-medium">{translateDecisionText(item.name, t) || item.name}</p>
+        <p className="mt-0.5 truncate-fade font-medium">{translateDecisionText(item.name, t) || item.name}</p>
         {item.actor_name || item.agent_name ? (
-          <p className="truncate opacity-75">
+          <p className="truncate-fade opacity-75">
             {t(`agendaPage.actor.${item.actor_kind === 'person' ? 'person' : 'agent'}`)}
             {' · '}
             {item.actor_kind === 'person'
@@ -195,10 +194,10 @@ function AgendaChip({
           </p>
         ) : null}
         {isCalendarItem(item) && item.provider_label ? (
-          <p className="truncate opacity-75">{item.provider_label}</p>
+          <p className="truncate-fade opacity-75">{item.provider_label}</p>
         ) : null}
         {item.status !== 'planned' && item.status !== 'calendar' ? (
-          <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-75">{agendaStatusLabel(item.status, t)}</p>
+          <p className="mt-0.5 text-2xs opacity-75">{agendaStatusLabel(item.status, t)}</p>
         ) : null}
       </button>
     </div>
@@ -520,14 +519,14 @@ export default function AgendaPage() {
 
   return (
     <PageContent width="xl" className="space-y-4">
-      <PageGuideBanner page="agenda" />
       <ContentHeader
+        guide="agenda"
         title={t('tabs.agenda.title')}
         subtitle={t('tabs.agenda.subtitle')}
         meta={
           <div className="flex flex-wrap items-center gap-2">
             {refreshedAt ? (
-              <span className="text-[11px] text-text-muted">
+              <span className="text-xs text-text-muted">
                 {t('agendaPage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
               </span>
             ) : null}
@@ -685,7 +684,7 @@ export default function AgendaPage() {
               <div
                 key={key}
                 className={cn(
-                  'flex min-h-[10rem] flex-col gap-1.5 rounded-xl border p-2',
+                  'flex min-h-[10rem] flex-col gap-1.5 rounded-lg border p-2',
                   isToday ? 'border-accent/50 bg-accent/[0.04]' : 'border-border/60 bg-bg-surface',
                 )}
               >
@@ -700,7 +699,7 @@ export default function AgendaPage() {
                   </span>
                   <span className="flex items-center gap-1">
                     {isToday ? (
-                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">
+                      <Badge variant="secondary" className="h-4 px-1 text-2xs">
                         {t('agendaPage.today')}
                       </Badge>
                     ) : null}
@@ -712,7 +711,7 @@ export default function AgendaPage() {
                 {dayItems.length === 0 ? (
                   <button
                     type="button"
-                    className="px-1 text-left text-[11px] font-medium text-accent hover:underline"
+                    className="px-1 text-left text-xs font-medium text-accent hover:underline"
                     onClick={() => openCreate(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0))}
                   >
                     + {t('agendaPage.scheduleEmptyDay')}
@@ -734,11 +733,11 @@ export default function AgendaPage() {
           })}
         </div>
       ) : primaryFiltered.length === 0 && automationFiltered.length === 0 && listQuery.trim() ? (
-        <p className="rounded-xl border border-dashed border-border/60 p-8 text-center text-sm text-text-muted">
+        <p className="rounded-lg border border-dashed border-border/60 p-8 text-center text-sm text-text-muted">
           {t('agendaPage.listFilterEmpty')}
         </p>
       ) : primaryFiltered.length === 0 && automationFiltered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 p-10 text-center">
+        <div className="rounded-lg border border-dashed border-border/60 p-10 text-center">
           <CalendarDays className="mx-auto h-8 w-8 text-text-muted/50" aria-hidden />
           <p className="mt-3 text-sm font-medium text-text-heading">
             {sourceFilter === 'tasks' ? t('agendaPage.emptyLookbacksTitle') : t('agendaPage.emptyTitle')}
@@ -802,12 +801,12 @@ export default function AgendaPage() {
                           <span className="w-12 shrink-0 font-medium tabular-nums text-text-heading">
                             {formatTime(at, i18n.language)}
                           </span>
-                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                          <Badge variant="outline" className="shrink-0 text-2xs">
                             {t(`agendaPage.kinds.${item.kind}`, {
                               defaultValue: KIND_LABELS[item.kind] ?? item.kind,
                             })}
                           </Badge>
-                          <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
+                          <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
                             {translateDecisionText(item.name, t) || item.name}
                           </span>
                           {item.actor_name || agentLabel ? (
@@ -839,7 +838,7 @@ export default function AgendaPage() {
                           ) : null}
                           <span
                             className={cn(
-                              'shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide',
+                              'shrink-0 rounded-md border px-2 py-0.5 text-2xs ',
                               statusStyle(item.status, item.kind),
                             )}
                           >
@@ -856,7 +855,7 @@ export default function AgendaPage() {
             )
           })}
           {automationFiltered.length > 0 ? (
-            <section className="rounded-xl border border-border/50 bg-bg-elevated/40">
+            <section className="rounded-lg border border-border/50 bg-bg-elevated/40">
               <button
                 type="button"
                 onClick={() => setAutomationsExpanded((open) => !open)}
@@ -892,15 +891,15 @@ export default function AgendaPage() {
                             {formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })}{' '}
                             {formatTime(at, i18n.language)}
                           </span>
-                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                          <Badge variant="outline" className="shrink-0 text-2xs">
                             {t(`agendaPage.kinds.${item.kind}`, {
                               defaultValue: KIND_LABELS[item.kind] ?? item.kind,
                             })}
                           </Badge>
-                          <span className="min-w-0 flex-1 truncate text-text-secondary">
+                          <span className="min-w-0 flex-1 truncate-fade text-text-secondary">
                             {translateDecisionText(item.name, t) || item.name}
                           </span>
-                          <span className="shrink-0 text-[10px] uppercase tracking-wide text-text-muted">
+                          <span className="shrink-0 text-2xs text-text-muted">
                             {agendaStatusLabel(item.status, t)}
                           </span>
                         </button>

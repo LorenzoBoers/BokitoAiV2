@@ -1,4 +1,5 @@
 import { AiAvatar } from './AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
 
 export type AgentVisualFields = {
@@ -22,17 +23,8 @@ type Props = {
 export function AgentOptionRow({ agent, size = 20, className, trailing }: Props) {
   return (
     <span className={cn('flex min-w-0 items-center gap-2', className)}>
-      <AiAvatar
-        name={agent.name}
-        seed={agent.id}
-        size={size}
-        kind={agent.avatar_kind}
-        icon={agent.avatar_icon}
-        color={agent.avatar_color}
-        imageUrl={agent.avatar_image_url}
-        decorative
-      />
-      <span className="min-w-0 truncate text-sm text-text-primary">{agent.name}</span>
+      <AiAvatar {...toAiAvatarProps(agent)} size={size} decorative />
+      <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">{agent.name}</span>
       {trailing}
     </span>
   )

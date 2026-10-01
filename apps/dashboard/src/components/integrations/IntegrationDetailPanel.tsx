@@ -153,10 +153,10 @@ export function IntegrationDetailPanel({
 
       {remoteEndpoint ? (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+          <p className="text-2xs font-semibold text-text-muted mb-1">
             {t('integrations.hub.setup.remoteMcpEndpoint')}
           </p>
-          <p className="text-[11px] font-mono text-text-muted break-all">{remoteEndpoint}</p>
+          <p className="text-xs font-mono text-text-muted break-all">{remoteEndpoint}</p>
         </div>
       ) : null}
 
@@ -168,12 +168,12 @@ export function IntegrationDetailPanel({
 
       {caps.length > 0 ? (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+          <p className="text-2xs font-semibold text-text-muted mb-2">
             {t('integrations.hub.detail.capabilities')}
           </p>
           <ul className="flex flex-wrap gap-1.5">
             {caps.map((cap) => (
-              <Badge key={cap} variant="neutral" className="text-[10px]">
+              <Badge key={cap} variant="neutral" className="text-2xs">
                 {t(`integrations.hub.capability.${cap}`, { defaultValue: cap })}
               </Badge>
             ))}
@@ -184,7 +184,7 @@ export function IntegrationDetailPanel({
       {isMcp ? (
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            <p className="text-2xs font-semibold text-text-muted">
               {t('integrations.hub.detail.tools', { defaultValue: 'Tools' })}
             </p>
             {isConnected && servers.length > 0 ? (
@@ -192,7 +192,7 @@ export function IntegrationDetailPanel({
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-7 gap-1 px-2 text-[11px]"
+                className="h-7 gap-1 px-2 text-xs"
                 disabled={toolsBusy}
                 onClick={() => void refreshTools()}
               >
@@ -221,7 +221,7 @@ export function IntegrationDetailPanel({
                 <li key={`${tool.server}-${tool.name}`}>
                   <Badge
                     variant="neutral"
-                    className="max-w-full font-mono text-[10px] font-normal"
+                    className="max-w-full font-mono text-2xs font-normal"
                     title={tool.description || tool.name}
                   >
                     {tool.name}
@@ -236,7 +236,7 @@ export function IntegrationDetailPanel({
       {children}
 
       <div className="flex items-center gap-2">
-        <Badge variant="neutral" className="text-[10px] uppercase tracking-wide">
+        <Badge variant="neutral" className="text-2xs">
           {t(kindLabelKey(kind))}
         </Badge>
         {isConnected ? (

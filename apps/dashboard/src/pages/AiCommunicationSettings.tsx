@@ -652,7 +652,7 @@ export default function AiCommunicationSettings() {
       <div
         className={
           isDirty
-            ? 'sticky bottom-4 z-20 flex items-center gap-3 rounded-xl border border-accent/30 bg-bg-surface px-3 py-2 shadow-overlay'
+            ? 'sticky bottom-4 z-20 flex items-center gap-3 rounded-lg border border-accent/30 bg-bg-surface px-3 py-2 shadow-overlay'
             : 'flex items-center gap-3'
         }
       >
@@ -728,16 +728,16 @@ function MailboxExceptionRow({
         <ProviderLogo provider={mailbox.provider} className="h-5 w-5 object-contain shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-medium text-text-heading truncate">
+            <p className="text-sm font-medium text-text-heading truncate-fade">
               {mailbox.displayName || mailbox.mailboxEmail}
             </p>
             {isCustom ? (
-              <Badge variant="accent" className="rounded-md px-1.5 py-0.5 text-[10px] font-medium">
+              <Badge variant="accent" className="rounded-md px-1.5 py-0.5 text-2xs font-medium">
                 {customBadge}
               </Badge>
             ) : null}
           </div>
-          <p className="text-xs text-text-muted truncate">{mailbox.mailboxEmail}</p>
+          <p className="text-xs text-text-muted truncate-fade">{mailbox.mailboxEmail}</p>
           <p className="text-xs text-text-secondary mt-1">
             {effectiveMode} · {effectiveLanguage}
           </p>

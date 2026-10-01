@@ -120,7 +120,7 @@ export default function FoldersAndTagsManager() {
       <div className="border-b border-border/40 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-[13px] font-medium text-text-heading">{t('foldersTags.defaultTitle')}</p>
+            <p className="text-sm font-medium text-text-heading">{t('foldersTags.defaultTitle')}</p>
             <p className="text-xs text-text-secondary">{t('foldersTags.defaultDescription')}</p>
           </div>
           <select
@@ -144,7 +144,7 @@ export default function FoldersAndTagsManager() {
             const override = prefs.channelDefaults[scopeKey] ?? ''
             return (
               <div key={scopeKey} className="flex items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-xs text-text-secondary">{row.label}</span>
+                <span className="min-w-0 flex-1 truncate-fade text-xs text-text-secondary">{row.label}</span>
                 <select
                   value={override}
                   onChange={(e) => {
@@ -170,7 +170,7 @@ export default function FoldersAndTagsManager() {
       </div>
 
       <div className="px-4 py-3">
-        <p className="text-[13px] font-medium text-text-heading">
+        <p className="text-sm font-medium text-text-heading">
           {t('foldersTags.casesTitle', { defaultValue: 'Classification moved to Signals' })}
         </p>
         <p className="text-xs text-text-secondary">

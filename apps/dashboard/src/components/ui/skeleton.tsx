@@ -117,17 +117,17 @@ function InboxThreadSkeleton() {
       <div className="skel-stagger min-h-0 flex-1 space-y-3.5 overflow-hidden px-4 py-5">
         <div className="flex items-end gap-2">
           <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-          <Skeleton className="h-[4.5rem] w-[58%] rounded-2xl rounded-tl-md" />
+          <Skeleton className="h-[4.5rem] w-[58%] rounded-xl rounded-tl-md" />
         </div>
         <div className="flex items-end justify-end gap-2">
-          <Skeleton className="h-12 w-[44%] rounded-2xl rounded-tr-md" />
+          <Skeleton className="h-12 w-[44%] rounded-xl rounded-tr-md" />
         </div>
         <div className="flex items-end gap-2">
           <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-          <Skeleton className="h-16 w-[66%] rounded-2xl rounded-tl-md" />
+          <Skeleton className="h-16 w-[66%] rounded-xl rounded-tl-md" />
         </div>
         <div className="flex items-end justify-end gap-2">
-          <Skeleton className="h-10 w-[38%] rounded-2xl rounded-tr-md" />
+          <Skeleton className="h-10 w-[38%] rounded-xl rounded-tr-md" />
         </div>
         <div className="agent-live-status is-active max-w-[78%] pl-9">
           <div className="agent-live-line is-current">
@@ -141,7 +141,7 @@ function InboxThreadSkeleton() {
           <Skeleton className="h-6 w-14 rounded-full" />
           <Skeleton className="h-6 w-16 rounded-full" />
         </div>
-        <Skeleton className="h-[3.25rem] w-full rounded-xl" />
+        <Skeleton className="h-[3.25rem] w-full rounded-lg" />
       </div>
     </div>
   )
@@ -176,14 +176,14 @@ function ChatTranscriptSkeleton() {
   return (
     <div className="skel-stagger space-y-3.5 px-1" role="status" aria-busy="true">
       <div className="flex items-end justify-end gap-2">
-        <Skeleton className="h-11 w-[48%] rounded-2xl rounded-tr-md" />
+        <Skeleton className="h-11 w-[48%] rounded-xl rounded-tr-md" />
       </div>
       <div className="flex items-end gap-2">
         <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-        <Skeleton className="h-16 w-[62%] rounded-2xl rounded-tl-md" />
+        <Skeleton className="h-16 w-[62%] rounded-xl rounded-tl-md" />
       </div>
       <div className="flex items-end justify-end gap-2">
-        <Skeleton className="h-9 w-[36%] rounded-2xl rounded-tr-md" />
+        <Skeleton className="h-9 w-[36%] rounded-xl rounded-tr-md" />
       </div>
       <div className="agent-live-status is-active max-w-[82%] pl-9">
         <div className="agent-live-line is-current">
@@ -240,7 +240,7 @@ function CockpitSnapshotSkeleton({ cards = 7 }: { cards?: number }) {
       {Array.from({ length: cards }).map((_, i) => (
         <div
           key={i}
-          className="flex h-full flex-col rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 shadow-card"
+          className="flex h-full flex-col rounded-lg border border-border/60 bg-bg-surface px-4 py-3.5"
         >
           <div className="flex items-center justify-between">
             <Skeleton className="h-2.5 w-16" />
@@ -258,7 +258,7 @@ function CockpitSnapshotSkeleton({ cards = 7 }: { cards?: number }) {
 function ProjectCanvasSkeleton() {
   return (
     <div className="animate-fade-in space-y-3" role="status" aria-busy="true">
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/50 bg-bg-surface px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/50 bg-bg-surface px-3 py-3">
         <div className="space-y-2">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-3 w-64" />
@@ -272,7 +272,7 @@ function ProjectCanvasSkeleton() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="space-y-2.5 rounded-xl border border-border/50 bg-bg-surface p-3 shadow-card"
+            className="space-y-2.5 rounded-lg border border-border/50 bg-bg-surface p-3"
             style={{
               gridColumn: i === 0 || i === 3 ? 'span 2' : undefined,
               minHeight: i % 2 === 0 ? 140 : 112,
@@ -317,7 +317,7 @@ function CockpitPanelsSkeleton({ className }: { className?: string } = {}) {
       {Array.from({ length: 2 }).map((_, panel) => (
         <div
           key={panel}
-          className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card"
+          className="rounded-lg border border-border/60 bg-bg-surface p-4"
         >
           <div className="space-y-1.5">
             <Skeleton className="h-3.5 w-32" />

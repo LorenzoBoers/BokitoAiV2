@@ -37,7 +37,7 @@ function PackageKindsMark({ hostSlugs }: { hostSlugs: string[] }) {
         <span
           key={slug}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated shadow-sm',
+            'flex h-6 w-6 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated ',
             index > 0 && '-ml-1.5',
           )}
           style={{ zIndex: hostSlugs.length - index }}
@@ -279,7 +279,7 @@ export function ModuleConnectionsPanel({
           <ul className="mt-2 space-y-2">
             {eligible.map((row) => (
               <li key={row.id} className="flex items-center justify-between gap-3">
-                <span className="truncate text-sm text-text-secondary">{row.display_name}</span>
+                <span className="truncate-fade text-sm text-text-secondary">{row.display_name}</span>
                 <Button
                   type="button"
                   size="sm"
@@ -329,7 +329,7 @@ export function ModuleConnectionsPanel({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-medium text-text-heading">{row.display_name}</p>
                         {row.is_default ? (
-                          <span className="rounded-full border border-accent/40 px-2 py-0.5 text-[11px] text-accent">
+                          <span className="rounded-md border border-accent/40 px-2 py-0.5 text-xs text-accent">
                             {t('integrations.modules.connections.default', {
                               defaultValue: 'Default',
                             })}
@@ -337,7 +337,7 @@ export function ModuleConnectionsPanel({
                         ) : null}
                         <span
                           className={cn(
-                            'text-[11px]',
+                            'text-xs',
                             status === 'ready'
                               ? 'text-accent'
                               : status === 'error'
@@ -367,10 +367,10 @@ export function ModuleConnectionsPanel({
                                   type="button"
                                   disabled={busyId === row.id || !cid || !row.ready}
                                   onClick={() => void setDefault(row.id, cid)}
-                                  className={`rounded-md border px-2 py-0.5 text-[11px] ${
+                                  className={`rounded-md border px-2 py-0.5 text-xs ${
                                     isCompanyDefault
-                                      ? 'border-accent/50 bg-accent/10 text-accent'
-                                      : 'border-border/60 text-text-secondary hover:border-accent/40'
+                                      ? 'border-border-light bg-bg-hover text-text-heading'
+                                      : 'border-border/60 text-text-secondary hover:border-border-light'
                                   }`}
                                 >
                                   {String(company.name || cid)}

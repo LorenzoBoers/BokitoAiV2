@@ -64,7 +64,7 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
       <button
         type="button"
         className={cn(
-          'group flex w-full items-start gap-1 py-0.5 text-left text-[12px] leading-snug text-text-muted',
+          'group flex w-full items-start gap-1 py-0.5 text-left text-xs leading-snug text-text-muted',
           canExpand ? 'hover:text-text-secondary' : 'cursor-default',
         )}
         onClick={() => canExpand && setExpanded((v) => !v)}
@@ -99,7 +99,7 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
       {expanded && canExpand ? (
         <div className="mt-1 space-y-2 border-l border-border/60 pl-3 ml-1.5">
           {reasoning ? (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-[12px] leading-relaxed text-text-secondary">
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-text-secondary">
               {reasoning}
             </pre>
           ) : null}
@@ -116,7 +116,7 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
                 () => toast.error(t('agentSteps.copyFailed')),
               )
             }}
-            className="text-[11px] font-medium text-accent hover:underline"
+            className="text-xs font-medium text-accent hover:underline"
           >
             {t('agentSteps.copyTrace')}
           </button>
@@ -126,15 +126,15 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
                 const detail = formatStepDetail(step)
                 return (
                   <li key={step.id} className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                    <p className="text-2xs font-semibold text-text-muted">
                       {stepLabel(step, t)}
                     </p>
-                    <p className="flex items-center gap-1.5 text-[12px] text-text-secondary">
+                    <p className="flex items-center gap-1.5 text-xs text-text-secondary">
                       {isKnowledgeStep(step) ? <KnowledgeMark size={12} /> : null}
                       {stepHeadline(step, t)}
                     </p>
                     {detail ? (
-                      <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-[11px] text-text-muted">
+                      <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-xs text-text-muted">
                         {detail}
                       </pre>
                     ) : null}

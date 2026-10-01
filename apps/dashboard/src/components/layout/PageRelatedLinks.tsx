@@ -24,13 +24,17 @@ export function PageRelatedLinks({
   return (
     <nav
       aria-label={t('pageRelated.ariaLabel', { defaultValue: 'Related' })}
-      className={cn('border-t border-border/40 pt-4 text-[12px] text-text-muted', className)}
+      className={cn('border-t border-border/40 pt-4 text-xs text-text-muted', className)}
     >
-      <ul className="flex flex-wrap items-center gap-x-1 gap-y-1">
+      <ul className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <li className="mr-1">{t('pageRelated.ariaLabel', { defaultValue: 'Related' })}</li>
         {links.map((link, index) => (
-          <li key={`${link.to}-${index}`} className="inline-flex items-center gap-1">
+          <li key={`${link.to}-${index}`} className="inline-flex items-center gap-1.5">
             {index > 0 ? <span aria-hidden className="text-border-light">·</span> : null}
-            <Link to={link.to} className="font-medium text-accent hover:underline">
+            <Link
+              to={link.to}
+              className="text-text-secondary underline-offset-2 transition-colors hover:text-text-heading hover:underline"
+            >
               {link.label}
             </Link>
           </li>

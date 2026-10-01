@@ -105,6 +105,31 @@ async def ensure_front_desk(
         )
     ).scalars().first()
     if existing:
+        # Keep the customer-facing mark consistent when older tenants have none.
+        from app.services.agent_avatar import avatar_payload
+
+        av = avatar_payload(existing)
+        if av.get("avatar_kind") == "initials" and not av.get("avatar_icon"):
+            try:
+                stored = json.loads(existing.settings_json or "{}")
+            except json.JSONDecodeError:
+                stored = {}
+            if not isinstance(stored, dict):
+                stored = {}
+            stored.update(
+                {
+                    "avatar_kind": "icon",
+                    "avatar_icon": "headset",
+                    "avatar_color": stored.get("avatar_color") or "#7c3aed",
+                }
+            )
+            existing.settings_json = json.dumps(stored)
+            session.add(existing)
+            if commit:
+                await session.commit()
+                await session.refresh(existing)
+            else:
+                await session.flush()
         return existing
     # Only claim the workspace lead when none exists yet. Older tenants may
     # already have a lead (e.g. a project PO); customer routing uses
@@ -132,6 +157,13 @@ async def ensure_front_desk(
         system_prompt=ONBOARDING_SYSTEM_PROMPT,
         is_active=True,
         is_lead=has_lead is None,
+        settings_json=json.dumps(
+            {
+                "avatar_kind": "icon",
+                "avatar_icon": "headset",
+                "avatar_color": "#7c3aed",
+            }
+        ),
     )
     session.add(agent)
     if commit:

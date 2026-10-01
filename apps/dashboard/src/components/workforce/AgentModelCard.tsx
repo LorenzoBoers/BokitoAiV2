@@ -82,7 +82,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             value={current?.slug ?? ''}
             onChange={(e) => void onSelect(e.target.value)}
             disabled={busy || models.length <= 1}
-            className="min-w-[220px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50"
+            className="min-w-[220px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-primary disabled:opacity-50"
           >
             {!current ? <option value="">{currentLabel || t('workforce.agents.selectModel')}</option> : null}
             {models.map((m) => (
@@ -104,16 +104,16 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
       </div>
 
       {loadError ? (
-        <p className="mt-2 text-[12px] text-status-error">
+        <p className="mt-2 text-xs text-status-error">
           {loadError}{' '}
           <button type="button" className="underline" onClick={() => setReloadKey((k) => k + 1)}>
             {t('workforce.agents.retry')}
           </button>
         </p>
       ) : null}
-      {error ? <p className="mt-2 text-[12px] text-status-error">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
 
-      <p className="mt-3 text-[12px] text-text-muted">
+      <p className="mt-3 text-xs text-text-muted">
         <Link to="/settings/models" className="text-accent hover:underline">
           {t('workforce.agents.openModels')}
         </Link>

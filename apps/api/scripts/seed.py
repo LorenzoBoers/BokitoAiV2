@@ -320,20 +320,36 @@ async def _seed_autotrading_tenant(session) -> None:
 
 
 async def _seed_tenant_data(session, tenant):
+    # The dev tenant gets the same customer-facing lead every real workspace
+    # gets from bootstrap: "Front desk". The platform helper is the separate
+    # "Bokito" agent (personal_assistant.py); never seed a second Bokito-named
+    # agent, or lists and the Agents page show two look-alikes.
     agent_result = await session.execute(
-        select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+        select(Agent).where(
+            Agent.tenant_id == tenant.id,
+            Agent.role == "assistant",
+            Agent.acts_for_user.is_(False),
+        )
     )
     if agent_result.scalars().first() is None:
         session.add(
             Agent(
                 tenant_id=tenant.id,
-                name="Bokito Assistant",
+                name="Front desk",
                 role="assistant",
-                slug="assistant",
+                slug="front-desk",
+                audience="customers",
                 chat_access="everyone",
                 runtime_status="standby",
                 system_prompt="You are the Bokito AI OS assistant.",
                 is_lead=True,
+                settings_json=json.dumps(
+                    {
+                        "avatar_kind": "icon",
+                        "avatar_icon": "headset",
+                        "avatar_color": "#7c3aed",
+                    }
+                ),
             )
         )
         session.add(
@@ -344,6 +360,13 @@ async def _seed_tenant_data(session, tenant):
                 slug="orchestrator",
                 runtime_status="standby",
                 system_prompt="You are the orchestrator for the Bokito platform project. Plan work, route agents, and keep project knowledge current.",
+                settings_json=json.dumps(
+                    {
+                        "avatar_kind": "icon",
+                        "avatar_icon": "briefcase",
+                        "avatar_color": "#7c3aed",
+                    }
+                ),
             )
         )
 

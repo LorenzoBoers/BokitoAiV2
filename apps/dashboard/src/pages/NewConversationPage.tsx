@@ -391,12 +391,12 @@ export default function NewConversationPage() {
         <button
           type="button"
           onClick={() => (intent ? setIntent(null) : navigate(lastInboxPath()))}
-          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-text-muted hover:text-text-primary"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-text-primary"
         >
           <ArrowLeft size={13} />
           {intent ? t('newConversation.changeType') : t('newConversation.back')}
         </button>
-        <p className="text-[13px] font-medium text-text-primary">
+        <p className="text-sm font-medium text-text-primary">
           {intent === 'contact'
             ? t('newConversation.draftContact')
             : intent === 'agent'
@@ -405,7 +405,7 @@ export default function NewConversationPage() {
                 ? t('newConversation.draftTeammate')
                 : t('newConversation.title')}
         </p>
-        <span className="rounded-md border border-border/50 bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+        <span className="rounded-md border border-border/50 bg-bg-elevated px-1.5 py-0.5 text-2xs font-medium text-text-muted">
           {t('newConversation.draftBadge')}
         </span>
       </div>
@@ -441,7 +441,7 @@ export default function NewConversationPage() {
                 />
               </div>
               {!canSendEmail ? (
-                <p className="text-[12px] text-text-muted">
+                <p className="text-xs text-text-muted">
                   {t('newConversation.connectMailboxHint')}{' '}
                   <Link to="/settings/channels" className="font-medium text-accent hover:underline">
                     {t('newConversation.connectMailbox')}
@@ -455,7 +455,7 @@ export default function NewConversationPage() {
             <div className="space-y-3">
               {intent === 'teammate' ? (
                 <div className="space-y-1.5">
-                  <p className="text-[12px] font-medium text-text-muted">{t('newConversation.teammate')}</p>
+                  <p className="text-xs font-medium text-text-muted">{t('newConversation.teammate')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {teammateOptions.map((member) => {
                       const active = selectedMemberId === String(member.id)
@@ -465,10 +465,10 @@ export default function NewConversationPage() {
                           type="button"
                           onClick={() => chooseTeammate(String(member.id), member.email)}
                           className={cn(
-                            'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px]',
+                            'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs',
                             active
-                              ? 'border-accent/40 bg-accent/10 text-text-heading'
-                              : 'border-border/60 text-text-secondary hover:border-accent/30 hover:text-text-primary',
+                              ? 'border-border-light bg-bg-hover text-text-heading'
+                              : 'border-border/60 text-text-secondary hover:border-border-light hover:text-text-primary',
                           )}
                         >
                           <User size={12} />
@@ -480,8 +480,8 @@ export default function NewConversationPage() {
                 </div>
               ) : (
                 <div ref={toPickerRef} className="relative">
-                  <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
-                    <span className="text-[12px] font-medium text-text-muted">{t('newConversation.to')}</span>
+                  <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+                    <span className="text-xs font-medium text-text-muted">{t('newConversation.to')}</span>
                     {toPickerOpen ? (
                       <input
                         value={toQuery}
@@ -495,7 +495,7 @@ export default function NewConversationPage() {
                           if (e.key === 'Escape') setToPickerOpen(false)
                         }}
                         placeholder={t('newConversation.searchContacts')}
-                        className="min-w-0 flex-1 bg-transparent text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none"
+                        className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
                         autoFocus
                       />
                     ) : (
@@ -508,16 +508,16 @@ export default function NewConversationPage() {
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
                       >
                         {toAddress ? (
-                          <span className="truncate text-[13px] text-text-primary">{toAddress}</span>
+                          <span className="truncate-fade text-sm text-text-primary">{toAddress}</span>
                         ) : (
-                          <span className="text-[13px] text-text-muted">{t('newConversation.chooseContact')}</span>
+                          <span className="text-sm text-text-muted">{t('newConversation.chooseContact')}</span>
                         )}
                         <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
                       </button>
                     )}
                   </div>
                   {toPickerOpen ? (
-                    <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
+                    <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
                       <div className="max-h-[280px] overflow-y-auto p-1">
                         {matchingContacts.map((contact) => (
                           <button
@@ -528,14 +528,14 @@ export default function NewConversationPage() {
                           >
                             <User size={14} className="shrink-0 text-text-muted" />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[12.5px] text-text-primary">
+                              <span className="block truncate-fade text-sm text-text-primary">
                                 {humanizeContactName(
                                   contact.displayName,
                                   contact.address,
                                   t('contactPanel.widgetVisitor'),
                                 ) || contact.address}
                               </span>
-                              <span className="block text-[10.5px] text-text-muted">{contact.address}</span>
+                              <span className="block text-2xs text-text-muted">{contact.address}</span>
                             </span>
                           </button>
                         ))}
@@ -547,17 +547,17 @@ export default function NewConversationPage() {
                           >
                             <Mail size={14} className="shrink-0 text-text-muted" />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[12.5px] text-text-primary">
+                              <span className="block truncate-fade text-sm text-text-primary">
                                 {t('newConversation.emailAddressDirect', { address: directEmailQuery })}
                               </span>
-                              <span className="block text-[10.5px] text-text-muted">
+                              <span className="block text-2xs text-text-muted">
                                 {t('newConversation.emailAddressDirectHint')}
                               </span>
                             </span>
                           </button>
                         ) : null}
                         {!matchingContacts.length && !directEmailQuery ? (
-                          <p className="px-3 py-2.5 text-[12px] text-text-muted">{t('newConversation.noMatches')}</p>
+                          <p className="px-3 py-2.5 text-xs text-text-muted">{t('newConversation.noMatches')}</p>
                         ) : null}
                       </div>
                     </div>
@@ -565,19 +565,19 @@ export default function NewConversationPage() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
-                <span className="text-[12px] font-medium text-text-muted">{t('newConversation.from')}</span>
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+                <span className="text-xs font-medium text-text-muted">{t('newConversation.from')}</span>
                 {!canSendEmail ? (
-                  <Link to="/settings/channels" className="text-[13px] font-medium text-accent hover:underline">
+                  <Link to="/settings/channels" className="text-sm font-medium text-accent hover:underline">
                     {t('newConversation.connectMailbox')}
                   </Link>
                 ) : sendableMailboxes.length === 1 ? (
-                  <span className="truncate text-[13px] text-text-primary">{sendableMailboxes[0].mailboxEmail}</span>
+                  <span className="truncate-fade text-sm text-text-primary">{sendableMailboxes[0].mailboxEmail}</span>
                 ) : (
                   <select
                     value={connectionId ?? ''}
                     onChange={(e) => onFromChange(Number(e.target.value))}
-                    className="min-w-0 flex-1 rounded-md border border-border/50 bg-bg-input px-2 py-1 text-[13px] text-text-primary"
+                    className="min-w-0 flex-1 rounded-md border border-border/50 bg-bg-input px-2 py-1 text-sm text-text-primary"
                   >
                     {sendableMailboxes.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -587,7 +587,7 @@ export default function NewConversationPage() {
                   </select>
                 )}
                 {canSendEmail && sendableMailboxes.length > 1 ? (
-                  <label className="ml-auto flex items-center gap-1.5 text-[11px] text-text-muted">
+                  <label className="ml-auto flex items-center gap-1.5 text-xs text-text-muted">
                     <input
                       type="checkbox"
                       checked={rememberFrom}
@@ -603,7 +603,7 @@ export default function NewConversationPage() {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder={t('newConversation.subjectPlaceholder')}
-                className="w-full rounded-xl border border-border/60 bg-bg-surface px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted shadow-card focus:border-border-focus focus:outline-none"
+                className="w-full rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
               />
             </div>
           ) : null}
@@ -611,24 +611,24 @@ export default function NewConversationPage() {
           {intent === 'agent' ? (
             <div ref={agentPickerRef} className="relative">
               {noAgents ? (
-                <div className="rounded-xl border border-border/60 bg-bg-surface px-5 py-8 text-center shadow-card">
+                <div className="rounded-lg border border-border/60 bg-bg-surface px-5 py-8 text-center">
                   <Bot size={28} className="mx-auto text-text-muted" />
-                  <p className="mt-3 text-[15px] font-medium text-text-primary">
+                  <p className="mt-3 text-lg font-medium text-text-primary">
                     {t('newConversation.noAgentsAvailable')}
                   </p>
-                  <Link to="/agents" className="mt-3 inline-block text-[12px] font-medium text-accent hover:underline">
+                  <Link to="/agents" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
                     {t('newConversation.openAgents')}
                   </Link>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
-                  <span className="text-[12px] font-medium text-text-muted">{t('newConversation.to')}</span>
+                <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+                  <span className="text-xs font-medium text-text-muted">{t('newConversation.to')}</span>
                   {agentPickerOpen ? (
                     <input
                       value={agentQuery}
                       onChange={(e) => setAgentQuery(e.target.value)}
                       placeholder={t('newConversation.searchAgents')}
-                      className="min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-sm focus:outline-none"
                       autoFocus
                     />
                   ) : (
@@ -641,7 +641,7 @@ export default function NewConversationPage() {
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
                       {loadingTargets ? (
-                        <span className="inline-flex items-center gap-1.5 text-[13px] text-text-muted">
+                        <span className="inline-flex items-center gap-1.5 text-sm text-text-muted">
                           <Loader2 size={12} className="animate-spin" /> {t('newConversation.loading')}
                         </span>
                       ) : selectedAgent ? (
@@ -652,13 +652,12 @@ export default function NewConversationPage() {
                             size={20}
                             kind={selectedAgent.avatar_kind}
                             icon={selectedAgent.avatar_icon}
-                            color={selectedAgent.avatar_color}
                             imageUrl={selectedAgent.avatar_image_url}
                           />
-                          <span className="truncate text-[13px] text-text-primary">{selectedAgent.name}</span>
+                          <span className="truncate-fade text-sm text-text-primary">{selectedAgent.name}</span>
                         </>
                       ) : (
-                        <span className="text-[13px] text-text-muted">{t('newConversation.chooseRecipient')}</span>
+                        <span className="text-sm text-text-muted">{t('newConversation.chooseRecipient')}</span>
                       )}
                       <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
                     </button>
@@ -666,7 +665,7 @@ export default function NewConversationPage() {
                 </div>
               )}
               {agentPickerOpen ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
+                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
                   <div className="max-h-[280px] overflow-y-auto p-1">
                     {filteredAgents.map((target) => (
                       <button
@@ -681,12 +680,11 @@ export default function NewConversationPage() {
                           size={24}
                           kind={target.avatar_kind}
                           icon={target.avatar_icon}
-                          color={target.avatar_color}
                           imageUrl={target.avatar_image_url}
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[12.5px] text-text-primary">{target.name}</span>
-                          <span className="block text-[10.5px] text-text-muted">
+                          <span className="block truncate-fade text-sm text-text-primary">{target.name}</span>
+                          <span className="block text-2xs text-text-muted">
                             {t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
                           </span>
                         </span>
@@ -694,7 +692,7 @@ export default function NewConversationPage() {
                       </button>
                     ))}
                     {!filteredAgents.length ? (
-                      <p className="px-3 py-2.5 text-[12px] text-text-muted">{t('newConversation.noMatches')}</p>
+                      <p className="px-3 py-2.5 text-xs text-text-muted">{t('newConversation.noMatches')}</p>
                     ) : null}
                   </div>
                 </div>
@@ -706,11 +704,11 @@ export default function NewConversationPage() {
             <div className="mt-6">
               {error ? (
                 <div className="mb-2 flex items-center gap-2 px-1">
-                  <p className="text-[12px] text-status-error">{error}</p>
+                  <p className="text-xs text-status-error">{error}</p>
                   {loadFailed ? (
                     <button
                       type="button"
-                      className="text-[12px] font-medium text-accent hover:underline"
+                      className="text-xs font-medium text-accent hover:underline"
                       onClick={() => void loadTargets()}
                     >
                       {t('newConversation.retry')}
@@ -718,7 +716,7 @@ export default function NewConversationPage() {
                   ) : null}
                 </div>
               ) : null}
-              <p className="mb-2 px-1 text-[11px] text-text-muted">{t('newConversation.draftHint')}</p>
+              <p className="mb-2 px-1 text-xs text-text-muted">{t('newConversation.draftHint')}</p>
               <ComposerCard
                 ref={composerRef}
                 mode={intent === 'agent' ? 'chat' : 'email'}
@@ -764,7 +762,7 @@ export default function NewConversationPage() {
                     (intent === 'agent' ? !canSendAgent : intent === 'teammate' ? !canSendTeammate : !canSendContact)
                   }
                   title={t('newConversation.send')}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
                 >
                   {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
                 </button>
@@ -796,15 +794,15 @@ function IntentCard({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex flex-col items-start gap-2 rounded-xl border border-border/60 bg-bg-surface p-4 text-left shadow-card transition-colors',
+        'flex flex-col items-start gap-2 rounded-lg border border-border/60 bg-bg-surface p-4 text-left transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-50'
-          : 'hover:border-accent/40 hover:bg-bg-hover/40',
+          : 'hover:border-border-light hover:bg-bg-hover/40',
       )}
     >
       <span className="text-accent">{icon}</span>
-      <span className="text-[14px] font-semibold text-text-primary">{title}</span>
-      <span className="text-[12px] leading-snug text-text-muted">{hint}</span>
+      <span className="text-base font-semibold text-text-primary">{title}</span>
+      <span className="text-xs leading-snug text-text-muted">{hint}</span>
     </button>
   )
 }

@@ -122,7 +122,7 @@ export default function ChannelVisibilityPicker({
                   onCheckedChange={() => toggleUser(member.uuid)}
                   onSelect={(event) => event.preventDefault()}
                 >
-                  <span className="truncate">{member.name}</span>
+                  <span className="truncate-fade">{member.name}</span>
                 </DropdownMenuCheckboxItem>
               ))}
           </>

@@ -120,10 +120,10 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
             title={t('whatsappCard.step1Title')}
             active={activeStep === 1}
           >
-            <p className="text-[12.5px] leading-relaxed text-text-secondary">
+            <p className="text-sm leading-relaxed text-text-secondary">
               {t('whatsappCard.step1Body')}
             </p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-[12.5px] leading-snug text-text-secondary">
+            <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-sm leading-snug text-text-secondary">
               <li>{t('whatsappCard.step1ItemApp')}</li>
               <li>{t('whatsappCard.step1ItemNumber')}</li>
               <li>{t('whatsappCard.step1ItemIds')}</li>
@@ -133,7 +133,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
               href={META_WHATSAPP_DOCS}
               target="_blank"
               rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
             >
               {t('whatsappCard.openMetaDocs')}
               <ExternalLink size={12} aria-hidden />
@@ -145,7 +145,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
             title={t('whatsappCard.step2Title')}
             active={activeStep === 2}
           >
-            <p className="mb-3 text-[12.5px] leading-relaxed text-text-secondary">
+            <p className="mb-3 text-sm leading-relaxed text-text-secondary">
               {t('whatsappCard.step2Body')}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -200,7 +200,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
                 />
               </Field>
             </div>
-            <p className="mt-2 text-[11.5px] leading-snug text-text-muted">
+            <p className="mt-2 text-xs leading-snug text-text-muted">
               {t('whatsappCard.tokenHint')}
             </p>
             {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
@@ -217,7 +217,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
           title={t('whatsappCard.step3Title')}
           active
         >
-          <p className="text-[12.5px] leading-relaxed text-text-secondary">
+          <p className="text-sm leading-relaxed text-text-secondary">
             {t('whatsappCard.step3Body')}
           </p>
           <div className="mt-3 space-y-2 rounded-lg border border-border/50 bg-bg-elevated/40 p-3">
@@ -237,10 +237,10 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
                 copyLabel={t('whatsappCard.copy')}
               />
             ) : (
-              <p className="text-[12px] text-status-warning">{t('whatsappCard.verifyTokenMissing')}</p>
+              <p className="text-xs text-status-warning">{t('whatsappCard.verifyTokenMissing')}</p>
             )}
           </div>
-          <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-[12.5px] leading-snug text-text-secondary">
+          <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-sm leading-snug text-text-secondary">
             <li>{t('whatsappCard.step3ItemPaste')}</li>
             <li>{t('whatsappCard.step3ItemSubscribe')}</li>
             <li>{t('whatsappCard.step3ItemTest')}</li>
@@ -249,18 +249,18 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
             href={META_WHATSAPP_DOCS}
             target="_blank"
             rel="noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
           >
             {t('whatsappCard.openMetaConfig')}
             <ExternalLink size={12} aria-hidden />
           </a>
           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border/40 pt-3">
-            <Link to={inboxPath('open')} className="text-[12.5px] font-medium text-accent hover:underline">
+            <Link to={inboxPath('open')} className="text-sm font-medium text-accent hover:underline">
               {t('whatsappCard.openCommunication')}
             </Link>
             <Link
               to="/settings/communication"
-              className="text-[12.5px] font-medium text-accent hover:underline"
+              className="text-sm font-medium text-accent hover:underline"
             >
               {t('whatsappCard.openInboxAi')}
             </Link>
@@ -272,7 +272,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
 }
 
 const fieldClass =
-  'rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60'
+  'rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
 
 function Field({
   label,
@@ -292,7 +292,7 @@ function Field({
         {required ? <span className="text-status-error">*</span> : null}
       </span>
       {children}
-      <span className="text-[11px] leading-snug text-text-muted">{hint}</span>
+      <span className="text-xs leading-snug text-text-muted">{hint}</span>
     </label>
   )
 }
@@ -311,15 +311,15 @@ function StepPanel({
   return (
     <section
       className={cn(
-        'rounded-xl border p-3.5',
+        'rounded-lg border p-3.5',
         active ? 'border-border/60 bg-bg-elevated/30' : 'border-border/40 bg-transparent',
       )}
     >
       <header className="mb-2 flex items-center gap-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-[10px] font-semibold text-accent">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-2xs font-semibold text-accent">
           {number}
         </span>
-        <h3 className="text-[13px] font-semibold text-text-heading">{title}</h3>
+        <h3 className="text-sm font-semibold text-text-heading">{title}</h3>
       </header>
       {children}
     </section>
@@ -341,14 +341,14 @@ function CopyRow({
 }) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-      <span className="shrink-0 text-[11px] font-medium text-text-secondary">{label}</span>
-      <code className="min-w-0 flex-1 break-all rounded bg-bg-input px-1.5 py-1 text-[11px] text-text-primary">
+      <span className="shrink-0 text-xs font-medium text-text-secondary">{label}</span>
+      <code className="min-w-0 flex-1 break-all rounded bg-bg-input px-1.5 py-1 text-xs text-text-primary">
         {value}
       </code>
       <button
         type="button"
         onClick={onCopy}
-        className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/10"
+        className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"
       >
         {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
         <span>{copyLabel}</span>

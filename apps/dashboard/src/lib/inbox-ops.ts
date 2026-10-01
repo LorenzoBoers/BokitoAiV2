@@ -48,11 +48,25 @@ export function nextUnreadId(
   return null
 }
 
-export function parseQuickFilterParam(raw: string | null | undefined): InboxListQuickFilter | null {
+/**
+ * `?filter=` on a Communication folder. Legacy "needs reply" / "needs
+ * decision" values resolve to `yourTurn`: the caller redirects those to the
+ * hub's "You" leaf instead of filtering the current folder.
+ */
+export function parseQuickFilterParam(
+  raw: string | null | undefined,
+): InboxListQuickFilter | 'yourTurn' | null {
   if (!raw) return null
-  if (raw === 'unread' || raw === 'needsReply' || raw === 'needsDecision' || raw === 'pinned' || raw === 'all') return raw
-  if (raw === 'needs_reply') return 'needsReply'
-  if (raw === 'needs_decision' || raw === 'awaiting_decision') return 'needsDecision'
+  if (raw === 'unread' || raw === 'pinned' || raw === 'all') return raw
+  if (
+    raw === 'needsReply' ||
+    raw === 'needs_reply' ||
+    raw === 'needsDecision' ||
+    raw === 'needs_decision' ||
+    raw === 'awaiting_decision'
+  ) {
+    return 'yourTurn'
+  }
   return null
 }
 

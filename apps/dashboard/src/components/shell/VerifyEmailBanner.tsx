@@ -48,16 +48,16 @@ export default function VerifyEmailBanner() {
   }
 
   return (
-    <div className="flex items-center gap-3 border-b border-status-warning/30 bg-status-warning/10 px-4 py-1.5 text-[13px] text-text-primary">
+    <div className="flex h-8 items-center gap-2 border-b border-border/60 bg-bg px-3 text-xs text-text-secondary">
       <MailWarning size={14} className="shrink-0 text-status-warning" />
-      <span className="min-w-0 truncate">
+      <span className="min-w-0 truncate-fade">
         {t('verifyEmail.body', { email: user.email })}
       </span>
       <button
         type="button"
         onClick={() => void resend()}
         disabled={sending || remaining > 0}
-        className="ml-auto shrink-0 rounded-md border border-border/60 px-2.5 py-0.5 font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-60"
+        className="ml-auto shrink-0 h-6 rounded-md border border-border/70 px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-60"
       >
         {sending
           ? t('verifyEmail.sending')

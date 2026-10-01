@@ -216,7 +216,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
           disabled={disabled || busy}
           title={t('composer.writeWithAi')}
           aria-label={t('composer.writeWithAi')}
-          className="flex h-8 shrink-0 items-center gap-1 rounded-xl px-2 text-[11px] font-medium text-ai-ink transition-colors hover:bg-ai/10 disabled:opacity-40"
+          className="flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-medium text-ai-ink transition-colors hover:bg-ai/10 disabled:opacity-40"
         >
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           <span className="hidden sm:inline">{t('composer.writeWithAiShort')}</span>
@@ -224,7 +224,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
         <div className="border-b border-border/50 px-3 py-2.5">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          <p className="mb-1.5 text-2xs font-semibold text-text-muted">
             {t('composer.aiIntentLabel')}
           </p>
           <div className="relative">
@@ -241,7 +241,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
                   ? t('composer.dictationListening')
                   : t('composer.aiIntentPlaceholder')
               }
-              className="w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-1.5 pl-2.5 pr-10 text-[12px] text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-1.5 pl-2.5 pr-10 text-xs text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault()
@@ -268,7 +268,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
             type="button"
             disabled={busy || disabled}
             onClick={() => void run('compose')}
-            className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-ai px-2.5 text-[12px] font-medium text-ai-fg hover:opacity-90 disabled:opacity-40"
+            className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-ai px-2.5 text-xs font-medium text-ai-fg hover:opacity-90 disabled:opacity-40"
           >
             {busy ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
             {hasDraft && !intent.trim() ? t('composer.aiRedraft') : t('composer.aiGenerate')}
@@ -277,7 +277,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
 
         {hasDraft ? (
           <div className="px-1 py-1">
-            <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+            <DropdownMenuLabel className="text-2xs font-semibold text-text-muted">
               {t('composer.aiQuickActions')}
             </DropdownMenuLabel>
             {(
@@ -306,7 +306,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
 
         <DropdownMenuSeparator />
         <div className="px-1 py-1">
-          <DropdownMenuLabel className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          <DropdownMenuLabel className="flex items-center gap-1.5 text-2xs font-semibold text-text-muted">
             <MessageSquareText size={11} />
             {t('composer.savedReplies')}
           </DropdownMenuLabel>
@@ -329,7 +329,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
                 onSelect={() => insertSavedReply(row)}
               >
                 <span className="font-medium text-text-heading">{row.title}</span>
-                <span className="line-clamp-1 text-[11px] text-text-muted">{row.bodyText}</span>
+                <span className="line-clamp-1 text-xs text-text-muted">{row.bodyText}</span>
               </DropdownMenuItem>
             ))
           )}

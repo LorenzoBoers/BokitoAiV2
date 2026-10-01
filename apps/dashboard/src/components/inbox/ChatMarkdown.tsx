@@ -21,7 +21,7 @@ export function isAppPath(href: string): boolean {
 }
 
 const APP_LINK_CLASS =
-  'md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 align-baseline text-[12px] font-medium text-accent no-underline transition-colors hover:border-accent/45 hover:bg-bg-hover/70'
+  'md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 align-baseline text-xs font-medium text-accent no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70'
 
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -123,7 +123,7 @@ function ChatMarkdownImpl({ content, className }: { content: string; className?:
       blocks.push(
         <pre
           key={key++}
-          className="overflow-x-auto rounded-lg border border-border/40 bg-bg-elevated px-3 py-2 font-mono text-[12px] leading-relaxed text-text-primary"
+          className="overflow-x-auto rounded-lg border border-border/40 bg-bg-elevated px-3 py-2 font-mono text-xs leading-relaxed text-text-primary"
         >
           {code.join('\n')}
         </pre>,
@@ -145,7 +145,7 @@ function ChatMarkdownImpl({ content, className }: { content: string; className?:
       const cls =
         level <= 2
           ? 'text-[14.5px] font-semibold text-text-heading'
-          : 'text-[13.5px] font-semibold text-text-heading'
+          : 'text-base font-semibold text-text-heading'
       blocks.push(
         <p key={key++} className={cls}>
           {renderInline(headingMatch[2])}
@@ -166,7 +166,7 @@ function ChatMarkdownImpl({ content, className }: { content: string; className?:
       }
       blocks.push(
         <div key={key++} className="overflow-x-auto rounded-lg border border-border/40">
-          <table className="w-full border-collapse text-[12.5px]">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border/40 bg-bg-elevated/60">
                 {header.map((cell, idx) => (

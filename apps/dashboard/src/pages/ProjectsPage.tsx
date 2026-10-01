@@ -16,7 +16,7 @@ import {
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -99,7 +99,7 @@ function ProjectCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-medium text-text-heading group-hover:text-accent">
+          <p className="truncate-fade font-medium text-text-heading group-hover:text-accent">
             {project.name}
           </p>
         </div>
@@ -171,7 +171,7 @@ function ProjectCard({
         <div className="flex items-center gap-2 text-xs text-text-secondary">
           <Bot size={13} className="shrink-0 text-text-muted" />
           {project.po_agent ? (
-            <span className="truncate">{project.po_agent.name}</span>
+            <span className="truncate-fade">{project.po_agent.name}</span>
           ) : (
             <span className="text-text-muted">{t('projects.page.noLead')}</span>
           )}
@@ -181,14 +181,14 @@ function ProjectCard({
             {project.agents.slice(0, 4).map((agent) => (
               <span
                 key={agent.agent_id}
-                className="inline-flex max-w-[10rem] items-center truncate rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-text-secondary"
+                className="inline-flex max-w-[10rem] items-center truncate-fade rounded-md border border-border/60 px-2 py-0.5 text-2xs text-text-secondary"
                 title={agent.is_default ? t('projects.page.defaultAgent', { name: agent.name }) : agent.name}
               >
                 {agent.name}
               </span>
             ))}
             {project.agents.length > 4 ? (
-              <span className="text-[10px] text-text-muted">
+              <span className="text-2xs text-text-muted">
                 +{project.agents.length - 4}
               </span>
             ) : null}
@@ -197,7 +197,7 @@ function ProjectCard({
         {(project.queue_open_count ?? 0) > 0 || (project.doc_sections_total ?? 0) > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-text-secondary">
             {(project.queue_open_count ?? 0) > 0 ? (
-              <Badge variant="info" className="px-1.5 py-0 text-[10px]">
+              <Badge variant="info" className="px-1.5 py-0 text-2xs">
                 {t('projects.page.queueOpen', { count: project.queue_open_count })}
               </Badge>
             ) : null}
@@ -206,7 +206,7 @@ function ProjectCard({
                 variant={
                   project.doc_sections_done === project.doc_sections_total ? 'success' : 'neutral'
                 }
-                className="px-1.5 py-0 text-[10px]"
+                className="px-1.5 py-0 text-2xs"
               >
                 {t('projects.page.docHealth', {
                   done: project.doc_sections_done ?? 0,
@@ -220,11 +220,11 @@ function ProjectCard({
           <GitBranch size={13} className="shrink-0 text-text-muted" />
           {project.github_repo_full_name ? (
             <>
-              <span className="truncate">{project.github_repo_full_name}</span>
+              <span className="truncate-fade">{project.github_repo_full_name}</span>
               {project.repo_index_status && project.repo_index_status !== 'none' ? (
                 <Badge
                   variant={REPO_STATUS_VARIANT[project.repo_index_status] ?? 'outline'}
-                  className="px-1.5 py-0 text-[10px]"
+                  className="px-1.5 py-0 text-2xs"
                 >
                   {indexStatusLabel(project.repo_index_status, t)}
                 </Badge>
@@ -240,7 +240,7 @@ function ProjectCard({
             <Link
               to={`/agents/${project.po_agent.id}`}
               onClick={(event) => event.stopPropagation()}
-              className="text-[11px] font-medium text-accent hover:underline"
+              className="text-xs font-medium text-accent hover:underline"
             >
               {t('projects.page.openLead')}
             </Link>
@@ -248,7 +248,7 @@ function ProjectCard({
             <Link
               to={`/projects/${project.id}`}
               onClick={(event) => event.stopPropagation()}
-              className="text-[11px] font-medium text-accent hover:underline"
+              className="text-xs font-medium text-accent hover:underline"
             >
               {t('projects.page.assignLead')}
             </Link>
@@ -257,7 +257,7 @@ function ProjectCard({
           <Link
             to={threadsHref}
             onClick={(event) => event.stopPropagation()}
-            className="text-[11px] text-text-muted hover:text-text-primary hover:underline"
+            className="text-xs text-text-muted hover:text-text-primary hover:underline"
           >
             {t('projects.page.openThreads')}
           </Link>
@@ -378,32 +378,38 @@ export default function ProjectsPage() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <PageGuideBanner page="projects" />
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-heading">{t('projects.page.title')}</h1>
-          <p className="mt-1 text-sm text-text-muted">
-            {t('projects.page.subtitle')}
-          </p>
-          {refreshedAt ? (
-            <p className="mt-1 text-xs text-text-muted">
-              {t('projects.page.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-            {t('projects.page.refresh')}
-          </Button>
-          {isAdmin ? (
-            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1 h-4 w-4" aria-hidden />
-              {t('projects.page.new')}
+      <ContentHeader
+        guide="projects"
+        title={t('projects.page.title')}
+        subtitle={t('projects.page.subtitle')}
+        className="mb-0"
+        meta={
+          <>
+            {refreshedAt ? (
+              <span className="hidden text-xs text-text-muted sm:inline">
+                {t('projects.page.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => void load()}
+              disabled={loading}
+              title={t('projects.page.refresh')}
+              aria-label={t('projects.page.refresh')}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
             </Button>
-          ) : null}
-        </div>
-      </header>
+            {isAdmin ? (
+              <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {t('projects.page.new')}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
       {!isAdmin ? (
@@ -566,7 +572,6 @@ export default function ProjectsPage() {
           { to: '/settings/signals', label: t('pageGuides.related.cases') },
           { to: '/agents', label: t('pageGuides.related.agents') },
           { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
-          { to: '/docs/ai/projects', label: t('pageGuides.learnMore') },
         ]}
       />
     </PageContent>

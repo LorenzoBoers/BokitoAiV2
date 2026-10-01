@@ -2308,8 +2308,10 @@
     "signOut": "Uitloggen"
   },
   "theme": {
+    "label": "Thema",
     "dark": "Donker",
-    "light": "Licht"
+    "light": "Licht",
+    "system": "Systeem"
   },
   "sectionTitle": {
     "inbox": "Communicatie"
@@ -2503,7 +2505,7 @@
     "newChat": "Nieuwe chat",
     "decisions": {
       "label": "Wacht op jou",
-      "hint": "Alles wat wacht op een ja, nee of goedgekeurd concept"
+      "hint": "Alles wat op jou wacht: een antwoord aan de klant, een ja of nee, of een goedgekeurd concept"
     },
     "activity": {
       "label": "Activiteit",

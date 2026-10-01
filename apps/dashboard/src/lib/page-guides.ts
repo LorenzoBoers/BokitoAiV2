@@ -113,8 +113,6 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
 }
 
-const DISMISS_PREFIX = 'bokito-page-guide-dismissed:'
-
 export function pageGuidePath(slug: PageGuideSlug): string {
   return `/learn/${slug}`
 }
@@ -128,22 +126,3 @@ export function isPageGuideSlug(value: string | undefined): value is PageGuideSl
   return Boolean(value && (PAGE_GUIDE_SLUGS as readonly string[]).includes(value))
 }
 
-export function pageGuideDismissKey(slug: PageGuideSlug): string {
-  return `${DISMISS_PREFIX}${slug}`
-}
-
-export function isPageGuideDismissed(slug: PageGuideSlug): boolean {
-  try {
-    return localStorage.getItem(pageGuideDismissKey(slug)) === '1'
-  } catch {
-    return false
-  }
-}
-
-export function dismissPageGuide(slug: PageGuideSlug): void {
-  try {
-    localStorage.setItem(pageGuideDismissKey(slug), '1')
-  } catch {
-    // ignore storage failures
-  }
-}

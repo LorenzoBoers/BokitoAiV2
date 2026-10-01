@@ -33,7 +33,7 @@ type Props = {
 const AUDIENCES = ['customers', 'partners', 'internal'] as const
 
 const SELECT_CLASS =
-  'w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50'
+  'w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-primary disabled:opacity-50'
 
 export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }: Props) {
   const { t } = useTranslation('nav')
@@ -157,7 +157,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
                 <button
                   type="button"
                   onClick={loadModels}
-                  className="text-[11px] font-medium text-accent hover:underline"
+                  className="text-xs font-medium text-accent hover:underline"
                 >
                   {t('workforce.agents.create.modelsRetry')}
                 </button>
@@ -176,7 +176,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
             />
           </div>
 
-          {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
+          {error ? <p className="text-xs text-status-error">{error}</p> : null}
         </div>
 
         <DialogFooter>

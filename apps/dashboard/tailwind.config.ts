@@ -62,8 +62,16 @@ export default {
         display: ['Jaro', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
+      // Compact UI scale: 13px body, 11.5px secondary. Headings stay editorial
+      // via tracking, not size. Keep 3xl+ at Tailwind defaults.
       fontSize: {
-        '2xs': ['0.65rem', { lineHeight: '0.85rem' }],
+        '2xs': ['0.656rem', { lineHeight: '0.875rem' }], // 10.5 / 14
+        xs: ['0.719rem', { lineHeight: '1rem' }], // 11.5 / 16
+        sm: ['0.781rem', { lineHeight: '1.125rem' }], // 12.5 / 18
+        base: ['0.844rem', { lineHeight: '1.25rem' }], // 13.5 / 20
+        lg: ['0.938rem', { lineHeight: '1.375rem' }], // 15 / 22
+        xl: ['1.063rem', { lineHeight: '1.5rem', letterSpacing: '-0.01em' }], // 17 / 24
+        '2xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.015em' }], // 20 / 28
       },
       boxShadow: {
         // Theme-aware elevation tokens (defined per theme in index.css).

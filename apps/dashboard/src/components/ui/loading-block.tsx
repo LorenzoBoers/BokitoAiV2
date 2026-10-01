@@ -50,7 +50,7 @@ export function LoadingBlock({
         {Array.from({ length: rows }).map((_, i) => (
           <div
             key={i}
-            className="h-12 animate-pulse rounded-xl border border-border/40 bg-bg-elevated/60"
+            className="h-12 animate-pulse rounded-lg border border-border/40 bg-bg-elevated/60"
           />
         ))}
       </div>

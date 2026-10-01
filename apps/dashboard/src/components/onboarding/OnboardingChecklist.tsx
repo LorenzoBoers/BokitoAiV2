@@ -223,7 +223,7 @@ export default function OnboardingChecklist({
         </button>
       ) : null}
       <div className="space-y-3">
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/12 text-accent">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
           <Sparkles size={20} />
         </div>
         <div className="space-y-2">
@@ -239,9 +239,9 @@ export default function OnboardingChecklist({
         </div>
       </div>
       {nextStep ? (
-        <div className="space-y-4 rounded-2xl border border-border/60 bg-bg-elevated/50 p-5 text-left">
+        <div className="space-y-4 rounded-xl border border-border/60 bg-bg-elevated/50 p-5 text-left">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
               {nextStep.id === 'email' ? (
                 <Mail size={18} />
               ) : nextStep.id === 'watching' ? (
@@ -291,13 +291,13 @@ export function OnboardingCompactCard() {
   const nextStep = status.steps.find((step) => !step.done)
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-bg-elevated/50 px-4 py-3">
+    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/50 px-4 py-3">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
         <ListChecks size={16} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-text-heading">{t('onboarding.continueTitle')}</p>
-        <p className="truncate text-xs text-text-secondary">
+        <p className="truncate-fade text-sm font-medium text-text-heading">{t('onboarding.continueTitle')}</p>
+        <p className="truncate-fade text-xs text-text-secondary">
           {nextStep
             ? t('onboarding.nextStep', { title: t(`onboarding.steps.${nextStep.id}.title`) })
             : t('onboarding.almostDone')}
@@ -305,7 +305,7 @@ export function OnboardingCompactCard() {
       </div>
       <Link
         to="/settings/setup"
-        className="shrink-0 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
+        className="shrink-0 rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
       >
         {t('onboarding.openGuide')}
       </Link>

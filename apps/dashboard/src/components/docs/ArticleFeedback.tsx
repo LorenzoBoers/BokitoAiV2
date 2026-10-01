@@ -34,12 +34,12 @@ export default function ArticleFeedback({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/60 px-4 py-3">
+    <div className="flex items-center gap-3 rounded-lg border border-border/60 px-4 py-3">
       {state === 'done' ? (
-        <p className="text-[12.5px] text-text-muted">{t('pageGuides.feedback.thanks')}</p>
+        <p className="text-sm text-text-muted">{t('pageGuides.feedback.thanks')}</p>
       ) : (
         <>
-          <p className="text-[12.5px] font-medium text-text-secondary">
+          <p className="text-sm font-medium text-text-secondary">
             {t('pageGuides.feedback.question')}
           </p>
           <div className="flex items-center gap-1.5">
@@ -48,7 +48,7 @@ export default function ArticleFeedback({ slug }: { slug: string }) {
               onClick={() => void submit('up')}
               disabled={state === 'sending'}
               aria-label={t('pageGuides.feedback.yes')}
-              className="rounded-lg border border-border/60 p-1.5 text-text-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:opacity-50"
+              className="rounded-lg border border-border/60 p-1.5 text-text-secondary transition-colors hover:border-border-light hover:text-accent disabled:opacity-50"
             >
               <ThumbsUp size={13} aria-hidden />
             </button>

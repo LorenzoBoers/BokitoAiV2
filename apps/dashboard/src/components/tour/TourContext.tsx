@@ -234,7 +234,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
   return createPortal(
     <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
       <TourStyles />
-      <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-2xl border border-border/60 bg-bg-surface shadow-overlay">
+      <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
         {/* Accent halo */}
         <div
           aria-hidden
@@ -252,16 +252,16 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
 
         <div className="relative px-7 pb-7 pt-8">
           <div className="mb-5 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/12 text-accent">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
               <Sparkles size={20} />
             </div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+            <p className="text-xs font-semibold text-accent">
               {t('welcome.eyebrow')}
             </p>
-            <h2 className="mt-1 text-[20px] font-semibold text-text-heading">
+            <h2 className="mt-1 text-2xl font-semibold text-text-heading">
               {t('welcome.title')}
             </h2>
-            <p className="mx-auto mt-1.5 max-w-[440px] text-[13px] leading-relaxed text-text-secondary">
+            <p className="mx-auto mt-1.5 max-w-[440px] text-sm leading-relaxed text-text-secondary">
               {t('welcome.subtitle')}
             </p>
           </div>
@@ -273,7 +273,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
               return (
                 <div
                   key={pillar}
-                  className="bk-tour-pop flex items-center gap-3 rounded-xl border border-border/50 bg-bg-elevated/40 px-3.5 py-2.5"
+                  className="bk-tour-pop flex items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated/40 px-3.5 py-2.5"
                   style={{ animationDelay: `${80 + idx * 60}ms` }}
                 >
                   <span
@@ -286,10 +286,10 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
                     {violet ? <Brain size={15} /> : <Icon size={15} />}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[12.5px] font-medium text-text-heading">
+                    <span className="block text-sm font-medium text-text-heading">
                       {t(`welcome.pillars.${pillar}.title`)}
                     </span>
-                    <span className="block text-[11.5px] leading-snug text-text-secondary">
+                    <span className="block text-xs leading-snug text-text-secondary">
                       {t(`welcome.pillars.${pillar}.body`)}
                     </span>
                   </span>
@@ -302,14 +302,14 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
             <button
               type="button"
               onClick={onSkip}
-              className="rounded-lg px-3.5 py-2 text-[12.5px] font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('welcome.skip')}
             </button>
             <button
               type="button"
               onClick={onStart}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-fg shadow-card transition-colors hover:bg-accent-hover"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               {t('welcome.start')}
               <ArrowRight size={13} />
@@ -418,7 +418,7 @@ function StepOverlay({
           {/* Spotlight cutout: dims everything except the anchor, glides between steps. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute rounded-xl"
+            className="pointer-events-none absolute rounded-lg"
             style={{
               top: spot.top,
               left: spot.left,
@@ -431,7 +431,7 @@ function StepOverlay({
           {/* Pointing effect: static ring + soft pulse. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute rounded-xl border-2 border-accent"
+            className="pointer-events-none absolute rounded-lg border-2 border-accent"
             style={{
               top: spot.top,
               left: spot.left,
@@ -442,7 +442,7 @@ function StepOverlay({
           />
           <div
             aria-hidden
-            className="bk-tour-pulse pointer-events-none absolute rounded-xl border-2 border-accent"
+            className="bk-tour-pulse pointer-events-none absolute rounded-lg border-2 border-accent"
             style={{ top: spot.top, left: spot.left, width: spot.width, height: spot.height }}
           />
         </>
@@ -454,18 +454,18 @@ function StepOverlay({
         key={step.id}
         role="dialog"
         aria-label={t(`steps.${step.id}.title`)}
-        className="bk-tour-pop rounded-2xl border border-border/60 bg-bg-surface p-4 shadow-overlay"
+        className="bk-tour-pop rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay"
         style={cardStyle}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-accent">
+          <span className="text-2xs font-semibold text-accent">
             {t('progress', { current: stepIndex + 1, total: TOUR_STEPS.length })}
           </span>
           <button
             type="button"
             onClick={onSkip}
-            className="text-[11px] text-text-muted transition-colors hover:text-text-primary"
+            className="text-xs text-text-muted transition-colors hover:text-text-primary"
           >
             {t('skipTour')}
           </button>
@@ -473,7 +473,7 @@ function StepOverlay({
         <h3 className="text-[14.5px] font-semibold text-text-heading">
           {t(`steps.${step.id}.title`)}
         </h3>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
+        <p className="mt-1 text-sm leading-relaxed text-text-secondary">
           {t(`steps.${step.id}.body`)}
         </p>
         <div className="mt-3.5 flex items-center justify-between">
@@ -492,7 +492,7 @@ function StepOverlay({
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 {t('back')}
               </button>
@@ -500,7 +500,7 @@ function StepOverlay({
             <button
               type="button"
               onClick={onNext}
-              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               {t('next')}
               <ArrowRight size={12} />
@@ -536,25 +536,25 @@ function FinishScreen({
   return createPortal(
     <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
       <TourStyles />
-      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-2xl border border-border/60 bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
+      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-24 left-1/2 h-48 w-[360px] -translate-x-1/2 rounded-full opacity-25 blur-3xl"
           style={{ background: 'radial-gradient(closest-side, var(--accent, #6366f1), transparent)' }}
         />
         <div className="relative">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/12 text-accent">
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
             <Bot size={20} />
           </div>
-          <h2 className="text-[18px] font-semibold text-text-heading">{t('finish.title')}</h2>
-          <p className="mx-auto mt-1.5 max-w-[380px] text-[13px] leading-relaxed text-text-secondary">
+          <h2 className="text-xl font-semibold text-text-heading">{t('finish.title')}</h2>
+          <p className="mx-auto mt-1.5 max-w-[380px] text-sm leading-relaxed text-text-secondary">
             {t('finish.body')}
           </p>
           <div className="mt-6 flex flex-col items-center gap-2">
             <button
               type="button"
               onClick={onAssistant}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-fg shadow-card transition-colors hover:bg-accent-hover"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               <Sparkles size={13} />
               {t('finish.cta')}
@@ -562,14 +562,14 @@ function FinishScreen({
             <button
               type="button"
               onClick={onCommunication}
-              className="rounded-lg border border-border/60 px-3.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-lg border border-border/60 px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('finish.communication')}
             </button>
             <button
               type="button"
               onClick={onExplore}
-              className="rounded-lg px-3.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-lg px-3.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('finish.later')}
             </button>

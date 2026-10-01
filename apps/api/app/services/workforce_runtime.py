@@ -199,6 +199,7 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
             Agent.tenant_id == tenant_id,
             Agent.kind == "company",
             Agent.acts_for_user.is_(False),
+            Agent.is_active.is_(True),
         )
         .order_by(Agent.updated_at.desc())
     )

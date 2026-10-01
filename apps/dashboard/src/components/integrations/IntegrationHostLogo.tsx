@@ -16,7 +16,7 @@ const iconPixelSize: Record<IntegrationHostLogoSize, number> = {
 }
 
 const sizeClasses: Record<IntegrationHostLogoSize, { box: string; text: string }> = {
-  sm: { box: 'h-7 w-7 rounded-md', text: 'text-[10px]' },
+  sm: { box: 'h-7 w-7 rounded-md', text: 'text-2xs' },
   md: { box: 'h-10 w-10 rounded-lg', text: 'text-xs' },
   lg: { box: 'h-12 w-12 rounded-lg', text: 'text-sm' },
 }
@@ -52,7 +52,7 @@ function IconPlaceholderBadge({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center text-white shadow-sm ring-1 ring-black/10',
+        'inline-flex shrink-0 items-center justify-center text-white ring-1 ring-black/10',
         sizes.box,
         className,
       )}
@@ -81,7 +81,7 @@ function InitialsBadge({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center font-semibold text-white shadow-sm ring-1 ring-black/10',
+        'inline-flex shrink-0 items-center justify-center font-semibold text-white ring-1 ring-black/10',
         sizes.box,
         sizes.text,
         className,

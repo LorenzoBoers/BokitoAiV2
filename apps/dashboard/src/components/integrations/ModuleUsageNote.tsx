@@ -13,7 +13,7 @@ export function ModuleUsageNote({ modules }: { modules: IntegrationModuleRow[] }
 
   return (
     <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+      <p className="text-2xs font-semibold text-text-muted">
         {t('integrations.application.usedByModules', { defaultValue: 'Works with modules' })}
       </p>
       <ul className="mt-2 space-y-2">
@@ -34,7 +34,7 @@ export function ModuleUsageNote({ modules }: { modules: IntegrationModuleRow[] }
                 >
                   {name}
                 </Link>
-                <p className="text-[11px] leading-snug text-text-muted line-clamp-2">{summary}</p>
+                <p className="text-xs leading-snug text-text-muted line-clamp-2">{summary}</p>
               </div>
             </li>
           )

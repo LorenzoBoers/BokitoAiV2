@@ -157,9 +157,9 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
   const nowX = xFor(now)
 
   return (
-    <div className="relative mb-3 rounded-xl border border-border/60 bg-bg-elevated">
+    <div className="relative mb-3 rounded-lg border border-border/60 bg-bg-elevated">
       {loadingOlder ? (
-        <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-md bg-bg-elevated/90 px-2 py-1 text-[10.5px] text-text-muted">
+        <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-md bg-bg-elevated/90 px-2 py-1 text-2xs text-text-muted">
           <Loader2 size={11} className="animate-spin" />
           {t('activityPage.timelineLoading')}
         </div>
@@ -200,7 +200,7 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
           {/* Now marker */}
           <div className="absolute" style={{ left: nowX, top: 8, bottom: 8 }}>
             <div className="h-full w-px bg-accent/70" />
-            <span className="absolute -translate-x-1/2 rounded bg-accent/15 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-accent" style={{ top: -2, left: 0 }}>
+            <span className="absolute -translate-x-1/2 rounded bg-accent/15 px-1 py-px text-2xs font-semibold text-accent" style={{ top: -2, left: 0 }}>
               {t('activityPage.timelineNow')}
             </span>
           </div>
@@ -226,7 +226,7 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
           })}
         </div>
       </div>
-      <div className="flex items-center gap-3 border-t border-border/40 px-3 py-1.5 text-[10px] text-text-muted">
+      <div className="flex items-center gap-3 border-t border-border/40 px-3 py-1.5 text-2xs text-text-muted">
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-accent/80" /> {t('activityPage.timelineExecuted')}</span>
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-error" /> {t('activityPage.timelineFailed')}</span>
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-success" /> {t('activityPage.timelineLive')}</span>

@@ -1,19 +1,5 @@
-import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-
-const TABS = [
-  {
-    labelKey: 'tabs.modules.title',
-    defaultLabel: 'Connections',
-    to: '/connections',
-    end: true,
-  },
-  {
-    labelKey: 'integrations.pageMeta.marketplace.title',
-    defaultLabel: 'Marketplace',
-    to: '/connections/marketplace',
-  },
-] as const
+import RouteTabs from './RouteTabs'
 
 /**
  * Inner tab strip for the Connections hub: workspace inventory and discover.
@@ -21,26 +7,15 @@ const TABS = [
 export default function IntegrationsTabs() {
   const { t } = useTranslation('nav')
   return (
-    <nav
-      className="mb-4 flex items-center gap-1 border-b border-border/60"
-      aria-label={t('integrations.tabsAria', { defaultValue: 'Connections sections' })}
-    >
-      {TABS.map((tab) => (
-        <NavLink
-          key={tab.to}
-          to={tab.to}
-          end={'end' in tab ? tab.end : false}
-          className={({ isActive }) =>
-            `-mb-px border-b-2 px-3 py-2 text-[12.5px] font-medium transition-colors ${
-              isActive
-                ? 'border-accent text-accent'
-                : 'border-transparent text-text-muted hover:text-text-primary'
-            }`
-          }
-        >
-          {t(tab.labelKey, { defaultValue: tab.defaultLabel })}
-        </NavLink>
-      ))}
-    </nav>
+    <RouteTabs
+      ariaLabel={t('integrations.tabsAria', { defaultValue: 'Connections sections' })}
+      tabs={[
+        { to: '/connections', end: true, label: t('tabs.modules.title', { defaultValue: 'Connections' }) },
+        {
+          to: '/connections/marketplace',
+          label: t('integrations.pageMeta.marketplace.title', { defaultValue: 'Marketplace' }),
+        },
+      ]}
+    />
   )
 }

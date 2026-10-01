@@ -31,13 +31,13 @@ export default function MailboxSyncWindowField({
       <label htmlFor={id} className="block text-xs font-medium text-text-heading">
         {t('channelsPage.installHistory')}
       </label>
-      <p className="text-[12px] leading-snug text-text-secondary">{t('channelsPage.installHistoryHint')}</p>
+      <p className="text-xs leading-snug text-text-secondary">{t('channelsPage.installHistoryHint')}</p>
       <select
         id={id}
         value={String(value)}
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 text-[12.5px] text-text-primary outline-none transition-colors focus:border-accent/60 disabled:opacity-60"
+        className="w-full rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent/60 disabled:opacity-60"
       >
         {options.map((days) => (
           <option key={days} value={days}>

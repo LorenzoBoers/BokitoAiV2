@@ -212,7 +212,7 @@ export default function ProjectDetail() {
           <header className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-semibold text-text-heading">{project.name}</h1>
+                <h1 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">{project.name}</h1>
               </div>
               {project.description ? (
                 <p className="mt-1 max-w-2xl text-sm text-text-muted">{project.description}</p>
@@ -308,14 +308,14 @@ export default function ProjectDetail() {
                             className="flex items-center justify-between gap-2 rounded-md border border-border/50 px-2.5 py-1.5 transition-colors hover:border-border hover:bg-bg-muted/40"
                           >
                             <span className="min-w-0">
-                              <span className="block truncate text-sm text-text-primary">{stream.name}</span>
-                              <span className="block text-[11px] text-text-muted">
+                              <span className="block truncate-fade text-sm text-text-primary">{stream.name}</span>
+                              <span className="block text-xs text-text-muted">
                                 {t('projects.detail.stepCount', { count: stream.steps_count ?? 0 })}
                               </span>
                             </span>
                             <Badge
                               variant={stream.enabled ? 'secondary' : 'outline'}
-                              className="shrink-0 px-1.5 py-0 text-[10px]"
+                              className="shrink-0 px-1.5 py-0 text-2xs"
                             >
                               {flowStatusLabel(stream.enabled, t)}
                             </Badge>
@@ -343,7 +343,7 @@ export default function ProjectDetail() {
                 <ProjectRepoSection project={project} onChanged={load} canEdit={isAdmin} />
                 <div className="space-y-1.5 border-t border-border/40 pt-3">
                   <Label className="text-xs text-text-muted">{t('projects.detail.resources')}</Label>
-                  <p className="text-[11px] text-text-muted">{t('projects.detail.resourcesHint')}</p>
+                  <p className="text-xs text-text-muted">{t('projects.detail.resourcesHint')}</p>
                   <ProjectResourcesSection projectId={project.id} canEdit={isAdmin} />
                 </div>
               </CardContent>

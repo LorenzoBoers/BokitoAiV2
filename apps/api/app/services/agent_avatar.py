@@ -106,12 +106,47 @@ def normalize_image_url(value: str | None) -> str | None:
     return None
 
 
+# One platform AI violet for every agent. Personality is icon + name only —
+# stored avatar_color values are ignored so the UI stays uncluttered.
+PLATFORM_AVATAR_COLOR = "#7c3aed"
+
+
+def _role_default_mark(agent: Agent) -> dict[str, Any]:
+    """Icon for agents that never picked a mark (or legacy rows). Always purple."""
+    slug = (agent.slug or "").strip().lower()
+    role = (agent.role or "").strip().lower()
+    audience = (agent.audience or "").strip().lower()
+    if bool(getattr(agent, "acts_for_user", False)) or slug == "bokito":
+        icon = "sparkles"
+    elif audience == "customers" or slug == "front-desk":
+        icon = "headset"
+    elif role in ("orchestrator", "po") or slug == "orchestrator":
+        icon = "briefcase"
+    else:
+        name = (agent.name or "").strip().lower()
+        if "bokito" in name and "assistant" in name:
+            icon = "sparkles"
+        else:
+            icon = "bot"
+    return {
+        "avatar_kind": AVATAR_KIND_ICON,
+        "avatar_icon": icon,
+        "avatar_color": PLATFORM_AVATAR_COLOR,
+        "avatar_image_url": None,
+    }
+
+
 def avatar_payload(agent: Agent | None) -> dict[str, Any]:
-    """Public avatar fields for API / widget / thread payloads."""
+    """Public avatar fields for API / widget / thread payloads.
+
+    Always returns a concrete icon (or image) when possible so list rows,
+    timeline bubbles, and the Agents library share one silhouette per agent.
+    Color is always the platform AI violet.
+    """
     empty = {
-        "avatar_kind": AVATAR_KIND_INITIALS,
-        "avatar_icon": None,
-        "avatar_color": None,
+        "avatar_kind": AVATAR_KIND_ICON,
+        "avatar_icon": "sparkles",
+        "avatar_color": PLATFORM_AVATAR_COLOR,
         "avatar_image_url": None,
     }
     if agent is None:
@@ -121,16 +156,25 @@ def avatar_payload(agent: Agent | None) -> dict[str, Any]:
     if kind not in AVATAR_KINDS:
         kind = AVATAR_KIND_INITIALS
     icon = normalize_icon(str(stored.get("avatar_icon") or "") or None)
-    color = normalize_color(str(stored.get("avatar_color") or "") or None)
     image = normalize_image_url(str(stored.get("avatar_image_url") or "") or None)
     if kind == AVATAR_KIND_IMAGE and not image:
         kind = AVATAR_KIND_ICON if icon else AVATAR_KIND_INITIALS
     if kind == AVATAR_KIND_ICON and not icon:
         kind = AVATAR_KIND_INITIALS
+    if kind == AVATAR_KIND_INITIALS and not icon and not image:
+        return _role_default_mark(agent)
+    # Orchestrators that accidentally share the Front desk headset get the
+    # role mark so they stay visually distinct in the rail and Agents library.
+    if (
+        icon == "headset"
+        and (agent.role or "").strip().lower() in ("orchestrator", "po")
+        and (agent.audience or "").strip().lower() != "customers"
+    ):
+        return _role_default_mark(agent)
     return {
         "avatar_kind": kind,
         "avatar_icon": icon,
-        "avatar_color": color,
+        "avatar_color": PLATFORM_AVATAR_COLOR,
         "avatar_image_url": image if kind == AVATAR_KIND_IMAGE else None,
     }
 
@@ -143,7 +187,11 @@ def apply_avatar_settings(
     avatar_color: str | None = None,
     avatar_image_url: str | None = None,
 ) -> dict[str, Any]:
-    """Merge avatar fields into settings_json; raises ValueError on bad input."""
+    """Merge avatar fields into settings_json; raises ValueError on bad input.
+
+    ``avatar_color`` is accepted for API compat but always stored as the
+    platform violet — agents do not get a custom tint.
+    """
     out = dict(stored)
     if avatar_kind is not None:
         kind = avatar_kind.strip().lower()
@@ -158,14 +206,9 @@ def apply_avatar_settings(
             out["avatar_icon"] = icon
         else:
             out.pop("avatar_icon", None)
-    if avatar_color is not None:
-        color = normalize_color(avatar_color) if avatar_color.strip() else None
-        if avatar_color.strip() and color is None:
-            raise ValueError("Invalid avatar_color")
-        if color:
-            out["avatar_color"] = color
-        else:
-            out.pop("avatar_color", None)
+    # Drop legacy custom colors; always pin platform violet when touched.
+    if avatar_color is not None or avatar_kind is not None or avatar_icon is not None:
+        out["avatar_color"] = PLATFORM_AVATAR_COLOR
     if avatar_image_url is not None:
         image = normalize_image_url(avatar_image_url) if avatar_image_url.strip() else None
         if avatar_image_url.strip() and image is None:

@@ -71,29 +71,58 @@ export const AGENT_AVATAR_ICONS: Record<AgentAvatarIconKey, LucideIcon> = {
   lightbulb: Lightbulb,
 }
 
-/** Platform AI tint — agents share violet identity; no per-agent color picker. */
+/**
+ * Platform AI violet (matches `--color-ai` mid tone). Avatars ignore per-agent
+ * colors; AiAvatar paints with CSS AI tokens instead. Kept for API payloads /
+ * widget theme that still expect a hex string.
+ */
 export const DEFAULT_AGENT_AVATAR_COLOR = '#7c3aed'
 
-/** Hex swatches mirrored from the API allow-list (legacy stored values still render). */
-export const AGENT_AVATAR_COLORS = [
-  '#4652f2',
-  '#7c3aed',
-  '#0891b2',
-  '#0d9488',
-  '#059669',
-  '#d97706',
-  '#dc2626',
-  '#db2777',
-  '#9333ea',
-  '#2563eb',
-  '#16a34a',
-  '#ea580c',
-] as const
-
 export type AgentAvatarKind = 'initials' | 'icon' | 'image'
+
+/** Fields every surface needs to render the same agent mark. */
+export type AgentAvatarProps = {
+  name?: string | null
+  seed?: string | null
+  kind?: AgentAvatarKind | string | null
+  icon?: string | null
+  imageUrl?: string | null
+}
 
 export function resolveAgentAvatarIcon(key: string | null | undefined): LucideIcon | null {
   if (!key) return null
   const normalized = key.trim().toLowerCase() as AgentAvatarIconKey
   return AGENT_AVATAR_ICONS[normalized] ?? null
+}
+
+/**
+ * Normalize snake_case API fields (or thread camelCase) into AiAvatar props.
+ * Color is never forwarded — all agents share platform AI violet.
+ */
+export function toAiAvatarProps(
+  source: {
+    name?: string | null
+    id?: string | null
+    seed?: string | null
+    avatar_kind?: string | null
+    avatar_icon?: string | null
+    avatar_image_url?: string | null
+    agentAvatarKind?: string | null
+    agentAvatarIcon?: string | null
+    agentAvatarImageUrl?: string | null
+    agentName?: string | null
+    agentId?: string | null
+  } | null | undefined,
+  fallbackName = 'Agent',
+): AgentAvatarProps {
+  if (!source) {
+    return { name: fallbackName, kind: 'icon', icon: 'sparkles' }
+  }
+  return {
+    name: source.name || source.agentName || fallbackName,
+    seed: source.seed || source.id || source.agentId || undefined,
+    kind: source.avatar_kind ?? source.agentAvatarKind,
+    icon: source.avatar_icon ?? source.agentAvatarIcon,
+    imageUrl: source.avatar_image_url ?? source.agentAvatarImageUrl,
+  }
 }

@@ -43,7 +43,7 @@ export function IntegrationKindNav({ value, onChange, counts, className }: Integ
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
               active
-                ? 'bg-bg-surface text-text-heading shadow-sm'
+                ? 'bg-bg-surface text-text-heading '
                 : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60',
             )}
           >
@@ -51,7 +51,7 @@ export function IntegrationKindNav({ value, onChange, counts, className }: Integ
             {count != null && count > 0 ? (
               <span
                 className={cn(
-                  'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                  'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums',
                   active ? 'bg-bg-hover text-text-heading' : 'bg-bg-hover/80 text-text-muted',
                 )}
               >

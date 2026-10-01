@@ -62,21 +62,21 @@ export default function StaffTenantBar() {
   const label = active?.name ?? user?.tenant?.name ?? t('staffBar.label')
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg border border-accent/40 bg-accent/8 px-2.5 py-1">
-      <Building2 size={14} className="shrink-0 text-accent" />
-      <div className="hidden min-w-0 sm:block">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">{t('staffBar.label')}</p>
-        <p className="truncate text-[11px] text-text-muted">{t('staffBar.viewing', { workspace: label })}</p>
-      </div>
+    <div
+      className="flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-accent/30 pl-2 pr-1 text-xs"
+      title={t('staffBar.viewing', { workspace: label })}
+    >
+      <Building2 size={12} className="shrink-0 text-accent" aria-hidden />
+      <span className="hidden shrink-0 text-2xs font-medium text-accent sm:inline">{t('staffBar.label')}</span>
       {loading ? (
-        <Loader2 size={14} className="animate-spin text-text-muted" />
+        <Loader2 size={12} className="animate-spin text-text-muted" />
       ) : (
         <Select
           value={activeTenantId || undefined}
           onValueChange={(value) => void onTenantChange(value)}
           disabled={switching || tenants.length === 0}
         >
-          <SelectTrigger className="h-8 min-w-[160px] max-w-[280px] border-0 bg-transparent px-2 text-[13px] shadow-none focus:ring-0">
+          <SelectTrigger className="h-6 min-w-[120px] max-w-[220px] gap-1 border-0 bg-transparent px-1.5 text-xs shadow-none focus:ring-0">
             <SelectValue placeholder={label}>{label}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -89,14 +89,14 @@ export default function StaffTenantBar() {
           </SelectContent>
         </Select>
       )}
-      {switching ? <Loader2 size={14} className="animate-spin text-text-muted" /> : null}
+      {switching ? <Loader2 size={12} className="animate-spin text-text-muted" /> : null}
       <Link
         to="/ops"
-        className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+        className="flex h-5 shrink-0 items-center rounded-sm px-1.5 text-2xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"
       >
         {t('staffBar.ops')}
       </Link>
-      {error ? <span className="truncate text-[11px] text-status-error">{error}</span> : null}
+      {error ? <span className="truncate-fade text-2xs text-status-error">{error}</span> : null}
     </div>
   )
 }
