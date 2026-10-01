@@ -23,6 +23,7 @@ import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
 import { humanizeModelId } from '../lib/model-label'
+import { RegionBadge } from '../components/models/RegionBadge'
 import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 
@@ -211,6 +212,20 @@ export default function UsagePage() {
           hint: summary.avg_feedback_score > 0 ? null : t('usagePage.feedbackEmptyHint'),
           hintTo: WEBSITE_WIDGET_PATH,
           hintLink: t('usagePage.openWebsiteWidget'),
+        },
+        {
+          key: 'eu-share',
+          label: t('usagePage.euShare', { days }),
+          value:
+            breakdown && breakdown.eu_share_pct !== null && breakdown.eu_share_pct !== undefined
+              ? `${num(breakdown.eu_share_pct)}%`
+              : '-',
+          hint:
+            breakdown && breakdown.eu_share_pct !== null && breakdown.eu_share_pct !== undefined
+              ? t('usagePage.euShareHint')
+              : t('usagePage.euShareEmptyHint'),
+          hintTo: '/settings/models',
+          hintLink: t('usagePage.openModels'),
         },
       ]
     : []
@@ -565,6 +580,29 @@ export default function UsagePage() {
             <p className="mt-3 text-[11px] text-text-muted">
               {t('usagePage.userHint')}
             </p>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">{t('usagePage.byRegion', { days: breakdown.days })}</h3>
+            <div className="space-y-2">
+              {(breakdown.by_region ?? []).length === 0 ? (
+                <p className="text-[12px] text-text-muted">{t('usagePage.noRegionUsage')}</p>
+              ) : (
+                (breakdown.by_region ?? []).map((row) => (
+                  <Link
+                    key={row.region}
+                    to="/settings/models"
+                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[12.5px] hover:bg-bg-hover/50"
+                  >
+                    <RegionBadge region={row.region} />
+                    <p className="shrink-0 text-[11px] text-text-muted">
+                      {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+            <p className="mt-3 text-[11px] text-text-muted">{t('usagePage.euShareHint')}</p>
           </div>
         </div>
       ) : null}

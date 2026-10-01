@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.provider import ProviderConnection, TenantModel
 from app.services import provider_connections as conn_svc
+from app.services.model_regions import provider_region
 from app.services.provider_presets import get_preset
 
 
@@ -44,6 +45,7 @@ def serialize_tenant_model(
     if connection:
         data["provider_type"] = connection.provider_type
         data["connection_label"] = connection.label
+        data["region"] = provider_region(connection.provider_type, connection.base_url)
     return data
 
 

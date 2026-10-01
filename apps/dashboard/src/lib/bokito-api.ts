@@ -180,6 +180,16 @@ export type UsageBreakdown = {
   by_model: UsageModelRow[]
   by_agent: UsageAgentRow[]
   by_user: UsageUserRow[]
+  /** Tokens per hosting region (live calls only). */
+  by_region: UsageRegionRow[]
+  /** Share of live tokens processed in the EU; null when nothing ran yet. */
+  eu_share_pct: number | null
+}
+
+export type UsageRegionRow = {
+  region: 'eu' | 'us' | 'unknown'
+  tokens: number
+  customer_cost_micros: number
 }
 
 export async function bokitoGetUsageBreakdown(token: string, days = 30) {

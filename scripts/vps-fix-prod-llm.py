@@ -42,11 +42,16 @@ async def main():
             )
         await session.commit()
         print("catalog model ids refreshed")
-        if settings.anthropic_api_key:
-            await platform_secrets.set_platform_secret(session, "anthropic", settings.anthropic_api_key)
-            print("platform anthropic key synced from env")
-        else:
-            print("no env anthropic key to sync")
+        for provider, env_key in (
+            ("mistral", settings.mistral_api_key),
+            ("anthropic", settings.anthropic_api_key),
+            ("openai", settings.openai_api_key),
+        ):
+            if env_key:
+                await platform_secrets.set_platform_secret(session, provider, env_key)
+                print(f"platform {provider} key synced from env")
+            else:
+                print(f"no env {provider} key to sync")
         status = await platform_secrets.list_platform_status(session)
         print("platform_secrets:", status)
 

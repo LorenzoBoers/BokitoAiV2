@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.provider import ProviderConnection
 from app.services.crypto import decrypt_secret, encrypt_secret
 
-LLM_PROVIDERS = ("anthropic", "openai")
+LLM_PROVIDERS = ("mistral", "anthropic", "openai")
 
 
 def _last4(raw: str) -> str:

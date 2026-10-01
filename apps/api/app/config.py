@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     def parked_channel_set(self) -> set[str]:
         return {s.strip().lower() for s in self.parked_channels.split(",") if s.strip()}
 
+    # Platform LLM keys. Mistral (EU) backs the managed Bokito AI model;
+    # Anthropic/OpenAI are the US fallbacks and the providers behind US-hosted
+    # catalog rows. All three can also be stored encrypted in platform_secrets.
+    mistral_api_key: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     # Customer list-price multiplier on platform-key (billable) usage. Invisible
@@ -199,8 +203,12 @@ def validate_production_settings(settings: "Settings") -> list[str]:
             "CREDENTIALS_FERNET_KEY must be set in production "
             "(dedicated secret for OAuth/integration credential encryption)."
         )
-    if settings.llm_mode == "live" and not settings.anthropic_api_key:
-        errors.append("ANTHROPIC_API_KEY is required when LLM_MODE=live.")
+    if settings.llm_mode == "live" and not (
+        settings.mistral_api_key or settings.anthropic_api_key
+    ):
+        errors.append(
+            "MISTRAL_API_KEY (EU default) or ANTHROPIC_API_KEY is required when LLM_MODE=live."
+        )
     if settings.llm_mode != "live":
         errors.append("LLM_MODE must be 'live' in production (mock responses are dev-only).")
     if settings.bokito_mock_execution:

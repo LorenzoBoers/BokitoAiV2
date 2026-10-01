@@ -10,6 +10,13 @@ Platform fallback (bootstrap / resale when tenant has no models):
   3. Platform secret -> key_source="platform", billable
   4. Env fallback (live) -> key_source="platform", billable
   5. None -> key_source="mock"
+
+Data region: Bokito AI is backed by an EU provider (Mistral). When the EU key
+is missing the managed model walks ``bokito_models.FALLBACK_BACKINGS`` and the
+result carries ``intended_region``/``fallback_from`` so the UI can say so. A
+workspace whose ``non_eu_platform_models`` policy is ``blocked`` (default) has
+US-hosted platform catalog rows redirected to the managed default model; BYOK
+connections are never redirected.
 """
 
 from __future__ import annotations
@@ -24,33 +31,37 @@ from app.models.usage import UsageLedger
 from app.services import bokito_models
 from app.services import model_catalog as catalog_svc
 from app.services import platform_secrets, provider_connections, tenant_model_catalog, tenant_secrets
+from app.services.model_regions import REGION_EU, infer_provider, provider_region
 
 settings = get_settings()
 
-_FALLBACK_CHAT = ("bokito-ai-3-1", "anthropic", "claude-sonnet-4-6")
+_FALLBACK_CHAT = ("bokito-ai-3-1", "mistral", "mistral-medium-latest")
 _FALLBACK_EMBEDDING = ("text-embedding-3-small", "openai", "text-embedding-3-small")
 
-
-def _infer_provider(model_id: str) -> str | None:
-    """Guess provider from a raw API model id when the slug is not in the catalog."""
-    value = (model_id or "").strip().lower()
-    if value.startswith("claude"):
-        return "anthropic"
-    if value.startswith(("gpt-", "o1", "o3", "text-embedding")):
-        return "openai"
-    return None
+# Kept for callers that import the private helper.
+_infer_provider = infer_provider
 
 
 @dataclass
 class ResolvedModelCall:
     slug: str
-    provider: str  # anthropic | openai | openai_compatible | bokito (usage label)
-    provider_type: str  # anthropic | openai | openai_compatible
+    provider: str  # mistral | anthropic | openai | openai_compatible | bokito (usage label)
+    provider_type: str  # mistral | anthropic | openai | openai_compatible
     model_id: str
     kind: str  # chat | embedding
     api_key: str
     key_source: str  # tenant | platform | mock
     base_url: str = ""
+    # Hosting region of the provider that actually processes this call.
+    region: str = "unknown"
+    # Region the resolution aimed for; differs from ``region`` only when the
+    # managed model fell back to another provider (no EU key on the platform).
+    intended_region: str = ""
+    # Catalog slug of the intended backing model when a fallback was taken.
+    fallback_from: str = ""
+    # Catalog slug the caller asked for when the data-region policy redirected
+    # the call to the managed default model.
+    redirected_from: str = ""
     input_cost_per_mtok_cents: int = 0
     output_cost_per_mtok_cents: int = 0
     markup: float = catalog_svc.DEFAULT_MARKUP
@@ -68,10 +79,16 @@ class ResolvedModelCall:
     def billable(self) -> bool:
         return self.key_source == "platform"
 
+    @property
+    def fallback_active(self) -> bool:
+        return bool(self.fallback_from)
+
 
 def _env_key(provider: str) -> str:
     if settings.llm_mode != "live":
         return ""
+    if provider == "mistral":
+        return settings.mistral_api_key or ""
     if provider in ("anthropic",):
         return settings.anthropic_api_key or ""
     if provider in ("openai", "openai_compatible"):
@@ -136,10 +153,48 @@ async def _resolve_from_tenant_model(
         api_key=api_key,
         key_source=key_source,
         base_url=conn.base_url or "",
+        region=provider_region(conn.provider_type, conn.base_url),
         input_cost_per_mtok_cents=model.input_cost_per_mtok_cents,
         output_cost_per_mtok_cents=model.output_cost_per_mtok_cents,
         markup=markup,
     )
+
+
+async def _resolve_bokito_backing(
+    session: AsyncSession, tenant_id: UUID, slug: str
+) -> tuple[str, str, int, int, str, str, str]:
+    """Pick the backing model for a Bokito virtual slug.
+
+    Returns ``(provider, model_id, in_cents, out_cents, api_key, key_source,
+    fallback_from)``. A tenant (BYOK) key on any candidate wins over platform
+    keys, so a workspace that brought its own key keeps paying its own
+    provider; otherwise the first candidate with a platform key is used.
+    Without any key the primary backing is returned in mock mode.
+    """
+    candidates = bokito_models.backing_candidates(slug)
+    primary_slug = candidates[0]
+    packed_candidates: list[tuple] = []
+    for candidate_slug in candidates:
+        backing = await catalog_svc.get_model(session, candidate_slug)
+        if backing is None or bokito_models.is_bokito_provider(backing.provider):
+            provider = infer_provider(candidate_slug) or _FALLBACK_CHAT[1]
+            model_id = candidate_slug
+            in_cents = out_cents = 0
+        else:
+            provider = backing.provider
+            model_id = backing.model_id or backing.slug
+            in_cents = backing.input_cost_per_mtok_cents
+            out_cents = backing.output_cost_per_mtok_cents
+        api_key, key_source = await _resolve_platform_key(session, tenant_id, provider)
+        fallback_from = "" if candidate_slug == primary_slug else primary_slug
+        packed_candidates.append(
+            (provider, model_id, in_cents, out_cents, api_key, key_source, fallback_from)
+        )
+    for wanted in ("tenant", "platform"):
+        for packed in packed_candidates:
+            if packed[5] == wanted:
+                return packed
+    return packed_candidates[0]
 
 
 async def _resolve_from_platform_catalog(
@@ -149,7 +204,13 @@ async def _resolve_from_platform_catalog(
     kind: str,
     model_slug: str | None,
 ) -> ResolvedModelCall:
+    from app.services.tenant_models import (
+        get_tenant_model_prefs,
+        non_eu_platform_models_allowed,
+    )
+
     markup = await catalog_svc.get_markup_multiplier(session)
+    prefs = await get_tenant_model_prefs(session, tenant_id)
 
     model = None
     if model_slug:
@@ -157,9 +218,6 @@ async def _resolve_from_platform_catalog(
         if model and model.kind != kind:
             model = None
     if model is None:
-        from app.services.tenant_models import get_tenant_model_prefs
-
-        prefs = await get_tenant_model_prefs(session, tenant_id)
         pref_slug = prefs.get("default_chat") if kind == "chat" else prefs.get("default_embedding")
         if pref_slug:
             model = await catalog_svc.get_model(session, pref_slug)
@@ -168,9 +226,28 @@ async def _resolve_from_platform_catalog(
     if model is None:
         model = await catalog_svc.get_default_model(session, kind)
 
+    # Data-region policy: US-hosted platform chat models run on the managed
+    # default unless the workspace explicitly allows them. Embeddings are
+    # exempt until the knowledge index can be re-embedded on an EU model.
+    redirected_from = ""
+    if (
+        model is not None
+        and kind == "chat"
+        and not bokito_models.is_bokito_provider(model.provider)
+        and provider_region(model.provider) != REGION_EU
+        and not non_eu_platform_models_allowed(prefs)
+    ):
+        default = await catalog_svc.get_default_model(session, kind)
+        if default is not None and default.slug != model.slug:
+            redirected_from = model.slug
+            model = default
+
     bill_in: int | None = None
     bill_out: int | None = None
     provider_label = ""
+    fallback_from = ""
+    api_key = ""
+    key_source = "mock"
 
     if model is not None and bokito_models.is_bokito_provider(model.provider):
         # Bokito virtual model: route to the real backing model. The slug and
@@ -180,39 +257,51 @@ async def _resolve_from_platform_catalog(
         bill_in = model.input_cost_per_mtok_cents
         bill_out = model.output_cost_per_mtok_cents
         slug = model.slug
-        backing = await catalog_svc.get_model(
-            session, bokito_models.select_backing_slug(model.slug)
-        )
-        if backing is not None and not bokito_models.is_bokito_provider(backing.provider):
-            provider = backing.provider
-            model_id = backing.model_id or backing.slug
-            in_cents = backing.input_cost_per_mtok_cents
-            out_cents = backing.output_cost_per_mtok_cents
-        else:
-            # No usable backing row: hard default so the call still reaches
-            # a real provider.
-            _, provider, model_id = _FALLBACK_CHAT
-            in_cents = out_cents = 0
-    elif model is not None:
-        provider = model.provider
-        slug = model.slug
-        model_id = model.model_id or model.slug
-        in_cents = model.input_cost_per_mtok_cents
-        out_cents = model.output_cost_per_mtok_cents
-    elif model_slug:
-        provider = _infer_provider(model_slug)
-        if provider:
+        (
+            provider,
+            model_id,
+            in_cents,
+            out_cents,
+            api_key,
+            key_source,
+            fallback_from,
+        ) = await _resolve_bokito_backing(session, tenant_id, model.slug)
+    else:
+        if model is not None:
+            provider = model.provider
+            slug = model.slug
+            model_id = model.model_id or model.slug
+            in_cents = model.input_cost_per_mtok_cents
+            out_cents = model.output_cost_per_mtok_cents
+        elif model_slug and infer_provider(model_slug):
+            provider = infer_provider(model_slug) or ""
             slug = model_slug
             model_id = model_slug
             in_cents = out_cents = 0
+        elif kind == "chat":
+            # Empty catalog (fresh database): behave like the seeded Bokito row
+            # so the EU default and its visible fallback chain still apply.
+            provider_label = bokito_models.BOKITO_PROVIDER
+            slug = _FALLBACK_CHAT[0]
+            (
+                provider,
+                model_id,
+                in_cents,
+                out_cents,
+                api_key,
+                key_source,
+                fallback_from,
+            ) = await _resolve_bokito_backing(session, tenant_id, slug)
         else:
-            slug, provider, model_id = _FALLBACK_CHAT if kind == "chat" else _FALLBACK_EMBEDDING
+            slug, provider, model_id = _FALLBACK_EMBEDDING
             in_cents = out_cents = 0
-    else:
-        slug, provider, model_id = _FALLBACK_CHAT if kind == "chat" else _FALLBACK_EMBEDDING
-        in_cents = out_cents = 0
+        if not provider_label:
+            api_key, key_source = await _resolve_platform_key(session, tenant_id, provider)
 
-    api_key, key_source = await _resolve_platform_key(session, tenant_id, provider)
+    region = provider_region(provider)
+    intended_region = region
+    if fallback_from:
+        intended_region = provider_region(infer_provider(fallback_from))
 
     return ResolvedModelCall(
         slug=slug,
@@ -223,6 +312,10 @@ async def _resolve_from_platform_catalog(
         api_key=api_key,
         key_source=key_source,
         base_url="",
+        region=region,
+        intended_region=intended_region,
+        fallback_from=fallback_from,
+        redirected_from=redirected_from,
         input_cost_per_mtok_cents=in_cents,
         output_cost_per_mtok_cents=out_cents,
         markup=markup,
@@ -317,6 +410,7 @@ async def record_usage(
         provider=resolved.provider,
         model=resolved.slug,
         key_source=resolved.key_source,
+        region=resolved.region,
         billable=billable,
         tokens_in=tokens_in,
         tokens_out=tokens_out,

@@ -12,9 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.provider import ProviderConnection
 from app.services.crypto import decrypt_secret, encrypt_secret
+from app.services.model_regions import provider_region
 from app.services.provider_presets import get_preset, is_valid_provider_type
 
 DEFAULT_LABELS = {
+    "mistral": "Mistral",
     "anthropic": "Anthropic",
     "openai": "OpenAI",
     "openai_compatible": "OpenAI-compatible",
@@ -30,11 +32,20 @@ def _normalize_base_url(base_url: str) -> str:
     return (base_url or "").strip().rstrip("/")
 
 
+def default_base_url(provider_type: str) -> str:
+    """Base URL used when a connection of this type leaves ``base_url`` empty."""
+    preset = get_preset(provider_type)
+    if preset and preset["default_base_url"]:
+        return preset["default_base_url"]
+    return "https://api.openai.com/v1"
+
+
 def serialize_connection(conn: ProviderConnection, *, include_id: bool = True) -> dict[str, Any]:
     data: dict[str, Any] = {
         "provider_type": conn.provider_type,
         "label": conn.label,
         "base_url": conn.base_url or "",
+        "region": provider_region(conn.provider_type, conn.base_url),
         "enabled": conn.enabled,
         "is_set": bool(conn.encrypted_value),
         "last4": conn.last4,
@@ -216,8 +227,8 @@ async def test_connection(session: AsyncSession, tenant_id: UUID, connection_id:
                 response.raise_for_status()
                 return {"ok": True, "message": "Connection successful"}
 
-        # openai and openai_compatible share the OpenAI client shape
-        base = _normalize_base_url(conn.base_url) or "https://api.openai.com/v1"
+        # mistral, openai and openai_compatible share the OpenAI client shape
+        base = _normalize_base_url(conn.base_url) or default_base_url(conn.provider_type)
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
                 f"{base}/models",

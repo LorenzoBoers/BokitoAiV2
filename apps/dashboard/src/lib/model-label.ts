@@ -4,6 +4,11 @@ import { humanizeLabel } from './labels'
 const MODEL_ALIASES: Array<[RegExp, string]> = [
   [/^bokito-ai-3[.-]1/i, 'Bokito AI 3.1'],
   [/^bokito-ai/i, 'Bokito AI'],
+  [/^mistral-medium/i, 'Mistral Medium'],
+  [/^mistral-large/i, 'Mistral Large'],
+  [/^mistral-small/i, 'Mistral Small'],
+  [/^mistral-embed/i, 'Mistral Embed'],
+  [/^mistral/i, 'Mistral'],
   [/^claude-sonnet-4/i, 'Claude Sonnet 4'],
   [/^claude-sonnet-3[.-]?5/i, 'Claude Sonnet 3.5'],
   [/^claude-sonnet/i, 'Claude Sonnet'],
@@ -46,6 +51,7 @@ export function formatAgentModelLine(
 }
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
+  mistral: 'Mistral',
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   openai_compatible: 'OpenAI-compatible',
@@ -55,6 +61,14 @@ const PROVIDER_TYPE_LABELS: Record<string, string> = {
 export function providerTypeLabel(providerType: string | null | undefined): string {
   const key = (providerType ?? '').trim().toLowerCase()
   return PROVIDER_TYPE_LABELS[key] ?? humanizeLabel(providerType)
+}
+
+/** Short label for a hosting region (`eu` | `us` | `unknown`). */
+export function regionLabel(region: string | null | undefined, t: TFunction): string {
+  const key = (region ?? '').trim().toLowerCase()
+  if (key === 'eu') return t('dataRegion.eu', { ns: 'nav', defaultValue: 'EU' })
+  if (key === 'us') return t('dataRegion.us', { ns: 'nav', defaultValue: 'US' })
+  return t('dataRegion.unknown', { ns: 'nav', defaultValue: 'Unknown' })
 }
 
 /** Cheap / mid / expensive band from catalog cents-per-million-tokens. */

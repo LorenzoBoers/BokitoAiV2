@@ -11,6 +11,7 @@ import {
   type SelectableChatModel,
 } from '../../lib/models-api'
 import { humanizeModelId } from '../../lib/model-label'
+import { RegionBadge } from '../models/RegionBadge'
 
 type Props = {
   agentId: string
@@ -87,6 +88,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             {models.map((m) => (
               <option key={m.slug} value={m.slug}>
                 {m.display_name}
+                {m.region === 'eu' ? ' (EU)' : m.region === 'us' ? ' (US)' : ''}
               </option>
             ))}
           </select>
@@ -98,6 +100,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             ) : null}
           </p>
         )}
+        {current ? <RegionBadge region={current.region} /> : null}
       </div>
 
       {loadError ? (

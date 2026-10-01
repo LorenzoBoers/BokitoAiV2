@@ -23,6 +23,7 @@ Owners and admins manage retention and data subject requests under **Settings**,
 2. Older eligible data is purged by the retention job; thread shells can remain.
 3. Toggle **Allow AI to use message bodies**. When off, inbox AI drafts that need full bodies stay disabled; metadata-only flows may still run.
 4. Leave the field to save. Changes apply to this workspace only.
+5. Where AI processes those bodies is decided under [Models](/docs/govern/models): Bokito AI runs on EU-hosted models by default and US-hosted platform models stay off until you allow them.
 
 ## Export or erase a data subject
 

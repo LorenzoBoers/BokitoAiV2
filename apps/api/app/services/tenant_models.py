@@ -5,8 +5,14 @@ Shape::
     {
       "default_chat": "claude-sonnet-4",        # slug, "" => platform default
       "default_embedding": "text-embedding-3-small",
-      "allowed_chat": ["claude-sonnet-4", ...]  # [] => all enabled chat models
+      "allowed_chat": ["claude-sonnet-4", ...],  # [] => all enabled chat models
+      "non_eu_platform_models": "blocked"        # blocked | allowed
     }
+
+``non_eu_platform_models`` is the workspace's data-region policy for
+platform-key usage: when ``blocked`` (default), agents that point at a
+US-hosted catalog model run on the EU-hosted Bokito AI model instead. BYOK
+connections are the tenant's own keys and are never redirected.
 """
 
 from __future__ import annotations
@@ -21,10 +27,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.auth import Tenant
 
 MODELS_KEY = "models"
+NON_EU_BLOCKED = "blocked"
+NON_EU_ALLOWED = "allowed"
 _DEFAULT_PREFS: dict[str, Any] = {
     "default_chat": "",
     "default_embedding": "",
     "allowed_chat": [],
+    "non_eu_platform_models": NON_EU_BLOCKED,
 }
 
 
@@ -37,7 +46,13 @@ def _coerce(raw: Any) -> dict[str, Any]:
             prefs["default_embedding"] = raw["default_embedding"]
         if isinstance(raw.get("allowed_chat"), list):
             prefs["allowed_chat"] = [str(s) for s in raw["allowed_chat"] if isinstance(s, str)]
+        if raw.get("non_eu_platform_models") in (NON_EU_BLOCKED, NON_EU_ALLOWED):
+            prefs["non_eu_platform_models"] = raw["non_eu_platform_models"]
     return prefs
+
+
+def non_eu_platform_models_allowed(prefs: dict[str, Any]) -> bool:
+    return prefs.get("non_eu_platform_models") == NON_EU_ALLOWED
 
 
 async def get_tenant_model_prefs(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
@@ -59,6 +74,7 @@ async def set_tenant_model_prefs(
     default_chat: str | None = None,
     default_embedding: str | None = None,
     allowed_chat: list[str] | None = None,
+    non_eu_platform_models: str | None = None,
 ) -> dict[str, Any]:
     result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalar_one_or_none()
@@ -75,6 +91,10 @@ async def set_tenant_model_prefs(
         prefs["default_embedding"] = default_embedding
     if allowed_chat is not None:
         prefs["allowed_chat"] = allowed_chat
+    if non_eu_platform_models is not None:
+        if non_eu_platform_models not in (NON_EU_BLOCKED, NON_EU_ALLOWED):
+            raise ValueError("non_eu_platform_models must be 'blocked' or 'allowed'")
+        prefs["non_eu_platform_models"] = non_eu_platform_models
     settings[MODELS_KEY] = prefs
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)

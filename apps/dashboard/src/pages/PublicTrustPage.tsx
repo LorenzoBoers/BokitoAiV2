@@ -34,6 +34,7 @@ export default function PublicTrustPage() {
             <li>{t('publicTrust.retention')}</li>
             <li>{t('publicTrust.dsar')}</li>
             <li>{t('publicTrust.ai')}</li>
+            <li>{t('publicTrust.dataRegion')}</li>
           </ul>
         </section>
 

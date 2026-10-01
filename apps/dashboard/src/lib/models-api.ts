@@ -13,15 +13,19 @@ import {
 } from './api'
 import { WORKFORCE_API_BASE } from './api.config'
 
-export type LlmProvider = 'anthropic' | 'openai'
+export type LlmProvider = 'mistral' | 'anthropic' | 'openai'
 
-export type ProviderType = 'anthropic' | 'openai' | 'openai_compatible'
+export type ProviderType = 'mistral' | 'anthropic' | 'openai' | 'openai_compatible'
+
+/** Hosting region of a provider: where prompts and completions are processed. */
+export type DataRegion = 'eu' | 'us' | 'unknown'
 
 export type ProviderConnection = {
   id: string
   provider_type: ProviderType
   label: string
   base_url: string
+  region: DataRegion
   enabled: boolean
   is_set: boolean
   last4: string
@@ -45,6 +49,8 @@ export type ProviderPreset = {
   label: string
   default_base_url: string
   requires_base_url: boolean
+  /** eu | us | '' when it depends on the base URL. */
+  region: DataRegion | ''
   models: PresetModel[]
 }
 
@@ -65,6 +71,7 @@ export type TenantModelRow = {
   is_default_embedding: boolean
   sort_order: number
   provider_type?: ProviderType
+  region?: DataRegion
   connection_label?: string
 }
 
@@ -94,7 +101,7 @@ export type TenantModelPrefs = {
 }
 
 export type LlmKeyStatus = {
-  provider: 'anthropic' | 'openai'
+  provider: LlmProvider
   is_set: boolean
   last4: string
   updated_at: string | null
@@ -107,6 +114,14 @@ export type ManagedAiModel = {
   provider: string
   key_source: 'tenant' | 'platform' | 'mock'
   ready: boolean
+  /** Region the call is processed in right now. */
+  region: DataRegion
+  /** Region Bokito aims for (EU); differs from `region` only on fallback. */
+  intended_region: DataRegion
+  /** True while the managed model runs on a non-EU fallback provider. */
+  fallback_active: boolean
+  backing_provider: string
+  backing_display_name: string
 }
 
 export type ManagedAiStatus = {
@@ -114,6 +129,23 @@ export type ManagedAiStatus = {
   status: 'active' | 'standby' | 'unconfigured'
   chat: ManagedAiModel
   embedding: ManagedAiModel
+}
+
+export type DataRegionPolicy = 'blocked' | 'allowed'
+
+export type UsageRegionRow = {
+  region: DataRegion
+  tokens: number
+  customer_cost_micros: number
+}
+
+/** Workspace data-region policy and the EU share of the last 30 days. */
+export type DataRegionBlock = {
+  non_eu_platform_models: DataRegionPolicy
+  eu_share_pct_30d: number | null
+  by_region_30d: UsageRegionRow[]
+  /** Catalog slugs of US-hosted platform models that active agents point at. */
+  non_eu_models_in_use: string[]
 }
 
 export type CustomModelsBlock = {
@@ -132,6 +164,7 @@ export type SelectableChatModel = {
   display_name: string
   provider?: string
   provider_type?: string
+  region?: DataRegion
   kind: string
   enabled: boolean
   model_id?: string
@@ -146,6 +179,7 @@ export type TenantModelsPayload = {
   source: 'managed' | 'tenant' | 'platform'
   managed: ManagedAiStatus
   custom_models: CustomModelsBlock
+  data_region: DataRegionBlock
   selectable_chat: SelectableChatModel[]
   models: Array<TenantModelRow | CatalogModel | SelectableChatModel>
   connections?: ProviderConnection[]
@@ -271,6 +305,14 @@ export async function setCustomModelsOptIn(token: string, enabled: boolean) {
   )
 }
 
+export async function setDataRegionPolicy(token: string, policy: DataRegionPolicy) {
+  return settingsPatch<TenantModelsPayload>(
+    settingsRoutes.models.dataRegion,
+    { non_eu_platform_models: policy },
+    token,
+  )
+}
+
 export async function createTenantModel(
   token: string,
   body: {
@@ -345,7 +387,7 @@ export async function staffGetPlatformKeys(token: string) {
 
 export async function staffSetPlatformKey(
   token: string,
-  provider: 'anthropic' | 'openai',
+  provider: LlmProvider,
   apiKey: string,
 ) {
   return staffPut<PlatformKeysPayload>(
@@ -355,7 +397,7 @@ export async function staffSetPlatformKey(
   )
 }
 
-export async function staffDeletePlatformKey(token: string, provider: 'anthropic' | 'openai') {
+export async function staffDeletePlatformKey(token: string, provider: LlmProvider) {
   return staffDelete<PlatformKeysPayload>(staffRoutes.platformKeys.byProvider(provider), token)
 }
 

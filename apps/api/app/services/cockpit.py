@@ -247,6 +247,8 @@ async def usage_breakdown(
     by_agent.sort(key=lambda r: r["tokens"], reverse=True)
     by_user.sort(key=lambda r: r["tokens"], reverse=True)
 
+    regions = await usage_by_region(session, tenant_id, since=since)
+
     return {
         "days": days,
         "total_tokens": int(totals[0] or 0),
@@ -255,6 +257,44 @@ async def usage_breakdown(
         "by_model": by_model,
         "by_agent": by_agent,
         "by_user": by_user,
+        "by_region": regions["by_region"],
+        "eu_share_pct": regions["eu_share_pct"],
+    }
+
+
+async def usage_by_region(
+    session: AsyncSession, tenant_id: UUID, *, since: datetime
+) -> dict[str, Any]:
+    """Tokens per hosting region plus the EU share of live (non-mock) tokens."""
+    rows = (
+        await session.execute(
+            select(
+                UsageLedger.region,
+                func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out),
+                func.sum(UsageLedger.customer_cost_micros),
+            )
+            .where(
+                UsageLedger.tenant_id == tenant_id,
+                UsageLedger.created_at >= since,
+                UsageLedger.key_source != "mock",
+            )
+            .group_by(UsageLedger.region)
+        )
+    ).all()
+    by_region = [
+        {
+            "region": row[0] or "unknown",
+            "tokens": int(row[1] or 0),
+            "customer_cost_micros": int(row[2] or 0),
+        }
+        for row in rows
+    ]
+    by_region.sort(key=lambda r: r["tokens"], reverse=True)
+    total = sum(r["tokens"] for r in by_region)
+    eu = sum(r["tokens"] for r in by_region if r["region"] == "eu")
+    return {
+        "by_region": by_region,
+        "eu_share_pct": round(eu / total * 100, 1) if total else None,
     }
 
 

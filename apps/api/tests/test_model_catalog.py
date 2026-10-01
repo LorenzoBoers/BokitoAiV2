@@ -34,29 +34,47 @@ async def test_resolve_byok_platform_mock(session_override):
     await session_override.refresh(tenant)
 
     # No keys anywhere -> mock. Default chat is the Bokito virtual model,
-    # routed to its Anthropic backing model.
+    # routed to its EU (Mistral) backing model.
     resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
     assert resolved.key_source == "mock"
     assert resolved.billable is False
     assert resolved.provider == "bokito"
-    assert resolved.provider_type == "anthropic"
+    assert resolved.provider_type == "mistral"
+    assert resolved.region == "eu"
+    assert resolved.fallback_active is False
 
-    # Platform key only -> platform (billable).
+    # Only a US platform key -> visible fallback to Anthropic (billable).
     await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-9999")
     resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
     assert resolved.key_source == "platform"
     assert resolved.billable is True
     assert resolved.api_key == "sk-ant-platform-9999"
+    assert resolved.provider_type == "anthropic"
+    assert resolved.region == "us"
+    assert resolved.intended_region == "eu"
+    assert resolved.fallback_from == "mistral-medium-latest"
 
-    # Tenant BYOK overrides platform and is not billable.
+    # EU platform key present -> Mistral wins, no fallback.
+    await platform_secrets.set_platform_secret(session_override, "mistral", "mi-platform-3333")
+    resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
+    assert resolved.provider_type == "mistral"
+    assert resolved.model_id == "mistral-medium-latest"
+    assert resolved.api_key == "mi-platform-3333"
+    assert resolved.region == "eu"
+    assert resolved.fallback_active is False
+    # Provider cost follows the backing row; the Bokito list price is billed.
+    assert resolved.input_cost_per_mtok_cents == 150
+    assert resolved.output_cost_per_mtok_cents == 750
+    assert resolved.bill_input_cost_per_mtok_cents == 300
+    assert resolved.bill_output_cost_per_mtok_cents == 1500
+
+    # Tenant BYOK (own Anthropic key) overrides platform keys and is not billable.
     await tenant_secrets.set_secret(session_override, tenant.id, "anthropic", "sk-ant-tenant-1111")
     resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
     assert resolved.key_source == "tenant"
     assert resolved.billable is False
     assert resolved.api_key == "sk-ant-tenant-1111"
-    # Pricing comes from the catalog row.
-    assert resolved.input_cost_per_mtok_cents == 300
-    assert resolved.output_cost_per_mtok_cents == 1500
+    assert resolved.region == "us"
 
 
 @pytest.mark.asyncio
@@ -68,14 +86,14 @@ async def test_bokito_virtual_model_routing(session_override):
     await session_override.commit()
     await session_override.refresh(tenant)
 
-    await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-7777")
+    await platform_secrets.set_platform_secret(session_override, "mistral", "mi-platform-7777")
     resolved = await resolve_model_call(
         session_override, tenant.id, kind="chat", model_slug="bokito-ai-3-1"
     )
     # The LLM call goes to the real backing model...
-    assert resolved.provider_type == "anthropic"
-    assert resolved.model_id == "claude-sonnet-4-6"
-    assert resolved.api_key == "sk-ant-platform-7777"
+    assert resolved.provider_type == "mistral"
+    assert resolved.model_id == "mistral-medium-latest"
+    assert resolved.api_key == "mi-platform-7777"
     # ...but slug and usage label keep the Bokito identity.
     assert resolved.slug == "bokito-ai-3-1"
     assert resolved.provider == "bokito"
@@ -85,6 +103,70 @@ async def test_bokito_virtual_model_routing(session_override):
     )
     assert entry.model == "bokito-ai-3-1"
     assert entry.provider == "bokito"
+    # Usage rows carry the region the call was processed in.
+    assert entry.region == "eu"
+
+
+@pytest.mark.asyncio
+async def test_non_eu_platform_models_blocked_by_default(session_override):
+    """US-hosted platform models run on the EU-hosted default unless allowed."""
+    from app.services.tenant_models import set_tenant_model_prefs
+
+    await seed_model_catalog(session_override)
+    tenant = Tenant(slug="region-policy", name="Region Policy")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+    await platform_secrets.set_platform_secret(session_override, "mistral", "mi-platform-1")
+    await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-1")
+
+    # Default policy: a Claude catalog row is redirected to Bokito AI (EU).
+    resolved = await resolve_model_call(
+        session_override, tenant.id, kind="chat", model_slug="claude-sonnet-4-6"
+    )
+    assert resolved.slug == "bokito-ai-3-1"
+    assert resolved.provider_type == "mistral"
+    assert resolved.region == "eu"
+    assert resolved.redirected_from == "claude-sonnet-4-6"
+
+    # EU catalog rows are never redirected.
+    resolved = await resolve_model_call(
+        session_override, tenant.id, kind="chat", model_slug="mistral-large-latest"
+    )
+    assert resolved.slug == "mistral-large-latest"
+    assert resolved.redirected_from == ""
+
+    # Embeddings stay on the OpenAI index model until re-embedding exists.
+    resolved = await resolve_model_call(session_override, tenant.id, kind="embedding")
+    assert resolved.slug == "text-embedding-3-small"
+    assert resolved.region == "us"
+
+    # Workspace opts in: the US model is used as asked.
+    await set_tenant_model_prefs(
+        session_override, tenant.id, non_eu_platform_models="allowed"
+    )
+    resolved = await resolve_model_call(
+        session_override, tenant.id, kind="chat", model_slug="claude-sonnet-4-6"
+    )
+    assert resolved.slug == "claude-sonnet-4-6"
+    assert resolved.provider_type == "anthropic"
+    assert resolved.region == "us"
+    assert resolved.redirected_from == ""
+
+
+def test_provider_regions():
+    from app.services.model_regions import infer_provider, provider_region
+
+    assert provider_region("mistral") == "eu"
+    assert provider_region("anthropic") == "us"
+    assert provider_region("openai") == "us"
+    assert provider_region("openai_compatible", "https://api.mistral.ai/v1") == "eu"
+    assert provider_region("openai_compatible", "https://api.scaleway.ai/v1") == "eu"
+    assert provider_region("openai_compatible", "https://example.com/v1") == "unknown"
+    assert infer_provider("mistral-small-latest") == "mistral"
+    assert infer_provider("claude-haiku-4-5") == "anthropic"
+    assert infer_provider("gpt-4o") == "openai"
+    assert infer_provider("something-else") is None
 
 
 def test_bokito_billing_margin():
@@ -202,7 +284,11 @@ async def test_resolve_raw_agent_model_id(session_override):
     await session_override.commit()
     await session_override.refresh(tenant)
 
+    from app.services.tenant_models import set_tenant_model_prefs
+
     await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-9999")
+    # Raw US model ids are honoured once the workspace allows US-hosted models.
+    await set_tenant_model_prefs(session_override, tenant.id, non_eu_platform_models="allowed")
     resolved = await resolve_model_call(
         session_override,
         tenant.id,
@@ -312,7 +398,25 @@ async def test_tenant_models_api_and_agent_patch(client: AsyncClient):
     payload = res.json()
     assert payload.get("source") == "managed"
     assert payload["managed"]["chat"]["slug"] == "bokito-ai-3-1"
+    assert payload["managed"]["chat"]["region"] == "eu"
     assert any(m["slug"] == "bokito-ai-3-1" for m in payload["models"])
+    # EU by default: US-hosted platform models are blocked for the workspace.
+    assert payload["data_region"]["non_eu_platform_models"] == "blocked"
+
+    # Owner opts in to US-hosted models; the legacy prefs below point at Claude.
+    allow = await client.patch(
+        "/api/settings/models/data-region",
+        json={"non_eu_platform_models": "allowed"},
+        headers=headers,
+    )
+    assert allow.status_code == 200
+    assert allow.json()["data_region"]["non_eu_platform_models"] == "allowed"
+    bad = await client.patch(
+        "/api/settings/models/data-region",
+        json={"non_eu_platform_models": "sometimes"},
+        headers=headers,
+    )
+    assert bad.status_code == 400
 
     # Restrict allowed chat models to just haiku (legacy platform prefs).
     put = await client.put(

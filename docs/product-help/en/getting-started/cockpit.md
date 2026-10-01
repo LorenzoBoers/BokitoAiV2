@@ -39,6 +39,6 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Check Usage
 
-1. Open the **Usage** tab on Overview. The **Budget (platform keys)** card shows **Tokens today** and **Billable spend this month**, plus breakdowns **By model** and **By agent**. Switch the period with **7 days**, **30 days** or **90 days**, or choose **Export CSV**.
+1. Open the **Usage** tab on Overview. The **Budget (platform keys)** card shows **Tokens today** and **Billable spend this month**, plus breakdowns **By model**, **By agent**, **By user** and **By data region**. The **EU-hosted share** stat shows which part of live tokens ran on EU-hosted models; change the policy under [Models](/docs/govern/models). Switch the period with **7 days**, **30 days** or **90 days**, or choose **Export CSV**.
 2. Owners and admins choose **Edit caps**. Set a **Daily token cap** and a **Monthly spend cap (USD)**, or leave a field empty for **No cap**. Alerts fire at 80% and 100%.
 3. When the budget is exhausted, AI calls on Bokito platform keys pause until you raise the cap or the period resets. Models on your own keys keep working (**Your own key (no charge)**). Empty ratings say **No customer ratings yet** with **Install website chat**.

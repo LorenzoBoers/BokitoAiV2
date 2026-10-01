@@ -20,6 +20,8 @@ const sample: UsageBreakdown = {
   ],
   by_agent: [{ agent_id: 'a1', agent_name: 'Support, EU', tokens: 50, customer_cost_micros: 1000 }],
   by_user: [{ user_id: 'u1', user_name: 'Ada', tokens: 20, customer_cost_micros: 400 }],
+  by_region: [{ region: 'eu', tokens: 100, customer_cost_micros: 2000 }],
+  eu_share_pct: 100,
 }
 
 describe('usageBreakdownToCsv', () => {

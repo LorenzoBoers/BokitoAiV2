@@ -25,6 +25,15 @@ DEFAULT_MODELS: list[tuple] = [
     # own; resolution routes it to a real backing model (see bokito_models.py).
     ("bokito-ai-3-1", "bokito", "chat", "", "Bokito AI 3.1",
      200000, 300, 1500, True, True, True, False, 5),
+    # Mistral (EU, Paris): backs Bokito AI and is the EU-hosted catalog.
+    ("mistral-medium-latest", "mistral", "chat", "mistral-medium-latest", "Mistral Medium 3.5",
+     128000, 150, 750, True, True, False, False, 6),
+    ("mistral-large-latest", "mistral", "chat", "mistral-large-latest", "Mistral Large 3",
+     128000, 50, 150, True, True, False, False, 7),
+    ("mistral-small-latest", "mistral", "chat", "mistral-small-latest", "Mistral Small 4",
+     128000, 15, 60, True, True, False, False, 8),
+    ("mistral-embed", "mistral", "embedding", "mistral-embed", "Mistral Embed",
+     8192, 10, 0, False, False, False, False, 9),
     ("claude-sonnet-4-6", "anthropic", "chat", "claude-sonnet-4-6", "Claude Sonnet 4.6",
      200000, 300, 1500, True, True, False, False, 10),
     ("claude-haiku-4-5", "anthropic", "chat", "claude-haiku-4-5-20251001", "Claude Haiku 4.5",
@@ -264,10 +273,22 @@ async def set_markup_multiplier(session: AsyncSession, value: float) -> float:
     return value
 
 
+def model_region(model: ModelCatalog) -> str:
+    """Hosting region of a catalog row (Bokito rows follow their primary backing)."""
+    from app.services import bokito_models
+    from app.services.model_regions import infer_provider, provider_region
+
+    provider = model.provider
+    if bokito_models.is_bokito_provider(provider):
+        provider = infer_provider(bokito_models.select_backing_slug(model.slug)) or provider
+    return provider_region(provider)
+
+
 def serialize_model(model: ModelCatalog, *, staff: bool = False) -> dict[str, Any]:
     data = {
         "slug": model.slug,
         "provider": model.provider,
+        "region": model_region(model),
         "kind": model.kind,
         "model_id": model.model_id,
         "display_name": model.display_name,

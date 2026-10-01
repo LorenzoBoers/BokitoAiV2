@@ -1569,7 +1569,18 @@
     "watchAskPrefill": "Turn on the platform check-in and watch this workspace for me.",
     "watchOpenAgenda": "Open Agenda"
   },
+  "dataRegion": {
+    "eu": "EU",
+    "us": "US",
+    "unknown": "Unknown region",
+    "badgeTitle": "Data is processed in the {{region}}"
+  },
   "usagePage": {
+    "euShare": "EU-hosted share ({{days}}d)",
+    "euShareHint": "Share of live tokens processed on EU-hosted models.",
+    "euShareEmptyHint": "Appears after the first live AI calls.",
+    "byRegion": "By data region ({{days}}d)",
+    "noRegionUsage": "No region data yet.",
     "refresh": "Refresh",
     "budgetBlocked": "The LLM budget is exhausted: AI calls on platform keys are paused until the cap is raised or the period resets. Models on your own keys keep working.",
     "budgetTitle": "Budget (platform keys)",
@@ -4740,6 +4751,7 @@
     "retention": "Default 365-day retention for messages and calendar events; configurable per workspace.",
     "dsar": "Owners and admins can export or scrub personal data for a subject email.",
     "ai": "Chat surfaces disclose AI use; humans can take over. Message-body LLM use is workspace-togglable.",
+    "dataRegion": "Bokito AI processes conversations on EU-hosted models by default; US-hosted platform models stay off until an owner or admin allows them, and every model shows its data region.",
     "docsTitle": "Documents",
     "operatorGuide": "Operator guide: Privacy and security",
     "securityDoc": "Security summary (draft)",
@@ -5366,7 +5378,7 @@
     "noKey": "No key",
     "keySet": "Key set ····{{last4}}",
     "pageTitle": "Models",
-    "pageSubtitle": "Bokito AI runs your workspace by default. Custom models are available only when your plan includes them.",
+    "pageSubtitle": "Bokito AI runs your workspace by default on an EU-hosted model. Custom models are available only when your plan includes them.",
     "saved": "Saved",
     "ownProvidersTitle": "Your own providers",
     "ownProvidersBody": "Optional. Models enabled on your own keys take precedence over Bokito AI; usage is then billed by the provider, not through Bokito. Keys are encrypted; only the last four characters are shown.",
@@ -5405,11 +5417,24 @@
       "standbyHintNew": "Agents use your own models below. Bokito AI stays available as fallback when you turn custom models off or remove them.",
       "mockModeHint": "No platform key is configured, so AI calls run in mock mode. Contact Bokito support or add your own provider key below.",
       "mockModeHintShort": "No live platform key is configured, so AI calls run in mock mode. Contact Bokito support.",
-      "legacyKeyHint": "Runs on your own {{provider}} key (legacy), so usage is not billed through Bokito."
+      "legacyKeyHint": "Runs on your own {{provider}} key (legacy), so usage is not billed through Bokito.",
+      "chatBacking": "Chat model",
+      "embeddingBacking": "Embedding model",
+      "fallbackNotice": "The EU-hosted model is temporarily unavailable, so Bokito AI runs on a fallback model in the {{actual}}. We switch back to the {{intended}} automatically."
+    },
+    "region": {
+      "title": "Data region",
+      "body": "Bokito AI processes conversations on EU-hosted models by default. US-hosted platform models (Anthropic, OpenAI) stay off until an owner or admin allows them. Your own provider keys are not affected.",
+      "euShare30d": "EU-hosted, last 30 days",
+      "allowUs": "Allow US-hosted platform models",
+      "allowUsHint": "When off, agents that point at a US-hosted platform model run on Bokito AI instead. Turn on only when your data processing agreement covers US transfers.",
+      "inUseTitle": "US-hosted models selected by active agents",
+      "inUseBlockedHint": "These agents currently run on Bokito AI because US-hosted models are blocked.",
+      "embeddingNote": "Knowledge embeddings still run on a US-hosted model; an EU alternative follows with a re-indexing step."
     },
     "custom": {
       "title": "Custom models",
-      "body": "Connect your own Anthropic, OpenAI, or OpenAI-compatible keys. Those models appear in agent pickers and are billed by the provider.",
+      "body": "Connect your own Mistral, Anthropic, OpenAI, or OpenAI-compatible keys. Those models appear in agent pickers, show their data region, and are billed by the provider.",
       "optIn": "Use my own models",
       "empty": "No custom models yet. Add a provider key and pick a model.",
       "addModel": "Add model",

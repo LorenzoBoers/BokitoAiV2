@@ -660,6 +660,11 @@ def get_chat_provider(provider_type: str, api_key: str, base_url: str | None = N
     """Return a chat provider instance by provider type (or mock when unknown)."""
     if provider_type == "anthropic" and api_key:
         return AnthropicLLMProvider(api_key=api_key, base_url=base_url)
+    if provider_type == "mistral" and api_key:
+        from app.services.provider_presets import MISTRAL_BASE_URL
+
+        # Mistral exposes an OpenAI-compatible Chat Completions API (EU-hosted).
+        return OpenAILLMProvider(api_key=api_key, base_url=base_url or MISTRAL_BASE_URL)
     if provider_type in ("openai", "openai_compatible") and api_key:
         return OpenAILLMProvider(api_key=api_key, base_url=base_url)
     return MockLLMProvider()

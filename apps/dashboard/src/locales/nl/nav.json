@@ -1563,7 +1563,18 @@
     "watchAskPrefill": "Zet de platform-check-in aan en hou deze workspace voor me in de gaten.",
     "watchOpenAgenda": "Agenda openen"
   },
+  "dataRegion": {
+    "eu": "EU",
+    "us": "VS",
+    "unknown": "Onbekende regio",
+    "badgeTitle": "Data wordt verwerkt in de {{region}}"
+  },
   "usagePage": {
+    "euShare": "Aandeel EU-gehost ({{days}}d)",
+    "euShareHint": "Aandeel live tokens verwerkt op EU-gehoste modellen.",
+    "euShareEmptyHint": "Verschijnt na de eerste live AI-aanroepen.",
+    "byRegion": "Per dataregio ({{days}}d)",
+    "noRegionUsage": "Nog geen regiodata.",
     "refresh": "Vernieuwen",
     "budgetBlocked": "Het LLM-budget is op: AI-aanroepen op platformsleutels staan stil tot het plafond omhoog gaat of de periode reset. Modellen op je eigen sleutels blijven werken.",
     "budgetTitle": "Budget (platformsleutels)",
@@ -4734,6 +4745,7 @@
     "retention": "Standaard 365 dagen bewaartermijn voor berichten en agenda; per workspace configureerbaar.",
     "dsar": "Owners en admins kunnen persoonsgegevens voor een e-mailadres exporteren of scrubben.",
     "ai": "Chatoppervlakken vermelden AI-gebruik; mensen kunnen overnemen. LLM-gebruik van berichtteksten is per workspace uit te zetten.",
+    "dataRegion": "Bokito AI verwerkt gesprekken standaard op EU-gehoste modellen; US-gehoste platformmodellen blijven uit totdat een eigenaar of beheerder ze toestaat, en elk model toont zijn dataregio.",
     "docsTitle": "Documenten",
     "operatorGuide": "Operatorgids: Privacy en beveiliging",
     "securityDoc": "Beveiligingsoverzicht (concept)",
@@ -5360,7 +5372,7 @@
     "noKey": "Geen sleutel",
     "keySet": "Sleutel ingesteld ····{{last4}}",
     "pageTitle": "Modellen",
-    "pageSubtitle": "Bokito AI draait standaard je workspace. Eigen modellen zijn alleen beschikbaar wanneer je plan dat toelaat.",
+    "pageSubtitle": "Bokito AI draait je workspace standaard op een EU-gehost model. Eigen modellen zijn alleen beschikbaar wanneer je plan dat toelaat.",
     "saved": "Opgeslagen",
     "ownProvidersTitle": "Eigen providers",
     "ownProvidersBody": "Optioneel. Modellen op je eigen sleutels gaan voor op Bokito AI; verbruik wordt dan door de provider gefactureerd, niet via Bokito. Sleutels worden versleuteld; alleen de laatste vier tekens zijn zichtbaar.",
@@ -5399,11 +5411,24 @@
       "standbyHintNew": "Agents gebruiken je eigen modellen hieronder. Bokito AI blijft beschikbaar als fallback wanneer je eigen modellen uitzet of verwijdert.",
       "mockModeHint": "Geen platformsleutel geconfigureerd, dus AI-aanroepen draaien in mock-modus. Neem contact op met Bokito-support of voeg hieronder je eigen providersleutel toe.",
       "mockModeHintShort": "Geen live platformsleutel geconfigureerd, dus AI-aanroepen draaien in mock-modus. Neem contact op met Bokito-support.",
-      "legacyKeyHint": "Draait op je eigen {{provider}}-sleutel (legacy), dus verbruik wordt niet via Bokito gefactureerd."
+      "legacyKeyHint": "Draait op je eigen {{provider}}-sleutel (legacy), dus verbruik wordt niet via Bokito gefactureerd.",
+      "chatBacking": "Chatmodel",
+      "embeddingBacking": "Embeddingmodel",
+      "fallbackNotice": "Het EU-gehoste model is tijdelijk niet beschikbaar, dus Bokito AI draait op een fallbackmodel in de {{actual}}. We schakelen automatisch terug naar de {{intended}}."
+    },
+    "region": {
+      "title": "Dataregio",
+      "body": "Bokito AI verwerkt gesprekken standaard op EU-gehoste modellen. US-gehoste platformmodellen (Anthropic, OpenAI) blijven uit totdat een eigenaar of beheerder ze toestaat. Je eigen providersleutels worden niet geraakt.",
+      "euShare30d": "EU-gehost, laatste 30 dagen",
+      "allowUs": "US-gehoste platformmodellen toestaan",
+      "allowUsHint": "Uit: agents die naar een US-gehost platformmodel wijzen draaien in plaats daarvan op Bokito AI. Zet alleen aan als je verwerkersovereenkomst doorgifte naar de VS dekt.",
+      "inUseTitle": "US-gehoste modellen gekozen door actieve agents",
+      "inUseBlockedHint": "Deze agents draaien nu op Bokito AI omdat US-gehoste modellen geblokkeerd zijn.",
+      "embeddingNote": "Kennis-embeddings draaien nog op een US-gehost model; een EU-alternatief volgt met een herindexeringsstap."
     },
     "custom": {
       "title": "Eigen modellen",
-      "body": "Koppel je eigen Anthropic-, OpenAI- of OpenAI-compatibele sleutels. Die modellen verschijnen in agent-kiezers en worden door de provider gefactureerd.",
+      "body": "Koppel je eigen Mistral-, Anthropic-, OpenAI- of OpenAI-compatibele sleutels. Die modellen verschijnen in agent-kiezers, tonen hun dataregio en worden door de provider gefactureerd.",
       "optIn": "Gebruik eigen modellen",
       "empty": "Nog geen eigen modellen. Voeg een providersleutel toe en kies een model.",
       "addModel": "Model toevoegen",

@@ -18,6 +18,9 @@ class UsageLedger(SQLModel, table=True):
     model: str = ""
     # Which key paid for this call: tenant (BYOK) | platform (Bokito, billable) | mock
     key_source: str = Field(default="mock")
+    # Hosting region of the provider that processed the call: eu | us | unknown.
+    # Stored at write time because the model behind a virtual slug can change.
+    region: str = Field(default="unknown")
     billable: bool = False
     tokens_in: int = 0
     tokens_out: int = 0

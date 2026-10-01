@@ -5,6 +5,7 @@ Usage (from repo root, dashboard on :5174 and API on :8000):
     .\\apps\\api\\.venv\\Scripts\\python.exe apps/api/scripts/dev/capture_product_help_screenshots.py
 
 Logs in as the local seed owner (override with BOKITO_DOCS_EMAIL / BOKITO_DOCS_PASSWORD).
+Set BOKITO_DOCS_ONLY=models,usage to recapture only those article slugs.
 Prefers an installed Chrome or Edge so Playwright does not need a browser download.
 Blurs email addresses and obvious message bodies before each shot.
 """
@@ -12,6 +13,7 @@ Blurs email addresses and obvious message bodies before each shot.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -45,12 +47,18 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/settings/govern", "govern", "drafts"),
     ("/settings/govern", "autonomy", "presets"),
     ("/settings/models", "models", "catalog"),
+    ("/settings/models", "models", "data-region"),
     ("/settings/marketplace", "integrations", "marketplace"),
     ("/settings/mcp", "mcp", "servers"),
     ("/settings/members", "members", "invite"),
     ("/settings/help-centers", "help-centers", "publish"),
     ("/settings/general", "setup-guide", "workspace"),
 ]
+
+# Shots that sit below the fold: scroll the heading matching this pattern (EN|NL) into view first.
+SCROLL_TO: dict[tuple[str, str], re.Pattern[str]] = {
+    ("models", "data-region"): re.compile(r"^(Data region|Dataregio)$"),
+}
 
 REDACT_JS = """
 (() => {
@@ -107,8 +115,11 @@ def main() -> int:
         page.wait_for_url(lambda url: "/login" not in url, timeout=45000)
         page.wait_for_timeout(1500)
 
+        only = {s.strip() for s in os.environ.get("BOKITO_DOCS_ONLY", "").split(",") if s.strip()}
         last_url = ""
         for path, slug, name in SHOTS:
+            if only and slug not in only:
+                continue
             dest = ASSETS / slug
             dest.mkdir(parents=True, exist_ok=True)
             url = f"{BASE}{path}"
@@ -116,13 +127,24 @@ def main() -> int:
                 page.goto(url, wait_until="networkidle", timeout=60000)
                 page.wait_for_timeout(1200)
                 last_url = url
+            scroll_text = SCROLL_TO.get((slug, name))
+            if scroll_text:
+                try:
+                    page.get_by_role("heading", name=scroll_text).first.scroll_into_view_if_needed(
+                        timeout=3000
+                    )
+                    page.wait_for_timeout(300)
+                except Exception as exc:  # noqa: BLE001 — keep the shot, just unscrolled
+                    print(f"scroll skipped for {slug}/{name}: {exc}")
+            elif url == last_url:
+                page.evaluate("window.scrollTo(0, 0)")
             page.evaluate(REDACT_JS)
             page.wait_for_timeout(200)
             out = dest / f"{name}.png"
             page.screenshot(path=str(out), full_page=False)
             print(f"wrote {out.relative_to(REPO)}")
 
-        if (ASSETS / "agents" / "library.png").is_file():
+        if (ASSETS / "agents" / "library.png").is_file() and (not only or "agents" in only):
             page.goto(f"{BASE}/agents", wait_until="networkidle")
             page.wait_for_timeout(800)
             card = page.locator("a, button").filter(has_text="").first

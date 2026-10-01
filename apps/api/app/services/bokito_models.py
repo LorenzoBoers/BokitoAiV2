@@ -7,6 +7,11 @@ usage rows keep the Bokito identity. Customers are billed at the Bokito row's
 list price while provider cost follows the backing model, so cheaper backing
 models translate directly into margin.
 
+Bokito is EU-hosted by default: the primary backing model is Mistral (Paris).
+When the platform has no Mistral key yet, resolution walks ``FALLBACK_BACKINGS``
+so existing installs keep answering; the Models page shows which region the
+managed model actually runs in, so the fallback is never silent.
+
 Today the routing is a static map. ``select_backing_slug`` accepts a
 ``task_hint`` so a future router can pick a backing model per task weight
 (light triage on a small model, heavy reasoning on a large one) without
@@ -18,12 +23,16 @@ from __future__ import annotations
 BOKITO_PROVIDER = "bokito"
 
 # Virtual slug -> backing catalog slug. The backing row must be a real
-# provider model (anthropic/openai) present in the platform catalog.
+# provider model (mistral/anthropic/openai) present in the platform catalog.
 _BACKING: dict[str, str] = {
-    "bokito-ai-3-1": "claude-sonnet-4-6",
+    "bokito-ai-3-1": "mistral-medium-latest",
 }
 
-_DEFAULT_BACKING = "claude-sonnet-4-6"
+_DEFAULT_BACKING = "mistral-medium-latest"
+
+# Tried in order when the primary backing has no usable platform key. US
+# providers only ever run the managed model as a visible fallback.
+FALLBACK_BACKINGS: tuple[str, ...] = ("claude-sonnet-4-6",)
 
 
 def is_bokito_provider(provider: str | None) -> bool:
@@ -38,3 +47,13 @@ def select_backing_slug(slug: str, *, task_hint: str | None = None) -> str:
     """
     del task_hint
     return _BACKING.get((slug or "").strip().lower(), _DEFAULT_BACKING)
+
+
+def backing_candidates(slug: str) -> list[str]:
+    """Primary backing first, then the fallbacks (deduplicated, order kept)."""
+    primary = select_backing_slug(slug)
+    out = [primary]
+    for candidate in FALLBACK_BACKINGS:
+        if candidate not in out:
+            out.append(candidate)
+    return out

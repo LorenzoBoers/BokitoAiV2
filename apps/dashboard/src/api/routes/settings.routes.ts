@@ -14,6 +14,8 @@ export const settingsRoutes = {
     runtime: '/models/runtime',
     /** Tenant opt-in for custom (BYOK) models. */
     custom: '/models/custom',
+    /** Workspace data-region policy: allow or block US-hosted platform models. */
+    dataRegion: '/models/data-region',
   },
   webhooks: {
     list: '/webhooks',

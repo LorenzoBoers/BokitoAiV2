@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-PROVIDER_TYPES = ("anthropic", "openai", "openai_compatible")
+PROVIDER_TYPES = ("mistral", "anthropic", "openai", "openai_compatible")
+
+# Mistral serves an OpenAI-compatible Chat Completions and Embeddings API.
+MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
 
 
 class PresetModel(TypedDict):
@@ -24,14 +27,73 @@ class ProviderPreset(TypedDict):
     label: str
     default_base_url: str
     requires_base_url: bool
+    # Hosting region of the provider: eu | us | "" (depends on the base URL).
+    region: str
     models: list[PresetModel]
 
 
 PROVIDER_PRESETS: dict[str, ProviderPreset] = {
+    "mistral": {
+        "label": "Mistral",
+        "default_base_url": MISTRAL_BASE_URL,
+        "requires_base_url": False,
+        "region": "eu",
+        "models": [
+            {
+                "slug": "mistral-medium-latest",
+                "model_id": "mistral-medium-latest",
+                "display_name": "Mistral Medium 3.5",
+                "kind": "chat",
+                "context_window": 128000,
+                "input_cost_per_mtok_cents": 150,
+                "output_cost_per_mtok_cents": 750,
+                "supports_tools": True,
+                "supports_vision": True,
+                "sort_order": 1,
+            },
+            {
+                "slug": "mistral-large-latest",
+                "model_id": "mistral-large-latest",
+                "display_name": "Mistral Large 3",
+                "kind": "chat",
+                "context_window": 128000,
+                "input_cost_per_mtok_cents": 50,
+                "output_cost_per_mtok_cents": 150,
+                "supports_tools": True,
+                "supports_vision": True,
+                "sort_order": 2,
+            },
+            {
+                "slug": "mistral-small-latest",
+                "model_id": "mistral-small-latest",
+                "display_name": "Mistral Small 4",
+                "kind": "chat",
+                "context_window": 128000,
+                "input_cost_per_mtok_cents": 15,
+                "output_cost_per_mtok_cents": 60,
+                "supports_tools": True,
+                "supports_vision": True,
+                "sort_order": 3,
+            },
+            {
+                "slug": "mistral-embed",
+                "model_id": "mistral-embed",
+                "display_name": "Mistral Embed",
+                "kind": "embedding",
+                "context_window": 8192,
+                "input_cost_per_mtok_cents": 10,
+                "output_cost_per_mtok_cents": 0,
+                "supports_tools": False,
+                "supports_vision": False,
+                "sort_order": 4,
+            },
+        ],
+    },
     "anthropic": {
         "label": "Anthropic",
         "default_base_url": "",
         "requires_base_url": False,
+        "region": "us",
         "models": [
             {
                 "slug": "claude-sonnet-4-6",
@@ -75,6 +137,7 @@ PROVIDER_PRESETS: dict[str, ProviderPreset] = {
         "label": "OpenAI",
         "default_base_url": "",
         "requires_base_url": False,
+        "region": "us",
         "models": [
             {
                 "slug": "gpt-4o",
@@ -130,6 +193,7 @@ PROVIDER_PRESETS: dict[str, ProviderPreset] = {
         "label": "OpenAI-compatible",
         "default_base_url": "",
         "requires_base_url": True,
+        "region": "",
         "models": [],
     },
 }
@@ -150,6 +214,7 @@ def serialize_presets() -> dict[str, Any]:
             "label": preset["label"],
             "default_base_url": preset["default_base_url"],
             "requires_base_url": preset["requires_base_url"],
+            "region": preset["region"],
             "models": preset["models"],
         }
     return out

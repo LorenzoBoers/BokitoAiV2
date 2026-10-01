@@ -39,6 +39,6 @@ In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via d
 
 ## Check Verbruik
 
-1. Open het tabblad **Verbruik** op Overview. De kaart **Budget (platformsleutels)** toont **Tokens vandaag** en **Factureerbare spend deze maand**, plus uitsplitsingen **Per model** en **Per agent**. Wissel de periode met **7 dagen**, **30 dagen** of **90 dagen**, of kies **CSV exporteren**.
+1. Open het tabblad **Verbruik** op Overview. De kaart **Budget (platformsleutels)** toont **Tokens vandaag** en **Factureerbare spend deze maand**, plus uitsplitsingen **Per model**, **Per agent**, **Per gebruiker** en **Per dataregio**. De statistiek **Aandeel EU-gehost** toont welk deel van de live tokens op EU-gehoste modellen draaide; wijzig het beleid onder [Modellen](/docs/govern/models). Wissel de periode met **7 dagen**, **30 dagen** of **90 dagen**, of kies **CSV exporteren**.
 2. Owners en admins kiezen **Plafonds bewerken**. Zet een **Dagelijks tokenplafond** en een **Maandelijks spendplafond (USD)**, of laat een veld leeg voor **Geen plafond**. Meldingen gaan af bij 80% en 100%.
 3. Als het budget op is, pauzeren AI-calls op Bokito-platformkeys tot je het plafond verhoogt of de periode reset. Modellen op je eigen keys blijven werken (**Eigen sleutel (geen kosten)**). Lege beoordelingen zeggen **Nog geen klantbeoordelingen** met **Websitechat installeren**.

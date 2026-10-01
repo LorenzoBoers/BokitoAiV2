@@ -611,7 +611,7 @@ export function ProjectCanvasBoard({ projectId, canEdit }: Props) {
   }
 
   if (error && !canvas) {
-    return <ApiErrorBanner error={error} onRetry={() => void load()} />
+    return <ApiErrorBanner message={error} onRetry={() => void load()} />
   }
 
   if (!canvas) return null

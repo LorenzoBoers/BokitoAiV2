@@ -339,8 +339,14 @@ models:
   code_globs:
     - apps/dashboard/src/pages/ModelsSettings.tsx
     - apps/dashboard/src/components/workforce/AgentModelCard.tsx
+    - apps/dashboard/src/components/models/RegionBadge.tsx
+    - apps/api/app/services/model_regions.py
+    - apps/api/app/services/model_resolution.py
+    - apps/api/app/services/bokito_models.py
+    - apps/api/app/routers/models.py
   screenshots:
     - catalog
+    - data-region
 
 integrations:
   section: integrations

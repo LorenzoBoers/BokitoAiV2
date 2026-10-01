@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.model_catalog import ModelCatalog
+from app.services import bokito_models
 from app.services import model_catalog as catalog_svc
 from app.services import platform_secrets, provider_connections, tenant_features, tenant_model_catalog
 from app.services.provider_presets import serialize_presets
@@ -185,12 +186,25 @@ async def _managed_ai_status(
             session, tenant_id, kind=kind, model_slug=None
         )
         catalog_row = await catalog_svc.get_model(session, resolved.slug)
+        backing_row = (
+            await catalog_svc.get_model(session, resolved.model_id)
+            if resolved.model_id and resolved.model_id != resolved.slug
+            else None
+        )
         return {
             "slug": resolved.slug,
             "display_name": catalog_row.display_name if catalog_row else resolved.slug,
             "provider": resolved.provider,
             "key_source": resolved.key_source,
             "ready": resolved.live,
+            # Where this call is processed, and what actually runs it.
+            "region": resolved.region,
+            "intended_region": resolved.intended_region or resolved.region,
+            "fallback_active": resolved.fallback_active,
+            "backing_provider": resolved.provider_type,
+            "backing_display_name": (
+                backing_row.display_name if backing_row else resolved.model_id
+            ),
         }
 
     chat = await _model_info("chat")
@@ -250,6 +264,7 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
             "slug": managed["chat"]["slug"],
             "display_name": managed["chat"]["display_name"],
             "provider": managed["chat"]["provider"],
+            "region": managed["chat"]["region"],
             "kind": "chat",
             "enabled": True,
             "model_id": "",
@@ -263,10 +278,13 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
             if row.get("kind") == "chat" and row.get("enabled"):
                 selectable.append(row)
 
+    data_region = await _data_region_block(session, tenant_id)
+
     return {
         "source": "managed" if not active else "tenant",
         "managed": managed,
         "custom_models": custom_block,
+        "data_region": data_region,
         "selectable_chat": selectable,
         # Backward-compat fields for older clients during rollout.
         "models": selectable if not active else custom_block["models"],
@@ -279,6 +297,66 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
             custom_block["default_embedding"] or managed["embedding"]["slug"]
         ),
     }
+
+
+async def _data_region_block(session: AsyncSession, tenant_id: UUID) -> dict:
+    """Workspace data-region policy plus the EU share of the last 30 days."""
+    from datetime import datetime, timedelta
+
+    from app.services.cockpit import usage_by_region
+    from app.services.tenant_models import get_tenant_model_prefs
+
+    prefs = await get_tenant_model_prefs(session, tenant_id)
+    usage = await usage_by_region(
+        session, tenant_id, since=datetime.utcnow() - timedelta(days=30)
+    )
+    # Agents on a US-hosted platform model that the policy redirects.
+    from app.models.agent import Agent
+
+    rows = (
+        await session.execute(
+            select(Agent.model).where(Agent.tenant_id == tenant_id, Agent.is_active.is_(True))
+        )
+    ).all()
+    redirected: set[str] = set()
+    for (model_slug,) in rows:
+        if not model_slug:
+            continue
+        row = await catalog_svc.get_model(session, model_slug)
+        if row is None or bokito_models.is_bokito_provider(row.provider):
+            continue
+        if catalog_svc.model_region(row) != "eu":
+            redirected.add(row.slug)
+    return {
+        "non_eu_platform_models": prefs["non_eu_platform_models"],
+        "eu_share_pct_30d": usage["eu_share_pct"],
+        "by_region_30d": usage["by_region"],
+        "non_eu_models_in_use": sorted(redirected),
+    }
+
+
+class DataRegionPolicyBody(BaseModel):
+    non_eu_platform_models: str
+
+
+@router.patch("/models/data-region")
+async def patch_data_region_policy(
+    body: DataRegionPolicyBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Allow or block US-hosted platform models for this workspace (owner/admin)."""
+    from app.services.tenant_models import set_tenant_model_prefs
+
+    auth.require_role("owner", "admin")
+    try:
+        await set_tenant_model_prefs(
+            session, auth.tenant.id, non_eu_platform_models=body.non_eu_platform_models
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    refreshed = await tenant_features.get_tenant(session, auth.tenant.id)
+    return await _tenant_models_payload(session, refreshed or auth.tenant)
 
 
 class CustomModelsOptInBody(BaseModel):
