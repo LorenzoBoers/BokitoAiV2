@@ -8,7 +8,6 @@ export type ProductHelpSectionId =
   | 'govern'
   | 'integrations'
   | 'developers'
-  | 'v2'
 
 export const PRODUCT_HELP_SECTIONS: ProductHelpSectionId[] = [
   'getting-started',
@@ -17,7 +16,6 @@ export const PRODUCT_HELP_SECTIONS: ProductHelpSectionId[] = [
   'govern',
   'integrations',
   'developers',
-  'v2',
 ]
 
 export interface ProductHelpSummary {

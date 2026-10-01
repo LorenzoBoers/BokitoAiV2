@@ -24,7 +24,7 @@ SOURCE = REPO_ROOT / "docs" / "product-help"
 TARGET = API_ROOT / "app" / "data" / "product_help"
 
 LANGS = ("en", "nl")
-SECTIONS = ("getting-started", "inbox", "ai", "govern", "integrations", "developers", "v2")
+SECTIONS = ("getting-started", "inbox", "ai", "govern", "integrations", "developers")
 REQUIRED_KEYS = ("title", "intro", "description", "keywords", "sort")
 
 

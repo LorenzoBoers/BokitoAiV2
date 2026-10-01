@@ -2,151 +2,256 @@
 
 Canonical product north star for humans and coding agents. Use this document to judge whether a feature belongs in the architecture before implementation.
 
-This is the **V2** intent. V2 lives in `apps/api-v2` and `apps/web-v2`. V1 (`apps/api`, `apps/dashboard`, `apps/mobile`) is legacy: it keeps running for existing tenants and receives fixes only. See [`adr/002-v2-coexistence.md`](adr/002-v2-coexistence.md).
-
-**Related:** strategy and market evidence in [`STRATEGY_2026-09.md`](STRATEGY_2026-09.md); positioning in [`POSITIONING.md`](POSITIONING.md); living operational facts in [`BOKITO_KNOWLEDGE.md`](../BOKITO_KNOWLEDGE.md).
+**Related:** technical stack map in [`architecture.md`](architecture.md); living operational facts in [`BOKITO_KNOWLEDGE.md`](../BOKITO_KNOWLEDGE.md).
 
 ---
 
-## 1. North star
+## 1. North star — why we exist
 
 **Drive the company from the conversation.**
 
-Bokito is the shared conversation of a company. Customers and partners keep writing where they already write (email, WhatsApp, the web widget, a phone line); the company reads and answers all of it in one list, next to its colleagues and its AI agents. Nobody outside is asked to log in anywhere. Everything that runs in the background is started, watched, and changed from those conversations.
+Bokito is one chat surface for the company. Clients and partners keep writing where they already write (email, WhatsApp, the web widget, a phone line); the company reads and answers all of it in one list, next to its colleagues and its AI agents. Nobody outside is asked to log in anywhere. Everything that runs in the background is started, watched, and changed from those conversations. Chat is the control plane because everyone already knows how to chat.
 
-Bokito does not replace ChatGPT, Claude, Copilot, Codex or Cursor. It is the layer on top: the place where a company decides what those tools may do, hands them work that came out of a conversation, and sees the result next to the message that caused it. Those tools operate the Bokito workspace through MCP under the same policy as internal agents.
+Bokito does not replace ChatGPT, Claude, Copilot, or Cursor, and it does not try to become a coding agent. It is the layer on top: the place where a company decides what those tools are allowed to do, hands them work that came out of a conversation, and sees the result next to the customer message that caused it. People already build in Cursor, Claude, and ChatGPT; Bokito connects to those environments and drives them, so a bug report that arrives on WhatsApp can become a pull request in the tool the team already uses, under the same posture as everything else. Even the platform changes itself through chat: an agent proposes a change, a person approves it inline, Govern records it.
 
-Long-term aim: an operational **digital twin** the business runs on, observes through Overview and Govern, and improves through feedback.
+Traditional companies coordinate through human layers: managers route work, inboxes fragment attention, and software mirrors org charts. Bokito unifies customer signals, agent orchestration, and human judgment in one operational flow — with **governed autonomy** tenants can dial from manual oversight toward *AI runs operations, humans at the exception layer*.
 
-## 2. One mental model: the OODA loop
+Long-term aim: an operational **digital twin** the business can run on, observe through Cockpit and Govern, and **improve through feedback** — not a collection of one-off automations that never learn or explain themselves.
 
-Every feature is a step in one loop. If a feature is not one of these steps, it does not belong in the core.
+**Market positioning detail:** [`POSITIONING.md`](POSITIONING.md).
 
-| Step | Meaning in Bokito | Objects |
-|------|-------------------|---------|
-| **Observe** | Everything that enters becomes a message in a conversation, whatever the channel | `Conversation`, `Message`, `Connection` |
-| **Orient** | The system reads first: who is this, what do we know, what kind of thing is this | `Contact`, `Organization`, `Doc`, `Signal` (typed recognition) |
-| **Decide** | Policy decides whether an action runs, asks, or is denied; asking is a Decision card in the thread | `Policy`, `Decision` |
-| **Act** | One executor runs every tool for every caller; every run is a record | `Agent`, `Playbook`, `Run`, `Trigger` |
-| **Feedback** | Usage, outcomes and corrections feed back into policy, metrics and memory | `UsageEvent`, `Outcome`, `Feedback`, `AuditEvent`, `Change` |
+### Decision rules
 
-## 3. Decision rules
+Apply these to every feature request.
 
-1. **Everything is reachable from a conversation.** Pages browse; every mutation is a tool that agents, MCP clients, REST and the command palette call through the same executor. A page action without a tool is unfinished.
-2. **Five operator nouns.** Conversation (Gesprek), Contact (with its Organization), Agent, Playbook (Draaiboek), Decision (Beslissing). Signal (Signaal) is a typed label on a Conversation, shown as a chip and a filter, never a hub. Plumbing (Connection, Run, Trigger, Message, Policy) never appears as a noun in the UI.
-3. **Modules add types, playbooks and tools. Never screens, never nouns.** Accounting adds signal types, a playbook and Moneybird tools. Verticals (installers, accountancy, property) are modules.
-4. **The system reads first, people correct.** Every inbound is oriented (contact, signal type, summary). Manual actions fix a miss.
-5. **Autonomy is one dial in one place.** The workspace posture (manual, assisted, autonomous) is the ceiling in Govern; a signal type, playbook or agent may sit below it. Consequential tools always ask until an owner lowers that per tool.
-6. **The thread is the log.** What an agent did on a conversation appears in that conversation as a message. Govern keeps the full audit; nobody has to go there to know what happened.
-7. **Ask inline, record in Govern.** A human gate is a Decision card in the thread with one resolve path. Govern is the ledger, not a second inbox.
-8. **One ledger, one connection, one decision.** `runs` is the only work record. `connections` is the only external attachment (channel, integration, MCP server, model provider, workbench). `decisions` has one resolve endpoint.
-9. **Hand work to the tools people already use.** Code goes to Codex, Claude Code or Cursor through a workbench connection. Bokito decides, dispatches, gates and reports. It never hosts an IDE, a repo browser, or a diff viewer.
-10. **EU by default, open by choice.** Data at rest in the EU. The managed model runs in an EU region. Bring-your-own-key to any provider is allowed and shown. Every channel discloses that an AI is answering (EU AI Act Article 50) unless an owner switches that off per connection.
-11. **Count what the customer pays for.** Resolved conversations, time saved and channel costs are first-class numbers, computed deterministically and visible per conversation and on Overview.
-12. **Delete the old surface in the same change.** No compatibility twins inside V2.
+1. **Everything is reachable from a conversation.** Pages stay for browsing and for tools people use side by side with chat (a calendar, a list of agents). But nothing may exist only on a page: every agent, playbook, project, contact, and setting must also open from the thread that needs it, and every action a page offers must have a chat path.
+2. **One object per idea.** Operators name seven things: Conversation, Signal, Playbook, Project, Contact (with its Organization), Agent, Decision. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the seven cannot give.
+3. **Modules add types and playbooks. They never add screens.** Installing accounting adds signal types, a playbook, and tools. It does not add a rail item, a queue, or a settings page.
+4. **The system reads first, people correct.** Every message is interpreted. Manual actions exist to fix a miss, not as the normal path.
+5. **Autonomy is one dial in one place.** Govern owns manual / assisted / autonomous as the workspace ceiling; a signal type or playbook may sit below it, also in Govern. No per-project, per-channel, or per-page copy of it.
+6. **The thread is the log.** What an agent did on a conversation appears in that conversation as a message. Govern keeps the full trace; nobody has to go there to know what happened.
+7. **Ask inline, record in Govern.** A human gate is a decision card in the thread. Govern is the ledger, not a second inbox.
+8. **Delete the old surface in the same change.** No compatibility twin.
+9. **Hand work to the tools people already use; do not rebuild them.** Code goes to Cursor, Claude, or ChatGPT environments through a connection. Bokito decides, dispatches, gates, and reports. It never hosts an IDE, a repo browser, or a diff viewer of its own.
 
-## 4. Operator vocabulary
+### Operator vocabulary (Set C)
 
-| EN | NL | Table |
-|----|----|-------|
-| Conversation | Gesprek | `conversations` |
-| Signal | Signaal | `signals` (typed recognition on a conversation) |
-| Playbook | Draaiboek | `playbooks` |
-| Contact / Organization | Contact / Organisatie | `contacts`, `organizations` |
-| Agent | Agent | `agents` |
-| Decision | Beslissing | `decisions` |
+| EN | NL | Role | Table (internal) |
+|----|----|------|------------------|
+| Conversation | Gesprek | The chat | `signals` |
+| Signal | Signaal | What the system recognized | `cases` |
+| Playbook | Draaiboek | What runs | `workstreams` |
+| Project | Project | Optional home for that work | `projects` |
+| Contact | Contact | Person you are talking to | `contacts` |
+| Agent | Agent | AI or company agent | `agents` |
+| Decision | Beslissing | Question in the thread | `decision_requests` |
 
-Overview, Govern, Work, Knowledge, Connections and Settings are the surfaces. Communication / Communicatie is the conversation surface. Overview, Govern and Agents stay English loanwords in Dutch.
+Do **not** add Task as an eighth operator noun. A free "look again later" is a dated next look-at on the Conversation (`Signal.follow_up_at`); typed work is a Signal (Case). Snooze parks the conversation; a look-at stays visible. `AgentTask` remains internal ledger plumbing.
 
-Do not add Task or Project as operator nouns. A "look again later" is `Conversation.follow_up_at`; typed work is a Signal; grouping is tags.
+Overview, Govern, and Agents stay English loanwords in the Dutch UI. Communication / Communicatie is the rail hub name (not Messages / Berichten).
 
-## 5. Architecture (V2)
+---
+
+## 2. What we are building (in this repo)
+
+A **flexible, node-based agentic OS** that lets SMBs and their operators create and run AI-driven businesses. Every meaningful component is a **node** in a composable graph — agents, playbooks, conversations, signals, integrations, knowledge, canvas layout — so both humans and agents can read, generate, and reshape the system within one semantic model.
 
 ```mermaid
-flowchart LR
-  subgraph observe [Observe]
-    Channels[Email WhatsApp Widget Phone]
-    Internal[Internal chat and MCP clients]
+flowchart TB
+  subgraph human [Human oversight]
+    Communication[Communication hub]
+    Govern[Govern page]
+    Overview[Overview]
   end
-  subgraph core [api-v2]
-    Conv[Conversation and Messages]
-    Orient[Orient: Contact, Knowledge, Signal]
-    Policy[Policy engine]
-    Decision[Decision]
-    Exec[Tool registry and executor]
-    Run[Run]
-    Feedback[Usage Outcome Feedback Audit]
+  subgraph stack [Intelligence Stack]
+    Sensing[Conversation / inbound]
+    Interpret[Interpretation / signal]
+    Decide[DecisionRequest]
+    Orchestrate[Agent / Playbook / Triggers]
+    Integrate[MCP / Connections / Workbench]
+    Learn[Feedback / EvalScore]
+    Assure[Audit / PlatformChange]
   end
-  subgraph act [Act through connections]
-    Reply[Reply on channel]
-    Modules[Module tools]
-    Workbench[Codex Claude Code Cursor]
-    Mcp[External MCP servers]
+  subgraph graph [Node graph]
+    Canvas[AI OS canvas /os]
+    Knowledge[Knowledge docs]
   end
-  observe --> Conv --> Orient --> Policy
-  Policy -->|ask| Decision --> Exec
-  Policy -->|allow| Exec --> Run --> act
-  Run --> Conv
-  act --> Feedback --> Policy
+  Sensing --> Interpret --> Decide --> Orchestrate
+  Orchestrate --> Integrate
+  Orchestrate --> Learn
+  Decide --> human
+  Orchestrate --> Assure
+  Canvas --> Orchestrate
+  Knowledge --> Orchestrate
 ```
 
-### Repo anchors
+### Repo anchors (V1 bokito track)
 
 | Surface | Location | Role |
 |---------|----------|------|
-| **Backend** | `apps/api-v2` (FastAPI, package `bokito`) | Domain, tools, agent loop, channels, gateway, MCP |
-| **Web** | `apps/web-v2` (Vite + React + TS) | Communication, Overview, Govern, Work, Knowledge, Connections, Settings |
-| **Widget** | `apps/chat-widget` | Customer-facing embed, built against `/api/livechat` of api-v2 |
-| **Shared** | `packages/shared` | Types and helpers shared by web and widget |
-| **Legacy** | `apps/api`, `apps/dashboard`, `apps/mobile` | V1, frozen |
+| **Backend** | `apps/api` (FastAPI) | Intelligence Stack APIs, agent loop, govern, signals |
+| **Portal** | `apps/dashboard` (`VITE_API_MODE=bokito`) | Overview, Communication hub, AI OS canvas, Govern, settings |
+| **OS canvas** | `/os`, `os_canvas_nodes` / `os_canvas_edges` | Visual graph; domain entities stay in real tables |
+| **Unified sensing** | `Signal`, `SignalMessage` | One thread model for external (email, chat, widget) and internal (agent) communication |
+| **Communication hub** | `/support/inbox/*`, `/messages` | Single UI for human + agent threads; decisions inline in timeline |
+| **Human gates** | `DecisionRequest`, Govern draft queue | Inline approve/defer/reject in threads; structural changes via `PlatformChange` |
+| **Self-maintenance** | Agent tools → `propose_platform_change()` | Agents propose graph/agent/integration edits under apply modes and audit |
+| **V1 track** | FastAPI `apps/api` | All bokito-mode features use FastAPI + Signal; no parallel legacy stacks |
 
-### Domain layout in `apps/api-v2/bokito`
+Intelligence Stack layers are **conceptual lanes** on the canvas and in metrics — not separate top-level navigation tabs. See [`architecture.md`](architecture.md) for the layer-to-code mapping.
 
-- `domain/` one module per aggregate: `identity`, `conversation`, `orient`, `work`, `connection`, `govern`, `metering`
-- `tools/` registry, policy, executor, and one module of tools per domain
-- `agent/` loop, providers, model resolution
-- `channels/` email, whatsapp, widget, phone (interface), outbound
-- `realtime/` gateway (one WebSocket)
-- `api/` thin routers that call tools or read models
-- `workers/` ARQ jobs
-- `modules/` module spec and module packages
+---
 
-## 6. Design constraints
+## 3. Architectural principles
 
-- **Postgres as Postgres.** Native enums or CHECK constraints, JSONB, pgvector, unique constraints on hot paths, one Alembic baseline. Tests run on Postgres.
-- **Small files.** No module above roughly 500 lines. Tools per domain; services per aggregate.
-- **Strict tenant isolation.** `tenant_id` on every domain row; every query filters it.
-- **Minimalist UI.** Calm and obvious. Shared primitives, design tokens, no emoji in copy, one title per screen.
-- **Alignment test.** Can this be expressed as a step in the OODA loop with an optional Decision? If not, redesign.
+### Node-first
 
-## 7. Pre-flight checklist (state before coding)
+Everything important should map to a **small set of canonical entity types**. Prefer extending:
 
-1. **Step** — Observe, Orient, Decide, Act or Feedback?
-2. **Nouns** — Which of the five nouns (or which plumbing object)? Is a new type justified?
-3. **Tool** — Which tool does this mutation run through? Trust levels: operator, agent, api, external.
-4. **Gate** — none, Decision card, Change draft, or manual only?
-5. **Posture** — Does it respect the workspace posture and per-tool overrides?
-6. **Feedback** — Which usage, outcome or audit record does it write?
-7. **Surface** — Communication, Overview, Govern, Work, Knowledge, Connections or Settings? Never a new hub.
-8. **EU** — Does data stay in region? Does the channel disclose AI?
-9. **Docs** — Do operators or integrators see something different? Update `docs/product-help/` EN and NL, run `sync_product_help.py`. Internal facts go to `BOKITO_KNOWLEDGE.md`.
+- `Signal` / `SignalMessage` — conversation context (external and internal)
+- `Case` / `CaseType` — product signal (typed recognition on a conversation); operator word **Signal**
+- `ChannelAccount` — one entity for every channel (mailbox, Bokito relay address, website chat, WhatsApp, Slack); lifecycle **state**, **capabilities** and **checks** are derived per kind in `services/channel_registry.py`
+- `Agent`, `Workstream` (operator: Playbook), `AgentRun` — orchestration
+- `DecisionRequest` — human action objects **within** threads, not parallel list UIs
+- `WorkspaceDoc`, `DocChunk` — workspace knowledge
+- `Project` — container of signals and conversations; optional workbench connection for coding tools
+- `os_canvas_nodes` / `os_canvas_edges` — visual graph overlay
+- `PlatformChange`, `AuditEvent` — governable mutations
 
-## 8. Anti-patterns
+Resist inventing a second inbox, a second decision list, or a second graph when the existing node already expresses the concept.
 
-- A second inbox, decision list, work ledger or connection table
-- Rail items per loop step, or a Decisions or Tasks tab
-- Agent writes that bypass the executor, policy or audit
-- Results with no usage, outcome or audit record
-- Hardcoded API paths outside `apps/web-v2/src/api/routes/`
-- Rebuilding coding tools inside Bokito
-- Importing V1 code into V2; port by copying and simplifying
+### Intelligence flow
 
-## 9. Further reading
+Features should declare which **stack stage(s)** they serve and what they hand off to next:
+
+| Stage | Question to answer |
+|-------|-------------------|
+| **Sensing** | What entered the system? From which channel? |
+| **Interpretation** | What signal type(s) does it match? |
+| **Decision** | Does a human need to choose before action? |
+| **Orchestration** | Which agent/playbook executes? |
+| **Integration** | Which external tool, workbench, or connection is involved? |
+| **Learning** | What outcome can feed back into policy or eval? |
+| **Govern & assure** | Is the change scoped, audited, reversible? |
+
+Isolated CRUD screens that do not connect to this loop are incomplete by design.
+
+### Learning by default
+
+When an action produces an outcome users care about, capture something for later improvement:
+
+- User feedback on agent output (`Feedback`)
+- Corrections on signals (confirm, dismiss, wrong-type) as few-shot examples
+- Autonomy / escalation metrics (`EvalScore`, Overview)
+- Policy tightening via Govern dials
+
+V1 uses **heuristics**, not ML fine-tuning — but the **hook must exist**. A feature that never records success, failure, or human override is unfinished.
+
+### Govern and assure
+
+Agent autonomy is only valuable if it stays **trustworthy**:
+
+- **Autonomy posture** (tenant preset): `manual` | `assisted` | `autonomous` — workspace ceiling; a signal type or playbook may sit below it
+- **Permissions** per agent (tool allowlist)
+- **Apply modes** per resource type: `draft`, `yolo`, or `decision`
+- **Trace** via `AuditEvent` and the Govern Ledger
+- **Reversibility** via `PlatformChange` rollback (30-day window where supported)
+- **Human path** for exceptions — never silent structural writes from agents
+- **Consequential tools** (money, contracts, merge PR) always ask until an Owner lowers that per tool
+
+Structural mutations flow: scope check → propose → (draft queue | yolo | decision) → apply → audit.
+
+### Human at the exception layer
+
+Automate the routine. Surface ambiguity **in context**:
+
+- Confirm chips and decision cards on the thread timeline
+- Review platform drafts on `/govern`
+- Escalate only what policy cannot resolve
+
+Avoid burying attention items in duplicate admin lists or disconnected pages.
+
+---
+
+## 4. Build phase
+
+The product is in the **initial building phase**. Prefer the cleanest design that fits the node model and north star over backward-compatibility shims. Breaking changes to frontend, backend, and database schema are acceptable when they reduce duplicate mental models or parallel stacks. Do not add migration layers or dual APIs unless explicitly requested.
+
+---
+
+## 5. Design constraints
+
+### Simplicity
+
+Prefer the **simplest design** that fits the node model. If a feature needs a second mental model for users or a parallel schema for agents, reconsider before building.
+
+**Example (wrong direction):** separate Cases hub and Decisions tab for the same conversation context. **Right direction:** Communication hub with signal labels on rows and inline decision cards.
+
+### Minimalist UI
+
+The interface should make a complex system feel **calm and obvious**:
+
+- Shared layout primitives (`PageContent`, `EmptyState`, `AppHeader`)
+- Design tokens in `apps/dashboard/src/index.css`
+- No emoji in UI copy (workspace policy)
+- One title per screen; bespoke flows (inbox 3-pane) stay intentional
+
+### Scalability
+
+Every choice should hold as tenants, agents, nodes, and messages grow:
+
+- Strict **tenant isolation** (`tenant_id` on all domain rows)
+- Composable graph instead of hard-coded product modules
+- Server-side views/queues rather than client-only filtering at scale
+
+### Alignment test
+
+Before building, ask: *Can this feature be expressed as nodes within the intelligence flow, with an optional human gate?*
+
+If not, **pause and redesign** — or explicitly document why the exception is temporary.
+
+---
+
+## 6. Agent pre-flight checklist
+
+Before implementing a feature, state (even briefly):
+
+1. **Layer** — Which Intelligence Stack stage(s)? (Sensing / Interpretation / Orchestration / Integration / Learning / Govern)
+2. **Nodes** — Which entity types are created, read, or updated? Is any **new** type justified?
+3. **Flow** — What triggers this, and what happens next in the loop?
+4. **Human gate** — `none` | `inline decision` | `Govern draft` | `manual-only`
+5. **Autonomy posture** — Does this respect tenant posture and apply modes?
+6. **Learning hook** — What outcome is captured for later improvement?
+7. **Trust** — Permissions, audit event, rollback path if agents mutate structure
+8. **UI surface** — Which existing hub? (Communication, `/os`, `/govern`, Overview, settings) — avoid a fourth comms or agent entry point
+9. **Docs** — Do operators or integrators see or do something different? If yes: look up `docs/product-help/surface-map.yaml`, update the matching `en/` and `nl/` articles, recapture screenshots when that use-case UI changed, run `python apps/api/scripts/dev/sync_product_help.py`. Internal facts go to `BOKITO_KNOWLEDGE.md`.
+
+When you learn new product facts during implementation, log them in [`BOKITO_KNOWLEDGE.md`](../BOKITO_KNOWLEDGE.md) (see `.cursor/rules/bokito-platform-knowledge.mdc`).
+
+---
+
+## 7. Anti-patterns (repo-learned)
+
+Do **not**:
+
+- Add parallel inbox / decision / message APIs for the same user mental model
+- Add new top-level rail items per Intelligence Stack layer
+- Let agent writes bypass `propose_platform_change()` or tenant apply modes
+- Ship features that produce results but never feed Learning or Govern
+- Hardcode dashboard API paths outside `apps/dashboard/src/api/routes/`
+- Introduce emoji in UI text, labels, or logs
+- Rebuild coding tools (IDE, repo browser, diff viewer) inside Bokito — connect via workbench instead
+- Duplicate operational documentation here — use `BOKITO_KNOWLEDGE.md` for facts, this doc for **intent**
+
+---
+
+## 8. Further reading
 
 | Document | Purpose |
 |----------|---------|
-| [`STRATEGY_2026-09.md`](STRATEGY_2026-09.md) | Market evidence, ranked directions, pricing hypothesis |
 | [`POSITIONING.md`](POSITIONING.md) | Category, ICP, competitors, land-and-expand |
-| [`adr/002-v2-coexistence.md`](adr/002-v2-coexistence.md) | V2 next to V1: repo, database, deploy |
-| [`architecture.md`](architecture.md) | V1 (legacy) stack map |
-| [`BOKITO_KNOWLEDGE.md`](../BOKITO_KNOWLEDGE.md) | Living product knowledge |
+| [`architecture.md`](architecture.md) | Intelligence Stack → code mapping, govern lifecycle, API groups |
+| [`BOKITO_KNOWLEDGE.md`](../BOKITO_KNOWLEDGE.md) | Living product knowledge (features, flows, SOPs) |
+| [`apps/dashboard/docs/API.md`](../apps/dashboard/docs/API.md) | Frontend API route pattern |
+| [`apps/dashboard/docs/NAVIGATION.md`](../apps/dashboard/docs/NAVIGATION.md) | Portal IA and redirects |
+| [`docs/company/README.md`](company/README.md) | English company handbook index |

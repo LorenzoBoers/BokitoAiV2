@@ -492,10 +492,6 @@
       "developers": {
         "title": "Developers",
         "blurb": "REST API, authentication, webhooks, the MCP endpoint, widget embedding and rate limits."
-      },
-      "v2": {
-        "title": "Bokito V2",
-        "blurb": "The next generation on v2.bokito.ai: one conversation surface, governed agents, modules and the MCP endpoint."
       }
     }
   },

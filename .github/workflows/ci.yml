@@ -45,59 +45,6 @@ jobs:
         env:
           VITE_BOKITO_API_URL: http://127.0.0.1:8000
 
-  api-v2:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: bokito
-          POSTGRES_PASSWORD: bokito
-          POSTGRES_DB: bokito_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U bokito"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          cache-dependency-glob: apps/api-v2/uv.lock
-      - name: Sync dependencies
-        working-directory: apps/api-v2
-        run: uv sync --extra dev --frozen
-      - name: Ruff
-        working-directory: apps/api-v2
-        run: uv run ruff check . && uv run ruff format --check .
-      - name: Pytest (real Postgres)
-        working-directory: apps/api-v2
-        env:
-          TEST_DATABASE_URL: postgresql+asyncpg://bokito:bokito@127.0.0.1:5432/bokito_test
-        run: uv run pytest -q
-      - name: Alembic head matches models
-        working-directory: apps/api-v2
-        env:
-          DATABASE_URL: postgresql+asyncpg://bokito:bokito@127.0.0.1:5432/bokito_test
-        run: uv run python scripts/check_migrations.py
-
-  web-v2:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - name: Type-check, test and build web-v2
-        run: |
-          npm run type-check --workspace apps/web-v2
-          npm run test --workspace apps/web-v2
-          npm run build --workspace apps/web-v2
-
   mobile:
     runs-on: ubuntu-latest
     steps:

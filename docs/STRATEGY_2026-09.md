@@ -1,8 +1,8 @@
 # Bokito strategy, September 2026
 
-Why V2 exists, what the market looks like, and which direction Bokito takes. Engineering north star: [`CORE_INTENT.md`](CORE_INTENT.md). Market framing: [`POSITIONING.md`](POSITIONING.md). Coexistence with V1: [`adr/002-v2-coexistence.md`](adr/002-v2-coexistence.md).
+What the market looks like and which direction Bokito takes. Engineering north star: [`CORE_INTENT.md`](CORE_INTENT.md). Market framing: [`POSITIONING.md`](POSITIONING.md).
 
-Last updated: 30 September 2026.
+Last updated: 1 October 2026. A rebuild as a second application (`apps/api-v2`, `apps/web-v2`) was attempted on 30 September and removed on 1 October; the direction below is now applied to the existing platform (`apps/api`, `apps/dashboard`, `apps/mobile`) incrementally.
 
 ---
 
@@ -64,12 +64,11 @@ Flat workspace fee in three steps (indicative EUR 49 solo, 149 team, 399 busines
 
 ## 5. What this means for the product
 
-- V2 is built as a new application next to V1. V1 is frozen as legacy and keeps running for existing tenants.
-- One mental model: the OODA loop. Observe (every inbound becomes a message in a conversation), Orient (contact, organisation, knowledge, memory, recognition as a Signal), Decide (a Decision in the thread, or policy decides), Act (a Run through the tool executor), Feedback (usage, outcomes, feedback feed policy and metrics).
-- Five operator nouns: Conversation, Contact (with Organization), Agent, Playbook, Decision. Signal is a typed recognition on a Conversation. Project leaves the core.
-- Tools-first: every mutation is a tool; REST, agents, MCP clients and the command palette call the same executor with a trust level.
-- One ledger (`runs`), one connection table, one decision resolve path, Postgres-native types, one migration baseline.
-- Govern and metering are products: policy as a table, usage events including channel costs, outcomes per conversation, Article 50 disclosure per connection by default, model provider with a region and an EU default.
+- No rebuild. The existing platform already has the thread model, channels, agents, playbooks, decisions and Govern; the direction is applied as targeted changes to it, each shipped and measured on its own.
+- One mental model: the OODA loop. Observe (every inbound becomes a message in a conversation), Orient (contact, organisation, knowledge, memory, recognition as a Signal), Decide (a Decision in the thread, or policy decides), Act (a Run through the tool executor), Feedback (usage, outcomes, feedback feed policy and metrics). New features are judged by which step they serve.
+- Operator vocabulary stays small: Conversation, Contact (with Organization), Agent, Playbook, Decision; Signal is a typed recognition on a Conversation. Surfaces that duplicate one of these are merged, not added to.
+- Govern and metering are products: one visible autonomy posture, decisions in the thread, usage including channel costs, resolved conversations and time saved as the headline numbers, Article 50 disclosure per channel, EU model default.
+- Distribution through the tools people already use: the MCP endpoint and BYOK are part of the pitch, not developer extras.
 
 ## 6. Open questions to validate
 

@@ -14,7 +14,6 @@ import {
   Plug,
   Rocket,
   ShieldCheck,
-  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import MarkdownView from '../components/docs/MarkdownView'
@@ -40,7 +39,6 @@ const SECTION_ICONS: Record<ProductHelpSectionId, LucideIcon> = {
   govern: ShieldCheck,
   integrations: Plug,
   developers: Code2,
-  v2: Sparkles,
 }
 
 function useDocsIndex(lang: string) {

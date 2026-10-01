@@ -2,7 +2,7 @@
 
 Canonical market framing for product, sales, and engineering alignment. Technical north star: [`CORE_INTENT.md`](CORE_INTENT.md). Strategy and evidence: [`STRATEGY_2026-09.md`](STRATEGY_2026-09.md).
 
-Last updated: September 2026 (V2).
+Last updated: 1 October 2026.
 
 ---
 
@@ -21,8 +21,8 @@ Last updated: September 2026 (V2).
 | Differentiator | What it means | Product proof |
 |----------------|---------------|---------------|
 | **Shared and external** | Email, WhatsApp, widget and phone land in one list next to colleagues and agents; nobody outside logs in anywhere | Communication: one conversation list, one thread model for external and internal |
-| **Decide in the thread** | Agents propose; a Decision card in the thread approves, rejects or defers; policy handles the routine | `Decision` as a message kind, one resolve path, autonomy posture |
-| **Governed control plane** | ChatGPT, Claude, Copilot and coding agents operate the workspace through MCP under the same policy; every action is audited and reversible | `/api/mcp`, tool registry, `policies`, `changes` with rollback, `audit_events` |
+| **Decide in the thread** | Agents propose; a decision card in the thread approves, rejects or defers; policy handles the routine | Decision requests rendered in the thread, one resolve path, Govern autonomy settings |
+| **Governed control plane** | ChatGPT, Claude, Copilot and coding agents operate the workspace through MCP under the same policy; every action is audited and reversible | Workspace MCP endpoint, tool allowances in Govern, change proposals with rollback, audit log |
 
 Supporting: EU hosting with an EU-default model and BYOK; Article 50 disclosure per channel; resolved conversations, time saved and channel costs as visible numbers.
 
@@ -110,5 +110,4 @@ Flat workspace fee (indicative EUR 49 / 149 / 399 per month) plus a fee per reso
 |----------|---------|
 | [`STRATEGY_2026-09.md`](STRATEGY_2026-09.md) | Market evidence and ranked directions |
 | [`CORE_INTENT.md`](CORE_INTENT.md) | Engineering north star and checklist |
-| [`adr/002-v2-coexistence.md`](adr/002-v2-coexistence.md) | How V2 runs next to V1 |
 | [`BOKITO_KNOWLEDGE.md`](../BOKITO_KNOWLEDGE.md) | Living operational facts |
