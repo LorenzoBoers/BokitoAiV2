@@ -34,7 +34,7 @@ Leden werken gesprekken af. Owners en admins wijzigen ook instellingen en beoord
 
 Om de hele workspace te verwijderen opent een eigenaar **Instellingen**, dan **Algemeen**, en gebruikt **Workspace verwijderen**. Platform support kan een tenant ook verwijderen via **Ops**.
 
-Leden beantwoorden gesprekken. Ze koppelen geen mailboxen, wijzigen Inbox AI niet en wijzigen autonomie niet. Zie [Govern](/docs/govern/govern) voor wie platformwijzigingen mag accepteren.
+Leden beantwoorden gesprekken. Ze koppelen geen mailboxen en wijzigen autonomie niet. Ze kunnen AI-afhandeling op een gesprek, contact of kanaal verlagen, maar alleen een eigenaar of beheerder kan die op Autonoom zetten. Zie [Govern](/docs/govern/govern) voor wie platformwijzigingen mag accepteren.
 
 ## Persoonlijke instellingen blijven persoonlijk
 

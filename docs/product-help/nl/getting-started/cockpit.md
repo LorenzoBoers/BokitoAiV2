@@ -17,7 +17,7 @@ Overview is de ochtendscan. Open die in de linkerrail om te zien waar jij nodig 
 *Overview toont open werk, beslissingen en recente runs.*
 
 1. Open **Overview** in de linkerrail. Je landt op de scan. De ondertitel begroet je en toont de datum van vandaag. **Bijgewerkt** naast **Vernieuwen** is de laatste geslaagde load.
-2. Scan de vier vaste blokken: **Jij bent nodig**, **Open signalen per type**, **Lopend** en **Traject**. Traject vergelijkt deze week met vorige week en linkt naar afgeronde runs, Govern-voorstellen en Verbruik.
+2. Scan de vier vaste blokken: **Jij bent nodig**, **Open signalen per type**, **Lopend** en **Traject**. Traject vergelijkt deze week met vorige week en linkt naar afgeronde runs, Govern-voorstellen en Verbruik. Onder de blokken telt **AI-afhandeling** open gesprekken per modus (**Autonoom**, **Geassisteerd**, **Handmatig**) en toont **Autonome antwoorden**, **Doorgegeven aan een persoon** en **Concepten aangepast voor verzenden** over de afgelopen 30 dagen. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
 3. Klik een rij om het gesprek, de run of een gefilterde lijst te openen. Overview zelf wijzigt geen operationele gegevens.
 
 In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via de [setupgids](/docs/getting-started/setup-guide).

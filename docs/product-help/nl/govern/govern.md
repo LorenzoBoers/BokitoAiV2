@@ -34,6 +34,19 @@ Govern heeft twee onderdelen: **Ledger** legt workspace-wijzigingen en auditgebe
 
 Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 
+## Autonome gesprekken bewaken
+
+![Kaart Gesprekken op Govern](/api/docs/assets/govern/conversations.png)
+*Het plafond voor AI-afhandeling, wat autonoom draait, en de noodrem.*
+
+1. Open onder **Autonomie** het tabblad **Beleid** en zoek **Gesprekken**. Het **Plafond** volgt de Berichten-toestemming: **Eerst vragen** begrenst elk gesprek op Geassisteerd, **Weigeren** op Handmatig.
+2. Kies **Autonome antwoorden pauzeren** om in een stap alles op Geassisteerd te begrenzen. **Autonome antwoorden toestaan** heft dat weer op.
+3. **Draait autonoom** toont de workspace-standaard, kanalen, contacten en gesprekken die zelf antwoorden.
+4. Zet onder **Signaaltypes die altijd controle nodig hebben** een type op **Altijd controleren**. Antwoorden in een gesprek met dat signaaltype worden een concept, ook als het gesprek autonoom is.
+5. Stel onder **Noodrem** **Autonome antwoorden per uur per kanaal** en **Negatieve signalen per uur per kanaal** in en kies **Grenzen noodrem opslaan**. Een geactiveerd kanaal draait Geassisteerd tot iemand het hervat vanaf het kanaal of vanaf deze kaart.
+
+Dagelijkse AI-afhandeling (workspace-standaard, uitzonderingen, waarborgen) staat onder [AI-afhandeling](/docs/inbox/inbox-ai).
+
 ## Ongedaan maken en audit
 
 1. Onder **Ledger** toont **Versiegeschiedenis** geaccepteerde wijzigingen. **Ongedaan maken** is 30 dagen beschikbaar en past een compenserende wijziging toe; de oorspronkelijke ledgerregel blijft staan.

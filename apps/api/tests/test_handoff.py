@@ -51,16 +51,18 @@ async def test_handoff_tool_pauses_thread_and_notifies(client: AsyncClient, sess
         trust="external",
     )
     assert result.get("ok") is True, result
-    assert result.get("ai_paused") is True
+    assert result.get("ai_handling") == "manual"
 
     await session_override.refresh(signal)
-    assert signal.ai_paused is True
+    assert signal.ai_handling == "manual"
+    assert signal.ai_handling_reason == "handoff_requested"
     assert signal.has_unread is True
 
     event = (
         await session_override.execute(
             select(SignalEvent).where(
-                SignalEvent.signal_id == signal.id, SignalEvent.event_type == "ai_paused"
+                SignalEvent.signal_id == signal.id,
+                SignalEvent.event_type == "ai_handling_changed",
             )
         )
     ).scalars().first()

@@ -248,8 +248,74 @@ async def apply_heuristic_guardrails(session: AsyncSession, tenant_id: UUID) -> 
             )
             updated["posture_proposal"] = "assisted"
 
+    updated["ai_handling_proposals"] = await propose_ai_handling_promotions(session, tenant)
     await session.commit()
     return updated
+
+
+# Earned autonomy: a channel whose drafts are sent unedited this often, over at
+# least this many resolved drafts in 30 days, gets a Govern promotion proposal.
+_PROMOTION_UNEDITED_RATE = 0.8
+_PROMOTION_MIN_DRAFTS = 50
+
+
+async def propose_ai_handling_promotions(session: AsyncSession, tenant: Any) -> int:
+    """Draft "Promote {channel} to Autonomous" PlatformChanges (never applied silently)."""
+    from app.models.channel import ChannelAccount
+    from app.models.platform_change import PlatformChange
+    from app.services.ai_handling import channel_mode, evidence, resolve_ai_handling
+
+    accounts = (
+        await session.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant.id, ChannelAccount.is_enabled.is_(True)
+            )
+        )
+    ).scalars().all()
+    created = 0
+    for account in accounts:
+        handling = resolve_ai_handling(tenant, account, scope="channel")
+        if handling.requested != "assisted" or handling.ceiling != "autonomous":
+            continue
+        stats = await evidence(session, tenant.id, account_id=account.id)
+        rate = stats["unedited_rate"]
+        if rate is None or stats["drafts_resolved"] < _PROMOTION_MIN_DRAFTS:
+            continue
+        if rate < _PROMOTION_UNEDITED_RATE:
+            continue
+        duplicate = (
+            await session.execute(
+                select(PlatformChange.id).where(
+                    PlatformChange.tenant_id == tenant.id,
+                    PlatformChange.resource_type == "ai_handling_channel",
+                    PlatformChange.resource_id == str(account.id),
+                    PlatformChange.status.in_(("draft", "pending_review")),
+                )
+            )
+        ).first()
+        if duplicate:
+            continue
+        label = account.display_name or account.address
+        session.add(
+            PlatformChange(
+                tenant_id=tenant.id,
+                resource_type="ai_handling_channel",
+                resource_id=str(account.id),
+                change_kind="update",
+                status="pending_review",
+                summary=(
+                    f"Promote {label} to Autonomous: {round(rate * 100)}% of "
+                    f"{stats['drafts_resolved']} drafts were sent unedited in 30 days."
+                ),
+                before_json=json.dumps({"mode": channel_mode(account)}),
+                after_json=json.dumps(
+                    {"channel_account_id": str(account.id), "mode": "autonomous"}
+                ),
+                proposed_by_type="system",
+            )
+        )
+        created += 1
+    return created
 
 
 # Escalated tool gates / rejected tool decisions that justify allow → ask.

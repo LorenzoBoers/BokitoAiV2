@@ -394,7 +394,7 @@ def resolve_channel(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """One uniform row for any channel kind: state, capabilities, checks, actions."""
-    from app.services.channel_ai import resolve_ai_mode
+    from app.services.ai_handling import breaker_tripped_at, resolve_ai_handling
     from app.services.channel_visibility import account_visibility
     from app.services.crypto import credentials_ready_from_settings, get_connection_credentials
     from app.services.email_sync import account_sync_window_days
@@ -443,7 +443,10 @@ def resolve_channel(
         "last_event_at": _iso(last_event_at),
         "last_sync_at": _iso(settings.get("last_sync_at")),
         "last_error": ctx.last_error,
-        "ai_mode": resolve_ai_mode(tenant, account, account.channel),
+        "ai_handling": {
+            **resolve_ai_handling(tenant, account, scope="channel").to_payload(),
+            "breaker_tripped_at": breaker_tripped_at(account),
+        },
         "default_agent_id": str(account.default_agent_id) if account.default_agent_id else None,
         "visibility": account_visibility(account),
         "created_at": account.created_at.isoformat(),

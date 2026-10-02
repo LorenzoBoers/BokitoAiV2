@@ -10,7 +10,14 @@
  *           defer></script>
  */
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
-import { appendSpeechChunk, consumeSpeechResults, speechWaveSvgHtml } from '@bokito/shared'
+import {
+  appendSpeechChunk,
+  assignBubbleStacks,
+  chatRunCloses,
+  chatRunLeads,
+  consumeSpeechResults,
+  speechWaveSvgHtml,
+} from '@bokito/shared'
 import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, apiGroupUrl, gatewayWebSocketUrl, livechatHttpUrl, normalizeApiOrigin, normalizeLivechatApiBase } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
 import { applyBrandToHost, parseHexColor } from './brand'
@@ -65,6 +72,14 @@ function normalizeServerTimestamp(ts) {
     return ts.trim().replace(' ', 'T') + 'Z';
   }
   return ts;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function formatTime(ts) {
@@ -496,6 +511,7 @@ const WIDGET_CSS = `
   --bk-launcher-shadow-hover: 0 14px 38px color-mix(in srgb, var(--bk-primary) 32%, rgba(2,6,23,.12)), 0 4px 12px rgba(2,6,23,.08);
   --bk-radius:        16px;
   --bk-radius-sm:     8px;
+  --bk-chat-col:      720px;
   --bk-radius-full:   100px;
   --bk-font:          'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
   --bk-font-display:  'Jaro','Montserrat',sans-serif;
@@ -504,7 +520,7 @@ const WIDGET_CSS = `
   --bk-spring:        0.4s cubic-bezier(0.175,0.885,0.32,1.275);
   --bk-launcher-transition: 0.28s cubic-bezier(0.22,1,0.36,1);
   --bk-z-widget:      2147483647;
-  --bk-bubble-size:   58px;
+  --bk-bubble-size:   50px;
   --bk-window-w:      min(400px,calc(100vw - 32px));
   --bk-window-h:      min(640px,calc(100vh - 80px));
   --bk-atmosphere-height: min(56%, 380px);
@@ -539,9 +555,9 @@ const WIDGET_CSS = `
 .bk-launcher:active{transform:scale(1.01);cursor:grabbing;}
 .bk-launcher.is-dragging{transition:none;cursor:grabbing;transform:scale(1.04);}
 .bk-launcher.is-dragging:hover{transform:scale(1.04);}
-.bk-launcher-icon{width:30px;height:30px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);}
-.bk-launcher-icon--monkey{width:34px;height:34px;transform:translateY(0.5px);}
-.bk-launcher-icon--custom{width:34px;height:34px;object-fit:contain;border-radius:8px;position:relative;z-index:1;}
+.bk-launcher-icon{width:26px;height:26px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);}
+.bk-launcher-icon--monkey{width:29px;height:29px;transform:translateY(0.5px);}
+.bk-launcher-icon--custom{width:29px;height:29px;object-fit:contain;border-radius:8px;position:relative;z-index:1;}
 .bk-launcher.has-brand-icon .bk-launcher-icon--monkey{display:none!important;}
 .bk-launcher-icon--close{color:var(--bk-launcher-close-color,#fff);position:absolute;z-index:2;transform:scale(0) rotate(-90deg);opacity:0;}
 .bk-launcher.is-open .bk-launcher-icon--chat{transform:scale(0) rotate(90deg);opacity:0;}
@@ -579,8 +595,6 @@ const WIDGET_CSS = `
 .bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-mark,var(--bk-primary));}
 .bk-header-avatar.has-brand-icon .bk-avatar-logo{display:none!important;}
 .bk-header-avatar-img{width:100%;height:100%;padding:5px;object-fit:contain;display:block;border-radius:inherit;box-sizing:border-box;}
-.bk-header-avatar-initials{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;letter-spacing:.02em;border-radius:inherit;user-select:none;}
-.bk-header-avatar.has-brand-icon .bk-header-avatar-initials[hidden]{display:none!important;}
 :host([data-preview-mode="true"]){position:relative;display:block;width:100%;height:100%;min-height:0;min-width:0;max-width:none;margin:0;--bk-z-widget:50;--bk-window-w:100%;--bk-window-h:100%;}
 :host([data-preview-mode="true"]) .bk-launcher{display:none!important;}
 :host([data-preview-mode="true"]) .bk-proactive-bubbles{display:none!important;}
@@ -742,33 +756,55 @@ const WIDGET_CSS = `
 .bk-settings-toggle input:checked+.bk-settings-toggle-slider{background:var(--bk-primary);box-shadow:inset 0 1px 2px rgba(0,0,0,.1),0 0 0 1px color-mix(in srgb,var(--bk-primary) 20%,transparent);}
 .bk-settings-toggle input:checked+.bk-settings-toggle-slider::after{transform:translateX(22px);box-shadow:0 2px 8px rgba(0,0,0,.15);}
 .bk-chat-view{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;z-index:1;}
-.bk-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth;}
+.bk-messages{flex:1;overflow-y:auto;padding:14px 12px 16px;display:flex;flex-direction:column;gap:0;scroll-behavior:smooth;}
 .bk-messages::-webkit-scrollbar{width:4px;}
 .bk-messages::-webkit-scrollbar-track{background:transparent;}
 .bk-messages::-webkit-scrollbar-thumb{background:var(--bk-border);border-radius:4px;}
-.bk-msg{display:flex;flex-direction:column;max-width:82%;animation:bk-header-in .42s cubic-bezier(.22,1,.36,1) both;}
-.bk-msg--ai{align-self:flex-start;}
-.bk-msg--user{align-self:flex-end;}
-.bk-msg-bubble{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
-.bk-msg--ai .bk-msg-bubble{background:var(--bk-bg-surface);color:var(--bk-text);border-bottom-left-radius:4px;border:1px solid var(--bk-border-light);}
-.bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 22%,var(--bk-bg-surface));color:var(--bk-text);border:1px solid color-mix(in srgb,var(--bk-primary) 32%,var(--bk-border));border-bottom-right-radius:4px;}
-:host([data-theme="light"]) .bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 14%,#fff);color:var(--bk-text);border-color:color-mix(in srgb,var(--bk-primary) 28%,var(--bk-border));}
-.bk-msg-time{font-size:11px;color:var(--bk-text-muted);margin-top:4px;padding:0 4px;}
-.bk-msg--user .bk-msg-time{text-align:right;}
+/* Bubbles follow the dashboard timeline: runs of the same author stack, the
+   first one carries avatar and name, the last one the time. */
+.bk-msg{display:flex;align-items:flex-start;gap:6px;width:100%;max-width:var(--bk-chat-col);margin:0 auto 2px;animation:bk-header-in .42s cubic-bezier(.22,1,.36,1) both;}
+.bk-msg--single,.bk-msg--end{margin-bottom:14px;}
+.bk-msg--user{flex-direction:row-reverse;}
+.bk-msg-avatar{flex:0 0 22px;width:22px;height:22px;margin-top:2px;border-radius:999px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:600;letter-spacing:.02em;}
+.bk-msg-avatar--hidden{visibility:hidden;}
+.bk-msg-avatar-img{width:100%;height:100%;object-fit:cover;}
+.bk-msg-avatar .bk-avatar-logo{width:14px;height:14px;color:var(--bk-ai-ink);}
+.bk-msg-avatar svg{width:13px;height:13px;}
+.bk-msg--ai .bk-msg-avatar{background:color-mix(in srgb,var(--bk-ai) 14%,var(--bk-bg-surface));color:var(--bk-ai-ink);border:1px solid color-mix(in srgb,var(--bk-ai) 22%,transparent);}
+.bk-msg--team .bk-msg-avatar{background:var(--bk-bg-surface);color:var(--bk-text-muted);border:1px solid var(--bk-border);}
+.bk-msg-bubble{position:relative;min-width:0;max-width:calc(100% - 28px);padding:7px 11px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
+.bk-msg--user .bk-msg-bubble{max-width:86%;}
+.bk-msg--ai .bk-msg-bubble{background:color-mix(in srgb,var(--bk-ai) 7%,var(--bk-bg-surface));color:var(--bk-text);border:1px solid color-mix(in srgb,var(--bk-ai) 20%,transparent);}
+.bk-msg--team .bk-msg-bubble{background:var(--bk-bg-surface);color:var(--bk-text);border:1px solid var(--bk-border-light);}
+.bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 13%,var(--bk-bg-surface));color:var(--bk-text);border:1px solid color-mix(in srgb,var(--bk-primary) 26%,var(--bk-border));}
+:host([data-theme="light"]) .bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 11%,#fff);border-color:color-mix(in srgb,var(--bk-primary) 24%,var(--bk-border));}
+.bk-msg--ai .bk-msg-bubble,.bk-msg--team .bk-msg-bubble{border-top-left-radius:6px;}
+.bk-msg--ai.bk-msg--start .bk-msg-bubble,.bk-msg--team.bk-msg--start .bk-msg-bubble,.bk-msg--ai.bk-msg--middle .bk-msg-bubble,.bk-msg--team.bk-msg--middle .bk-msg-bubble{border-bottom-left-radius:6px;}
+.bk-msg--user .bk-msg-bubble{border-top-right-radius:6px;}
+.bk-msg--user.bk-msg--start .bk-msg-bubble,.bk-msg--user.bk-msg--middle .bk-msg-bubble{border-bottom-right-radius:6px;}
+.bk-msg-author{display:flex;align-items:center;gap:6px;margin-bottom:2px;font-size:11.5px;line-height:1.3;}
+.bk-msg-author[hidden]{display:none;}
+.bk-msg-author-name{font-weight:600;color:var(--bk-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bk-msg-chip{flex-shrink:0;padding:0 5px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.02em;line-height:15px;}
+.bk-msg-chip--ai{background:color-mix(in srgb,var(--bk-ai) 14%,transparent);color:var(--bk-ai-ink);}
+.bk-msg-chip--team{background:var(--bk-border-light);color:var(--bk-text-muted);}
+.bk-msg-time{margin-top:2px;font-size:10.5px;line-height:1.3;color:var(--bk-text-muted);text-align:right;font-variant-numeric:tabular-nums;}
 .bk-msg-time--hidden{display:none;}
-.bk-date-sep{text-align:center;font-size:12px;color:var(--bk-text-muted);padding:8px 0;position:relative;}
+.bk-msg-disclosure{margin-top:4px;font-size:10.5px;line-height:1.35;color:var(--bk-text-muted);}
+.bk-date-sep{width:100%;max-width:var(--bk-chat-col);margin:6px auto 10px;text-align:center;font-size:11px;color:var(--bk-text-muted);padding:2px 0;position:relative;}
 .bk-date-sep::before,.bk-date-sep::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--bk-border);}
 .bk-date-sep::before{left:0;}.bk-date-sep::after{right:0;}
 .bk-msg-bubble p{margin:0 0 8px;}.bk-msg-bubble p:last-child{margin-bottom:0;}
 .bk-msg-bubble code{font-family:var(--bk-font-mono);font-size:12px;padding:1px 5px;border-radius:4px;}
 .bk-msg--ai .bk-msg-bubble code{background:var(--bk-border-light);}
-.bk-msg--user .bk-msg-bubble code{background:rgba(255,255,255,.2);}
+.bk-msg--team .bk-msg-bubble code{background:var(--bk-border-light);}
+.bk-msg--user .bk-msg-bubble code{background:color-mix(in srgb,var(--bk-primary) 18%,transparent);}
 .bk-msg-bubble pre{overflow-x:auto;margin:8px 0;}
 .bk-msg-bubble ul,.bk-msg-bubble ol{padding-left:20px;margin:8px 0;}
 .bk-msg-bubble li{margin-bottom:3px;}
 .bk-msg-bubble a{color:var(--bk-primary);}
-.bk-msg--user .bk-msg-bubble a{color:rgba(255,255,255,.9);}
-.bk-thinking,.agent-live-status{margin:4px 0;align-self:flex-start;max-width:90%;}
+.bk-msg--ai .bk-msg-bubble a{color:var(--bk-ai-ink);}
+.bk-thinking,.agent-live-status{width:100%;max-width:var(--bk-chat-col);margin:2px auto 8px;padding-left:28px;}
 .bk-thinking-dots,.agent-live-line{display:flex;align-items:center;gap:8px;padding:2px 0;background:none;border:0;border-radius:0;}
 .agent-live-line.is-current{filter:drop-shadow(0 0 10px color-mix(in srgb,var(--bk-ai) 38%,transparent));}
 .agent-live-dot{width:6px;height:6px;border-radius:999px;background:var(--bk-ai);box-shadow:0 0 8px 1px color-mix(in srgb,var(--bk-ai) 55%,transparent);animation:agent-live-dot 1.35s ease-in-out infinite;flex-shrink:0;}
@@ -840,7 +876,7 @@ const WIDGET_CSS = `
 .bk-msg-images{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-width:260px;}
 .bk-msg-img{width:120px;height:100px;object-fit:cover;border-radius:10px;cursor:pointer;border:1px solid var(--bk-border-light);transition:opacity var(--bk-transition);}
 .bk-msg-img:hover{opacity:.85;}
-.bk-msg--user .bk-msg-img{border-color:rgba(255,255,255,.2);}
+.bk-msg--user .bk-msg-img{border-color:color-mix(in srgb,var(--bk-primary) 24%,var(--bk-border-light));}
 .bk-image-viewer{position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,.88);display:flex;align-items:center;justify-content:center;padding:24px;}
 .bk-image-viewer img{max-width:min(92vw,980px);max-height:86vh;border-radius:14px;box-shadow:0 20px 48px rgba(0,0,0,.45);object-fit:contain;}
 .bk-image-viewer-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:rgba(15,23,42,.65);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--bk-transition),transform var(--bk-transition);}
@@ -929,6 +965,8 @@ const WIDGET_CHROME = {
     writing: 'Writing...',
     queuedSuffix: 'queued',
     you: 'You',
+    aiLabel: 'AI',
+    teamLabel: 'Team',
     agentBanner: 'A team member is helping you',
     offlineDefault: 'We are currently offline. Leave a message and we will get back to you.',
     toolsIntro: 'Available tools for this assistant',
@@ -1012,6 +1050,8 @@ const WIDGET_CHROME = {
     writing: 'Schrijft...',
     queuedSuffix: 'in wachtrij',
     you: 'Jij',
+    aiLabel: 'AI',
+    teamLabel: 'Team',
     agentBanner: 'Een medewerker helpt je verder',
     offlineDefault: 'We zijn momenteel offline. Laat een bericht achter, dan komen we erop terug.',
     toolsIntro: 'Beschikbare tools voor deze assistent',
@@ -1126,6 +1166,10 @@ class BokitoChatWidget extends HTMLElement {
   #bundleIdleMs = 400;
   #bundleIdleAfterInterruptMs = 400;
   #timestampClusterWindowMs = 300000;
+  /** Avatar and name for AI bubbles, mirrored from the header brand. */
+  #agentAvatarUrl = null;
+  #agentDisplayName = '';
+  #stackSeq = 0;
   #staleSuppressGraceMs = 500;
   #bundleTimer = null;
   #bundleFlushForced = false;
@@ -1320,16 +1364,7 @@ class BokitoChatWidget extends HTMLElement {
     }
   }
 
-  #headerAvatarInitials(name) {
-    const parts = String(name || '')
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-    if (!parts.length) return '';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
-  }
-
+  /** Brand image when the workspace set one, otherwise the Bokito mark. */
   #syncHeaderAvatarFromTheme(theme) {
     const t = theme && typeof theme === 'object' ? theme : {};
     const imageUrl =
@@ -1337,23 +1372,14 @@ class BokitoChatWidget extends HTMLElement {
       || (typeof t.widget_favicon_url === 'string' && t.widget_favicon_url.trim())
       || null;
     const url = imageUrl ? this.#attachmentSrc(imageUrl) : null;
-    const color = '#7c3aed';
     const name =
       typeof t.chatbot_name === 'string' && t.chatbot_name.trim()
         ? t.chatbot_name.trim()
         : (this.#sessionTenant?.name || '').trim();
-    const initials = !url && color ? this.#headerAvatarInitials(name) : '';
     const headerImg = this.#headerAvatarImg || this.#root?.querySelector('.bk-header-avatar-img');
     const launcherImg = this.#launcherIconImg || this.#root?.querySelector('.bk-launcher-icon--custom');
     const headerWrap = headerImg?.closest?.('.bk-header-avatar') || this.#root?.querySelector('.bk-header-avatar');
-    const monkey = this.#root?.querySelector('.bk-avatar-logo');
-    let initialsEl = headerWrap?.querySelector('.bk-header-avatar-initials');
-    if (headerWrap && !initialsEl) {
-      initialsEl = document.createElement('span');
-      initialsEl.className = 'bk-header-avatar-initials';
-      initialsEl.hidden = true;
-      headerWrap.appendChild(initialsEl);
-    }
+    const monkey = headerWrap?.querySelector('.bk-avatar-logo');
     if (headerImg) {
       if (url) {
         headerImg.src = url;
@@ -1372,23 +1398,10 @@ class BokitoChatWidget extends HTMLElement {
         launcherImg.hidden = true;
       }
     }
-    if (initialsEl) {
-      if (initials) {
-        initialsEl.textContent = initials;
-        initialsEl.hidden = false;
-        initialsEl.style.color = color;
-        initialsEl.style.background = `color-mix(in srgb, ${color} 12%, transparent)`;
-        headerWrap?.style.setProperty('border-color', `color-mix(in srgb, ${color} 55%, transparent)`);
-        headerWrap?.style.setProperty('background', `color-mix(in srgb, ${color} 8%, transparent)`);
-      } else {
-        initialsEl.textContent = '';
-        initialsEl.hidden = true;
-        initialsEl.removeAttribute('style');
-        headerWrap?.style.removeProperty('border-color');
-        headerWrap?.style.removeProperty('background');
-      }
-    }
-    const branded = Boolean(url || initials);
+    this.#agentAvatarUrl = url || null;
+    this.#agentDisplayName = name || '';
+    this.#refreshMessageIdentities();
+    const branded = Boolean(url);
     if (monkey) monkey.hidden = branded;
     headerWrap?.classList.toggle('has-brand-icon', branded);
     this.#launcher?.classList.toggle('has-brand-icon', Boolean(url));
@@ -1437,8 +1450,24 @@ class BokitoChatWidget extends HTMLElement {
     return { id, name, email, avatar };
   }
 
+  /**
+   * Take the host identity, or — when the session already identified the
+   * operator — only the photo the session payload did not carry.
+   */
+  #applyHostUser(user) {
+    if (!user) return;
+    if (this.#sessionUser?.id) {
+      const url = this.#extractUserAvatarUrl(user);
+      if (!url || this.#extractUserAvatarUrl(this.#sessionUser)) return;
+      this.#sessionUser = { ...this.#sessionUser, avatar_url: url };
+    } else {
+      this.#sessionUser = user;
+    }
+    this.#renderHeaderUser();
+  }
+
   async #fetchHostUserInfo() {
-    if (this.#sessionUser && this.#sessionUser.id) return;
+    if (this.#sessionUser?.id && this.#extractUserAvatarUrl(this.#sessionUser)) return;
     const cfg = window.BokitoConfig || {};
 
     let inlineUser = null;
@@ -1454,9 +1483,9 @@ class BokitoChatWidget extends HTMLElement {
     } catch {}
     const normalizedInline = this.#normalizeHostUser(inlineUser);
     if (normalizedInline) {
-      this.#sessionUser = normalizedInline;
-      this.#renderHeaderUser();
-      return;
+      this.#applyHostUser(normalizedInline);
+      // Only keep looking when the host did not hand us a photo.
+      if (this.#extractUserAvatarUrl(this.#sessionUser)) return;
     }
 
     if (!this.#hostAuthToken) return;
@@ -1473,10 +1502,7 @@ class BokitoChatWidget extends HTMLElement {
       });
       if (!res.ok) return;
       const data = await res.json();
-      const normalized = this.#normalizeHostUser(data);
-      if (!normalized) return;
-      this.#sessionUser = normalized;
-      this.#renderHeaderUser();
+      this.#applyHostUser(this.#normalizeHostUser(data));
     } catch {}
   }
 
@@ -1753,7 +1779,6 @@ class BokitoChatWidget extends HTMLElement {
           </button>
           <div class="bk-header-avatar">
             <img class="bk-header-avatar-img" alt="" hidden />
-            <span class="bk-header-avatar-initials" hidden></span>
             ${MONKEY_MARK}
           </div>
           <div class="bk-header-info">
@@ -2814,6 +2839,17 @@ class BokitoChatWidget extends HTMLElement {
     });
   }
 
+  /** Session identity wins, but never drops a photo the host already gave us. */
+  #mergeSessionUser(incoming) {
+    if (!incoming || typeof incoming !== 'object') return this.#sessionUser || null;
+    const merged = { ...incoming };
+    if (!this.#extractUserAvatarUrl(merged)) {
+      const known = this.#extractUserAvatarUrl(this.#sessionUser);
+      if (known) merged.avatar_url = known;
+    }
+    return merged;
+  }
+
   #applySessionPayload(data = {}) {
     if (!data || typeof data !== 'object') return;
     if (data.session_token) {
@@ -2822,7 +2858,7 @@ class BokitoChatWidget extends HTMLElement {
     }
     this.#identityType = data.identity_type || this.#identityType || 'anonymous';
     this.#agentConfig = data.agent_config || this.#agentConfig || null;
-    this.#sessionUser = data.user || this.#sessionUser || null;
+    this.#sessionUser = this.#mergeSessionUser(data.user);
     this.#sessionTenant = data.tenant || this.#sessionTenant || null;
     if (Array.isArray(data.mcp_servers)) this.#tenantMcpServers = data.mcp_servers;
     if (Array.isArray(this.#agentConfig?.mcp_servers)) this.#tenantMcpServers = this.#agentConfig.mcp_servers;
@@ -3474,7 +3510,7 @@ class BokitoChatWidget extends HTMLElement {
       const role = msg.classList.contains('bk-msg--user')
         ? this.#chrome('you')
         : (this.#headerName?.textContent || this.#sessionTenant?.name || 'AI');
-      const text = (msg.querySelector('.bk-msg-bubble')?.innerText || '').trim();
+      const text = (this.#bubbleBody(msg)?.innerText || '').trim();
       const time = (msg.querySelector('.bk-msg-time')?.textContent || '').trim();
       return `[${time || '--:--'}] ${role}: ${text}`;
     });
@@ -3495,8 +3531,70 @@ class BokitoChatWidget extends HTMLElement {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  #normalizeSenderType(senderType) {
-    return senderType === 'ai' || senderType === 'agent' ? 'ai' : 'user';
+  /**
+   * Bubble lane, same three author types the dashboard timeline uses: the AI,
+   * a human teammate, or the person writing in.
+   */
+  #messageLane(senderType) {
+    if (senderType === 'ai') return 'ai';
+    if (senderType === 'agent' || senderType === 'human' || senderType === 'operator') return 'team';
+    return 'user';
+  }
+
+  #laneAvatarHtml(lane) {
+    if (lane === 'team') return ICONS.user;
+    if (this.#agentAvatarUrl) {
+      return `<img class="bk-msg-avatar-img" src="${String(this.#agentAvatarUrl).replace(/"/g, '')}" alt="" loading="lazy">`;
+    }
+    return MONKEY_MARK;
+  }
+
+  #laneAuthorHtml(lane) {
+    if (lane === 'user') return '';
+    const name = lane === 'ai' ? this.#agentDisplayName : '';
+    const chip = lane === 'ai' ? this.#chrome('aiLabel') : this.#chrome('teamLabel');
+    return `<div class="bk-msg-author">${
+      name ? `<span class="bk-msg-author-name">${escapeHtml(name)}</span>` : ''
+    }<span class="bk-msg-chip bk-msg-chip--${lane}">${escapeHtml(chip)}</span></div>`;
+  }
+
+  /** Re-render avatars and author lines after the brand theme arrives. */
+  #refreshMessageIdentities() {
+    if (!this.#messageList) return;
+    for (const el of this.#messageList.querySelectorAll('.bk-msg')) {
+      const lane = el.dataset.lane || 'user';
+      if (lane === 'user') continue;
+      const avatar = el.querySelector('.bk-msg-avatar');
+      if (avatar) avatar.innerHTML = this.#laneAvatarHtml(lane);
+      const author = el.querySelector('.bk-msg-author');
+      if (author) author.outerHTML = this.#laneAuthorHtml(lane);
+    }
+  }
+
+  /**
+   * One shell for every widget bubble — rendered messages and the live
+   * streaming placeholder. Stack classes, author line and timestamp
+   * visibility are applied afterwards by #recomputeMessageStacks.
+   */
+  #createMessageShell({ lane, createdAt, bodyHtml = '', streaming = false }) {
+    const el = document.createElement('div');
+    el.className = `bk-msg bk-msg--${lane}${streaming ? ' bk-msg--streaming' : ''}`;
+    const createdAtValue = createdAt || new Date().toISOString();
+    el.dataset.createdAt = String(createdAtValue);
+    el.dataset.createdAtMs = String(this.#toEpochMs(createdAtValue) ?? Date.now());
+    el.dataset.lane = lane;
+    el.dataset.senderGroup = lane;
+    el.dataset.stackId = `m${++this.#stackSeq}`;
+    const avatar =
+      lane === 'user' ? '' : `<span class="bk-msg-avatar" aria-hidden="true">${this.#laneAvatarHtml(lane)}</span>`;
+    el.innerHTML = `${avatar}<div class="bk-msg-bubble">${this.#laneAuthorHtml(lane)}<div class="bk-msg-body">${bodyHtml}</div><div class="bk-msg-time">${formatTime(createdAtValue)}</div></div>`;
+    return el;
+  }
+
+  /** Content container of a bubble; writes go here, not on the bubble itself. */
+  #bubbleBody(el) {
+    if (!el) return null;
+    return el.querySelector('.bk-msg-body') || el.querySelector('.bk-msg-bubble');
   }
 
   #toEpochMs(value) {
@@ -3553,28 +3651,40 @@ class BokitoChatWidget extends HTMLElement {
     }
   }
 
-  #recomputeMessageTimestampVisibility() {
-    const items = [...this.#messageList.querySelectorAll('.bk-msg')];
-    for (let i = 0; i < items.length; i++) {
-      const current = items[i];
-      const next = items[i + 1] || null;
-      let shouldShow = true;
-      if (next) {
-        const sameSender = (current.dataset.senderGroup || '') === (next.dataset.senderGroup || '');
-        if (sameSender) {
-          const currentTime = this.#toEpochMs(current.dataset.createdAtMs) ?? this.#toEpochMs(current.dataset.createdAt);
-          const nextTime = this.#toEpochMs(next.dataset.createdAtMs) ?? this.#toEpochMs(next.dataset.createdAt);
-          if (Number.isFinite(currentTime) && Number.isFinite(nextTime) && Math.abs(nextTime - currentTime) <= this.#timestampClusterWindowMs) {
-            shouldShow = false;
-          } else {
-            const curLabel = (current.querySelector('.bk-msg-time')?.textContent || '').trim();
-            const nextLabel = (next.querySelector('.bk-msg-time')?.textContent || '').trim();
-            if (curLabel && nextLabel && curLabel === nextLabel) shouldShow = false;
-          }
-        }
-      }
-      const timeEl = current.querySelector('.bk-msg-time');
-      if (timeEl) timeEl.classList.toggle('bk-msg-time--hidden', !shouldShow);
+  /**
+   * Group consecutive bubbles from the same author, like the dashboard
+   * timeline: the first one carries the avatar and name, the last one the
+   * time, and the corners facing a neighbour tighten. Rules come from
+   * `@bokito/shared` so both surfaces stack identically.
+   */
+  #recomputeMessageStacks() {
+    const rows = [...this.#messageList.querySelectorAll('.bk-msg, .bk-date-sep')];
+    const stacks = assignBubbleStacks(
+      rows.map((el, index) => {
+        const isMessage = el.classList.contains('bk-msg');
+        if (isMessage && !el.dataset.stackId) el.dataset.stackId = `m${++this.#stackSeq}`;
+        return {
+          id: isMessage ? el.dataset.stackId : `sep${index}`,
+          key: isMessage ? el.dataset.lane || el.dataset.senderGroup || 'user' : null,
+          timeMs: this.#toEpochMs(el.dataset.createdAtMs) ?? this.#toEpochMs(el.dataset.createdAt) ?? 0,
+          breaksRun: !isMessage,
+        };
+      }),
+      this.#timestampClusterWindowMs,
+    );
+
+    for (const el of rows) {
+      if (!el.classList.contains('bk-msg')) continue;
+      const stack = stacks.get(el.dataset.stackId) || 'single';
+      el.classList.remove('bk-msg--single', 'bk-msg--start', 'bk-msg--middle', 'bk-msg--end');
+      el.classList.add(`bk-msg--${stack}`);
+      const lead = chatRunLeads(stack);
+      const avatar = el.querySelector('.bk-msg-avatar');
+      if (avatar) avatar.classList.toggle('bk-msg-avatar--hidden', !lead);
+      const author = el.querySelector('.bk-msg-author');
+      if (author) author.hidden = !lead;
+      const timeEl = el.querySelector('.bk-msg-time');
+      if (timeEl) timeEl.classList.toggle('bk-msg-time--hidden', !chatRunCloses(stack));
     }
   }
 
@@ -3614,7 +3724,7 @@ class BokitoChatWidget extends HTMLElement {
       this.#streamingMsgEl = null;
       this.#streamingMsgId = null;
       this.#recomputeDaySeparators();
-      this.#recomputeMessageTimestampVisibility();
+      this.#recomputeMessageStacks();
     }
   }
 
@@ -4116,7 +4226,7 @@ class BokitoChatWidget extends HTMLElement {
 
   /** Mutable bag for incremental SSE (`evt.t`) → one streaming AI bubble. */
   #createSseStreamState() {
-    return { streamEl: null, fullContent: '', msgId: null, hadTokenChunks: false };
+    return { streamEl: null, fullContent: '', msgId: null, hadTokenChunks: false, disclosure: '' };
   }
 
   /** When the server only sends `done` (no `t`), optionally reveal text in small steps so the UI streams offline too. */
@@ -4156,7 +4266,7 @@ class BokitoChatWidget extends HTMLElement {
     state.fullContent = '';
     state.msgId = savedId;
     if (state.streamEl) {
-      const b = state.streamEl.querySelector('.bk-msg-bubble');
+      const b = this.#bubbleBody(state.streamEl);
       if (b) b.textContent = '';
     } else {
       state.streamEl = null;
@@ -4201,20 +4311,14 @@ class BokitoChatWidget extends HTMLElement {
       if (sendMeta && this.#activeSend !== sendMeta) return;
       if (!state.streamEl) {
         if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('writing');
-        const el = document.createElement('div');
-        el.className = 'bk-msg bk-msg--ai bk-msg--streaming';
-        const createdAt = new Date().toISOString();
-        el.innerHTML = `<div class="bk-msg-bubble"></div><div class="bk-msg-time">${formatTime(createdAt)}</div>`;
-        el.dataset.createdAt = String(createdAt);
-        el.dataset.createdAtMs = String(this.#toEpochMs(createdAt) ?? Date.now());
-        el.dataset.senderGroup = 'ai';
+        const el = this.#createMessageShell({ lane: 'ai', createdAt: new Date().toISOString(), streaming: true });
         this.#messageList.appendChild(el);
         state.streamEl = el;
         this.#streamingMsgEl = el;
         this.#recomputeDaySeparators();
-        this.#recomputeMessageTimestampVisibility();
+        this.#recomputeMessageStacks();
       }
-      const bubble = state.streamEl?.querySelector('.bk-msg-bubble');
+      const bubble = this.#bubbleBody(state.streamEl);
       if (bubble) bubble.textContent = state.fullContent;
       this.#scrollToBottom();
     });
@@ -4267,13 +4371,14 @@ class BokitoChatWidget extends HTMLElement {
     const finalId = state.msgId ?? `stream-${Date.now()}`;
     if (state.streamEl) {
       this.#playSound('incoming');
-      const bubble = state.streamEl.querySelector('.bk-msg-bubble');
+      const bubble = this.#bubbleBody(state.streamEl);
       const prevHeight = bubble ? bubble.offsetHeight : 0;
       if (bubble) {
         if (prevHeight > 0) bubble.style.minHeight = `${prevHeight}px`;
         bubble.innerHTML = MarkdownRenderer.render(raw);
       }
       const el = state.streamEl;
+      this.#appendDisclosure(el, state.disclosure);
       requestAnimationFrame(() => {
         el.classList.remove('bk-msg--streaming');
         if (bubble) {
@@ -4287,7 +4392,7 @@ class BokitoChatWidget extends HTMLElement {
       this.#streamingMsgId = null;
       this.#streamPaintSource = null;
       this.#recomputeDaySeparators();
-      this.#recomputeMessageTimestampVisibility();
+      this.#recomputeMessageStacks();
       this.#scrollToBottom();
     } else {
       this.#thinkingEl.style.display = 'none';
@@ -4297,6 +4402,7 @@ class BokitoChatWidget extends HTMLElement {
         message_content: raw,
         sender_type: 'ai',
         created_at: new Date().toISOString(),
+        ai_disclosure: state.disclosure,
       };
       this.#appendMessage(finalObj);
       this.#renderedMsgIds.add(finalObj.id);
@@ -4411,6 +4517,7 @@ class BokitoChatWidget extends HTMLElement {
               if (evt.id != null) state.msgId = evt.id;
               if (evt.content != null) state.fullContent = String(evt.content);
               if (evt.ai_paused) state.aiPaused = true;
+              if (evt.ai_disclosure) state.disclosure = String(evt.ai_disclosure);
               break outer;
             }
           }
@@ -4533,6 +4640,7 @@ class BokitoChatWidget extends HTMLElement {
               if (evt.id != null) state.msgId = evt.id;
               if (evt.content != null) state.fullContent = String(evt.content);
               if (evt.ai_paused) state.aiPaused = true;
+              if (evt.ai_disclosure) state.disclosure = String(evt.ai_disclosure);
               break outer;
             }
           }
@@ -4658,7 +4766,7 @@ class BokitoChatWidget extends HTMLElement {
         batch += this.#deltaQueue.shift();
       }
       if (this.#streamingMsgEl) {
-        const bubble = this.#streamingMsgEl.querySelector('.bk-msg-bubble');
+        const bubble = this.#bubbleBody(this.#streamingMsgEl);
         if (bubble) {
           bubble.textContent = (bubble.textContent || '') + batch;
           this.#scrollToBottom();
@@ -4674,13 +4782,7 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#renderedMsgIds.has(obj.id)) return;
     this.#thinkingEl.style.display = 'none';
     this.#thinkingSteps.innerHTML = '';
-    const el = document.createElement('div');
-    el.className = 'bk-msg bk-msg--ai bk-msg--streaming';
-    const createdAt = obj.created_at || new Date().toISOString();
-    el.innerHTML = `<div class="bk-msg-bubble"></div><div class="bk-msg-time">${formatTime(createdAt)}</div>`;
-    el.dataset.createdAt = String(createdAt);
-    el.dataset.createdAtMs = String(this.#toEpochMs(createdAt) ?? Date.now());
-    el.dataset.senderGroup = 'ai';
+    const el = this.#createMessageShell({ lane: 'ai', createdAt: obj.created_at, streaming: true });
     this.#messageList.appendChild(el);
     this.#streamingMsgEl = el;
     this.#streamingMsgId = obj.id;
@@ -4690,14 +4792,14 @@ class BokitoChatWidget extends HTMLElement {
     this.#pendingFinalMsg = obj;
     this.#drainDeltaQueue();
     this.#recomputeDaySeparators();
-    this.#recomputeMessageTimestampVisibility();
+    this.#recomputeMessageStacks();
     this.#scrollToBottom();
   }
 
   #finalizeSteamingMsg(obj) {
     this.#renderedMsgIds.add(obj.id);
     if (this.#streamingMsgEl) {
-      const bubble = this.#streamingMsgEl.querySelector('.bk-msg-bubble');
+      const bubble = this.#bubbleBody(this.#streamingMsgEl);
       const prevHeight = bubble ? bubble.offsetHeight : 0;
       if (bubble) {
         if (prevHeight > 0) bubble.style.minHeight = `${prevHeight}px`;
@@ -4722,7 +4824,7 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#nonBlockingSend && this.#activeSend) this.#finishAssistantTurn('streaming_delta');
     else if (this.#sm.state === 'processing') this.#sm.transition('active');
     this.#recomputeDaySeparators();
-    this.#recomputeMessageTimestampVisibility();
+    this.#recomputeMessageStacks();
     this.#loadSuggestions();
   }
 
@@ -4749,18 +4851,12 @@ class BokitoChatWidget extends HTMLElement {
         if (!this.#streamingMsgEl) {
           this.#thinkingEl.style.display = 'none';
           this.#thinkingSteps.innerHTML = '';
-          const el = document.createElement('div');
-          el.className = 'bk-msg bk-msg--ai bk-msg--streaming';
-          const createdAt = obj.created_at || new Date().toISOString();
-          el.innerHTML = `<div class="bk-msg-bubble"></div><div class="bk-msg-time">${formatTime(createdAt)}</div>`;
-          el.dataset.createdAt = String(createdAt);
-          el.dataset.createdAtMs = String(this.#toEpochMs(createdAt) ?? Date.now());
-          el.dataset.senderGroup = 'ai';
+          const el = this.#createMessageShell({ lane: 'ai', createdAt: obj.created_at, streaming: true });
           this.#messageList.appendChild(el);
           this.#streamingMsgEl = el;
           this.#streamingMsgId = obj.message_id;
           this.#recomputeDaySeparators();
-          this.#recomputeMessageTimestampVisibility();
+          this.#recomputeMessageStacks();
         }
         // Queue the delta and animate via rAF for smooth streaming effect
         this.#deltaQueue.push(delta);
@@ -4932,13 +5028,12 @@ class BokitoChatWidget extends HTMLElement {
 
   #appendMessage(msg, opts = {}) {
     if (msg.id) this.#renderedMsgIds.add(msg.id);
-    const isAI = msg.sender_type === 'ai' || msg.sender_type === 'agent';
+    const lane = this.#messageLane(msg.sender_type);
+    const inbound = lane !== 'user';
     const rawText = (msg.message_content || '').trim();
     const hasAttachments = Array.isArray(msg.attachments) && msg.attachments.length > 0;
-    if (isAI && !rawText && !hasAttachments) return;
-    if (!opts.silent) this.#playSound(isAI ? 'incoming' : 'outgoing');
-    const el = document.createElement('div');
-    el.className = `bk-msg bk-msg--${isAI ? 'ai' : 'user'}`;
+    if (inbound && !rawText && !hasAttachments) return;
+    if (!opts.silent) this.#playSound(inbound ? 'incoming' : 'outgoing');
 
     // Build image grid if the message has attachments
     const attachments = msg.attachments ?? [];
@@ -4949,19 +5044,16 @@ class BokitoChatWidget extends HTMLElement {
       : '';
 
     const textContent = rawText;
-    const bubbleContent = isAI
+    const bubbleContent = inbound
       ? MarkdownRenderer.render(textContent)
       : textContent ? `<p>${textContent.replace(/</g,'&lt;')}</p>` : '';
 
-    el.innerHTML = `
-      <div class="bk-msg-bubble">${imagesHtml}${bubbleContent}</div>
-      <div class="bk-msg-time">${formatTime(msg.created_at)}</div>
-    `;
-    const createdAtValue = msg.created_at || new Date().toISOString();
-    const createdAtMs = this.#toEpochMs(createdAtValue) ?? Date.now();
-    el.dataset.createdAt = String(createdAtValue);
-    el.dataset.createdAtMs = String(createdAtMs);
-    el.dataset.senderGroup = this.#normalizeSenderType(msg.sender_type);
+    const el = this.#createMessageShell({
+      lane,
+      createdAt: msg.created_at,
+      bodyHtml: `${imagesHtml}${bubbleContent}`,
+    });
+    if (lane === 'ai') this.#appendDisclosure(el, msg.ai_disclosure);
 
     // Wire click-to-open for images
     el.querySelectorAll('.bk-msg-img').forEach((img, i) => {
@@ -4970,8 +5062,20 @@ class BokitoChatWidget extends HTMLElement {
 
     this.#messageList.appendChild(el);
     this.#recomputeDaySeparators();
-    this.#recomputeMessageTimestampVisibility();
+    this.#recomputeMessageStacks();
     this.#scrollToBottom();
+  }
+
+  /** Small "written by AI" note under an autonomous reply (workspace disclosure setting). */
+  #appendDisclosure(el, text) {
+    const label = typeof text === 'string' ? text.trim() : '';
+    if (!el || !label || el.querySelector('.bk-msg-disclosure')) return;
+    const note = document.createElement('div');
+    note.className = 'bk-msg-disclosure';
+    note.textContent = label;
+    const time = el.querySelector('.bk-msg-time');
+    if (time?.parentNode) time.parentNode.insertBefore(note, time);
+    else (el.querySelector('.bk-msg-bubble') || el).appendChild(note);
   }
 
   #isScrolledNearBottom(thresholdPx = 80) {

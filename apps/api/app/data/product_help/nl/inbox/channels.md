@@ -82,6 +82,14 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 2. Gebruik de kolom **Agent** op de rij om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder kanaalkoppeling behandelt de standaardagent nieuwe gesprekken.
 3. Maak één e-mailkanaal **Primair** als je er meerdere hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
 
+## AI-afhandeling per kanaal instellen
+
+1. Open op de kanaalrij het menu **AI-afhandeling** naast de status. Het toont de modus en **Volgt de workspace-standaard** wanneer het kanaal geen eigen instelling heeft.
+2. Kies **Autonoom**, **Geassisteerd** of **Handmatig** voor elk gesprek op dit kanaal. Kies **Volg de workspace-standaard** om het weer weg te halen. Alleen een eigenaar of beheerder kan Autonoom aanzetten.
+3. Een badge **Gepauzeerd** betekent dat de noodrem is geactiveerd na ongewone activiteit en het kanaal Geassisteerd draait. Kies **Autonoom hervatten** of **Geassisteerd houden** in hetzelfde menu.
+
+Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+
 ## Koppel WhatsApp
 
 1. Kies **Kanaal toevoegen** en daarna **WhatsApp Business**. Marketplacekaarten voor deze app sturen je hier ook heen.
@@ -103,4 +111,4 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 
 ## Wat nu
 
-Stel in wanneer concepten verschijnen onder [Inbox AI](/docs/inbox/inbox-ai). Open Communicatie en wacht op het eerste gesprek.
+Stel onder [AI-afhandeling](/docs/inbox/inbox-ai) in of de AI antwoordt, concepten maakt of stil blijft. Open Communicatie en wacht op het eerste gesprek.

@@ -232,6 +232,7 @@ async def livechat_me(
         "id": str(user.id),
         "email": user.email,
         "name": user.display_name or user.email,
+        "avatar_url": user.avatar_url or None,
     }
 
 
@@ -524,6 +525,10 @@ async def request_conversation_handoff(
         actor_id=str(user.id) if user else "",
     )
     await session.commit()
+    from app.services.ai_handling import check_breaker, load_layers
+
+    account, _contact = await load_layers(session, tenant.id, signal)
+    await check_breaker(session, tenant, account)
     return {"ok": True, "ai_paused": True}
 
 
@@ -598,14 +603,18 @@ async def get_conversation(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.services.ai_handling import resolve_for_signal
+
     tenant, user, token = ctx
     signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
+    handling = await resolve_for_signal(session, tenant, signal)
     return {
         "id": str(signal.id),
         "conversation_id": str(signal.id),
         "title": signal.subject,
         # Widget shows the "a team member is helping you" banner on reload.
-        "ai_paused": bool(signal.ai_paused),
+        # Visitor-safe: only the derived bit, never the layered payload.
+        "ai_paused": handling.effective == "manual",
         # Widget offers the rating prompt when reopening a closed conversation.
         "status": signal.status,
         "updated_at": signal.updated_at.isoformat() if signal.updated_at else None,
@@ -653,15 +662,21 @@ async def conversation_messages(
             sender_type = "agent"
         else:
             sender_type = "ai"
-        items.append(
-            {
-                "id": str(m.id),
-                "sender_type": sender_type,
-                "message_content": m.body_text or "",
-                "created_at": created.isoformat() if created else None,
-                "attachments": attachments,
-            }
-        )
+        item = {
+            "id": str(m.id),
+            "sender_type": sender_type,
+            "message_content": m.body_text or "",
+            "created_at": created.isoformat() if created else None,
+            "attachments": attachments,
+        }
+        if sender_type == "ai":
+            try:
+                meta = _json.loads(m.metadata_json or "{}")
+            except Exception:
+                meta = {}
+            if isinstance(meta, dict) and isinstance(meta.get("ai_disclosure"), str):
+                item["ai_disclosure"] = meta["ai_disclosure"]
+        items.append(item)
     return {"items": items, "per_page": per_page}
 
 

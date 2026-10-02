@@ -86,7 +86,11 @@ class Signal(SQLModel, table=True):
     assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     tags_json: str = Field(default="[]")
     has_unread: bool = Field(default=True, index=True)
-    ai_paused: bool = False
+    # Temporary AI handling override for this conversation (manual | assisted |
+    # autonomous); null follows contact -> channel -> workspace. Cleared on
+    # close; set to manual with reason "assigned" when a person is assigned.
+    ai_handling: Optional[str] = Field(default=None)
+    ai_handling_reason: Optional[str] = Field(default=None)
     # Compact next-action chips set during AI inbound processing
     # (subset of: close, assign, create_task).
     suggested_actions_json: str = Field(default="[]")

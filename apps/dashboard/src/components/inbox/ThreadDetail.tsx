@@ -27,7 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
-import type { ParsedComposerVerb } from '../../lib/composer-verbs'
+import { isAiHandlingVerb, type ParsedComposerVerb } from '../../lib/composer-verbs'
+import type { AiHandlingMode } from '../../lib/ai-handling'
 import { patchSignalThread } from '../../lib/signals-api'
 import { replyProposalFromMessage } from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
@@ -102,8 +103,12 @@ type Props = {
   loadingOlder?: boolean
   onLoadOlder?: () => void | Promise<void>
   onTogglePin?: () => void | Promise<void>
-  /** Human takeover toggle for AI-handled channels (email/widget/chat/assistant). */
-  onToggleTakeover?: () => void | Promise<void>
+  /** Conversation AI handling (picker in the header; take over / hand back). */
+  onChangeAiHandling?: (
+    mode: AiHandlingMode | null,
+    opts?: { assignToMe?: boolean; reason?: string },
+  ) => void | Promise<void>
+  aiHandlingSaving?: boolean
   /** Workspace has at least one mailbox that can send (Bokito / Gmail / Outlook). */
   canSendEmail?: boolean
   /** Mailboxes exist but none can send yet (finish setup on Channels). */
@@ -125,7 +130,7 @@ type Props = {
   onWhatsNext?: () => void
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
   const { connections } = useMailboxConnections()
@@ -527,14 +532,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
   const activeSessionId = activeSession?.id ?? null
 
-  // Land on the surface default. Takeover forces reply so the operator answers first.
+  // Land on the surface default. Manual handling forces reply so the operator answers first.
+  const handlingEffective = detail?.thread?.aiHandling?.effective ?? null
   useEffect(() => {
     const thread = detail?.thread
     if (!thread) {
       setComposerMode('reply')
       return
     }
-    if (thread.aiPaused) {
+    if (handlingEffective === 'manual') {
       setComposerMode('reply')
       return
     }
@@ -546,7 +552,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [
     threadId,
     activeSessionId,
-    detail?.thread?.aiPaused,
+    handlingEffective,
     detail?.thread?.hasOpenDecision,
     detail?.thread?.channel,
     detail?.thread,
@@ -627,9 +633,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         )
         return true
       }
+      if (isAiHandlingVerb(verb.verb)) {
+        if (!onChangeAiHandling) return false
+        await onChangeAiHandling(verb.verb, verb.arg ? { reason: verb.arg } : undefined)
+        return true
+      }
       return false
     },
-    [token, threadIdString, membersById, user?.email, t],
+    [token, threadIdString, membersById, user?.email, t, onChangeAiHandling],
   )
 
   const startSessionWith = useCallback(
@@ -966,7 +977,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         onBack={onBack}
         onToggleContact={onToggleContact}
         contactOpen={contactOpen}
-        onToggleTakeover={onToggleTakeover}
+        onChangeAiHandling={onChangeAiHandling}
+        aiHandlingSaving={aiHandlingSaving}
         onForward={onForward}
         onMarkUnread={onMarkUnread}
         onTogglePin={onTogglePin}

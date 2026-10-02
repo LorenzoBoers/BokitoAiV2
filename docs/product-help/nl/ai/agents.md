@@ -18,7 +18,7 @@ Agents zijn de AI-werkers van deze workspace. Elke agent heeft één vorm: naam,
 
 1. Open **Agents**. Bedrijfsagents staan als kaarten met hun doelgroep. Op elke kaart zie je open gesprekken en threads die een beslissing nodig hebben. Zoeken en de pillen **Alles** en **Bezig** beperken het raster.
 2. Kies **Nieuwe agent**. Vul een **Naam** in, kies de **Doelgroep**, selecteer een **Model**, beschrijf het **Doel** en kies **Agent aanmaken**.
-3. Open een kaart voor instructies, model en chattoegang. Gebruik **Chat met deze agent** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links op de detailpagina. Gerelateerde instellingen (Inbox AI, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
+3. Open een kaart voor instructies, model en chattoegang. Gebruik **Chat met deze agent** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links op de detailpagina. Gerelateerde instellingen (AI-afhandeling, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
 
 Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.** Ze kunnen nog steeds chatten vanuit Communicatie.
 
@@ -47,7 +47,7 @@ Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading). Die
 ## Beperk wie mag chatten
 
 1. Een stille agent toont **Klaar**. Open **Communicatie** op de agentpagina (chattoegang). Kies **Iedereen**, **Geselecteerde gebruikers** of **Niemand**.
-2. **Niemand** houdt achtergrondwerk (Agenda, Inbox AI) zonder directe chat vanuit Communicatie.
+2. **Niemand** houdt achtergrondwerk (Agenda, AI-afhandeling) zonder directe chat vanuit Communicatie.
 3. Om een agent uit de bibliotheek te halen, gebruik **Archiveren** onder het ···-menu.
 
 ## Voeg een agenthandtekening toe

@@ -61,8 +61,6 @@ export const appRoutes = {
     messageCancel: (messageId: string) => `/signals/messages/${messageId}/cancel`,
     threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
-    threadTakeover: (threadId: string) => `/signals/${threadId}/takeover`,
-    threadRelease: (threadId: string) => `/signals/${threadId}/release`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
     threadAgentCandidates: (threadId: string) => `/signals/${threadId}/agent-candidates`,
     threadSessions: (threadId: string) => `/signals/${threadId}/sessions`,
@@ -92,9 +90,6 @@ export const appRoutes = {
   },
   learning: {
     feedback: '/learning/feedback',
-  },
-  inbox: {
-    settings: '/inbox/settings',
   },
   orchestration: {
     tasks: '/orchestration/tasks',

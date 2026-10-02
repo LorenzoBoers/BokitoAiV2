@@ -554,6 +554,25 @@ async def create_reply_suggestion(
     }
 
 
+async def _disclosure_line(session: AsyncSession, tenant_id: UUID, signal: Signal) -> str | None:
+    """AI disclosure for an autonomous reply, in the customer-facing language."""
+    from app.models.auth import Tenant
+    from app.models.channel import ChannelAccount
+    from app.services.ai_handling import disclosure_text
+    from app.services.language import resolve_reply_language, resolve_workspace_language
+
+    tenant = await session.get(Tenant, tenant_id)
+    account = (
+        await session.get(ChannelAccount, signal.channel_account_id)
+        if signal.channel_account_id
+        else None
+    )
+    language = resolve_reply_language(tenant, account)
+    if language == "auto":
+        language = resolve_workspace_language(tenant)
+    return disclosure_text(tenant, language=language)
+
+
 async def persist_inbound_agent_reply(
     session: AsyncSession,
     tenant_id: UUID,
@@ -563,22 +582,24 @@ async def persist_inbound_agent_reply(
     reply_text: str,
     run_id: UUID | None = None,
     tokens: dict | None = None,
-    mode: str = "suggest",
+    mode: str = "assisted",
     llm_live: bool | None = None,
 ) -> dict:
-    """Persist agent output on an inbound thread according to the AI mode.
+    """Persist agent output on an inbound thread according to the AI handling.
 
-    ``suggest`` creates an inline DecisionRequest for human approval;
-    ``auto`` appends the reply and delivers it externally where supported.
+    ``assisted`` creates an inline DecisionRequest for human approval;
+    ``autonomous`` appends the reply and delivers it externally where supported.
 
     When ``llm_live`` is False (mock / no key), never deliver externally and
     stamp the message so the timeline never labels it as sent to the customer.
     """
+    from app.services import ai_handling
     from app.services.signal_threads import _is_placeholder_preview
 
+    mode = ai_handling.normalize_mode(mode) or "assisted"
     text = (reply_text or "").strip()
-    if text in _SKIP_REPLIES or signal.ai_paused:
-        return {"skipped": True, "reason": "empty_or_paused"}
+    if text in _SKIP_REPLIES or ai_handling.is_held(signal):
+        return {"skipped": True, "reason": "empty_or_manual"}
 
     if llm_live is None:
         # Infer from body when the caller did not pass the resolved model flag.
@@ -604,7 +625,7 @@ async def persist_inbound_agent_reply(
                 state_reason=str(row.get("state_reason") or ""),
             )
 
-    if mode == "suggest":
+    if mode != "autonomous":
         outcome = await create_reply_suggestion(
             session,
             tenant_id,
@@ -634,6 +655,10 @@ async def persist_inbound_agent_reply(
     text = parts.body
     if looks_like_meta_draft(text):
         return {"skipped": True, "reason": "meta_draft"}
+    disclosure = await _disclosure_line(session, tenant_id, signal)
+    if disclosure and signal.channel == "email":
+        # One-line footer above the signature (the signature is appended at send).
+        text = f"{text.rstrip()}\n\n{disclosure}"
     if signal.channel == "email":
         text, _html = format_customer_email_body(text)
     if parts.internal_note:
@@ -651,7 +676,9 @@ async def persist_inbound_agent_reply(
         session.add(note_message)
         await session.flush()
 
-    metadata: dict = {"inbound_auto_reply": True}
+    metadata: dict = {"inbound_auto_reply": True, "ai_handling": "autonomous"}
+    if disclosure:
+        metadata["ai_disclosure"] = disclosure
     if run_id:
         metadata["run_id"] = str(run_id)
     if tokens:
@@ -722,6 +749,11 @@ async def persist_inbound_agent_reply(
         )
     )
     await session.commit()
+    if not is_mock_reply:
+        from app.models.auth import Tenant
+
+        account, _contact = await ai_handling.load_layers(session, tenant_id, signal)
+        await ai_handling.check_breaker(session, await session.get(Tenant, tenant_id), account)
     return {
         "message_id": str(message.id),
         "delivery": delivery_status,

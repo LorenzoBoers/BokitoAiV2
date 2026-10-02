@@ -34,7 +34,7 @@ Members work conversations. Owners and admins also change settings and review Go
 
 To delete the whole workspace, an owner opens **Settings**, then **General**, and uses **Delete workspace**. Platform support can also delete a tenant from **Ops**.
 
-Members answer threads. They do not connect mailboxes, change Inbox AI, or change autonomy. See [Govern](/docs/govern/govern) for who may accept platform changes.
+Members answer threads. They do not connect mailboxes or change autonomy. They can lower AI handling on a conversation, contact or channel, but only an owner or admin can raise it to Autonomous. See [Govern](/docs/govern/govern) for who may accept platform changes.
 
 ## Personal settings stay personal
 

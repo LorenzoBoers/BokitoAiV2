@@ -2,9 +2,10 @@
 
 One shared path for every way a conversation can escalate to the team:
 the agent's ``handoff_to_human`` tool and the widget visitor's own
-"talk to a human" action both land here. Pauses AI replies on the thread
-(``Signal.ai_paused``), records an ``ai_paused`` SignalEvent, publishes the
-thread update, and alerts owners/admins (notification category ``handoff``).
+"talk to a human" action both land here. Sets the conversation's AI handling
+to manual (reason ``handoff_requested``), records an ``ai_handling_changed``
+SignalEvent, publishes the thread update, and alerts owners/admins
+(notification category ``handoff``).
 """
 
 from __future__ import annotations
@@ -73,25 +74,22 @@ async def request_human_handoff(
     actor_type: str = "user",
     actor_id: str = "",
 ) -> bool:
-    """Escalate ``signal`` to the team. Returns True when newly paused."""
+    """Escalate ``signal`` to the team. Returns True when newly held."""
     from app.gateway.publish import publish_thread_update
     from app.services.ops_alerts import notify_tenant_admins
 
+    from app.services.ai_handling import REASON_HANDOFF, hold_conversation, is_held
+
     newly_paused = False
-    if not signal.ai_paused:
-        signal.ai_paused = True
+    if not is_held(signal):
         signal.has_unread = True
-        signal.updated_at = datetime.utcnow()
-        session.add(signal)
-        session.add(
-            SignalEvent(
-                signal_id=signal.id,
-                tenant_id=tenant_id,
-                event_type="ai_paused",
-                actor_type=actor_type,
-                actor_id=actor_id,
-                payload_json=json.dumps({"ai_paused": True, "via": via, "reason": reason}),
-            )
+        hold_conversation(
+            session,
+            signal,
+            reason=REASON_HANDOFF,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            via=via,
         )
         await session.flush()
         await publish_thread_update(signal)

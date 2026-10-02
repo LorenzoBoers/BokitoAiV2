@@ -515,53 +515,45 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
     if signal.channel in ("internal", "assistant"):
         return {"error": f"Channel {signal.channel} has no external party to converse with"}
 
-    # Customer/visitor handoff pauses until a human acts. Agents must not
-    # silently resume AI after "talk to a human".
-    if signal.ai_paused:
-        latest_pause = (
-            await ctx.session.execute(
-                select(SignalEvent)
-                .where(
-                    SignalEvent.signal_id == signal.id,
-                    SignalEvent.tenant_id == ctx.tenant_id,
-                    SignalEvent.event_type == "ai_paused",
-                )
-                .order_by(SignalEvent.created_at.desc())
-                .limit(1)
-            )
-        ).scalars().first()
-        via = ""
-        if latest_pause and latest_pause.payload_json:
-            try:
-                via = str(json.loads(latest_pause.payload_json).get("via") or "")
-            except json.JSONDecodeError:
-                via = ""
-        if via in (
-            "handoff_to_human",
-            "visitor_request",
-            "visitor_handoff",
-            "widget_handoff",
-            "request_human",
-        ):
-            return {
-                "error": (
-                    "AI is paused because the customer asked for a human. "
-                    "A team member must reply or hand the thread back to AI."
-                ),
-                "ai_paused": True,
-                "signal_id": str(signal.id),
-            }
+    from app.services.ai_handling import (
+        REASON_ESCALATED,
+        REASON_HANDOFF,
+        conversation_mode,
+        release_conversation,
+    )
+
+    # Customer/visitor handoff holds the thread until a human acts. Agents must
+    # not silently resume AI after "talk to a human".
+    if conversation_mode(signal) == "manual" and (signal.ai_handling_reason or "") in (
+        REASON_HANDOFF,
+        REASON_ESCALATED,
+    ):
+        return {
+            "error": (
+                "AI handling is manual because the customer asked for a human. "
+                "A team member must reply or hand the thread back to AI."
+            ),
+            "ai_handling": "manual",
+            "signal_id": str(signal.id),
+        }
 
     signal.agent_id = ctx.agent.id
-    signal.ai_paused = False
     signal.assigned_user_id = None
     signal.updated_at = datetime.utcnow()
+    release_conversation(
+        ctx.session,
+        signal,
+        reason=str(tool_input.get("reason") or "").strip(),
+        actor_type="agent",
+        actor_id=str(ctx.agent.id),
+        via="take_over_conversation",
+    )
     ctx.session.add(signal)
     ctx.session.add(
         SignalEvent(
             signal_id=signal.id,
             tenant_id=ctx.tenant_id,
-            event_type="ai_resumed",
+            event_type="agent_assigned",
             actor_type="agent",
             actor_id=str(ctx.agent.id),
             payload_json=json.dumps(
@@ -579,7 +571,7 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
     return {
         "ok": True,
         "signal_id": str(signal.id),
-        "ai_paused": False,
+        "ai_handling": None,
         "handling_agent": ctx.agent.name,
         "note": (
             "You now handle this conversation and answer the next inbound "
@@ -619,9 +611,14 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     if signal.status == "closed":
         return {"ok": True, "signal_id": str(signal.id), "status": "closed", "already_closed": True}
 
+    from app.services.ai_handling import on_status_change
+
     signal.status = "closed"
     signal.snoozed_until = None
     signal.has_unread = False
+    on_status_change(
+        ctx.session, signal, actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or "")
+    )
     signal.updated_at = datetime.utcnow()
     ctx.session.add(signal)
     ctx.session.add(
@@ -725,10 +722,11 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
 
 
 async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Escalate a conversation to the team: pause AI replies, alert operators.
+    """Escalate a conversation to the team: set AI handling to manual, alert operators.
 
     The visitor keeps chatting in the same thread; a team member takes over
-    from the inbox (``Signal.ai_paused`` silences the agent until released).
+    from the inbox (the manual conversation override silences the agent until
+    someone hands it back).
     """
     from app.models.signal import Signal
     from app.services.handoff import request_human_handoff
@@ -763,7 +761,7 @@ async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     return {
         "ok": True,
         "signal_id": str(signal.id),
-        "ai_paused": True,
+        "ai_handling": "manual",
         "note": (
             "The team has been notified and AI replies are paused on this thread. "
             "Tell the visitor a team member will take over in this same conversation."
@@ -806,7 +804,6 @@ async def _request_callback(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     return {
         "ok": True,
         "signal_id": str(signal.id),
-        "ai_paused": False,
         "note": (
             "The team has been notified to get back later. Chat stays open. "
             "Tell the visitor the team is away and will follow up in this conversation."
@@ -1472,6 +1469,113 @@ register_tool(
             "required": [],
         },
         handler=_take_over_conversation,
+    )
+)
+
+async def _set_ai_handling(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Change AI handling at one layer (shared by the two scoped tools).
+
+    Same direction rule as the API: lowering is free, raising to autonomous
+    needs an owner/admin session (agents act as members).
+    """
+    from fastapi import HTTPException
+
+    from app.models.auth import Tenant
+    from app.services.ai_handling import normalize_mode, set_ai_handling
+
+    scope = str(tool_input.get("scope") or "conversation")
+    target = str(tool_input.get("target_id") or "")
+    if scope == "conversation" and not target and ctx.signal_id:
+        target = str(ctx.signal_id)
+    raw_mode = tool_input.get("mode")
+    mode = None if raw_mode in (None, "", "inherit", "follow") else normalize_mode(raw_mode)
+    if raw_mode not in (None, "", "inherit", "follow") and mode is None:
+        return {"error": "mode must be autonomous, assisted, manual or inherit"}
+    tenant = await ctx.session.get(Tenant, ctx.tenant_id)
+    if tenant is None:
+        return {"error": "Workspace not found"}
+    if scope == "workspace":
+        target = str(ctx.tenant_id)
+    if not target:
+        return {"error": "target_id required"}
+    role = ctx.user_role if ctx.user_id and ctx.user_role else "member"
+    try:
+        result = await set_ai_handling(
+            ctx.session,
+            tenant,
+            scope,
+            target,
+            mode,
+            actor_type="user" if ctx.user_id and not ctx.agent else "agent",
+            actor_id=str(ctx.user_id if ctx.user_id and not ctx.agent else (ctx.agent.id if ctx.agent else "")),
+            role=role,
+            reason=str(tool_input.get("reason") or "").strip() or None,
+        )
+    except HTTPException as exc:
+        return {"error": str(exc.detail)}
+    return {"ok": True, "scope": scope, "target_id": target, "ai_handling": result.to_payload()}
+
+
+async def _set_thread_ai_handling(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    if str(tool_input.get("scope") or "conversation") not in ("conversation", "contact"):
+        return {"error": "Use set_channel_ai_handling for channel or workspace scope"}
+    return await _set_ai_handling(ctx, tool_input)
+
+
+async def _set_channel_ai_handling(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    if str(tool_input.get("scope") or "") not in ("channel", "workspace"):
+        return {"error": "Use set_ai_handling for conversation or contact scope"}
+    return await _set_ai_handling(ctx, tool_input)
+
+
+register_tool(
+    ToolSpec(
+        name="set_ai_handling",
+        description=(
+            "Change how the AI handles a conversation or a contact: autonomous "
+            "(replies on its own within Govern), assisted (drafts for approval) or "
+            "manual (a person replies). Use mode inherit to follow the layer above. "
+            "Conversation values last until the conversation closes. Raising to "
+            "autonomous needs an owner or admin."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "scope": {"type": "string", "enum": ["conversation", "contact"]},
+                "target_id": {
+                    "type": "string",
+                    "description": "Conversation (signal) id or contact id. Defaults to the current conversation.",
+                },
+                "mode": {"type": "string", "enum": ["autonomous", "assisted", "manual", "inherit"]},
+                "reason": {"type": "string"},
+            },
+            "required": ["mode"],
+        },
+        handler=_set_thread_ai_handling,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="set_channel_ai_handling",
+        description=(
+            "Change AI handling for a whole channel (mailbox, website chat, WhatsApp) "
+            "or the workspace default: autonomous, assisted or manual (inherit clears "
+            "a channel value). Raising to autonomous needs an owner or admin."
+        ),
+        category="channels",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "scope": {"type": "string", "enum": ["channel", "workspace"]},
+                "target_id": {"type": "string", "description": "Channel account id (channel scope)."},
+                "mode": {"type": "string", "enum": ["autonomous", "assisted", "manual", "inherit"]},
+                "reason": {"type": "string"},
+            },
+            "required": ["scope", "mode"],
+        },
+        handler=_set_channel_ai_handling,
     )
 )
 

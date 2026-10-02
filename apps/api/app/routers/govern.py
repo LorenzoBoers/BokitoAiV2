@@ -118,8 +118,17 @@ async def get_posture(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.services.ai_handling import autonomous_override_count, governance_ceiling
+
     prereq = await _autonomous_prerequisites(session, auth)
-    return {**_allowance_state(auth.tenant), "prerequisites": prereq}
+    ceiling, clamped_by = governance_ceiling(auth.tenant)
+    return {
+        **_allowance_state(auth.tenant),
+        "prerequisites": prereq,
+        # AI handling ceiling for conversations (same messaging allowance).
+        "conversation_ceiling": {"mode": ceiling, "clamped_by": clamped_by},
+        "autonomous_overrides": await autonomous_override_count(session, auth.tenant),
+    }
 
 
 @router.put("/posture")
@@ -205,6 +214,9 @@ async def list_autonomy_scopes(
                 "slug": row.slug,
                 "name": row.name,
                 "autonomy_level": row.autonomy_level,
+                # draft/ask: replies on threads with this type never go out
+                # autonomously (AI handling safeguard).
+                "send_mode": row.send_mode,
             }
             for row in case_types
         ],

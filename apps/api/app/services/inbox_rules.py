@@ -463,9 +463,12 @@ async def apply_rule_to_signal(
     result: dict[str, Any] = {"rule_applied": True, **payload}
 
     if rule.action == "auto_close":
+        from app.services.ai_handling import on_status_change
+
         signal.status = "closed"
         signal.has_unread = False
         signal.snoozed_until = None
+        on_status_change(session, signal)
         signal.updated_at = now
         session.add(signal)
         result["delivery"] = "auto_closed"

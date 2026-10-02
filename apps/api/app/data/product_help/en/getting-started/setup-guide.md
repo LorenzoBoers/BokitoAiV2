@@ -1,7 +1,7 @@
 ---
 title: Workspace setup guide
 intro: Configure the workspace — branding, team, channels, knowledge, agents and autonomy.
-description: The complete setup checklist: branding, members, channels, Inbox AI, knowledge, agents and autonomy posture.
+description: The complete setup checklist: branding, members, channels, AI handling, knowledge, agents and autonomy posture.
 keywords: setup, configuration, workspace, branding, checklist, onboarding
 sort: 30
 related: quickstart,channels,members,agents,autonomy
@@ -26,11 +26,11 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 2. Invite the people who will answer customers.
 3. See [Invite the team](/docs/getting-started/members).
 
-## Connect channels and Inbox AI
+## Connect channels and set AI handling
 
 1. Create a Bokito address or connect every mailbox under **Settings**, then **Channels**. See [Channels](/docs/inbox/channels).
 2. Add routing, signatures and a few saved replies.
-3. Open [Inbox AI](/docs/inbox/inbox-ai) under **Settings** → **AI replies**. Start email on **Suggest replies**. Website chat can wait until the widget is installed.
+3. Open [AI handling](/docs/inbox/inbox-ai) under **Settings** → **AI replies**. Start the workspace on **Assisted**. Website chat can wait until the widget is installed.
 4. Website chat and WhatsApp can wait until mail runs.
 
 ## Load knowledge and agents

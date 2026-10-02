@@ -25,14 +25,14 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 ## Approve, edit or decline
 
 1. Read the proposal in context of the conversation.
-2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Create task** or **Keep open**. Suggested-reply cards from [Inbox AI](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
-3. Under agent messages, small icons mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent — hover an icon to see its label. Escalate pauses AI on the thread and assigns you.
+2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Create task** or **Keep open**. Suggested-reply cards from [AI handling](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
+3. Hover an agent message: icons next to the bubble mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent. Hover an icon to see its label. Escalate sets the conversation to Manual and assigns you.
 
 ## Answer from a notification
 
 1. Choose the decision in the bell menu, or open the push notification on your phone. Both open Decisions on that thread and jump straight to the waiting card.
 2. Read the card's source line: it names where the request came from — a project queue, an agent run, or a proposed workspace change — and links to it.
-3. Answer in the thread. Inbox AI suggestions still need a human send unless autonomy allows more.
+3. Answer in the thread. Assisted drafts still need a human send; only Autonomous conversations send on their own.
 4. Under **Settings**, then **Notifications**, open **Notify me about**. Turn **In-app**, **Email**, **Push** or **Slack** on per row — for example **When an agent needs your decision on an assigned conversation**, **When a customer asks for a human**, **When an agent run or trigger fails**, or budget alerts at 80% / 100%. Use **Pause in-app alerts**, **Restore recommended**, or **Preview a notification** when you are tuning the set. Push applies to this browser only; connect Slack under **Channels** before Slack toggles work.
 
 ## When agents ask

@@ -29,6 +29,8 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 2. Set **Handling agent** — that agent answers new widget conversations. New workspaces default to **Front desk** (the customer-facing agent). The widget name follows this agent unless you set **Assistant name**.
 3. Under **Welcome messages**, set **Welcome title** and **Welcome subtitle**. Under **Colors**, pick **Accent**. **Widget icon** follows Branding unless you upload an override. Under **What visitors see**, turn modules **Home**, **Messages**, **Help** or **Tools** on or off. Choose **Save changes** and reload the staging page. Leaving with unsaved Look changes asks you to confirm.
 
+The chat itself uses the same bubble design as [Communication](/docs/inbox/communication): messages from the same author within five minutes stack into one group, the first bubble of a group carries the avatar and name, and the last one carries the time. Assistant replies show the agent avatar with an **AI** chip; a reply from a colleague shows a **Team** chip instead, so visitors can see who answered.
+
 ## Set Voice, hours and the pre-chat form
 
 1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not**, then **Save changes**. The model itself is set on the agent page.
@@ -47,4 +49,4 @@ The website widget follows the visitor's system light or dark setting. There is 
 
 ## What to do next
 
-Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [Inbox AI](/docs/inbox/inbox-ai) (website chat is often **Reply automatically**). Typed intake from chat is a [case](/docs/ai/cases), not a second inbox.
+Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [AI handling](/docs/inbox/inbox-ai) (website chat is often **Autonomous**). With **Disclose AI replies** on, autonomous answers show a short note under the bubble. Typed intake from chat is a [case](/docs/ai/cases), not a second inbox.

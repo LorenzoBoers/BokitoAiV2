@@ -130,3 +130,15 @@ export {
   SPEECH_WAVE_BARS,
   type SpeechResultLike,
 } from './speech-dictation.js'
+
+export {
+  assignBubbleStacks,
+  chatRunCloses,
+  chatRunLeads,
+  CHAT_COLUMN_MAX_PX,
+  CHAT_RUN_GAP_PX,
+  CHAT_STACK_GAP_MS,
+  CHAT_STACK_GAP_PX,
+  type BubbleStack,
+  type ChatStackInput,
+} from './chat-layout.js'

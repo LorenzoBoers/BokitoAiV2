@@ -11,14 +11,8 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.learning import Feedback
 from app.models.notification import UserNotificationPreference
-from app.services.channel_ai import AI_MODES, default_ai_mode, inbox_policy, tenant_channel_ai_modes
 
 router = APIRouter(tags=["inbox-settings"])
-
-
-class InboxSettingsUpdate(BaseModel):
-    autonomous_reply: bool | None = None
-    certainty_threshold: int | None = None
 
 
 class FeedbackCreate(BaseModel):
@@ -33,8 +27,7 @@ class PersonaUpdate(BaseModel):
     dont_text: str | None = None
 
 
-class AiModesUpdate(BaseModel):
-    channel_ai_modes: dict[str, str] | None = None
+class AiLanguageUpdate(BaseModel):
     # "auto" (mirror the customer's language) or a fixed ISO code (nl, en, ...).
     reply_language: str | None = None
     # Language for AI text addressed to the team (summaries, explanations).
@@ -43,61 +36,27 @@ class AiModesUpdate(BaseModel):
     reply_send_as: str | None = None
 
 
-@router.get("/inbox/settings")
-async def get_inbox_settings(
+@router.get("/settings/ai-language")
+async def get_ai_language(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
 ):
-    return inbox_policy(auth.tenant)
+    """AI language policy and the default sender identity for approved drafts.
 
-
-@router.put("/inbox/settings")
-async def update_inbox_settings(
-    body: InboxSettingsUpdate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    if body.certainty_threshold is not None and not 1 <= body.certainty_threshold <= 10:
-        raise HTTPException(status_code=400, detail="certainty_threshold must be 1-10")
-    tenant = auth.tenant
-    settings = json.loads(tenant.settings_json or "{}")
-    inbox = settings.get("inbox")
-    if not isinstance(inbox, dict):
-        inbox = {}
-    if body.autonomous_reply is not None:
-        inbox["autonomous_reply"] = body.autonomous_reply
-    if body.certainty_threshold is not None:
-        inbox["certainty_threshold"] = body.certainty_threshold
-    settings["inbox"] = inbox
-    tenant.settings_json = json.dumps(settings)
-    session.add(tenant)
-    await session.commit()
-    return {"ok": True}
-
-
-@router.get("/settings/ai-modes")
-async def get_ai_modes(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-):
-    """Tenant-wide AI mode per channel plus AI language policy."""
+    How the AI handles conversations lives under ``/api/ai-handling``.
+    """
     from app.services.language import resolve_reply_language, resolve_workspace_language
     from app.services.signatures import tenant_reply_send_as
 
-    modes = tenant_channel_ai_modes(auth.tenant)
     return {
-        "channel_ai_modes": {
-            channel: modes.get(channel) or default_ai_mode(channel)
-            for channel in ("email", "widget", "whatsapp")
-        },
         "reply_language": resolve_reply_language(auth.tenant, None),
         "workspace_language": resolve_workspace_language(auth.tenant),
         "reply_send_as": tenant_reply_send_as(auth.tenant),
     }
 
 
-@router.put("/settings/ai-modes")
-async def update_ai_modes(
-    body: AiModesUpdate,
+@router.put("/settings/ai-language")
+async def update_ai_language(
+    body: AiLanguageUpdate,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -109,12 +68,6 @@ async def update_ai_modes(
     )
 
     auth.require_role("owner", "admin")
-    for channel, mode in (body.channel_ai_modes or {}).items():
-        if mode not in AI_MODES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid mode '{mode}' for channel '{channel}' (use suggest|auto|off)",
-            )
     if body.reply_language is not None and body.reply_language not in REPLY_LANGUAGE_CHOICES:
         raise HTTPException(status_code=400, detail="Invalid reply_language")
     if (
@@ -129,11 +82,6 @@ async def update_ai_modes(
 
     tenant = auth.tenant
     settings = json.loads(tenant.settings_json or "{}")
-    modes = settings.get("channel_ai_modes")
-    if not isinstance(modes, dict):
-        modes = {}
-    modes.update(body.channel_ai_modes or {})
-    settings["channel_ai_modes"] = modes
     if body.reply_language is not None:
         settings["ai_reply_language"] = body.reply_language
     if body.workspace_language is not None:
@@ -144,7 +92,6 @@ async def update_ai_modes(
     session.add(tenant)
     await session.commit()
     return {
-        "channel_ai_modes": modes,
         "reply_language": resolve_reply_language(tenant, None),
         "workspace_language": resolve_workspace_language(tenant),
         "reply_send_as": tenant_reply_send_as(tenant),
@@ -281,6 +228,14 @@ async def create_feedback(
         )
     session.add(fb)
     await session.commit()
+    if sentiment == "down":
+        from app.models.signal import Signal
+        from app.services.ai_handling import check_breaker, load_layers
+
+        signal = await session.get(Signal, message.signal_id)
+        if signal is not None:
+            account, _contact = await load_layers(session, auth.tenant.id, signal)
+            await check_breaker(session, auth.tenant, account)
     return {"id": str(fb.id), "score": score, "sentiment": sentiment}
 
 

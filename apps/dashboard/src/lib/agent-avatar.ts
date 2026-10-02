@@ -83,7 +83,7 @@ export type AgentAvatarKind = 'initials' | 'icon' | 'image'
 /** Fields every surface needs to render the same agent mark. */
 export type AgentAvatarProps = {
   name?: string | null
-  seed?: string | null
+  seed?: string
   kind?: AgentAvatarKind | string | null
   icon?: string | null
   imageUrl?: string | null
@@ -102,14 +102,17 @@ export function resolveAgentAvatarIcon(key: string | null | undefined): LucideIc
 export function toAiAvatarProps(
   source: {
     name?: string | null
-    id?: string | null
+    id?: string | number | null
     seed?: string | null
     avatar_kind?: string | null
     avatar_icon?: string | null
     avatar_image_url?: string | null
+    /** Accepted and ignored: agents share platform AI violet. */
+    avatar_color?: string | null
     agentAvatarKind?: string | null
     agentAvatarIcon?: string | null
     agentAvatarImageUrl?: string | null
+    agentAvatarColor?: string | null
     agentName?: string | null
     agentId?: string | null
   } | null | undefined,
@@ -120,7 +123,7 @@ export function toAiAvatarProps(
   }
   return {
     name: source.name || source.agentName || fallbackName,
-    seed: source.seed || source.id || source.agentId || undefined,
+    seed: String(source.seed || source.agentId || source.id || '') || undefined,
     kind: source.avatar_kind ?? source.agentAvatarKind,
     icon: source.avatar_icon ?? source.agentAvatarIcon,
     imageUrl: source.avatar_image_url ?? source.agentAvatarImageUrl,

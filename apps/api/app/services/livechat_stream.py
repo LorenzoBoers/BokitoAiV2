@@ -114,11 +114,15 @@ async def get_or_create_widget_thread(
         )
         session.add(contact)
         await session.flush()
+    from app.services.tenant_bootstrap import ensure_widget_channel
+
+    account = await ensure_widget_channel(session, tenant.id, commit=False)
     signal = Signal(
         tenant_id=tenant.id,
         channel="widget",
         source="widget",
         subject="Website chat",
+        channel_account_id=account.id,
         contact_id=contact.id,
         contact_name=contact.display_name,
         has_unread=False,
@@ -165,10 +169,12 @@ async def widget_stream_events(
             await emit_webhook_event(
                 session, tenant.id, "signal.created", signal_event_data(signal)
             )
-        # Human takeover: a team member owns this thread, so the AI stays silent.
-        # The visitor's message is persisted (and published to the gateway above)
-        # so the operator sees it live and replies via the dashboard.
-        if signal.ai_paused:
+        from app.services import ai_handling
+
+        # A team member holds this thread (manual override), so the AI stays
+        # silent. The visitor's message is persisted (and published to the
+        # gateway above) so the operator sees it live and replies via the dashboard.
+        if ai_handling.is_held(signal):
             payload = {
                 "type": "done",
                 "content": "",
@@ -177,18 +183,20 @@ async def widget_stream_events(
             }
             yield f"data: {json.dumps(payload)}\n\n"
             return
-        # Visitor threads honour the tenant's widget AI mode. `auto` streams a
-        # live reply below; `suggest` drafts a reply card for the team instead;
-        # `off` leaves the thread to humans entirely.
+        # Visitor threads follow AI handling for the widget channel, contact and
+        # conversation. Autonomous streams a live reply below; assisted drafts a
+        # reply card for the team instead; manual leaves the thread to humans.
         if signal.channel == "widget":
-            from app.services.channel_ai import resolve_ai_mode
-
-            ai_mode = resolve_ai_mode(tenant, None, "widget")
-            if ai_mode != "auto":
+            account, contact = await ai_handling.load_layers(session, tenant.id, signal)
+            handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal)
+            run_mode, _reason = await ai_handling.apply_safeguards(
+                session, tenant, signal, handling, contact=contact
+            )
+            if run_mode != "autonomous":
                 if signal.subject == "Website chat" and message:
                     signal.subject = message[:60]
-                    await session.commit()
-                if ai_mode == "suggest":
+                await session.commit()
+                if run_mode == "assisted":
                     from app.workers.tasks import enqueue_signal_processing
 
                     await enqueue_signal_processing(str(tenant.id), str(signal.id))
@@ -244,9 +252,23 @@ async def widget_stream_events(
                     session, tenant, loop.last_rag_hits, limit=2
                 )
                 final += format_related_articles(articles)
+            disclosure: str | None = None
             if signal:
+                metadata: dict[str, Any] | None = None
+                if signal.channel == "widget":
+                    from app.services.inbound_agent import _disclosure_line
+
+                    disclosure = await _disclosure_line(session, tenant.id, signal)
+                    metadata = {"ai_handling": "autonomous"}
+                    if disclosure:
+                        metadata["ai_disclosure"] = disclosure
                 await append_signal_chat_message(
-                    session, signal, role="assistant", content=final, author_agent_id=agent.id
+                    session,
+                    signal,
+                    role="assistant",
+                    content=final,
+                    author_agent_id=agent.id,
+                    metadata=metadata,
                 )
                 if signal.subject in ("New conversation", "Website chat") and message:
                     signal.subject = message[:60]
@@ -255,9 +277,14 @@ async def widget_stream_events(
 
                     apply_suggested_actions(signal)
                 await session.commit()
+                if signal.channel == "widget":
+                    account, _contact = await ai_handling.load_layers(session, tenant.id, signal)
+                    await ai_handling.check_breaker(session, tenant, account)
             payload: dict[str, Any] = {"type": "done", "content": final}
             if signal:
                 payload["conversation_id"] = str(signal.id)
+            if disclosure:
+                payload["ai_disclosure"] = disclosure
             yield f"data: {json.dumps(payload)}\n\n"
             final_sent = True
             return

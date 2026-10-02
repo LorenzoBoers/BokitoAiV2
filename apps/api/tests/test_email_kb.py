@@ -40,7 +40,7 @@ async def test_email_ai_config_roundtrip(client: AsyncClient):
 
     got = await client.get(f"{API}/email/connections/{mailbox_id}/ai-config", headers=headers)
     assert got.status_code == 200
-    assert got.json()["ai_config"]["suggestions_enabled"] is False
+    assert "suggestions_enabled" not in got.json()["ai_config"]
     assert got.json()["ai_config"]["tone"] == "informeel"
 
 

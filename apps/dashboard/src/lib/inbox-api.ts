@@ -10,6 +10,7 @@ import {
   apiGet as apiGetApp,
 } from './api'
 import { isMockAgentBody } from './activity-labels'
+import { normalizeAiHandling, type AiHandling } from './ai-handling'
 import type { ResolveDecisionResult, ThreadSession } from './signals-api'
 
 // ---------------------------------------------------------------------------
@@ -55,10 +56,8 @@ export type InboxThread = {
   isPinned: boolean
   /** True when an agent decision card is still waiting on a human. */
   hasOpenDecision?: boolean
-  /** True when a human operator has taken over and the AI is paused. */
-  aiPaused?: boolean
-  /** Effective channel AI mode for this thread (account → tenant → default, Govern-clamped). */
-  aiMode?: 'suggest' | 'auto' | 'off' | null
+  /** Resolved AI handling (workspace, channel, contact, conversation; Govern-capped). */
+  aiHandling?: AiHandling | null
   /** Next-action chips set by AI inbound processing (close / assign / create_task). */
   suggestedActions?: string[]
   /** AI triage (category / urgency 0-100 / certainty 0-100), null until triaged. */
@@ -395,11 +394,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     hasUnread: Boolean(raw.has_unread),
     hasOpenDecision: Boolean(raw.has_open_decision),
     isPinned: Boolean(raw.is_pinned),
-    aiPaused: Boolean(raw.ai_paused),
-    aiMode: (() => {
-      const mode = asString(raw.ai_mode)
-      return mode === 'suggest' || mode === 'auto' || mode === 'off' ? mode : null
-    })(),
+    aiHandling: normalizeAiHandling(raw.ai_handling),
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
       : [],
@@ -606,10 +601,8 @@ import {
   markSignalThreadUnread,
   patchSignalThread,
   pinSignalThread,
-  releaseSignalThread,
   replyToSignalThread,
   resolveSignalDecision,
-  takeoverSignalThread,
   unpinSignalThread,
   updateSignalNote,
 } from './signals-api'
@@ -731,16 +724,6 @@ export async function draftThreadReply(
   return typeof payload.draft === 'string' ? payload.draft : ''
 }
 
-/** Human takeover: pause the AI on a thread so an operator owns the reply. */
-export async function takeoverThread(token: string, threadId: ThreadId): Promise<boolean> {
-  return takeoverSignalThread(token, String(threadId))
-}
-
-/** Hand a thread back to the AI agent. */
-export async function releaseThread(token: string, threadId: ThreadId): Promise<boolean> {
-  return releaseSignalThread(token, String(threadId))
-}
-
 export async function resolveThreadDecision(
   token: string,
   threadId: ThreadId,
@@ -768,16 +751,8 @@ export async function listInboxMembers(token: string): Promise<InboxMember[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Channel AI modes (tenant-wide: how the AI handles inbound customer messages)
+// AI language and sender (tenant-wide). AI handling itself: lib/ai-handling-api.
 // ---------------------------------------------------------------------------
-
-export type AiMode = 'suggest' | 'auto' | 'off'
-
-export type ChannelAiModes = {
-  email: AiMode
-  widget: AiMode
-  whatsapp: AiMode
-}
 
 /** "auto" mirrors the customer's language; otherwise a fixed ISO code. */
 export type ReplyLanguage = 'auto' | 'nl' | 'en' | 'de' | 'fr' | 'es'
@@ -787,7 +762,6 @@ export type WorkspaceLanguage = Exclude<ReplyLanguage, 'auto'>
 export type ReplySendAs = 'user' | 'agent'
 
 export type AiCommunicationSettings = {
-  modes: ChannelAiModes
   replyLanguage: ReplyLanguage
   workspaceLanguage: WorkspaceLanguage
   replySendAs: ReplySendAs
@@ -797,14 +771,10 @@ const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
 
 export async function getAiCommunicationSettings(token: string): Promise<AiCommunicationSettings> {
   const payload = await apiGet<{
-    channel_ai_modes?: Record<string, string>
     reply_language?: string
     workspace_language?: string
     reply_send_as?: string
-  }>(policyRoutes.aiModes(), token)
-  const modes = payload.channel_ai_modes ?? {}
-  const valid = (value: unknown, fallback: AiMode): AiMode =>
-    value === 'suggest' || value === 'auto' || value === 'off' ? value : fallback
+  }>(policyRoutes.aiLanguage(), token)
   const replyLanguage = REPLY_LANGUAGES.includes(payload.reply_language as ReplyLanguage)
     ? (payload.reply_language as ReplyLanguage)
     : 'auto'
@@ -814,11 +784,6 @@ export async function getAiCommunicationSettings(token: string): Promise<AiCommu
       ? (payload.workspace_language as WorkspaceLanguage)
       : 'en'
   return {
-    modes: {
-      email: valid(modes.email, 'suggest'),
-      widget: valid(modes.widget, 'auto'),
-      whatsapp: valid(modes.whatsapp, 'suggest'),
-    },
     replyLanguage,
     workspaceLanguage,
     replySendAs: payload.reply_send_as === 'agent' ? 'agent' : 'user',
@@ -828,44 +793,20 @@ export async function getAiCommunicationSettings(token: string): Promise<AiCommu
 export async function saveAiCommunicationSettings(
   token: string,
   input: {
-    modes?: Partial<ChannelAiModes>
     replyLanguage?: ReplyLanguage
     workspaceLanguage?: WorkspaceLanguage
     replySendAs?: ReplySendAs
   },
 ): Promise<void> {
   await apiPut(
-    policyRoutes.aiModes(),
+    policyRoutes.aiLanguage(),
     {
-      channel_ai_modes: input.modes,
       reply_language: input.replyLanguage,
       workspace_language: input.workspaceLanguage,
       reply_send_as: input.replySendAs,
     },
     token,
   )
-}
-
-// ---------------------------------------------------------------------------
-// Triage settings (certainty threshold used by AI signal classification)
-// ---------------------------------------------------------------------------
-
-export type InboxTriageSettings = {
-  /** 1-10; triage below this certainty never raises thread priority. */
-  certaintyThreshold: number
-}
-
-export async function getInboxTriageSettings(token: string): Promise<InboxTriageSettings> {
-  const payload = await apiGet<{ certainty_threshold?: number }>(appRoutes.inbox.settings, token)
-  const raw = payload.certainty_threshold
-  return { certaintyThreshold: typeof raw === 'number' && raw >= 1 && raw <= 10 ? raw : 7 }
-}
-
-export async function saveInboxTriageSettings(
-  token: string,
-  input: InboxTriageSettings,
-): Promise<void> {
-  await apiPut(appRoutes.inbox.settings, { certainty_threshold: input.certaintyThreshold }, token)
 }
 
 // ---------------------------------------------------------------------------

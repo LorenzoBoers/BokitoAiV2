@@ -63,6 +63,12 @@ export type AllowanceState = {
   presets: PosturePreset[]
   learning_history?: LearningAllowanceNote[]
   prerequisites?: AutonomyPrerequisites
+  /** GET /posture only: AI handling ceiling from the messaging allowance. */
+  conversation_ceiling?: {
+    mode: 'autonomous' | 'assisted' | 'manual'
+    clamped_by: 'govern' | 'privacy' | 'breaker' | null
+  }
+  autonomous_overrides?: number
 }
 
 export type LearningAllowanceNote = {
@@ -94,6 +100,8 @@ export type AutonomyScopeRow = {
   slug?: string
   name: string
   autonomy_level: AutonomyScopeLevel
+  /** Case types only: draft/ask means replies are never sent autonomously. */
+  send_mode?: 'draft' | 'ask' | 'send'
 }
 
 export type AutonomyScopesResponse = {

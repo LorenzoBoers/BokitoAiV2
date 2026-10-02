@@ -234,4 +234,5 @@ async def test_handoff_denied_outside_team_hours(client: AsyncClient, session_ov
         trust="external",
     )
     assert callback.get("ok") is True
-    assert callback.get("ai_paused") is False
+    await session_override.refresh(signal)
+    assert signal.ai_handling is None

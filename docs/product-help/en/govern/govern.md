@@ -34,6 +34,19 @@ Govern has two sections: **Ledger** records workspace changes and audit events, 
 
 Per-agent overrides live on the agent page under Tools and permissions.
 
+## Guard autonomous conversations
+
+![Govern Conversations card](/api/docs/assets/govern/conversations.png)
+*The ceiling for AI handling, what runs autonomously, and the circuit breaker.*
+
+1. Under **Autonomy**, open **Policy** and find **Conversations**. The **Ceiling** follows the Messaging allowance: **Ask first** caps every conversation at Assisted, **Deny** at Manual.
+2. Choose **Pause autonomous replies** to cap everything at Assisted in one step. **Allow autonomous replies** lifts the cap again.
+3. **Running autonomously** lists the workspace default, channels, contacts and conversations that answer on their own.
+4. Under **Signal types that always need review**, set a type to **Always review**. Replies on a conversation with that signal type become a draft, even when the conversation is autonomous.
+5. Under **Circuit breaker**, set **Autonomous replies per hour per channel** and **Negative signals per hour per channel**, then **Save breaker limits**. A tripped channel runs Assisted until someone resumes it from the channel or from this card.
+
+Day-to-day AI handling (workspace default, exceptions, safeguards) lives under [AI handling](/docs/inbox/inbox-ai).
+
 ## Undo and audit
 
 1. Under **Ledger**, **Version history** lists accepted changes. **Undo** is available for 30 days and applies a compensating change; the original ledger entry remains.

@@ -1,4 +1,4 @@
-import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Text, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Copy, Loader2, Mail, MessageSquareWarning, Pencil, Phone, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labels'
@@ -17,9 +17,17 @@ import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment, ThreadId
 import { getMessage } from '../../lib/inbox-api'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
 import { AI_PILL_CLASS, AiMark } from '../ai/AiMark'
+import { AiHandlingIcon } from '../ai/AiHandlingIcon'
+import { normalizeMode, type AiHandlingMode } from '../../lib/ai-handling'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { BubbleHeader, ChatMessageBubble, type BubbleVariant } from './ChatBubble'
+import {
+  BubbleAction,
+  BubbleHeader,
+  ChatMessageBubble,
+  type BubbleStack,
+  type BubbleVariant,
+} from './ChatBubble'
 import MessageAttachments from './MessageAttachments'
 import MessageMarkdown from './MessageMarkdown'
 import ReasoningDisclosure from './ReasoningDisclosure'
@@ -49,6 +57,8 @@ type MessageItemProps = {
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
   agentAvatarImageUrl?: string | null
+  /** WhatsApp-style group position among consecutive same-author bubbles. */
+  stack?: BubbleStack
 }
 
 type EventItemProps = {
@@ -161,7 +171,7 @@ function isSimpleMessageHtml(html: string): boolean {
 function SimpleMessageHtml({ html }: { html: string }) {
   return (
     <div
-      className="text-xs text-text-primary leading-relaxed break-words [&_img]:mt-4 [&_img]:block [&_img]:max-w-[260px] [&_img]:h-auto"
+      className="break-words [&_img]:mt-4 [&_img]:block [&_img]:max-w-[260px] [&_img]:h-auto"
       dangerouslySetInnerHTML={{ __html: mentionMarkupToHtmlChips(html) }}
     />
   )
@@ -709,6 +719,35 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   escalated: (t) => t('timeline.events.escalated'),
   ai_paused: (t) => t('timeline.events.aiPaused'),
   ai_resumed: (t) => t('timeline.events.aiResumed'),
+  ai_handling_changed: (t, p, name) => {
+    const to = normalizeMode(p.to)
+    if (!to) {
+      return name
+        ? t('timeline.events.handlingClearedBy', { name })
+        : t('timeline.events.handlingCleared')
+    }
+    const reason = typeof p.reason === 'string' ? p.reason : ''
+    if (to === 'manual' && reason && reason !== 'operator' && !name) {
+      return t('timeline.events.handlingHeld', {
+        reason: t(`common:aiHandling.reasons.${reason}`, { defaultValue: reason }),
+      })
+    }
+    const mode = t(`common:aiHandling.modes.${to}.label`)
+    return name
+      ? t('timeline.events.handlingSetBy', { name, mode })
+      : t('timeline.events.handlingSet', { mode })
+  },
+  ai_handling_downgraded: (t, p) => {
+    const reason = typeof p.reason === 'string' ? p.reason : ''
+    return t('timeline.events.handlingDowngraded', {
+      reason: t(`timeline.events.downgradeReasons.${reason}`, { defaultValue: reason }),
+    })
+  },
+  ai_breaker_tripped: (t) => t('timeline.events.breakerTripped'),
+  agent_assigned: (t, p) =>
+    typeof p.agent_name === 'string' && p.agent_name
+      ? t('timeline.events.agentAssigned', { name: p.agent_name })
+      : t('timeline.events.agentAssignedGeneric'),
   decision_approved: (t, _, name) =>
     name ? t('timeline.events.approvedBy', { name }) : t('timeline.events.suggestionApproved'),
   decision_dismissed: (t, _, name) =>
@@ -740,7 +779,24 @@ const AI_EVENT_TYPES = new Set([
   'rule_applied',
 ])
 
-function eventPresentation(eventType: string): { ai: boolean; icon: ReactNode } {
+function handlingEventMode(eventType: string, payload: Record<string, unknown>): AiHandlingMode | null {
+  if (eventType === 'ai_handling_changed') return normalizeMode(payload.to) ?? 'assisted'
+  if (eventType === 'ai_handling_downgraded' || eventType === 'ai_breaker_tripped') return 'assisted'
+  if (eventType === 'agent_assigned') return 'autonomous'
+  return null
+}
+
+function eventPresentation(
+  eventType: string,
+  payload: Record<string, unknown> = {},
+): { ai: boolean; icon: ReactNode } {
+  const handlingMode = handlingEventMode(eventType, payload)
+  if (handlingMode) {
+    return {
+      ai: handlingMode !== 'manual',
+      icon: <AiHandlingIcon mode={handlingMode} size={10} />,
+    }
+  }
   if (eventType === 'decision_approved') return { ai: true, icon: <Check size={10} /> }
   if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={10} /> }
   if (AI_EVENT_TYPES.has(eventType) || (eventType && eventType.startsWith('decision_'))) {
@@ -773,7 +829,7 @@ function EventPill({
   memberNameFor?: MemberNameResolver
 }) {
   const { t } = useTranslation('communication')
-  const { ai, icon } = eventPresentation(event.eventType)
+  const { ai, icon } = eventPresentation(event.eventType, event.payload ?? {})
   const payloadTitle =
     event.payload && Object.keys(event.payload).length > 0
       ? JSON.stringify(event.payload)
@@ -782,10 +838,8 @@ function EventPill({
     <span
       title={payloadTitle}
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
-        ai
-          ? cn(AI_PILL_CLASS, 'ai-glow')
-          : 'border-border/40 bg-bg-surface text-text-muted',
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
+        ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
       )}
     >
       {icon}
@@ -817,17 +871,29 @@ function EmailMessageBlock({
   avatar,
   header,
   body,
+  meta,
+  actions,
 }: {
   avatar: ReactNode
   header: ReactNode
   body: ReactNode
+  meta?: ReactNode
+  actions?: ReactNode
 }) {
   return (
-    <div className="flex w-full items-start gap-2">
-      {avatar}
-      <div className="w-full min-w-0 rounded-xl rounded-bl-sm border border-border/60 bg-bg-surface px-3 py-2">
+    <div className="msg-bubble-enter group/bubble flex w-full items-start gap-2">
+      <span className="flex w-7 shrink-0 justify-center">{avatar}</span>
+      <div className="relative w-full min-w-0 rounded-[18px] rounded-tl-[6px] bg-bg-surface px-3.5 py-2.5 text-base leading-relaxed text-text-primary ring-1 ring-inset ring-border/60">
         {header}
         {body}
+        {meta ? (
+          <div className="mt-1 flex justify-end text-2xs leading-none text-text-muted tabular-nums">{meta}</div>
+        ) : null}
+        {actions ? (
+          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-0.5 rounded-lg bg-bg-surface/95 p-0.5 opacity-0 shadow-sm ring-1 ring-border/50 transition-opacity group-hover/bubble:pointer-events-auto group-hover/bubble:opacity-100">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -879,14 +945,14 @@ function MessageFeedbackControls({
 
   const buttonClass = (active: boolean) =>
     cn(
-      'flex h-5 w-5 items-center justify-center rounded transition-colors',
-      active ? 'text-accent bg-accent/10' : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
+      'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+      active ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
     )
 
   const correctLabel = t('decisionCard.correctInterpretation')
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5 border-r border-border/50 pr-0.5">
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -895,7 +961,7 @@ function MessageFeedbackControls({
             className={buttonClass(sentiment === 'up')}
             onClick={() => vote('up')}
           >
-            <ThumbsUp size={11} />
+            <ThumbsUp size={12} />
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">{t('decisionCard.feedbackGood')}</TooltipContent>
@@ -908,7 +974,7 @@ function MessageFeedbackControls({
             className={buttonClass(sentiment === 'down')}
             onClick={() => vote('down')}
           >
-            <ThumbsDown size={11} />
+            <ThumbsDown size={12} />
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">{t('decisionCard.feedbackPoor')}</TooltipContent>
@@ -920,7 +986,7 @@ function MessageFeedbackControls({
               type="button"
               aria-label={correctLabel}
               disabled={starting}
-              className="ml-0.5 flex h-5 w-5 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
               onClick={() =>
                 void startCorrection({
                   threadId,
@@ -932,7 +998,7 @@ function MessageFeedbackControls({
                 })
               }
             >
-              {starting ? <Loader2 size={11} className="animate-spin" /> : <MessageSquareWarning size={11} />}
+              {starting ? <Loader2 size={12} className="animate-spin" /> : <MessageSquareWarning size={12} />}
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">{correctLabel}</TooltipContent>
@@ -957,8 +1023,9 @@ export function MessageTimelineItem({
   agentAvatarIcon,
   agentAvatarColor,
   agentAvatarImageUrl,
+  stack = 'single',
 }: MessageItemProps) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const { user, token } = useAuth()
   const [enriched, setEnriched] = useState<Pick<
     InboxMessage,
@@ -1181,35 +1248,25 @@ export function MessageTimelineItem({
 
   const noteEditControls =
     isEditableNote && !editingNote ? (
-      <span className="ml-auto flex items-center gap-0.5 shrink-0">
-        <button
-          type="button"
-          aria-label={t('timeline.events.editNote')}
-          disabled={noteBusy}
-          onClick={startNoteEdit}
-          className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-bg-hover/60 hover:text-text-primary transition-colors disabled:opacity-40"
-        >
-          <Pencil size={10} />
-        </button>
-        <button
-          type="button"
-          aria-label={t('timeline.events.deleteNote')}
+      <>
+        <BubbleAction label={t('timeline.events.editNote')} disabled={noteBusy} onClick={startNoteEdit}>
+          <Pencil size={12} />
+        </BubbleAction>
+        <BubbleAction
+          label={t('timeline.events.deleteNote')}
           disabled={noteBusy}
           onClick={() => void removeNote()}
-          className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-status-error/10 hover:text-status-error transition-colors disabled:opacity-40"
         >
-          <Trash2 size={10} />
-        </button>
-      </span>
+          <Trash2 size={12} />
+        </BubbleAction>
+      </>
     ) : null
 
   const inboundHeader = (
-    <div className="flex items-baseline gap-1.5 mb-1 min-w-0">
-      <span className="font-medium text-text-heading text-xs truncate-fade">{inboundName}</span>
-      {inboundEmail && inboundEmail !== inboundName ? (
-        <span className="text-2xs text-text-muted truncate-fade">{inboundEmail}</span>
-      ) : null}
-    </div>
+    <BubbleHeader
+      name={inboundName}
+      subtitle={inboundEmail && inboundEmail !== inboundName ? inboundEmail : undefined}
+    />
   )
 
   // Header per author type. Own customer replies skip the name; internal
@@ -1221,7 +1278,6 @@ export function MessageTimelineItem({
         <BubbleHeader
           name={isOwn ? t('timeline.events.you') : authorName}
           subtitle={t('timeline.internalNote')}
-          trailing={noteEditControls}
         />
       )
     }
@@ -1248,15 +1304,15 @@ export function MessageTimelineItem({
       )
     }
     if (authorKind === 'teammate') {
-      return (
-        <div className="mb-1 flex min-w-0 items-center gap-1.5">
-          <span className="truncate-fade text-xs font-medium text-text-heading">{authorName}</span>
-          <RoleChip kind="team" />
-        </div>
-      )
+      return <BubbleHeader name={authorName} chip={<RoleChip kind="team" />} />
     }
-    // self: no name header — only a delivery error when sending failed, or a
-    // pending marker while the soft-undo window is open.
+    return null
+  })()
+
+  // Own messages carry no name; delivery problems and the soft-undo window
+  // render inside the bubble so they stay visible mid-run.
+  const selfStatusLine = (() => {
+    if (authorKind !== 'self' || isInternal) return null
     if (sendFailed) {
       // Translate known failure codes so the operator knows what to do
       // (reconnect the mailbox vs just retry) instead of a bare label.
@@ -1358,85 +1414,95 @@ export function MessageTimelineItem({
         {t('timeline.ccLine', { recipients: message.cc })}
       </div>
     ) : null
-  const bubbleBodyWithMeta = ccLine ? (
-    <div>
-      {ccLine}
-      {bubbleBody}
-    </div>
-  ) : (
-    bubbleBody
-  )
-
-  const bubble = useFullWidthEmailCard ? (
-    <EmailMessageBlock avatar={contactAvatar} header={inboundHeader} body={bubbleBodyWithMeta} />
-  ) : (
-    <ChatMessageBubble side={side} avatar={avatar} header={header} body={bubbleBodyWithMeta} variant={variant} />
-  )
-
-  const inspectRow =
-    displayBody && !sendFailed ? (
-      <div
-        className={cn(
-          'mt-0.5 flex gap-0.5 opacity-0 pointer-events-none transition-opacity',
-          'group-hover/msg:opacity-100 group-hover/msg:pointer-events-auto',
-          'focus-within:opacity-100 focus-within:pointer-events-auto',
-          side === 'right' ? 'justify-end' : 'justify-start',
-        )}
-      >
-        {displayBody && !sendFailed ? (
-          <button
-            type="button"
-            aria-label={t('timeline.copyBody')}
-            title={t('timeline.copyBody')}
-            onClick={() => {
-              void navigator.clipboard.writeText(displayBody).then(
-                () => toast.success(t('timeline.bodyCopied')),
-                () => toast.error(t('timeline.copyFailed')),
-              )
-            }}
-            className="flex h-5 w-5 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-accent"
-          >
-            <Text size={11} />
-          </button>
-        ) : null}
+  const bubbleBodyWithMeta =
+    ccLine || selfStatusLine ? (
+      <div>
+        {selfStatusLine}
+        {ccLine}
+        {bubbleBody}
       </div>
+    ) : (
+      bubbleBody
+    )
+
+  const sentAt = message.receivedAt ?? message.createdAt
+  const timeMeta = sentAt ? (
+    <time dateTime={sentAt} title={new Date(sentAt).toLocaleString(i18n.language)}>
+      {formatHourMinute(sentAt, i18n.language)}
+    </time>
+  ) : null
+
+  const copyAction =
+    displayBody && !sendFailed && !editingNote ? (
+      <BubbleAction
+        label={t('timeline.copyBody')}
+        onClick={() => {
+          void navigator.clipboard.writeText(displayBody).then(
+            () => toast.success(t('timeline.bodyCopied')),
+            () => toast.error(t('timeline.copyFailed')),
+          )
+        }}
+      >
+        <Copy size={12} />
+      </BubbleAction>
+    ) : null
+  const actions =
+    copyAction || feedbackRow || noteEditControls ? (
+      <>
+        {feedbackRow}
+        {noteEditControls}
+        {copyAction}
+      </>
     ) : null
 
-  if (!message.agentTrace && !message.hasAgentTrace && !feedbackRow) {
-    return (
-      <div className="group/msg">
-        {bubble}
-        {inspectRow}
-      </div>
-    )
-  }
+  const bubble = useFullWidthEmailCard ? (
+    <EmailMessageBlock
+      avatar={contactAvatar}
+      header={inboundHeader}
+      body={bubbleBodyWithMeta}
+      meta={timeMeta}
+      actions={actions}
+    />
+  ) : (
+    <ChatMessageBubble
+      side={side}
+      avatar={avatar}
+      header={header}
+      body={bubbleBodyWithMeta}
+      meta={timeMeta}
+      actions={actions}
+      variant={variant}
+      stack={stack}
+    />
+  )
 
+  if (!message.agentTrace && !message.hasAgentTrace) return bubble
+
+  const traceIndent = isOwn ? 'ml-auto' : 'ml-9'
   return (
-    <div className={cn('group/msg flex flex-col space-y-0.5', isOwn ? 'items-end' : 'items-start')}>
+    <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
       {message.agentTrace ? (
         <ReasoningDisclosure
           thinking={message.agentTrace.thinking}
           steps={message.agentTrace.steps}
           usage={message.agentTrace.usage}
-          className={cn(isOwn ? 'ml-auto mr-9' : 'ml-9', 'max-w-[78%]')}
+          className={cn(traceIndent, 'max-w-[85%]')}
         />
-      ) : message.hasAgentTrace ? (
+      ) : (
         <button
           type="button"
           disabled={enriching}
           onClick={() => void ensureFullMessage()}
           className={cn(
-            isOwn ? 'ml-auto mr-9' : 'ml-9',
-            'max-w-[78%] inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-secondary disabled:opacity-60',
+            traceIndent,
+            'inline-flex max-w-[85%] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-secondary disabled:opacity-60',
           )}
         >
           {enriching ? <Loader2 size={11} className="animate-spin" /> : null}
           {t('timeline.showActivity')}
         </button>
-      ) : null}
-      {bubble}
-      {inspectRow}
-      {feedbackRow ? <div className={cn(isOwn ? 'mr-9' : 'ml-9')}>{feedbackRow}</div> : null}
+      )}
+      <div className="w-full">{bubble}</div>
     </div>
   )
 }

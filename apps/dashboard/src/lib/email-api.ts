@@ -44,14 +44,10 @@ export function isSendableMailbox(item: EmailConnection): boolean {
   return item.status === 'active' || item.status === 'connected'
 }
 
-export type MailboxAiMode = 'suggest' | 'auto' | 'off'
-
 /** '' = follow the workspace default; 'auto' mirrors the customer's language. */
 export type MailboxReplyLanguage = '' | 'auto' | 'nl' | 'en' | 'de' | 'fr' | 'es'
 
 export type AiInboxConfig = {
-  /** Empty string = follow the workspace default for email. */
-  mode: MailboxAiMode | ''
   /** Language for drafted replies; empty string = workspace default. */
   replyLanguage: MailboxReplyLanguage
 }
@@ -298,20 +294,12 @@ export async function getAiConfig(token: string, connectionId: number): Promise<
   const replyLanguage = MAILBOX_REPLY_LANGUAGES.includes(raw.reply_language as MailboxReplyLanguage)
     ? (raw.reply_language as MailboxReplyLanguage)
     : ''
-  const mode = raw.mode
-  if (mode === 'suggest' || mode === 'auto' || mode === 'off') {
-    return { mode, replyLanguage }
-  }
-  // Legacy per-mailbox toggle written by the previous AI settings UI.
-  if (raw.suggestions_enabled === false) {
-    return { mode: 'off', replyLanguage }
-  }
-  return { mode: '', replyLanguage }
+  return { replyLanguage }
 }
 
+/** Mailbox overrides besides AI handling (set through lib/ai-handling-api). */
 export async function saveAiConfig(token: string, connectionId: number, config: AiInboxConfig): Promise<void> {
   const aiConfig: Record<string, string> = {}
-  if (config.mode) aiConfig.mode = config.mode
   if (config.replyLanguage) aiConfig.reply_language = config.replyLanguage
   await apiPut(integrationsRoutes.email.connections.aiConfig(connectionId), { ai_config: aiConfig }, token)
 }

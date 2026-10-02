@@ -1,4 +1,4 @@
-"""Tests for human takeover (ai_paused) and real-vs-mock OAuth start gating."""
+"""Tests for human takeover (AI handling manual) and real-vs-mock OAuth start gating."""
 
 from urllib.parse import parse_qs, urlparse
 
@@ -35,25 +35,44 @@ async def test_takeover_and_release(client: AsyncClient, session_override):
     assert ingest.status_code == 200
     signal_id = ingest.json()["id"]
 
-    took = await client.post(f"/api/signals/{signal_id}/takeover", headers=headers)
-    assert took.status_code == 200
-    assert took.json()["ai_paused"] is True
+    took = await client.put(
+        f"/api/ai-handling/conversation/{signal_id}",
+        headers=headers,
+        json={"mode": "manual", "assign_to_me": True},
+    )
+    assert took.status_code == 200, took.text
+    assert took.json()["effective"] == "manual"
+    assert took.json()["source"] == "conversation"
+    assert took.json()["until_close"] is True
 
     detail = await client.get(f"/api/signals/{signal_id}", headers=headers)
-    assert detail.json()["thread"]["ai_paused"] is True
+    thread = detail.json()["thread"]
+    assert thread["ai_handling"]["effective"] == "manual"
+    assert thread["ai_handling"]["reason"] == "operator_takeover"
+    assert thread["assigned_to_user_id"] is not None
 
-    released = await client.post(f"/api/signals/{signal_id}/release", headers=headers)
+    released = await client.put(
+        f"/api/ai-handling/conversation/{signal_id}", headers=headers, json={"mode": None}
+    )
     assert released.status_code == 200
-    assert released.json()["ai_paused"] is False
+    assert released.json()["source"] != "conversation"
+    detail = await client.get(f"/api/signals/{signal_id}", headers=headers)
+    assert detail.json()["thread"]["assigned_to_user_id"] is None
 
 
 @pytest.mark.asyncio
 async def test_takeover_missing_signal(client: AsyncClient):
     headers = await _auth_headers(client)
-    res = await client.post(
-        "/api/signals/00000000-0000-0000-0000-000000000000/takeover", headers=headers
+    res = await client.put(
+        "/api/ai-handling/conversation/00000000-0000-0000-0000-000000000000",
+        headers=headers,
+        json={"mode": "manual"},
     )
     assert res.status_code == 404
+    gone = await client.post(
+        "/api/signals/00000000-0000-0000-0000-000000000000/takeover", headers=headers
+    )
+    assert gone.status_code in (404, 405)
 
 
 @pytest.mark.asyncio

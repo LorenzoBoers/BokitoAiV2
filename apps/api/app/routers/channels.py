@@ -2,7 +2,7 @@
 
 import json
 import secrets
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -32,6 +32,7 @@ from app.services.channel_visibility import (
     is_account_visible_to,
     set_account_visibility,
 )
+from app.services.ai_handling import contact_mode
 from app.services.signal_threads import serialize_thread
 from app.workers.tasks import enqueue_signal_processing
 
@@ -319,7 +320,8 @@ class ChannelRow(BaseModel):
     last_event_at: str | None = None
     last_sync_at: str | None = None
     last_error: str = ""
-    ai_mode: str
+    # Resolved AI handling at channel scope plus ``breaker_tripped_at``.
+    ai_handling: dict[str, Any]
     default_agent_id: str | None = None
     visibility: ChannelVisibility
     created_at: str
@@ -690,6 +692,8 @@ def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict
         "merged_into_id": str(row.merged_into_id) if row.merged_into_id else None,
         "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
         "created_at": row.created_at.isoformat(),
+        # Own AI handling override (null follows the channel).
+        "ai_handling": contact_mode(row),
     }
     if thread_count is not None:
         data["thread_count"] = thread_count
@@ -726,12 +730,19 @@ async def list_contacts(
     status: str | None = None,
     channel: str | None = None,
     search: str | None = None,
+    ai_handling: str | None = None,
 ):
+    """Contacts, optionally filtered by status, channel, search text or AI
+    handling (``manual|assisted|autonomous`` own override, ``custom`` any)."""
     stmt = select(Contact).where(
         Contact.tenant_id == auth.tenant.id, Contact.merged_into_id.is_(None)
     )
     if status:
         stmt = stmt.where(Contact.status == status)
+    if ai_handling == "custom":
+        stmt = stmt.where(Contact.ai_handling.is_not(None))
+    elif ai_handling in ("manual", "assisted", "autonomous"):
+        stmt = stmt.where(Contact.ai_handling.contains(f'"{ai_handling}"'))
     if channel:
         stmt = stmt.where(Contact.channel == channel)
     if search:

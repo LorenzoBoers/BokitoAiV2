@@ -147,22 +147,27 @@ function applyAndFlags(thread: InboxThread, filters: ThreadFilters, viewMatch: b
 }
 
 /**
- * Replace-or-prepend a thread row. Gateway rows skip agent enrichment (it
- * would cost a DB read per event), so on replace the previous row's agent
- * fields are kept when the incoming row has none.
+ * Merge a live row into the known row. Gateway rows may skip agent enrichment
+ * and the resolved AI handling block, so those keep their previous values when
+ * the incoming row has none.
  */
-export function upsertThreadRow(prev: InboxThread[], row: InboxThread): InboxThread[] {
-  const id = String(row.id)
-  const idx = prev.findIndex((t) => String(t.id) === id)
-  if (idx === -1) return [row, ...prev]
-  const existing = prev[idx]
-  const next = [...prev]
-  next[idx] = {
+export function mergeThreadRow(existing: InboxThread, row: InboxThread): InboxThread {
+  return {
     ...existing,
     ...row,
     agentId: row.agentId ?? existing.agentId,
     agentName: row.agentName ?? existing.agentName,
     agentKind: row.agentKind ?? existing.agentKind,
+    aiHandling: row.aiHandling ?? existing.aiHandling,
   }
+}
+
+/** Replace-or-prepend a thread row (see ``mergeThreadRow``). */
+export function upsertThreadRow(prev: InboxThread[], row: InboxThread): InboxThread[] {
+  const id = String(row.id)
+  const idx = prev.findIndex((t) => String(t.id) === id)
+  if (idx === -1) return [row, ...prev]
+  const next = [...prev]
+  next[idx] = mergeThreadRow(prev[idx], row)
   return next
 }

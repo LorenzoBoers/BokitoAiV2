@@ -8,7 +8,7 @@ export default function MessageMarkdown({ text }: { text: string }) {
   return (
     <div
       className={
-        'text-xs text-text-primary leading-relaxed whitespace-pre-wrap break-words ' +
+        'whitespace-pre-wrap break-words ' +
         '[&_a]:text-accent [&_a:not(.md-app-link)]:underline ' +
         '[&_code]:rounded [&_code]:bg-bg-elevated [&_code]:px-1 [&_strong]:font-semibold'
       }

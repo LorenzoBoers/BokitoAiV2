@@ -44,9 +44,14 @@ import {
   updateContact,
   type CompanyDetail as CompanyDetailData,
   type CompanyRow,
+  type ContactAiHandlingFilter,
   type ContactRow,
   type ContactStatus,
 } from '../lib/contacts-api'
+import { AI_HANDLING_MODES, normalizeMode } from '../lib/ai-handling'
+import { AiHandlingIcon } from '../components/ai/AiHandlingIcon'
+import AiHandlingPicker from '../components/ai/AiHandlingPicker'
+import { useAiHandling } from '../hooks/useAiHandling'
 import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
 import {
   humanizeContactName,
@@ -97,6 +102,8 @@ function ContactDetail({ contactId }: { contactId: string }) {
   const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState({ displayName: '', company: '', title: '', phone: '', notes: '' })
   const [dirty, setDirty] = useState(false)
+  const { t: tc } = useTranslation('common')
+  const aiHandling = useAiHandling('contact', contactId)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -350,6 +357,17 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 ? t('contactsPage.lastSeen', { time: timeAgo(lastSeenAt, t) })
                 : t('contactsPage.neverSeen')}
             </p>
+            <AiHandlingPicker
+              variant="row"
+              scope="contact"
+              handling={aiHandling.handling}
+              canRaise={aiHandling.canRaise}
+              saving={aiHandling.saving}
+              onChange={(mode) => void aiHandling.change(mode)}
+              label={tc('aiHandling.title')}
+              className="rounded-md border border-border/60 px-3 py-2.5"
+              testId="contact-ai-handling"
+            />
             {field(t('contactsPage.fieldName'), 'displayName', t('contactsPage.namePlaceholderFull'))}
             <div className="grid grid-cols-2 gap-3">
               {field(t('contactsPage.fieldCompany'), 'company', t('contactsPage.fieldCompany'))}
@@ -754,6 +772,12 @@ export default function ContactsPage() {
   const [listError, setListError] = useState<string | null>(null)
   const [search, setSearch] = useState(() => searchParams.get('q')?.trim() ?? '')
   const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
+  const [aiFilter, setAiFilter] = useState<ContactAiHandlingFilter | 'all'>(() => {
+    const raw = searchParams.get('ai_handling')
+    return raw === 'custom' || normalizeMode(raw) ? (raw as ContactAiHandlingFilter) : 'all'
+  })
+  const { t: tc } = useTranslation('common')
+  const filtered = Boolean(search.trim()) || statusFilter !== 'all' || aiFilter !== 'all'
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
   const [createDraft, setCreateDraft] = useState({
     channel: 'email',
@@ -811,6 +835,7 @@ export default function ContactsPage() {
           listContacts(token, {
             ...(search.trim() ? { search: search.trim() } : {}),
             ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+            ...(aiFilter !== 'all' ? { aiHandling: aiFilter } : {}),
           }),
           listSignalThreads(token, { perPage: 80 }).catch(() => ({ items: [] as InboxThread[] })),
         ])
@@ -823,7 +848,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, search, statusFilter, view, t])
+  }, [token, search, statusFilter, aiFilter, view, t])
 
   useEffect(() => {
     if (contactId || companyId) return
@@ -1022,6 +1047,29 @@ export default function ContactsPage() {
               </button>
             ))
           : null}
+        {view === 'people' ? (
+          <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-text-secondary">
+            {aiFilter !== 'all' && aiFilter !== 'custom' ? (
+              <AiHandlingIcon mode={aiFilter} size={12} />
+            ) : null}
+            <span className="sr-only">{tc('aiHandling.title')}</span>
+            <select
+              aria-label={tc('aiHandling.title')}
+              data-testid="contacts-ai-handling-filter"
+              value={aiFilter}
+              onChange={(e) => setAiFilter(e.target.value as ContactAiHandlingFilter | 'all')}
+              className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+            >
+              <option value="all">{tc('aiHandling.filter.all')}</option>
+              <option value="custom">{tc('aiHandling.filter.custom')}</option>
+              {AI_HANDLING_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {tc(`aiHandling.modes.${mode}.label`)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
       {view === 'people' && statusFilter === 'pending' ? (
         <div className="-mt-2 mb-3 flex flex-wrap items-center gap-2">
@@ -1205,19 +1253,20 @@ export default function ContactsPage() {
         <div className="rounded-lg border border-dashed border-border/60 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />
           <h2 className="mt-3 text-lg font-semibold text-text-heading">
-            {search.trim() || statusFilter !== 'all' ? t('contactsPage.noMatchingContacts') : t('contactsPage.noContacts')}
+            {filtered ? t('contactsPage.noMatchingContacts') : t('contactsPage.noContacts')}
           </h2>
           <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
-            {search.trim() || statusFilter !== 'all'
+            {filtered
               ? t('contactsPage.clearFilters')
               : t('contactsPage.noContactsHint')}
           </p>
-          {search.trim() || statusFilter !== 'all' ? (
+          {filtered ? (
             <button
               type="button"
               onClick={() => {
                 setSearch('')
                 setStatusFilter('all')
+                setAiFilter('all')
               }}
               className="mt-4 rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
@@ -1381,14 +1430,25 @@ export default function ContactsPage() {
                       const shown = displayContactStatus(contact)
                       const awaiting = isAnonymousContact(contact.displayName, contact.address)
                       return (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold ${STATUS_STYLE[shown]}`}
-                        >
-                          {shown === 'blocked' ? <ShieldBan size={10} /> : null}
-                          {shown === 'approved' ? <Check size={10} /> : null}
-                          {awaiting
-                            ? t('contactsPage.statusAwaitingEmail')
-                            : contactStatusLabel(shown, t)}
+                        <span className="inline-flex items-center gap-1.5">
+                          {contact.aiHandling ? (
+                            <span
+                              title={tc(`aiHandling.modes.${contact.aiHandling}.label`)}
+                              className="inline-flex"
+                              data-testid="contact-row-ai-handling"
+                            >
+                              <AiHandlingIcon mode={contact.aiHandling} size={12} />
+                            </span>
+                          ) : null}
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold ${STATUS_STYLE[shown]}`}
+                          >
+                            {shown === 'blocked' ? <ShieldBan size={10} /> : null}
+                            {shown === 'approved' ? <Check size={10} /> : null}
+                            {awaiting
+                              ? t('contactsPage.statusAwaitingEmail')
+                              : contactStatusLabel(shown, t)}
+                          </span>
                         </span>
                       )
                     })()}

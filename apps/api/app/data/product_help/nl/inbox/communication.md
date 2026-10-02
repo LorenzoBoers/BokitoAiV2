@@ -48,17 +48,19 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 
 ## Zie en wijzig wat de AI doet
 
-![AI-statuschip in de gespreksheader](/api/docs/assets/communication/ai-status.png)
-*De chip in de header toont of AI voorstelt, zelf antwoordt, uit staat, of jij hebt overgenomen.*
+![AI-afhandeling in de gespreksheader](/api/docs/assets/communication/handling-picker.png)
+*De header toont de modus van AI-afhandeling en welke laag die volgt.*
 
-1. Open een klant- of AI-gesprek. De header toont een **AI-status**-chip: **AI stelt voor**, **AI antwoordt zelf**, **AI uit**, of **Jij hebt het overgenomen**.
-2. Open het chipmenu. Kies **Overnemen** om de AI op dit gesprek te pauzeren, of **Teruggeven aan AI** wanneer je klaar bent.
-3. Kies **Instellen voor alle gesprekken op dit kanaal** om de Communicatie-instellingen te openen (kanaal-AI-modus). Er is geen aparte mode per gesprek — alleen overnemen (`ai_paused`).
-4. Live werk verschijnt als een dunne strip onder de tijdlijn terwijl de AI denkt of streamt — dezelfde plek voor klantantwoorden en Vraag-beurten.
+1. Open een klantgesprek. De header toont de modus van **AI-afhandeling** met icoon: **Autonoom** of **Geassisteerd** (paars), of **Handmatig** (grijs). Het menu laat zien waar die vandaan komt, bijvoorbeeld **Volgt het kanaal**.
+2. Kies een andere modus om die alleen voor dit gesprek in te stellen, tot het sluit. Kies **Volg het kanaal** (of het contact of de workspace) om dat weer weg te halen. Alleen een eigenaar of beheerder kan een gesprek op Autonoom zetten.
+3. Kies **Overnemen** om Handmatig te zetten en het gesprek aan jezelf toe te wijzen. **Teruggeven aan AI** zet de geërfde modus terug. Zelf antwoorden in een autonoom gesprek neemt het ook over.
+4. Typ in de composer `/handmatig`, `/geassisteerd` of `/autonoom` (of `/manual`, `/assisted`, `/autonomous`), eventueel gevolgd door een reden.
+5. Elke wijziging staat in de tijdlijn, bijvoorbeeld **AI-afhandeling op Geassisteerd gezet**. Rijen in de lijst tonen het icoon wanneer een gesprek of contact afwijkt van het kanaal. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+6. Live werk verschijnt als een dunne strip onder de tijdlijn terwijl de AI denkt of streamt — dezelfde plek voor klantantwoorden en Vraag-beurten.
 
 ## Keur een AI-voorstel goed vanuit de composer
 
-1. Als Inbox AI een antwoord voorstelt, laadt het concept in de composer met **Verstuur**, **Bewerk** en **Weg**. In de tijdlijn staat alleen een korte regel: **AI stelde een antwoord voor**.
+1. Als de AI een antwoord voorstelt, laadt het concept in de composer met **Verstuur**, **Bewerk** en **Weg**. In de tijdlijn staat alleen een korte regel: **AI stelde een antwoord voor**.
 2. Pas de tekst zo nodig aan en kies **Verstuur** (of het verstuurmenu voor sluiten / uitstellen). Versturen lost de beslissing op en levert het antwoord af.
 3. **Weg** wijst het voorstel af zonder te versturen. Andere beslissingen (platform, module, agenda, afronding) blijven kaarten met de kop **Wacht op jouw OK** en gewone werkwoordknoppen — geen toolnamen in de copy.
 
@@ -68,7 +70,7 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 *Keuzekaarten verschijnen in de tijdlijn als chatbubbels.*
 
 1. Een keuzebubbel verschijnt wanneer een agent jouw oordeel nodig heeft.
-2. Lees het voorstel. Bij meerdere concrete keuzes houdt elke knop z’n eigen label (bijvoorbeeld versturen vs annuleren vs klant vragen). Keur goed, pas aan of wijs af. **Later** / **Niet nu** parkeert het gesprek tot morgen 9:00, zodat het uit Open verdwijnt. De enkele knop **Ik doe het zelf** is alleen om AI te pauzeren zodat jij overneemt.
+2. Lees het voorstel. Bij meerdere concrete keuzes houdt elke knop z’n eigen label (bijvoorbeeld versturen vs annuleren vs klant vragen). Keur goed, pas aan of wijs af. **Later** / **Niet nu** parkeert het gesprek tot morgen 9:00, zodat het uit Open verdwijnt. De enkele knop **Ik doe het zelf** zet het gesprek op Handmatig en wijst het aan jou toe.
 3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Wat nu** goedkeuren (of de oude keuze Taak aanmaken) zet een kijkmoment op dit gesprek — titel en wanneer — en toont het op de [Agenda](/docs/ai/agenda). Kies in het gespreksmenu **Wat nu** om een kijkmoment te plannen of een typisch Signaal te openen. Wis het kijkmoment onder **Dit gesprek** in het zijpaneel wanneer je klaar bent. Kies **Toevoegen aan project** in hetzelfde menu om het gesprek aan een project te koppelen. Zie [Beslissingen](/docs/ai/decisions).
 
 ## Vang een websitebezoeker

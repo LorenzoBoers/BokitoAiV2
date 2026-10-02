@@ -816,36 +816,6 @@ async def invoke_agent(
     }
 
 
-@router.post("/{signal_id}/takeover")
-async def takeover_thread(
-    signal_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Human takes over a thread; the AI stops auto-replying until released."""
-    result = await svc.set_ai_paused(
-        session, auth.tenant.id, auth.user.id, signal_id, paused=True
-    )
-    if not result:
-        raise HTTPException(status_code=404, detail="Signal not found")
-    return result
-
-
-@router.post("/{signal_id}/release")
-async def release_thread(
-    signal_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Hand the thread back to the AI agent."""
-    result = await svc.set_ai_paused(
-        session, auth.tenant.id, auth.user.id, signal_id, paused=False
-    )
-    if not result:
-        raise HTTPException(status_code=404, detail="Signal not found")
-    return result
-
-
 @router.get("/{signal_id}/agent-candidates")
 async def list_agent_candidates(
     signal_id: UUID,

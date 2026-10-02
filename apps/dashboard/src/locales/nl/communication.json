@@ -476,20 +476,6 @@
       "awaiting_decision": "Wacht op beslissing"
     }
   },
-  "aiStatus": {
-    "suggest": "AI stelt voor",
-    "suggestHint": "De AI maakt een conceptantwoord dat jij verstuurt.",
-    "auto": "AI antwoordt zelf",
-    "autoHint": "De AI beantwoordt de klant zelf.",
-    "off": "AI uit",
-    "offHint": "De AI blijft stil op dit kanaal.",
-    "paused": "Jij hebt het overgenomen",
-    "pausedUnassigned": "Mens aan zet",
-    "pausedHint": "De AI blijft stil tot je het teruggeeft.",
-    "takeOver": "Overnemen",
-    "handBack": "Teruggeven aan AI",
-    "openSettings": "Instellen voor alle gesprekken op dit kanaal"
-  },
   "aiChat": {
     "title": "AI",
     "launcher": "Vraag AI",
@@ -729,7 +715,6 @@
     "teammateAiBanner": "Dit bericht komt van een teamlid. AI stelt geen klantantwoord voor — antwoord zelf als collega.",
     "youTookOverBanner": "Jij hebt overgenomen. De AI antwoordt niet tot je het teruggeeft.",
     "customerAskedBanner": "Klant vroeg een medewerker — AI gepauzeerd.",
-    "aiPausedBanner": "AI gepauzeerd. Beantwoord de klant, of hervat AI als je klaar bent.",
     "earlierConversations": "+{{count}} eerder",
     "openAgenda": "Agenda openen",
     "alwaysCloseFromSender": "Mail van deze afzender altijd sluiten",
@@ -1101,6 +1086,20 @@
       "escalated": "Doorgestuurd naar het team",
       "aiPaused": "AI gepauzeerd op dit gesprek",
       "aiResumed": "AI hervat op dit gesprek",
+      "handlingSet": "AI-afhandeling op {{mode}} gezet",
+      "handlingSetBy": "{{name}} zette AI-afhandeling op {{mode}}",
+      "handlingCleared": "AI-afhandeling volgt het kanaal weer",
+      "handlingClearedBy": "{{name}} gaf dit terug aan AI",
+      "handlingHeld": "Handmatig: {{reason}}",
+      "handlingDowngraded": "Concept in plaats van verzonden: {{reason}}",
+      "breakerTripped": "Autonoom gepauzeerd op dit kanaal",
+      "agentAssigned": "{{name}} nam dit gesprek over",
+      "agentAssignedGeneric": "Een agent nam dit gesprek over",
+      "downgradeReasons": {
+        "low_certainty": "lage zekerheid",
+        "new_contact": "nieuw contact",
+        "signal_type": "signaaltype vraagt om controle"
+      },
       "approvedBy": "Goedgekeurd door {{name}}",
       "suggestionApproved": "Suggestie goedgekeurd",
       "dismissedBy": "Afgewezen door {{name}}",

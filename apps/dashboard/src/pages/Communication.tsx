@@ -84,6 +84,7 @@ import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-
 import { listAgents } from '../lib/agents-api'
 import { listProjects } from '../lib/projects-api'
 import { listCases } from '../lib/cases-api'
+import type { AiHandlingMode } from '../lib/ai-handling'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
@@ -112,6 +113,7 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
  */
 export default function Communication() {
   const { t } = useTranslation('communication')
+  const { t: tc } = useTranslation('common')
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
   const { threadId: threadIdParam } = useParams<{ threadId?: string }>()
@@ -400,8 +402,9 @@ export default function Communication() {
     deleteNote,
     markUnread,
     togglePin,
-    toggleTakeover,
+    changeAiHandling,
   } = useThreadDetail(selectedThreadId, pinnedIds, { skipMarkRead })
+  const [aiHandlingSaving, setAiHandlingSaving] = useState(false)
 
   useEffect(() => {
     if (!detailError || selectedThreadId == null || detailLoading) return
@@ -595,21 +598,27 @@ export default function Communication() {
     }
   }, [selectedThreadId, detail, togglePin, addPin, removePin, t])
 
-  const handleToggleTakeover = useCallback(async () => {
-    if (selectedThreadId == null || !detail) return
-    try {
-      await toggleTakeover(Boolean(detail.thread.aiPaused))
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : ''
-      toast.error(
-        raw === 'RESUME_FAILED'
-          ? t('actions.resumeError')
-          : raw && raw !== 'TAKEOVER_FAILED'
-            ? raw
-            : t('actions.takeoverError'),
-      )
-    }
-  }, [selectedThreadId, detail, toggleTakeover, t])
+  const handleChangeAiHandling = useCallback(
+    async (mode: AiHandlingMode | null, opts: { assignToMe?: boolean; reason?: string } = {}) => {
+      if (selectedThreadId == null) return
+      setAiHandlingSaving(true)
+      try {
+        const next = await changeAiHandling(mode, opts)
+        if (next) {
+          toast.success(
+            mode
+              ? tc('aiHandling.changed', { mode: tc(`aiHandling.modes.${next.effective}.label`) })
+              : tc('aiHandling.cleared', { source: tc(`aiHandling.sources.${next.source}`) }),
+          )
+        }
+      } catch (err) {
+        toast.error(err instanceof Error && err.message ? err.message : tc('aiHandling.saveError'))
+      } finally {
+        setAiHandlingSaving(false)
+      }
+    },
+    [selectedThreadId, changeAiHandling, tc],
+  )
 
   const handleDeleteThread = useCallback(
     async (id: ThreadId, subject?: string) => {
@@ -1095,11 +1104,13 @@ export default function Communication() {
             },
           })
         }
-        if (detail && !detail.thread.aiPaused) {
+        // A person answering an autonomous conversation takes it over so the
+        // AI does not reply next to them. Assisted keeps drafting.
+        if (detail?.thread.aiHandling?.effective === 'autonomous') {
           try {
-            await toggleTakeover(false)
+            await changeAiHandling('manual', { assignToMe: true })
           } catch {
-            // Reply already left; takeover is best-effort so AI stops drafting.
+            // Reply already left; take over is best-effort.
           }
         }
       } finally {
@@ -1115,7 +1126,7 @@ export default function Communication() {
       refreshDetail,
       selectedThreadId,
       leaveResolvedThread,
-      toggleTakeover,
+      changeAiHandling,
     ],
   )
 
@@ -1579,7 +1590,8 @@ export default function Communication() {
             loadingOlder={loadingOlder}
             onLoadOlder={hasOlder ? loadOlder : undefined}
             onTogglePin={handleDetailTogglePin}
-            onToggleTakeover={detail ? handleToggleTakeover : undefined}
+            onChangeAiHandling={detail ? handleChangeAiHandling : undefined}
+            aiHandlingSaving={aiHandlingSaving}
             onDelete={
               detail &&
               (detail.thread.status === 'closed' || detail.thread.status === 'spam')

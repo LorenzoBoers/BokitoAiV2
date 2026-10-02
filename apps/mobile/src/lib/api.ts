@@ -44,6 +44,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const apiGet = <T>(path: string) => request<T>('GET', path)
 export const apiPost = <T>(path: string, body?: unknown) => request<T>('POST', path, body)
 export const apiPatch = <T>(path: string, body?: unknown) => request<T>('PATCH', path, body)
+export const apiPut = <T>(path: string, body?: unknown) => request<T>('PUT', path, body)
 export const apiDelete = <T>(path: string) => request<T>('DELETE', path)
 
 export function resolveAttachmentUrl(url: string): string {
@@ -141,6 +142,16 @@ export async function uploadFile(input: UploadInput): Promise<Attachment> {
 // Signals (unified inbox)
 // ---------------------------------------------------------------------------
 
+export type AiHandlingMode = 'autonomous' | 'assisted' | 'manual'
+
+export type AiHandling = {
+  effective: AiHandlingMode
+  requested: AiHandlingMode
+  source: string
+  own: AiHandlingMode | null
+  reason: string | null
+}
+
 export type Thread = {
   id: string
   email_subject: string
@@ -154,7 +165,8 @@ export type Thread = {
   folder: string
   has_unread: boolean
   is_pinned: boolean
-  ai_paused?: boolean
+  /** Resolved AI handling for this conversation (most specific layer wins). */
+  ai_handling?: AiHandling | null
   last_message_at: string | null
   tags: string[]
   assigned_to_user_id?: number | null
@@ -284,11 +296,9 @@ export const unpinThread = (id: string) => apiDelete<{ ok: boolean }>(`/api/sign
 
 export const deleteThread = (id: string) => apiDelete<{ ok: boolean }>(`/api/signals/${id}`)
 
-export const takeoverThread = (id: string) =>
-  apiPost<{ ai_paused?: boolean }>(`/api/signals/${id}/takeover`)
-
-export const releaseThread = (id: string) =>
-  apiPost<{ ai_paused?: boolean }>(`/api/signals/${id}/release`)
+/** Take over: manual + assign to me. Hand back: clear the conversation value (also unassigns). */
+export const setThreadAiHandling = (id: string, mode: AiHandlingMode | null, assignToMe = false) =>
+  apiPut<AiHandling>(`/api/ai-handling/conversation/${id}`, { mode, assign_to_me: assignToMe })
 
 export const replyToThread = (
   id: string,

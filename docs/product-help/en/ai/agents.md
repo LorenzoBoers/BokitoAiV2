@@ -18,7 +18,7 @@ Agents are the AI workers for this workspace. Every agent has one shape: name, p
 
 1. Open **Agents**. Company agents appear as cards with their audience. Each card can show **open** conversations and threads that **need a decision**. Search and the pills **All** and **Working** narrow the grid.
 2. Choose **New agent**. Enter a **Name**, choose the **Audience**, select a **Model**, describe the **Purpose**, then choose **Create agent**.
-3. Open a card for instructions, model and chat access. Use **Chat with this agent** to start an internal thread. Agenda and conversations are quiet links on the detail page. Related settings (Inbox AI, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
+3. Open a card for instructions, model and chat access. Use **Chat with this agent** to start an internal thread. Agenda and conversations are quiet links on the detail page. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
 
@@ -47,7 +47,7 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 ## Limit who can chat
 
 1. An idle agent shows **Ready**. Open **Communication** on the agent page (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.
-2. **Nobody** keeps background work (Agenda, Inbox AI) without a direct chat from Communication.
+2. **Nobody** keeps background work (Agenda, AI handling) without a direct chat from Communication.
 3. To remove an agent from the library, use **Archive** under the ··· menu.
 
 ## Add an agent signature

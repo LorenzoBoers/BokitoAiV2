@@ -476,20 +476,6 @@
       "awaiting_decision": "Awaiting decision"
     }
   },
-  "aiStatus": {
-    "suggest": "AI suggests",
-    "suggestHint": "The AI drafts a reply for you to send.",
-    "auto": "AI replies",
-    "autoHint": "The AI answers the customer on its own.",
-    "off": "AI off",
-    "offHint": "The AI stays quiet on this channel.",
-    "paused": "You took over",
-    "pausedUnassigned": "Human handling",
-    "pausedHint": "The AI stays quiet until you hand back.",
-    "takeOver": "Take over",
-    "handBack": "Hand back to AI",
-    "openSettings": "Set for all conversations on this channel"
-  },
   "aiChat": {
     "title": "AI",
     "launcher": "Ask AI",
@@ -729,7 +715,6 @@
     "teammateAiBanner": "This message is from a teammate. AI will not draft a customer reply — respond as a colleague yourself.",
     "youTookOverBanner": "You have taken over. The AI will not reply until you hand it back.",
     "customerAskedBanner": "Customer asked for a human — AI paused.",
-    "aiPausedBanner": "AI paused. Reply to the customer, or resume AI when you are done.",
     "earlierConversations": "+{{count}} earlier",
     "openAgenda": "Open Agenda",
     "alwaysCloseFromSender": "Always close mail from this sender",
@@ -1101,6 +1086,20 @@
       "escalated": "Escalated to the team",
       "aiPaused": "AI paused on this thread",
       "aiResumed": "AI resumed on this thread",
+      "handlingSet": "AI handling set to {{mode}}",
+      "handlingSetBy": "{{name}} set AI handling to {{mode}}",
+      "handlingCleared": "AI handling follows the channel again",
+      "handlingClearedBy": "{{name}} handed this back to AI",
+      "handlingHeld": "Manual: {{reason}}",
+      "handlingDowngraded": "Drafted instead of sent: {{reason}}",
+      "breakerTripped": "Autonomous paused on this channel",
+      "agentAssigned": "{{name}} took over this conversation",
+      "agentAssignedGeneric": "An agent took over this conversation",
+      "downgradeReasons": {
+        "low_certainty": "low certainty",
+        "new_contact": "new contact",
+        "signal_type": "signal type asks for review"
+      },
       "approvedBy": "Approved by {{name}}",
       "suggestionApproved": "Suggestion approved",
       "dismissedBy": "Dismissed by {{name}}",

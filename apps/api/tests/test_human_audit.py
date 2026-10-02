@@ -103,13 +103,19 @@ async def test_thread_delete_and_takeover_are_audited(client: AsyncClient, sessi
     headers = await _login_headers(client)
     signal_id = await _seed_thread(client, headers)
 
-    r = await client.post(f"/api/signals/{signal_id}/takeover", headers=headers)
+    r = await client.put(
+        f"/api/ai-handling/conversation/{signal_id}",
+        json={"mode": "manual", "assign_to_me": True},
+        headers=headers,
+    )
     assert r.status_code == 200, r.text
-    assert len(await _audit_events(session_override, "signal:takeover")) == 1
+    assert len(await _audit_events(session_override, "ai_handling:changed")) == 1
 
-    r = await client.post(f"/api/signals/{signal_id}/release", headers=headers)
+    r = await client.put(
+        f"/api/ai-handling/conversation/{signal_id}", json={"mode": None}, headers=headers
+    )
     assert r.status_code == 200, r.text
-    assert len(await _audit_events(session_override, "signal:handback")) == 1
+    assert len(await _audit_events(session_override, "ai_handling:changed")) == 2
 
     r = await client.delete(f"/api/signals/{signal_id}", headers=headers)
     assert r.status_code == 200, r.text

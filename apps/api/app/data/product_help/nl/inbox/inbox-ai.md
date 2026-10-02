@@ -1,63 +1,66 @@
 ---
-title: Inbox AI instellen
-intro: Kies wanneer de assistent concepten schrijft, zelf verstuurt of stil blijft — met workspace-standaarden en optionele mailbox-uitzonderingen.
-description: Stel Inbox AI-modi, antwoordtaal, afzender en triage in zodat klantconcepten op jouw voorwaarden verschijnen.
-keywords: inbox ai, concepten, voorstellen, automatisch, antwoordtaal, afzender, zekerheid, mailbox-uitzonderingen
+title: AI-afhandeling instellen
+intro: Kies of de AI zelf antwoordt, concepten ter controle maakt of stil blijft — een keer voor de workspace, met uitzonderingen per kanaal, contact of gesprek.
+description: Stel AI-afhandeling in (Autonoom, Geassisteerd, Handmatig), met lagen, waarborgen, vermelding, antwoordtaal en afzender.
+keywords: ai-afhandeling, autonoom, geassisteerd, handmatig, concepten, automatisch antwoorden, waarborgen, vermelding, antwoordtaal, afzender, zekerheid
 sort: 25
-related: communication,autonomy,channels,agents
+related: communication,contacts,channels,govern,autonomy,agents
 ---
 
-# Inbox AI instellen
+# AI-afhandeling instellen
 
-Inbox AI is de workspaceregel voor klantantwoorden. Open **Instellingen** en daarna **AI-antwoorden** (de paginatitel kan nog **AI-antwoordinstellingen** tonen). Dit is niet Govern: Govern is tools en autonomie; Inbox AI is of er een concept of een verzending volgt wanneer mail of chat binnenkomt.
+AI-afhandeling is een instelling met drie modi: **Autonoom** (AI antwoordt zelf), **Geassisteerd** (AI stelt antwoorden en acties voor, een mens verstuurt) en **Handmatig** (AI blijft stil). Je stelt het een keer in voor de workspace en alleen opnieuw waar een kanaal, een contact of een enkel gesprek moet afwijken — de meest specifieke instelling wint.
 
-Workspace-standaarden gelden eerst. Een mailbox wijkt alleen af als je onder **Mailbox-uitzonderingen** iets zet.
+Overal zie je dezelfde iconen: een bliksem voor Autonoom en een pen voor Geassisteerd (beide paars), en een hand voor Handmatig (grijs). [Govern](/docs/govern/govern) bepaalt het plafond: niets daaronder kan autonomer zijn dan Govern toestaat.
 
-## Kies een modus per kanaal
+## De workspace-standaard instellen
 
-![Inbox AI-kanaalstandaarden](/api/docs/assets/inbox-ai/draft-mode.png)
-*Kies Antwoorden voorstellen, Automatisch antwoorden of Uit voor e-mail, websitechat en WhatsApp.*
+![Workspace-standaard voor AI-afhandeling](/api/docs/assets/inbox-ai/workspace-default.png)
+*Drie kaarten: Autonoom, Geassisteerd en Handmatig.*
 
 1. Open **Instellingen** en daarna **AI-antwoorden**.
-2. Onder **Workspace-standaarden** → **Hoe AI reageert** zet je E-mail, Websitechat en WhatsApp apart.
-3. Kies een van:
-   - **Antwoorden voorstellen** — de assistent schrijft een conceptkaart. Je team verstuurt, bewerkt of escaleert.
-   - **Automatisch antwoorden** — de assistent antwoordt op het kanaal. Neem een gesprek over om dat te pauzeren.
-   - **Uit** — mensen behandelen elk bericht.
-4. Kies **Opslaan**. Nieuw inbound werk volgt de nieuwe regel; open gesprekken houden wat ze al hebben.
+2. Kies onder **Workspace-standaard** **Autonoom**, **Geassisteerd** of **Handmatig**. De wijziging wordt direct opgeslagen.
+3. Bij **Autonoom** zie je eerst een bevestiging met hoeveel open gesprekken deze instelling volgen en hoe vaak concepten recent ongewijzigd zijn verstuurd. Alleen een eigenaar of beheerder kan Autonoom aanzetten.
+4. Als Govern gesprekken lager begrenst, toont de kaart die grens. Open Govern via de notitie onder de kaarten om dat te wijzigen.
 
-Begin met **Antwoorden voorstellen** op e-mail. Websitechat start vaak op **Automatisch antwoorden**. Als mailboxen afwijken, toont de E-mail-rij hoeveel dat er zijn.
+Begin met **Geassisteerd**. Bokito stelt Autonoom voor zodra minstens 80% van 50 of meer concepten ongewijzigd wordt verstuurd.
 
-## Zet antwoord- en teamtaal
+## Uitzonderingen bekijken
 
-1. Blijf op Inbox AI. Open **Taal** onder **Workspace-standaarden**.
-2. **Antwoordtaal** is wat de klant ziet. **Automatisch (volg de klant)** spiegelt de inbound taal. Je kunt Nederlands, Engels, Duits, Frans of Spaans vastzetten.
-3. **Teamtaal** is voor toelichting aan je team (samenvattingen, no-reply-uitleg). Die wijzigt het klantantwoord niet en heeft geen uitzondering per mailbox.
+1. Open op dezelfde pagina **Uitzonderingen**. Daar staan alle kanalen, contacten en open gesprekken die de workspace-standaard niet volgen, gegroepeerd per laag.
+2. Elke rij toont het icoon van de modus en de naam. Kies **Weer de standaard volgen** om de uitzondering te verwijderen.
+3. Nieuwe uitzonderingen zet je waar je werkt: op het kanaal onder [Kanalen](/docs/inbox/channels), op een contact onder [Contacten](/docs/inbox/contacts), of in de kop van een gesprek in [Communicatie](/docs/inbox/communication).
 
-## Zet verzenden en triage
+Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op kanalen en contacten blijven tot je ze wist.
 
-1. Open **Verzenden en triage** op dezelfde pagina.
-2. **Goedgekeurde antwoorden versturen als** is **Het goedkeurende teamlid** of **De AI-agent**. Die keuze bepaalt welke handtekening erbij komt en wiens naam als From-weergavenaam verschijnt (het mailboxadres blijft van jou). Op één voorgesteld antwoord kan iedereen nog **Versturen als:** **Jij** of de agent kiezen. Agents kunnen hun eigen standaard zetten onder [Agents](/docs/ai/agents).
-3. Zet de **Zekerheidsdrempel** (1–10). De schaal is gemarkeerd **soepel**, **gebalanceerd** en **strikt**. Onder die score verhoogt triage nooit de prioriteit naar hoog of urgent.
+## Waarborgen voor autonome antwoorden instellen
 
-## Overschrijf één mailbox
+1. Open **Waarborgen**. Elke waarborg maakt van een enkel autonoom antwoord een concept ter controle; er wordt nooit meer verstuurd.
+2. Stel de **Zekerheidsdrempel** in (1–10, van **soepel** tot **strikt**). Onder die zekerheid wordt het antwoord een concept.
+3. Zet **Antwoorden aan nieuwe contacten controleren** aan om concepten te maken zolang een contact op goedkeuring wacht. Websitechatbezoekers zijn uitgezonderd.
+4. Zet **AI-antwoorden vermelden** aan om autonome antwoorden een korte vermelding te geven. Pas de **Tekst van de vermelding** aan of laat leeg voor de standaardtekst; de preview toont wat klanten zien.
+5. Kies **Opslaan** in de balk onderaan.
 
-1. Koppel eerst een mailbox onder [Kanalen](/docs/inbox/channels).
-2. Open op Inbox AI **Mailbox-uitzonderingen**. Elke gekoppelde mailbox staat in de lijst met effectieve modus en antwoordtaal.
-3. Klap een rij open. Zet modus en antwoordtaal, of laat **Workspace-standaard** staan. Rijen met een uitzondering tonen het badge **Afwijkend**.
+De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de reden wanneer een waarborg ingrijpt.
 
-## Beoordeel een concept voordat het de deur uit gaat
+## Antwoord- en teamtaal instellen
 
-1. Open het gesprek in [Communicatie](/docs/inbox/communication).
-2. Lees het voorstel. Het klantconcept en een eventuele **Interne notitie** voor het team blijven gescheiden. **Versturen**, **Bewerken** of **Escaleren**. Escaleren pauzeert AI op dat gesprek en wijst jou toe.
-3. **Overnemen van AI** pauzeert de assistent zodat je met de hand kunt afronden. **Geef terug aan AI** hervat.
+1. Open **Taal** op dezelfde pagina.
+2. **Antwoordtaal** is wat de klant ziet. **Automatisch (volg de klant)** volgt de taal van het binnenkomende bericht. Je kunt ook Nederlands, Engels, Duits, Frans of Spaans vastzetten.
+3. **Teamtaal** is voor toelichting aan je team (samenvattingen, uitleg bij no-reply). Het verandert het klantantwoord niet.
+4. **Goedgekeurde antwoorden versturen als** is **Het goedkeurende teamlid** of **De AI-agent**. Dat bepaalt de handtekening en de weergavenaam bij Van. Op een enkel concept kan iedereen nog **Versturen als** wisselen.
+5. Klap onder **Antwoordtaal per mailbox** een mailbox open om die een eigen antwoordtaal te geven. Rijen met een afwijking tonen een badge **Afwijkend**.
 
-Op **Antwoorden voorstellen** verlaat niets klantgericht de workspace totdat jij verstuurt, tenzij [Autonomie](/docs/govern/autonomy) later meer toestaat.
+## Wanneer de AI niet antwoordt
 
-## Als het kanaal nog niet kan verzenden
+- Ergens in de keten staat **Handmatig**, of een collega heeft het gesprek overgenomen.
+- Govern begrenst gesprekken op Geassisteerd (berichten op vragen) of Handmatig (berichten geweigerd).
+- **Privacy** houdt AI weg van berichtinhoud; AI-afhandeling toont dan Handmatig.
+- De noodrem van het kanaal is geactiveerd na ongewone activiteit; het kanaal draait Geassisteerd tot iemand het hervat.
+- De mailbox moet nog ingesteld of opnieuw gekoppeld worden. Het gesprek krijgt dan een **Interne notitie** met een verwijzing naar **Instellingen → Kanalen** in plaats van een concept.
 
-Als een mailbox nog setup of herkoppeling nodig heeft (dezelfde staten die **Versturen** in de composer blokkeren), maakt Inbox AI geen klantconcept en geen auto-antwoord. Het gesprek krijgt een **Interne notitie** die wijst naar afronden onder **Instellingen → Kanalen**. Herstel het kanaal, neem daarna over of geef het gesprek terug aan AI.
+Beweeg over de modus in de kop van het gesprek om te zien welke laag besliste en waarom.
 
 ## Wat nu
 
-Laad [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Koppel een mailbox onder [Kanalen](/docs/inbox/channels) als de uitzonderingslijst leeg is. Gebruik **Wie antwoordt** op dezelfde pagina alleen wanneer een kanaal de standaardagent moet overslaan — dat is routing, geen AI-modus.
+Vul [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Gebruik **Wie antwoordt** op dezelfde pagina alleen wanneer een kanaal de standaardagent moet overslaan — dat is routering, geen AI-afhandeling.

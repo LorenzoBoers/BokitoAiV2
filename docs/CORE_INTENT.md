@@ -50,6 +50,8 @@ Do **not** add Task as an eighth operator noun. A free "look again later" is a d
 
 Overview, Govern, and Agents stay English loanwords in the Dutch UI. Communication / Communicatie is the rail hub name (not Messages / Berichten).
 
+**AI handling / AI-afhandeling** is a setting, not a noun: how the AI treats a Conversation. Three modes — Autonomous / Autonoom, Assisted / Geassisteerd, Manual / Handmatig — with one icon each (purple for the two AI modes, gray for manual). It layers workspace → channel → Contact → Conversation (most specific wins) under the Govern messaging ceiling. Do not reintroduce parallel words such as "AI mode", "takeover", "pause AI" or "Inbox AI" for the same idea.
+
 ---
 
 ## 2. What we are building (in this repo)

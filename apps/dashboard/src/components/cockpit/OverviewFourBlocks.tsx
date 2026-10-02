@@ -14,6 +14,7 @@ import { workstreamRunPath } from '../../lib/workstream-ui'
 import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
 import { bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
 import { formatAppUsdCents } from '../../lib/app-number'
+import AiHandlingMetricsBlock from './AiHandlingMetricsBlock'
 
 type SignalTypeSummary = {
   type: CaseTypeRow
@@ -396,6 +397,8 @@ export default function OverviewFourBlocks() {
           </Link>
         </Block>
       </div>
+
+      <AiHandlingMetricsBlock />
     </div>
   )
 }

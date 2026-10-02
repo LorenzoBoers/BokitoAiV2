@@ -1,4 +1,4 @@
-"""Managed Communication contract: ai_mode, scoped decisions, previews."""
+"""Managed Communication contract: ai_handling, scoped decisions, previews."""
 
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ from app.models.channel import ChannelAccount
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
 from app.services import signal_threads as threads_svc
-from app.services.channel_ai import resolve_ai_mode
+from app.services.ai_handling import resolve_ai_handling
 
 
 @pytest.mark.asyncio
-async def test_serialize_thread_includes_ai_mode(client: AsyncClient, session_override):
+async def test_serialize_thread_includes_ai_handling(client: AsyncClient, session_override):
     _ = client
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     account = ChannelAccount(
@@ -27,7 +27,7 @@ async def test_serialize_thread_includes_ai_mode(client: AsyncClient, session_ov
         channel="email",
         address="support@test.local",
         provider="gmail",
-        settings_json=json.dumps({"ai_config": {"mode": "auto"}}),
+        settings_json=json.dumps({"ai_config": {"ai_handling": {"mode": "autonomous"}}}),
     )
     session_override.add(account)
     await session_override.flush()
@@ -41,10 +41,12 @@ async def test_serialize_thread_includes_ai_mode(client: AsyncClient, session_ov
     session_override.add(signal)
     await session_override.commit()
 
-    mode = resolve_ai_mode(tenant, account, "email")
-    assert mode == "auto"
-    payload = threads_svc.serialize_thread(signal, ai_mode=mode)
-    assert payload["ai_mode"] == "auto"
+    handling = resolve_ai_handling(tenant, account, None, signal)
+    assert handling.requested == "autonomous"
+    assert handling.source == "channel"
+    payload = threads_svc.serialize_thread(signal, ai_handling=handling.to_payload())
+    assert payload["ai_handling"]["requested"] == "autonomous"
+    assert "ai_paused" not in payload
 
 
 @pytest.mark.asyncio
@@ -164,7 +166,7 @@ async def test_list_messages_paginated(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_thread_detail_exposes_ai_mode(client: AsyncClient, session_override):
+async def test_thread_detail_exposes_ai_handling(client: AsyncClient, session_override):
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
     login = await client.post(
@@ -185,7 +187,8 @@ async def test_thread_detail_exposes_ai_mode(client: AsyncClient, session_overri
     detail = await client.get(f"/api/signals/{signal.id}", headers=headers)
     assert detail.status_code == 200
     thread = detail.json()["thread"]
-    assert thread.get("ai_mode") in ("suggest", "auto", "off")
+    assert thread["ai_handling"]["effective"] in ("manual", "assisted", "autonomous")
+    assert thread["ai_handling"]["source"] in ("workspace", "channel", "contact", "conversation")
 
 
 @pytest.mark.asyncio

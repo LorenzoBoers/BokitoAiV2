@@ -227,6 +227,24 @@ async def resolve_decision(
 
                 await cancel_run(session, tenant_id, UUID(str(run_id_raw)))
 
+        if action_type in ("reset_ai_breaker", "keep_ai_assisted"):
+            account_raw = payload.get("channel_account_id")
+            if account_raw:
+                from app.models.auth import Tenant
+                from app.models.channel import ChannelAccount
+                from app.services.ai_handling import reset_breaker
+
+                breaker_account = await session.get(ChannelAccount, UUID(str(account_raw)))
+                breaker_tenant = await session.get(Tenant, tenant_id)
+                if breaker_account is not None and breaker_account.tenant_id == tenant_id and breaker_tenant:
+                    await reset_breaker(
+                        session,
+                        breaker_tenant,
+                        breaker_account,
+                        keep_assisted=action_type == "keep_ai_assisted",
+                        actor_id=str(user_id) if user_id else "",
+                    )
+
         change_id = decision.platform_change_id
         platform_change_id = payload.get("platform_change_id") or chosen.get("platform_change_id")
         if change_id and user_id:
@@ -254,6 +272,8 @@ async def resolve_decision(
             "workstream_skip_step",
             "workstream_cancel",
             "session_checkout",
+            "reset_ai_breaker",
+            "keep_ai_assisted",
         ):
             from app.tools import execute_tool
             from app.tools.registry import get_tool_spec
@@ -314,11 +334,19 @@ async def resolve_decision(
         )
         signal = sig_result.scalar_one_or_none()
         if signal:
-            signal.ai_paused = True
-            signal.updated_at = datetime.utcnow()
+            from app.models.signal import SignalEvent
+            from app.services.ai_handling import REASON_ESCALATED, hold_conversation
+
             if user_id and not signal.assigned_user_id:
                 signal.assigned_user_id = user_id
-            from app.models.signal import SignalEvent
+            hold_conversation(
+                session,
+                signal,
+                reason=REASON_ESCALATED,
+                actor_type="user" if user_id else "system",
+                actor_id=str(user_id) if user_id else "",
+                via="decision_escalate",
+            )
 
             session.add(
                 SignalEvent(
@@ -331,7 +359,7 @@ async def resolve_decision(
                         {
                             "decision_id": str(decision.id),
                             "option_id": option_id,
-                            "ai_paused": True,
+                            "ai_handling": "manual",
                         }
                     ),
                 )

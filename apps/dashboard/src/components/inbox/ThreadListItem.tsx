@@ -15,6 +15,7 @@ import { AiAvatar } from '../ui/AiAvatar'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
+import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -123,6 +124,7 @@ function ThreadListItem({
   enterIndex,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
+  const { t: tc } = useTranslation('common')
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
   const isAgentThread = isInternalThread(thread)
@@ -173,6 +175,13 @@ function ThreadListItem({
   const showNeedsReply = !isDirect && !isAgentThread && !showDecision && threadNeedsReply(thread)
   // Purple cue only when AI has real work on the thread (open decision).
   const aiActive = !isDirect && !isAgentThread && showDecision
+  // Only exceptions get an icon: a conversation or contact override. Rows that
+  // follow their channel stay quiet.
+  const handling = thread.aiHandling
+  const handlingOverride =
+    !isDirect && !isAgentThread && handling && (handling.source === 'conversation' || handling.source === 'contact')
+      ? handling.effective
+      : null
   const selectable = Boolean(onToggleChecked)
   const checkboxVisible = selectable && (selectionActive || Boolean(checked))
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
@@ -373,6 +382,15 @@ function ThreadListItem({
             <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-secondary">
               {secondaryLabel}
             </span>
+            {handlingOverride ? (
+              <span
+                title={tc(`aiHandling.modes.${handlingOverride}.label`)}
+                className="inline-flex shrink-0"
+                data-testid="thread-row-ai-handling"
+              >
+                <AiHandlingIcon mode={handlingOverride} size={12} />
+              </span>
+            ) : null}
             {showDecision ? (
               <span
                 title={t('listItem.needsDecision')}

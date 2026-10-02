@@ -255,11 +255,11 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                     "INSERT INTO signals "
                     "(id, tenant_id, channel, source, external_id, owner_user_id, subject,"
                     " contact_name, contact_email, contact_phone, status, priority, tags_json,"
-                    " has_unread, ai_paused, assigned_user_id, summary,"
+                    " has_unread, ai_handling, assigned_user_id, summary,"
                     " last_message_at, created_at, updated_at) "
                     "VALUES (:id, :tenant_id, :channel, 'chat', '', :owner_user_id, :subject,"
                     " '', '', '', 'open', 'normal', '[]',"
-                    " 0, :ai_paused, :assigned_user_id, '',"
+                    " 0, :ai_handling, :assigned_user_id, '',"
                     " :last_message_at, :created_at, :updated_at)"
                 ),
                 {
@@ -268,7 +268,7 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                     "channel": channel,
                     "owner_user_id": row["user_id"],
                     "subject": row["title"],
-                    "ai_paused": row["ai_paused"],
+                    "ai_handling": "manual" if row["ai_paused"] else None,
                     "assigned_user_id": row["assigned_user_id"],
                     "last_message_at": row["last_message_at"],
                     "created_at": row["created_at"],
@@ -332,10 +332,10 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                     "INSERT INTO signals "
                     "(id, tenant_id, channel, source, external_id, channel_account_id, subject,"
                     " contact_name, contact_email, contact_phone, status, priority, tags_json,"
-                    " has_unread, ai_paused, summary, last_message_at, created_at, updated_at) "
+                    " has_unread, summary, last_message_at, created_at, updated_at) "
                     "VALUES (:id, :tenant_id, 'email', 'email', :external_id, :account_id, :subject,"
                     " '', '', '', 'open', 'normal', '[]',"
-                    " :has_unread, 0, '', :updated_at, :created_at, :updated_at)"
+                    " :has_unread, '', :updated_at, :created_at, :updated_at)"
                 ),
                 {
                     "id": row["id"],
@@ -386,10 +386,10 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                     "INSERT INTO signals "
                     "(id, tenant_id, channel, source, external_id, subject, contact_name,"
                     " contact_email, contact_phone, status, priority, tags_json, has_unread,"
-                    " ai_paused, summary, last_message_at, created_at, updated_at) "
+                    " summary, last_message_at, created_at, updated_at) "
                     "VALUES (:id, :tenant_id, :channel, 'inbox', :external_id, :subject,"
                     " :contact_name, :contact_email, :contact_phone, :status, :priority,"
-                    " :tags_json, :has_unread, 0, '', :last_message_at, :created_at, :created_at)"
+                    " :tags_json, :has_unread, '', :last_message_at, :created_at, :created_at)"
                 ),
                 {
                     "id": new_id,

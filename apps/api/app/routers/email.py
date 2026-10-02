@@ -601,6 +601,15 @@ async def save_ai_config(
     ai_config = body.get("ai_config")
     if not isinstance(ai_config, dict):
         raise HTTPException(status_code=400, detail="ai_config object required")
+    # AI handling and breaker state are owned by /api/ai-handling; keep them
+    # and drop the retired per-mailbox mode keys.
+    existing = _load_settings(account).get("ai_config")
+    existing = existing if isinstance(existing, dict) else {}
+    for key in ("mode", "suggestions_enabled", "ai_handling", "breaker_tripped_at", "breaker_reason"):
+        ai_config.pop(key, None)
+    for key in ("ai_handling", "breaker_tripped_at", "breaker_reason"):
+        if key in existing:
+            ai_config[key] = existing[key]
     reply_language = ai_config.get("reply_language")
     if reply_language is not None:
         from app.services.language import REPLY_LANGUAGE_CHOICES

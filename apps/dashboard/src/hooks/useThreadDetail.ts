@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
-import { extractLiveMessage, extractLiveThreadRow } from '../lib/thread-live'
+import { extractLiveMessage, extractLiveThreadRow, mergeThreadRow } from '../lib/thread-live'
+import type { AiHandling, AiHandlingMode } from '../lib/ai-handling'
+import { setAiHandling } from '../lib/ai-handling-api'
 import {
   getThread,
   patchThread,
@@ -13,8 +15,6 @@ import {
   markThreadUnread,
   pinThread,
   unpinThread,
-  takeoverThread,
-  releaseThread,
   type ThreadDetail,
   type PatchThreadInput,
   type ReplyInput,
@@ -195,7 +195,7 @@ export function useThreadDetail(
         if (threadRow && String(threadRow.id) === String(threadId)) {
           setRawDetail((prev) => {
             if (!prev || String(prev.thread.id) !== String(threadId)) return prev
-            return { ...prev, thread: { ...prev.thread, ...threadRow } }
+            return { ...prev, thread: mergeThreadRow(prev.thread, threadRow) }
           })
           return
         }
@@ -421,32 +421,23 @@ export function useThreadDetail(
     [token, threadId],
   )
 
-  // Human takeover: pause/resume the AI on this thread. Updates local state
-  // optimistically, then persists. A widget visitor sees staff replies live via
-  // the gateway; while paused the AI stops auto-replying.
-  const toggleTakeover = useCallback(
-    async (currentPaused: boolean): Promise<boolean> => {
-      if (!token || !threadId) return currentPaused
-      const next = !currentPaused
+  // Conversation AI handling. Take over = manual + assign to me; hand back =
+  // clear the override (mode null), which also unassigns. Assignment changes
+  // come back on the live thread row, so a quiet refetch follows those.
+  const changeAiHandling = useCallback(
+    async (
+      mode: AiHandlingMode | null,
+      opts: { assignToMe?: boolean; reason?: string } = {},
+    ): Promise<AiHandling | null> => {
+      if (!token || !threadId) return null
+      const next = await setAiHandling(token, 'conversation', String(threadId), mode, opts)
       setRawDetail((prev) =>
-        prev ? { ...prev, thread: { ...prev.thread, aiPaused: next } } : prev,
+        prev ? { ...prev, thread: { ...prev.thread, aiHandling: next } } : prev,
       )
-      try {
-        const result = next
-          ? await takeoverThread(token, threadId)
-          : await releaseThread(token, threadId)
-        setRawDetail((prev) =>
-          prev ? { ...prev, thread: { ...prev.thread, aiPaused: result } } : prev,
-        )
-        return result
-      } catch {
-        setRawDetail((prev) =>
-          prev ? { ...prev, thread: { ...prev.thread, aiPaused: currentPaused } } : prev,
-        )
-        throw new Error(next ? 'TAKEOVER_FAILED' : 'RESUME_FAILED')
-      }
+      if (opts.assignToMe || mode === null) void fetchDetail(true)
+      return next
     },
-    [token, threadId],
+    [token, threadId, fetchDetail],
   )
 
   const loadOlder = useCallback(async () => {
@@ -500,6 +491,6 @@ export function useThreadDetail(
     deleteNote,
     markUnread,
     togglePin,
-    toggleTakeover,
+    changeAiHandling,
   }
 }

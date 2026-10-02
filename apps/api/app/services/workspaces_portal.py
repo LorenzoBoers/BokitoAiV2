@@ -437,8 +437,13 @@ async def remove_member(
             )
         )
     ).scalars().all()
+    from app.services.ai_handling import on_assignment_change
+
     for signal in assigned:
         signal.assigned_user_id = None
+        on_assignment_change(
+            session, signal, before_assignee=user.id, actor_id=str(acting_user.id)
+        )
         session.add(signal)
         session.add(
             SignalEvent(

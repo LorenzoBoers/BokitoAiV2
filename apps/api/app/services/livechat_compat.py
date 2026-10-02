@@ -418,5 +418,7 @@ def session_start_payload(
             "id": str(user.id),
             "email": user.email,
             "name": user.display_name or user.email,
+            # The widget header shows the operator's own photo when set.
+            "avatar_url": user.avatar_url or None,
         }
     return out

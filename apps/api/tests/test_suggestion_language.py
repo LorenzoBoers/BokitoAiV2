@@ -117,38 +117,37 @@ def test_workspace_instruction_covers_no_reply_summary():
 
 
 @pytest.mark.asyncio
-async def test_ai_modes_roundtrip_with_languages(client: AsyncClient):
+async def test_ai_language_roundtrip(client: AsyncClient):
     headers = await _login(client)
 
-    r = await client.get("/api/settings/ai-modes", headers=headers)
+    r = await client.get("/api/settings/ai-language", headers=headers)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["reply_language"] == "auto"
     assert body["workspace_language"] == platform_default_ui_language()
 
     r = await client.put(
-        "/api/settings/ai-modes",
+        "/api/settings/ai-language",
         headers=headers,
         json={"reply_language": "auto", "workspace_language": "nl"},
     )
     assert r.status_code == 200, r.text
     assert r.json()["workspace_language"] == "nl"
 
-    r = await client.get("/api/settings/ai-modes", headers=headers)
+    r = await client.get("/api/settings/ai-language", headers=headers)
     assert r.json()["workspace_language"] == "nl"
-    # channel modes untouched
-    assert r.json()["channel_ai_modes"]["email"] in ("suggest", "auto", "off")
+    assert "channel_ai_modes" not in r.json()
 
 
 @pytest.mark.asyncio
-async def test_ai_modes_rejects_invalid_language(client: AsyncClient):
+async def test_ai_language_rejects_invalid_language(client: AsyncClient):
     headers = await _login(client)
     r = await client.put(
-        "/api/settings/ai-modes", headers=headers, json={"reply_language": "xx"}
+        "/api/settings/ai-language", headers=headers, json={"reply_language": "xx"}
     )
     assert r.status_code == 400
     r = await client.put(
-        "/api/settings/ai-modes", headers=headers, json={"workspace_language": "auto"}
+        "/api/settings/ai-language", headers=headers, json={"workspace_language": "auto"}
     )
     assert r.status_code == 400
 
@@ -171,6 +170,8 @@ async def test_mailbox_ai_config_reply_language(client: AsyncClient):
 
     r = await client.get(f"/api/email/connections/{conn_id}/ai-config", headers=headers)
     assert r.json()["ai_config"]["reply_language"] == "nl"
+    # The retired per-mailbox mode key is dropped; AI handling lives elsewhere.
+    assert "mode" not in r.json()["ai_config"]
 
     # Empty string clears the override.
     r = await client.put(

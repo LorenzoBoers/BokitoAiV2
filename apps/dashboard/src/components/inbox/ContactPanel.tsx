@@ -28,6 +28,8 @@ import { inboxPath } from '../../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
+import { useAiHandling } from '../../hooks/useAiHandling'
+import AiHandlingPicker from '../ai/AiHandlingPicker'
 import { threadStatusLabel } from '../../lib/status-labels'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
@@ -97,6 +99,8 @@ export default function ContactPanel({
   const [saving, setSaving] = useState(false)
   const [captureName, setCaptureName] = useState('')
   const [captureEmail, setCaptureEmail] = useState('')
+  const { t: tc } = useTranslation('common')
+  const aiHandling = useAiHandling('contact', contact?.id ?? null)
 
   const load = useCallback(async () => {
     if (!token) {
@@ -477,6 +481,19 @@ export default function ContactPanel({
             {t('contactPanel.fullProfile')}
           </Link>
         </div>
+      </div>
+
+      <div className="border-b border-border/40 px-4 py-3">
+        <AiHandlingPicker
+          variant="row"
+          scope="contact"
+          handling={aiHandling.handling}
+          canRaise={aiHandling.canRaise}
+          saving={aiHandling.saving}
+          onChange={(mode) => void aiHandling.change(mode)}
+          label={tc('aiHandling.title')}
+          testId="contact-ai-handling"
+        />
       </div>
 
       {/* Notes */}

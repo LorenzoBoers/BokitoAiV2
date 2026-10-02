@@ -197,7 +197,10 @@ async def _apply_routing_effects(
         )
         for (user_id,) in member_result.all():
             if user_numeric_id(user_id) == assign_numeric:
+                from app.services.ai_handling import on_assignment_change
+
                 signal.assigned_user_id = user_id
+                on_assignment_change(session, signal, before_assignee=None, actor_id="")
                 break
 
 

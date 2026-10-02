@@ -3,6 +3,7 @@
 import { appRoutes } from '../api/routes/app.routes'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import { normalizeVisibility, type ChannelAccountVisibility } from './channel-accounts-api'
+import { normalizeAiHandling, type AiHandling } from './ai-handling'
 
 export const CHANNEL_STATES = [
   'setup_required',
@@ -52,7 +53,8 @@ export type ChannelRow = {
   lastEventAt: string | null
   lastSyncAt: string | null
   lastError: string
-  aiMode: string
+  /** AI handling at channel scope; ``breakerTrippedAt`` set while autonomous is paused. */
+  aiHandling: AiHandling | null
   visibility: ChannelAccountVisibility
   createdAt: string
   /** Initial backfill window in days for sync channels; 0 = everything. */
@@ -115,7 +117,7 @@ export function normalizeChannelRow(raw: unknown): ChannelRow | null {
     lastEventAt: asString(value.last_event_at) || null,
     lastSyncAt: asString(value.last_sync_at) || null,
     lastError: asString(value.last_error),
-    aiMode: asString(value.ai_mode),
+    aiHandling: normalizeAiHandling(value.ai_handling),
     visibility: normalizeVisibility(value.visibility),
     createdAt: asString(value.created_at),
     syncWindowDays:

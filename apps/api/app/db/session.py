@@ -76,12 +76,14 @@ async def init_db() -> None:
     else:
         # SQLite (tests/local dev without Postgres): create_all plus the frozen
         # schema patches — no Alembic, matching the historical behavior.
+        from app.db.ai_handling_converge import converge_sqlite
         from app.db.schema_patch import apply_column_patches, apply_data_repairs
 
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
             await conn.run_sync(apply_column_patches)
             await conn.run_sync(apply_data_repairs)
+            await conn.run_sync(converge_sqlite)
 
     from app.services.integration_catalog_store import ensure_catalog_fresh
     from app.services.lead_agent import ensure_lead_agents

@@ -1,4 +1,4 @@
-"""Tests for suggest-mode inbound AI reply suggestions."""
+"""Tests for assisted inbound AI reply suggestions."""
 
 import json
 
@@ -10,7 +10,6 @@ from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
-from app.services.channel_ai import resolve_ai_mode
 from app.services.inbound_agent import create_reply_suggestion, persist_inbound_agent_reply
 
 
@@ -100,36 +99,7 @@ async def test_email_inbound_creates_suggestion_not_auto_send(client: AsyncClien
 
 
 @pytest.mark.asyncio
-async def test_resolve_ai_mode_precedence(session_override):
-    tenant = Tenant(slug="mode-test", name="Mode Test", settings_json="{}")
-
-    # Built-in defaults.
-    assert resolve_ai_mode(tenant, None, "email") == "suggest"
-    assert resolve_ai_mode(tenant, None, "widget") == "auto"
-    assert resolve_ai_mode(None, None, "whatsapp") == "suggest"
-
-    # Tenant-level channel_ai_modes override the defaults.
-    tenant.settings_json = json.dumps({"channel_ai_modes": {"widget": "suggest", "email": "off"}})
-    assert resolve_ai_mode(tenant, None, "widget") == "suggest"
-    assert resolve_ai_mode(tenant, None, "email") == "off"
-
-    # Account-level ai_config.mode wins over tenant settings.
-    account = ChannelAccount(
-        tenant_id=__import__("uuid").uuid4(),
-        channel="email",
-        provider="mock",
-        address="a@b.com",
-        settings_json=json.dumps({"ai_config": {"mode": "auto"}}),
-    )
-    assert resolve_ai_mode(tenant, account, "email") == "auto"
-
-    # Legacy per-mailbox suggestions toggle maps to off.
-    account.settings_json = json.dumps({"ai_config": {"suggestions_enabled": False}})
-    assert resolve_ai_mode(tenant, account, "email") == "off"
-
-
-@pytest.mark.asyncio
-async def test_ai_paused_skips_suggestion(client: AsyncClient, session_override):
+async def test_manual_conversation_skips_suggestion(client: AsyncClient, session_override):
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     from app.models.agent import Agent
 
@@ -144,7 +114,8 @@ async def test_ai_paused_skips_suggestion(client: AsyncClient, session_override)
         source="mock",
         subject="Paused",
         contact_email="c@test.com",
-        ai_paused=True,
+        ai_handling="manual",
+        ai_handling_reason="operator_takeover",
         status="open",
     )
     session_override.add(signal)
@@ -215,7 +186,7 @@ async def test_resolve_send_option_with_edited_body(client: AsyncClient, session
 
 
 @pytest.mark.asyncio
-async def test_resolve_escalate_pauses_ai(client: AsyncClient, session_override):
+async def test_resolve_escalate_sets_manual(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     from app.models.agent import Agent
@@ -234,7 +205,6 @@ async def test_resolve_escalate_pauses_ai(client: AsyncClient, session_override)
         subject="Need human",
         contact_email="customer@example.com",
         status="open",
-        ai_paused=False,
     )
     session_override.add(signal)
     await session_override.flush()
@@ -255,7 +225,8 @@ async def test_resolve_escalate_pauses_ai(client: AsyncClient, session_override)
     assert resolve.status_code == 200
 
     await session_override.refresh(signal)
-    assert signal.ai_paused is True
+    assert signal.ai_handling == "manual"
+    assert signal.ai_handling_reason == "escalated"
     events = (
         await session_override.execute(
             select(SignalEvent).where(
@@ -267,32 +238,10 @@ async def test_resolve_escalate_pauses_ai(client: AsyncClient, session_override)
 
 
 @pytest.mark.asyncio
-async def test_ai_modes_settings_roundtrip(client: AsyncClient):
+async def test_retired_ai_modes_endpoint_is_gone(client: AsyncClient):
     headers = await _auth_headers(client)
-
     got = await client.get("/api/settings/ai-modes", headers=headers)
-    assert got.status_code == 200
-    modes = got.json()["channel_ai_modes"]
-    assert modes["email"] in ("suggest", "auto", "off")
-    assert modes["widget"] in ("suggest", "auto", "off")
-
-    saved = await client.put(
-        "/api/settings/ai-modes",
-        headers=headers,
-        json={"channel_ai_modes": {"widget": "suggest"}},
-    )
-    assert saved.status_code == 200
-    assert saved.json()["channel_ai_modes"]["widget"] == "suggest"
-
-    got = await client.get("/api/settings/ai-modes", headers=headers)
-    assert got.json()["channel_ai_modes"]["widget"] == "suggest"
-
-    invalid = await client.put(
-        "/api/settings/ai-modes",
-        headers=headers,
-        json={"channel_ai_modes": {"widget": "sometimes"}},
-    )
-    assert invalid.status_code == 400
+    assert got.status_code == 404
 
 
 @pytest.mark.asyncio

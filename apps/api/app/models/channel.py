@@ -91,6 +91,8 @@ class Contact(SQLModel, table=True):
     phone: str = ""
     notes: str = ""
     metadata_json: str = Field(default="{}")
+    # AI handling override as JSON ({"mode": "manual"}); null follows the channel.
+    ai_handling: Optional[str] = Field(default=None)
     merged_into_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="contacts.id", index=True
     )

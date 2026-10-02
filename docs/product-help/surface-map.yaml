@@ -124,12 +124,13 @@ communication:
     - apps/dashboard/src/pages/Communication.tsx
     - apps/dashboard/src/components/inbox/**
     - apps/dashboard/src/components/shell/MessagesHub.tsx
+    - packages/shared/src/chat-layout.ts
   screenshots:
     - decision-card
     - open-queue
     - thread-composer
     - composer-modes
-    - ai-status
+    - handling-picker
 
 agent-runs:
   section: inbox
@@ -177,8 +178,10 @@ contacts:
   code_globs:
     - apps/dashboard/src/pages/ContactsPage.tsx
     - apps/dashboard/src/components/inbox/ContactPanel.tsx
+    - apps/dashboard/src/lib/contacts-api.ts
   screenshots:
     - contact-card
+    - contact-handling
 
 inbox-ai:
   section: inbox
@@ -186,8 +189,16 @@ inbox-ai:
     - /settings/communication
   code_globs:
     - apps/dashboard/src/pages/AiCommunicationSettings.tsx
+    - apps/dashboard/src/components/ai/AiHandlingPicker.tsx
+    - apps/dashboard/src/components/ai/AiHandlingIcon.tsx
+    - apps/dashboard/src/hooks/useAiHandling.ts
+    - apps/dashboard/src/lib/ai-handling.ts
+    - apps/dashboard/src/lib/ai-handling-api.ts
+    - apps/dashboard/src/lib/composer-verbs.ts
+    - apps/api/app/services/ai_handling.py
+    - apps/api/app/routers/ai_handling.py
   screenshots:
-    - draft-mode
+    - workspace-default
 
 widget:
   section: inbox
@@ -199,6 +210,7 @@ widget:
   code_globs:
     - apps/dashboard/src/pages/MessengerSettings.tsx
     - apps/chat-widget/src/widget-main.ts
+    - packages/shared/src/chat-layout.ts
   screenshots:
     - installation
 
@@ -307,10 +319,12 @@ govern:
     - /settings/govern
   code_globs:
     - apps/dashboard/src/pages/GovernPage.tsx
+    - apps/dashboard/src/components/govern/GovernConversationsCard.tsx
     - apps/api/app/services/platform_apply.py
   screenshots:
     - drafts
     - posture
+    - conversations
 
 privacy-security:
   section: govern

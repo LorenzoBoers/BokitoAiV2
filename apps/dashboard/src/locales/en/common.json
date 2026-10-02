@@ -12,5 +12,74 @@
     "signOut": "Sign out",
     "retry": "Retry",
     "close": "Close"
+  },
+  "aiHandling": {
+    "title": "AI handling",
+    "modes": {
+      "autonomous": {
+        "label": "Autonomous",
+        "description": "AI answers on its own. Consequential actions still ask."
+      },
+      "assisted": {
+        "label": "Assisted",
+        "description": "AI drafts replies and suggests actions. A person sends."
+      },
+      "manual": {
+        "label": "Manual",
+        "description": "AI stays quiet. People handle every reply."
+      }
+    },
+    "sources": {
+      "default": "the platform default",
+      "workspace": "the workspace default",
+      "channel": "the channel",
+      "contact": "the contact",
+      "conversation": "this conversation"
+    },
+    "follows": "Follows {{source}}",
+    "followsNamed": "Follows {{source}} ({{name}})",
+    "setHere": "Set here",
+    "useInherited": "Follow {{source}}",
+    "useInheritedHint": "Currently {{mode}}",
+    "untilClose": "Until this conversation closes",
+    "clamped": {
+      "govern": "Govern caps conversations at {{mode}}.",
+      "privacy": "Privacy settings keep AI away from message bodies.",
+      "breaker": "Autonomous paused after unusual activity. Drafts only until someone resumes it."
+    },
+    "reasons": {
+      "assigned": "Assigned to a person",
+      "operator_takeover": "Taken over by a teammate",
+      "handoff_requested": "The customer asked for a person",
+      "escalated": "Escalated to the team",
+      "operator": "Set by a teammate"
+    },
+    "needsAdmin": "Only an owner or admin can turn on autonomous here.",
+    "takeOver": "Take over",
+    "handBack": "Hand back to AI",
+    "openSettings": "AI handling settings",
+    "changed": "AI handling set to {{mode}}",
+    "cleared": "AI handling follows {{source}} again",
+    "saveError": "Could not change AI handling",
+    "breakerBadge": "Paused",
+    "breakerResume": "Resume autonomous",
+    "breakerKeepAssisted": "Keep assisted",
+    "preview": {
+      "confirm": "Turn on Autonomous? The AI will reply on its own to the next customer messages.",
+      "followers_one": "{{count}} open conversation follows this.",
+      "followers_other": "{{count}} open conversations follow this.",
+      "evidence": "{{rate}}% of {{count}} drafts were sent unedited in the last {{days}} days.",
+      "noEvidence": "No drafts yet in the last {{days}} days."
+    },
+    "filter": {
+      "all": "Any AI handling",
+      "custom": "Custom AI handling"
+    },
+    "metrics": {
+      "hint": "Open conversations by mode, and outcomes over the last {{days}} days.",
+      "autonomousReplies": "Autonomous replies",
+      "handoffRate": "Handed to a person",
+      "editRate": "Drafts edited before sending"
+    }
   }
 }

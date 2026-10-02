@@ -35,15 +35,16 @@ Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/
 
 ## External sessions stay safe
 
-Website visitors never auto-mutate the workspace, regardless of posture. [Inbox AI](/docs/inbox/inbox-ai) still decides when a customer draft appears.
+Website visitors never auto-mutate the workspace, regardless of posture. [AI handling](/docs/inbox/inbox-ai) still decides when a customer draft appears.
 
-## One dial also bounds channel AI
+## One dial also bounds AI handling
 
-The per-channel AI mode (suggest, auto, off) is a view over the Messaging allowance, so channels can never do more than Govern allows.
+AI handling on conversations (Autonomous, Assisted, Manual) sits under the Messaging allowance, so a workspace, channel, contact or conversation can never do more than Govern allows.
 
-1. When Messaging is on **Ask first**, channels set to **Auto** behave as **Suggest**: replies wait for approval.
-2. When Messaging is on **Deny**, AI is off on every channel.
-3. When Messaging is on **Allow**, each channel's own mode applies.
+1. When Messaging is on **Ask first**, every conversation is capped at **Assisted**: replies wait for approval.
+2. When Messaging is on **Deny**, every conversation is **Manual**.
+3. When Messaging is on **Allow**, the most specific AI handling setting applies.
+4. The **Conversations** card on Govern shows the ceiling, what runs autonomously, and the circuit breaker. See [Govern](/docs/govern/govern).
 
 ## What to do next
 

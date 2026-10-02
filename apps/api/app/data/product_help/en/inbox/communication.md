@@ -48,17 +48,19 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 
 ## See and change what the AI does
 
-![AI status chip in the thread header](/api/docs/assets/communication/ai-status.png)
-*The header chip shows whether AI suggests, replies, is off, or you took over.*
+![AI handling picker in the thread header](/api/docs/assets/communication/handling-picker.png)
+*The header shows the AI handling mode and which layer it follows.*
 
-1. Open a customer or AI conversation. The header shows an **AI status** chip: **AI suggests**, **AI replies**, **AI off**, or **You took over**.
-2. Open the chip menu. Choose **Take over** to pause the AI on this thread, or **Hand back to AI** when you are done.
-3. Choose **Set for all conversations on this channel** to open Communication settings (channel AI mode). There is no per-thread mode besides takeover (`ai_paused`).
-4. Live work appears as a thin strip under the timeline while the AI thinks or streams — the same place for customer replies and Ask turns.
+1. Open a customer conversation. The header shows the **AI handling** mode with its icon: **Autonomous** or **Assisted** (purple), or **Manual** (gray). The menu says where it comes from, for example **Follows the channel**.
+2. Pick another mode to set it for this conversation only, until it closes. Choose **Follow the channel** (or the contact or workspace) to remove it again. Only an owner or admin can raise a conversation to Autonomous.
+3. Choose **Take over** to set Manual and assign the conversation to you. **Hand back to AI** returns it to the inherited mode. Replying yourself on an autonomous conversation also takes it over.
+4. In the composer, type `/manual`, `/assisted` or `/autonomous` (or `/handmatig`, `/geassisteerd`, `/autonoom`), optionally followed by a reason.
+5. Every change appears in the timeline, for example **AI handling set to Assisted**. Rows in the list show the mode icon when a conversation or contact differs from its channel. See [AI handling](/docs/inbox/inbox-ai).
+6. Live work appears as a thin strip under the timeline while the AI thinks or streams — the same place for customer replies and Ask turns.
 
 ## Approve an AI proposal from the composer
 
-1. When Inbox AI suggests a reply, the draft loads into the composer with **Send**, **Edit**, and **Dismiss**. The timeline only shows a short line: **AI proposed a reply**.
+1. When the AI suggests a reply, the draft loads into the composer with **Send**, **Edit**, and **Dismiss**. The timeline only shows a short line: **AI proposed a reply**.
 2. Edit the text if needed, then **Send** (or use the send menu for close / snooze). Sending resolves the decision and delivers the reply.
 3. **Dismiss** rejects the proposal without sending. Other decisions (platform, module, agenda, checkout) stay as cards titled **Waiting for your OK** with plain verb buttons — no tool names in the copy.
 
@@ -68,7 +70,7 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 *Decision cards appear in the timeline as chat bubbles.*
 
 1. A decision bubble appears when an agent needs your judgment.
-2. Read the proposal. When the card offers several concrete choices, each button keeps its own label (for example send vs cancel vs ask the customer). Approve, edit or decline. **Later** / **Not now** parks the conversation until tomorrow 9:00 so it leaves Open. The single **I'll handle it myself** button is only for pausing AI so you take over.
+2. Read the proposal. When the card offers several concrete choices, each button keeps its own label (for example send vs cancel vs ask the customer). Approve, edit or decline. **Later** / **Not now** parks the conversation until tomorrow 9:00 so it leaves Open. The single **I'll handle it myself** button sets the conversation to Manual and assigns you.
 3. Nothing customer-facing goes out until you answer, unless autonomy allows it. Approving **What next** (or the old Create task choice) sets a next look-at on this conversation — a title and when — and shows it on [Agenda](/docs/ai/agenda). From the thread menu choose **What next** to schedule a look-at or open a typed Signal. Clear the look-at under **This conversation** in the side panel when you are done. Choose **Add to project** in the same menu to link the thread to a project. See [Decisions](/docs/ai/decisions).
 
 ## Capture a website visitor

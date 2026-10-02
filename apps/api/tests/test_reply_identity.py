@@ -359,27 +359,27 @@ async def test_agent_signature_roundtrip(client, session_override):
 async def test_reply_send_as_setting_roundtrip(client):
     headers = await _auth_headers(client)
 
-    got = await client.get("/api/settings/ai-modes", headers=headers)
+    got = await client.get("/api/settings/ai-language", headers=headers)
     assert got.status_code == 200
     assert got.json()["reply_send_as"] == "user"
 
     saved = await client.put(
-        "/api/settings/ai-modes", headers=headers, json={"reply_send_as": "agent"}
+        "/api/settings/ai-language", headers=headers, json={"reply_send_as": "agent"}
     )
     assert saved.status_code == 200
     assert saved.json()["reply_send_as"] == "agent"
 
-    got = await client.get("/api/settings/ai-modes", headers=headers)
+    got = await client.get("/api/settings/ai-language", headers=headers)
     assert got.json()["reply_send_as"] == "agent"
 
     invalid = await client.put(
-        "/api/settings/ai-modes", headers=headers, json={"reply_send_as": "nobody"}
+        "/api/settings/ai-language", headers=headers, json={"reply_send_as": "nobody"}
     )
     assert invalid.status_code == 400
 
     # Restore the default for other tests.
     await client.put(
-        "/api/settings/ai-modes", headers=headers, json={"reply_send_as": "user"}
+        "/api/settings/ai-language", headers=headers, json={"reply_send_as": "user"}
     )
 
 

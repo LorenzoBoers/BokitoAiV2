@@ -11,7 +11,7 @@ share one API family. Paths:
 - GET/POST  /signals/conversations/{id}/messages
 - POST /signals/conversations/{id}/stream
 
-Takeover/release use the shared /signals/{signal_id}/takeover and /release.
+AI handling (take over / hand back) uses PUT /ai-handling/conversation/{id}.
 """
 
 import json
@@ -32,6 +32,7 @@ from app.models.agent import Agent, AgentRun
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
 from app.services.agent.loop import AgentLoop
+from app.services.ai_handling import is_held
 from app.services.assistant_context import page_context_block
 from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
 from app.services.assistant_threads import (
@@ -80,7 +81,7 @@ def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = N
         "channel": signal.channel,
         "source": signal.source,
         "audience": "internal" if signal.channel == "assistant" else "external",
-        "ai_paused": signal.ai_paused,
+        "ai_handling": signal.ai_handling,
         "agent_id": str(signal.agent_id) if signal.agent_id else None,
         "agent_name": agent.name if agent else None,
         "agent_kind": agent.kind if agent else None,
@@ -315,7 +316,7 @@ async def send_message(
     )
     await session.commit()
 
-    if signal.ai_paused:
+    if is_held(signal):
         return {
             "message": {"role": "assistant", "content": ""},
             "ai_paused": True,
@@ -440,7 +441,7 @@ async def stream_message(
     )
     await session.commit()
 
-    if signal.ai_paused:
+    if is_held(signal):
 
         async def paused_generator():
             yield {"event": "done", "data": json.dumps({"text": "", "ai_paused": True})}

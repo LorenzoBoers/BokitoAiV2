@@ -57,6 +57,7 @@ import { governHaystack, matchesGovernText } from '../lib/govern-list'
 import { useChannelStatus } from '../hooks/useChannelStatus'
 import { useLlmRuntime } from '../hooks/useLlmRuntime'
 import { Input } from '../components/ui/input'
+import GovernConversationsCard from '../components/govern/GovernConversationsCard'
 import {
   Dialog,
   DialogContent,
@@ -615,6 +616,16 @@ export default function GovernPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <GovernConversationsCard
+              messagingMode={allowances.messaging}
+              onMessagingChange={(mode) => handleAllowanceChange('messaging', mode)}
+              caseTypes={caseTypeScopes}
+              onCaseTypeChanged={(row) =>
+                setCaseTypeScopes((current) => current.map((item) => (item.id === row.id ? row : item)))
+              }
+              saving={savingModes}
+            />
 
             <Card>
               <CardHeader>

@@ -27,11 +27,13 @@ import {
   mergeSessionLiveMessages,
   type SessionStreamState,
 } from '../../lib/use-agent-session-chat'
-import { formatAppDateTime } from '../../lib/app-locale'
-import { EventClusterTimelineItem, MessageTimelineItem, formatHourMinute } from './TimelineItem'
+import { assignBubbleStacks, CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
+import { cn } from '../../lib/utils'
+import { EventClusterTimelineItem, MessageTimelineItem } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import AgentSessionCard from './AgentSessionCard'
 import type { NoteActions } from './TimelineItem'
+import type { BubbleStack } from './ChatBubble'
 
 type ThreadSession = ThreadDetailType['sessions'][number]
 
@@ -42,7 +44,7 @@ type TimelineEntry =
 
 export type TimelineRow =
   | { kind: 'day'; id: string; time: string; label: string }
-  | { kind: 'message'; id: string; time: string; showTime: boolean; data: InboxMessage }
+  | { kind: 'message'; id: string; time: string; data: InboxMessage }
   | { kind: 'events'; id: string; time: string; events: InboxEvent[] }
   | { kind: 'session'; id: string; time: string; session: ThreadSession }
 
@@ -133,14 +135,48 @@ export function buildTimelineRows(
       rows.push({ kind: 'session', id: entry.id, time: entry.time, session: entry.data })
       continue
     }
-    const previous = rows[rows.length - 1]
-    const showTime =
-      !previous ||
-      previous.kind === 'day' ||
-      formatHourMinute(previous.time, locale) !== formatHourMinute(entry.time, locale)
-    rows.push({ kind: 'message', id: entry.id, time: entry.time, showTime, data: entry.data })
+    rows.push({ kind: 'message', id: entry.id, time: entry.time, data: entry.data })
   }
   return rows
+}
+
+/**
+ * Author + lane key for WhatsApp-style bubble stacking. Notes stay in their
+ * own lane so a teammate note does not glue to their customer reply.
+ * Decision cards never stack. Anonymous / system rows fall back to kind so
+ * consecutive system notes still group.
+ */
+function messageStackKey(message: InboxMessage): string | null {
+  if (message.kind === 'decision_request') return null
+  const isAgent =
+    message.kind === 'agent_message' ||
+    Boolean(message.payload?.agent_id) ||
+    Boolean(message.agentTrace) ||
+    Boolean(message.hasAgentTrace)
+  if (isAgent) {
+    const aid =
+      typeof message.payload?.agent_id === 'string' && message.payload.agent_id
+        ? message.payload.agent_id
+        : 'agent'
+    return `agent:${aid}`
+  }
+  const lane = message.direction === 'internal' ? 'note' : message.direction
+  if (message.authorUserId != null) return `${lane}:user:${message.authorUserId}`
+  const from = (message.fromAddress || '').trim().toLowerCase()
+  if (from) return `${lane}:from:${from}`
+  return `${lane}:kind:${message.kind || 'message'}`
+}
+
+/** Assign start/middle/end/single for consecutive same-author chat bubbles. */
+function stacksForRows(rows: TimelineRow[]): Map<string, BubbleStack> {
+  return assignBubbleStacks(
+    rows.map((row) => ({
+      id: row.id,
+      key: row.kind === 'message' ? messageStackKey(row.data) : null,
+      timeMs: new Date(row.time).getTime(),
+      breaksRun: row.kind !== 'message',
+    })),
+  )
 }
 
 export type ThreadTimelineHandle = {
@@ -232,6 +268,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
 ) {
   const { t } = useTranslation('communication')
   const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const bubbleStacks = useMemo(() => stacksForRows(rows), [rows])
 
   useImperativeHandle(
     ref,
@@ -278,7 +315,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     return (
       <div className="relative h-full min-h-0">
         <div className="absolute inset-0 overflow-y-auto px-4 py-4">
-          <div className="mx-auto w-full max-w-[860px]">
+          <div className={CHAT_COLUMN_CLASS}>
             {emptyState}
             {liveTrace ? <div className="mb-3">{liveTrace}</div> : null}
           </div>
@@ -290,8 +327,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const renderRow = (row: TimelineRow) => {
     if (row.kind === 'day') {
       return (
-        <div className="flex justify-center py-2">
-          <span className="rounded-full bg-bg-hover/80 px-3 py-0.5 text-xs font-medium text-text-secondary backdrop-blur">
+        <div className="flex justify-center pb-3 pt-2">
+          <span className="rounded-full bg-bg-elevated/80 px-2.5 py-0.5 text-2xs font-medium text-text-muted backdrop-blur">
             {row.label}
           </span>
         </div>
@@ -299,7 +336,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     }
     if (row.kind === 'events') {
       return (
-        <div className="mb-1.5">
+        <div className="mb-3">
           <EventClusterTimelineItem
             events={row.events}
             memberNameFor={(userId) => (userId != null ? membersById[userId]?.name : undefined)}
@@ -309,7 +346,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     }
     if (row.kind === 'session') {
       return (
-        <div className="mb-3">
+        <div className="mb-4">
           <AgentSessionCard
             session={row.session}
             threadId={String(threadId)}
@@ -331,21 +368,16 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     }
     const message = row.data
     const focused = focusedMessageId != null && String(message.id) === focusedMessageId
+    const stack = bubbleStacks.get(row.id) ?? 'single'
+    const tightBelow = stack === 'start' || stack === 'middle'
     return (
       <div
         data-message-id={String(message.id)}
-        className={`mb-3${focused ? ' rounded-lg ring-2 ring-accent/60 ring-offset-2 ring-offset-bg-base' : ''}`}
+        className={cn(
+          tightBelow ? 'mb-0.5' : 'mb-4',
+          focused && 'rounded-[20px] ring-2 ring-accent/50 ring-offset-4 ring-offset-bg-canvas',
+        )}
       >
-        {row.showTime ? (
-          <div className="mb-1 flex justify-center">
-            <span
-              title={formatAppDateTime(new Date(row.time), language)}
-              className="rounded-md border border-border/40 bg-bg-surface/85 px-2 py-0.5 text-2xs text-text-muted backdrop-blur"
-            >
-              {formatHourMinute(row.time, language)}
-            </span>
-          </div>
-        ) : null}
         {message.kind === 'decision_request' ? (
           <DecisionRequestMessage
             message={message}
@@ -377,6 +409,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             agentAvatarImageUrl={agentAvatarImageUrl}
             membersById={membersById}
             noteActions={noteActions}
+            stack={stack}
           />
         )}
       </div>
@@ -403,7 +436,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         components={{
           Header: () =>
             hasOlder && onLoadOlder ? (
-              <div className="mx-auto w-full max-w-[860px] px-4 pb-3 pt-4">
+              <div className={cn(CHAT_COLUMN_CLASS, 'px-4 pb-3 pt-4')}>
                 <div className="flex justify-center">
                   <button
                     type="button"
@@ -419,13 +452,17 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
               <div className="pt-4" />
             ),
           Footer: () => (
-            <div className="mx-auto w-full max-w-[860px] px-4 pb-4">
-              {liveTrace ? <div className="mb-3">{liveTrace}</div> : null}
+            <div className="px-4 pb-6">
+              <div className={CHAT_COLUMN_CLASS}>
+                {liveTrace ? <div className="mb-3">{liveTrace}</div> : null}
+              </div>
             </div>
           ),
         }}
         itemContent={(_index, row) => (
-          <div className="mx-auto w-full max-w-[860px] px-4">{renderRow(row)}</div>
+          <div className="px-4">
+            <div className={CHAT_COLUMN_CLASS}>{renderRow(row)}</div>
+          </div>
         )}
       />
       {/* Fade at the top so messages recede under the day pill. */}

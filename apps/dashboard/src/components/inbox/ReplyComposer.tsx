@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import type { ComposerSurface, ComposerMode } from '../../lib/message-composer'
+import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { listChannels, type ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
@@ -529,8 +530,8 @@ export default function ReplyComposer({
   )
 
   return (
-    <div className="shrink-0 border-t border-border/60 px-4 pb-4 pt-2">
-      <div className="mx-auto w-full max-w-[860px]">
+    <div className="shrink-0 px-4 pb-4 pt-1">
+      <div className={CHAT_COLUMN_CLASS}>
         <div className="mb-1.5 flex items-center gap-1">
           {showReplyTab ? (
             canPickMailbox ? (

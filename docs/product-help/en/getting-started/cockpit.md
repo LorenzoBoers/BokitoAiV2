@@ -19,6 +19,7 @@ Overview is the morning scan. Open it from the left rail to see what needs you, 
 1. Open **Overview** in the left rail. You land on the scan. The subtitle greets you and shows today's date. **Updated** next to **Refresh** is the last successful load.
 2. Scan the four fixed blocks: **Needs you**, **Open signals by type**, **Running**, and **Trajectory**. Trajectory compares this week with last week and links to completed runs, Govern proposals, and Usage.
 3. Click any row to open its conversation, run, or filtered list. Overview itself does not change operational data.
+4. Below the blocks, **AI handling** counts open conversations per mode (**Autonomous**, **Assisted**, **Manual**) and shows **Autonomous replies**, **Handed to a person** and **Drafts edited before sending** over the last 30 days. A low edit rate means Assisted drafts are ready for more autonomy. See [AI handling](/docs/inbox/inbox-ai).
 
 On a new workspace, Overview may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).
 

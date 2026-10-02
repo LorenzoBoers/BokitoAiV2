@@ -18,11 +18,18 @@ import {
   PenLine,
   RefreshCw,
   Settings as SettingsIcon,
+  ShieldAlert,
   Star,
   Trash2,
   Wifi,
   XCircle,
+  Zap,
 } from 'lucide-react'
+import AiHandlingPicker from '../ai/AiHandlingPicker'
+import { useAiHandling } from '../../hooks/useAiHandling'
+import { useAuth } from '../../context/AuthContext'
+import { AI_HANDLING_CHANNELS } from '../../lib/ai-handling'
+import { resetAiBreaker } from '../../lib/ai-handling-api'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Switch } from '../ui/switch'
@@ -110,6 +117,63 @@ function CheckLine({ check }: { check: ChannelCheck }) {
         ) : null}
       </span>
     </li>
+  )
+}
+
+function ChannelAiHandling({ row }: { row: ChannelRow }) {
+  const { t } = useTranslation('common')
+  const { token } = useAuth()
+  const { handling, setHandling, change, saving, canRaise } = useAiHandling('channel', row.id, {
+    initial: row.aiHandling,
+    skipFetch: true,
+  })
+  const tripped = Boolean(handling?.breakerTrippedAt)
+
+  const reset = async (keepAssisted: boolean) => {
+    if (!token) return
+    try {
+      setHandling(await resetAiBreaker(token, row.id, keepAssisted))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('aiHandling.saveError'))
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {tripped ? (
+        <Badge
+          variant="warning"
+          className="gap-1 px-1.5 py-0 text-2xs"
+          title={t('aiHandling.clamped.breaker')}
+          data-testid="channel-ai-breaker"
+        >
+          <ShieldAlert size={10} />
+          {t('aiHandling.breakerBadge')}
+        </Badge>
+      ) : null}
+      <AiHandlingPicker
+        scope="channel"
+        handling={handling}
+        canRaise={canRaise}
+        saving={saving}
+        onChange={(mode) => void change(mode)}
+        testId="channel-ai-handling"
+        extraItems={
+          tripped && canRaise ? (
+            <>
+              <DropdownMenuItem className="gap-2 text-xs" onSelect={() => void reset(false)}>
+                <Zap size={13} />
+                {t('aiHandling.breakerResume')}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2 text-xs" onSelect={() => void reset(true)}>
+                <PenLine size={13} />
+                {t('aiHandling.breakerKeepAssisted')}
+              </DropdownMenuItem>
+            </>
+          ) : null
+        }
+      />
+    </span>
   )
 }
 
@@ -293,6 +357,9 @@ export default function ChannelList({
               <div className="flex flex-wrap items-center gap-2">
                 <ChannelCapabilityChips capabilities={row.capabilities} />
                 <ChannelStateBadge state={row.state} />
+                {row.aiHandling && AI_HANDLING_CHANNELS.has(row.channel) ? (
+                  <ChannelAiHandling row={row} />
+                ) : null}
                 <Switch
                   checked={row.isEnabled}
                   disabled={busy}

@@ -13,7 +13,7 @@ Bokito is je eigen assistent binnen het platform. Hij is geen agent van de works
 
 ## Vraag iets over de pagina waar je bent
 
-1. Kies de Bokito-knop rechtsonder op een pagina — ook op de Workspaces-hub en Account in het Bokito-portal.
+1. Kies de Bokito-knop rechtsonder op een pagina — ook op de Workspaces-hub en Account in het Bokito-portal. Bokito draagt altijd zijn eigen merkteken; je profielfoto staat rechtsboven in de chat, zodat je ziet vanuit welk account je chat.
 2. Stel je vraag. Bokito krijgt het scherm mee waar je naar kijkt (bijvoorbeeld de Workspaces-hub wanneer je een workspace kiest), dus "wat betekent deze status?" werkt zonder dat je uitlegt waar je bent.
 3. Antwoorden komen uit de producthelp. Bokito linkt naar het artikel dat hij gebruikte, zodat je de hele pagina kunt lezen.
 

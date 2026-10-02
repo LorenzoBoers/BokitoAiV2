@@ -42,7 +42,7 @@ A document is a page built from `##` sections; each section is the atomic unit a
 
 1. Add the pages your team already uses: pricing, policies, product facts.
 2. Open a thread in [Communication](/docs/inbox/communication).
-3. Drafts improve once a handful of documents exist. Inbox AI still follows [Inbox AI](/docs/inbox/inbox-ai); Knowledge only grounds the wording.
+3. Drafts improve once a handful of documents exist. Whether drafts appear still follows [AI handling](/docs/inbox/inbox-ai); Knowledge only grounds the wording.
 
 ## Publish customer help
 

@@ -232,7 +232,7 @@ def serialize_thread(
     last_preview: str | None = None,
     last_direction: str | None = None,
     has_open_decision: bool = False,
-    ai_mode: str | None = None,
+    ai_handling: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
@@ -265,8 +265,7 @@ def serialize_thread(
         "priority": signal.priority,
         "assigned_to_user_id": assignee_num,
         "tags": json.loads(signal.tags_json or "[]"),
-        "ai_paused": signal.ai_paused,
-        "ai_mode": ai_mode,
+        "ai_handling": ai_handling,
         "suggested_actions": json.loads(signal.suggested_actions_json or "[]"),
         # AI triage (INTERPRETATION layer) shown on the thread header.
         "category": signal.category,
@@ -993,7 +992,7 @@ async def list_threads(
     )
 
     from app.models.auth import Tenant
-    from app.services.channel_ai import resolve_ai_mode
+    from app.services.ai_handling import resolve_ai_handling, widget_account
 
     tenant = await session.get(Tenant, tenant_id)
     account_ids = {t.channel_account_id for t in threads if t.channel_account_id}
@@ -1006,6 +1005,18 @@ async def list_threads(
             )
         )
         accounts_by_id = {a.id: a for a in account_rows.scalars().all()}
+    widget_fallback = (
+        await widget_account(session, tenant_id)
+        if any(t.channel == "widget" and not t.channel_account_id for t in threads)
+        else None
+    )
+    contact_ids = {t.contact_id for t in threads if t.contact_id}
+    contacts_by_id: dict[UUID, Contact] = {}
+    if contact_ids:
+        contact_rows = await session.execute(
+            select(Contact).where(Contact.tenant_id == tenant_id, Contact.id.in_(contact_ids))
+        )
+        contacts_by_id = {c.id: c for c in contact_rows.scalars().all()}
 
     items = []
     for t in threads:
@@ -1014,7 +1025,10 @@ async def list_threads(
             agent = project_po_agents.get(t.project_id)
         preview, direction = previews.get(t.id, ("", ""))
         account = accounts_by_id.get(t.channel_account_id) if t.channel_account_id else None
-        mode = resolve_ai_mode(tenant, account, t.channel or "email")
+        if account is None and t.channel == "widget":
+            account = widget_fallback
+        contact = contacts_by_id.get(t.contact_id) if t.contact_id else None
+        handling = resolve_ai_handling(tenant, account, contact, t).to_payload()
         items.append(
             serialize_thread(
                 t,
@@ -1024,7 +1038,7 @@ async def list_threads(
                 last_preview=preview,
                 last_direction=direction,
                 has_open_decision=t.id in open_dec,
-                ai_mode=mode,
+                ai_handling=handling,
             )
         )
     next_page = page + 1 if page * per_page < items_total else None
@@ -1205,15 +1219,10 @@ async def get_thread(
     oldest_id = str(messages[0].id) if messages else None
 
     from app.models.auth import Tenant
-    from app.services.channel_ai import resolve_ai_mode
+    from app.services.ai_handling import resolve_for_signal
 
     tenant = await session.get(Tenant, tenant_id)
-    account = None
-    if signal.channel_account_id:
-        account = await session.get(ChannelAccount, signal.channel_account_id)
-        if account and account.tenant_id != tenant_id:
-            account = None
-    ai_mode = resolve_ai_mode(tenant, account, signal.channel or "email")
+    handling = (await resolve_for_signal(session, tenant, signal)).to_payload()
 
     return {
         "thread": serialize_thread(
@@ -1221,7 +1230,7 @@ async def get_thread(
             is_pinned=signal_id in pinned,
             agent=agent,
             has_open_decision=await _signal_has_open_decision(session, tenant_id, signal_id),
-            ai_mode=ai_mode,
+            ai_handling=handling,
         ),
         "messages": serialized_messages,
         "events": [serialize_event(e, user_num_map=rev_map) for e in events],
@@ -1446,6 +1455,13 @@ async def patch_thread(
             "spam": "human_spam",
         }[signal.status]
         await _defer_open_reply_suggestions(session, tenant_id, signal_id, reason=parked)
+    from app.services import ai_handling as handling_svc
+
+    if signal.status != before_status:
+        handling_svc.on_status_change(session, signal, actor_id=str(user_id))
+    handling_svc.on_assignment_change(
+        session, signal, before_assignee=before_assignee, actor_id=str(user_id)
+    )
     session.add(signal)
     session.add(
         SignalEvent(
@@ -1485,7 +1501,12 @@ async def patch_thread(
         )
     await session.commit()
     await session.refresh(signal)
-    await publish_thread_update(signal)
+    from app.models.auth import Tenant
+
+    handling = (
+        await handling_svc.resolve_for_signal(session, await session.get(Tenant, tenant_id), signal)
+    ).to_payload()
+    await publish_thread_update(signal, ai_handling=handling)
     if signal.status == "closed" and before_status != "closed":
         from app.services.webhooks import emit_webhook_event, signal_event_data
 
@@ -1493,7 +1514,9 @@ async def patch_thread(
     if newly_assigned:
         await _notify_assignment(session, tenant_id, signal, assignee_id=newly_assigned, actor_id=user_id)
     pinned = await _pinned_ids(session, tenant_id, user_id)
-    return serialize_thread(signal, is_pinned=signal_id in pinned, user_num=user_num)
+    return serialize_thread(
+        signal, is_pinned=signal_id in pinned, user_num=user_num, ai_handling=handling
+    )
 
 
 async def _notify_assignment(
@@ -1657,7 +1680,10 @@ async def bulk_update_threads(
         str(s.id): {"status": s.status, "assigned_user_id": str(s.assigned_user_id or "")}
         for s in signals
     }
+    from app.services import ai_handling as handling_svc
+
     for signal in signals:
+        before_assignee = signal.assigned_user_id
         if action == "close":
             signal.status = "closed"
             signal.snoozed_until = None
@@ -1676,6 +1702,12 @@ async def bulk_update_threads(
         elif action == "snooze":
             signal.status = "pending"
             signal.snoozed_until = snoozed_until
+        if action == "close":
+            handling_svc.on_status_change(session, signal, actor_id=str(user_id))
+        elif action == "assign":
+            handling_svc.on_assignment_change(
+                session, signal, before_assignee=before_assignee, actor_id=str(user_id)
+            )
         signal.updated_at = now
         session.add(signal)
         if action in ("close", "spam"):
@@ -1789,68 +1821,6 @@ async def delete_thread(
     )
     await session.commit()
     return True
-
-
-async def set_ai_paused(
-    session: AsyncSession,
-    tenant_id: UUID,
-    user_id: UUID,
-    signal_id: UUID,
-    *,
-    paused: bool,
-) -> dict[str, Any] | None:
-    """Human takeover / hand-back for a thread.
-
-    When paused, the assigned operator owns replies and the AI stops generating
-    automatic responses (widget stream, /api/chat, and internal agent threads all
-    respect `ai_paused`). Releasing hands control back to the agent.
-    """
-    signal = await _get_signal_row(session, tenant_id, signal_id)
-    if not signal:
-        return None
-    signal.ai_paused = paused
-    signal.assigned_user_id = user_id if paused else None
-    signal.updated_at = datetime.utcnow()
-    session.add(signal)
-    session.add(
-        SignalEvent(
-            signal_id=signal_id,
-            tenant_id=tenant_id,
-            event_type="ai_paused" if paused else "ai_resumed",
-            actor_type="user",
-            actor_id=str(user_id),
-            payload_json=json.dumps(
-                {
-                    "ai_paused": paused,
-                    "via": "operator_takeover" if paused else "operator_handback",
-                }
-            ),
-        )
-    )
-    if paused:
-        # Close open in-thread agent sessions so the composer defaults to Reply
-        # (Beantwoorden) instead of the agent tab after takeover.
-        from app.services.agent_sessions import close_open_sessions_for_thread
-
-        await close_open_sessions_for_thread(
-            session, tenant_id, user_id, signal_id, summary="Human takeover"
-        )
-    from app.services.audit import record_audit
-
-    await record_audit(
-        session,
-        tenant_id,
-        action="signal:takeover" if paused else "signal:handback",
-        actor_type="user",
-        actor_id=user_id,
-        resource_type="signal",
-        resource_id=signal_id,
-        summary=(signal.subject or "")[:120],
-        commit=False,
-    )
-    await session.commit()
-    await publish_thread_update(signal)
-    return {"signal_id": str(signal_id), "ai_paused": paused}
 
 
 async def _defer_open_reply_suggestions(
@@ -2034,8 +2004,11 @@ async def reply_to_thread(
     if direction == "outbound":
         await _defer_open_reply_suggestions(session, tenant_id, signal_id)
     if action == "send_and_close":
+        from app.services.ai_handling import on_status_change
+
         signal.status = "closed"
         signal.snoozed_until = None
+        on_status_change(session, signal, actor_id=str(user_id))
     elif action == "send_and_pending":
         signal.status = "pending"
         # Optional wake time; without one the thread waits for the next
@@ -2080,7 +2053,9 @@ async def reply_to_thread(
     # returns immediately. Deltas stream via gateway; the final message lands
     # through append_signal_chat_message. Under mock/test execution await
     # inline — background sessions cannot see the in-memory SQLite fixture.
-    if direction == "outbound" and signal.channel == "internal" and not signal.ai_paused and not scheduled:
+    from app.services.ai_handling import is_held
+
+    if direction == "outbound" and signal.channel == "internal" and not is_held(signal) and not scheduled:
         from app.config import get_settings
 
         if get_settings().bokito_mock_execution:
@@ -2812,8 +2787,11 @@ async def dismiss_no_reply_suggestions(
                 )
             ).scalar_one_or_none()
             if signal and signal.status == "open":
+                from app.services.ai_handling import on_status_change
+
                 signal.status = "closed"
                 signal.updated_at = datetime.utcnow()
+                on_status_change(session, signal)
                 session.add(signal)
                 session.add(
                     SignalEvent(

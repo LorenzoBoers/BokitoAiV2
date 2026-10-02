@@ -39,7 +39,10 @@ test.describe('Dashboard', () => {
     // Intent card accessible name includes title + hint ("Agent …").
     await page.getByRole('button', { name: /^Agent\b/i }).click()
     await expect(page.getByText('To:')).toBeVisible({ timeout: 20000 })
-    await expect(page.getByText(/Assistant|Company agent/).first()).toBeVisible({ timeout: 20000 })
+    // Seeded default is Front desk (customer-facing); older seeds used Assistant.
+    await expect(page.getByText(/Front desk|Assistant|Company agent/).first()).toBeVisible({
+      timeout: 20000,
+    })
   })
 
   test('cockpit page renders stats', async ({ page }) => {

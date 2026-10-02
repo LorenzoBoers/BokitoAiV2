@@ -14,7 +14,7 @@ from app.services.agent_scopes import (
     list_agent_scopes,
     set_agent_scope,
 )
-from app.services.channel_ai import resolve_ai_mode
+from app.services.ai_handling import resolve_ai_handling
 
 
 async def _tenant_agent(session: AsyncSession) -> tuple[Tenant, Agent]:
@@ -104,21 +104,25 @@ def _tenant_with(settings: dict) -> Tenant:
     return Tenant(slug="clamp", name="Clamp", settings_json=json.dumps(settings))
 
 
-def test_channel_ai_mode_clamped_by_govern_allowance():
-    # Messaging "ask" clamps auto down to suggest — Govern always wins.
-    asking = _tenant_with({"tool_allowances": {"messaging": "ask"}})
-    assert resolve_ai_mode(asking, None, "widget") == "suggest"
+def test_ai_handling_clamped_by_govern_allowance():
+    autonomous = {"ai_handling": {"default": {"mode": "autonomous"}}}
 
-    # Messaging "deny" switches AI off for every channel.
-    denying = _tenant_with({"tool_allowances": {"messaging": "deny"}})
-    assert resolve_ai_mode(denying, None, "email") == "off"
-    assert resolve_ai_mode(denying, None, "widget") == "off"
+    # Messaging "ask" caps autonomous at assisted: Govern always wins.
+    asking = _tenant_with({**autonomous, "tool_allowances": {"messaging": "ask"}})
+    handling = resolve_ai_handling(asking, scope="workspace")
+    assert handling.effective == "assisted"
+    assert handling.clamped_by == "govern"
 
-    # Messaging "allow" keeps the channel's configured/default mode.
-    allowing = _tenant_with({"tool_allowances": {"messaging": "allow"}})
-    assert resolve_ai_mode(allowing, None, "widget") == "auto"
-    assert resolve_ai_mode(allowing, None, "email") == "suggest"
+    # Messaging "deny" caps everything at manual.
+    denying = _tenant_with({**autonomous, "tool_allowances": {"messaging": "deny"}})
+    assert resolve_ai_handling(denying, scope="workspace").effective == "manual"
 
-    # Manual posture (all ask) also clamps channel auto modes.
-    manual = _tenant_with({"autonomy_posture": "manual"})
-    assert resolve_ai_mode(manual, None, "widget") == "suggest"
+    # Messaging "allow" keeps the configured mode.
+    allowing = _tenant_with({**autonomous, "tool_allowances": {"messaging": "allow"}})
+    handling = resolve_ai_handling(allowing, scope="workspace")
+    assert handling.effective == "autonomous"
+    assert handling.clamped_by is None
+
+    # Manual posture (all ask) also caps at assisted.
+    manual = _tenant_with({**autonomous, "autonomy_posture": "manual"})
+    assert resolve_ai_handling(manual, scope="workspace").effective == "assisted"

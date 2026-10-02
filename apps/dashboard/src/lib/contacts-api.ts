@@ -6,6 +6,7 @@ import { isGenericVisitorName, isPlaceholderContactAddress } from './contact-lab
 import type { InboxThread } from './inbox-api'
 import { normalizeThreadRow } from './inbox-api'
 import { listSignalThreads } from './signals-api'
+import { normalizeMode, type AiHandlingMode } from './ai-handling'
 
 export type ContactStatus = 'approved' | 'pending' | 'blocked'
 
@@ -23,7 +24,11 @@ export type ContactRow = {
   lastSeenAt: string | null
   createdAt: string
   threadCount: number
+  /** Own AI handling override; null follows the channel. */
+  aiHandling: AiHandlingMode | null
 }
+
+export type ContactAiHandlingFilter = AiHandlingMode | 'custom'
 
 export type ContactPatch = {
   status?: ContactStatus
@@ -61,17 +66,24 @@ function normalizeContact(row: unknown): ContactRow | null {
     lastSeenAt: asString(raw.last_seen_at) || null,
     createdAt: asString(raw.created_at),
     threadCount: typeof raw.thread_count === 'number' ? raw.thread_count : 0,
+    aiHandling: normalizeMode(raw.ai_handling),
   }
 }
 
 export async function listContacts(
   token: string,
-  options: { search?: string; status?: ContactStatus; channel?: string } = {},
+  options: {
+    search?: string
+    status?: ContactStatus
+    channel?: string
+    aiHandling?: ContactAiHandlingFilter
+  } = {},
 ): Promise<ContactRow[]> {
   const params = new URLSearchParams()
   if (options.search) params.set('search', options.search)
   if (options.status) params.set('status', options.status)
   if (options.channel) params.set('channel', options.channel)
+  if (options.aiHandling) params.set('ai_handling', options.aiHandling)
   const payload = await apiGet<{ contacts?: unknown[] }>(appRoutes.contacts.listQuery(params), token)
   const rows = Array.isArray(payload.contacts) ? payload.contacts : []
   return rows.map(normalizeContact).filter((c): c is ContactRow => c !== null)

@@ -1,6 +1,6 @@
 export const policyRoutes = {
   persona: () => '/persona',
   notificationPreferences: () => '/user/notification-preferences',
-  aiModes: () => '/settings/ai-modes',
+  aiLanguage: () => '/settings/ai-language',
   widgetSettings: () => '/settings/widget',
 } as const

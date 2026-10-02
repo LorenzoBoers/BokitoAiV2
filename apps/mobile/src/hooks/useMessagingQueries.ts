@@ -23,11 +23,10 @@ import {
   markThreadUnread,
   patchThread,
   pinThread,
-  releaseThread,
   renameConversation,
   replyToThread,
   resolveThreadDecision,
-  takeoverThread,
+  setThreadAiHandling,
   unpinThread,
   updateThreadNote,
   type Attachment,
@@ -284,7 +283,8 @@ export function useThreadMutations(threadId: string) {
   })
 
   const takeover = useMutation({
-    mutationFn: (paused: boolean) => (paused ? takeoverThread(threadId) : releaseThread(threadId)),
+    mutationFn: (takeOver: boolean) =>
+      takeOver ? setThreadAiHandling(threadId, 'manual', true) : setThreadAiHandling(threadId, null),
     onSuccess: invalidate,
   })
 

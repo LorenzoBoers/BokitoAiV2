@@ -9,6 +9,7 @@ import {
   buildAuthHeaders,
 } from './api'
 import { normalizeMyFeedback } from './inbox-api'
+import { normalizeAiHandling } from './ai-handling'
 import type {
   InboxEvent,
   InboxMember,
@@ -126,11 +127,7 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
     hasUnread: Boolean(raw.has_unread),
     hasOpenDecision: Boolean(raw.has_open_decision),
     isPinned: Boolean(raw.is_pinned),
-    aiPaused: Boolean(raw.ai_paused),
-    aiMode: (() => {
-      const mode = asString(raw.ai_mode)
-      return mode === 'suggest' || mode === 'auto' || mode === 'off' ? mode : null
-    })(),
+    aiHandling: normalizeAiHandling(raw.ai_handling),
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
       : [],
@@ -589,24 +586,6 @@ export async function cancelScheduledMessage(
   )
 }
 
-export async function takeoverSignalThread(token: string, threadId: string): Promise<boolean> {
-  const payload = await apiPost<{ ai_paused?: boolean }>(
-    appRoutes.signals.threadTakeover(threadId),
-    {},
-    token,
-  )
-  return Boolean(payload?.ai_paused)
-}
-
-export async function releaseSignalThread(token: string, threadId: string): Promise<boolean> {
-  const payload = await apiPost<{ ai_paused?: boolean }>(
-    appRoutes.signals.threadRelease(threadId),
-    {},
-    token,
-  )
-  return Boolean(payload?.ai_paused)
-}
-
 export async function addNoteToSignalThread(
   token: string,
   threadId: string,
@@ -922,7 +901,8 @@ export type Conversation = {
   title: string
   channel?: string
   audience?: string
-  ai_paused?: boolean
+  /** Conversation-level override only (assistant conversations). */
+  ai_handling?: string | null
   updated_at: string
 }
 

@@ -161,6 +161,7 @@ export default function ThreadScreen() {
   const gatewayStream = useSignalStream(threadId || null)
 
   const thread = detail?.thread
+  const heldManual = thread?.ai_handling?.own === 'manual'
   const events = detail?.events ?? []
   const messages = detail?.messages ?? []
 
@@ -296,13 +297,13 @@ export default function ThreadScreen() {
           .catch(failAction)
       },
     },
-    ...(thread && (thread.ai_paused != null || isCustomerChannel(thread.channel) || thread.channel === 'assistant')
+    ...(thread?.ai_handling
       ? [
           {
-            label: thread.ai_paused ? t('thread.release') : t('thread.takeover'),
+            label: heldManual ? t('thread.release') : t('thread.takeover'),
             onPress: () => {
               closeMenu()
-              runAction(mutations.takeover.mutateAsync(!thread.ai_paused))
+              runAction(mutations.takeover.mutateAsync(!heldManual))
             },
           },
         ]
@@ -439,9 +440,11 @@ export default function ThreadScreen() {
 
       <LiveBanner />
 
-      {thread?.ai_paused ? (
-        <View style={styles.takeoverBanner}>
-          <Text style={styles.takeoverText}>{t('thread.aiPaused')}</Text>
+      {thread?.ai_handling ? (
+        <View style={styles.takeoverBanner} testID="thread-ai-handling">
+          <Text style={styles.takeoverText}>
+            {heldManual ? t('thread.aiPaused') : t(`thread.handling.${thread.ai_handling.effective}`)}
+          </Text>
         </View>
       ) : null}
 

@@ -45,6 +45,7 @@ from app.routers import (
     public_api,
     push,
     inbox_settings,
+    ai_handling,
     signals,
     learning,
     triggers,
@@ -253,6 +254,7 @@ app.include_router(channels.router, prefix=api_prefix)
 app.include_router(push.router, prefix=api_prefix)
 app.include_router(cockpit.router, prefix=api_prefix)
 app.include_router(inbox_settings.router, prefix=api_prefix)
+app.include_router(ai_handling.router, prefix=api_prefix)
 app.include_router(triggers.router, prefix=api_prefix)
 app.include_router(livechat.router, prefix=api_prefix)
 app.include_router(workspace.router, prefix=api_prefix)

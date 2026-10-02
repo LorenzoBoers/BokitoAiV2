@@ -25,14 +25,14 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 ## Goedkeuren, bewerken of afwijzen
 
 1. Lees het voorstel in de context van het gesprek.
-2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Taak aanmaken** of **Open houden**. Conceptantwoord-kaarten van [Inbox AI](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
-3. Onder agentberichten markeren kleine iconen **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent — hover voor het label. Escaleren pauzeert AI op het gesprek en wijst jou toe.
+2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Taak aanmaken** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
+3. Hover over een agentbericht: naast de bubbel verschijnen iconen voor **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent. Hover een icoon voor het label. Escaleren zet het gesprek op Handmatig en wijst jou toe.
 
 ## Antwoorden vanuit een notificatie
 
 1. Kies de beslissing in het belmenu, of open de pushmelding op je telefoon. Beide openen Beslissingen op dat gesprek en springen direct naar de wachtende kaart.
 2. Lees de bronregel op de kaart: die noemt waar de vraag vandaan komt — een projectqueue, een agentrun of een voorgestelde workspacewijziging — en linkt ernaartoe.
-3. Antwoord in het gesprek. Inbox AI-voorstellen hebben nog een menselijke verzending nodig tenzij autonomie meer toestaat.
+3. Antwoord in het gesprek. Geassisteerde concepten hebben nog een menselijke verzending nodig; alleen autonome gesprekken versturen zelf.
 4. Onder **Instellingen**, daarna **Notificaties**, open **Meld me over**. Zet **In-app**, **E-mail**, **Push** of **Slack** per rij aan — bijvoorbeeld **Wanneer een agent je beslissing nodig heeft bij een toegewezen gesprek**, **Wanneer een klant een medewerker vraagt**, **Wanneer een agent-run of trigger faalt**, of budgetwaarschuwingen bij 80% / 100%. Gebruik **Pauzeer in-app meldingen**, **Herstel aanbevolen**, of **Bekijk een voorbeeld** wanneer je de set afstemt. Push geldt alleen voor deze browser; koppel Slack onder **Kanalen** voordat Slack-schakelaars werken.
 
 ## Wanneer agents vragen

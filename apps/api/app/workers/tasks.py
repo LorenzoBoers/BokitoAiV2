@@ -89,7 +89,7 @@ async def _interpret_inbound_message(session, tenant_id: UUID, signal: Signal) -
 async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
     """Run the assistant loop on a new inbound signal (email, widget, webhook, ...)."""
     from app.models.auth import Tenant
-    from app.services.channel_ai import resolve_ai_mode
+    from app.services import ai_handling
 
     async with async_session_factory() as session:
         signal_result = await session.execute(
@@ -106,12 +106,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         # do — and still happen when AI is paused or replies are off.
         await _interpret_inbound_message(session, UUID(tenant_id), signal)
 
-        if signal.ai_paused:
-            return {"skipped": True, "reason": "ai_paused"}
+        if ai_handling.is_held(signal):
+            return {"skipped": True, "reason": "ai_handling_manual"}
 
-        account: ChannelAccount | None = None
-        if signal.channel_account_id:
-            account = await session.get(ChannelAccount, signal.channel_account_id)
+        account, contact = await ai_handling.load_layers(session, UUID(tenant_id), signal)
         if signal.channel == "email" and account is None:
             # Mailbox disconnected: suggesting or sending replies that can
             # never be delivered would be misleading.
@@ -145,9 +143,12 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                     "skipped_ai": True,
                     "reason": "channel_not_ready",
                 }
-        ai_mode = resolve_ai_mode(tenant, account, signal.channel)
-        if ai_mode == "off":
-            return {"skipped": True, "reason": "ai_mode_off"}
+        handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal)
+        if handling.effective == "manual":
+            return {"skipped": True, "reason": "ai_handling_manual"}
+        run_mode, _downgrade = await ai_handling.apply_safeguards(
+            session, tenant, signal, handling, contact=contact
+        )
 
         msg_result = await session.execute(
             select(SignalMessage)
@@ -279,8 +280,8 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         except Exception:  # noqa: BLE001 — context enrichment must never block replies
             project_context = ""
 
-        if ai_mode == "suggest":
-            # Suggest-only: read-only research tools + inline decisions.
+        if run_mode == "assisted":
+            # Assisted: read-only research tools + inline decisions.
             # The final reply text becomes a DecisionRequest via
             # create_reply_suggestion — the agent can never send directly.
             loop.tools = [t for t in loop.tools if t["name"] in SUGGEST_MODE_TOOLS]
@@ -394,9 +395,9 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 reason="agent_judgement",
                 run_id=run.id,
             )
-        elif ai_mode == "suggest" and agent_created_decision:
+        elif run_mode == "assisted" and agent_created_decision:
             delivery = {"decision_created": True, "delivery": "pending_decision"}
-        elif ai_mode == "suggest" and looks_like_empty_agent_ack(reply_text):
+        elif run_mode == "assisted" and looks_like_empty_agent_ack(reply_text):
             # Model returned Done. without create_decision_request — never leave
             # the operator with a silent empty timeline on real customer mail.
             delivery = await create_human_attention_suggestion(
@@ -423,7 +424,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 reply_text=reply_text,
                 run_id=run.id,
                 tokens=tokens,
-                mode=ai_mode,
+                mode=run_mode,
                 llm_live=llm_live,
             )
 

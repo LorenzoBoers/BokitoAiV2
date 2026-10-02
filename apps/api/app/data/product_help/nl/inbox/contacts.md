@@ -40,6 +40,18 @@ Websitebezoekers zonder naam tonen als **Websitebezoeker** tot ze het [vooraf-fo
 2. Kies **Goedkeuren** voor een adres dat je in het boek wilt.
 3. Kies **Blokkeren** voor een afzender die uit Communicatie moet. Nieuwe berichten van hen worden gedropt.
 
+## AI-afhandeling voor een contact instellen
+
+![AI-afhandeling op een contact](/api/docs/assets/contacts/contact-handling.png)
+*Een contact kan het kanaal volgen of een eigen modus hebben.*
+
+1. Open het contact onder Contacten, of open het zijpaneel in een gesprek met die persoon.
+2. Zoek **AI-afhandeling** onder de contactgegevens. Daar staat de huidige modus en wat die volgt, bijvoorbeeld **Volgt het kanaal**.
+3. Kies **Autonoom**, **Geassisteerd** of **Handmatig** om dat toe te passen op elk gesprek met deze persoon. Kies **Volg het kanaal** om het weer weg te halen.
+4. Filter op Contacten met het menu **Elke AI-afhandeling** om contacten met **Eigen AI-afhandeling** of een specifieke modus te vinden. Rijen met een eigen modus tonen het icoon.
+
+Een enkel gesprek kan nog steeds afwijken van het contact. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+
 ## Wat nu
 
 Koppel [e-mail](/docs/inbox/channels) of de [websitewidget](/docs/inbox/widget) zodat contacten vanzelf verschijnen.

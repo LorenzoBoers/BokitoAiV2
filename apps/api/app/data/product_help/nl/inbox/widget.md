@@ -29,6 +29,8 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 2. Zet **Behandelende agent** — die agent beantwoordt nieuwe widgetgesprekken. Nieuwe werkruimtes starten met **Front desk** (de klantgerichte agent). De widgetnaam volgt deze agent tenzij je **Assistentnaam** zet.
 3. Onder **Welkomstberichten** zet je **Welkomsttitel** en **Welkomstondertitel**. Onder **Kleuren** kies je **Accent**. **Widgetpictogram** volgt Branding tenzij je een override uploadt. Onder **Wat bezoekers zien** zet je **Home**, **Berichten**, **Help** of **Tools** aan of uit. Kies **Wijzigingen opslaan** en herlaad de stagingpagina. Wegnavigeren met niet-opgeslagen Look-wijzigingen vraagt om bevestiging.
 
+De chat gebruikt hetzelfde wolkjesontwerp als [Communicatie](/docs/inbox/communication): berichten van dezelfde afzender binnen vijf minuten stapelen tot één groep, het eerste wolkje draagt het avatar en de naam, het laatste de tijd. Antwoorden van de assistent tonen het agent-avatar met een **AI**-label; een antwoord van een collega toont een **Team**-label, zodat bezoekers zien wie antwoordde.
+
 ## Zet Stem, uren en het vooraf-formulier
 
 1. Open **Stem en uren**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in, en kies **Wijzigingen opslaan**. Het model zelf zet je op de agentpagina.
@@ -47,4 +49,4 @@ De websitewidget volgt het lichte of donkere systeemthema van de bezoeker. Er zi
 
 ## Wat nu
 
-Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [Inbox AI](/docs/inbox/inbox-ai) (websitechat staat vaak op **Automatisch antwoorden**). Getypte intake uit chat is een [signaal](/docs/ai/cases), geen tweede inbox.
+Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [AI-afhandeling](/docs/inbox/inbox-ai) (websitechat staat vaak op **Autonoom**). Met **AI-antwoorden vermelden** aan tonen autonome antwoorden een korte vermelding onder de bubbel. Getypte intake uit chat is een [signaal](/docs/ai/cases), geen tweede inbox.

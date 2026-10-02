@@ -272,7 +272,8 @@ async def test_take_over_conversation_pins_the_agent(
 ):
     await _login(client)
     thread = await _customer_thread(session_override)
-    thread.ai_paused = True
+    thread.ai_handling = "manual"
+    thread.ai_handling_reason = "operator_takeover"
     await session_override.commit()
 
     from app.models.agent import Agent
@@ -296,10 +297,10 @@ async def test_take_over_conversation_pins_the_agent(
         approved=True,
     )
     assert result.get("ok") is True
-    assert result.get("ai_paused") is False
+    assert result.get("ai_handling") is None
 
     await session_override.refresh(thread)
-    assert thread.ai_paused is False
+    assert thread.ai_handling is None
     assert thread.agent_id == agent.id
     # Inbound routing now keeps the conversation with that agent.
     routed = await resolve_agent_for_signal(session_override, thread)

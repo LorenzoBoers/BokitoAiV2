@@ -2,10 +2,12 @@
  * Composer slash verbs — typed commands that resolve to the same services
  * the thread buttons call. Plain language still goes through Bokito.
  *
- * Implemented: /assign, /signal, /approve
+ * Implemented: /assign, /signal, /approve, /manual, /assisted, /autonomous
  */
 
-export type ComposerVerb = 'assign' | 'signal' | 'approve'
+import type { AiHandlingMode } from './ai-handling'
+
+export type ComposerVerb = 'assign' | 'signal' | 'approve' | AiHandlingMode
 
 export type ParsedComposerVerb = {
   verb: ComposerVerb
@@ -15,9 +17,21 @@ export type ParsedComposerVerb = {
   rest: string
 }
 
-const VERBS: ComposerVerb[] = ['assign', 'signal', 'approve']
+const VERBS: ComposerVerb[] = ['assign', 'signal', 'approve', 'manual', 'assisted', 'autonomous']
 
 const VERB_SET = new Set<string>(VERBS)
+
+/** Dutch aliases for the AI handling verbs. */
+const ALIASES: Record<string, ComposerVerb> = {
+  handmatig: 'manual',
+  geassisteerd: 'assisted',
+  autonoom: 'autonomous',
+}
+
+/** True when the verb sets AI handling on the conversation. */
+export function isAiHandlingVerb(verb: ComposerVerb): verb is AiHandlingMode {
+  return verb === 'manual' || verb === 'assisted' || verb === 'autonomous'
+}
 
 /**
  * Parse a leading slash verb from composer body text.
@@ -28,7 +42,8 @@ export function parseComposerVerb(body: string): ParsedComposerVerb | null {
   if (!trimmed.startsWith('/')) return null
   const match = /^\/([a-zA-Z]+)(?:\s+(.*))?$/s.exec(trimmed)
   if (!match) return null
-  const token = match[1].toLowerCase()
+  const raw = match[1].toLowerCase()
+  const token = ALIASES[raw] ?? raw
   if (!VERB_SET.has(token)) return null
   const arg = (match[2] ?? '').trim()
   return {
@@ -40,7 +55,7 @@ export function parseComposerVerb(body: string): ParsedComposerVerb | null {
 
 export function composerVerbHelp(locale: 'en' | 'nl' = 'en'): string {
   if (locale === 'nl') {
-    return 'Commando’s: /assign <naam>, /signal <type>, /approve'
+    return 'Commando’s: /assign <naam>, /signal <type>, /approve, /handmatig, /geassisteerd, /autonoom'
   }
-  return 'Commands: /assign <name>, /signal <type>, /approve'
+  return 'Commands: /assign <name>, /signal <type>, /approve, /manual, /assisted, /autonomous'
 }

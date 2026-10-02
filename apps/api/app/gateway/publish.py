@@ -25,17 +25,33 @@ async def _safe_publish(tenant_id: Any, topics: list[str], event: str, data: dic
         logger.exception("gateway publish failed: %s", event)
 
 
-def _thread_row(signal: "Signal") -> dict[str, Any]:
+def _thread_row(signal: "Signal", ai_handling: dict[str, Any] | None = None) -> dict[str, Any]:
     """Canonical thread row — the same shape the REST list endpoint returns,
     so clients can upsert it directly without a follow-up fetch.
 
     `is_pinned` is per-user state and stays False here; the dashboard joins
     pins client-side. Agent enrichment is skipped (would need a DB read);
-    clients keep the previous row's agent fields on upsert when absent.
+    clients keep the previous row's agent and ai_handling fields on upsert
+    when absent.
     """
     from app.services.signal_threads import serialize_thread
 
-    return serialize_thread(signal)
+    return serialize_thread(signal, ai_handling=ai_handling)
+
+
+async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
+    """Resolve AI handling in a short session; None when that is not possible."""
+    try:
+        from app.db.session import async_session_factory
+        from app.models.auth import Tenant
+        from app.services.ai_handling import load_layers, resolve_ai_handling
+
+        async with async_session_factory() as session:
+            tenant = await session.get(Tenant, signal.tenant_id)
+            account, contact = await load_layers(session, signal.tenant_id, signal)
+            return resolve_ai_handling(tenant, account, contact, signal).to_payload()
+    except Exception:  # noqa: BLE001 — publishing never breaks business logic
+        return None
 
 
 async def publish_message_delta(
@@ -150,22 +166,29 @@ async def publish_signal_message(
     )
 
 
-async def publish_thread_update(signal: "Signal") -> None:
+async def publish_thread_update(
+    signal: "Signal", *, ai_handling: dict[str, Any] | None = None
+) -> None:
     """Thread metadata changed (status, assignment, triage, read state).
 
     Operator-only: the widget render pipeline only consumes ``message``
     events, and the full row carries internal state (tags, assignee,
-    ai_paused) that visitors must not receive. Widget conversations get a
+    AI handling) that visitors must not receive. Widget conversations get a
     separate minimal ``conversation`` event (status only) so the visitor UI
     can react to close/reopen, e.g. by showing the CSAT prompt.
     """
+    if ai_handling is None:
+        ai_handling = await _handling_payload(signal)
     await _safe_publish(
         signal.tenant_id,
         ["threads", f"signal:{signal.id}"],
         "thread",
-        {"audience": "operator", "thread": _thread_row(signal)},
+        {"audience": "operator", "thread": _thread_row(signal, ai_handling)},
     )
     if signal.channel == "widget":
+        from app.services.ai_handling import is_held
+
+        effective = (ai_handling or {}).get("effective")
         await _safe_publish(
             signal.tenant_id,
             [f"signal:{signal.id}"],
@@ -174,9 +197,9 @@ async def publish_thread_update(signal: "Signal") -> None:
                 "audience": "all",
                 "signal_id": str(signal.id),
                 "status": signal.status,
-                # Visitor-safe takeover flag: the widget shows/hides its
-                # "team member is handling this" banner live on this bit.
-                "ai_paused": bool(signal.ai_paused),
+                # Visitor-safe takeover flag (effective manual): the widget
+                # shows/hides its "team member is handling this" banner on it.
+                "ai_paused": is_held(signal) or effective == "manual",
             },
         )
 

@@ -82,6 +82,14 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 2. Use the **Agent** column on the row to send a channel's new conversations to a specific agent. Without a channel binding, the workspace default agent handles new threads.
 3. Set one email channel as **Primary** if you have several. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
+## Set AI handling per channel
+
+1. On the channel row, open the **AI handling** menu next to the status. It shows the mode and **Follows the workspace default** when the channel has no own setting.
+2. Pick **Autonomous**, **Assisted** or **Manual** for every conversation on this channel. Choose **Follow the workspace default** to remove it. Only an owner or admin can turn on Autonomous.
+3. A **Paused** badge means the circuit breaker tripped after unusual activity and the channel runs Assisted. Choose **Resume autonomous** or **Keep assisted** from the same menu.
+
+Contacts and single conversations can still differ from the channel. See [AI handling](/docs/inbox/inbox-ai).
+
 ## Connect WhatsApp
 
 1. Choose **Add channel**, then **WhatsApp Business**. Marketplace cards for the app also send you here.
@@ -103,4 +111,4 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 
 ## What to do next
 
-Set when drafts appear under [Inbox AI](/docs/inbox/inbox-ai). Open Communication and wait for the first thread.
+Set whether the AI answers, drafts or stays quiet under [AI handling](/docs/inbox/inbox-ai). Open Communication and wait for the first thread.

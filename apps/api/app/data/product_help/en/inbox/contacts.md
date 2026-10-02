@@ -40,6 +40,18 @@ Website visitors without a name show as **Website visitor** until they fill the 
 2. Choose **Approve** for an address you want in the book.
 3. Choose **Block** for a sender that should drop out of Communication. New messages from them are dropped.
 
+## Set AI handling for one contact
+
+![AI handling on a contact](/api/docs/assets/contacts/contact-handling.png)
+*A contact can follow the channel or have its own mode.*
+
+1. Open the contact on Contacts, or open the side panel in a conversation with them.
+2. Find **AI handling** under the contact details. It shows the current mode and what it follows, for example **Follows the channel**.
+3. Pick **Autonomous**, **Assisted** or **Manual** to apply it to every conversation with this person. Choose **Follow the channel** to remove it.
+4. On Contacts, filter the list with the **Any AI handling** menu to find contacts with **Custom AI handling** or a specific mode. Rows with their own mode show its icon.
+
+A single conversation can still differ from the contact. See [AI handling](/docs/inbox/inbox-ai).
+
 ## What to do next
 
 Connect [email](/docs/inbox/channels) or the [website widget](/docs/inbox/widget) so contacts appear on their own.

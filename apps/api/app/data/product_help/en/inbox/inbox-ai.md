@@ -1,63 +1,66 @@
 ---
-title: Set Inbox AI
-intro: Choose when the assistant drafts, sends, or stays quiet — with workspace defaults and optional mailbox exceptions.
-description: Configure Inbox AI modes, reply language, send-as and triage so customer drafts appear on your terms.
-keywords: inbox ai, drafts, suggest, auto, reply language, send as, certainty, mailbox exceptions
+title: Set AI handling
+intro: Choose whether the AI answers on its own, drafts for review, or stays quiet — once for the workspace, with exceptions per channel, contact, or conversation.
+description: Configure AI handling (Autonomous, Assisted, Manual), its layers, safeguards, disclosure, reply language and send-as.
+keywords: ai handling, autonomous, assisted, manual, drafts, auto reply, safeguards, disclosure, reply language, send as, certainty
 sort: 25
-related: communication,autonomy,channels,agents
+related: communication,contacts,channels,govern,autonomy,agents
 ---
 
-# Set Inbox AI
+# Set AI handling
 
-Inbox AI is the workspace rule for customer replies. Open **Settings**, then **AI replies** (the page title may still say **AI reply settings**). This is not Govern: Govern is tools and autonomy; Inbox AI is whether a draft or a send happens when mail or chat arrives.
+AI handling is one setting with three modes: **Autonomous** (AI answers on its own), **Assisted** (AI drafts replies and suggests actions, a person sends) and **Manual** (AI stays quiet). You set it once for the workspace and only set it again where a channel, a contact or a single conversation should differ — the most specific setting wins.
 
-Workspace defaults apply first. A mailbox only differs when you set an exception under **Mailbox exceptions**.
+The same icons appear everywhere: a lightning bolt for Autonomous and a pen for Assisted (both purple), and a hand for Manual (gray). [Govern](/docs/govern/govern) sets the ceiling: nothing below it can be more autonomous than Govern allows.
 
-## Choose a mode per channel
+## Set the workspace default
 
-![Inbox AI channel defaults](/api/docs/assets/inbox-ai/draft-mode.png)
-*Pick Suggest, Reply automatically, or Off for email, website chat and WhatsApp.*
+![Workspace default for AI handling](/api/docs/assets/inbox-ai/workspace-default.png)
+*Three cards: Autonomous, Assisted and Manual.*
 
 1. Open **Settings**, then **AI replies**.
-2. Under **Workspace defaults** → **How AI responds**, set Email, Website chat and WhatsApp separately.
-3. Pick one of:
-   - **Suggest replies** — the assistant writes a draft card. Your team sends, edits or escalates.
-   - **Reply automatically** — the assistant answers on the channel. Take over a thread to pause it.
-   - **Off** — people handle every message.
-4. Choose **Save**. New inbound work follows the new rule; open threads keep what they already have.
+2. Under **Workspace default**, pick **Autonomous**, **Assisted** or **Manual**. The change saves at once.
+3. Turning on **Autonomous** shows a confirmation with how many open conversations follow this setting and how often drafts were sent unedited recently. Only an owner or admin can turn on Autonomous.
+4. If Govern caps conversations lower, the card shows the cap. Open Govern from the note under the cards to change it.
 
-Start with **Suggest replies** on email. Website chat often starts on **Reply automatically**. If any mailbox overrides email, the Email row shows how many differ.
+Start with **Assisted**. Bokito suggests Autonomous once at least 80% of 50 or more drafts go out unedited.
+
+## Review exceptions
+
+1. On the same page, open **Exceptions**. It lists every channel, contact and open conversation that does not follow the workspace default, grouped by layer.
+2. Each row shows its mode icon and name. Choose **Follow the default again** to remove the exception.
+3. Set new exceptions where you work: on the channel under [Channels](/docs/inbox/channels), on a contact under [Contacts](/docs/inbox/contacts), or in the conversation header in [Communication](/docs/inbox/communication).
+
+A conversation exception lasts until the conversation closes. Channel and contact exceptions stay until you clear them.
+
+## Set safeguards for autonomous replies
+
+1. Open **Safeguards**. Each safeguard turns a single autonomous reply into a draft for review; it never sends more.
+2. Set the **Certainty threshold** (1–10, from **permissive** to **strict**). Below that certainty, the reply becomes a draft.
+3. Turn on **Review replies to new contacts** to draft instead of send while a contact awaits approval. Website chat visitors are exempt.
+4. Turn on **Disclose AI replies** to add a short note to autonomous replies. Change the **Note text** or leave it empty for the default; the preview shows what customers see.
+5. Choose **Save** in the bar at the bottom.
+
+The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies.
 
 ## Set reply and team language
 
-1. Stay on Inbox AI. Open **Language** under **Workspace defaults**.
+1. Open **Language** on the same page.
 2. **Reply language** is what the customer sees. **Automatic (match the customer)** mirrors the inbound language. You can pin Dutch, English, German, French or Spanish.
-3. **Team language** is for notes to your team (summaries, no-reply explanations). It does not change the customer reply and has no per-mailbox override.
+3. **Team language** is for notes to your team (summaries, no-reply explanations). It does not change the customer reply.
+4. **Approved replies are sent as** is **The approving teammate** or **The AI agent**. That picks the signature and the From display name. On a single draft anyone can still switch **Send as**.
+5. Under **Reply language per mailbox**, expand a mailbox to give it its own reply language. Rows with an override show a **Custom** badge.
 
-## Set sending and triage
+## When the AI does not reply
 
-1. Open **Sending and triage** on the same page.
-2. **Approved replies are sent as** is **The approving teammate** or **The AI agent**. That choice picks whose signature is appended and whose name appears as the From display name (the mailbox address stays yours). On a single suggested reply anyone can still switch **Send as:** **You** or the agent. Agents can also set their own default under [Agents](/docs/ai/agents).
-3. Set the **Certainty threshold** (1–10). The scale is marked **permissive**, **balanced** and **strict**. Below that score, triage never bumps a thread to high or urgent.
+- **Manual** is in effect somewhere in the chain, or a teammate took over the conversation.
+- Govern caps conversations at Assisted (messaging set to ask) or Manual (messaging denied).
+- **Privacy** keeps AI away from message bodies; AI handling then shows Manual.
+- The channel's circuit breaker tripped after unusual activity; the channel runs Assisted until someone resumes it.
+- The mailbox still needs setup or reconnect. The thread gets an **Internal note** pointing to **Settings → Channels** instead of a draft.
 
-## Override one mailbox
-
-1. Connect a mailbox under [Channels](/docs/inbox/channels) first.
-2. On Inbox AI, open **Mailbox exceptions**. Every connected mailbox is listed with its effective mode and reply language.
-3. Expand a row. Set mode and reply language, or leave **Workspace default**. Rows with an override show a **Custom** badge.
-
-## Review a draft before it goes out
-
-1. Open the thread in [Communication](/docs/inbox/communication).
-2. Read the suggestion. The customer draft and any team **Internal note** stay separate. **Send**, **Edit**, or **Escalate**. Escalate pauses AI on that thread and assigns you.
-3. **Take over from AI** also pauses the assistant so you can finish by hand. **Hand back to AI** resumes it.
-
-Nothing customer-facing leaves on **Suggest replies** until you send, unless [Autonomy](/docs/govern/autonomy) later allows more.
-
-## When the channel cannot send yet
-
-If a mailbox still needs setup or reconnect (the same states that disable **Send** in the composer), Inbox AI does not invent a customer draft or auto-reply. The thread gets an **Internal note** that points you to finish setup under **Settings → Channels**. Fix the channel, then take over or hand the thread back to AI.
+Hover the mode in the conversation header to see which layer decided and why.
 
 ## What to do next
 
-Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Connect a mailbox under [Channels](/docs/inbox/channels) if the exceptions list is empty. Use **Who answers** on the same page only when a channel should skip the default agent — that is routing, not AI mode.
+Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Use **Who answers** on the same page only when a channel should skip the default agent — that is routing, not AI handling.

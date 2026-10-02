@@ -1,14 +1,16 @@
 /**
  * Thread header chrome: who this conversation is with, its status, the AI
- * status chip (which owns takeover / hand back), and the action cluster.
+ * handling picker (which owns take over / hand back), and the action cluster.
  */
 import {
   Archive,
   ArchiveRestore,
   ArrowLeft,
+  Bot,
   Clock,
   Flag,
   Forward,
+  Hand,
   Hash,
   Link2,
   ListPlus,
@@ -47,7 +49,9 @@ import {
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import AssigneeSelector from './AssigneeSelector'
-import AiStatusChip from './AiStatusChip'
+import AiHandlingPicker from '../ai/AiHandlingPicker'
+import { AI_HANDLING_CHANNELS, type AiHandlingMode } from '../../lib/ai-handling'
+import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { PRIORITY_META } from './ConversationWorkSection'
 
 const HEADER_ICON = THREAD_HEADER_ICON_CLASS
@@ -66,7 +70,12 @@ type Props = {
   onBack?: () => void
   onToggleContact?: () => void
   contactOpen?: boolean
-  onToggleTakeover?: () => void | Promise<void>
+  /** Conversation AI handling; ``assignToMe`` turns manual into a take over. */
+  onChangeAiHandling?: (
+    mode: AiHandlingMode | null,
+    opts?: { assignToMe?: boolean },
+  ) => void | Promise<void>
+  aiHandlingSaving?: boolean
   onForward?: () => void
   onMarkUnread?: () => void | Promise<void>
   onTogglePin?: () => void | Promise<void>
@@ -92,7 +101,8 @@ export default function ThreadHeader({
   onBack,
   onToggleContact,
   contactOpen,
-  onToggleTakeover,
+  onChangeAiHandling,
+  aiHandlingSaving = false,
   onForward,
   onMarkUnread,
   onTogglePin,
@@ -104,7 +114,13 @@ export default function ThreadHeader({
   panelCount = 0,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
+  const { t: tc } = useTranslation('common')
+  const canRaise = useIsAdmin()
   const internal = isInternalThread(thread)
+  const handling = thread.aiHandling ?? null
+  const showHandling =
+    !internal && Boolean(onChangeAiHandling) && AI_HANDLING_CHANNELS.has((thread.channel ?? '').toLowerCase())
+  const held = handling?.own === 'manual'
   const canSnooze = !internal && thread.status !== 'closed' && thread.status !== 'spam'
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
@@ -224,15 +240,32 @@ export default function ThreadHeader({
         </Tooltip>
       ) : null}
       <div className={THREAD_ACTION_CLUSTER_CLASS} role="toolbar" aria-label={t('threadChrome.threadActions')}>
-        <AiStatusChip
-          aiMode={thread.aiMode ?? null}
-          aiPaused={Boolean(thread.aiPaused)}
-          assignedToUserId={thread.assignedToUserId}
-          channel={thread.channel}
-          saving={saving || loading}
-          onTakeover={onToggleTakeover}
-          onHandBack={onToggleTakeover}
-        />
+        {showHandling && onChangeAiHandling ? (
+          <AiHandlingPicker
+            handling={handling}
+            scope="conversation"
+            canRaise={canRaise}
+            saving={aiHandlingSaving || loading}
+            onChange={(mode) => onChangeAiHandling(mode)}
+            testId="thread-ai-handling"
+            extraItems={
+              held ? (
+                <DropdownMenuItem className="gap-2 text-xs" onSelect={() => void onChangeAiHandling(null)}>
+                  <Bot size={13} />
+                  {tc('aiHandling.handBack')}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  className="gap-2 text-xs"
+                  onSelect={() => void onChangeAiHandling('manual', { assignToMe: true })}
+                >
+                  <Hand size={13} />
+                  {tc('aiHandling.takeOver')}
+                </DropdownMenuItem>
+              )
+            }
+          />
+        ) : null}
         <AssigneeSelector
           currentAssigneeId={thread.assignedToUserId}
           disabled={saving}

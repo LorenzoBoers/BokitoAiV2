@@ -393,7 +393,6 @@ export default function AgentSessionCard({
       <ChatMessageBubble
         side="left"
         avatar={agentAvatar}
-        endAvatar={operatorAvatar}
         variant="agent"
         onClick={() => setExpanded((v) => !v)}
         className="w-full"

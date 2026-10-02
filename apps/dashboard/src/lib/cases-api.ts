@@ -12,6 +12,8 @@ export type CaseCreateMode = 'ask_customer' | 'ask_operator' | 'auto' | 'manual_
 /** How a type behaves after classification. */
 export type CaseFollowUpMode = 'label' | 'track' | 'route'
 
+export type CaseSendMode = 'draft' | 'ask' | 'send'
+
 export type CaseTypeRow = {
   id: string
   slug: string
@@ -26,6 +28,8 @@ export type CaseTypeRow = {
   default_project_id: string | null
   allow_project_link: 'never' | 'optional' | 'required'
   audience: 'customer' | 'internal' | 'both'
+  /** draft/ask: replies on conversations with this type are never sent autonomously. */
+  send_mode: CaseSendMode
   enabled: boolean
   module_slug: string
   template_slug: string
@@ -145,6 +149,7 @@ export async function patchCaseType(
       | 'requires_verification'
       | 'default_project_id'
       | 'audience'
+      | 'send_mode'
     >
   >,
 ): Promise<CaseTypeRow> {

@@ -35,6 +35,10 @@ from app.tools.registry import ToolSpec, iter_tool_specs
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
+# Agent-only tools an MCP client cannot use; set_ai_handling covers handing a
+# conversation back to the AI from outside.
+_MCP_HIDDEN_TOOLS = frozenset({"take_over_conversation"})
+
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_VERSION = "1.4.0"
 
@@ -495,7 +499,7 @@ async def mcp_endpoint(
                 "annotations": _tool_annotations(spec),
             }
             for spec in iter_tool_specs()
-            if not scopes or spec.category in scopes
+            if (not scopes or spec.category in scopes) and spec.name not in _MCP_HIDDEN_TOOLS
         ]
         return JSONResponse(
             content=_rpc_result(body.id, {"tools": tools}),

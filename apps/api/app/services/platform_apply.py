@@ -499,6 +499,8 @@ async def apply_change_to_domain(
         return await apply_canvas_edge_change(session, tenant_id, after)
     if rt == "autonomy_posture":
         return await apply_autonomy_posture_change(session, tenant_id, after)
+    if rt == "ai_handling_channel":
+        return await apply_ai_handling_channel_change(session, tenant_id, after)
     if rt == "persona_review":
         return await apply_persona_review_change(session, tenant_id, after)
     if rt == "case_type":
@@ -657,6 +659,26 @@ async def apply_autonomy_posture_change(
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
     return {"status": "applied", "posture": posture}
+
+
+async def apply_ai_handling_channel_change(
+    session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
+) -> dict[str, Any]:
+    """Apply a learning-proposed channel AI handling (earned autonomy)."""
+    from app.models.channel import ChannelAccount
+    from app.services.ai_handling import set_account_mode, normalize_mode
+
+    mode = normalize_mode(after.get("mode"))
+    try:
+        account_id = UUID(str(after.get("channel_account_id") or ""))
+    except ValueError:
+        return {"status": "invalid_channel"}
+    account = await session.get(ChannelAccount, account_id)
+    if account is None or account.tenant_id != tenant_id or mode is None:
+        return {"status": "invalid_channel"}
+    set_account_mode(account, mode)
+    session.add(account)
+    return {"status": "applied", "channel_account_id": str(account_id), "mode": mode}
 
 
 async def apply_project_change(

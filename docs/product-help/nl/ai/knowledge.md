@@ -42,7 +42,7 @@ Een document is een pagina opgebouwd uit `##`-secties; elke sectie is de atomair
 
 1. Voeg de pagina's toe die je team al gebruikt: prijzen, beleid, productfeiten.
 2. Open een gesprek in [Communicatie](/docs/inbox/communication).
-3. Concepten worden beter zodra er een handvol documenten is. Inbox AI volgt nog steeds [Inbox AI](/docs/inbox/inbox-ai); Kennis onderbouwt alleen de tekst.
+3. Concepten worden beter zodra er een handvol documenten is. Of er concepten verschijnen volgt nog steeds [AI-afhandeling](/docs/inbox/inbox-ai); Kennis onderbouwt alleen de tekst.
 
 ## Publiceer voor klanten
 

@@ -31,7 +31,7 @@ function thread(overrides: Partial<InboxThread> = {}): InboxThread {
     lastMessageDirection: 'inbound',
     hasUnread: true,
     isPinned: false,
-    aiPaused: false,
+    aiHandling: null,
     suggestedActions: [],
     createdAt: '2026-08-19T09:00:00Z',
     channel: 'email',
@@ -181,6 +181,50 @@ describe('upsertThreadRow', () => {
     expect(next[0].emailSubject).toBe('Re: Order 42')
     expect(next[0].agentName).toBe('Bokito')
     expect(next[0].agentKind).toBe('company')
+  })
+
+  it('keeps AI handling when the live row carries none', () => {
+    const handling = {
+      effective: 'manual',
+      requested: 'manual',
+      source: 'conversation',
+      sourceLabel: '',
+      ceiling: 'autonomous',
+      clampedBy: null,
+      reason: 'assigned',
+      untilClose: true,
+      inherited: 'assisted',
+      inheritedSource: 'channel',
+      inheritedSourceLabel: 'Support',
+      own: 'manual',
+    } as const
+    const existing = thread({ aiHandling: handling })
+    const next = upsertThreadRow([existing], thread({ aiHandling: null }))
+    expect(next[0].aiHandling?.effective).toBe('manual')
+  })
+})
+
+describe('extractLiveThreadRow ai_handling', () => {
+  it('normalizes the resolved payload', () => {
+    const row = extractLiveThreadRow(
+      gatewayEvent({
+        thread: wireThreadRow({
+          ai_handling: {
+            effective: 'assisted',
+            requested: 'autonomous',
+            source: 'channel',
+            ceiling: 'assisted',
+            clamped_by: 'govern',
+            inherited: 'autonomous',
+            inherited_source: 'channel',
+            own: null,
+          },
+        }),
+      }),
+    )
+    expect(row?.aiHandling?.effective).toBe('assisted')
+    expect(row?.aiHandling?.clampedBy).toBe('govern')
+    expect(row?.aiHandling?.own).toBeNull()
   })
 })
 

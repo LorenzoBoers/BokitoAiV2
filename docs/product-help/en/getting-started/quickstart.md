@@ -29,8 +29,8 @@ This is the shortest path from a fresh workspace to real work happening. After s
 ## 3. Let the assistant draft
 
 1. Open **Settings**, then **AI replies**.
-2. Set email to **Suggest replies**. The assistant writes; you review and send.
-3. See [Inbox AI](/docs/inbox/inbox-ai).
+2. Under **Workspace default**, pick **Assisted**. The AI drafts; you review and send.
+3. See [AI handling](/docs/inbox/inbox-ai).
 
 ## 4. Add knowledge
 

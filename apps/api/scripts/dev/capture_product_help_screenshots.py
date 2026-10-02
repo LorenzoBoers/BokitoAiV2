@@ -32,11 +32,13 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/communication/inbox/open", "communication", "thread-composer"),
     ("/communication/inbox/open", "communication", "decision-card"),
     ("/communication/inbox/open", "decisions", "approve"),
+    ("/communication/inbox/open", "communication", "handling-picker"),
     ("/communication/runs/all", "agent-runs", "runs-list"),
     ("/contacts", "contacts", "contact-card"),
+    ("/contacts", "contacts", "contact-handling"),
     ("/settings/channels", "channels", "mailbox-status"),
     ("/settings/channels", "quickstart", "mailbox"),
-    ("/settings/communication", "inbox-ai", "draft-mode"),
+    ("/settings/communication", "inbox-ai", "workspace-default"),
     ("/ai/assistant/external/installation", "widget", "installation"),
     ("/ai/assistant/external/installation", "widget-embed", "snippet"),
     ("/agents", "agents", "library"),
@@ -45,6 +47,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/knowledge", "knowledge", "add-doc"),
     ("/settings/govern", "govern", "posture"),
     ("/settings/govern", "govern", "drafts"),
+    ("/settings/govern", "govern", "conversations"),
     ("/settings/govern", "autonomy", "presets"),
     ("/settings/models", "models", "catalog"),
     ("/settings/models", "models", "data-region"),
@@ -58,6 +61,22 @@ SHOTS: list[tuple[str, str, str]] = [
 # Shots that sit below the fold: scroll the heading matching this pattern (EN|NL) into view first.
 SCROLL_TO: dict[tuple[str, str], re.Pattern[str]] = {
     ("models", "data-region"): re.compile(r"^(Data region|Dataregio)$"),
+}
+
+# Shots that need interaction first: ("click" | "scroll", CSS selector) steps, run in order.
+# A shot with steps always reloads its page so earlier clicks do not leak into it.
+PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
+    ("communication", "handling-picker"): [
+        ("click", 'main [role="button"][tabindex="0"]:has-text("Petra Bakker")'),
+        ("click", '[data-testid="thread-ai-handling"]'),
+    ],
+    ("contacts", "contact-handling"): [
+        ("click", "main tbody tr"),
+        ("scroll", '[data-testid="contact-ai-handling"]'),
+    ],
+    ("govern", "conversations"): [
+        ("scroll", '[data-testid="govern-conversations"]'),
+    ],
 }
 
 REDACT_JS = """
@@ -123,12 +142,24 @@ def main() -> int:
             dest = ASSETS / slug
             dest.mkdir(parents=True, exist_ok=True)
             url = f"{BASE}{path}"
-            if url != last_url:
+            steps = PREPARE.get((slug, name))
+            if url != last_url or steps:
                 page.goto(url, wait_until="networkidle", timeout=60000)
                 page.wait_for_timeout(1200)
-                last_url = url
+                last_url = "" if steps else url
             scroll_text = SCROLL_TO.get((slug, name))
-            if scroll_text:
+            if steps:
+                try:
+                    for action, selector in steps:
+                        target = page.locator(selector).first
+                        if action == "click":
+                            target.click(timeout=5000)
+                        else:
+                            target.scroll_into_view_if_needed(timeout=5000)
+                        page.wait_for_timeout(800)
+                except Exception as exc:  # noqa: BLE001 — keep the shot, just unprepared
+                    print(f"prepare skipped for {slug}/{name}: {exc}")
+            elif scroll_text:
                 try:
                     page.get_by_role("heading", name=scroll_text).first.scroll_into_view_if_needed(
                         timeout=3000
@@ -147,7 +178,6 @@ def main() -> int:
         if (ASSETS / "agents" / "library.png").is_file() and (not only or "agents" in only):
             page.goto(f"{BASE}/agents", wait_until="networkidle")
             page.wait_for_timeout(800)
-            card = page.locator("a, button").filter(has_text="").first
             try:
                 page.locator("main a").first.click(timeout=3000)
                 page.wait_for_timeout(1200)

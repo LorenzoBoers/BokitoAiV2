@@ -12,5 +12,74 @@
     "signOut": "Uitloggen",
     "retry": "Opnieuw proberen",
     "close": "Sluiten"
+  },
+  "aiHandling": {
+    "title": "AI-afhandeling",
+    "modes": {
+      "autonomous": {
+        "label": "Autonoom",
+        "description": "AI antwoordt zelf. Ingrijpende acties vragen nog steeds akkoord."
+      },
+      "assisted": {
+        "label": "Geassisteerd",
+        "description": "AI stelt antwoorden en acties voor. Een mens verstuurt."
+      },
+      "manual": {
+        "label": "Handmatig",
+        "description": "AI blijft stil. Mensen handelen elk antwoord af."
+      }
+    },
+    "sources": {
+      "default": "de platformstandaard",
+      "workspace": "de workspace-standaard",
+      "channel": "het kanaal",
+      "contact": "het contact",
+      "conversation": "dit gesprek"
+    },
+    "follows": "Volgt {{source}}",
+    "followsNamed": "Volgt {{source}} ({{name}})",
+    "setHere": "Hier ingesteld",
+    "useInherited": "Volg {{source}}",
+    "useInheritedHint": "Nu {{mode}}",
+    "untilClose": "Tot dit gesprek gesloten wordt",
+    "clamped": {
+      "govern": "Govern begrenst gesprekken op {{mode}}.",
+      "privacy": "Privacy-instellingen houden AI weg van berichtinhoud.",
+      "breaker": "Autonoom gepauzeerd na ongebruikelijke activiteit. Alleen concepten tot iemand het hervat."
+    },
+    "reasons": {
+      "assigned": "Toegewezen aan een persoon",
+      "operator_takeover": "Overgenomen door een collega",
+      "handoff_requested": "De klant vroeg om een persoon",
+      "escalated": "Geëscaleerd naar het team",
+      "operator": "Ingesteld door een collega"
+    },
+    "needsAdmin": "Alleen een eigenaar of beheerder kan autonoom hier aanzetten.",
+    "takeOver": "Overnemen",
+    "handBack": "Teruggeven aan AI",
+    "openSettings": "Instellingen AI-afhandeling",
+    "changed": "AI-afhandeling ingesteld op {{mode}}",
+    "cleared": "AI-afhandeling volgt weer {{source}}",
+    "saveError": "AI-afhandeling kon niet worden gewijzigd",
+    "breakerBadge": "Gepauzeerd",
+    "breakerResume": "Autonoom hervatten",
+    "breakerKeepAssisted": "Geassisteerd houden",
+    "preview": {
+      "confirm": "Autonoom aanzetten? De AI beantwoordt de volgende klantberichten zelf.",
+      "followers_one": "{{count}} open gesprek volgt dit.",
+      "followers_other": "{{count}} open gesprekken volgen dit.",
+      "evidence": "{{rate}}% van {{count}} concepten is de afgelopen {{days}} dagen ongewijzigd verstuurd.",
+      "noEvidence": "Nog geen concepten in de afgelopen {{days}} dagen."
+    },
+    "filter": {
+      "all": "Elke AI-afhandeling",
+      "custom": "Eigen AI-afhandeling"
+    },
+    "metrics": {
+      "hint": "Open gesprekken per modus, en resultaten over de afgelopen {{days}} dagen.",
+      "autonomousReplies": "Autonome antwoorden",
+      "handoffRate": "Doorgegeven aan een persoon",
+      "editRate": "Concepten aangepast voor verzenden"
+    }
   }
 }

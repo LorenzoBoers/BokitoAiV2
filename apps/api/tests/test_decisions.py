@@ -205,7 +205,6 @@ async def test_acknowledge_action_resolves_without_tool(client: AsyncClient, ses
         channel="email",
         subject="Escalate please",
         status="open",
-        ai_paused=False,
     )
     session_override.add(signal)
     await session_override.flush()
@@ -244,7 +243,7 @@ async def test_acknowledge_action_resolves_without_tool(client: AsyncClient, ses
     ).scalar_one()
     assert row.status == "approved"
     sig = (await session_override.execute(select(Signal).where(Signal.id == signal_id))).scalar_one()
-    assert sig.ai_paused is True
+    assert sig.ai_handling == "manual"
     assert sig.assigned_user_id == user.id
 
 

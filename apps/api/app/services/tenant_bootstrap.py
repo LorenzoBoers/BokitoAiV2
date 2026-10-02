@@ -276,6 +276,7 @@ async def ensure_widget_channel(
         address=tenant.slug,
         display_name="Website chat",
         is_enabled=True,
+        settings_json=json.dumps({"ai_config": {"ai_handling": {"mode": "autonomous"}}}),
     )
     session.add(account)
     if commit:
@@ -302,12 +303,9 @@ def default_tenant_settings() -> dict:
             "main_color": DEFAULT_BRAND_COLOR,
             "powered_by": True,
         },
-        # How the AI handles inbound customer messages per channel:
-        # suggest (draft for human approval) | auto (reply directly) | off.
-        "channel_ai_modes": {
-            "email": "suggest",
-            "widget": "auto",
-        },
+        # AI handling: workspace default (assisted drafts for approval); the
+        # website chat channel is seeded autonomous in ensure_widget_channel.
+        "ai_handling": {"default": {"mode": "assisted"}},
         "widget_capabilities": {
             "anonymous": ["qa"],
             "member": ["qa", "capture", "actions", "handoff"],
