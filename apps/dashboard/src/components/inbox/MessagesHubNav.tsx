@@ -328,7 +328,7 @@ function AgentsSection({
               to="/settings/setup"
               className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline"
             >
-              {t('settings.links.setupGuide')}
+              {t('support.settings.setupGuide')}
             </Link>
           </div>
         </div>
