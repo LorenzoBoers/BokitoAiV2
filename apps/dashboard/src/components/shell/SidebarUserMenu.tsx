@@ -9,6 +9,7 @@ import { APP_VERSION } from '../../lib/app-version'
 import { getTeamOverview, setMyAway, type PresenceStatus } from '../../lib/teams-api'
 import { UserAvatar } from '../ui/UserAvatar'
 import { PresenceDot } from '../ui/PresenceDot'
+import { Tip } from '../ui/Tip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,27 +117,28 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
         if (open) void loadPresence()
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t('topbar.openUserMenu')}
-          title={collapsed ? name : undefined}
-          className={`flex items-center gap-2 rounded-md text-left transition-colors hover:bg-bg-hover/70 data-[state=open]:bg-bg-hover ${
-            collapsed ? 'h-9 w-9 justify-center' : 'h-10 w-full px-1.5'
-          }`}
-        >
-          {avatar}
-          {collapsed ? null : (
-            <>
-              <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                <span className="truncate-fade text-sm font-medium text-text-heading">{name}</span>
-                {email ? <span className="truncate-fade text-2xs text-text-muted">{email}</span> : null}
-              </span>
-              <ChevronsUpDown size={12} className="shrink-0 text-text-muted" aria-hidden />
-            </>
-          )}
-        </button>
-      </DropdownMenuTrigger>
+      <Tip label={collapsed ? name : undefined} side="right">
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={t('topbar.openUserMenu')}
+            className={`flex items-center gap-2 rounded-md text-left transition-colors hover:bg-bg-hover/70 data-[state=open]:bg-bg-hover ${
+              collapsed ? 'h-9 w-9 justify-center' : 'h-10 w-full px-1.5'
+            }`}
+          >
+            {avatar}
+            {collapsed ? null : (
+              <>
+                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="truncate-fade text-sm font-medium text-text-heading">{name}</span>
+                  {email ? <span className="truncate-fade text-2xs text-text-muted">{email}</span> : null}
+                </span>
+                <ChevronsUpDown size={12} className="shrink-0 text-text-muted" aria-hidden />
+              </>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+      </Tip>
       <DropdownMenuContent
         side="top"
         align={collapsed ? 'start' : 'start'}
@@ -229,28 +231,31 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
         </DropdownMenuItem>
         <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1.5 text-2xs">
           {gatewayOk ? (
-            <span className="inline-flex items-center gap-1 text-text-muted" title={gatewayTitle}>
-              <Check size={11} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden />
-              {statusLabel}
-            </span>
+            <Tip label={gatewayTitle}>
+              <span className="inline-flex items-center gap-1 text-text-muted">
+                <Check size={11} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden />
+                {statusLabel}
+              </span>
+            </Tip>
           ) : (
-            <button
-              type="button"
-              title={gatewayTitle}
-              onClick={() => window.location.reload()}
-              className={
-                status === 'disconnected'
-                  ? 'inline-flex min-w-0 items-center gap-1 font-medium text-status-error hover:text-status-error/90'
-                  : 'inline-flex min-w-0 items-center gap-1 font-medium text-status-warning hover:text-status-warning/90'
-              }
-            >
-              <AlertCircle size={11} strokeWidth={2.5} className="shrink-0" aria-hidden />
-              <span className="truncate-fade">{statusLabel}</span>
-            </button>
+            <Tip label={gatewayTitle}>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className={
+                  status === 'disconnected'
+                    ? 'inline-flex min-w-0 items-center gap-1 font-medium text-status-error hover:text-status-error/90'
+                    : 'inline-flex min-w-0 items-center gap-1 font-medium text-status-warning hover:text-status-warning/90'
+                }
+              >
+                <AlertCircle size={11} strokeWidth={2.5} className="shrink-0" aria-hidden />
+                <span className="truncate-fade">{statusLabel}</span>
+              </button>
+            </Tip>
           )}
-          <span className="shrink-0 text-text-muted" title={`build ${APP_VERSION}`}>
-            v{APP_VERSION}
-          </span>
+          <Tip label={`build ${APP_VERSION}`}>
+            <span className="shrink-0 text-text-muted">v{APP_VERSION}</span>
+          </Tip>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

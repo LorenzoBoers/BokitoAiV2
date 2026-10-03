@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { onGatewayStatus, type GatewayStatus } from '../../lib/gateway'
+import { Tip } from '../ui/Tip'
 
 const STATUS_DOT: Record<GatewayStatus, string> = {
   connected: 'bg-status-success',
@@ -34,20 +35,21 @@ export default function ConnectionStatus({ showLabel = true }: { showLabel?: boo
   )
   if (status === 'disconnected') {
     return (
-      <button
-        type="button"
-        onClick={() => window.location.reload()}
-        className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary"
-        title={title}
-      >
-        {body}
-        <span className="underline decoration-border/80 underline-offset-2">{t('gateway.reload')}</span>
-      </button>
+      <Tip label={title}>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary"
+        >
+          {body}
+          <span className="underline decoration-border/80 underline-offset-2">{t('gateway.reload')}</span>
+        </button>
+      </Tip>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-text-muted" title={title}>
-      {body}
-    </span>
+    <Tip label={title}>
+      <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">{body}</span>
+    </Tip>
   )
 }

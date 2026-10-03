@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { CircleHelp } from 'lucide-react'
 import { pageGuidePath, type PageGuideSlug } from '../../lib/page-guides'
 import { cn } from '../../lib/utils'
+import { Tip } from '../ui/Tip'
 
 interface PageGuideLinkProps {
   page: PageGuideSlug
@@ -23,19 +24,20 @@ export function PageGuideLink({ page, variant, compact = false, className }: Pag
   const title = t(titleKey)
   const label = t('pageGuides.learnMore')
   return (
-    <Link
-      to={pageGuidePath(page)}
-      title={title}
-      aria-label={compact ? `${label}. ${title}` : undefined}
-      className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md text-xs text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-heading',
-        compact ? 'w-7 justify-center' : 'px-2',
-        className,
-      )}
-    >
-      <CircleHelp size={13} aria-hidden />
-      {compact ? null : <span>{label}</span>}
-    </Link>
+    <Tip label={title} className="max-w-64 font-normal">
+      <Link
+        to={pageGuidePath(page)}
+        aria-label={compact ? `${label}. ${title}` : undefined}
+        className={cn(
+          'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md text-xs text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-heading',
+          compact ? 'w-7 justify-center' : 'px-2',
+          className,
+        )}
+      >
+        <CircleHelp size={13} aria-hidden />
+        {compact ? null : <span>{label}</span>}
+      </Link>
+    </Tip>
   )
 }
 

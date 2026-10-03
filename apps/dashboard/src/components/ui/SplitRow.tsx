@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react'
 import { cn } from '../../lib/utils'
+import { Tip } from './Tip'
 import {
   applyDrag,
   fitWidths,
@@ -124,33 +125,34 @@ function SplitHandle({
   }
 
   return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label={label}
-      aria-valuemin={min}
-      aria-valuemax={max}
-      aria-valuenow={Math.round(value)}
-      title={hint || label}
-      tabIndex={0}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onDoubleClick={onReset}
-      onKeyDown={onKeyDown}
-      className={cn('group relative z-20 hidden w-0 shrink-0 md:block', className)}
-    >
-      {active ? <div className="fixed inset-0 z-[80] cursor-col-resize" /> : null}
-      <div className="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize touch-none" />
+    <Tip label={hint || label} side="right">
       <div
-        className={cn(
-          'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/70 transition-[width,background-color,box-shadow]',
-          'group-hover:w-0.5 group-hover:bg-accent group-focus-visible:w-0.5 group-focus-visible:bg-accent',
-          'group-active:w-0.5 group-active:bg-accent group-active:shadow-[0_0_0_1px_rgb(var(--color-accent)/0.25)]',
-        )}
-      />
-    </div>
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={label}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={Math.round(value)}
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onDoubleClick={onReset}
+        onKeyDown={onKeyDown}
+        className={cn('group relative z-20 hidden w-0 shrink-0 md:block', className)}
+      >
+        {active ? <div className="fixed inset-0 z-[80] cursor-col-resize" /> : null}
+        <div className="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize touch-none" />
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/70 transition-[width,background-color,box-shadow]',
+            'group-hover:w-0.5 group-hover:bg-accent group-focus-visible:w-0.5 group-focus-visible:bg-accent',
+            'group-active:w-0.5 group-active:bg-accent group-active:shadow-[0_0_0_1px_rgb(var(--color-accent)/0.25)]',
+          )}
+        />
+      </div>
+    </Tip>
   )
 }
 

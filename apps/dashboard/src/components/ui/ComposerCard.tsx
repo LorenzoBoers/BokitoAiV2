@@ -16,6 +16,7 @@ import {
   type ComposerGrowMode,
 } from '../../lib/composer-grow'
 import { cn } from '../../lib/utils'
+import { Tip } from './Tip'
 
 type Props = {
   mode: ComposerGrowMode
@@ -141,48 +142,50 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
     >
       {overlay}
       <div className="absolute inset-x-0 top-0 z-10 flex h-3 items-center justify-center">
-        <div
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label={t('composer.resize')}
-          aria-valuemin={preset.min}
-          aria-valuemax={preset.max}
-          aria-valuenow={Math.round(floor)}
-          title={t('composer.resizeHint')}
-          tabIndex={0}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onDoubleClick={reset}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowUp') {
-              event.preventDefault()
-              commitFloor(floor + 24)
-            } else if (event.key === 'ArrowDown') {
-              event.preventDefault()
-              commitFloor(floor - 24)
-            } else if (event.key === 'Enter' || event.key === 'Home') {
-              event.preventDefault()
-              reset()
-            } else if (event.key === 'End') {
-              event.preventDefault()
-              commitFloor(preset.max)
-            }
-          }}
-          className="flex h-3 w-full cursor-row-resize touch-none items-center justify-center"
-        >
-          <span className="h-0.5 w-6 rounded-full bg-border/40 transition-colors group-hover/composer:bg-border/80 group-focus-within/composer:bg-accent/70 hover:bg-accent" />
-        </div>
-        <button
-          type="button"
-          onClick={toggleExpand}
-          title={expanded ? t('composer.collapse') : t('composer.expand')}
-          aria-label={expanded ? t('composer.collapse') : t('composer.expand')}
-          className="absolute right-2 top-1 rounded-md p-1 text-text-muted/50 opacity-0 transition-all group-hover/composer:opacity-100 group-focus-within/composer:opacity-100 hover:bg-bg-hover hover:text-text-primary"
-        >
-          {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
-        </button>
+        <Tip label={t('composer.resizeHint')}>
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label={t('composer.resize')}
+            aria-valuemin={preset.min}
+            aria-valuemax={preset.max}
+            aria-valuenow={Math.round(floor)}
+            tabIndex={0}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onDoubleClick={reset}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowUp') {
+                event.preventDefault()
+                commitFloor(floor + 24)
+              } else if (event.key === 'ArrowDown') {
+                event.preventDefault()
+                commitFloor(floor - 24)
+              } else if (event.key === 'Enter' || event.key === 'Home') {
+                event.preventDefault()
+                reset()
+              } else if (event.key === 'End') {
+                event.preventDefault()
+                commitFloor(preset.max)
+              }
+            }}
+            className="flex h-3 w-full cursor-row-resize touch-none items-center justify-center"
+          >
+            <span className="h-0.5 w-6 rounded-full bg-border/40 transition-colors group-hover/composer:bg-border/80 group-focus-within/composer:bg-accent/70 hover:bg-accent" />
+          </div>
+        </Tip>
+        <Tip label={expanded ? t('composer.collapse') : t('composer.expand')}>
+          <button
+            type="button"
+            onClick={toggleExpand}
+            aria-label={expanded ? t('composer.collapse') : t('composer.expand')}
+            className="absolute right-2 top-1 rounded-md p-1 text-text-muted/50 opacity-0 transition-all group-hover/composer:opacity-100 group-focus-within/composer:opacity-100 hover:bg-bg-hover hover:text-text-primary"
+          >
+            {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+          </button>
+        </Tip>
       </div>
       <div className={cn(stacked ? 'flex flex-col gap-2' : 'flex items-end gap-2')}>
         <div className="relative min-w-0 w-full flex-1">

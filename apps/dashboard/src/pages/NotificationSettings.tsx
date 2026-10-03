@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Bell, BellRing, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
+import { Bell, BellRing, RotateCcw } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
@@ -28,6 +28,7 @@ import {
   isWebPushSupported,
 } from '../lib/web-push'
 import { cn } from '../lib/utils'
+import { Tip } from '../components/ui/Tip'
 
 const GRID = 'grid-cols-[1fr_72px_72px_72px]'
 
@@ -67,7 +68,6 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
-  const [showEvents, setShowEvents] = useState(false)
 
   useEffect(() => {
     if (savedAt == null) return
@@ -148,33 +148,6 @@ export default function NotificationSettings() {
 
   const pushColumnOff = !pushEnabled
 
-  const header = (first: string, withRestore = false) => (
-    <div className={`grid ${GRID} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}>
-      <span className="flex items-center gap-1.5">
-        {first}
-        {withRestore ? (
-          <button
-            type="button"
-            onClick={() => void save(defaultNotificationPrefs())}
-            title={t('notificationsPage.restoreDefaults')}
-            aria-label={t('notificationsPage.restoreDefaults')}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
-          >
-            <RotateCcw size={13} aria-hidden />
-          </button>
-        ) : null}
-      </span>
-      {NOTIFICATION_CHANNELS.map((channel) => (
-        <span
-          key={channel}
-          className={cn('text-center', channel === 'push' && pushColumnOff && 'opacity-40')}
-        >
-          {channelLabel(channel)}
-        </span>
-      ))}
-    </div>
-  )
-
   return (
     <PageContent width="lg" className="space-y-5 py-1">
       <p className="text-sm text-text-secondary">{t('notificationsPage.intro')}</p>
@@ -205,9 +178,31 @@ export default function NotificationSettings() {
       </Card>
 
       <Card className="overflow-hidden" data-testid="notification-tiers">
-        {header(t('notificationsPage.tierColumn'), true)}
+        <div className={`grid ${GRID} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}>
+          <span className="flex items-center gap-1.5">
+            {t('notificationsPage.tierColumn')}
+            <Tip label={t('notificationsPage.restoreDefaults')}>
+              <button
+                type="button"
+                onClick={() => void save(defaultNotificationPrefs())}
+                aria-label={t('notificationsPage.restoreDefaults')}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+              >
+                <RotateCcw size={13} aria-hidden />
+              </button>
+            </Tip>
+          </span>
+          {NOTIFICATION_CHANNELS.map((channel) => (
+            <span
+              key={channel}
+              className={cn('text-center', channel === 'push' && pushColumnOff && 'opacity-40')}
+            >
+              {channelLabel(channel)}
+            </span>
+          ))}
+        </div>
         {NOTIFICATION_TIERS.map((tier) => (
-          <div key={tier} className={`grid ${GRID} items-center border-b border-border/60 px-5 py-3 last:border-b-0`}>
+          <div key={tier} className={`grid ${GRID} items-center border-b border-border/60 px-5 py-3`}>
             <div className="pr-3">
               <p className="text-sm text-text-primary">{t(`notificationsPage.tiers.${tier}.title`)}</p>
               <p className="text-xs text-text-muted">{t(`notificationsPage.tiers.${tier}.hint`)}</p>
@@ -224,39 +219,34 @@ export default function NotificationSettings() {
             ))}
           </div>
         ))}
-      </Card>
-
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowEvents((v) => !v)}
-          aria-expanded={showEvents}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-heading"
+        <div
+          className="border-b border-border/60 bg-bg-elevated/40 px-5 py-2 text-xs font-semibold text-text-muted"
+          data-testid="notification-events-section"
         >
-          {showEvents ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           {t('notificationsPage.perEvent')}
-        </button>
-        {showEvents ? (
-          <Card className="mt-2 overflow-hidden" data-testid="notification-events">
-            {header(t('notificationsPage.notifyMe'))}
-            {prefs.rows.map((row) => (
-              <div key={row.id} className={`grid ${GRID} items-center border-b border-border/60 px-5 py-3 last:border-b-0`}>
-                <p className="pr-3 text-sm text-text-primary">{t(`notificationsPage.rows.${row.id}`)}</p>
-                {NOTIFICATION_CHANNELS.map((channel) => (
-                  <Cell
-                    key={channel}
-                    allowed={(CATEGORY_ALLOWED[row.id] ?? []).includes(channel)}
-                    checked={row.channels[channel]}
-                    disabled={channel === 'push' && pushColumnOff}
-                    label={`${t(`notificationsPage.rows.${row.id}`)} ${channelLabel(channel)}`}
-                    onChange={(value) => void save(setCategoryChannel(prefs, row.id, channel, value))}
-                  />
-                ))}
-              </div>
+        </div>
+        {prefs.rows.map((row, index) => (
+          <div
+            key={row.id}
+            className={cn(
+              `grid ${GRID} items-center px-5 py-3`,
+              index < prefs.rows.length - 1 && 'border-b border-border/60',
+            )}
+          >
+            <p className="pr-3 text-sm text-text-primary">{t(`notificationsPage.rows.${row.id}`)}</p>
+            {NOTIFICATION_CHANNELS.map((channel) => (
+              <Cell
+                key={channel}
+                allowed={(CATEGORY_ALLOWED[row.id] ?? []).includes(channel)}
+                checked={row.channels[channel]}
+                disabled={channel === 'push' && pushColumnOff}
+                label={`${t(`notificationsPage.rows.${row.id}`)} ${channelLabel(channel)}`}
+                onChange={(value) => void save(setCategoryChannel(prefs, row.id, channel, value))}
+              />
             ))}
-          </Card>
-        ) : null}
-      </div>
+          </div>
+        ))}
+      </Card>
 
       <Card className="p-4">
         <div className="space-y-1">

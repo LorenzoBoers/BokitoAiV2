@@ -58,7 +58,6 @@ function BrandOrIcon({
       <img
         src={brand.logoUrl}
         alt=""
-        title={brand.name}
         style={{ width: size, height: size }}
         className={cn('shrink-0 object-contain', className)}
         loading="lazy"

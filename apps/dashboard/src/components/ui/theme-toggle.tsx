@@ -1,7 +1,7 @@
-import { } from 'react';
-import { Sun, Moon, Monitor } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
-import { cn } from '../../lib/utils';
+import { Sun, Moon, Monitor } from 'lucide-react'
+import { useTheme } from '../../context/ThemeContext'
+import { cn } from '../../lib/utils'
+import { Tip } from './Tip'
 
 interface ThemeToggleProps {
   className?: string;
@@ -78,22 +78,23 @@ export function ThemeToggle({ className, showLabel = false, variant = 'button' }
 
   // Default button variant
   return (
-    <button
-      onClick={toggleMode}
-      className={cn(
-        'flex items-center gap-2 p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-muted transition-colors',
-        className
-      )}
-      title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-    >
-      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-      {showLabel && (
-        <span className="text-sm">
-          {isDark ? 'Light' : 'Dark'}
-        </span>
-      )}
-    </button>
-  );
+    <Tip label={`Switch to ${isDark ? 'light' : 'dark'} theme`}>
+      <button
+        onClick={toggleMode}
+        className={cn(
+          'flex items-center gap-2 p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-muted transition-colors',
+          className
+        )}
+      >
+        {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        {showLabel && (
+          <span className="text-sm">
+            {isDark ? 'Light' : 'Dark'}
+          </span>
+        )}
+      </button>
+    </Tip>
+  )
 }
 
 export function ThemeStatus() {

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { cn } from '../../lib/utils'
+import { Tip } from './Tip'
 
 type Presence = 'available' | 'away' | 'offline'
 
@@ -24,15 +25,17 @@ interface UserAvatarProps {
 
 function PresenceCorner({ presence, size }: { presence: Presence; size: number }) {
   const { t } = useTranslation('common')
+  const label = t(`presence.${presence}`)
   const dot = Math.max(6, Math.round(size * 0.32))
   return (
-    <span
-      title={t(`presence.${presence}`)}
-      style={{ width: dot, height: dot }}
-      className={cn('absolute -bottom-px -right-px rounded-full ring-2 ring-bg-surface', PRESENCE_DOT[presence])}
-    >
-      <span className="sr-only">{t(`presence.${presence}`)}</span>
-    </span>
+    <Tip label={label}>
+      <span
+        style={{ width: dot, height: dot }}
+        className={cn('absolute -bottom-px -right-px rounded-full ring-2 ring-bg-surface', PRESENCE_DOT[presence])}
+      >
+        <span className="sr-only">{label}</span>
+      </span>
+    </Tip>
   )
 }
 

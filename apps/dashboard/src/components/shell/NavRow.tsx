@@ -2,6 +2,7 @@ import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react
 import { NavLink, type NavLinkProps } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { Tip } from '../ui/Tip'
 
 type NavRowBaseProps = {
   icon?: LucideIcon
@@ -50,6 +51,12 @@ function rowClass({ iconOnly, depth, active, className }: NavRowBaseProps) {
   )
 }
 
+function tipLabel(title: string | undefined, iconOnly: boolean | undefined, label: ReactNode) {
+  if (title) return title
+  if (iconOnly && typeof label === 'string') return label
+  return undefined
+}
+
 type NavRowLinkProps = NavRowBaseProps & Omit<NavLinkProps, 'className' | 'children'>
 
 /** Router-aware nav row. Uses `aria-current="page"` from NavLink for the active state. */
@@ -58,17 +65,24 @@ export const NavRowLink = forwardRef<HTMLAnchorElement, NavRowLinkProps>(functio
   ref,
 ) {
   const base = { icon, label, count, unread, trailing, iconOnly, depth, active, className }
-  return (
+  const tip = tipLabel(typeof title === 'string' ? title : undefined, iconOnly, label)
+  const link = (
     <NavLink
       ref={ref}
       {...linkProps}
-      title={title ?? (iconOnly && typeof label === 'string' ? label : undefined)}
       aria-label={iconOnly && typeof label === 'string' ? label : undefined}
       className={rowClass(base)}
       data-active={active ? 'true' : undefined}
     >
       <RowInner {...base} />
     </NavLink>
+  )
+  return tip ? (
+    <Tip label={tip} side="right">
+      {link}
+    </Tip>
+  ) : (
+    link
   )
 })
 
@@ -80,17 +94,24 @@ export const NavRowButton = forwardRef<HTMLButtonElement, NavRowButtonProps>(fun
   ref,
 ) {
   const base = { icon, label, count, unread, trailing, iconOnly, depth, active, className }
-  return (
+  const tip = tipLabel(title, iconOnly, label)
+  const button = (
     <button
       ref={ref}
       type={type}
       {...buttonProps}
-      title={title ?? (iconOnly && typeof label === 'string' ? label : undefined)}
       aria-label={iconOnly && typeof label === 'string' ? label : undefined}
       className={rowClass(base)}
       data-active={active ? 'true' : undefined}
     >
       <RowInner {...base} />
     </button>
+  )
+  return tip ? (
+    <Tip label={tip} side="right">
+      {button}
+    </Tip>
+  ) : (
+    button
   )
 })

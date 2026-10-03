@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import { Tip } from './Tip'
 
 export type ThreadDotStatus = 'open' | 'pending' | 'closed' | 'spam'
 
@@ -24,10 +25,9 @@ interface ThreadStatusDotProps {
 export function ThreadStatusDot({ status, unread = false, className, title }: ThreadStatusDotProps) {
   const state: ThreadDotStatus =
     status === 'pending' || status === 'closed' || status === 'spam' ? status : 'open'
-  return (
+  const dot = (
     <span
       aria-hidden={title ? undefined : true}
-      title={title}
       className={cn(
         'inline-block h-2 w-2 shrink-0 rounded-full',
         unread
@@ -43,6 +43,7 @@ export function ThreadStatusDot({ status, unread = false, className, title }: Th
       )}
     />
   )
+  return title ? <Tip label={title}>{dot}</Tip> : dot
 }
 
 export default ThreadStatusDot

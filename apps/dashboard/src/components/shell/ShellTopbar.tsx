@@ -6,6 +6,7 @@ import { tabFromPath, titleForTab } from '../../lib/navigation'
 import StaffTenantBar from '../layout/StaffTenantBar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
+import { Tip } from '../ui/Tip'
 import { settingsLinkForPath } from './SettingsLayout'
 import { extraCrumbsForPath } from '../../lib/page-crumbs'
 
@@ -76,30 +77,32 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
       <StaffTenantBar />
 
       {setupIncomplete ? (
-        <button
-          type="button"
-          onClick={() => navigate('/settings/setup')}
-          className="hidden h-7 items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
-          title={t('topbar.resumeSetup')}
-        >
-          <Sparkles size={12} className="text-accent" />
-          <span>{t('topbar.setup')}</span>
-        </button>
+        <Tip label={t('topbar.resumeSetup')}>
+          <button
+            type="button"
+            onClick={() => navigate('/settings/setup')}
+            className="hidden h-7 items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
+          >
+            <Sparkles size={12} className="text-accent" />
+            <span>{t('topbar.setup')}</span>
+          </button>
+        </Tip>
       ) : null}
 
       {/* Command palette trigger — conversation search lives in the thread list. */}
-      <button
-        type="button"
-        onClick={onOpenPalette}
-        className="hidden h-7 w-56 items-center gap-2 rounded-md border border-border/70 bg-bg-elevated/40 px-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary sm:flex"
-        title={t('topbar.openPalette')}
-      >
-        <Search size={12} />
-        <span className="flex-1 text-left">{t('topbar.search')}</span>
-        <kbd className="rounded-sm border border-border/70 px-1 font-mono text-2xs text-text-muted">
-          {isMac ? 'Cmd' : 'Ctrl'} K
-        </kbd>
-      </button>
+      <Tip label={t('topbar.openPalette')}>
+        <button
+          type="button"
+          onClick={onOpenPalette}
+          className="hidden h-7 w-56 items-center gap-2 rounded-md border border-border/70 bg-bg-elevated/40 px-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary sm:flex"
+        >
+          <Search size={12} />
+          <span className="flex-1 text-left">{t('topbar.search')}</span>
+          <kbd className="rounded-sm border border-border/70 px-1 font-mono text-2xs text-text-muted">
+            {isMac ? 'Cmd' : 'Ctrl'} K
+          </kbd>
+        </button>
+      </Tip>
       <button
         type="button"
         onClick={onOpenPalette}

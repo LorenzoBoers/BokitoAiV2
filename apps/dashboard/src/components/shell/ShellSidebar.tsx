@@ -16,6 +16,7 @@ import {
   type Tab,
 } from '../../lib/navigation'
 import ScrollFade from '../ui/ScrollFade'
+import { Tip } from '../ui/Tip'
 import NavFolder from './NavFolder'
 import { NavRowLink } from './NavRow'
 import SidebarUserMenu from './SidebarUserMenu'
@@ -120,15 +121,16 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
         }`}
       >
         <SidebarWorkspaceSwitcher collapsed={collapsed} onNavigate={onNavigate} />
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          title={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')}
-          aria-label={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
-        >
-          {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-        </button>
+        <Tip label={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')} side="right">
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+          >
+            {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+          </button>
+        </Tip>
       </div>
 
       {/* Body */}

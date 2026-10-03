@@ -32,6 +32,7 @@ import { SidebarFolder } from './QueueSublist'
 import NavCountBadge from '../layout/NavCountBadge'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import ScrollFade from '../ui/ScrollFade'
+import { Tip } from '../ui/Tip'
 
 const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
   { queue: 'snoozed', labelKey: 'support.inbox.snoozed' },
@@ -60,15 +61,16 @@ type CollapsibleSectionProps = {
 /** Square gear control — fixed size so hover/hitbox stay circular, not a thin strip. */
 function SectionGearLink({ to, label }: { to: string; label: string }) {
   return (
-    <Link
-      to={to}
-      title={label}
-      aria-label={label}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <Settings size={12} strokeWidth={2} aria-hidden />
-    </Link>
+    <Tip label={label}>
+      <Link
+        to={to}
+        aria-label={label}
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Settings size={12} strokeWidth={2} aria-hidden />
+      </Link>
+    </Tip>
   )
 }
 
@@ -149,14 +151,15 @@ type TFn = (key: string, opts?: { defaultValue?: string }) => string
 
 function ComposePlusLink({ to, label }: { to: string; label: string }) {
   return (
-    <Link
-      to={to}
-      title={label}
-      aria-label={label}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
-    >
-      <Plus size={13} />
-    </Link>
+    <Tip label={label}>
+      <Link
+        to={to}
+        aria-label={label}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
+      >
+        <Plus size={13} />
+      </Link>
+    </Tip>
   )
 }
 
@@ -262,14 +265,12 @@ function ChannelsSection({
     <div className="space-y-0.5">
       {loading ? <NavSectionSkeleton rows={3} /> : null}
       {!loading && folders.length === 0 ? (
-        <Link
-          to="/settings/channels"
-          title={t('support.channels.connectChannel')}
-          className="nav-row border border-dashed border-border/80 text-xs"
-        >
-          <Plus aria-hidden />
-          <span className="min-w-0 flex-1 truncate-fade">{t('support.channels.connectChannel')}</span>
-        </Link>
+        <Tip label={t('support.channels.connectChannel')} side="right">
+          <Link to="/settings/channels" className="nav-row border border-dashed border-border/80 text-xs">
+            <Plus aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{t('support.channels.connectChannel')}</span>
+          </Link>
+        </Tip>
       ) : null}
       {folders.map((folder) => (
         <SidebarFolder
@@ -352,15 +353,16 @@ function AgentsSection({
               />
             }
             extra={
-              <NavLink
-                to={activityTerminalPath(agent.id)}
-                title={t('support.agents.activity')}
-                data-active={activityActive ? 'true' : undefined}
-                className="nav-row nav-sub-row h-[26px] text-xs"
-              >
-                <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
-                <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
-              </NavLink>
+              <Tip label={t('support.agents.activity')} side="right">
+                <NavLink
+                  to={activityTerminalPath(agent.id)}
+                  data-active={activityActive ? 'true' : undefined}
+                  className="nav-row nav-sub-row h-[26px] text-xs"
+                >
+                  <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
+                </NavLink>
+              </Tip>
             }
           />
         )
@@ -470,14 +472,15 @@ export default function MessagesHubNav() {
               defaultQueue={defaultQueueFor(leaf)}
               badgeCount={countForTeam(counts, team.id)}
               leading={
-                <button
-                  type="button"
-                  title={t('support.teams.groupChatHint')}
-                  className="nav-row nav-sub-row h-[26px] text-xs font-medium text-accent"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  <span className="min-w-0 flex-1 truncate-fade text-left">{t('support.teams.groupChat')}</span>
-                </button>
+                <Tip label={t('support.teams.groupChatHint')} side="right">
+                  <button
+                    type="button"
+                    className="nav-row nav-sub-row h-[26px] text-xs font-medium text-accent"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <span className="min-w-0 flex-1 truncate-fade text-left">{t('support.teams.groupChat')}</span>
+                  </button>
+                </Tip>
               }
             />
           )
@@ -514,16 +517,16 @@ export default function MessagesHubNav() {
                 {EXTRA_INBOX_ITEMS.map((item) => {
                   const leaf: HubLeaf = { type: 'inbox', queue: item.queue }
                   return (
-                    <NavLink
-                      key={item.queue}
-                      to={inboxPath(item.queue)}
-                      title={t(`${item.labelKey}Hint`)}
-                      data-active={isLeafActive(activeLeaf, leaf) ? 'true' : undefined}
-                      className="nav-row nav-sub-row h-[26px] text-xs"
-                    >
-                      <span className="min-w-0 flex-1 truncate-fade">{t(item.labelKey)}</span>
-                      <NavCountBadge count={countForInboxQueue(counts, item.queue)} placement="inline" />
-                    </NavLink>
+                    <Tip key={item.queue} label={t(`${item.labelKey}Hint`)} side="right">
+                      <NavLink
+                        to={inboxPath(item.queue)}
+                        data-active={isLeafActive(activeLeaf, leaf) ? 'true' : undefined}
+                        className="nav-row nav-sub-row h-[26px] text-xs"
+                      >
+                        <span className="min-w-0 flex-1 truncate-fade">{t(item.labelKey)}</span>
+                        <NavCountBadge count={countForInboxQueue(counts, item.queue)} placement="inline" />
+                      </NavLink>
+                    </Tip>
                   )
                 })}
               </>
@@ -555,15 +558,19 @@ export default function MessagesHubNav() {
       </ScrollFade>
 
       <div className="mt-1 shrink-0 space-y-px border-t border-border/60 pt-1.5">
-        <NavLink to="/contacts" title={t('support.contacts.hint')} className="nav-row">
-          <Users aria-hidden />
-          <span className="min-w-0 flex-1 truncate-fade">{t('support.contacts.label')}</span>
-        </NavLink>
-        {settingsVisible ? (
-          <NavLink to="/settings/channels" title={t('support.settings.channels')} className="nav-row">
-            <Settings aria-hidden />
-            <span className="min-w-0 flex-1 truncate-fade">{t('support.settings.channels')}</span>
+        <Tip label={t('support.contacts.hint')} side="right">
+          <NavLink to="/contacts" className="nav-row">
+            <Users aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{t('support.contacts.label')}</span>
           </NavLink>
+        </Tip>
+        {settingsVisible ? (
+          <Tip label={t('support.settings.channels')} side="right">
+            <NavLink to="/settings/channels" className="nav-row">
+              <Settings aria-hidden />
+              <span className="min-w-0 flex-1 truncate-fade">{t('support.settings.channels')}</span>
+            </NavLink>
+          </Tip>
         ) : null}
       </div>
     </div>

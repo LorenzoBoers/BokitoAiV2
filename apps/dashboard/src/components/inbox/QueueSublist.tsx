@@ -12,6 +12,7 @@ import {
   type SubQueue,
 } from '../../lib/messages-paths'
 import NavCountBadge from '../layout/NavCountBadge'
+import { Tip } from '../ui/Tip'
 import { cn } from '../../lib/utils'
 
 export const SUB_QUEUE_LABEL_KEYS: Record<SubQueue, string> = {
@@ -127,27 +128,28 @@ export function SidebarFolder({
 
   return (
     <div className="space-y-px">
-      <button
-        type="button"
-        title={title || label}
-        onClick={toggleFolder}
-        aria-expanded={expanded}
-        data-active={headerActive || (scopeActive && !expanded) ? 'true' : undefined}
-        className={cn('nav-row group text-left')}
-      >
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-text-muted">{icon}</span>
-        <span className="min-w-0 flex-1 truncate-fade">{label}</span>
-        {headerAction ? (
-          <span
-            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            {headerAction}
-          </span>
-        ) : null}
-        <NavCountBadge count={badgeCount} placement="inline" />
-      </button>
+      <Tip label={title || label} side="right" className="max-w-56 font-normal">
+        <button
+          type="button"
+          onClick={toggleFolder}
+          aria-expanded={expanded}
+          data-active={headerActive || (scopeActive && !expanded) ? 'true' : undefined}
+          className={cn('nav-row group text-left')}
+        >
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center text-text-muted">{icon}</span>
+          <span className="min-w-0 flex-1 truncate-fade">{label}</span>
+          {headerAction ? (
+            <span
+              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              {headerAction}
+            </span>
+          ) : null}
+          <NavCountBadge count={badgeCount} placement="inline" />
+        </button>
+      </Tip>
       <div className="nav-fold" data-open={expanded ? 'true' : undefined} aria-hidden={!expanded}>
         <div className="nav-fold-inner">
           <QueueSublist

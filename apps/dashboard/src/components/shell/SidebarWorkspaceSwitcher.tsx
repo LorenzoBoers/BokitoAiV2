@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { Tip } from '../ui/Tip'
 
 const BOKITO_MARK_FILTER_DARK =
   'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
@@ -67,40 +68,42 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
 
   if (!currentWorkspace) {
     return (
-      <NavLink
-        to="/"
-        onClick={onNavigate}
-        title={brandName}
-        className={`flex h-8 min-w-0 items-center gap-2 rounded-md px-1.5 text-sm font-medium text-text-heading hover:bg-bg-hover/70 ${
-          collapsed ? 'w-8 justify-center px-0' : ''
-        }`}
-      >
-        {mark}
-        {collapsed ? null : <span className="min-w-0 flex-1 truncate-fade">{brandName}</span>}
-      </NavLink>
+      <Tip label={brandName} side="right">
+        <NavLink
+          to="/"
+          onClick={onNavigate}
+          className={`flex h-8 min-w-0 items-center gap-2 rounded-md px-1.5 text-sm font-medium text-text-heading hover:bg-bg-hover/70 ${
+            collapsed ? 'w-8 justify-center px-0' : ''
+          }`}
+        >
+          {mark}
+          {collapsed ? null : <span className="min-w-0 flex-1 truncate-fade">{brandName}</span>}
+        </NavLink>
+      </Tip>
     )
   }
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          title={collapsed ? brandName : undefined}
-          aria-label={t('topbar.switchWorkspace')}
-          className={`flex h-8 min-w-0 items-center gap-2 rounded-md text-sm font-medium text-text-heading transition-colors hover:bg-bg-hover/70 data-[state=open]:bg-bg-hover ${
-            collapsed ? 'w-8 justify-center px-0' : 'flex-1 px-1.5'
-          }`}
-        >
-          {mark}
-          {collapsed ? null : (
-            <>
-              <span className="min-w-0 flex-1 truncate-fade text-left">{brandName}</span>
-              <ChevronsUpDown size={12} className="shrink-0 text-text-muted" aria-hidden />
-            </>
-          )}
-        </button>
-      </DropdownMenuTrigger>
+      <Tip label={collapsed ? brandName : undefined} side="right">
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={t('topbar.switchWorkspace')}
+            className={`flex h-8 min-w-0 items-center gap-2 rounded-md text-sm font-medium text-text-heading transition-colors hover:bg-bg-hover/70 data-[state=open]:bg-bg-hover ${
+              collapsed ? 'w-8 justify-center px-0' : 'flex-1 px-1.5'
+            }`}
+          >
+            {mark}
+            {collapsed ? null : (
+              <>
+                <span className="min-w-0 flex-1 truncate-fade text-left">{brandName}</span>
+                <ChevronsUpDown size={12} className="shrink-0 text-text-muted" aria-hidden />
+              </>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+      </Tip>
       <DropdownMenuContent align="start" sideOffset={6} className="w-60">
         <DropdownMenuLabel>{t('topbar.switchWorkspace')}</DropdownMenuLabel>
         {workspaces.map((workspace) => {
