@@ -830,8 +830,33 @@ function eventLabel(
   return t('timeline.events.messageAdded')
 }
 
-// Compact centered pill for a single timeline event. AI-flow events share one
-// accent-tinted style (purple + sparkles); plain system events stay muted.
+// Compact centered pill shared by SignalEvents and system_event messages.
+// AI-flow events share one accent-tinted style; plain system activity stays muted.
+function ActivityPill({
+  label,
+  ai = false,
+  icon = null,
+  title,
+}: {
+  label: string
+  ai?: boolean
+  icon?: ReactNode
+  title?: string
+}) {
+  return (
+    <span
+      title={title}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
+        ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
+      )}
+    >
+      {icon}
+      {label}
+    </span>
+  )
+}
+
 function EventPill({
   event,
   memberName,
@@ -848,16 +873,23 @@ function EventPill({
       ? JSON.stringify(event.payload)
       : undefined
   return (
-    <span
+    <ActivityPill
+      label={eventLabel(event, t, memberName, memberNameFor)}
+      ai={ai}
+      icon={icon}
       title={payloadTitle}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
-        ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
-      )}
-    >
-      {icon}
-      {eventLabel(event, t, memberName, memberNameFor)}
-    </span>
+    />
+  )
+}
+
+/** System messages (contact link, escalate, …) — not teammate notes. */
+function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
+  const label =
+    (message.bodyText || message.bodyPreview || '').trim() || message.kind || 'system_event'
+  return (
+    <div className="flex justify-center py-0.5 px-2">
+      <ActivityPill label={label} />
+    </div>
   )
 }
 
@@ -1046,6 +1078,8 @@ export function MessageTimelineItem({
   > | null>(null)
   const [enriching, setEnriching] = useState(false)
   const message = enriched ? { ...messageProp, ...enriched } : messageProp
+  // Contact link / escalate / handover write kind=system_event with no author.
+  const isSystemEvent = message.kind === 'system_event'
 
   const ensureFullMessage = useCallback(async () => {
     if (!token || !threadId) return message
@@ -1113,6 +1147,11 @@ export function MessageTimelineItem({
       setNoteBusy(false)
     }
   }, [noteActions, noteBusy, message.id, t])
+
+  // Same centered activity pill as SignalEvents — never "Teamlid / Interne notitie".
+  if (isSystemEvent) {
+    return <SystemEventTimelineItem message={message} />
+  }
 
   // Resolve author info for outbound / internal bubbles
   const authorFromId =

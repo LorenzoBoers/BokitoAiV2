@@ -48,7 +48,7 @@ export type TimelineRow =
   | { kind: 'events'; id: string; time: string; events: InboxEvent[] }
   | { kind: 'session'; id: string; time: string; session: ThreadSession }
 
-/** Events the timeline never shows: a card in the list already says it. */
+/** Events the timeline never shows: a card or system_event message already says it. */
 function isHiddenEvent(eventType: string): boolean {
   return (
     eventType === 'replied' ||
@@ -57,7 +57,10 @@ function isHiddenEvent(eventType: string): boolean {
     eventType === 'agent_session_started' ||
     eventType === 'agent_session_closed' ||
     eventType === 'decision_created' ||
-    eventType === 'suggestion_created'
+    eventType === 'suggestion_created' ||
+    // Human-readable copy lives on the paired system_event message.
+    eventType === 'contact_linked' ||
+    eventType === 'contact_unlinked'
   )
 }
 
@@ -148,6 +151,8 @@ export function buildTimelineRows(
  */
 function messageStackKey(message: InboxMessage): string | null {
   if (message.kind === 'decision_request') return null
+  // System activity renders as centered pills, not stacked note bubbles.
+  if (message.kind === 'system_event') return null
   const isAgent =
     message.kind === 'agent_message' ||
     Boolean(message.payload?.agent_id) ||
