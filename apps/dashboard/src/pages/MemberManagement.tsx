@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Link2, MailPlus, Search, Send, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, ExternalLink, Link2, MailPlus, Search, Send, Trash2 } from 'lucide-react'
+import { AiAvatar } from '../components/ui/AiAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
-import { PresenceDot } from '../components/ui/PresenceDot'
-import type { PresenceStatus } from '../lib/teams-api'
+import {
+  formatAnswerMinutes,
+  type OverviewAgent,
+  type PresenceStatus,
+} from '../lib/teams-api'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { appRoutes } from '../api/routes/app.routes'
@@ -108,12 +112,16 @@ function mapInviteRow(item: unknown, unknownLabel: string): Invite | null {
 
 export type MemberMeta = { presence: PresenceStatus; teams: string[]; openOwned: number; openTurn: number }
 
-/** People tab of the Team page: members, invites and roles. */
+/** Directory on Team: people, pending invites and company agents. */
 export default function MemberManagement({
   metaByUuid,
+  agents = [],
+  teamNames = {},
 }: {
   /** Availability, teams and workload per user UUID. */
   metaByUuid?: Record<string, MemberMeta>
+  agents?: OverviewAgent[]
+  teamNames?: Record<string, string>
 } = {}) {
   const { t, i18n } = useTranslation('nav')
   const { user, token, hasPermission } = useAuth()
@@ -355,43 +363,53 @@ export default function MemberManagement({
     }
   }
 
-  type FilterTab = 'all' | 'active' | 'pending'
+  type FilterTab = 'all' | 'people' | 'agents' | 'pending'
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
 
   type UnifiedRow =
     | { kind: 'member'; data: Member }
     | { kind: 'invite'; data: Invite }
+    | { kind: 'agent'; data: OverviewAgent }
+
+  const agentTeamLabels = useCallback(
+    (teamIds: string[]) =>
+      teamIds
+        .map((id) => teamNames[id])
+        .filter((name): name is string => Boolean(name)),
+    [teamNames],
+  )
 
   const allRows: UnifiedRow[] = useMemo(() => [
     ...members.map((m): UnifiedRow => ({ kind: 'member', data: m })),
     ...invites.map((i): UnifiedRow => ({ kind: 'invite', data: i })),
-  ], [members, invites])
+    ...agents.map((a): UnifiedRow => ({ kind: 'agent', data: a })),
+  ], [members, invites, agents])
 
   const filteredRows = useMemo(() => {
-    const q = search.toLowerCase()
+    const q = search.toLowerCase().trim()
     return allRows.filter((row) => {
-      if (filterTab === 'active' && row.kind !== 'member') return false
+      if (filterTab === 'people' && row.kind !== 'member') return false
+      if (filterTab === 'agents' && row.kind !== 'agent') return false
       if (filterTab === 'pending' && row.kind !== 'invite') return false
-      const text = row.kind === 'member'
-        ? `${row.data.name} ${row.data.email}`.toLowerCase()
-        : row.data.email.toLowerCase()
-      return !q || text.includes(q)
+      if (!q) return true
+      if (row.kind === 'member') return `${row.data.name} ${row.data.email}`.toLowerCase().includes(q)
+      if (row.kind === 'invite') return row.data.email.toLowerCase().includes(q)
+      return row.data.name.toLowerCase().includes(q)
     })
   }, [allRows, filterTab, search])
 
   const tabs: { id: FilterTab; label: string; count: number }[] = [
-    { id: 'all', label: t('membersPage.tabAll'), count: members.length + invites.length },
-    { id: 'active', label: t('membersPage.tabActive'), count: members.length },
+    { id: 'all', label: t('membersPage.tabAll'), count: members.length + invites.length + agents.length },
+    { id: 'people', label: t('membersPage.tabPeople'), count: members.length },
+    { id: 'agents', label: t('membersPage.tabAgents'), count: agents.length },
     { id: 'pending', label: t('membersPage.tabPending'), count: invites.length },
   ]
 
+  const colSpan = 7
+
   return (
     <div className="space-y-5">
-      <p className="text-sm text-text-secondary">
-        {t('membersPage.body')}
-      </p>
-
       {error ? (
         <div className="rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-sm text-status-error">
           {error}
@@ -404,13 +422,9 @@ export default function MemberManagement({
         </div>
       ) : null}
 
-      {/* Invite bar */}
-      <Card id="member-invite" className="space-y-4 p-5 scroll-mt-24">
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-text-heading">{t('membersPage.inviteTitle')}</p>
-          <p className="text-sm text-text-secondary">{t('membersPage.inviteBody')}</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto]">
+      <Card id="member-invite" className="space-y-3 p-4 scroll-mt-24">
+        <p className="text-sm font-medium text-text-heading">{t('membersPage.inviteTitle')}</p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_auto]">
           <Input
             type="email"
             value={inviteEmail}
@@ -442,9 +456,12 @@ export default function MemberManagement({
           </Button>
         </div>
         <p className="text-xs text-text-muted">{t(`membersPage.roleHint.${inviteRole}`)}</p>
-        <div className="rounded-lg border border-border/60 bg-bg-input/30 px-3 py-2">
-          <p className="text-xs font-medium text-text-heading">{t('membersPage.roleMatrixTitle')}</p>
-          <table className="mt-1.5 w-full text-left text-xs text-text-muted">
+        <details className="group rounded-lg border border-border/60 bg-bg-input/30 px-3 py-2">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-text-heading [&::-webkit-details-marker]:hidden">
+            <span>{t('membersPage.roleMatrixTitle')}</span>
+            <ChevronDown size={14} className="shrink-0 text-text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <table className="mt-2 w-full text-left text-xs text-text-muted">
             <thead>
               <tr>
                 <th className="py-0.5 font-medium text-text-secondary" />
@@ -474,14 +491,12 @@ export default function MemberManagement({
               </tr>
             </tbody>
           </table>
-        </div>
+        </details>
       </Card>
 
-      {/* Unified members table */}
-      <Card className="p-0 overflow-hidden">
-        {/* Header with tabs + search */}
-        <div className="flex items-center justify-between gap-4 border-b border-border/60 px-5 pt-4 pb-0">
-          <div className="flex items-center gap-0">
+      <Card id="directory" className="overflow-hidden p-0 scroll-mt-24">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 pt-3 pb-0">
+          <div className="flex flex-wrap items-center gap-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -494,7 +509,7 @@ export default function MemberManagement({
                 }`}
               >
                 {tab.label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                   filterTab === tab.id ? 'bg-accent/15 text-accent' : 'bg-bg-hover text-text-muted'
                 }`}>
                   {tab.count}
@@ -503,38 +518,37 @@ export default function MemberManagement({
             ))}
           </div>
           <div className="relative pb-3">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-[calc(50%+6px)] text-text-muted pointer-events-none" />
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-[calc(50%+6px)] text-text-muted" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('membersPage.search')}
-              className="pl-8 pr-3 py-1.5 text-sm bg-bg-input/60 border border-border/60 rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/55 transition-colors w-48"
+              placeholder={t('membersPage.searchDirectory')}
+              className="w-52 rounded-lg border border-border/60 bg-bg-input/60 py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder-text-muted transition-colors focus:border-accent/55 focus:outline-none"
             />
           </div>
         </div>
 
-        {/* Table */}
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('membersPage.colName')}</TableHead>
-              <TableHead>{t('membersPage.colEmail')}</TableHead>
-              <TableHead>{t('membersPage.colRole')}</TableHead>
+              <TableHead>{t('membersPage.colType')}</TableHead>
+              <TableHead>{t('membersPage.colRoleOrCeiling')}</TableHead>
+              <TableHead>{t('membersPage.colTeams')}</TableHead>
+              <TableHead>{t('membersPage.colOpen')}</TableHead>
               <TableHead>{t('membersPage.colStatus')}</TableHead>
-              <TableHead>{t('membersPage.colInvitedBy')}</TableHead>
-              <TableHead>{t('membersPage.colDate')}</TableHead>
               <TableHead className="w-[120px] text-right">{t('membersPage.colActions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-sm text-text-muted">{t('membersPage.loading')}</TableCell>
+                <TableCell colSpan={colSpan} className="text-sm text-text-muted">{t('membersPage.loading')}</TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={colSpan}>
                   <div className="py-6 text-center">
                     <p className="text-sm text-text-muted">{t('membersPage.empty')}</p>
                     <p className="mt-1 text-xs text-text-muted">
@@ -584,24 +598,27 @@ export default function MemberManagement({
                     <TableRow key={`m-${m.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={26} />
-                          <span>{m.name}</span>
-                          {meta ? <PresenceDot status={meta.presence} /> : null}
-                          {m.isCurrentUser ? <Badge variant="secondary">{t('membersPage.you')}</Badge> : null}
+                          <UserAvatar
+                            name={m.name}
+                            email={m.email}
+                            avatarUrl={m.avatarUrl}
+                            size={26}
+                            presence={meta?.presence}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate-fade font-medium text-text-primary">{m.name}</span>
+                              {m.isCurrentUser ? <Badge variant="secondary">{t('membersPage.you')}</Badge> : null}
+                            </div>
+                            {m.email ? (
+                              <p className="truncate-fade text-xs text-text-muted">{m.email}</p>
+                            ) : null}
+                          </div>
                         </div>
-                        {meta ? (
-                          <p className="mt-0.5 pl-[34px] text-xs text-text-muted">
-                            {[
-                              meta.teams.join(', '),
-                              t('teamPage.openCount', { count: meta.openOwned }),
-                              meta.openTurn ? t('teamPage.turnCount', { count: meta.openTurn }) : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </p>
-                        ) : null}
                       </TableCell>
-                      <TableCell className="text-text-secondary">{m.email || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{t('membersPage.typePerson')}</Badge>
+                      </TableCell>
                       <TableCell>
                         {canEditMemberRow(m) ? (
                           <Select
@@ -624,10 +641,21 @@ export default function MemberManagement({
                           <Badge variant="neutral">{t(`membersPage.roles.${m.role}`)}</Badge>
                         )}
                       </TableCell>
-                      <TableCell><Badge variant="success">{t('membersPage.statusActive')}</Badge></TableCell>
-                      <TableCell className="text-text-muted">-</TableCell>
                       <TableCell className="text-text-secondary">
-                        {m.joinedAt ? toDateLabel(m.joinedAt, t('membersPage.unknown'), i18n.language) : '-'}
+                        {meta?.teams.length ? meta.teams.join(', ') : '-'}
+                      </TableCell>
+                      <TableCell className="text-text-secondary">
+                        {meta
+                          ? [
+                              t('teamPage.openCount', { count: meta.openOwned }),
+                              meta.openTurn ? t('teamPage.turnCount', { count: meta.openTurn }) : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="success">{t('membersPage.statusActive')}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         {canEditMemberRow(m) ? (
@@ -646,54 +674,113 @@ export default function MemberManagement({
                     </TableRow>
                   )
                 }
-                const inv = row.data
-                const busy = rowBusyId === inv.id
+
+                if (row.kind === 'invite') {
+                  const inv = row.data
+                  const busy = rowBusyId === inv.id
+                  return (
+                    <TableRow key={`i-${inv.id}`}>
+                      <TableCell>
+                        <div className="min-w-0">
+                          <p className="truncate-fade font-medium text-text-primary">{inv.email}</p>
+                          <p className="text-xs text-text-muted">
+                            {t('membersPage.invitedByLine', {
+                              name: inv.invitedBy,
+                              date: toDateLabel(inv.invitedAt, t('membersPage.unknown'), i18n.language),
+                            })}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{t('membersPage.typeInvite')}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{t(`membersPage.roles.${inv.role}`)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-text-muted">-</TableCell>
+                      <TableCell className="text-text-muted">-</TableCell>
+                      <TableCell>
+                        <Badge variant="warning">{t('membersPage.statusPending')}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {canManageMembers ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void resendInvite(inv)}
+                              title={t('membersPage.resendTitle')}
+                              className="text-text-muted hover:text-text-primary"
+                            >
+                              <Send size={14} />
+                            </Button>
+                          ) : null}
+                          {inv.inviteLink ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void copyInviteLink(inv)}
+                              title={t('membersPage.copyTitle')}
+                              className="text-text-muted hover:text-text-primary"
+                            >
+                              {copiedInviteId === inv.id ? <Check size={14} className="text-status-success" /> : <Link2 size={14} />}
+                            </Button>
+                          ) : null}
+                          {canManageMembers ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void revokeInvite(inv)}
+                              title={t('membersPage.revokeTitle')}
+                              className="text-text-muted hover:text-status-error"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                }
+
+                const agent = row.data
+                const teams = agentTeamLabels(agent.team_ids)
                 return (
-                  <TableRow key={`i-${inv.id}`}>
-                    <TableCell className="text-text-muted">-</TableCell>
-                    <TableCell>{inv.email}</TableCell>
-                    <TableCell><Badge variant="neutral">{t(`membersPage.roles.${inv.role}`)}</Badge></TableCell>
-                    <TableCell><Badge variant="warning">{t('membersPage.statusPending')}</Badge></TableCell>
-                    <TableCell className="text-text-secondary">{inv.invitedBy}</TableCell>
-                    <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt, t('membersPage.unknown'), i18n.language)}</TableCell>
+                  <TableRow key={`a-${agent.id}`}>
+                    <TableCell>
+                      <Link to={`/agents/${agent.id}`} className="flex items-center gap-2 hover:underline">
+                        <AiAvatar name={agent.name} seed={agent.id} size={26} />
+                        <span className="font-medium text-text-primary">{agent.name}</span>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="neutral">{t('membersPage.typeAgent')}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="neutral">
+                        {t(`teamPage.ceiling.${agent.autonomy_level}`, { defaultValue: agent.autonomy_level })}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-text-secondary">
+                      {teams.length ? teams.join(', ') : '-'}
+                    </TableCell>
+                    <TableCell className="text-text-secondary">
+                      {t('teamPage.openCount', { count: agent.open_owned })}
+                    </TableCell>
+                    <TableCell className="text-xs text-text-secondary">
+                      {t('membersPage.agentExtra', {
+                        questions: agent.metrics.questions,
+                        answerTime: formatAnswerMinutes(agent.metrics.answer_minutes),
+                      })}
+                    </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {canManageMembers ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => void resendInvite(inv)}
-                            title={t('membersPage.resendTitle')}
-                            className="text-text-muted hover:text-text-primary"
-                          >
-                            <Send size={14} />
-                          </Button>
-                        ) : null}
-                        {inv.inviteLink ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void copyInviteLink(inv)}
-                            title={t('membersPage.copyTitle')}
-                            className="text-text-muted hover:text-text-primary"
-                          >
-                            {copiedInviteId === inv.id ? <Check size={14} className="text-status-success" /> : <Link2 size={14} />}
-                          </Button>
-                        ) : null}
-                        {canManageMembers ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => void revokeInvite(inv)}
-                            title={t('membersPage.revokeTitle')}
-                            className="text-text-muted hover:text-status-error"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        ) : null}
-                      </div>
+                      <Button variant="ghost" size="sm" asChild className="text-text-muted hover:text-text-primary">
+                        <Link to={`/agents/${agent.id}`} title={t('membersPage.openAgent')}>
+                          <ExternalLink size={14} />
+                        </Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 )

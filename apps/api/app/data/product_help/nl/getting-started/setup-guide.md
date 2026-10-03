@@ -22,7 +22,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 
 ## Nodig het team uit
 
-1. Open **Team** in de zijbalk en daarna het tabblad **Mensen**.
+1. Open **Team** in de zijbalk onder **Organisatie**.
 2. Nodig de mensen uit die klanten beantwoorden. Deel ze in teams in op het tabblad **Teams** wanneer meer dan een groep antwoordt.
 3. Zie [Zo werkt Team](/docs/getting-started/team).
 

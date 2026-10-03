@@ -22,7 +22,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 
 ## Invite the team
 
-1. Open **Team** in the rail, then the **People** tab.
+1. Open **Team** in the rail under **Organization**.
 2. Invite the people who will answer customers. Group them into teams on the **Teams** tab when more than one group answers.
 3. See [How Team works](/docs/getting-started/team).
 

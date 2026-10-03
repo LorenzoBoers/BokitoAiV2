@@ -441,7 +441,7 @@ export default function App() {
             <Route path="/settings/general" element={<WorkspaceSettings />} />
             <Route path="/settings/branding" element={<CompanyConfig />} />
             <Route path="/settings/members" element={<Navigate to="/team" replace />} />
-            <Route path="/settings/teams" element={<Navigate to="/team?tab=teams" replace />} />
+            <Route path="/settings/teams" element={<Navigate to="/team#teams" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
             <Route path="/settings/signals" element={<SignalTypesSettings />} />

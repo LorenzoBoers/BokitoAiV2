@@ -1,7 +1,7 @@
 ---
 title: Zo werkt Team
-intro: Mensen, agents en teams in één overzicht, met wie er beschikbaar is.
-description: Nodig mensen uit, groepeer mensen en agents in teams, kies hoe een team gesprekken oppakt, meld je afwezig en lees de teamcijfers.
+intro: Mensen, agents en teams op één pagina, met wie er beschikbaar is.
+description: Nodig mensen uit, zie mensen en agents in één directory, groepeer ze in teams, kies hoe een team gesprekken oppakt, meld je afwezig en lees de teamcijfers.
 keywords: team, leden, uitnodigen, rollen, teams, beschikbaarheid, afwezig, om de beurt, minst open, oppakken
 sort: 60
 related: setup-guide,communication,agents,channels
@@ -9,31 +9,35 @@ related: setup-guide,communication,agents,channels
 
 # Zo werkt Team
 
-Team toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de teams waarin je ze groepeert. Open **Team** in de rail om iemand uit te nodigen, een team te maken of te zien wie er nu beschikbaar is.
+Team toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de teams waarin je ze groepeert. Open **Team** in de rail onder **Organisatie** om iemand uit te nodigen, de directory te bekijken of een team te maken.
 
 ## Nodig iemand uit
 
-![Tab Mensen op Team](/api/docs/assets/team/invite.png)
-*Eigenaren en beheerders nodigen mensen uit op de tab Mensen.*
+![Uitnodigen op Team](/api/docs/assets/team/invite.png)
+*Eigenaren en beheerders nodigen mensen uit bovenaan Team.*
 
-1. Open **Team** en daarna de tab **Mensen**.
-2. Vul onder **Nodig een teammate uit** een volledig e-mailadres in en kies **Rol**: **Beheerder** of **Lid**. De tabel **Wat elke rol mag** toont uitnodigen, agents wijzigen en gesprekken afhandelen.
-3. Kies **Uitnodigen**. Kan deze server geen mail versturen, gebruik dan **Uitnodigingslink kopiëren** en deel die zelf.
-4. Volg openstaande uitnodigingen onder **In afwachting** met **Uitnodiging opnieuw versturen** of **Uitnodiging intrekken**. Open een actief iemand om de rol te wijzigen of kies **Lid verwijderen**. Alleen de **Eigenaar** kan een eigenaar promoveren, degraderen of verwijderen.
+1. Open **Team**. Vul onder **Nodig een teammate uit** een volledig e-mailadres in en kies **Rol**: **Beheerder** of **Lid**. Open **Wat elke rol mag** als je de rechtenmatrix nodig hebt.
+2. Kies **Uitnodigen**. Kan deze server geen mail versturen, gebruik dan **Uitnodigingslink kopiëren** en deel die zelf.
+3. Openstaande uitnodigingen staan in de directory onder **In afwachting**. Gebruik **Uitnodiging opnieuw versturen** of **Uitnodiging intrekken**. Op een actief iemand wijzig je de rol of kies je **Lid verwijderen**. Alleen de **Eigenaar** kan een eigenaar promoveren, degraderen of verwijderen.
 
 Leden beantwoorden gesprekken. Eigenaren en beheerders koppelen ook kanalen, wijzigen autonomie en nemen Govern-voorstellen aan. Zie [Govern](/docs/govern/govern).
 
 ## Meld je afwezig
 
-1. Zet bovenaan **Team** de schakelaar **Afwezig** aan. Je stip wordt overal grijs: in de lijst, in het gesprek, bij toewijzen en op Team.
+1. Open je accountmenu (onderaan de rail) en zet aanwezigheid op **Afwezig**. Je stip wordt overal grijs: in de lijst, in het gesprek, bij toewijzen en op Team.
 2. Zolang je afwezig bent, slaan agents je over als ze kiezen wie ze iets vragen, geven teams je geen nieuwe gesprekken, en telt de websitechat je niet mee als beschikbaar voor een live overdracht.
-3. Zet **Afwezig** uit als je terug bent. Iemand telt als beschikbaar zolang Bokito open staat op een van zijn apparaten.
+3. Zet aanwezigheid weer op beschikbaar als je terug bent. Iemand telt als beschikbaar zolang Bokito open staat op een van zijn apparaten.
 
 Agents zijn altijd beschikbaar, tenzij ze gepauzeerd zijn.
 
+## Lees de directory
+
+1. Op **Team** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Filter met **Alles**, **Mensen**, **Agents** of **In afwachting**, of zoek op naam.
+2. Elke persoon toont rol, teams en open werk. Elke agent toont plafond, open gesprekken en een korte 30-dagenregel (vragen en antwoordtijd). Open een agent voor volledige cijfers en regels (zie [Agents](/docs/ai/agents)).
+
 ## Maak een team
 
-1. Open de tab **Teams** en kies **Nieuw team**. **Alle mensen** en **Alle agents** bestaan altijd; hun leden volgen de workspace.
+1. Scroll naar **Teams** en kies **Nieuw team**. **Alle mensen** en **Alle agents** bestaan altijd; hun leden volgen de workspace.
 2. Geef het team een naam, eventueel een omschrijving, en vink de mensen en agents aan. Een team mag beide mengen.
 3. Kies onder **Gesprekken oppakken** wat er gebeurt met nieuwe gesprekken van het team:
    - **Mensen pakken op**: het gesprek blijft bij het team; wie als eerste reageert, neemt het.
@@ -43,12 +47,6 @@ Agents zijn altijd beschikbaar, tenzij ze gepauzeerd zijn.
 4. Zet **Tonen in de zijbalk van Communicatie** aan om iedereen een map voor dit team te geven met **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies **Opslaan**.
 
 Om de beurt en minst open geven alleen werk aan mensen die beschikbaar zijn en agents die het kanaal mogen afhandelen. Past niemand, dan blijft het gesprek bij het team. Elke toewijzing staat in de tijdlijn en in het auditlog. Maak een team eigenaar van een kanaal onder **Instellingen**, **Kanalen** (zie [Kanalen](/docs/inbox/channels)).
-
-## Lees de teamcijfers
-
-1. Open de tab **Agents**. Elke agent toont zijn open gesprekken, zijn plafond en vier cijfers over de laatste 30 dagen: **Vragen**, **Ongewijzigd goedgekeurd**, **Antwoordtijd** en **Opgepakt**.
-2. Open de tab **Teams**. Elke teamkaart toont hoeveel vragen naar het team gingen, hoe snel ze beantwoord werden en hoeveel gesprekken het team uitdeelde.
-3. Is **Ongewijzigd goedgekeurd** laag, dan passen mensen vaak aan of wijzen ze af wat de agent voorstelt. Open de agent en pas zijn regels aan (zie [Agents](/docs/ai/agents)).
 
 ## Persoonlijke instellingen blijven persoonlijk
 
