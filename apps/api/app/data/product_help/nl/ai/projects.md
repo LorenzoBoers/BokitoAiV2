@@ -27,7 +27,7 @@ Het canvas is een flexibel bord met tegels (metrics, status, markdown, grafieken
 1. Open het tabblad **Canvas**. Het standaardbord toont al gezondheid, queue-puls, budget, resources en open queue-items.
 2. Kies **Metric toevoegen** om zelf een getal te pinnen, of **Bord resetten** om de standaardindeling terug te zetten.
 3. Vraag in [Communicatie](/docs/inbox/communication) een bedrijfsagent om het canvas bij te werken — bijvoorbeeld een status-tegel, een grafiek of een markdown-briefing. Wijzigingen gaan via [Govern](/docs/govern/govern) wanneer autonomie goedkeuring vraagt.
-4. Live tegels vernieuwen vanuit queue, budget en resources; statische tegels houden de inhoud die de agent (of jij) het laatst schreef.
+4. Live tegels vernieuwen vanuit queue, budget, resources en workbench-jobs; statische tegels houden de inhoud die de agent (of jij) het laatst schreef. Wanneer een codingtool een pull request voor dit project opent, verschijnt die onder **Resources** en op de tegel **Workbench-jobs**.
 
 ## Werk de implementatie-queue af
 

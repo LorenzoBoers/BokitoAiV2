@@ -88,7 +88,7 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 
 1. Open a website-chat thread. The header can show **+N earlier** when this person already wrote before — that opens the contact panel.
 2. In the contact panel, choose **+ Contact**, type their email or phone number (and a name if you have one), then **Link**. Bokito links the chat to the existing contact with that address, or creates one. See [Link a conversation to a contact](/docs/inbox/contacts).
-3. Unknown visitors show **Unknown chatter**. A saved person shows **Contact**. Mail from a workspace member shows **Teammate** instead (no Block or Approve) — they are not treated as a customer contact. Unsaved contact notes stay highlighted until you save, and leaving the page asks you to confirm.
+3. Unknown visitors show **Unknown chatter**. A saved person shows **Contact**. Mail from a workspace member shows **Teammate** instead (no Approve) — they are not treated as a customer contact. To block someone, use the thread menu (⋯) or the contact page. Unsaved contact notes stay highlighted until you save, and leaving the page asks you to confirm.
 
 ## See signals on a conversation
 

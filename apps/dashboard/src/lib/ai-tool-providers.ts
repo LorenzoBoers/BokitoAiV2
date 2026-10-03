@@ -188,7 +188,7 @@ export type WorkbenchProvider = {
   phase: 1 | 2 | 3
 }
 
-/** Outbound coding tools. None can be connected until their adapter ships. */
+/** Outbound coding tools. Phase 1 rows are connectable on the Developers page. */
 export const WORKBENCH_PROVIDERS: WorkbenchProvider[] = [
   { id: 'cursorAgents', brand: 'cursor', phase: 1 },
   { id: 'claudeManaged', brand: 'claude', phase: 1 },

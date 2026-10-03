@@ -46,6 +46,10 @@ Each question goes to one addressee: the person or team named in the agent's **A
 3. Answer in the thread. Assisted drafts still need a human send; only Autonomous conversations send on their own.
 4. Under **Settings**, then **Notifications**, open **Notify me about**. Turn **In-app**, **Email**, **Push** or **Slack** on per row — for example **When an agent needs your decision on an assigned conversation**, **When a customer asks for a human**, **When an agent run or trigger fails**, or budget alerts at 80% / 100%. Use **Pause in-app alerts**, **Restore recommended**, or **Preview a notification** when you are tuning the set. Push applies to this browser only; connect Slack under **Channels** before Slack toggles work.
 
+## Hand work to a coding tool
+
+When an agent proposes handing coding work to Cursor, Claude Managed Agents or Devin, you approve that Decision like any other. After approval, progress and follow-ups stay in the same thread — see [Hand work to a coding tool](/docs/developers/workbench).
+
 ## When agents ask
 
 Workspace [autonomy posture](/docs/govern/autonomy) sets the default. On [Govern](/docs/govern/govern) **Policy**, each tool category is **Deny**, **Ask first** or **Allow**. **Ask first** creates the card you see in the thread. Per-agent overrides on the agent page win over the category.

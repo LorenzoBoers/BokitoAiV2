@@ -48,6 +48,7 @@ from app.routers import (
     ai_handling,
     signals,
     teams,
+    workbench,
     learning,
     triggers,
     webhooks,
@@ -269,6 +270,7 @@ app.include_router(oauth_as.well_known)
 app.include_router(partner_mcp.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(teams.router, prefix=api_prefix)
+app.include_router(workbench.router, prefix=api_prefix)
 app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
 app.include_router(models.router, prefix=api_prefix)

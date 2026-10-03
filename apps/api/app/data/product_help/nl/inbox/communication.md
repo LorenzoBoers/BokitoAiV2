@@ -88,7 +88,7 @@ Een persoon als eigenaar houdt het gesprek vast: agents maken dan alleen concept
 
 1. Open een websitechat. De kop kan **+N eerder** tonen als deze persoon al eerder schreef — dat opent het contactpaneel.
 2. Kies in het contactpaneel **+ Contact**, typ hun e-mail of telefoonnummer (en een naam als je die hebt), daarna **Koppelen**. Bokito koppelt de chat aan het bestaande contact met dat adres, of maakt er een aan. Zie [Een gesprek aan een contact koppelen](/docs/inbox/contacts).
-3. Onbekende bezoekers tonen **Onbekende chatter**. Een opgeslagen persoon toont **Contact**. Mail van een workspace-lid toont **Teamlid** (geen Blokkeer of Goedkeuren) — dat is een collega, geen klantcontact. Niet-opgeslagen notities blijven gemarkeerd tot je ze opslaat, en bij wegklikken vraagt Bokito om te bevestigen.
+3. Onbekende bezoekers tonen **Onbekende chatter**. Een opgeslagen persoon toont **Contact**. Mail van een workspace-lid toont **Teamlid** (geen Goedkeuren) — dat is een collega, geen klantcontact. Om iemand te blokkeren gebruik je het gespreksmenu (⋯) of de contactpagina. Niet-opgeslagen notities blijven gemarkeerd tot je ze opslaat, en bij wegklikken vraagt Bokito om te bevestigen.
 
 ## Zie signalen op een gesprek
 

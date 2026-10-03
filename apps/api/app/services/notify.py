@@ -190,6 +190,59 @@ async def _users(session: AsyncSession, ids: Iterable[UUID]) -> list[User]:
     return [by_id[uid] for uid in unique if uid in by_id and by_id[uid].is_active]
 
 
+async def deliver_external(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    kind: str,
+    recipients: Iterable[UUID],
+    title: str,
+    body: str = "",
+    tier: int = TIER_LATER,
+    category: str | None = None,
+    signal_id: UUID | None = None,
+    payload: dict[str, Any] | None = None,
+    critical: bool = False,
+) -> None:
+    """Push/email only for an existing in-app notice. No Notification rows, no commit.
+
+    Use when the caller already wrote the Notification (e.g. decisions link
+    ``decision.notification_id``) and still wants tier/category/presence rules.
+    """
+    from app.services.notification_mail import send_notification_mail, thread_link
+    from app.services.presence import user_status
+
+    data = {**(payload or {})}
+    if signal_id:
+        data.setdefault("signal_id", str(signal_id))
+    if category:
+        data.setdefault("category", category)
+    now = datetime.utcnow()
+    push_targets: list[UUID] = []
+    mail_targets: list[UUID] = []
+    for user in await _users(session, recipients):
+        prefs = await load_prefs(session, tenant_id, user.id)
+        channels = channels_for(
+            prefs, tier=tier, category=category, status=user_status(user, now=now), critical=critical
+        )
+        if "push" in channels:
+            push_targets.append(user.id)
+        if "email" in channels:
+            mail_targets.append(user.id)
+    if push_targets:
+        from app.services.push import send_push_to_user
+
+        for user_id in push_targets:
+            await send_push_to_user(
+                session, tenant_id, user_id, title[:200], body[:200], {"kind": kind, **data}
+            )
+    for user_id in mail_targets:
+        text = f"{title}\n\n{body}".strip()
+        if signal_id:
+            text += f"\n\nOpen the conversation:\n{thread_link(signal_id)}"
+        await send_notification_mail(session, user_id, subject=title[:200], text=text, tenant_id=tenant_id)
+
+
 async def notify(
     session: AsyncSession,
     tenant_id: UUID,

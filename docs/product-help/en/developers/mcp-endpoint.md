@@ -162,8 +162,6 @@ curl -X POST -H "Authorization: Bearer bok_..." -H "Content-Type: application/js
 
 OAuth consent and app token scopes name tool categories: a scoped credential only sees and calls tools in those categories (empty scopes = all tools). Independent of scopes, every call runs through the workspace policy engine with API-level trust - a tool that requires approval raises a decision request instead of executing. External access never bypasses governance.
 
-## Hand work to a coding tool (planned)
+## Hand work to a coding tool
 
-The **Hand work to a coding tool** section on the same page lists the coding tools Bokito will hand work to: Cursor Cloud Agents, Claude Managed Agents, Devin, GitHub Copilot cloud agent, and Claude Code in your own GitHub Actions. Each row reads **Not available yet**.
-
-When this ships, an agent proposes the job as a decision in the conversation. After you approve, the tool works on your repository, its progress and questions appear in the same thread, and the pull request lands on the project. You connect your own account for each tool.
+The **Hand work to a coding tool** section on the same page lets you connect Cursor Cloud Agents, Claude Managed Agents and Devin with your own API keys. An agent proposes the job as a Decision; after you approve, progress and questions stay in the same thread and the pull request comes back on the project. See [/docs/developers/workbench](/docs/developers/workbench).

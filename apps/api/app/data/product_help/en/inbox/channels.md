@@ -84,7 +84,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 ## Set a signature and default agent
 
 1. Click a mailbox or Bokito address row, then choose **Edit** next to **Signature**. Outbound mail from that address appends it. After send, Communication shows that same signature in the thread bubble (what the customer received).
-2. Under **General**, pick an **Agent** to send a channel's new conversations to a specific agent. Without one, the workspace default agent handles new threads. **Visibility** in the same section sets which teammates see the channel.
+2. Under **General**, pick an **Agent** to send a channel's new conversations to a specific agent. Without one, the workspace default agent handles new threads. **Channel access** in the same section sets who may **View** or **Handle** the channel (people, teams, and agents). Owners and admins always handle every channel.
 3. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
 ## Set AI handling per channel

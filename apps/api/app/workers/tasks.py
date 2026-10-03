@@ -652,6 +652,15 @@ async def reindex_module_sources_job(ctx):
         return {"reindexed": count}
 
 
+async def workbench_poll_job(ctx):
+    """Poll active workbench jobs for providers without reliable push."""
+    from app.services.workbench.gateway import poll_active_jobs
+
+    async with async_session_factory() as session:
+        count = await poll_active_jobs(session)
+        return {"refreshed": count}
+
+
 async def sync_calendar_connections_job(ctx):
     """Poll Google / Outlook calendar connections into CalendarEvent rows."""
     from sqlalchemy import select
@@ -727,6 +736,7 @@ class WorkerSettings:
         index_module_source_job,
         reindex_module_sources_job,
         nudge_idle_agent_sessions_job,
+        workbench_poll_job,
     ]
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
@@ -738,6 +748,7 @@ class WorkerSettings:
         cron(send_tenant_digests_job, hour=6, minute=0),
         cron(reindex_module_sources_job, weekday=0, hour=3, minute=15),
         cron(nudge_idle_agent_sessions_job, second=30),
+        cron(workbench_poll_job, second={0, 30}),
     ]
 
 

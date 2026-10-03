@@ -17,7 +17,7 @@ Everyone who writes in with a real name or address lands here. Open Contacts to 
 *Everyone who writes in lands here.*
 
 1. Open a thread in [Communication](/docs/inbox/communication).
-2. For a known person, choose **Profile** in the side panel, or click their name in the thread header.
+2. For a known person, click their name in the side panel or the thread header to open their contact.
 3. Read their history, last-seen and other conversations, then jump back to the open work. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
 
 Unknown website visitors stay in the conversation as **Website visitor**. They have no **Profile** and are not listed under Contacts until they fill the widget [pre-chat form](/docs/inbox/widget) or you [link the conversation](#link-a-conversation-to-a-contact).
@@ -31,7 +31,6 @@ Unknown website visitors stay in the conversation as **Website visitor**. They h
 2. Type their email address or phone number, optionally a name, then **Link**. When the address belongs to a contact, the thread joins that person; otherwise Bokito creates the contact. When more than one contact matches, pick the right one from the list.
 3. The visitor stays as an identity of the person: their earlier chats move along, and the contact page lists it under **Also reachable at**. Nothing is overwritten. An owner or admin can choose **Detach** there to make an identity a separate contact again.
 4. A thread linked from an unconfirmed address shows **Claimed**; after the visitor confirms an email link it shows **Verified**. Personal data such as invoices stays behind **Verified**.
-5. Choose **Unlink** to undo a wrong link. When the AI made the link, Bokito records the correction so it learns.
 
 The AI links on its own when a visitor gives an address. **Assisted** links only verified addresses and asks you for the rest with a decision card; **Autonomous** also links claimed addresses and creates new contacts; **Manual** leaves it to you. Merging two known contacts always needs an owner or admin. See [AI handling](/docs/inbox/inbox-ai).
 
@@ -49,9 +48,9 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 
 ## Approve or block a sender
 
-1. Open the contact. Status can be **Approved**, **Pending** or **Blocked**.
+1. Open the contact on **Contacts**. Status can be **Approved**, **Pending** or **Blocked**.
 2. Choose **Approve** for an address you want in the book.
-3. Choose **Block** for a sender that should drop out of Communication. New messages from them are dropped.
+3. Choose **Block** for a sender that should drop out of Communication. New messages from them are dropped. From a conversation you can also open the thread menu (⋯) and choose **Block** with their name.
 
 ## Set AI handling for one contact
 

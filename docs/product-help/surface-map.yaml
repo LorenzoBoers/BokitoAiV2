@@ -466,6 +466,19 @@ mcp-endpoint:
   screenshots:
     - connect-ai-tools
 
+workbench:
+  section: developers
+  routes:
+    - /docs/developers/workbench
+    - /settings/developers
+  code_globs:
+    - apps/api/app/routers/workbench.py
+    - apps/api/app/services/workbench/**
+    - apps/dashboard/src/lib/workbench-api.ts
+    - apps/dashboard/src/lib/ai-tool-providers.ts
+    - apps/dashboard/src/components/developers/WorkbenchSection.tsx
+  screenshots: []
+
 widget-embed:
   section: developers
   routes:

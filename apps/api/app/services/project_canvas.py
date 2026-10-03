@@ -405,6 +405,33 @@ async def _hydrate_live(
             logger.exception("canvas budget hydrate failed for %s", project_id)
             out["budget"] = None
 
+    if "work_jobs" in needed:
+        from app.models.workbench import WorkJob
+
+        rows = (
+            await session.execute(
+                select(WorkJob)
+                .where(WorkJob.tenant_id == tenant_id, WorkJob.project_id == project_id)
+                .order_by(WorkJob.created_at.desc())
+                .limit(12)
+            )
+        ).scalars().all()
+        out["work_jobs"] = {
+            "items": [
+                {
+                    "id": str(job.id),
+                    "provider": job.provider,
+                    "state": job.state,
+                    "summary": job.summary or "",
+                    "signal_id": str(job.signal_id) if job.signal_id else None,
+                    "cost_cents": job.cost_cents,
+                    "created_at": job.created_at.isoformat() + "Z" if job.created_at else None,
+                    "finished_at": job.finished_at.isoformat() + "Z" if job.finished_at else None,
+                }
+                for job in rows
+            ]
+        }
+
     return out
 
 

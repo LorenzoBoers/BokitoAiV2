@@ -13,7 +13,11 @@ import {
   type ThreadId,
   type MessageAttachment,
 } from '../../lib/inbox-api'
-import { getContactThreads } from '../../lib/contacts-api'
+import { getContactThreads, updateContact } from '../../lib/contacts-api'
+import {
+  humanizeContactName,
+  isPlaceholderContactAddress,
+} from '../../lib/contact-label'
 import { listCasesForSignal, listCaseTypes, createCase, type CaseRow } from '../../lib/cases-api'
 import {
   loadOpenSignalCases,
@@ -40,7 +44,6 @@ import { TooltipProvider } from '../ui/tooltip'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboundQuoteText, suggestedReplyAllRecipients } from '../../lib/thread-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
-import { isPlaceholderContactAddress } from '../../lib/contact-label'
 import {
   isInternalThread,
   resolveComposerSurface,
@@ -474,6 +477,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
+  const [blockingContact, setBlockingContact] = useState(false)
   // Open Signals on this conversation: feeds the count on the panel toggle
   // while the right panel is closed. Internal threads carry no Signals.
   const [openSignalCount, setOpenSignalCount] = useState(0)
@@ -549,6 +553,29 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setClosingSender(false)
     }
   }, [token, detail, t])
+
+  const handleBlockContact = useCallback(async () => {
+    if (!token || !detail?.thread.contactId || blockingContact) return
+    const name =
+      humanizeContactName(
+        detail.thread.contactName,
+        detail.thread.contactEmail,
+        t('contactPanel.widgetVisitor'),
+      ) ||
+      (!isPlaceholderContactAddress(detail.thread.contactEmail) && detail.thread.contactEmail) ||
+      t('contactPanel.thisContact')
+    if (!window.confirm(t('contactPanel.blockConfirm', { name }))) return
+    setBlockingContact(true)
+    try {
+      await updateContact(token, detail.thread.contactId, { status: 'blocked' })
+      toast.success(t('threadChrome.blockContactDone', { name }))
+      await onRefresh?.()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('threadChrome.blockContactError')))
+    } finally {
+      setBlockingContact(false)
+    }
+  }, [token, detail, blockingContact, t, onRefresh])
 
   const threadIdString = detail ? String(detail.thread.id) : null
 
@@ -1012,6 +1039,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         deleting={deleting}
         onAlwaysCloseSender={handleAlwaysCloseSender}
         closingSender={closingSender}
+        onBlockContact={handleBlockContact}
+        blockingContact={blockingContact}
         onWhatsNext={onWhatsNext}
         panelCount={openSignalCount + (thread.followUpAt ? 1 : 0)}
       />

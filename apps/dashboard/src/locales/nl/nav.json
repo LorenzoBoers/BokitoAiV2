@@ -4251,6 +4251,7 @@
       "ofTotal": "van {{total}} totaal",
       "queueEmpty": "Geen open wachtrij-items.",
       "resourcesEmpty": "Nog geen gekoppelde resources.",
+      "workJobsEmpty": "Nog geen workbench-jobs.",
       "iframeEmpty": "Geen embed-URL gezet.",
       "tokensToday": "Tokens vandaag",
       "remaining": "Resterend",
@@ -4260,6 +4261,7 @@
         "queue": "Wachtrij",
         "queueList": "Open wachtrij",
         "resources": "Resources",
+        "workJobs": "Workbench-jobs",
         "budget": "Budget"
       }
     }
@@ -5237,12 +5239,13 @@
     },
     "workbench": {
       "title": "Geef werk aan een codingtool",
-      "body": "Binnenkort geeft een agent een bug of feature uit een gesprek door aan een codingtool, volg je het in de thread, en komt de pull request terug op het project. Geen van deze is al te koppelen.",
+      "body": "Geef een bug of feature uit een gesprek door aan een codingtool. Koppel je eigen API-sleutel; Bokito start de job, toont de voortgang in de thread en brengt de pull request terug.",
+      "connectCta": "Codingtools koppelen",
       "notYet": "Nog niet beschikbaar",
-      "phase1": "Gepland voor de eerste versie van de Workbench.",
+      "phase1": "Nu beschikbaar. Gebruikt je eigen provideraccount.",
       "phase2": "Gepland na de GitHub-app van Bokito, die de status van pull requests en issues meebrengt.",
       "phase3": "Gepland met de lokale relay voor je eigen machine.",
-      "docsLink": "Zo gaat de Workbench werken",
+      "docsLink": "Hoe Workbench werkt",
       "providers": {
         "cursorAgents": {
           "name": "Cursor Cloud Agents",
@@ -5269,6 +5272,19 @@
           "description": "Claude Code draait in je eigen GitHub Actions.",
           "body": "Bokito stelt een workflow voor je repository voor en start die per job met de opdracht. De job draait op je eigen Actions-minuten met je eigen Anthropic-sleutel."
         }
+      },
+      "connected": "Gekoppeld",
+      "connectable": "Koppelen",
+      "loading": "Laden…",
+      "connect": {
+        "apiKey": "API-sleutel",
+        "orgId": "Devin-organisatie-id",
+        "gitToken": "GitHub-token voor de sandbox (optioneel, voor clone en PRs)",
+        "submit": "Koppelen",
+        "saving": "Bezig met koppelen…",
+        "disconnect": "Ontkoppelen",
+        "keyRequired": "Vul een API-sleutel in.",
+        "activeHint": "Agents kunnen werk aan deze tool geven nadat je de Beslissing goedkeurt."
       }
     },
     "createdHint": "Kies je tool onder Koppel AI-tools: de fragmenten bevatten nu dit token.",

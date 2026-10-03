@@ -241,6 +241,54 @@ function ResourcesWidget({ widget, t }: { widget: ProjectCanvasWidget; t: (k: st
   )
 }
 
+function WorkJobsWidget({
+  widget,
+  t,
+}: {
+  widget: ProjectCanvasWidget
+  t: (k: string, o?: object) => string
+}) {
+  const data = asRecord(widget.data)
+  const items = Array.isArray(data.items) ? data.items : []
+  return (
+    <WidgetShell title={widget.title || t('projects.canvas.widgets.workJobs')}>
+      {items.length === 0 ? (
+        <p className="py-4 text-xs text-text-muted">{t('projects.canvas.workJobsEmpty')}</p>
+      ) : (
+        <ul className="space-y-2 py-1">
+          {items.slice(0, 8).map((raw) => {
+            const item = asRecord(raw)
+            const signalId = typeof item.signal_id === 'string' ? item.signal_id : null
+            const label = String(item.summary || item.provider || item.id)
+            const inner = (
+              <>
+                <span className="min-w-0 truncate-fade text-text-primary">{label}</span>
+                <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-2xs">
+                  {String(item.state ?? '')}
+                </Badge>
+              </>
+            )
+            return (
+              <li key={String(item.id)}>
+                {signalId ? (
+                  <Link
+                    to={`/communication/inbox/all/t/${signalId}`}
+                    className="flex items-center justify-between gap-2 text-xs hover:text-accent"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="flex items-center justify-between gap-2 text-xs">{inner}</div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </WidgetShell>
+  )
+}
+
 function BudgetWidget({
   widget,
   t,
@@ -467,6 +515,8 @@ function renderWidget(
       <QueueListWidget widget={widget} projectId={ctx.projectId} t={ctx.t} />
     ) : type === 'resources' ? (
       <ResourcesWidget widget={widget} t={ctx.t} />
+    ) : type === 'work_jobs' ? (
+      <WorkJobsWidget widget={widget} t={ctx.t} />
     ) : type === 'budget' ? (
       <BudgetWidget widget={widget} t={ctx.t} locale={ctx.locale} />
     ) : type === 'links' ? (

@@ -28,6 +28,7 @@ WIDGET_TYPES = frozenset(
         "queue_list",
         "resources",
         "budget",
+        "work_jobs",
         "links",
         "table",
         "chart",
@@ -43,6 +44,7 @@ LIVE_WIDGET_TYPES = frozenset(
         "queue_list",
         "resources",
         "budget",
+        "work_jobs",
     }
 )
 

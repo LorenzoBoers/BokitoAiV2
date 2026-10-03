@@ -384,6 +384,15 @@ def serialize_message(
         payload["llm_mode"] = "mock"
     elif meta.get("llm_mode"):
         payload["llm_mode"] = meta.get("llm_mode")
+    # Workbench job card: Follow up / Stop on status_update and task_result rows.
+    if meta.get("work_job_id"):
+        payload["work_job_id"] = str(meta["work_job_id"])
+        if meta.get("provider"):
+            payload["workbench_provider"] = str(meta["provider"])
+        if meta.get("kind"):
+            payload["workbench_kind"] = str(meta["kind"])
+        if isinstance(meta.get("artifact"), dict):
+            payload["workbench_artifact"] = meta["artifact"]
     payload["delivered_to_customer"] = delivered
     has_html = bool((message.body_html or "").strip())
     body_html = (message.body_html or None) if include_html else None

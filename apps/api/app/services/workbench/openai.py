@@ -1,4 +1,4 @@
-"""OpenAI Agents API workbench adapter."""
+"""OpenAI / Codex workbench adapter — deferred until a public cloud API exists."""
 
 from __future__ import annotations
 
@@ -15,44 +15,35 @@ from app.services.workbench import (
 
 class OpenAIWorkbenchAdapter:
     provider = "openai"
+    category = "cloud"
+    api_version = "deferred"
 
     def capabilities(self) -> AdapterCapabilities:
-        return AdapterCapabilities(
-            follow_up=True,
-            needs_input_events=True,
-            images=True,
-            mcp_attach=True,
-            budget=True,
-            user_attribution=True,
-        )
+        return AdapterCapabilities(start=False)
 
-    async def start(self, spec: JobSpec) -> JobHandle:
-        # Stub: real implementation creates an Agents API run.
-        return JobHandle(
-            external_ids={"status": "stub", "repo": spec.repo_url, "ref": spec.ref},
-            provider=self.provider,
-        )
+    async def start(self, spec: JobSpec, creds: dict[str, Any]) -> JobHandle:
+        raise NotImplementedError("Codex cloud waits for a public API")
 
     async def follow_up(
-        self, handle: JobHandle, text: str, images: list[dict[str, Any]] | None = None
+        self,
+        handle: JobHandle,
+        text: str,
+        creds: dict[str, Any],
+        images: list[dict[str, Any]] | None = None,
     ) -> None:
         return None
 
-    async def status(self, handle: JobHandle) -> str:
-        return handle.external_ids.get("status", "queued")
-
-    async def cancel(self, handle: JobHandle) -> None:
+    async def cancel(self, handle: JobHandle, creds: dict[str, Any]) -> None:
         return None
 
+    async def poll(self, handle: JobHandle, creds: dict[str, Any]) -> list[NormalizedEvent]:
+        return []
+
+    def verify_webhook(self, headers: dict[str, str], raw_body: bytes, secret: str) -> bool:
+        return False
+
     async def handle_webhook(self, payload: dict[str, Any]) -> list[NormalizedEvent]:
-        event = str(payload.get("type") or payload.get("status") or "progress")
-        kind = {
-            "completed": "finished",
-            "failed": "failed",
-            "cancelled": "cancelled",
-            "requires_action": "needs_input",
-        }.get(event, "progress")
-        return [NormalizedEvent(kind=kind, summary=event, payload=payload)]
+        return []
 
 
 register_adapter("openai", OpenAIWorkbenchAdapter)

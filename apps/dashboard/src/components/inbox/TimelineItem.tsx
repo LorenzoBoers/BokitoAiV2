@@ -31,6 +31,7 @@ import {
 import MessageAttachments from './MessageAttachments'
 import MessageMarkdown from './MessageMarkdown'
 import ReasoningDisclosure from './ReasoningDisclosure'
+import { WorkbenchJobCard } from './WorkbenchJobCard'
 
 type MessageLayout = 'chat' | 'email'
 
@@ -1488,7 +1489,34 @@ export function MessageTimelineItem({
     />
   )
 
-  if (!message.agentTrace && !message.hasAgentTrace) return bubble
+  const workJobId =
+    typeof message.payload?.work_job_id === 'string' ? message.payload.work_job_id : null
+  const workbenchCard = workJobId ? (
+    <WorkbenchJobCard
+      jobId={workJobId}
+      provider={
+        typeof message.payload?.workbench_provider === 'string'
+          ? message.payload.workbench_provider
+          : undefined
+      }
+      kind={
+        typeof message.payload?.workbench_kind === 'string'
+          ? message.payload.workbench_kind
+          : undefined
+      }
+      className={isOwn ? 'ml-auto' : 'ml-9'}
+    />
+  ) : null
+
+  if (!message.agentTrace && !message.hasAgentTrace) {
+    if (!workbenchCard) return bubble
+    return (
+      <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
+        <div className="w-full">{bubble}</div>
+        {workbenchCard}
+      </div>
+    )
+  }
 
   const traceIndent = isOwn ? 'ml-auto' : 'ml-9'
   return (
@@ -1515,6 +1543,7 @@ export function MessageTimelineItem({
         </button>
       )}
       <div className="w-full">{bubble}</div>
+      {workbenchCard}
     </div>
   )
 }

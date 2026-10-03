@@ -4251,6 +4251,7 @@
       "ofTotal": "of {{total}} total",
       "queueEmpty": "No open queue items.",
       "resourcesEmpty": "No linked resources yet.",
+      "workJobsEmpty": "No workbench jobs yet.",
       "iframeEmpty": "No embed URL set.",
       "tokensToday": "Tokens today",
       "remaining": "Remaining",
@@ -4260,6 +4261,7 @@
         "queue": "Queue",
         "queueList": "Open queue",
         "resources": "Resources",
+        "workJobs": "Workbench jobs",
         "budget": "Budget"
       }
     }
@@ -5237,12 +5239,13 @@
     },
     "workbench": {
       "title": "Hand work to a coding tool",
-      "body": "Soon an agent can hand a bug or feature from a conversation to a coding tool, follow it in the thread, and get the pull request back on the project. None of these can be connected yet.",
+      "body": "Hand a bug or feature from a conversation to a coding tool. Connect your own API key; Bokito starts the job, shows progress in the thread, and brings the pull request back.",
+      "connectCta": "Connect coding tools",
       "notYet": "Not available yet",
-      "phase1": "Planned for the first Workbench release.",
+      "phase1": "Available now. Uses your own provider account.",
       "phase2": "Planned after the Bokito GitHub App, which brings pull request status and issue sync.",
       "phase3": "Planned with the local relay for your own machine.",
-      "docsLink": "How the Workbench will work",
+      "docsLink": "How Workbench works",
       "providers": {
         "cursorAgents": {
           "name": "Cursor Cloud Agents",
@@ -5269,6 +5272,19 @@
           "description": "Claude Code runs in your own GitHub Actions.",
           "body": "Bokito proposes a workflow for your repository, then starts it per job with the brief. The job runs on your Actions minutes with your own Anthropic key."
         }
+      },
+      "connected": "Connected",
+      "connectable": "Connect",
+      "loading": "Loading…",
+      "connect": {
+        "apiKey": "API key",
+        "orgId": "Devin organization id",
+        "gitToken": "GitHub token for the sandbox (optional, for cloning and PRs)",
+        "submit": "Connect",
+        "saving": "Connecting…",
+        "disconnect": "Disconnect",
+        "keyRequired": "Enter an API key.",
+        "activeHint": "Agents can hand work to this tool after you approve the Decision."
       }
     },
     "createdHint": "Pick your tool under Connect AI tools: its snippets now include this token.",

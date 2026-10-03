@@ -228,7 +228,9 @@ class McpPrincipal:
     tenant_id: uuid.UUID
     user_id: uuid.UUID | None
     scopes: set[str]
-    source: str  # "oauth" | "api_token"
+    source: str  # "oauth" | "api_token" | "job_token"
+    tool_allowlist: set[str] | None = None
+    job_id: uuid.UUID | None = None
 
 
 def _unauthorized(detail: str = "Missing or invalid bearer token") -> HTTPException:
@@ -274,14 +276,20 @@ async def get_mcp_auth(
     token = result.scalar_one_or_none()
     if not token or token.revoked_at is not None:
         raise _unauthorized("Invalid or revoked token")
+    if getattr(token, "expires_at", None) and token.expires_at < datetime.utcnow():
+        raise _unauthorized("Token expired")
     token.last_used_at = datetime.utcnow()
     session.add(token)
     await session.flush()
+    allowlist = _api_token_allowlist(token)
+    is_job = bool(getattr(token, "job_id", None) and allowlist is not None)
     return McpPrincipal(
         tenant_id=token.tenant_id,
         user_id=token.created_by_user_id,
-        scopes=_api_token_scopes(token),
-        source="api_token",
+        scopes=set() if is_job else _api_token_scopes(token),
+        source="job_token" if is_job else "api_token",
+        tool_allowlist=allowlist if is_job else None,
+        job_id=token.job_id if is_job else None,
     )
 
 
@@ -312,6 +320,19 @@ def _api_token_scopes(token: ApiToken) -> set[str]:
         return {str(s) for s in scopes} if isinstance(scopes, list) else set()
     except (json.JSONDecodeError, TypeError):
         return set()
+
+
+def _api_token_allowlist(token: ApiToken) -> set[str] | None:
+    """Return a tool-name allowlist for job tokens; None means category scopes apply."""
+    if not getattr(token, "job_id", None):
+        return None
+    try:
+        tools = json.loads(getattr(token, "tool_allowlist_json", None) or "[]")
+        if isinstance(tools, list) and tools:
+            return {str(t) for t in tools}
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return set()
 
 
 async def _principal_role(session: AsyncSession, principal: McpPrincipal) -> str | None:
@@ -491,6 +512,7 @@ async def mcp_endpoint(
         )
 
     if body.method == "tools/list":
+        allowlist = principal.tool_allowlist
         tools = [
             {
                 "name": spec.name,
@@ -499,7 +521,11 @@ async def mcp_endpoint(
                 "annotations": _tool_annotations(spec),
             }
             for spec in iter_tool_specs()
-            if (not scopes or spec.category in scopes) and spec.name not in _MCP_HIDDEN_TOOLS
+            if spec.name not in _MCP_HIDDEN_TOOLS
+            and (
+                (allowlist is not None and spec.name in allowlist)
+                or (allowlist is None and (not scopes or spec.category in scopes))
+            )
         ]
         return JSONResponse(
             content=_rpc_result(body.id, {"tools": tools}),
@@ -516,7 +542,13 @@ async def mcp_endpoint(
                 content=_rpc_error(body.id, -32602, f"Unknown tool: {tool_name}"),
                 headers={"Mcp-Session-Id": session_id},
             )
-        if scopes and spec.category not in scopes:
+        if principal.tool_allowlist is not None:
+            if tool_name not in principal.tool_allowlist:
+                return JSONResponse(
+                    content=_rpc_error(body.id, -32602, f"Token not allowed to call {tool_name}"),
+                    headers={"Mcp-Session-Id": session_id},
+                )
+        elif scopes and spec.category not in scopes:
             return JSONResponse(
                 content=_rpc_error(
                     body.id, -32602, f"Token not scoped for category: {spec.category}"
@@ -525,12 +557,20 @@ async def mcp_endpoint(
             )
 
         user_role = await _principal_role(session, principal)
+        tool_args = arguments if isinstance(arguments, dict) else {}
+        # Job tokens may only write to their own job; inject the bound id.
+        if principal.job_id is not None and tool_name in {
+            "report_progress",
+            "ask_question",
+            "attach_artifact",
+        }:
+            tool_args = {**tool_args, "job_id": str(principal.job_id)}
         result = await execute_tool(
             session,
             principal.tenant_id,
             principal.user_id,
             tool_name,
-            arguments if isinstance(arguments, dict) else {},
+            tool_args,
             trust="api",
             user_role=user_role,
         )

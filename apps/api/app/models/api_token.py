@@ -21,6 +21,10 @@ class ApiToken(SQLModel, table=True):
     token_prefix: str = Field(default="")
     scopes_json: str = Field(default="[]")
     created_by_user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id")
+    # Workbench job tokens: bound to one WorkJob, expire, and allowlist tool names.
+    job_id: uuid.UUID | None = Field(default=None, index=True)
+    expires_at: datetime | None = Field(default=None)
+    tool_allowlist_json: str = Field(default="[]")
     last_used_at: datetime | None = Field(default=None)
     revoked_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)

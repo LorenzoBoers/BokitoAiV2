@@ -10,9 +10,7 @@ import {
   Mail,
   Phone,
   Plus,
-  ShieldBan,
   ShieldCheck,
-  Unlink,
   Users,
   UserRound,
 } from 'lucide-react'
@@ -27,7 +25,6 @@ import {
   linkConversationContact,
   normalizeContactBasis,
   resolveContact,
-  unlinkConversationContact,
   updateContact,
   type ContactLinkCandidate,
   type ContactRow,
@@ -223,22 +220,6 @@ export default function ContactPanel({
       else toast.success(t('contactPanel.linked', { name }))
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('contactPanel.linkError')))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const unlinkContact = async () => {
-    if (!token || !currentThreadId || saving) return
-    if (!window.confirm(t('contactPanel.unlinkConfirm'))) return
-    setSaving(true)
-    try {
-      await unlinkConversationContact(token, String(currentThreadId))
-      // The previous identity comes back with the realtime thread update.
-      setLinked(null)
-      toast.success(t('contactPanel.unlinked'))
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('contactPanel.unlinkError')))
     } finally {
       setSaving(false)
     }
@@ -484,9 +465,27 @@ export default function ContactPanel({
     <div className="flex flex-col">
       <div className="border-b border-border/40 px-4 pb-3 pt-3">
         <div className="flex items-start gap-2.5">
-          <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
+          {namedHeadline ? (
+            <Link
+              to={`/contacts/${contact.id}`}
+              className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
+            >
+              <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
+            </Link>
+          ) : (
+            <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
+          )}
           <div className="min-w-0 flex-1">
-            <p className="truncate-fade text-base font-semibold text-text-heading">{headlineName}</p>
+            {namedHeadline ? (
+              <Link
+                to={`/contacts/${contact.id}`}
+                className="block truncate-fade text-base font-semibold text-text-heading hover:text-accent"
+              >
+                {headlineName}
+              </Link>
+            ) : (
+              <p className="truncate-fade text-base font-semibold text-text-heading">{headlineName}</p>
+            )}
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span
               className={`text-2xs font-semibold ${
@@ -556,18 +555,6 @@ export default function ContactPanel({
         {needsIdentity ? linkForm : null}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {needsIdentity && !captureOpen ? linkButton : null}
-          {basis && currentThreadId ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void unlinkContact()}
-              data-testid="contact-unlink"
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
-            >
-              <Unlink size={11} />
-              {t('contactPanel.unlink')}
-            </button>
-          ) : null}
           {statusPending && !anonymous ? (
             <button
               type="button"
@@ -579,33 +566,6 @@ export default function ContactPanel({
               {t('contactPanel.approve')}
             </button>
           ) : null}
-          {contact.status !== 'blocked' ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => {
-                const name = contact.displayName || contact.address || t('contactPanel.thisContact')
-                if (window.confirm(t('contactPanel.blockConfirm', { name }))) {
-                  void setStatus('blocked')
-                }
-              }}
-              title={t('contactPanel.block')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
-            >
-              <ShieldBan size={11} />
-              {t('contactPanel.block')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void setStatus('approved')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
-            >
-              <Check size={11} />
-              {t('contactPanel.unblock')}
-            </button>
-          )}
           {canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
             <Link
               to={composeEmailPath({

@@ -1,6 +1,6 @@
 # Workbench gateway
 
-Status: draft for review, 2026-10-03. Concepts, data flows and interfaces only; no production code ships with this document.
+Status: approved 2026-10-03. Phase 1 implemented: gateway, Cursor / Claude Managed Agents / Devin adapters, job tokens, poller, webhook router, Developers connect flow.
 
 ## Samenvatting (NL)
 

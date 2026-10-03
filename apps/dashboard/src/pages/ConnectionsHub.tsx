@@ -417,6 +417,22 @@ export default function ConnectionsHub() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-text-heading">
+              {t('developersPage.workbench.title')}
+            </p>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              {t('developersPage.workbench.body')}
+            </p>
+          </div>
+          <Button size="sm" variant="secondary" asChild>
+            <Link to="/settings/developers#workbench">{t('developersPage.workbench.connectCta')}</Link>
+          </Button>
+        </div>
+      </section>
+
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>

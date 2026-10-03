@@ -20,6 +20,7 @@ import {
   PanelRightOpen,
   Pin,
   PinOff,
+  ShieldBan,
   Star,
   Trash2,
 } from 'lucide-react'
@@ -85,6 +86,9 @@ type Props = {
   deleting?: boolean
   onAlwaysCloseSender?: () => void | Promise<void>
   closingSender?: boolean
+  /** Block the counterparty contact (external threads). */
+  onBlockContact?: () => void | Promise<void>
+  blockingContact?: boolean
   /** Opens the look-again planner (external, open threads). */
   onWhatsNext?: () => void
   /** Items under "This conversation" in the panel; shown while the panel is closed. */
@@ -112,6 +116,8 @@ export default function ThreadHeader({
   deleting = false,
   onAlwaysCloseSender,
   closingSender = false,
+  onBlockContact,
+  blockingContact = false,
   onWhatsNext,
   panelCount = 0,
 }: Props) {
@@ -463,6 +469,21 @@ export default function ThreadHeader({
               >
                 <Archive size={13} />
                 {t('threadChrome.alwaysCloseFromSender')}
+              </DropdownMenuItem>
+            ) : null}
+            {!internal && onBlockContact && thread.contactId ? (
+              <DropdownMenuItem
+                className="gap-2 text-status-error"
+                disabled={blockingContact}
+                onClick={() => void onBlockContact()}
+              >
+                <ShieldBan size={13} />
+                {t('threadChrome.blockContact', {
+                  name:
+                    contactDisplayName ||
+                    (!isPlaceholderContactAddress(thread.contactEmail) && thread.contactEmail) ||
+                    t('contactPanel.thisContact'),
+                })}
               </DropdownMenuItem>
             ) : null}
             {!internal ? (

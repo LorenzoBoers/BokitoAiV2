@@ -162,8 +162,6 @@ curl -X POST -H "Authorization: Bearer bok_..." -H "Content-Type: application/js
 
 OAuth-consent en app-token-scopes noemen toolcategorieën: een credential met scopes ziet en roept alleen tools in die categorieën aan (lege scopes = alle tools). Los van scopes loopt elke aanroep door de policy-engine van de workspace met API-vertrouwen - een tool die goedkeuring vraagt maakt een beslissing in plaats van uit te voeren. Externe toegang omzeilt Govern nooit.
 
-## Werk aan een codingtool geven (gepland)
+## Werk aan een codingtool geven
 
-Het blok **Geef werk aan een codingtool** op dezelfde pagina toont de codingtools waaraan Bokito werk gaat geven: Cursor Cloud Agents, Claude Managed Agents, Devin, GitHub Copilot cloud agent, en Claude Code in je eigen GitHub Actions. Elke rij toont **Nog niet beschikbaar**.
-
-Zodra dit er is, stelt een agent de job voor als beslissing in het gesprek. Na je akkoord werkt de tool op je repository, verschijnen voortgang en vragen in dezelfde thread, en komt de pull request op het project. Je koppelt per tool je eigen account.
+Het blok **Geef werk aan een codingtool** op dezelfde pagina laat je Cursor Cloud Agents, Claude Managed Agents en Devin koppelen met je eigen API-sleutels. Een agent stelt de job voor als Beslissing; na je akkoord blijven voortgang en vragen in dezelfde thread en komt de pull request terug op het project. Zie [/docs/developers/workbench](/docs/developers/workbench).

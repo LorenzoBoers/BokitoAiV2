@@ -46,6 +46,10 @@ Elke vraag gaat naar één geadresseerde: de persoon of het team in **Vragen ste
 3. Antwoord in het gesprek. Geassisteerde concepten hebben nog een menselijke verzending nodig; alleen autonome gesprekken versturen zelf.
 4. Onder **Instellingen**, daarna **Notificaties**, open **Meld me over**. Zet **In-app**, **E-mail**, **Push** of **Slack** per rij aan — bijvoorbeeld **Wanneer een agent je beslissing nodig heeft bij een toegewezen gesprek**, **Wanneer een klant een medewerker vraagt**, **Wanneer een agent-run of trigger faalt**, of budgetwaarschuwingen bij 80% / 100%. Gebruik **Pauzeer in-app meldingen**, **Herstel aanbevolen**, of **Bekijk een voorbeeld** wanneer je de set afstemt. Push geldt alleen voor deze browser; koppel Slack onder **Kanalen** voordat Slack-schakelaars werken.
 
+## Werk aan een codingtool geven
+
+Wanneer een agent voorstelt codingwerk aan Cursor, Claude Managed Agents of Devin te geven, keur je die Beslissing goed zoals elke andere. Na goedkeuring blijven voortgang en vervolgvragen in hetzelfde gesprek — zie [Geef werk aan een codingtool](/docs/developers/workbench).
+
 ## Wanneer agents vragen
 
 De workspace-[autonomiehouding](/docs/govern/autonomy) zet de standaard. Op [Govern](/docs/govern/govern) **Beleid** is elke toolcategorie **Weigeren**, **Eerst vragen** of **Toestaan**. **Eerst vragen** maakt de kaart die je in het gesprek ziet. Overrides per agent op de agentpagina winnen van de categorie.

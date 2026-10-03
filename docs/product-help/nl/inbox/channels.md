@@ -84,7 +84,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 ## Zet een handtekening en standaardagent
 
 1. Klik op de rij van een mailbox of Bokito-adres en kies **Wijzigen** naast **Handtekening**. Uitgaande mail vanaf dat adres voegt die toe. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
-2. Kies onder **Algemeen** een **Agent** om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder keuze behandelt de standaardagent nieuwe gesprekken. **Zichtbaarheid** in dezelfde sectie bepaalt welke collega's het kanaal zien.
+2. Kies onder **Algemeen** een **Agent** om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder keuze behandelt de standaardagent nieuwe gesprekken. **Kanaaltoegang** in dezelfde sectie bepaalt wie het kanaal mag **Bekijken** of **Behandelen** (mensen, teams en agents). Eigenaren en beheerders behandelen altijd elk kanaal.
 3. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
 
 ## AI-afhandeling per kanaal instellen

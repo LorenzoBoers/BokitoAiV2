@@ -324,16 +324,32 @@ async def create_decision(
     )
     # The thread and the card only exist after the append, so the bell payload
     # is completed here rather than trusting each caller to guess the ids.
-    notification.payload_json = json.dumps(
-        {
-            **(notification_payload or {}),
-            "decision_id": str(decision.id),
-            "signal_id": str(decision.signal_id) if decision.signal_id else None,
-            "message_id": str(message.id),
-        },
-        default=str,
-    )
+    payload = {
+        **(notification_payload or {}),
+        "decision_id": str(decision.id),
+        "signal_id": str(decision.signal_id) if decision.signal_id else None,
+        "message_id": str(message.id),
+    }
+    notification.payload_json = json.dumps(payload, default=str)
     notification.signal_id = decision.signal_id
     session.add(notification)
     await session.flush()
+    # In-app row is owned by DecisionRequest.notification_id; push/email still
+    # go through notify's tier/category/presence rules without a second row.
+    if bell_user_id and bell_status == "unread":
+        from app.services.notify import TIER_NOW, deliver_external
+
+        await deliver_external(
+            session,
+            tenant_id,
+            kind="decision_request",
+            recipients=[bell_user_id],
+            title=notification.title,
+            body=notification.body or "",
+            tier=TIER_NOW,
+            category="decisions",
+            signal_id=decision.signal_id,
+            payload=payload,
+            critical=True,
+        )
     return decision, message

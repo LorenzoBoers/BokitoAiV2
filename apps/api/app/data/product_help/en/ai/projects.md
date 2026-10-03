@@ -27,7 +27,7 @@ The canvas is a flexible board of tiles (metrics, status, markdown, charts, tabl
 1. Open the **Canvas** tab. The default board already shows health, queue pulse, budget, resources, and open queue items.
 2. Choose **Add metric** to pin a number yourself, or **Reset board** to restore the default layout.
 3. In [Communication](/docs/inbox/communication), ask a company agent to update the canvas — for example a status tile, a chart, or a markdown briefing. Changes go through [Govern](/docs/govern/govern) when autonomy requires approval.
-4. Live tiles refresh from the project queue, budget and resources; static tiles keep the content the agent (or you) last wrote.
+4. Live tiles refresh from the project queue, budget, resources and workbench jobs; static tiles keep the content the agent (or you) last wrote. When a coding tool opens a pull request for this project, it appears under **Resources** and on the **Workbench jobs** tile.
 
 ## Work the implementation queue
 

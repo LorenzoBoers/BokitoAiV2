@@ -2955,22 +2955,50 @@ register_tool(
 
 
 async def _dispatch_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Hand a signal brief to a workbench (GitHub / Cursor / …). Stub until adapters ship."""
+    """Hand a signal brief to a connected workbench (Cursor / Claude / Devin)."""
     from uuid import UUID as _UUID
 
-    from app.models.workbench import WorkJob
-    from app.services.workbench import JobSpec, get_adapter
+    from sqlalchemy import select
 
-    provider = str(tool_input.get("provider") or "github_copilot")
-    adapter = get_adapter(provider)
-    if adapter is None:
-        return {"error": f"No workbench adapter for provider={provider}"}
+    from app.models.integration import IntegrationConnection
+    from app.services.workbench import Budget, JobSpec
+    from app.services.workbench.gateway import JobLinks, dispatch
+
+    provider = str(tool_input.get("provider") or "cursor")
+    if provider == "anthropic":
+        provider = "claude_managed"
     repo_url = str(tool_input.get("repo_url") or "").strip()
     if not repo_url:
         return {"error": "repo_url is required"}
     brief = str(tool_input.get("brief") or tool_input.get("goal") or "").strip()
     if not brief:
         return {"error": "brief is required"}
+
+    connection_id = tool_input.get("workbench_connection_id")
+    if connection_id:
+        conn_id = _UUID(str(connection_id))
+    else:
+        conn = (
+            await ctx.session.execute(
+                select(IntegrationConnection).where(
+                    IntegrationConnection.tenant_id == ctx.tenant_id,
+                    IntegrationConnection.kind == "workbench",
+                    IntegrationConnection.provider == provider,
+                    IntegrationConnection.status == "active",
+                )
+            )
+        ).scalar_one_or_none()
+        if conn is None:
+            return {
+                "error": (
+                    f"No active workbench connection for {provider}. "
+                    "Connect it under Settings → Developers → Hand work to a coding tool."
+                )
+            }
+        conn_id = conn.id
+
+    max_minutes = int(tool_input.get("max_minutes") or 60)
+    max_cost = tool_input.get("max_cost_cents")
     spec = JobSpec(
         repo_url=repo_url,
         ref=str(tool_input.get("ref") or "main"),
@@ -2983,35 +3011,40 @@ async def _dispatch_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         },
         options={
             "create_pull_request": bool(tool_input.get("create_pull_request", True)),
+            "max_acu_limit": tool_input.get("max_acu_limit"),
         },
+        model=str(tool_input["model"]) if tool_input.get("model") else None,
+        mode=str(tool_input.get("mode") or "agent"),
+        create_pr=bool(tool_input.get("create_pull_request", True)),
+        budget=Budget(
+            max_minutes=max_minutes,
+            max_cost_cents=int(max_cost) if max_cost is not None else None,
+        ),
     )
-    handle = await adapter.start(spec)
-    job = WorkJob(
-        tenant_id=ctx.tenant_id,
+    links = JobLinks(
         signal_id=ctx.signal_id,
         case_id=_UUID(str(tool_input["case_id"])) if tool_input.get("case_id") else None,
         project_id=_UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
-        workbench_connection_id=(
-            _UUID(str(tool_input["workbench_connection_id"]))
-            if tool_input.get("workbench_connection_id")
-            else None
-        ),
         agent_id=ctx.agent.id if ctx.agent else None,
-        provider=provider,
-        state="queued",
-        external_ids_json=json.dumps(handle.external_ids),
-        summary=brief[:500],
-        brief_json=json.dumps({"brief": brief, "repo_url": repo_url, "ref": spec.ref}),
+        decision_id=None,
     )
-    ctx.session.add(job)
-    await ctx.session.commit()
-    await ctx.session.refresh(job)
+    try:
+        job = await dispatch(
+            ctx.session,
+            tenant_id=ctx.tenant_id,
+            spec=spec,
+            connection_id=conn_id,
+            links=links,
+            approved_by=ctx.user_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — surface provider errors to the agent
+        return {"error": str(exc)}
     return {
         "job_id": str(job.id),
-        "provider": provider,
+        "provider": job.provider,
         "state": job.state,
-        "external_ids": handle.external_ids,
-        "note": "Workbench dispatch stub — wire provider credentials in Connections.",
+        "external_id": job.external_id,
+        "external_ids": json.loads(job.external_ids_json or "{}"),
     }
 
 
@@ -3019,9 +3052,8 @@ register_tool(
     ToolSpec(
         name="dispatch_work",
         description=(
-            "Hand coding work to a connected workbench (GitHub Copilot, Cursor Cloud Agents, "
-            "Anthropic Managed Agents, OpenAI Agents). Bokito decides and gates; the external "
-            "tool does the coding. Results come back as thread messages."
+            "Hand coding work to a connected workbench (Cursor Cloud Agents, Claude Managed "
+            "Agents, or Devin). Always asks first. Results come back as thread messages."
         ),
         category="integrations",
         input_schema={
@@ -3029,7 +3061,7 @@ register_tool(
             "properties": {
                 "provider": {
                     "type": "string",
-                    "enum": ["github_copilot", "cursor", "anthropic", "openai", "mcp"],
+                    "enum": ["cursor", "claude_managed", "devin", "anthropic"],
                 },
                 "repo_url": {"type": "string"},
                 "ref": {"type": "string"},
@@ -3040,6 +3072,11 @@ register_tool(
                 "workbench_connection_id": {"type": "string"},
                 "acceptance": {"type": "string"},
                 "create_pull_request": {"type": "boolean"},
+                "model": {"type": "string"},
+                "mode": {"type": "string", "enum": ["agent", "plan"]},
+                "max_minutes": {"type": "integer"},
+                "max_cost_cents": {"type": "integer"},
+                "max_acu_limit": {"type": "integer"},
             },
             "required": ["repo_url", "brief"],
         },
@@ -3047,6 +3084,245 @@ register_tool(
         mutating=True,
         gated=True,
         consequential=True,
+    )
+)
+
+
+async def _follow_up_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from app.models.workbench import WorkJob
+    from app.services.workbench.gateway import follow_up
+
+    job_id = tool_input.get("job_id")
+    text = str(tool_input.get("text") or "").strip()
+    if not job_id or not text:
+        return {"error": "job_id and text are required"}
+    job = await ctx.session.get(WorkJob, _UUID(str(job_id)))
+    if job is None or job.tenant_id != ctx.tenant_id:
+        return {"error": "Job not found"}
+    try:
+        await follow_up(ctx.session, job, text, actor=ctx.user_id)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+    return {"job_id": str(job.id), "state": job.state}
+
+
+register_tool(
+    ToolSpec(
+        name="follow_up_work",
+        description="Send a follow-up message to a running workbench job.",
+        category="integrations",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string"},
+                "text": {"type": "string"},
+            },
+            "required": ["job_id", "text"],
+        },
+        handler=_follow_up_work,
+        mutating=True,
+        gated=True,
+    )
+)
+
+
+async def _cancel_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from app.models.workbench import WorkJob
+    from app.services.workbench.gateway import cancel
+
+    job_id = tool_input.get("job_id")
+    if not job_id:
+        return {"error": "job_id is required"}
+    job = await ctx.session.get(WorkJob, _UUID(str(job_id)))
+    if job is None or job.tenant_id != ctx.tenant_id:
+        return {"error": "Job not found"}
+    try:
+        await cancel(ctx.session, job, actor=ctx.user_id)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+    return {"job_id": str(job.id), "state": job.state}
+
+
+register_tool(
+    ToolSpec(
+        name="cancel_work",
+        description="Stop a running workbench job.",
+        category="integrations",
+        input_schema={
+            "type": "object",
+            "properties": {"job_id": {"type": "string"}},
+            "required": ["job_id"],
+        },
+        handler=_cancel_work,
+        mutating=True,
+        gated=True,
+    )
+)
+
+
+async def _report_progress(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from app.models.workbench import WorkJob
+    from app.services.workbench import NormalizedEvent
+    from app.services.workbench.gateway import ingest
+
+    job_id = tool_input.get("job_id") or tool_input.get("job_ref")
+    summary = str(tool_input.get("summary") or tool_input.get("text") or "").strip()
+    if not job_id or not summary:
+        return {"error": "job_id and summary are required"}
+    job = await ctx.session.get(WorkJob, _UUID(str(job_id)))
+    if job is None or job.tenant_id != ctx.tenant_id:
+        return {"error": "Job not found"}
+    await ingest(
+        ctx.session,
+        job,
+        [
+            NormalizedEvent(
+                kind="progress",
+                summary=summary,
+                external_event_id=f"mcp-progress:{job.id}:{summary[:80]}",
+            )
+        ],
+    )
+    await ctx.session.commit()
+    return {"ok": True, "state": job.state}
+
+
+register_tool(
+    ToolSpec(
+        name="report_progress",
+        description="Update the progress line for the workbench job that holds this MCP token.",
+        category="integrations",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "summary": {"type": "string"},
+                "text": {"type": "string"},
+                "job_id": {"type": "string"},
+                "job_ref": {"type": "string"},
+            },
+            "required": ["summary"],
+        },
+        handler=_report_progress,
+        mutating=True,
+    )
+)
+
+
+async def _ask_question(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from app.models.workbench import WorkJob
+    from app.services.workbench import NormalizedEvent
+    from app.services.workbench.gateway import ingest
+
+    job_id = tool_input.get("job_id") or tool_input.get("job_ref")
+    question = str(tool_input.get("question") or tool_input.get("text") or "").strip()
+    if not job_id or not question:
+        return {"error": "job_id and question are required"}
+    job = await ctx.session.get(WorkJob, _UUID(str(job_id)))
+    if job is None or job.tenant_id != ctx.tenant_id:
+        return {"error": "Job not found"}
+    await ingest(
+        ctx.session,
+        job,
+        [
+            NormalizedEvent(
+                kind="needs_input",
+                summary=question,
+                external_event_id=f"mcp-ask:{job.id}:{question[:80]}",
+            )
+        ],
+    )
+    await ctx.session.commit()
+    return {"ok": True, "state": "needs_input"}
+
+
+register_tool(
+    ToolSpec(
+        name="ask_question",
+        description="Ask the operator a question about the current workbench job (raises a Decision).",
+        category="integrations",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string"},
+                "text": {"type": "string"},
+                "job_id": {"type": "string"},
+                "job_ref": {"type": "string"},
+            },
+            "required": ["question"],
+        },
+        handler=_ask_question,
+        mutating=True,
+    )
+)
+
+
+async def _attach_artifact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from app.models.workbench import WorkJob
+    from app.services.workbench import NormalizedEvent
+    from app.services.workbench.gateway import ingest
+
+    job_id = tool_input.get("job_id") or tool_input.get("job_ref")
+    if not job_id:
+        return {"error": "job_id is required"}
+    job = await ctx.session.get(WorkJob, _UUID(str(job_id)))
+    if job is None or job.tenant_id != ctx.tenant_id:
+        return {"error": "Job not found"}
+    artifact = {
+        "type": str(tool_input.get("type") or "url"),
+        "url": str(tool_input.get("url") or ""),
+        "ref": str(tool_input.get("ref") or ""),
+        "title": str(tool_input.get("title") or tool_input.get("summary") or "Artifact"),
+        "state": tool_input.get("state"),
+        "external_id": str(tool_input.get("external_id") or tool_input.get("url") or ""),
+    }
+    await ingest(
+        ctx.session,
+        job,
+        [
+            NormalizedEvent(
+                kind="artifact",
+                summary=artifact["title"],
+                external_event_id=f"mcp-art:{job.id}:{artifact['external_id'] or artifact['title']}",
+                payload={"artifact": artifact},
+            )
+        ],
+    )
+    await ctx.session.commit()
+    return {"ok": True, "artifact": artifact}
+
+
+register_tool(
+    ToolSpec(
+        name="attach_artifact",
+        description="Attach a PR, branch, or URL artifact to the current workbench job.",
+        category="integrations",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "enum": ["pr", "diff", "branch", "log", "summary", "url"]},
+                "url": {"type": "string"},
+                "ref": {"type": "string"},
+                "title": {"type": "string"},
+                "summary": {"type": "string"},
+                "state": {"type": "string"},
+                "external_id": {"type": "string"},
+                "job_id": {"type": "string"},
+                "job_ref": {"type": "string"},
+            },
+            "required": ["type"],
+        },
+        handler=_attach_artifact,
+        mutating=True,
     )
 )
 

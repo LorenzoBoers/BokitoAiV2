@@ -1,4 +1,4 @@
-"""Generic MCP-attached workbench adapter."""
+"""Generic MCP-driven workbench adapter (phase 3 / relay fallback stub)."""
 
 from __future__ import annotations
 
@@ -15,57 +15,35 @@ from app.services.workbench import (
 
 class McpWorkbenchAdapter:
     provider = "mcp"
+    category = "relay"
+    api_version = "stub"
 
     def capabilities(self) -> AdapterCapabilities:
-        return AdapterCapabilities(
-            follow_up=True,
-            needs_input_events=True,
-            images=True,
-            mcp_attach=True,
-            budget=True,
-            plan_mode=True,
-            user_attribution=True,
-            needs_repo=False,
-            self_hosted_executor=True,
-        )
+        return AdapterCapabilities(mcp_attach_per_job=True, mcp_attach=True, start=False)
 
-    async def start(self, spec: JobSpec) -> JobHandle:
-        # Stub: real implementation invokes the configured MCP workbench tool.
-        return JobHandle(
-            external_ids={"status": "stub", "repo": spec.repo_url, "ref": spec.ref},
-            provider=self.provider,
-        )
+    async def start(self, spec: JobSpec, creds: dict[str, Any]) -> JobHandle:
+        raise NotImplementedError("Generic MCP workbench adapter is not live yet")
 
     async def follow_up(
-        self, handle: JobHandle, text: str, images: list[dict[str, Any]] | None = None
+        self,
+        handle: JobHandle,
+        text: str,
+        creds: dict[str, Any],
+        images: list[dict[str, Any]] | None = None,
     ) -> None:
         return None
 
-    async def status(self, handle: JobHandle) -> str:
-        return handle.external_ids.get("status", "queued")
-
-    async def cancel(self, handle: JobHandle) -> None:
+    async def cancel(self, handle: JobHandle, creds: dict[str, Any]) -> None:
         return None
 
+    async def poll(self, handle: JobHandle, creds: dict[str, Any]) -> list[NormalizedEvent]:
+        return []
+
+    def verify_webhook(self, headers: dict[str, str], raw_body: bytes, secret: str) -> bool:
+        return False
+
     async def handle_webhook(self, payload: dict[str, Any]) -> list[NormalizedEvent]:
-        requested_kind = str(payload.get("kind") or "progress")
-        allowed = {
-            "started",
-            "progress",
-            "needs_input",
-            "artifact",
-            "finished",
-            "failed",
-            "cancelled",
-        }
-        kind = requested_kind if requested_kind in allowed else "progress"
-        return [
-            NormalizedEvent(
-                kind=kind,
-                summary=str(payload.get("summary") or requested_kind),
-                payload=payload,
-            )
-        ]
+        return []
 
 
 register_adapter("mcp", McpWorkbenchAdapter)
