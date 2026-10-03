@@ -4,7 +4,7 @@ intro: Configure the workspace — branding, team, channels, knowledge, agents a
 description: The complete setup checklist: branding, members, channels, AI handling, knowledge, agents and autonomy posture.
 keywords: setup, configuration, workspace, branding, checklist, onboarding
 sort: 30
-related: quickstart,channels,members,agents,autonomy
+related: quickstart,channels,team,agents,autonomy
 ---
 
 # Workspace setup guide
@@ -22,9 +22,9 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 
 ## Invite the team
 
-1. Open **Settings**, then **Members**.
-2. Invite the people who will answer customers.
-3. See [Invite the team](/docs/getting-started/members).
+1. Open **Team** in the rail, then the **People** tab.
+2. Invite the people who will answer customers. Group them into teams on the **Teams** tab when more than one group answers.
+3. See [How Team works](/docs/getting-started/team).
 
 ## Connect channels and set AI handling
 

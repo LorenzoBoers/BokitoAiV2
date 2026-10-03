@@ -15,6 +15,19 @@ from app.services.agent.tools import execute_tool
 
 
 async def _widget_signal(session, tenant_id) -> Signal:
+    from datetime import datetime
+
+    from app.models.auth import Membership, User
+
+    # A live handoff needs someone available who handles the widget.
+    owner = (
+        await session.execute(
+            select(User).join(Membership, Membership.user_id == User.id).where(Membership.tenant_id == tenant_id)
+        )
+    ).scalars().first()
+    owner.last_seen_at = datetime.utcnow()
+    owner.away = False
+    session.add(owner)
     signal = Signal(
         tenant_id=tenant_id,
         channel="widget",
@@ -73,11 +86,13 @@ async def test_handoff_tool_pauses_thread_and_notifies(client: AsyncClient, sess
     notification = (
         await session_override.execute(
             select(Notification).where(
-                Notification.tenant_id == tenant.id, Notification.kind == "ops_alert"
+                Notification.tenant_id == tenant.id, Notification.kind == "handoff"
             )
         )
     ).scalars().first()
     assert notification is not None
+    assert notification.tier == 1
+    assert notification.signal_id == signal.id
     title_l = notification.title.lower()
     assert "takeover" in title_l or "medewerker" in title_l
 

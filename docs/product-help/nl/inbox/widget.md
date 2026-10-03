@@ -1,8 +1,8 @@
 ---
 title: De websitewidget installeren
 intro: Zet Bokito-chat op je site zodat bezoekers in Communicatie landen naast e-mail.
-description: Installeer de Bokito-chatwidget, zet Uiterlijk en Stem en uren, en toon hulp-artikelen naast chat.
-keywords: widget, websitechat, livechat, installeren, uiterlijk, openingstijden
+description: Installeer de Bokito-chatwidget, zet Uiterlijk en Stem, live overdracht op beschikbaarheid, doorgaan op WhatsApp en hulpartikelen naast chat.
+keywords: widget, websitechat, livechat, installeren, uiterlijk, beschikbaarheid, live overdracht, whatsapp
 sort: 40
 related: channels,communication,widget-embed,cases,assistant
 ---
@@ -31,15 +31,26 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 
 De chat gebruikt hetzelfde wolkjesontwerp als [Communicatie](/docs/inbox/communication): berichten van dezelfde afzender binnen vijf minuten stapelen tot één groep, het eerste wolkje draagt het avatar en de naam, het laatste de tijd. Antwoorden van de assistent tonen het agent-avatar met een **AI**-label; een antwoord van een collega toont een **Team**-label, zodat bezoekers zien wie antwoordde.
 
-## Zet Stem, uren en het vooraf-formulier
+## Zet Stem, live overdracht en het vooraf-formulier
 
 1. Open **Stem en uren**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in, en kies **Wijzigingen opslaan**. Het model zelf zet je op de agentpagina.
-2. Onder **Beschikbaarheid** zet je **Teambereikbaarheid** met **Van**, **Tot** en **Tijdzone**. Kies **Beschikbaarheid opslaan**. Buiten die uren blijft chat open. De widget toont geen gedeelde statusbadge; nadat een bezoeker een bericht verstuurt biedt de assistent een terugbelverzoek aan in plaats van een live overdracht wanneer het team afwezig is.
+2. Onder **Beschikbaarheid** toont **Live overdracht** **Iemand beschikbaar** of **Niemand beschikbaar**. Er zijn geen vaste uren: een bezoeker kan om een mens vragen zodra iemand met Afhandelen-toegang op de widget beschikbaar is (zie [Team](/docs/getting-started/team) voor **Afwezig**). Anders zegt de agent dat eerlijk en biedt opvolging per e-mail, een terugbelverzoek of doorgaan op WhatsApp aan.
 3. Zet **Vooraf-formulier** aan wanneer je naam en e-mail wilt vóór het eerste bericht. Die bezoekers worden echte [contacten](/docs/inbox/contacts) in plaats van anonieme websitebezoekers.
 4. In de chatcomposer kunnen bezoekers dicteren met de microfoon als de browser spraakherkenning ondersteunt (zelfde patroon op de websitewidget en de in-app-assistent): houd ingedrukt om te praten of klik om te starten; tijdens luisteren toont de knop een groene glow en golfbalken, met een vinkje bij hover om te bevestigen. Commit-/dedupe-regels en golfgeometrie delen Messages en de widget via `@bokito/shared`.
 5. Bezoekers kunnen opnieuw versturen terwijl de assistent nog antwoordt. De widget stopt het onvoltooide antwoord, houdt beide bezoekersberichten zichtbaar, en start een nieuw antwoord dat ze samen meeneemt. Alleen typen stopt de assistent niet — wel Versturen of Stop. Na Versturen blijft het berichtvak gefocust voor de volgende regel.
 
 De websitewidget volgt het lichte of donkere systeemthema van de bezoeker. Er zit geen thema-schakelaar in de widget. Light en Dark op deze pagina zijn alleen om contrast te controleren.
+
+## Ga verder op WhatsApp
+
+Als niemand beschikbaar is, kan de agent het gesprek naar WhatsApp verplaatsen zodat de bezoeker niet op de website hoeft te wachten.
+
+1. Koppel eerst een WhatsApp-kanaal (zie [Kanalen](/docs/inbox/channels)).
+2. Open **Stem en uren**. Zet onder **Beschikbaarheid** **Doorgaan op WhatsApp** aan en kies het **WhatsApp-kanaal**. Vul **WhatsApp-nummer** alleen in als de pagina erom vraagt; na het eerste WhatsApp-bericht kent het kanaal zijn eigen nummer. Kies **Beschikbaarheid opslaan**.
+3. Vraagt een bezoeker om een mens terwijl niemand beschikbaar is, dan biedt de agent een WhatsApp-link aan met het bericht al ingevuld. De bezoeker drukt alleen op versturen.
+4. Dat bericht start een WhatsApp-gesprek met hetzelfde contact en dezelfde eigenaar. Het begint met een korte samenvatting, wacht op een mens, en de websitechat sluit met **Doorgezet naar WhatsApp**.
+
+Een link werkt één keer en zeven dagen lang. Een WhatsApp-bericht zonder geldige link start een gewoon gesprek.
 
 ## Toon je hulp-artikelen
 

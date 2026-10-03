@@ -107,13 +107,19 @@ async def find_contact_by_email(
     email = normalize_email(email)
     if not email or "@" not in email:
         return None
+    from app.services.contact_identity import canonical
+
     result = await session.execute(
-        select(Contact).where(
+        select(Contact)
+        .where(
             Contact.tenant_id == tenant_id,
             Contact.address == email,
+            Contact.status != "blocked",
         )
+        .order_by(Contact.created_at)
+        .limit(1)
     )
-    return result.scalar_one_or_none()
+    return await canonical(session, result.scalar_one_or_none())
 
 
 async def _accounting_party_exists(
@@ -214,6 +220,32 @@ async def request_customer_verify(
     return dict(VERIFY_MODEL_RESPONSE)
 
 
+async def _link_verified(
+    session: AsyncSession, signal: Signal, token: CustomerVerifyToken
+) -> None:
+    """Point the thread at the verified person. Two existing persons are never
+    merged here; that stays an owner/admin decision."""
+    from app.services import contact_identity as identity
+
+    if token.contact_id is None:
+        return
+    person = await identity.canonical(session, await session.get(Contact, token.contact_id))
+    if person is None:
+        return
+    current = None
+    if signal.contact_id:
+        current = await identity.canonical(session, await session.get(Contact, signal.contact_id))
+    if current is not None and current.id == person.id:
+        if (signal.contact_basis or "") == "verified":
+            return
+    elif current is not None and not identity.is_anonymous(current):
+        return
+    proposal = identity.LinkProposal(
+        outcome="link", basis="verified", email=identity.normalize_email(token.email), person=person
+    )
+    await identity.apply_link(session, signal, proposal, actor_type="customer")
+
+
 async def consume_verify_token(
     session: AsyncSession, raw_token: str
 ) -> Signal | None:
@@ -243,12 +275,9 @@ async def consume_verify_token(
     signal.assurance_email = token.email
     signal.assurance_verified_at = now
     signal.assurance_expires_at = now + timedelta(minutes=ASSURANCE_TTL_MINUTES)
-    if token.contact_id and not signal.contact_id:
-        signal.contact_id = token.contact_id
-    if token.email and not signal.contact_email:
-        signal.contact_email = token.email
     session.add(token)
     session.add(signal)
+    await _link_verified(session, signal, token)
     await session.commit()
     await session.refresh(signal)
     return signal

@@ -27,13 +27,16 @@ from app.models.channel import (
     Contact,
 )
 from app.models.signal import Signal
-from app.services.channel_visibility import (
-    account_visibility,
-    is_account_visible_to,
-    set_account_visibility,
+from app.services.channel_access import (
+    account_access,
+    can_view_account,
+    is_default_access,
+    set_account_access,
+    visible_channel_account_ids,
 )
 from app.services.ai_handling import contact_mode
 from app.services.signal_threads import serialize_thread
+from app.services.signals import _is_anonymous_contact_identity, _is_unnamed_visitor
 from app.workers.tasks import enqueue_signal_processing
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -67,8 +70,12 @@ def _serialize_account(row: ChannelAccount) -> dict:
         "is_enabled": row.is_enabled,
         "require_pairing": bool(settings.get("require_pairing")),
         "has_inbound_secret": bool(settings.get("inbound_secret")),
-        "visibility": account_visibility(row),
+        "access": account_access(row),
+        "access_is_default": is_default_access(row),
         "default_agent_id": str(row.default_agent_id) if row.default_agent_id else None,
+        "default_team_id": settings.get("routing", {}).get("team_id")
+        if isinstance(settings.get("routing"), dict)
+        else None,
         "created_at": row.created_at.isoformat(),
     }
 
@@ -83,26 +90,40 @@ async def list_accounts(
         .where(ChannelAccount.tenant_id == auth.tenant.id)
         .order_by(ChannelAccount.channel, ChannelAccount.created_at)
     )
-    accounts = [
-        a
-        for a in result.scalars().all()
-        if is_account_visible_to(a, user_id=auth.user.id, role=auth.role)
-    ]
+    visible = await visible_channel_account_ids(
+        session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+    )
+    accounts = [a for a in result.scalars().all() if visible is None or a.id in visible]
     return {"accounts": [_serialize_account(a) for a in accounts]}
 
 
-class AccountVisibilityBody(BaseModel):
-    mode: str  # everyone | selected
-    user_ids: list[str] = []
+class AccessEntryBody(BaseModel):
+    kind: str  # user | agent | team
+    id: str
+    level: str = "handle"  # view | handle
 
 
-@router.patch("/accounts/{account_id}/visibility")
-async def update_account_visibility(
+class AccountAccessBody(BaseModel):
+    # None restores the default: All people and All agents handle the channel.
+    entries: list[AccessEntryBody] | None = None
+
+
+class AccountAccessResponse(BaseModel):
+    entries: list[AccessEntryBody]
+    is_default: bool
+
+
+@router.put("/accounts/{account_id}/access", response_model=AccountAccessResponse)
+async def update_account_access(
     account_id: UUID,
-    body: AccountVisibilityBody,
+    body: AccountAccessBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Set who may see (view) or handle a channel: people, agents and teams.
+
+    Owners and admins always handle every channel.
+    """
     auth.require_role("owner", "admin")
     result = await session.execute(
         select(ChannelAccount).where(
@@ -113,13 +134,17 @@ async def update_account_visibility(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     try:
-        set_account_visibility(account, mode=body.mode, user_ids=body.user_ids)
+        await set_account_access(
+            session,
+            account,
+            None if body.entries is None else [e.model_dump() for e in body.entries],
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     session.add(account)
     await session.commit()
     await session.refresh(account)
-    return _serialize_account(account)
+    return {"entries": account_access(account), "is_default": is_default_access(account)}
 
 
 @router.post("/accounts")
@@ -294,9 +319,10 @@ class ChannelCheck(BaseModel):
     action: str = ""
 
 
-class ChannelVisibility(BaseModel):
-    mode: str
-    user_ids: list[str] = []
+class ChannelAccessEntry(BaseModel):
+    kind: str  # user | agent | team
+    id: str  # uuid, or people / agents for the system teams
+    level: str  # view | handle
 
 
 class ChannelRow(BaseModel):
@@ -323,7 +349,10 @@ class ChannelRow(BaseModel):
     # Resolved AI handling at channel scope plus ``breaker_tripped_at``.
     ai_handling: dict[str, Any]
     default_agent_id: str | None = None
-    visibility: ChannelVisibility
+    # Team that owns new conversations on this channel (None: All people).
+    default_team_id: str | None = None
+    access: list[ChannelAccessEntry]
+    access_is_default: bool = True
     created_at: str
     # Initial backfill window in days for sync channels; 0 = everything.
     sync_window_days: int = 30
@@ -339,6 +368,7 @@ class ChannelPatchBody(BaseModel):
     is_primary: bool | None = None
     sync_window_days: int | None = None
     default_agent_id: UUID | None = None
+    default_team_id: UUID | None = None
 
 
 class ChannelSyncResponse(BaseModel):
@@ -463,7 +493,7 @@ async def get_channel(
 ) -> ChannelRow:
     """One channel with the full check list behind its state."""
     account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
-    if not is_account_visible_to(account, user_id=auth.user.id, role=auth.role):
+    if not await can_view_account(session, account, user_id=auth.user.id, role=auth.role):
         raise HTTPException(status_code=404, detail="Channel not found")
     return ChannelRow(**await _row(session, auth, account))
 
@@ -514,6 +544,17 @@ async def patch_channel(
             if not selected:
                 raise HTTPException(status_code=400, detail="Default agent is unavailable")
         account.default_agent_id = body.default_agent_id
+    if "default_team_id" in body.model_fields_set:
+        routing = settings.get("routing") if isinstance(settings.get("routing"), dict) else {}
+        if body.default_team_id is not None:
+            from app.services.teams import get_team
+
+            if await get_team(session, auth.tenant.id, body.default_team_id) is None:
+                raise HTTPException(status_code=400, detail="Team not found")
+            routing["team_id"] = str(body.default_team_id)
+        else:
+            routing.pop("team_id", None)
+        settings["routing"] = routing
     if body.is_primary is not None:
         settings["is_primary"] = bool(body.is_primary)
         if body.is_primary:
@@ -754,7 +795,11 @@ async def list_contacts(
         )
     stmt = stmt.order_by(Contact.last_seen_at.desc()).limit(200)
     result = await session.execute(stmt)
-    contacts = list(result.scalars().all())
+    contacts = [
+        row
+        for row in result.scalars().all()
+        if not _is_unnamed_visitor(row.address, row.display_name)
+    ]
 
     counts: dict[UUID, int] = {}
     if contacts:
@@ -861,12 +906,48 @@ async def get_contact(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    identities = await _identity_rows(session, auth.tenant.id, contact.id)
     count_result = await session.execute(
         select(func.count(Signal.id)).where(
-            Signal.tenant_id == auth.tenant.id, Signal.contact_id == contact_id
+            Signal.tenant_id == auth.tenant.id,
+            Signal.contact_id.in_([contact.id, *[row.id for row in identities]]),
         )
     )
-    return _serialize_contact(contact, thread_count=count_result.scalar_one())
+    data = _serialize_contact(contact, thread_count=count_result.scalar_one())
+    data["identities"] = [
+        {
+            "id": str(row.id),
+            "channel": row.channel,
+            "address": row.address,
+            "display_name": row.display_name,
+            "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
+        }
+        for row in identities
+    ]
+    return data
+
+
+async def _identity_rows(session: AsyncSession, tenant_id: UUID, person_id: UUID) -> list[Contact]:
+    """Every identity row that resolves to this person (merge chains included)."""
+    found: list[Contact] = []
+    frontier = [person_id]
+    seen = {person_id}
+    while frontier:
+        rows = (
+            await session.execute(
+                select(Contact).where(
+                    Contact.tenant_id == tenant_id, Contact.merged_into_id.in_(frontier)
+                )
+            )
+        ).scalars().all()
+        frontier = []
+        for row in rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            found.append(row)
+            frontier.append(row.id)
+    return found
 
 
 @router.get("/contacts/{contact_id}/threads")
@@ -877,18 +958,11 @@ async def list_contact_threads(
     limit: int = 20,
 ):
     contact = await _contact_or_404(session, auth.tenant.id, contact_id)
-    conditions = [Signal.contact_id == contact_id]
+    identities = await _identity_rows(session, auth.tenant.id, contact.id)
+    conditions = [Signal.contact_id.in_([contact.id, *[row.id for row in identities]])]
     if contact.address and "@" in contact.address:
         # Older threads may predate the contact link; match denormalized email.
         conditions.append(Signal.contact_email == contact.address)
-        # Cross-channel history: the same person may exist as a per-channel
-        # contact row (e.g. widget visitor who also emails). Pull in threads
-        # linked to any sibling contact with the same address.
-        sibling_ids = select(Contact.id).where(
-            Contact.tenant_id == auth.tenant.id,
-            Contact.address == contact.address,
-        )
-        conditions.append(Signal.contact_id.in_(sibling_ids))
     result = await session.execute(
         select(Signal)
         .where(Signal.tenant_id == auth.tenant.id, or_(*conditions))
@@ -921,16 +995,24 @@ async def update_contact(
         address = body.address.strip().lower()
         if not address or "@" not in address:
             raise HTTPException(status_code=400, detail="A valid email address is required")
+        if contact.channel != "email" or _is_anonymous_contact_identity(
+            contact.address, contact.display_name
+        ):
+            # A visitor key or WhatsApp number is an identity; link the
+            # conversation instead (POST /signals/{id}/contact-link).
+            raise HTTPException(
+                status_code=400,
+                detail="Link the conversation to a contact instead of changing this address",
+            )
         existing = await session.execute(
-            select(Contact).where(
+            select(Contact.id).where(
                 Contact.tenant_id == auth.tenant.id,
-                Contact.channel == contact.channel,
                 Contact.address == address,
                 Contact.id != contact.id,
-            )
+            ).limit(1)
         )
-        if existing.scalar_one_or_none():
-            raise HTTPException(status_code=409, detail="Contact already exists for this channel")
+        if existing.first():
+            raise HTTPException(status_code=409, detail="Another contact already uses this address")
         contact.address = address
         from app.services.companies import link_contact_company
 
@@ -998,6 +1080,61 @@ async def merge_contacts(
             session.add(signal)
     await session.commit()
     return {"contact_id": str(target.id), "merged": [str(row.id) for row in sources]}
+
+
+@router.post("/contacts/{contact_id}/identities/{identity_id}/detach")
+async def detach_contact_identity(
+    contact_id: UUID,
+    identity_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Split one identity off a person: it becomes its own contact again, and
+    threads that were linked from it move back."""
+    auth.require_role("owner", "admin")
+    from app.models.signal import SignalEvent
+
+    person = await _contact_or_404(session, auth.tenant.id, contact_id)
+    identities = await _identity_rows(session, auth.tenant.id, person.id)
+    row = next((i for i in identities if i.id == identity_id), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Identity not found")
+    row.merged_into_id = None
+    session.add(row)
+    events = (
+        await session.execute(
+            select(SignalEvent).where(
+                SignalEvent.tenant_id == auth.tenant.id,
+                SignalEvent.event_type == "contact_linked",
+            )
+        )
+    ).scalars().all()
+    moved: set[UUID] = set()
+    for event in events:
+        try:
+            payload = json.loads(event.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if str(row.id) in (payload.get("merged_ids") or []) or payload.get(
+            "previous_contact_id"
+        ) == str(row.id):
+            moved.update(UUID(sid) for sid in payload.get("moved_signal_ids") or [])
+    if moved:
+        threads = (
+            await session.execute(
+                select(Signal).where(
+                    Signal.tenant_id == auth.tenant.id,
+                    Signal.id.in_(moved),
+                    Signal.contact_id == person.id,
+                )
+            )
+        ).scalars().all()
+        for thread in threads:
+            thread.contact_id = row.id
+            thread.contact_basis = ""
+            session.add(thread)
+    await session.commit()
+    return {"contact_id": str(row.id), "moved": len(moved)}
 
 
 @router.post("/contacts/{contact_id}/split")
@@ -1315,6 +1452,11 @@ async def whatsapp_webhook(
         if not account:
             results.append({"phone_number_id": phone_number_id, "ignored": "no_account"})
             continue
+        from app.services.whatsapp_handover import claim_handover, remember_account_number
+
+        if remember_account_number(account, (value.get("metadata") or {}).get("display_phone_number")):
+            session.add(account)
+            await session.commit()
         for inbound in whatsapp_adapter.normalize_inbound(value, account):
             try:
                 signal, should_process = await ingest_inbound(
@@ -1322,6 +1464,9 @@ async def whatsapp_webhook(
                 )
             except BlockedContactError:
                 results.append({"dropped": "blocked_contact"})
+                continue
+            if should_process and await claim_handover(session, signal, inbound.body_text):
+                results.append({"signal_id": str(signal.id), "handover": True})
                 continue
             if should_process:
                 await enqueue_signal_processing(str(account.tenant_id), str(signal.id))

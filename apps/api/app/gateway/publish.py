@@ -48,8 +48,11 @@ async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
 
         async with async_session_factory() as session:
             tenant = await session.get(Tenant, signal.tenant_id)
+            from app.models.agent import Agent
+
             account, contact = await load_layers(session, signal.tenant_id, signal)
-            return resolve_ai_handling(tenant, account, contact, signal).to_payload()
+            agent = await session.get(Agent, signal.agent_id) if signal.agent_id else None
+            return resolve_ai_handling(tenant, account, contact, signal, agent=agent).to_payload()
     except Exception:  # noqa: BLE001 — publishing never breaks business logic
         return None
 
@@ -266,23 +269,34 @@ async def publish_decision(
             schedule_notify_decision_slack(decision_id, signal_id=signal_id)
 
 
-async def publish_notification(tenant_id: Any, *, notification_id: Any, kind: str, title: str) -> None:
+async def publish_notification(
+    tenant_id: Any, *, notification_id: Any, kind: str, title: str, tier: int = 2
+) -> None:
+    """A notification row was created; push and email go through ``services/notify.py``."""
     await _safe_publish(
         tenant_id,
         ["notifications"],
         "notification",
-        {"notification_id": str(notification_id), "kind": kind, "title": title},
+        {"notification_id": str(notification_id), "kind": kind, "title": title, "tier": tier},
     )
-    if kind in ("assignment", "mention"):
-        from app.services.push import schedule_notify_notification
-
-        schedule_notify_notification(notification_id)
 
 
-async def publish_presence(tenant_id: Any, *, user_id: UUID | None, device: str, online: bool) -> None:
+async def publish_presence(
+    tenant_id: Any,
+    *,
+    user_id: UUID | None,
+    device: str,
+    online: bool,
+    status: str | None = None,
+) -> None:
     await _safe_publish(
         tenant_id,
         ["presence"],
         "presence",
-        {"user_id": str(user_id) if user_id else None, "device": device, "online": online},
+        {
+            "user_id": str(user_id) if user_id else None,
+            "device": device,
+            "online": online,
+            "status": status or ("available" if online else "offline"),
+        },
     )

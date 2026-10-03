@@ -129,11 +129,8 @@ function InboxThreadSkeleton() {
         <div className="flex items-end justify-end gap-2">
           <Skeleton className="h-10 w-[38%] rounded-xl rounded-tr-md" />
         </div>
-        <div className="agent-live-status is-active max-w-[78%] pl-9">
-          <div className="agent-live-line is-current">
-            <span aria-hidden className="agent-live-dot shrink-0" />
-            <Skeleton className="h-3.5 w-40 bg-ai/15" />
-          </div>
+        <div className="flex max-w-[78%] items-center gap-2 pl-9">
+          <Skeleton className="h-3.5 w-40" />
         </div>
       </div>
       <div className="shrink-0 space-y-2 border-t border-border/40 px-4 py-3">
@@ -185,11 +182,8 @@ function ChatTranscriptSkeleton() {
       <div className="flex items-end justify-end gap-2">
         <Skeleton className="h-9 w-[36%] rounded-xl rounded-tr-md" />
       </div>
-      <div className="agent-live-status is-active max-w-[82%] pl-9">
-        <div className="agent-live-line is-current">
-          <span aria-hidden className="agent-live-dot shrink-0" />
-          <Skeleton className="h-3.5 w-40 bg-ai/15" />
-        </div>
+      <div className="flex max-w-[82%] items-center gap-2 pl-9">
+        <Skeleton className="h-3.5 w-40" />
       </div>
     </div>
   )

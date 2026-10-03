@@ -179,7 +179,7 @@ async def ensure_personal_assistant(
             runtime_status="standby",
             system_prompt=SYSTEM_PROMPT,
             tools_json=allowlist,
-            autonomy_level="approval",
+            autonomy_level="assisted",
             settings_json=_settings_json(),
             is_lead=False,
             acts_for_user=True,

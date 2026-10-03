@@ -85,10 +85,6 @@
     "sendAsk": "Vraag {{name}}",
     "sendAgent": "Vraag {{name}}",
     "stop": "Stop",
-    "proposalBanner": "AI stelde een antwoord voor — controleer hieronder, verstuur, bewerk of wis.",
-    "proposalSend": "Verstuur",
-    "proposalEdit": "Bewerk",
-    "proposalDismiss": "Weg",
     "channelTooltip": "{{channel}}{{detail}}",
     "ownerChipHint": "Open AI-gesprek met {{name}}",
     "ownerChipPick": "Agent kiezen",
@@ -182,13 +178,6 @@
     "spam": "Gemarkeerd als spam",
     "snoozed": "Gesprek uitgesteld"
   },
-  "runsChips": {
-    "heading": "Agent-runs",
-    "subtitle": "Achtergrondwerk en resultaten.",
-    "all": "Alles",
-    "updates": "Updates",
-    "results": "Resultaten"
-  },
   "threadList": {
     "loading": "Laden...",
     "empty": "Geen gesprekken gevonden.",
@@ -196,12 +185,9 @@
     "emptyUnread": "Geen ongelezen gesprekken in deze lijst.",
     "emptyNeedsReply": "Niets waar jij aan zet bent. Beantwoorde klanten staan onder Alles.",
     "emptyNeedsDecision": "Geen gesprekken die op een beslissing wachten in deze lijst.",
-    "emptyDecisions": "Niets wacht op een beslissing.",
-    "emptyDecisionsHint": "Als een agent een ja of nee nodig heeft, verschijnt het gesprek hier — klant en intern in één lijst.",
     "emptyPinned": "Nog geen vastgezette gesprekken. Zet er een vast om hem bovenaan te houden.",
     "showAllConversations": "Alle gesprekken tonen",
     "openDecisionsQueue": "Beslissingen openen",
-    "emptyRuns": "Nog geen agent-runs.",
     "emptySnoozed": "Niets uitgesteld tot later.",
     "emptySnoozedHint": "Stel een gesprek uit als je al hebt geantwoord, of als het kan wachten.",
     "emptySpam": "Geen spam hier.",
@@ -238,13 +224,13 @@
     "filterAssigneeAll": "Iedereen",
     "filterPriority": "Filter op prioriteit",
     "filterPriorityAll": "Elke prioriteit",
-    "filterChannel": "Filter op kanaal",
-    "filterChannelAll": "Elk kanaal",
     "searchPlaceholder": "Zoek gesprekken",
     "filters": "Filters",
     "quickFilters": "Snelfilters",
     "narrowBy": "Verfijnen",
-    "clearFilters": "Wissen"
+    "clearFilters": "Wissen",
+    "emptyForYou": "Er wacht niets op jou.",
+    "emptyForYouHint": "Gesprekken van jou, jouw beurt, de beurt van je team, vragen aan iedereen en vermeldingen komen hier."
   },
   "decisionCard": {
     "titleSuggestedReply": "Voorgesteld antwoord",
@@ -344,8 +330,7 @@
       "turnOn": "Aanzetten",
       "connectPackage": "Pakket koppelen",
       "addSource": "Bron toevoegen",
-      "addToQueue": "Aan queue toevoegen",
-      "alwaysAllow": "Altijd toestaan"
+      "addToQueue": "Aan queue toevoegen"
     },
     "correctInterpretation": "Corrigeer",
     "feedbackGood": "Goed",
@@ -366,6 +351,21 @@
     },
     "knownSummaries": {
       "draftForReview": "Conceptantwoord klaar ter beoordeling."
+    },
+    "askedTo": "Gevraagd aan {{name}}",
+    "learn": {
+      "label": "Volgende keer:",
+      "allow": "Dit mag je voortaan zelf",
+      "ask": "Altijd vragen",
+      "unsure": "Weet ik nog niet",
+      "proposed": "Regel voorgesteld. Bevestig hem in dit gesprek.",
+      "collected": "Genoteerd. Na nog een paar stelt de agent een regel voor.",
+      "error": "Kon niet opslaan wat de agent moet leren",
+      "done": {
+        "allow": "Regel voorgesteld: voortaan zelf doen.",
+        "ask": "Regel voorgesteld: altijd vragen.",
+        "unsure": "Genoteerd als voorbeeld."
+      }
     }
   },
   "agentSteps": {
@@ -745,7 +745,7 @@
     "loadFailed": "Gesprek #{{id}} kon niet worden geladen.",
     "threadGone": "Dit gesprek is niet meer beschikbaar.",
     "tryAgain": "Opnieuw proberen",
-    "agentsLoadError": "Kon agents niet laden; @agent-mentions zijn niet beschikbaar.",
+    "agentsLoadError": "Kon niet laden wie je hier kunt noemen.",
     "teamLoadError": "Kon teamleden niet laden; @mentions kunnen onvolledig zijn.",
     "taskCreated": "Kijkmoment gepland: {{title}}",
     "taskCreatedHint": "Je ziet hem op dit gesprek en op de Agenda.",
@@ -777,7 +777,20 @@
     "emailCopied": "E-mail gekopieerd",
     "copyExternalId": "Extern gespreks-ID kopiëren",
     "externalIdCopied": "Extern gespreks-ID gekopieerd",
-    "newMessages": "{{count}} nieuw"
+    "newMessages": "{{count}} nieuw",
+    "pickUp": "Oppakken",
+    "pickUpHint": "Maak dit gesprek van jou. Het verdwijnt uit Niet toegewezen en uit Voor jou van de rest van het team.",
+    "assignPeople": "Mensen",
+    "assignAgents": "Agents",
+    "assignTeams": "Teams",
+    "noChannelAccess": "Geen toegang tot dit kanaal",
+    "assigneesLoadError": "Kon niet laden wie dit gesprek kan oppakken.",
+    "handoverTitle": "Toewijzen aan {{name}}",
+    "handoverHintAgent": "Schrijf wat de agent moet doen. Hij begint meteen en antwoordt met een interne notitie.",
+    "handoverHintTeam": "Schrijf een bericht voor het team. Het team pakt het op zoals ingesteld bij Wie pakt het op.",
+    "handoverPlaceholder": "Bericht (optioneel)",
+    "handoverCancel": "Annuleren",
+    "handoverConfirm": "Toewijzen"
   },
   "addToProject": {
     "title": "Koppelen aan project",
@@ -833,10 +846,12 @@
     "linkProjects": "Projecten",
     "linkKnowledge": "Kennis",
     "noContact": "Geen contact gekoppeld",
-    "noContactHint": "We konden dit gesprek nog niet koppelen aan een opgeslagen persoon. Open Contacten om ze toe te voegen.",
+    "noContactHint": "We konden dit gesprek nog niet koppelen aan een opgeslagen persoon. Kies + Contact om het via e-mail of telefoon te verbinden.",
     "widgetVisitor": "Websitebezoeker",
     "alsoSeenAs": "Ook gezien als {{label}}",
-    "statusAwaitingEmail": "Wacht op e-mail",
+    "statusAwaitingEmail": "Onbekende chatter",
+    "kindUnknownChatter": "Onbekende chatter",
+    "kindContact": "Contact",
     "unknown": "Onbekend contact",
     "lastSeen": "Laatst gezien {{time}}",
     "now": "nu",
@@ -847,6 +862,7 @@
     "blockConfirm": "{{name}} blokkeren? Nieuwe berichten van hen worden gedropt en bereiken Communicatie niet.",
     "thisContact": "dit contact",
     "fullProfile": "Profiel",
+    "showMore": "Toon meer",
     "writeEmail": "Mailen",
     "teammate": "Teamlid",
     "you": "Jij",
@@ -857,13 +873,26 @@
     "roleMember": "Lid",
     "openBookkeeping": "Deze factuur opzoeken",
     "openBookkeepingHint": "In Boekhouding controleer je het bedrag voordat je antwoordt.",
-    "askForEmail": "Sla hun e-mail op zodat je later kunt opvolgen.",
+    "linkHint": "Koppel dit gesprek aan een bestaand contact of maak er een aan.",
     "namePlaceholder": "Naam",
-    "emailPlaceholder": "naam@voorbeeld.nl",
-    "saveEmail": "E-mail opslaan",
-    "emailRequired": "Vul een geldig e-mailadres in.",
-    "emailSaved": "E-mail opgeslagen. Je kunt ze vanaf hier mailen.",
-    "emailSaveError": "Kon die e-mail niet opslaan.",
+    "identifierPlaceholder": "E-mail of telefoonnummer",
+    "link": "+ Contact",
+    "linkSubmit": "Koppelen",
+    "cancel": "Annuleren",
+    "identifierRequired": "Vul een e-mailadres of telefoonnummer in.",
+    "linked": "Gekoppeld aan {{name}}.",
+    "linkCreated": "Nieuw contact {{name}} gemaakt en gekoppeld.",
+    "linkUnchanged": "Dit gesprek is al gekoppeld aan dit contact.",
+    "linkChoose": "Meerdere contacten passen. Kies wie dit is:",
+    "linkError": "Kon dit gesprek niet koppelen.",
+    "unlink": "Ontkoppelen",
+    "unlinkConfirm": "Koppeling met dit contact ongedaan maken?",
+    "unlinked": "Koppeling ongedaan gemaakt.",
+    "unlinkError": "Kon de koppeling niet ongedaan maken.",
+    "basisVerified": "Bevestigd",
+    "basisVerifiedHint": "De bezoeker bevestigde dit adres via een link.",
+    "basisClaimed": "Geclaimd",
+    "basisClaimedHint": "De bezoeker gaf dit adres op, maar heeft het niet bevestigd. Persoonlijke gegevens blijven afgeschermd.",
     "followUpTomorrow": "Morgen 9:00 opnieuw kijken",
     "followUpScheduled": "Kijkmoment gepland — blijft zichtbaar tot dan.",
     "statusApproved": "Goedgekeurd",
@@ -886,9 +915,7 @@
     "followUpCompleteError": "Kon het kijkmoment niet wissen.",
     "openAgendaFollowUps": "Agenda",
     "previous": "Eerdere gesprekken",
-    "noPrevious": "Geen andere gesprekken met dit contact.",
-    "noPreviousHint": "Dit is het eerste gesprek met hen. Notities bewaren context voor de volgende keer.",
-    "noPreviousVisitorHint": "Sla hun e-mail of naam op zodat latere chats bij dezelfde persoon landen.",
+    "noPrevious": "Geen eerdere gesprekken",
     "openCommunication": "Communicatie openen",
     "addContact": "Toevoegen aan contacten",
     "openContacts": "Contacten openen",
@@ -901,15 +928,18 @@
     "loadFailed": "Een deel van de agentcontext kon niet worden geladen.",
     "retry": "Opnieuw",
     "agent": "Agent",
+    "kindAiAgent": "AI-agent",
     "workspaceAssistant": "Workspace-assistent",
     "inboxAiSettings": "AI-antwoordinstellingen",
     "agentProfile": "Agentprofiel",
     "schedule": "Plannen",
     "govern": "Govern",
     "openAgent": "Agent openen",
+    "configure": "Configureren",
     "activeTask": "Bezig",
     "openRun": "Run openen",
     "recentConversations": "Recente gesprekken",
+    "showMore": "Toon meer",
     "noOtherConversations": "Geen andere gesprekken met deze agent.",
     "chatWithAgent": "Chat met deze agent",
     "mayDo": "Wat deze agent mag doen",
@@ -1118,7 +1148,10 @@
       "teamMember": "Teamlid",
       "sender": "Afzender",
       "messageAdded": "Bericht toegevoegd",
-      "websiteVisitor": "Websitebezoeker"
+      "websiteVisitor": "Websitebezoeker",
+      "someone": "Iemand",
+      "pickedUp": "Opgepakt door {{name}}",
+      "pickedUpVia": "Opgepakt door {{name}} (via {{team}})"
     }
   },
   "triage": {
@@ -1194,5 +1227,16 @@
     "closeContext": "Contactpaneel sluiten",
     "nav": "Communicatiebalk verslepen",
     "resetHint": "Sleep om te verdelen. Dubbelklik of Enter zet terug."
+  },
+  "scopeChips": {
+    "aria": "Verfijn op kanaal of agent",
+    "allChannels": "Alle kanalen",
+    "agent": "Agent",
+    "clearAgent": "Alle agents tonen"
+  },
+  "mentions": {
+    "title": "Noemen",
+    "agent": "Agent",
+    "team": "Team"
   }
 }

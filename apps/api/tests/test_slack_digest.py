@@ -243,14 +243,11 @@ async def test_digest_requires_opt_in_and_sends(client: AsyncClient, session_ove
     # Nobody opted in yet: nothing goes out.
     assert await send_tenant_digests(session_override, period="daily") == 0
 
-    # Opt the test user in for the daily digest.
-    prefs = await client.get("/api/user/notification-preferences", headers=headers)
-    rows = prefs.json()["rows"]
-    for row in rows:
-        if row["id"] == "digest-daily":
-            row["channels"]["email"] = True
+    # Opt the test user in: the daily digest is the tier 3 email switch.
     r = await client.patch(
-        "/api/user/notification-preferences", headers=headers, json={"rows": rows}
+        "/api/user/notification-preferences",
+        headers=headers,
+        json={"tiers": {"3": {"email": True}}},
     )
     assert r.status_code == 200, r.text
 

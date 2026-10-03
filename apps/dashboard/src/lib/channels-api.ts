@@ -2,7 +2,7 @@
 
 import { appRoutes } from '../api/routes/app.routes'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
-import { normalizeVisibility, type ChannelAccountVisibility } from './channel-accounts-api'
+import { normalizeAccess, type ChannelAccess } from './channel-accounts-api'
 import { normalizeAiHandling, type AiHandling } from './ai-handling'
 
 export const CHANNEL_STATES = [
@@ -55,7 +55,10 @@ export type ChannelRow = {
   lastError: string
   /** AI handling at channel scope; ``breakerTrippedAt`` set while autonomous is paused. */
   aiHandling: AiHandling | null
-  visibility: ChannelAccountVisibility
+  access: ChannelAccess
+  /** Team that owns new conversations; null means All people. */
+  defaultTeamId: string | null
+  defaultAgentId: string | null
   createdAt: string
   /** Initial backfill window in days for sync channels; 0 = everything. */
   syncWindowDays: number
@@ -118,7 +121,9 @@ export function normalizeChannelRow(raw: unknown): ChannelRow | null {
     lastSyncAt: asString(value.last_sync_at) || null,
     lastError: asString(value.last_error),
     aiHandling: normalizeAiHandling(value.ai_handling),
-    visibility: normalizeVisibility(value.visibility),
+    access: normalizeAccess(value.access, value.access_is_default),
+    defaultTeamId: asString(value.default_team_id) || null,
+    defaultAgentId: asString(value.default_agent_id) || null,
     createdAt: asString(value.created_at),
     syncWindowDays:
       typeof value.sync_window_days === 'number' ? value.sync_window_days : 30,

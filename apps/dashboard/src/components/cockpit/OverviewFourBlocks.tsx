@@ -7,7 +7,7 @@ import { CockpitPanelsSkeleton } from '../ui/skeleton'
 import { listCases, listCaseTypes, type CaseRow, type CaseTypeRow } from '../../lib/cases-api'
 import { listGovernChanges, type PlatformChangeRow } from '../../lib/govern-api'
 import { listThreads, type InboxThread } from '../../lib/inbox-api'
-import { attentionThreadPath, decisionsPath, inboxPath } from '../../lib/messages-paths'
+import { attentionThreadPath, forYouPath } from '../../lib/messages-paths'
 import { listWorkLogs, type WorkLogRow } from '../../lib/work-logs-api'
 import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/workstreams-api'
 import { workstreamRunPath } from '../../lib/workstream-ui'
@@ -194,7 +194,7 @@ export default function OverviewFourBlocks() {
     const settled = await Promise.allSettled([
       Promise.all([
         listThreads(token, { view: 'awaiting_decision', perPage: 10 }),
-        listThreads(token, { view: 'mine', perPage: 10 }),
+        listThreads(token, { view: 'for_you', perPage: 10 }),
       ]),
       listCases({ includeLabels: false, limit: 500 }),
       listCaseTypes(),
@@ -322,7 +322,7 @@ export default function OverviewFourBlocks() {
               />
             </Link>
           ))}
-          <Link to={data.needsYou.some((thread) => thread.hasOpenDecision) ? decisionsPath() : inboxPath('mine')} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
+          <Link to={forYouPath()} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
             {nl ? 'Alles openen' : 'Open all'}
           </Link>
         </Block>

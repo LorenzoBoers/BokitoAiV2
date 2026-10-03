@@ -155,12 +155,15 @@ async def list_accounts(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from app.services.channel_visibility import is_account_visible_to
+    from app.services.channel_access import visible_channel_account_ids
 
+    visible = await visible_channel_account_ids(
+        session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+    )
     accounts = [
         a
         for a in await _list_email_accounts(session, auth.tenant.id)
-        if is_account_visible_to(a, user_id=auth.user.id, role=auth.role)
+        if visible is None or a.id in visible
     ]
     explicit_primary = any(_load_settings(a).get("is_primary") for a in accounts)
     return [

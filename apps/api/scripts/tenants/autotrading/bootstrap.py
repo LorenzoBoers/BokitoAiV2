@@ -352,7 +352,7 @@ async def get_or_create_orchestrator(session: AsyncSession, tenant_id: UUID) -> 
         "model": "claude-sonnet-4-6",
         "runtime_status": "standby",
         "chat_access": "everyone",
-        "autonomy_level": "approval",
+        "autonomy_level": "assisted",
         "system_prompt": STRATEGY_OPTIMIZER_PROMPT,
         "tools": tools,
     }
@@ -395,7 +395,7 @@ async def get_or_create_mmxm_trader(
         "model": "claude-haiku-4-5-20251001",
         "runtime_status": "standby",
         "chat_access": "everyone",
-        "autonomy_level": "auto",
+        "autonomy_level": "autonomous",
         "system_prompt": MMXM_TRADER_PROMPT,
         "tools": ["call_mcp_tool", "read_doc", "list_docs", "search_index"],
     }

@@ -23,7 +23,7 @@ describe('navigation', () => {
 
   it('keeps Control to conversation-first destinations (Govern stays in Settings)', () => {
     const control = TAB_GROUPS.find((g) => g.label === 'Control')
-    expect(control?.tabs).toEqual(['communication', 'agenda'])
+    expect(control?.tabs).toEqual(['communication', 'agenda', 'team'])
     expect(TAB_PATHS).not.toHaveProperty('cases')
     expect(TAB_PATHS).not.toHaveProperty('activity')
     expect(TAB_PATHS).not.toHaveProperty('govern')

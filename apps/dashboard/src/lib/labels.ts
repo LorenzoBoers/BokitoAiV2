@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { normalizeAutonomy } from './agent-rules-api'
 
 /**
  * Shared humanizer for API enum/status strings shown in the UI.
@@ -43,20 +44,11 @@ export function memberRoleLabel(role: string | null | undefined): string {
   return MEMBER_ROLE_LABELS[role.toLowerCase()] ?? humanizeLabel(role)
 }
 
-/** Human label for agent passport autonomy_level (manual | approval | auto). */
+/** Human label for an agent's autonomy ceiling (manual | assisted | autonomous). */
 export function agentAutonomyLevelLabel(level: string | null | undefined, t: TFunction): string {
   if (!level) {
-    return t('workforce.agents.autonomyDefault', { ns: 'nav', defaultValue: 'Workspace default' })
+    return t('workforce.agents.autonomyDefault', { ns: 'nav' })
   }
-  const normalized = level.toLowerCase()
-  if (normalized === 'manual') {
-    return t('workforce.agents.autonomyManual', { ns: 'nav', defaultValue: 'Manual — always ask' })
-  }
-  if (normalized === 'approval') {
-    return t('workforce.agents.autonomyApproval', { ns: 'nav', defaultValue: 'Approval — gated actions' })
-  }
-  if (normalized === 'auto') {
-    return t('workforce.agents.autonomyAuto', { ns: 'nav', defaultValue: 'Auto — act independently' })
-  }
-  return humanizeLabel(level)
+  const normalized = normalizeAutonomy(level.toLowerCase())
+  return t(`teamPage.ceiling.${normalized}`, { ns: 'nav' })
 }

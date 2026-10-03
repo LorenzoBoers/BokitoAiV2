@@ -250,7 +250,7 @@ export type PagedThreads = {
 
 export type BadgeCounts = {
   inbox_unread: number
-  inbox_by_queue: { my: number; unassigned: number; all: number }
+  inbox_by_queue: { for_you: number; for_you_unread: number; unassigned: number; all: number }
   agents_attention: number
 }
 
@@ -544,8 +544,13 @@ export type CockpitSummary = {
 
 export type NotificationPrefRow = {
   id: string
-  label: string
-  channels: { desktop?: boolean; email?: boolean; slack?: boolean }
+  channels: { inapp?: boolean; push?: boolean; email?: boolean }
+}
+
+/** Tier 1 now, 2 later, 3 digest; only tier 1 pushes. */
+export type NotificationPrefs = {
+  tiers: Record<'1' | '2' | '3', { inapp: boolean; push: boolean; email: boolean }>
+  rows: NotificationPrefRow[]
 }
 
 export type Contact = {
@@ -587,10 +592,10 @@ export const subscribePush = (expoPushToken: string) =>
 export const getCockpitSummary = () => apiGet<CockpitSummary>('/api/cockpit/summary')
 
 export const getNotificationPreferences = () =>
-  apiGet<{ rows: NotificationPrefRow[] }>('/api/user/notification-preferences')
+  apiGet<NotificationPrefs>('/api/user/notification-preferences')
 
-export const patchNotificationPreferences = (rows: NotificationPrefRow[]) =>
-  apiPatch<{ rows: NotificationPrefRow[] }>('/api/user/notification-preferences', { rows })
+export const patchNotificationPreferences = (patch: Partial<NotificationPrefs>) =>
+  apiPatch<NotificationPrefs>('/api/user/notification-preferences', patch)
 
 export const getContact = (id: string) => apiGet<Contact>(`/api/channels/contacts/${id}`)
 
@@ -615,15 +620,16 @@ export type AppNotification = {
   title: string
   body: string
   status: string
+  tier?: number
   payload: Record<string, unknown>
   created_at: string
 }
 
 export const DEFAULT_NOTIFICATION_PREF_ROWS: NotificationPrefRow[] = [
-  { id: 'assigned-to-me', label: 'When a conversation is assigned to you', channels: { desktop: true } },
-  { id: 'mentions', label: 'When you are mentioned', channels: { desktop: true } },
-  { id: 'decisions', label: 'When an agent needs your decision', channels: { desktop: true } },
-  { id: 'handoff', label: 'When someone asks for a human', channels: { desktop: true } },
+  { id: 'assigned-to-me', channels: { push: true } },
+  { id: 'mentions', channels: { push: true } },
+  { id: 'decisions', channels: { push: true } },
+  { id: 'handoff', channels: { push: true } },
 ]
 
 export const listWorkspaces = () => apiGet<Workspace[]>('/api/app/workspaces')

@@ -65,8 +65,20 @@ export function threadMatchesFilters(
   const channel = thread.channel ?? ''
   if (filters.folder === 'external' && !EXTERNAL_CHANNELS.has(channel)) return false
   if (filters.folder === 'internal' && channel !== 'internal') return false
-  // Shared hub includes assistant chats; agent-run threads stay under Agent-runs.
-  if (filters.folder === 'inbox' && channel === 'internal') return false
+  // Agent runs join the hub when a person or team must act, or under the agent chip.
+  if (
+    filters.folder === 'inbox' &&
+    channel === 'internal' &&
+    !filters.agentId &&
+    thread.turn?.kind !== 'user' &&
+    thread.turn?.kind !== 'team'
+  ) {
+    return false
+  }
+  if (filters.teamId) {
+    const teamId = thread.owner?.teamId ?? null
+    if (teamId !== filters.teamId && thread.turn?.teamId !== filters.teamId) return null
+  }
   // Assistant folder also filters on thread ownership, which the row lacks.
   if (filters.folder === 'assistant') return null
 
@@ -93,12 +105,19 @@ export function threadMatchesFilters(
     case 'all_open':
       viewMatch = thread.status === 'open'
       break
-    case 'mine':
+    case 'for_you':
+      // Team turns and mentions need server-side joins; only own work is decided here.
       if (currentUserId == null) return null
-      viewMatch = thread.status === 'open' && thread.assignedToUserId === currentUserId
-      break
+      if (
+        thread.status === 'open' &&
+        (thread.assignedToUserId === currentUserId || thread.turn?.userNum === currentUserId)
+      ) {
+        viewMatch = true
+        break
+      }
+      return null
     case 'unassigned':
-      viewMatch = thread.status === 'open' && thread.assignedToUserId == null
+      viewMatch = thread.status === 'open' && (thread.owner ? thread.owner.kind === 'team' : thread.assignedToUserId == null)
       break
     case 'pending':
       viewMatch = thread.status === 'pending'
@@ -118,16 +137,6 @@ export function threadMatchesFilters(
       break
     case 'internal':
       viewMatch = channel === 'internal'
-      break
-    case 'your_turn':
-      // Row payloads carry hasOpenDecision and the last direction, so the
-      // "You" leaf can evict / keep rows live without a refetch.
-      viewMatch =
-        Boolean(thread.hasOpenDecision) ||
-        (thread.status === 'open' &&
-          channel !== 'internal' &&
-          channel !== 'assistant' &&
-          threadNeedsReply(thread))
       break
     // pinned / awaiting_decision / updates / results / outbound need
     // server-side joins (pins, open decisions, message kinds).

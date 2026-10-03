@@ -5,5 +5,5 @@ import { Redirect } from 'expo-router'
  * Messages inbox filtered to threads awaiting a decision.
  */
 export default function DecisionsScreen() {
-  return <Redirect href={{ pathname: '/inbox', params: { view: 'awaiting_decision' } }} />
+  return <Redirect href={{ pathname: '/inbox', params: { view: 'for_you' } }} />
 }

@@ -1,4 +1,4 @@
-import { agentChatPath, agentRunsPath } from './messages-paths'
+import { agentChatPath, inboxPath } from './messages-paths'
 import { agentWorkforceRunUrl } from './workforce-run-urls'
 
 /** EN/NL titles that should match the same Agent-runs conversation. */
@@ -67,7 +67,7 @@ export function triggerThreadPath(item: {
   if (item.kind === 'heartbeat' && item.agent_id) {
     return agentChatPath(item.agent_id, item.signal_id)
   }
-  return agentRunsPath(item.status === 'completed' ? 'results' : 'all', item.signal_id)
+  return inboxPath('all', item.signal_id)
 }
 
 /** Link a planned Agenda row: past/completed work opens Agent-runs; future wakes stay on Agenda. */
@@ -95,7 +95,7 @@ export function agendaOccurrenceHref(
   const match = !isFuture || item.run_id
     ? pickClosestThreadBySubject(threads, item.name, item.at)
     : null
-  if (match) return agentRunsPath(item.run_id ? 'results' : 'all', String(match.id))
+  if (match) return inboxPath('all', String(match.id))
   if (item.run_id && item.agent_id) return agentWorkforceRunUrl(item.agent_id, item.run_id)
   if (item.trigger_id) return `/agenda?trigger=${item.trigger_id}`
   return `/agenda?agent=${fallbackAgentId}`
@@ -109,5 +109,5 @@ export function workLogRunsPath(
 ): string {
   const thread = pickClosestThreadBySubject(threads, run.task_subject?.trim() ?? '', startedAtIso(run.started_at))
   if (!thread) return fallback
-  return agentRunsPath(run.status === 'completed' ? 'results' : 'all', String(thread.id))
+  return inboxPath('all', String(thread.id))
 }

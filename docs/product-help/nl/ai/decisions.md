@@ -28,6 +28,17 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Taak aanmaken** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
 3. Hover over een agentbericht: naast de bubbel verschijnen iconen voor **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent. Hover een icoon voor het label. Escaleren zet het gesprek op Handmatig en wijst jou toe.
 
+## Leer de agent voor de volgende keer
+
+1. Op een kaart die vraagt voor een actie biedt de rij **Volgende keer:** drie knoppen.
+2. **Dit mag je voortaan zelf** stelt een regel voor waarmee de agent dit zelf doet. **Altijd vragen** stelt een regel voor die blijft vragen. Beide komen als kaart in hetzelfde gesprek; bevestig die daar. Alleen een eigenaar of beheerder kan een regel bevestigen waarmee een agent zelf handelt.
+3. **Weet ik nog niet** bewaart het geval als voorbeeld. Na een paar voorbeelden stelt de agent er zelf een regel uit voor.
+4. Regels staan op de agent onder **Regels** (zie [Agents](/docs/ai/agents)).
+
+## Wie de vraag krijgt
+
+Elke vraag gaat naar één geadresseerde: de persoon of het team in **Vragen stellen aan** van de agent, anders de eigenaar van het gesprek, anders wie het werk overdroeg, anders het eigenaarsteam. Wie afwezig is, wordt overgeslagen. Beantwoordt één persoon steeds de vragen over hetzelfde onderwerp, dan stelt Govern een routeringsregel voor zoals *Vragen over facturen naar Lisa*; na akkoord gaan die vragen eerst naar die persoon.
+
 ## Antwoorden vanuit een notificatie
 
 1. Kies de beslissing in het belmenu, of open de pushmelding op je telefoon. Beide openen Beslissingen op dat gesprek en springen direct naar de wachtende kaart.

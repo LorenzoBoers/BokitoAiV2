@@ -216,11 +216,13 @@ def resolve_ai_handling(
     signal: Signal | None = None,
     *,
     scope: str = "conversation",
+    agent: Any = None,
 ) -> AiHandling:
     """Effective AI handling for the most specific target given.
 
     ``scope`` names the layer the payload describes: ``own`` is that layer's
-    value and ``inherited`` is what it would follow without one.
+    value and ``inherited`` is what it would follow without one. ``agent`` is
+    the agent that would answer; its autonomy is one more ceiling.
     """
     layers: list[tuple[str, str | None, str]] = [
         ("workspace", workspace_mode(tenant), tenant.name if tenant else ""),
@@ -247,6 +249,12 @@ def resolve_ai_handling(
     ceiling, clamped_by = governance_ceiling(tenant)
     if account is not None and breaker_tripped_at(account) and mode_rank(ceiling) > mode_rank("assisted"):
         ceiling, clamped_by = "assisted", "breaker"
+    if agent is not None:
+        from app.services.agent_rules import normalize_autonomy
+
+        agent_level = normalize_autonomy(getattr(agent, "autonomy_level", None))
+        if mode_rank(agent_level) < mode_rank(ceiling):
+            ceiling, clamped_by = agent_level, "agent"
     effective = min_mode(requested, ceiling)
     return AiHandling(
         effective=effective,
@@ -298,8 +306,11 @@ async def widget_account(session: AsyncSession, tenant_id: UUID) -> ChannelAccou
 async def resolve_for_signal(
     session: AsyncSession, tenant: Tenant | None, signal: Signal
 ) -> AiHandling:
+    from app.models.agent import Agent
+
     account, contact = await load_layers(session, signal.tenant_id, signal)
-    return resolve_ai_handling(tenant, account, contact, signal)
+    agent = await session.get(Agent, signal.agent_id) if signal.agent_id else None
+    return resolve_ai_handling(tenant, account, contact, signal, agent=agent)
 
 
 # ---------------------------------------------------------------------------
@@ -484,10 +495,17 @@ def on_assignment_change(
     signal: Signal,
     *,
     before_assignee: UUID | None,
+    before_kind: str | None = None,
     actor_id: str = "",
 ) -> None:
-    """Assigning a person makes the conversation manual; unassigning hands back."""
-    if signal.assigned_user_id == before_assignee:
+    """Assigning a person makes the conversation manual; an agent or team hands back.
+
+    A person owner holds the conversation. Moving it to an agent or a team
+    clears that hold so the channel's AI handling (and the agent ceiling)
+    applies again.
+    """
+    kind_changed = before_kind is not None and before_kind != (signal.assignee_kind or "")
+    if signal.assigned_user_id == before_assignee and not kind_changed:
         return
     if signal.assigned_user_id is not None:
         if not is_held(signal):
@@ -621,6 +639,12 @@ async def set_ai_handling(
         signal.ai_handling = mode
         signal.ai_handling_reason = (reason or (REASON_TAKEOVER if mode == "manual" else "operator")) if mode else None
         if assign_to_me is not None and mode == "manual":
+            if signal.assignee_kind == "team":
+                from app.services.ownership import picked_up_event
+
+                session.add(
+                    await picked_up_event(session, signal, assign_to_me, signal.assignee_team_id, via="take_over")
+                )
             signal.assigned_user_id = assign_to_me
         elif mode is None and (before == "manual"):
             # Hand back: the AI owns the next reply again.

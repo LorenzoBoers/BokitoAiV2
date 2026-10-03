@@ -16,28 +16,22 @@ export function countForBadgeSlot(counts: NavBadgeCounts, slot: NavBadgeSlot | u
   }
 }
 
-export type InboxQueueBadgeKey = 'all' | 'my' | 'unassigned'
+export type InboxQueueBadgeKey = 'all' | 'for_you' | 'unassigned'
 
-export function countForInboxQueue(
-  counts: NavBadgeCounts,
-  queue: string,
-): number {
+export function countForInboxQueue(counts: NavBadgeCounts, queue: string): number {
   switch (queue) {
-    case 'my':
-    case 'mine':
-      return counts.inboxByQueue.my
+    case 'for_you':
+      return counts.inboxByQueue.forYou
     case 'unassigned':
       return counts.inboxByQueue.unassigned
     case 'all':
     case 'open':
       return counts.inboxByQueue.all
-    case 'awaiting-decision':
-    case 'awaiting_decision':
-      return counts.agentsAttention
-    case 'decisions':
-      // The hub's "You" leaf: open decisions + customer replies that wait on you.
-      return counts.yourTurn
     default:
       return 0
   }
+}
+
+export function countForTeam(counts: NavBadgeCounts, teamId: string): number {
+  return counts.byTeam[teamId] ?? 0
 }

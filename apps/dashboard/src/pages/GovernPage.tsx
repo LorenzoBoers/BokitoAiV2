@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, ExternalLink, Copy } from 'lucide-react'
 import { toast } from 'sonner'
-import { agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { inboxPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { PageContent } from '../components/layout/PageContent'
@@ -58,6 +58,8 @@ import { useChannelStatus } from '../hooks/useChannelStatus'
 import { useLlmRuntime } from '../hooks/useLlmRuntime'
 import { Input } from '../components/ui/input'
 import GovernConversationsCard from '../components/govern/GovernConversationsCard'
+import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
+import { useIsAdmin } from '../hooks/useIsAdmin'
 import {
   Dialog,
   DialogContent,
@@ -120,6 +122,7 @@ const AUDIT_PREVIEW = 30
 export default function GovernPage() {
   const { t, i18n } = useTranslation('govern')
   const { t: tNav } = useTranslation('nav')
+  const isAdmin = useIsAdmin()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab') ?? ''
   const query = searchParams.get('q') ?? ''
@@ -681,6 +684,8 @@ export default function GovernPage() {
                 ))}
               </CardContent>
             </Card>
+
+            <AgentRulesEditor canEdit canGrant={isAdmin} />
 
             <Card>
               <CardHeader>

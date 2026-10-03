@@ -71,6 +71,8 @@ export interface WorkforceGraphEvent {
   payload?: Record<string, unknown>
 }
 
+export type AskTarget = { kind: 'auto' | 'user' | 'team'; id: string | null }
+
 export interface RuntimeAgent {
   id: string
   organisation_id: string
@@ -99,6 +101,8 @@ export interface RuntimeAgent {
   email_signature_text?: string
   /** Default Send as on approvals: user (impersonate) | agent. */
   reply_send_as?: 'user' | 'agent'
+  /** Who the agent asks when it needs a person ("Ask questions to"). */
+  ask_target?: AskTarget
   chat_access?: 'everyone' | 'selected' | 'nobody'
   kind?: 'company' | 'personal'
   /** Exactly one company agent per workspace carries the lead label. */

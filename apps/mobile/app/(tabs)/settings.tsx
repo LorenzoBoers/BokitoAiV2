@@ -49,13 +49,13 @@ export default function SettingsScreen() {
 
   const togglePref = async (id: string, next: boolean) => {
     const updated = rows.map((row) =>
-      row.id === id ? { ...row, channels: { ...row.channels, desktop: next } } : row,
+      row.id === id ? { ...row, channels: { ...row.channels, push: next } } : row,
     )
     setRows(updated)
     setSaving(true)
     setSaveState('idle')
     try {
-      await patchNotificationPreferences(updated)
+      await patchNotificationPreferences({ rows: [{ id, channels: { push: next } }] })
       await queryClient.invalidateQueries({ queryKey: messagingKeys.notificationPrefs })
       setSaveState('saved')
     } catch {
@@ -190,7 +190,7 @@ export default function SettingsScreen() {
               <View key={row.id} style={styles.prefRow}>
                 <Text style={styles.prefLabel}>{t(`settings.pref.${row.id}`)}</Text>
                 <Switch
-                  value={Boolean(row.channels.desktop)}
+                  value={Boolean(row.channels.push)}
                   onValueChange={(next) => void togglePref(row.id, next)}
                   disabled={saving}
                   trackColor={{ false: colors.border, true: colors.accent }}

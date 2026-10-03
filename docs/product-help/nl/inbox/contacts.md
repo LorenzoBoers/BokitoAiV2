@@ -9,7 +9,7 @@ related: communication,channels,widget
 
 # Zo werken Contacten
 
-Iedereen die binnenkomt landt hier. Open Contacten om iemand te herkennen, of open hen vanuit een gesprek zodat je de conversatie niet verlaat.
+Iedereen die binnenkomt met een echte naam of adres landt hier. Open Contacten om iemand te herkennen, of open hen vanuit een gesprek zodat je de conversatie niet verlaat.
 
 ## Open een contact vanuit een gesprek
 
@@ -17,10 +17,23 @@ Iedereen die binnenkomt landt hier. Open Contacten om iemand te herkennen, of op
 *Iedereen die binnenkomt landt hier.*
 
 1. Open een gesprek in [Communicatie](/docs/inbox/communication).
-2. Klik de contactnaam in het contextpaneel.
+2. Bij een bekende persoon kies je **Profiel** in het zijpaneel, of klik je hun naam in de gespreksheader.
 3. Lees geschiedenis, laatst gezien en andere gesprekken, en spring terug naar het open werk. De lijst omvat alle kanalen: iemand die op de website chat en ook mailt vanaf hetzelfde adres toont één gecombineerde geschiedenis, elke rij met een kanaalicoon.
 
-Websitebezoekers zonder naam tonen als **Websitebezoeker** tot ze het [vooraf-formulier](/docs/inbox/widget) van de widget invullen.
+Onbekende websitebezoekers blijven in het gesprek als **Websitebezoeker**. Ze hebben geen **Profiel** en staan niet onder Contacten tot ze het [vooraf-formulier](/docs/inbox/widget) van de widget invullen of je [het gesprek koppelt](#een-gesprek-aan-een-contact-koppelen).
+
+## Een gesprek aan een contact koppelen
+
+![Koppelformulier in het contactpaneel](/api/docs/assets/contacts/link-conversation.png)
+*Koppel een onbekende chatter via e-mail of telefoonnummer.*
+
+1. Open een websitechat of WhatsApp-gesprek met een onbekende persoon en kies **+ Contact** in het contactpaneel.
+2. Typ hun e-mailadres of telefoonnummer, eventueel een naam, en kies **Koppelen**. Hoort het adres bij een contact, dan sluit het gesprek bij die persoon aan; anders maakt Bokito het contact aan. Passen meerdere contacten, dan kies je de juiste uit de lijst.
+3. De bezoeker blijft een identiteit van de persoon: eerdere chats gaan mee, en de contactpagina toont die onder **Ook bereikbaar via**. Er wordt niets overschreven. Een eigenaar of beheerder kiest daar **Losmaken** om een identiteit weer een apart contact te maken.
+4. Een gesprek dat via een onbevestigd adres is gekoppeld toont **Geclaimd**; nadat de bezoeker een e-maillink bevestigt toont het **Bevestigd**. Persoonlijke gegevens zoals facturen blijven achter **Bevestigd**.
+5. Kies **Ontkoppelen** om een verkeerde koppeling ongedaan te maken. Had de AI gekoppeld, dan legt Bokito de correctie vast zodat het leert.
+
+De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppelt alleen bevestigde adressen en vraagt je voor de rest met een beslissingskaart; **Autonoom** koppelt ook geclaimde adressen en maakt nieuwe contacten aan; **Handmatig** laat het aan jou. Twee bekende contacten samenvoegen vraagt altijd een eigenaar of beheerder. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
 
 ## Voeg iemand toe of start mail
 
@@ -46,8 +59,8 @@ Websitebezoekers zonder naam tonen als **Websitebezoeker** tot ze het [vooraf-fo
 *Een contact kan het kanaal volgen of een eigen modus hebben.*
 
 1. Open het contact onder Contacten, of open het zijpaneel in een gesprek met die persoon.
-2. Zoek **AI-afhandeling** onder de contactgegevens. Daar staat de huidige modus en wat die volgt, bijvoorbeeld **Volgt het kanaal**.
-3. Kies **Autonoom**, **Geassisteerd** of **Handmatig** om dat toe te passen op elk gesprek met deze persoon. Kies **Volg het kanaal** om het weer weg te halen.
+2. Zoek **AI-afhandeling** onder de contactgegevens. Daar staat de huidige modus. Open het menu om te zien wat die volgt: de overgenomen modus draagt een badge zoals **Kanaalstandaard**.
+3. Kies **Autonoom**, **Geassisteerd** of **Handmatig** om dat toe te passen op elk gesprek met deze persoon. Kies de modus met **Kanaalstandaard** om het weer weg te halen.
 4. Filter op Contacten met het menu **Elke AI-afhandeling** om contacten met **Eigen AI-afhandeling** of een specifieke modus te vinden. Rijen met een eigen modus tonen het icoon.
 
 Een enkel gesprek kan nog steeds afwijken van het contact. Zie [AI-afhandeling](/docs/inbox/inbox-ai).

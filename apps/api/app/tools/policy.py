@@ -5,9 +5,12 @@ Resolution layers (later layers refine earlier ones):
 
 1. Tenant posture preset -> per-category defaults
 2. Tenant per-category slider overrides (``tool_allowances`` in settings)
-3. Agent passport (``autonomy_level``: manual caps at ask, auto lifts ask to allow)
-4. Explicit per-tool overrides (``tool_overrides`` — "always auto" approvals)
-5. Session trust clamp (external/widget callers can never auto-mutate)
+3. Agent ceiling (``autonomy_level``: manual caps at ask, autonomous lifts ask to allow)
+4. Explicit per-tool overrides (``tool_overrides`` pinned in Govern)
+5. Exception rules bound to a tool or category (``app.services.agent_rules``)
+6. Session trust clamp (external/widget callers can never auto-mutate)
+
+The executor then weighs the agent's ``certainty`` and cited judgement rule.
 
 Replaces the legacy ActionPolicy/whitelist + apply-modes layering.
 """
@@ -181,13 +184,15 @@ async def resolve_tool_mode(
     mode: str = tenant_allowances(tenant).get(spec.category, "ask")
     reason = f"category:{spec.category}"
 
-    # Agent passport refines the tenant slider.
+    # The agent's ceiling refines the tenant slider.
     if agent is not None:
-        level = getattr(agent, "autonomy_level", "approval")
+        from app.services.agent_rules import normalize_autonomy
+
+        level = normalize_autonomy(getattr(agent, "autonomy_level", "assisted"))
         if level == "manual" and mode == "allow":
             mode, reason = "ask", "agent_manual"
-        elif level == "auto" and mode == "ask":
-            mode, reason = "allow", "agent_auto"
+        elif level == "autonomous" and mode == "ask":
+            mode, reason = "allow", "agent_autonomous"
 
     # Explicit per-tool override wins over slider + passport.
     # MCP Always-allow keys are ``mcp:{server}:{tool}``; fall back to the
@@ -202,6 +207,14 @@ async def resolve_tool_mode(
         override = overrides.get(spec.name)
     if override:
         mode, reason = override, "tool_override"
+
+    # Exception rules (workspace and agent) bound to this tool or its category.
+    # The strictest matching rule wins; deny from the slider stays deny.
+    from app.services.agent_rules import all_rules, matching_hard_rules, mode_to_allowance, strictest
+
+    hard = strictest(matching_hard_rules(all_rules(tenant, agent), spec.name, spec.category))
+    if hard is not None and mode != "deny":
+        mode, reason = mode_to_allowance(hard["mode"]), f"rule:{hard['id']}"
 
     # Sending to an external party is additionally governed by the Signal
     # Type attached to the thread. No type, or draft mode, safely asks.

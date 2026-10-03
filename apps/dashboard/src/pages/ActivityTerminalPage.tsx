@@ -22,7 +22,7 @@ import { bokitoGetCockpitActivity, type CockpitActivityEvent } from '../lib/boki
 import { bokitoListChatTargets, type ChatTarget } from '../lib/signals-api'
 import { activityEventMessage, activityEventTypeLabel } from '../lib/activity-labels'
 import { activityDayBucket } from '../lib/activity-day'
-import { agentRunsPath } from '../lib/messages-paths'
+import { inboxPath } from '../lib/messages-paths'
 import { threadHubPath } from '../lib/message-composer'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { formatAppDate } from '../lib/app-locale'
@@ -270,7 +270,7 @@ export default function ActivityTerminalPage() {
         navigate(
           entry.kind === 'audit'
             ? threadHubPath({ id: entry.signalId, channel: 'email' })
-            : agentRunsPath('all', entry.signalId),
+            : inboxPath('all', entry.signalId),
         )
         return
       }

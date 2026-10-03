@@ -27,7 +27,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { PINNED_TABS, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
-import { activityTerminalPath, agentChatPath, decisionsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
+import { activityTerminalPath, agentChatPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
 import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
@@ -181,7 +181,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       [
         { id: 'inbox-all', queue: 'all' as const, labelKey: 'support.inbox.all' },
         { id: 'inbox-open', queue: 'open' as const, labelKey: 'support.inbox.open', hintKey: 'palette.inboxOpenHint' },
-        { id: 'inbox-mine', queue: 'mine' as const, labelKey: 'support.inbox.mine' },
+        { id: 'inbox-for-you', queue: 'for_you' as const, labelKey: 'support.inbox.forYou', hintKey: 'palette.forYouHint' },
         { id: 'inbox-unassigned', queue: 'unassigned' as const, labelKey: 'support.inbox.unassigned' },
         { id: 'inbox-snoozed', queue: 'snoozed' as const, labelKey: 'support.inbox.snoozed' },
         { id: 'inbox-closed', queue: 'closed' as const, labelKey: 'support.inbox.closed' },
@@ -196,15 +196,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       run: () => navigate(inboxPath(item.queue)),
     })).concat([
       {
-        // "You": open decisions and customer replies that wait on a person.
-        id: 'inbox-your-turn',
-        label: t('support.decisions.label'),
-        hint: t('palette.decisionsHint'),
-        group: t('palette.groupInbox'),
-        icon: Inbox,
-        run: () => navigate(decisionsPath()),
-      },
-      {
         id: 'inbox-new-chat',
         label: t('support.newChat'),
         group: t('palette.groupInbox'),
@@ -212,8 +203,8 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => navigate(newConversationPath()),
       },
       {
-        id: 'inbox-agent-runs',
-        label: t('palette.agentRuns'),
+        id: 'inbox-activity',
+        label: t('palette.activity'),
         group: t('palette.groupInbox'),
         icon: Bot,
         run: () => navigate(activityTerminalPath()),
@@ -258,7 +249,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.inviteTeammate'),
         group: t('palette.groupActions'),
         icon: UserPlus,
-        run: () => navigate('/settings/members#member-invite'),
+        run: () => navigate('/team#member-invite'),
       },
       {
         id: 'action-profile',

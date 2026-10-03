@@ -670,6 +670,18 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
       name: name ?? t('timeline.events.userFallback', { id: String(p.assignee_id ?? '') }),
     }),
   unassigned: (t) => t('timeline.events.unassigned'),
+  picked_up: (t, p, name) => {
+    const who = name ?? t('timeline.events.someone')
+    const team =
+      p.team_kind === 'people'
+        ? t('nav:teamPage.system.people')
+        : typeof p.team_name === 'string'
+          ? p.team_name
+          : ''
+    return team
+      ? t('timeline.events.pickedUpVia', { name: who, team })
+      : t('timeline.events.pickedUp', { name: who })
+  },
   status_changed: (t, p) => t('timeline.events.statusChanged', { status: String(p.to_status ?? '') }),
   tag_added: (t, p) =>
     t('timeline.events.labelAdded', {

@@ -11,7 +11,7 @@ related: communication,contacts,channels,govern,autonomy,agents
 
 AI handling is one setting with three modes: **Autonomous** (AI answers on its own), **Assisted** (AI drafts replies and suggests actions, a person sends) and **Manual** (AI stays quiet). You set it once for the workspace and only set it again where a channel, a contact or a single conversation should differ — the most specific setting wins.
 
-The same icons appear everywhere: a lightning bolt for Autonomous and a pen for Assisted (both purple), and a hand for Manual (gray). [Govern](/docs/govern/govern) sets the ceiling: nothing below it can be more autonomous than Govern allows.
+The same icons appear everywhere: a lightning bolt for Autonomous and a pen for Assisted (both purple), and a hand for Manual (gray). [Govern](/docs/govern/govern) sets the ceiling: nothing below it can be more autonomous than Govern allows. Each agent has its own ceiling too (see [Agents](/docs/ai/agents)): a conversation the agent handles never runs above it, and the picker says so.
 
 ## Set the workspace default
 
@@ -60,6 +60,8 @@ The timeline shows a line such as **Drafted instead of sent** with the reason wh
 - The mailbox still needs setup or reconnect. The thread gets an **Internal note** pointing to **Settings → Channels** instead of a draft.
 
 Hover the mode in the conversation header to see which layer decided and why.
+
+The same mode decides who an unknown chatter is. When a visitor gives an email or phone number, **Autonomous** links the conversation to the matching contact (or creates one), **Assisted** links only verified addresses and asks you for the rest, and **Manual** leaves linking to you. See [Link a conversation to a contact](/docs/inbox/contacts).
 
 ## What to do next
 

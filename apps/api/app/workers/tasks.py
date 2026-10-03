@@ -229,6 +229,11 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         agent = await resolve_agent_for_signal(session, signal)
         if not agent:
             return {"skipped": True, "reason": "no agent"}
+        agent_handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal, agent=agent)
+        if agent_handling.effective == "manual":
+            return {"skipped": True, "reason": "agent_manual"}
+        if agent_handling.effective == "assisted":
+            run_mode = "assisted"
 
         run = AgentRun(
             tenant_id=UUID(tenant_id),

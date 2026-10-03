@@ -33,7 +33,7 @@ from app.models.usage import UsageLedger
 
 logger = logging.getLogger(__name__)
 
-# Category id; row lives in inbox_settings.DEFAULT_NOTIFICATION_ROWS.
+# System notice category; follows the tier switches.
 BILLING_ALERTS = "billing-alerts"
 
 # Conservative defaults that protect platform keys out of the box.
@@ -228,6 +228,9 @@ async def check_and_send_spend_alerts(session: AsyncSession, tenant_id: UUID) ->
                     title=title,
                     body=body,
                     cooldown_minutes=cooldown,
+                    # The breaker stops AI work: that interrupts; a warning waits.
+                    tier=1 if threshold >= 1.0 else 2,
+                    critical=threshold >= 1.0,
                 )
                 sent += delivered
                 # Piggyback the notification cooldown for webhook dedupe: only

@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Link2, MailPlus, Search, Send, Trash2 } from 'lucide-react'
 import { UserAvatar } from '../components/ui/UserAvatar'
+import { PresenceDot } from '../components/ui/PresenceDot'
+import type { PresenceStatus } from '../lib/teams-api'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { appRoutes } from '../api/routes/app.routes'
@@ -15,7 +17,6 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
-import { PageContent } from '../components/layout/PageContent'
 import {
   Select,
   SelectContent,
@@ -105,7 +106,15 @@ function mapInviteRow(item: unknown, unknownLabel: string): Invite | null {
   }
 }
 
-export default function MemberManagement() {
+export type MemberMeta = { presence: PresenceStatus; teams: string[]; openOwned: number; openTurn: number }
+
+/** People tab of the Team page: members, invites and roles. */
+export default function MemberManagement({
+  metaByUuid,
+}: {
+  /** Availability, teams and workload per user UUID. */
+  metaByUuid?: Record<string, MemberMeta>
+} = {}) {
   const { t, i18n } = useTranslation('nav')
   const { user, token, hasPermission } = useAuth()
   const { currentWorkspace, workspaceLoading } = useWorkspace()
@@ -378,7 +387,7 @@ export default function MemberManagement() {
   ]
 
   return (
-    <PageContent width="xl" className="space-y-5">
+    <div className="space-y-5">
       <p className="text-sm text-text-secondary">
         {t('membersPage.body')}
       </p>
@@ -570,14 +579,27 @@ export default function MemberManagement() {
                 if (row.kind === 'member') {
                   const m = row.data
                   const busy = rowBusyId === m.id
+                  const meta = m.uuid ? metaByUuid?.[m.uuid] : undefined
                   return (
                     <TableRow key={`m-${m.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={26} />
                           <span>{m.name}</span>
+                          {meta ? <PresenceDot status={meta.presence} /> : null}
                           {m.isCurrentUser ? <Badge variant="secondary">{t('membersPage.you')}</Badge> : null}
                         </div>
+                        {meta ? (
+                          <p className="mt-0.5 pl-[34px] text-xs text-text-muted">
+                            {[
+                              meta.teams.join(', '),
+                              t('teamPage.openCount', { count: meta.openOwned }),
+                              meta.openTurn ? t('teamPage.turnCount', { count: meta.openTurn }) : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        ) : null}
                       </TableCell>
                       <TableCell className="text-text-secondary">{m.email || '-'}</TableCell>
                       <TableCell>
@@ -680,6 +702,6 @@ export default function MemberManagement() {
           </TableBody>
         </Table>
       </Card>
-    </PageContent>
+    </div>
   )
 }

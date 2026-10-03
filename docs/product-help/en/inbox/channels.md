@@ -1,20 +1,20 @@
 ---
 title: Connect channels
 intro: Bring customer mail and other inboxes into Communication.
-description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, and read each channel's state and checks.
-keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature
+description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and pause or remove a channel.
+keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, pause channel
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Channels** (the top bar may still say **Email & messages**). Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row in the **Channels** list with the same state, capabilities and checks. A new workspace starts with the website chat only, so add an email channel before you expect mail.
+Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its settings: the same **Status**, **General** and **Manage** sections for every channel, plus one section with what only that kind has. A new workspace starts with the website chat only, so add an email channel before you expect mail.
 
 ## Add a channel
 
-![Channel settings with the channel list](/api/docs/assets/channels/mailbox-status.png)
-*Every channel is one row with a state badge, capability chips and its own checks.*
+![Channel settings with an opened channel](/api/docs/assets/channels/mailbox-status.png)
+*Each row shows the AI handling mode and state; the opened row shows Status, General, the kind section and Manage.*
 
 1. Open **Settings**, then **Channels**.
 2. Choose **Add channel**.
@@ -50,14 +50,14 @@ A Bokito address receives and sends; it has no sync, so it shows no folders or l
 2. Choose **Gmail** or **Outlook**.
 3. Pick **How far back should we sync?** (**7**, **30** recommended, **90**, or **1 year**), then **Continue with Gmail** or **Continue with Outlook**.
 4. Sign in at the provider. Bokito runs the first sync before the channel shows as **Active** — success only means install finished.
-5. Back in the list, open the row menu for **Rename**, **Folders**, **Signature**, **Make primary sender**, or **Remove**. Day-to-day sync runs automatically; **Retry sync** appears only when a mailbox has a sync problem.
+5. Back in the list, click the mailbox row. The **Mailbox** section holds **Folders**, **Signature**, **Primary sender**, **History** and **Connection**. Day-to-day sync runs automatically; **Retry sync** appears on the row only when a mailbox has a sync problem.
 
 If the state badge reads **Action needed**, choose **Reconnect** (or fix settings and retry) before you try to send.
 
 ## Rename a channel
 
 1. Open **Channels**.
-2. Open the row menu for the mailbox or Bokito address, then choose **Rename**.
+2. Click the channel row, then choose **Edit** next to **Name** under **General**.
 3. Type a short display name (for example **Support**) and choose **Save name**. Leave the field empty to use the address again.
 4. The name appears in the Channels list, in the Communication sidebar, and on the reply tab when you send from that mailbox.
 
@@ -67,24 +67,29 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 
 Setup, Connections, Channels and the reply composer all use the same channel status. A calendar login alone does not count as a send-ready mailbox — Connections then shows that the agenda is synced while mail is not ready yet.
 
-1. Look at the state badge on the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused** or **Error**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
-2. When any channel still needs setup, a yellow notice appears above the list. Channels in **Setup required**, **Action needed** or **Error** open their **Checks** panel automatically.
-3. The chips next to the badge show what the channel can do: **Receive**, **Send**, **Sync**. Day-to-day sync runs automatically; **Retry sync** appears only when a mailbox has a sync problem.
-4. Click the arrow at the start of the row to open **Checks**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
-5. For a mailbox, **History** in the same panel is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
-6. Use the toggle to pause a channel. A paused channel keeps its history but receives nothing new.
+1. Look at the state on the right of the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused** or **Error**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
+2. When a channel needs a human, the row shows one repair button next to the state: **Reconnect**, **Retry sync** or **Resume**. A yellow notice above the list counts channels that still need setup, and the first of them opens automatically.
+3. Click the row and read **Status**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
+4. For a mailbox, **History** in the **Mailbox** section is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
+
+## Pause or remove a channel
+
+1. Click the channel row and scroll to **Manage**.
+2. Choose **Pause** next to **Pause channel**. A paused channel receives and sends nothing new; conversations and settings stay. A paused mailbox also stops being the primary sender.
+3. The row then reads **Paused** with a **Resume** button. Choose **Resume** to receive and send again.
+4. Choose **Remove** next to **Remove channel** to disconnect it for good. Existing conversations stay in Communication. The website chat can be paused but not removed.
 
 In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked. The setup guide marks the channel step done only when a mailbox can send or receive.
 
 ## Set a signature and default agent
 
-1. Open the row menu of a mailbox, then **Signature**. Outbound mail from that mailbox appends it. After send, Communication shows that same signature in the thread bubble (what the customer received).
-2. Use the **Agent** column on the row to send a channel's new conversations to a specific agent. Without a channel binding, the workspace default agent handles new threads.
-3. Set one email channel as **Primary** if you have several. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
+1. Click a mailbox or Bokito address row, then choose **Edit** next to **Signature**. Outbound mail from that address appends it. After send, Communication shows that same signature in the thread bubble (what the customer received).
+2. Under **General**, pick an **Agent** to send a channel's new conversations to a specific agent. Without one, the workspace default agent handles new threads. **Visibility** in the same section sets which teammates see the channel.
+3. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
 ## Set AI handling per channel
 
-1. On the channel row, open the **AI handling** menu next to the status. It shows the mode and **Follows the workspace default** when the channel has no own setting.
+1. The row shows the channel's current mode (**Autonomous**, **Assisted** or **Manual**) with its icon. Click the row and open **AI handling** under **General**. The mode marked **Company default** is what the channel follows when it has no own setting; choose it to clear an override.
 2. Pick **Autonomous**, **Assisted** or **Manual** for every conversation on this channel. Choose **Follow the workspace default** to remove it. Only an owner or admin can turn on Autonomous.
 3. A **Paused** badge means the circuit breaker tripped after unusual activity and the channel runs Assisted. Choose **Resume autonomous** or **Keep assisted** from the same menu.
 
@@ -95,7 +100,7 @@ Contacts and single conversations can still differ from the channel. See [AI han
 1. Choose **Add channel**, then **WhatsApp Business**. Marketplace cards for the app also send you here.
 2. WhatsApp is a guided setup: **Prepare in Meta** (app, number, Phone number ID, permanent System User token), then **Paste in Bokito** (display name, Phone number ID, optional WABA ID, access token) and **Connect number**. The Phone number ID is a long number from Meta → WhatsApp → API Setup — not your phone number.
 3. After connecting, Bokito shows **Webhook URL** and **Verify token**. Paste those in Meta under WhatsApp → Configuration, subscribe to **messages**, and send a test message. Temporary Meta tokens expire after 24 hours.
-4. Website chat is the [Chat widget](/docs/inbox/widget); its row opens the widget settings. After you connect, these channels appear in the Communication sidebar.
+4. Website chat is the [Chat widget](/docs/inbox/widget); its **Website chat** section links to **Look and texts**, **Office hours** and **Installation**. After you connect, these channels appear in the Communication sidebar.
 
 ## Save replies the team can reuse
 
@@ -106,7 +111,7 @@ Contacts and single conversations can still differ from the channel. See [AI han
 ## Choose default sub-views
 
 1. Scroll to **Folders** on the same page.
-2. Every channel and agent folder in Communication has the same sub-views: **Open**, **Mine**, **Unassigned** and **Closed**. Sub-views appear only after you click the folder. Pick the **Default sub-view** a folder opens on, and override it per channel or assistant below.
+2. Every channel and agent folder in Communication has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Sub-views appear only after you click the folder. Pick the **Default sub-view** a folder opens on, and override it per channel or assistant below.
 3. Classifying conversations no longer happens with tags here: manage Signal Types under **Settings**, and review the signals under **This conversation** in Communication. See [How Signals work](/docs/ai/cases).
 
 ## What to do next

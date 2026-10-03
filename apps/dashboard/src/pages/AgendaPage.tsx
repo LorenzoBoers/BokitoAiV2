@@ -33,7 +33,7 @@ import { formatAppDate, formatAppTime } from '../lib/app-locale'
 import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda-week'
 import { isTypingTarget } from '../hooks/useInboxListShortcuts'
 import { Input } from '../components/ui/input'
-import { agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { inboxPath } from '../lib/messages-paths'
 import { resolveAgendaAgentId, resolveAgendaAgentName, humanizeAgendaActorName } from '../lib/agenda-label'
 import { pickClosestThreadBySubject, triggerThreadPath } from '../lib/agenda-thread'
 import { translateDecisionText } from '../lib/activity-labels'
@@ -477,7 +477,7 @@ export default function AgendaPage() {
           if (match) {
             if (match.folder === 'internal' || match.channel === 'internal') {
               const queue = item.status === 'completed' ? 'results' : 'all'
-              navigate(agentRunsPath(queue, String(match.id)))
+              navigate(inboxPath('all', String(match.id)))
             } else {
               navigate(inboxPath(match.status === 'pending' ? 'snoozed' : 'open', String(match.id)))
             }

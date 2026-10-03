@@ -62,6 +62,11 @@ class User(SQLModel, table=True):
     # Workspace the user was last active in; login/refresh scope the JWT to
     # this tenant so the session survives workspace switches.
     last_tenant_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tenants.id")
+    # Availability (services/presence.py): last gateway activity plus a manual
+    # away status that may expire.
+    last_seen_at: Optional[datetime] = None
+    away: bool = False
+    away_until: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

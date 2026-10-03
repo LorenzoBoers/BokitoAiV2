@@ -71,6 +71,8 @@ class AgentUpdateBody(BaseModel):
     avatar_icon: str | None = None
     avatar_color: str | None = None
     avatar_image_url: str | None = None
+    # Who the agent asks: {"kind": "auto"} or {"kind": "user" | "team", "id": ...}.
+    ask_target: dict[str, Any] | None = None
 
 
 class TriggerAgentBody(BaseModel):
@@ -334,6 +336,7 @@ async def update_agent(
         avatar_icon=body.avatar_icon,
         avatar_color=body.avatar_color,
         avatar_image_url=body.avatar_image_url,
+        ask_target=body.ask_target,
     )
     from app.services.audit import record_audit
 
@@ -349,9 +352,139 @@ async def update_agent(
             "name": body.name,
             "purpose_changed": body.purpose is not None or body.system_prompt is not None,
             "audience": body.audience,
+            "ask_target": body.ask_target,
         },
     )
     return result
+
+
+class AgentRulesOut(BaseModel):
+    autonomy_level: str
+    rules: list[dict[str, Any]]
+    workspace_rules: list[dict[str, Any]]
+
+
+class AgentRulesBody(BaseModel):
+    autonomy_level: str | None = None  # manual | assisted | autonomous
+    rules: list[dict[str, Any]] | None = None
+
+
+class AgentRuleTestBody(BaseModel):
+    tool: str
+    certainty: int | None = None
+    rule_id: str = ""
+
+
+class AgentRuleTestOut(BaseModel):
+    tool: str
+    mode: str
+    reason: str
+    outcome: str  # runs | asks | refused
+    rule: dict[str, Any] | None = None
+
+
+async def _tenant_agent(session: AsyncSession, auth: AuthContext, agent_id: UUID):
+    from app.models.agent import Agent
+    from app.models.auth import Tenant
+
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return await session.get(Tenant, auth.tenant.id), agent
+
+
+@router.get("/agents/{agent_id}/rules", response_model=AgentRulesOut)
+async def get_agent_rules(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """The agent's autonomy ceiling, its own exception rules, and the workspace rules it also follows."""
+    from app.services.agent_rules import agent_rules, normalize_autonomy, workspace_rules
+
+    tenant, agent = await _tenant_agent(session, auth, agent_id)
+    return {
+        "autonomy_level": normalize_autonomy(agent.autonomy_level),
+        "rules": agent_rules(agent),
+        "workspace_rules": workspace_rules(tenant),
+    }
+
+
+@router.put("/agents/{agent_id}/rules", response_model=AgentRulesOut)
+async def put_agent_rules(
+    agent_id: UUID,
+    body: AgentRulesBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Set the ceiling and/or replace the agent's rules.
+
+    Raising the ceiling or a rule to Autonomous needs an owner or admin.
+    """
+    from datetime import datetime
+
+    from app.services.agent_rules import (
+        ADMIN_ROLES,
+        AUTONOMY_MODES,
+        agent_rules,
+        normalize_autonomy,
+        set_rules,
+        workspace_rules,
+    )
+    from app.services.audit import record_audit
+
+    tenant, agent = await _tenant_agent(session, auth, agent_id)
+    before = {"autonomy_level": agent.autonomy_level, "rules": agent_rules(agent)}
+    if body.autonomy_level is not None:
+        if body.autonomy_level not in AUTONOMY_MODES:
+            raise HTTPException(status_code=422, detail="Autonomy is manual, assisted or autonomous")
+        if (
+            body.autonomy_level == "autonomous"
+            and normalize_autonomy(agent.autonomy_level) != "autonomous"
+            and auth.role not in ADMIN_ROLES
+        ):
+            raise HTTPException(status_code=403, detail="Only owners and admins can let an agent act on its own")
+        agent.autonomy_level = body.autonomy_level
+    if body.rules is not None:
+        await set_rules(session, tenant, agent, body.rules, role=auth.role, user_id=auth.user.id)
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent:rules_updated",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="agent",
+        resource_id=str(agent.id),
+        outcome="applied",
+        summary=f"Autonomy and rules for {agent.name} updated",
+        before=before,
+        after={"autonomy_level": agent.autonomy_level, "rules": agent_rules(agent)},
+        commit=False,
+    )
+    await session.commit()
+    return {
+        "autonomy_level": normalize_autonomy(agent.autonomy_level),
+        "rules": agent_rules(agent),
+        "workspace_rules": workspace_rules(tenant),
+    }
+
+
+@router.post("/agents/{agent_id}/rules/test", response_model=AgentRuleTestOut)
+async def test_agent_rules(
+    agent_id: UUID,
+    body: AgentRuleTestBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Try out: would this agent run the action, ask first, or refuse it, and which rule decides."""
+    from app.services.agent_rules import dry_run
+
+    tenant, agent = await _tenant_agent(session, auth, agent_id)
+    return await dry_run(
+        session, tenant, agent, tool=body.tool, certainty=body.certainty, rule_id=body.rule_id
+    )
 
 
 @router.delete("/agents/{agent_id}")

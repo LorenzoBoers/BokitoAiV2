@@ -260,6 +260,7 @@ export async function bokitoUpdateAgent(
     email_signature_html?: string
     email_signature_text?: string
     reply_send_as?: 'user' | 'agent'
+    ask_target?: { kind: 'auto' | 'user' | 'team'; id?: string | null }
     avatar_kind?: string | null
     avatar_icon?: string | null
     avatar_color?: string | null

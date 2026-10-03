@@ -1,8 +1,7 @@
 export const CUSTOMER_VIEWS = [
+  'for_you',
   'all_open',
-  'mine',
   'unassigned',
-  'awaiting_decision',
   'pinned',
   'snoozed',
   'closed',
@@ -12,8 +11,8 @@ export const CUSTOMER_VIEWS = [
 export const TEAM_VIEWS = ['all_open', 'updates', 'results', 'awaiting_decision', 'closed'] as const
 
 export const ALL_FOLDER_VIEWS = [
+  'for_you',
   'all_open',
-  'mine',
   'unassigned',
   'awaiting_decision',
   'updates',

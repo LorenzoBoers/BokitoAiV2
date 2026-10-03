@@ -1,5 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select'
 import { AgentOptionRow, type AgentVisualFields } from './AgentOptionRow'
+import { DefaultBadge } from './DefaultBadge'
 import { cn } from '../../lib/utils'
 
 type Props = {
@@ -11,8 +12,17 @@ type Props = {
   className?: string
   triggerClassName?: string
   /** Optional first empty option (e.g. lead default). Value is passed through as-is. */
-  emptyOption?: { value: string; label: string }
+  emptyOption?: { value: string; label: string; badge?: string }
   'aria-label'?: string
+}
+
+function EmptyOptionLabel({ label, badge }: { label: string; badge?: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className="truncate-fade text-sm text-text-secondary">{label}</span>
+      {badge ? <DefaultBadge>{badge}</DefaultBadge> : null}
+    </span>
+  )
 }
 
 /** Agent picker with avatar/color; use wherever an agent is chosen. */
@@ -44,14 +54,16 @@ export function AgentSelect({
         {selected ? (
           <AgentOptionRow agent={selected} size={18} />
         ) : emptyOption && (!value || value === emptyOption.value) ? (
-          <span className="truncate-fade text-sm text-text-secondary">{emptyOption.label}</span>
+          <EmptyOptionLabel label={emptyOption.label} badge={emptyOption.badge} />
         ) : (
           <SelectValue placeholder={placeholder} />
         )}
       </SelectTrigger>
       <SelectContent className={cn('min-w-[14rem]', className)}>
         {emptyOption ? (
-          <SelectItem value={emptyOption.value}>{emptyOption.label}</SelectItem>
+          <SelectItem value={emptyOption.value} textValue={emptyOption.label}>
+            <EmptyOptionLabel label={emptyOption.label} badge={emptyOption.badge} />
+          </SelectItem>
         ) : null}
         {agents.map((agent) => (
           <SelectItem key={agent.id} value={agent.id} textValue={agent.name}>

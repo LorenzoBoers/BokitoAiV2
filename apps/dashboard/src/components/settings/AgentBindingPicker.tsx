@@ -91,9 +91,8 @@ export default function AgentBindingPicker({
   )
   const leadName = agents.find((a) => a.isLead)?.name ?? ''
   const defaultName = frontDesk?.name || leadName
-  const defaultLabel = defaultName
-    ? t('bindingPicker.leadDefaultNamed', { name: defaultName })
-    : t('bindingPicker.leadDefault')
+  const defaultLabel = defaultName || t('bindingPicker.leadDefault')
+  const defaultBadge = defaultName ? t('bindingPicker.defaultBadge') : undefined
 
   const currentAgentId = account?.defaultAgentId ?? ''
   // Bound-to-Front-desk looks like the empty default so the picker stays clear.
@@ -144,7 +143,7 @@ export default function AgentBindingPicker({
       value={selectValue}
       disabled={!isAdmin || busy || loading || !account || !token}
       onValueChange={(v) => void persist(v)}
-      emptyOption={{ value: '__empty__', label: defaultLabel }}
+      emptyOption={{ value: '__empty__', label: defaultLabel, badge: defaultBadge }}
       aria-label={ariaLabel ?? t('bindingPicker.ariaLabel')}
       triggerClassName={
         className ??

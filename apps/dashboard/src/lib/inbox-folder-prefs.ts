@@ -1,14 +1,14 @@
 /**
- * Default sub-view (Open / Mine / Unassigned / Closed) for channel and agent
- * folders in the Communication sidebar.
+ * Default sub-view (For you / Open / Unassigned / Closed) for All communication
+ * and pinned team folders in the Communication sidebar.
  *
  * Stored per user in `/me/preferences` under `inbox_folders`, so the choice
  * roams across devices:
  *
  * ```json
  * {
- *   "default_queue": "open",
- *   "channel_defaults": { "channel:email:12": "mine" }
+ *   "default_queue": "for_you",
+ *   "channel_defaults": { "team:<uuid>": "open" }
  * }
  * ```
  *
@@ -27,7 +27,7 @@ export type InboxFolderPrefs = {
 }
 
 export const DEFAULT_INBOX_FOLDER_PREFS: InboxFolderPrefs = {
-  defaultQueue: 'open',
+  defaultQueue: 'for_you',
   channelDefaults: {},
 }
 
@@ -36,12 +36,8 @@ export function folderScopeKey(leaf: HubLeaf): string {
   switch (leaf.type) {
     case 'inbox':
       return 'inbox'
-    case 'channel':
-      return `channel:${leaf.channelKey}:${leaf.connectionId ?? ''}`
-    case 'agent':
-      return `agent:${leaf.agentId}`
-    default:
-      return leaf.type
+    case 'team':
+      return `team:${leaf.teamId}`
   }
 }
 
@@ -59,7 +55,7 @@ export function parseInboxFolderPrefs(raw: unknown): InboxFolderPrefs {
     channel_defaults?: unknown
   }
   const defaultQueue =
-    typeof data.default_queue === 'string' && isSubQueue(data.default_queue) ? data.default_queue : 'open'
+    typeof data.default_queue === 'string' && isSubQueue(data.default_queue) ? data.default_queue : 'for_you'
   const channelDefaults: Record<string, SubQueue> = {}
   if (data.channel_defaults && typeof data.channel_defaults === 'object') {
     for (const [key, value] of Object.entries(data.channel_defaults as Record<string, unknown>)) {

@@ -45,7 +45,7 @@ export default function InboxScreen() {
   const [folder, setFolder] = useState('external')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [view, setView] = useState<InboxViewId>(() =>
-    coerceInboxView('external', String(params.view || 'all_open')),
+    coerceInboxView('external', String(params.view || 'for_you')),
   )
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export default function InboxScreen() {
 
   const viewLabel = (id: InboxViewId) => {
     if (id === 'all_open') return t('inbox.open')
-    if (id === 'mine') return t('inbox.mine')
+    if (id === 'for_you') return t('inbox.forYou')
     if (id === 'unassigned') return t('inbox.unassigned')
     if (id === 'closed') return t('inbox.closed')
     if (id === 'snoozed') return t('inbox.snoozed')
@@ -96,13 +96,14 @@ export default function InboxScreen() {
     if (id === view) return data?.pages[0]?.itemsTotal ?? 0
     if (id === 'awaiting_decision') return badges?.agents_attention ?? 0
     if (folder === 'internal') return 0
-    if (id === 'mine') return badges?.inbox_by_queue.my ?? 0
+    if (id === 'for_you') return badges?.inbox_by_queue.for_you ?? 0
     if (id === 'unassigned') return badges?.inbox_by_queue.unassigned ?? 0
     return 0
   }
 
   const emptyTitle = () => {
     if (isError) return t('inbox.error')
+    if (view === 'for_you') return t('inbox.emptyForYou')
     if (view === 'awaiting_decision') return t('inbox.emptyDecisions')
     if (view === 'snoozed') return t('inbox.emptySnoozed')
     if (view === 'spam') return t('inbox.emptySpam')
@@ -116,6 +117,7 @@ export default function InboxScreen() {
 
   const emptyBody = () => {
     if (isError) return undefined
+    if (view === 'for_you') return t('inbox.emptyForYouHint')
     if (view === 'awaiting_decision') return t('inbox.emptyDecisionsHint')
     if (view === 'snoozed') return t('inbox.emptySnoozedHint')
     if (view === 'updates') return t('inbox.emptyUpdatesHint')

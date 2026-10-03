@@ -28,3 +28,6 @@ Hosts from `apps/api/app/data/mcp_remote_catalog.json` that are not listed below
 | `logo-moneybird.png` | Favicon mark from moneybird.nl (Google favicon CDN) |
 | `logo-exact.png` | Exact apple-touch icon from exact.com |
 | `logo-snelstart.png` | Favicon mark from snelstart.nl |
+| `logo-cursor.svg`, `logo-claude.svg`, `logo-windsurf.svg`, `logo-copilot.svg` | Simple Icons (`cdn.simpleicons.org/cursor`, `claude`, `windsurf`, `githubcopilot`); `-dark` variants are the `/white` color |
+| `logo-vscode.svg` | Visual Studio Code icon ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Visual_Studio_Code_1.35_icon.svg)) |
+| `logo-openai.svg` | ChatGPT / OpenAI mark ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:ChatGPT_logo.svg)); used for Codex and ChatGPT |

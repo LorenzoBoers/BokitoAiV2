@@ -315,6 +315,17 @@ async def accept_platform_change(
         raise HTTPException(status_code=404, detail="Change not found")
     if change.status not in ("draft", "pending_review"):
         raise HTTPException(status_code=400, detail=f"Cannot accept status {change.status}")
+    if change.resource_type == "agent_rule":
+        from app.models.auth import Membership
+        from app.services.agent_rules import check_can_grant, normalize_autonomy
+
+        rule = (json.loads(change.after_json or "{}").get("rule") or {})
+        role = (
+            await session.execute(
+                select(Membership.role).where(Membership.tenant_id == tenant_id, Membership.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+        check_can_grant({"mode": normalize_autonomy(rule.get("mode"))}, None, role)
 
     change.status = "accepted"
     change.version = await _next_version(session, tenant_id, change.resource_type, change.resource_id)

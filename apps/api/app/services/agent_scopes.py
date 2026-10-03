@@ -1,7 +1,8 @@
 """Per-agent resource scopes: the module roster pattern for everything else.
 
 The module ACL (roster + company_ids + can_write) proved the shape; AgentScope
-applies it to projects, knowledge, and channels. Semantics per resource kind:
+applies it to projects and knowledge. Channels use the channel access list
+(``channel_access``) instead. Semantics per resource kind:
 
 - no rows: unrestricted (default open, matching the module pattern)
 - any row: the kind becomes an allowlist of resource ids
@@ -21,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.module_agent import AgentScope
 
-SCOPE_KINDS = ("project", "knowledge", "channel")
+SCOPE_KINDS = ("project", "knowledge")
 
 
 async def list_agent_scopes(

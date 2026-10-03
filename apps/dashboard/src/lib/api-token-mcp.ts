@@ -67,6 +67,52 @@ export function buildClaudeDesktopMcpConfig(token: string, origin = ''): string 
   )
 }
 
+/** Env var the token-mode snippets read, so the token stays out of config files. */
+export const MCP_TOKEN_ENV = 'BOKITO_MCP_TOKEN'
+
+/** Claude Code CLI. Without a token, `/mcp` in Claude Code runs the OAuth sign-in. */
+export function buildClaudeCodeMcpCommand(token: string | null, origin = ''): string {
+  const base = `claude mcp add --transport http --scope user bokito ${mcpEndpointUrl(origin)}`
+  return token ? `${base} --header "Authorization: Bearer ${token}"` : base
+}
+
+/** Codex CLI `~/.codex/config.toml`. OAuth mode signs in with `codex mcp login bokito`. */
+export function buildCodexMcpConfig(useToken: boolean, origin = ''): string {
+  const lines = ['[mcp_servers.bokito]', `url = "${mcpEndpointUrl(origin)}"`]
+  if (useToken) lines.push(`bearer_token_env_var = "${MCP_TOKEN_ENV}"`)
+  return lines.join('\n')
+}
+
+/** VS Code `.vscode/mcp.json`. Token mode prompts once and stores it in VS Code's secret storage. */
+export function buildVsCodeMcpConfig(useToken: boolean, origin = ''): string {
+  const url = mcpEndpointUrl(origin)
+  const config = useToken
+    ? {
+        inputs: [
+          { type: 'promptString', id: 'bokito-token', description: 'Bokito API token', password: true },
+        ],
+        servers: {
+          bokito: { type: 'http', url, headers: { Authorization: 'Bearer ${input:bokito-token}' } },
+        },
+      }
+    : { servers: { bokito: { type: 'http', url } } }
+  return JSON.stringify(config, null, 2)
+}
+
+/** Windsurf `mcp_config.json`. */
+export function buildWindsurfMcpConfig(useToken: boolean, origin = ''): string {
+  const url = mcpEndpointUrl(origin)
+  const server = useToken
+    ? { serverUrl: url, headers: { Authorization: `Bearer \${env:${MCP_TOKEN_ENV}}` } }
+    : { serverUrl: url }
+  return JSON.stringify({ mcpServers: { bokito: server } }, null, 2)
+}
+
+/** Shell line that sets the token env var for Codex and Windsurf. */
+export function buildMcpTokenEnvLine(token: string): string {
+  return `export ${MCP_TOKEN_ENV}="${token}"`
+}
+
 export function buildMcpToolsListCurl(token: string, origin = ''): string {
   const url = mcpEndpointUrl(origin)
   const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })

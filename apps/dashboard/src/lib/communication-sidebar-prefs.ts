@@ -4,22 +4,20 @@
  * Fixed at the top (never customizable): New chat + All communication.
  * Pinned at the bottom: Activity, Contacts, and a single Settings link
  * (the 'settings' section flag only controls the link's visibility).
- * Middle sections (channels, agents) can be reordered, hidden, collapsed.
+ * Middle section: pinned teams (can be hidden or collapsed). Channels and
+ * agents are chips above the list, not sidebar sections.
  *
- * Note: the former 'assistant' section was merged into 'agents'. The former
+ * Note: the former 'agents' and 'channels' sections became chips. The former
  * 'bokito' section (personal helper thread list) was removed — history lives
  * only in the in-app widget. The former 'tags' section was superseded by
  * Cases (`/cases`) as the single intent catalog. Stored prefs that still
  * list those ids are repaired by normalizeSidebarPrefs.
  */
 
-export type SidebarSection = 'agents' | 'channels' | 'settings'
+export type SidebarSection = 'teams' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
-export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
-  'channels',
-  'agents',
-]
+export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = ['teams']
 
 export const ALL_SECTIONS: readonly SidebarSection[] = [...MOVABLE_SECTIONS, 'settings']
 
@@ -32,7 +30,7 @@ export type SidebarPrefs = {
   hidden: SidebarSection[]
   /** Sections that start collapsed (header still visible). */
   collapsed: SidebarSection[]
-  /** Channel/agent folders whose sub-view list is expanded (folder scope keys). */
+  /** Folders whose sub-view list is expanded (folder scope keys). */
   expandedLeaves: string[]
 }
 
@@ -43,8 +41,8 @@ export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   expandedLeaves: [],
 }
 
-// v2: channels-before-agents default order; settings collapsed into one link.
-const STORAGE_KEY = 'communication-sidebar-prefs-v2'
+// v3: channel and agent sections replaced by pinned teams.
+const STORAGE_KEY = 'communication-sidebar-prefs-v3'
 
 function isSection(value: unknown): value is SidebarSection {
   return typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)

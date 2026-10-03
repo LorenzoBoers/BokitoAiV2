@@ -37,6 +37,27 @@ export function decisionSourcePath(source: DecisionSource): string {
   }
 }
 
+/** Who a decision asks, from `payload.decision.addressee`. */
+export type DecisionAddressee = {
+  kind: 'user' | 'team'
+  id: string
+  routedBy: 'auto' | 'fixed' | 'rule' | ''
+}
+
+export function parseDecisionAddressee(raw: unknown): DecisionAddressee | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const kind = row.kind === 'user' || row.kind === 'team' ? row.kind : null
+  const id = kind === 'user' ? row.user_id : kind === 'team' ? row.team_id : null
+  if (!kind || typeof id !== 'string' || !id) return null
+  const routed = row.routed_by
+  return {
+    kind,
+    id,
+    routedBy: routed === 'auto' || routed === 'fixed' || routed === 'rule' ? routed : '',
+  }
+}
+
 /** i18n key for the source label, under `decisionCard.source.*`. */
 export function decisionSourceLabelKey(source: DecisionSource): string {
   return `decisionCard.source.${source.type}`

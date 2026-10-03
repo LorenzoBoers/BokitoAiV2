@@ -161,7 +161,7 @@ def test_resolve_dir_finds_sectioned_articles():
         "rate-limits",
         "agent-runs",
         "inbox-ai",
-        "members",
+        "team",
     }
     article = get_article("channels", "nl")
     assert article is not None

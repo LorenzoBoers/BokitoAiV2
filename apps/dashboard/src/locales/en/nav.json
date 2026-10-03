@@ -65,6 +65,10 @@
     "settings": {
       "title": "Settings",
       "subtitle": "Workspace configuration"
+    },
+    "team": {
+      "title": "Team",
+      "subtitle": "People, agents and teams of the company"
     }
   },
   "workstreamsPage": {
@@ -190,7 +194,6 @@
   },
   "cases": {
     "listTitle": "Signals",
-    "emptyThread": "No signals yet. Add one — for example Invoice / payment on a dunning email.",
     "openHub": "All signals",
     "manageTypes": "Set up signal types",
     "openWorkstream": "Playbook",
@@ -429,7 +432,6 @@
     "learn": "Help",
     "docs": "Docs",
     "newConversation": "New conversation",
-    "decisions": "Decisions",
     "widgetInstall": "Install",
     "widgetVoice": "Voice and hours",
     "widgetLook": "Appearance",
@@ -439,7 +441,9 @@
     "moduleWorkspace": "Module",
     "connectedTools": "Connected tools",
     "connected": "Connections",
-    "myAssistant": "My assistant"
+    "myAssistant": "My assistant",
+    "forYou": "For you",
+    "team": "Team"
   },
   "pageHeaders": {
     "cockpitOverview": "Workspace health at a glance",
@@ -538,7 +542,6 @@
       "govern": "Govern",
       "knowledge": "Knowledge",
       "developers": "Developer settings",
-      "agentRuns": "AI check-ins",
       "widget": "Website chat widget",
       "automations": "Automations",
       "models": "Models",
@@ -546,7 +549,8 @@
       "autonomy": "Autonomy posture",
       "usage": "Usage",
       "workstreams": "Playbooks",
-      "cases": "Signals"
+      "cases": "Signals",
+      "activity": "Activity"
     },
     "cockpit": {
       "bannerTitle": "Overview is the pulse of the workspace",
@@ -1090,6 +1094,12 @@
     "lastSeen": "Last seen {{time}}",
     "widgetVisitor": "Website visitor",
     "alsoSeenAsVisitor": "Also seen as website visitor",
+    "identities": "Also reachable at",
+    "detach": "Detach",
+    "detachHint": "Make this a separate contact again; its linked conversations move along.",
+    "detachConfirm": "Detach this identity as a separate contact?",
+    "detached": "Detached as a separate contact.",
+    "detachError": "Could not detach this identity.",
     "statusAwaitingEmail": "Awaiting email",
     "anonymousGroupHint": "{{count}} website visitors waiting for an email — capture identity before approving.",
     "neverSeen": "No conversations yet",
@@ -1663,9 +1673,8 @@
     "title": "Notifications",
     "markAll": "Mark all read",
     "empty": "No notifications",
-    "emptyHint": "Bokito notifies you when a customer writes or an agent needs a decision.",
+    "emptyHint": "The bell holds system notices. Conversations that need you are in For you.",
     "settings": "Settings",
-    "openDecisions": "Decisions",
     "openChannels": "Email & messages",
     "openCommunication": "Open Communication",
     "now": "Now",
@@ -1677,24 +1686,18 @@
     "markRead": "Read",
     "dayToday": "Today",
     "dayOlder": "Earlier",
-    "openInbox": "Inbox"
+    "forYouLine_one": "Now {{count}} conversation in For you",
+    "forYouLine_other": "Now {{count}} conversations in For you",
+    "digestGroup_one": "Digest: {{count}} update",
+    "digestGroup_other": "Digest: {{count}} updates"
   },
   "bindingPicker": {
     "ariaLabel": "Handling agent",
     "hint": "The agent that handles new conversations on this item.",
     "leadDefault": "Default agent",
-    "leadDefaultNamed": "{{name}} — default agent",
+    "defaultBadge": "Default",
     "unknownAgent": "Unknown agent",
     "saveError": "Could not update the handling agent."
-  },
-  "channelVisibility": {
-    "title": "Visibility",
-    "hint": "Which workspace members see conversations on this channel. Owners and admins always see everything.",
-    "everyone": "Everyone",
-    "selected": "Selected members",
-    "selectedCount": "{{count}} member(s)",
-    "membersLabel": "Members",
-    "saveError": "Could not update visibility."
   },
   "channelsPage": {
     "listTitle": "Channels",
@@ -1709,12 +1712,8 @@
     "loadError": "Could not load channels.",
     "back": "Back",
     "done": "Done",
-    "colAgent": "Agent",
-    "colVisibility": "Visibility",
     "copied": "Copied",
     "copy": "Copy",
-    "copyAddress": "Copy address",
-    "configure": "Configure",
     "syncing": "Syncing...",
     "syncNow": "Sync now",
     "retrySync": "Retry sync",
@@ -1738,10 +1737,38 @@
     "oauthContinue": "Continue with {{provider}}",
     "lastActivity": "Last activity {{when}}",
     "noActivityYet": "No activity yet",
-    "toggleEnabledAria": "Turn this channel on or off",
-    "toggleChecks": "Show channel checks",
-    "checksTitle": "Checks",
+    "toggleSettings": "Settings for {{name}}",
     "noChecks": "No checks for this channel.",
+    "section": {
+      "status": "Status",
+      "general": "General",
+      "manage": "Manage"
+    },
+    "edit": "Edit",
+    "open": "Open",
+    "name": "Name",
+    "agent": "AI agent",
+    "agentHint": "The agent that handles new conversations with AI handling. Without one, the workspace default agent does.",
+    "foldersHint": "Which folders Bokito keeps in sync.",
+    "signatureHint": "Added under every reply sent from this address.",
+    "primarySender": "Primary sender",
+    "primarySenderHint": "The address new mail goes out from when you have several.",
+    "address": "Address",
+    "connection": "Connection",
+    "connectionHint": "Sign in again when access expired or was revoked.",
+    "phoneNumber": "Phone number",
+    "widgetDesign": "Look and texts",
+    "widgetDesignHint": "Colors, name, avatar and welcome message.",
+    "widgetInstall": "Installation",
+    "widgetInstallHint": "The snippet for your website.",
+    "pauseTitle": "Pause channel",
+    "pauseHint": "Receives and sends nothing new. Conversations and settings stay.",
+    "pause": "Pause",
+    "resumeTitle": "Channel is paused",
+    "resumeHint": "Resume to receive and send on this channel again.",
+    "resume": "Resume",
+    "removeTitleShort": "Remove channel",
+    "removeHint": "Disconnects this channel. Existing conversations stay in Communication.",
     "reconnect": "Reconnect",
     "folders": "Folders",
     "signature": "Signature",
@@ -1755,7 +1782,6 @@
     "renameSave": "Save name",
     "renameSaved": "Channel renamed",
     "remove": "Remove",
-    "actionsFor": "Actions for {{email}}",
     "close": "Close",
     "kind": {
       "email_mailbox": "Mailbox",
@@ -1763,11 +1789,6 @@
       "widget": "Website chat",
       "whatsapp": "WhatsApp",
       "slack": "Slack"
-    },
-    "capability": {
-      "receive": "Receive",
-      "send": "Send",
-      "sync": "Sync"
     },
     "checkState": {
       "ok": "OK",
@@ -1785,7 +1806,6 @@
       "last_sync": "Last sync",
       "sync_errors": "Sync errors",
       "installed": "Widget on your site",
-      "office_hours": "Office hours",
       "phone_number": "Phone number",
       "webhook": "Webhook",
       "bot_token": "Bot token",
@@ -1964,7 +1984,14 @@
     "foldersSaveError": "Could not save folders.",
     "mailboxSaveError": "Could not save mailbox settings.",
     "oauthConnected": "{{provider}} connected and synced.",
-    "oauthFailedTitle": "Could not connect {{provider}}"
+    "oauthFailedTitle": "Could not connect {{provider}}",
+    "access": "Access",
+    "accessHint": "Which people, agents and teams see or handle this channel.",
+    "team": "Owner team",
+    "teamHint": "The team that owns new conversations on this channel until someone takes them.",
+    "defaultBadge": "Default",
+    "widgetLive": "Live handoff",
+    "widgetLiveHint": "Offered when someone with Handle access on the widget is available."
   },
   "foldersTags": {
     "title": "Folder defaults",
@@ -2036,32 +2063,30 @@
     "deleteFailed": "Failed to delete rule."
   },
   "notificationsPage": {
-    "intro": "Choose which in-app notifications you receive in Bokito.",
-    "notifyMe": "Notify me about",
+    "intro": "Bokito sorts every notice into three tiers. Choose per tier where it reaches you. While you are in the app you get no push; while you are away only critical notices reach you outside the app.",
+    "notifyMe": "Event",
     "inApp": "In-app",
     "email": "Email",
     "push": "Push",
     "slack": "Slack",
     "pushTitle": "Push notifications on this device",
-    "pushBody": "Get a system notification for new messages and pending decisions, even when Bokito is closed. Applies to this browser only; decision pushes follow your in-app preference above.",
+    "pushBody": "Get a system notification for tier 1 notices when you are not in Bokito. Applies to this browser only.",
     "pushUnsupported": "This browser does not support push notifications.",
     "pushNotConfigured": "Push is not enabled on this server. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in the API environment (see docs/PRODUCTION_READINESS.md).",
     "pushAria": "Push notifications on this device",
     "pushFailed": "Could not update push notifications.",
-    "channelsTitle": "Channels",
-    "channelsBody": "Choose in-app, email and push delivery separately for decisions, mentions and assignments.",
+    "channelsTitle": "Where conversation notices go",
+    "channelsBody": "Assignments, mentions, decisions and handoffs land in For you; opening the conversation marks them read on every device. The bell keeps system notices only.",
     "connectSlack": "Connect Slack",
     "enableSlack": "to enable the Slack toggles.",
     "budgetHint": "Budget alerts follow spend caps on",
     "openUsage": "Usage",
-    "inAppEnabled": "{{count}} in-app enabled",
     "slackFirst": "Connect a Slack workspace first (Settings > Email & messages)",
     "loading": "Loading preferences...",
     "saved": "Saved.",
     "savedHint": "Preferences are saved to your account.",
     "saveFailed": "Could not save notification preferences.",
     "loadFailed": "Load failed",
-    "pauseInApp": "Pause in-app alerts",
     "restoreDefaults": "Restore recommended",
     "preview": "Preview a notification",
     "previewTitle": "Sample: decision needed",
@@ -2070,14 +2095,26 @@
     "rows": {
       "assigned-to-me": "When a conversation is assigned to you",
       "mentions": "When you are mentioned in conversations",
-      "decisions": "When an agent needs your decision on an assigned conversation",
+      "decisions": "When a question or decision is addressed to you",
       "handoff": "When a customer asks for a human",
-      "ops-run-failed": "When an agent run or trigger fails",
-      "ops-channel-disconnect": "When a connected channel stops syncing",
-      "billing-alerts": "When LLM spend reaches 80% or 100% of the budget",
-      "digest-daily": "Daily email digest (open threads, pending decisions, agent activity)",
       "digest-weekly": "Weekly email digest"
-    }
+    },
+    "tierColumn": "Tier",
+    "tiers": {
+      "1": {
+        "title": "Now",
+        "hint": "You own a conversation, a question or decision for you, a mention, a customer waiting for a person, a critical system notice."
+      },
+      "2": {
+        "title": "Later",
+        "hint": "System notices such as a failed run, a Govern proposal or an invitation. In the app and the bell, never push."
+      },
+      "3": {
+        "title": "Digest",
+        "hint": "Team activity and finished runs. Folded in the bell; email sends one daily digest."
+      }
+    },
+    "perEvent": "Per event"
   },
   "whatsappCard": {
     "title": "WhatsApp",
@@ -2244,10 +2281,8 @@
     "groupSettings": "Settings",
     "groupInbox": "Messages queues",
     "inboxOpenHint": "J/K to move, ? for shortcuts",
-    "decisionsHint": "Open approvals across all channels",
     "needsReply": "Needs reply",
     "needsDecision": "Needs decision",
-    "agentRuns": "AI check-ins",
     "groupKnowledge": "Knowledge",
     "unnamedContact": "Unnamed contact",
     "untitledConversation": "Untitled conversation",
@@ -2277,7 +2312,9 @@
     "openPlaybook": "Open playbook",
     "openProject": "Open project",
     "openKnowledge": "Open Knowledge",
-    "openGovernDrafts": "Review Govern drafts"
+    "openGovernDrafts": "Review Govern drafts",
+    "activity": "Activity",
+    "forYouHint": "Questions, drafts and replies that wait on you"
   },
   "gateway": {
     "connected": "Live",
@@ -2509,10 +2546,6 @@
       "agentOps": "Agent ops"
     },
     "newChat": "New chat",
-    "decisions": {
-      "label": "Waiting on you",
-      "hint": "Everything waiting on you: a customer reply, a yes or no, or an approved draft"
-    },
     "activity": {
       "label": "Activity",
       "hint": "Live timeline of agent and team work"
@@ -2525,9 +2558,7 @@
       "all": "All",
       "allHint": "Every customer conversation, including closed ones",
       "allCommunication": "All communication",
-      "allCommunicationHint": "Every customer conversation across channels",
-      "mine": "Mine",
-      "mineHint": "Assigned to you",
+      "allCommunicationHint": "Every conversation across channels, narrowed by the channel and agent chips",
       "open": "Open",
       "openHint": "Still waiting for someone to finish them",
       "unassigned": "Unassigned",
@@ -2537,18 +2568,14 @@
       "closed": "Closed",
       "closedHint": "Finished conversations",
       "spam": "Spam",
-      "spamHint": "Hidden from the open queue"
+      "spamHint": "Hidden from the open queue",
+      "forYou": "For you",
+      "forYouHint": "Yours, your turn, your team's turn, questions to everyone and mentions"
     },
     "section": {
       "inbox": "Queues",
-      "assistant": "Assistant",
-      "bokito": "Bokito",
-      "views": "Views",
-      "channels": "Channels",
-      "agents": "Chat with agents",
-      "labels": "Labels",
-      "tags": "Tags",
-      "settings": "Settings"
+      "settings": "Settings",
+      "teams": "Teams"
     },
     "settings": {
       "channels": "Channels",
@@ -2557,11 +2584,6 @@
       "integrations": "Integrations",
       "setupGuide": "Setup guide",
       "allSettings": "All settings"
-    },
-    "bokito": {
-      "loading": "Loading chats...",
-      "empty": "Your private chats with Bokito show up here.",
-      "newChat": "New chat with Bokito"
     },
     "views": {
       "support": "Support",
@@ -2572,34 +2594,12 @@
       "custom": "Custom views..."
     },
     "channels": {
-      "loading": "Loading channels...",
       "webchat": "Website chat",
       "internal": "Team chat",
       "internalHint": "Notes and chats with teammates — customers never see this",
-      "connectEmail": "Connect email",
-      "connectChannel": "Add a channel",
-      "emptyHint": "Connect email or chat so customer threads land here.",
       "agent": "Agent messages",
       "whatsapp": "WhatsApp",
-      "slack": "Slack",
-      "settingsAria": "Manage channels and connections"
-    },
-    "composeFromChannel": "New message from this channel",
-    "composeToAgent": "Message this agent",
-    "agents": {
-      "loading": "Loading agents...",
-      "empty": "No agents available for chat.",
-      "runs": "AI check-ins",
-      "activity": "Activity",
-      "activityHint": "Work log for this agent",
-      "settingsAria": "Manage agents"
-    },
-    "tags": {
-      "loading": "Loading tags...",
-      "empty": "Tag a conversation and it shows up here, across every channel.",
-      "openToTag": "Open a conversation to add a tag",
-      "manage": "Manage tags",
-      "settingsAria": "Manage tags and pin them to this sidebar"
+      "slack": "Slack"
     },
     "folder": {
       "expand": "Show sub-views",
@@ -2645,12 +2645,9 @@
       "activity": "Agent runs",
       "activityHint": "What agents did and whether they are waiting on you"
     },
-    "channelViews": {
-      "open": "Open",
-      "mine": "Mine",
-      "unassigned": "Unassigned",
-      "outbound": "Outbound",
-      "closed": "Closed"
+    "teams": {
+      "settingsAria": "Manage teams",
+      "pinHint": "Pin a team to show it here"
     }
   },
   "users": {
@@ -3533,28 +3530,8 @@
         "customMcpDescription": "Connect any external tool by URL with an API key or token."
       },
       "bokito": {
-        "title": "Use Bokito in Cursor",
-        "description": "Let Cursor or Claude call this workspace's governed tools over MCP.",
-        "clients": {
-          "cursor": "Cursor (OAuth)",
-          "cursorToken": "Cursor (API token)",
-          "claude": "Claude Desktop",
-          "generic": "Generic HTTP"
-        },
-        "steps": {
-          "oauth1": "Open Cursor Settings, then MCP.",
-          "oauth2": "Paste the JSON below (URL only — no token).",
-          "oauth3": "Save. Cursor opens the browser: sign in to Bokito and pick a workspace.",
-          "cursor1": "Create an app token above (for automation / CI).",
-          "cursor2": "Paste the JSON below into Cursor Settings → MCP (url + Authorization bearer).",
-          "cursor3": "Save — tools from that token's workspace appear for the agent.",
-          "claude1": "Open Claude Desktop settings.",
-          "claude2": "Edit claude_desktop_config.json and paste the configuration below (uses mcp-remote).",
-          "claude3": "Restart Claude Desktop and confirm Bokito tools load.",
-          "generic1": "POST JSON-RPC to /api/mcp with Authorization: Bearer bok_…",
-          "generic2": "Call tools/list then tools/call with the same bearer token.",
-          "generic3": "Scoped tokens only see matching tool categories; empty scopes = all tools."
-        }
+        "copy": "Copy",
+        "copied": "Copied"
       }
     }
   },
@@ -3630,9 +3607,6 @@
       "archiveConfirmAction": "Archive agent",
       "archiveCancel": "Keep agent",
       "knowledgeHint": "Agents read Voice and Memory here while they work.",
-      "autonomyManualHint": "This agent waits for you before it sends or changes anything.",
-      "autonomyApprovalHint": "Routine replies can go out. Bigger actions still ask you first.",
-      "autonomyAutoHint": "This agent acts on its own, still limited by workspace rules in Govern.",
       "autonomyGovernLink": "Workspace posture",
       "modelCostLow": "Low cost",
       "modelCostMedium": "Medium cost",
@@ -3794,9 +3768,6 @@
       "permissionsDescription": "What this agent is allowed to do. Workspace-wide policies live in Govern.",
       "editPolicies": "Govern",
       "autonomyLevel": "Autonomy level",
-      "autonomyManual": "Manual — always ask",
-      "autonomyApproval": "Approval — gated actions",
-      "autonomyAuto": "Auto — act independently",
       "autonomyDefault": "Workspace default",
       "allowedTools": "Allowed tools",
       "allToolsByPolicy": "This agent can use every tool the workspace allows.",
@@ -3865,7 +3836,11 @@
         "initials": "Initials",
         "icon": "Icon",
         "image": "Image"
-      }
+      },
+      "askTargetTitle": "Ask questions to",
+      "askTargetHint": "Who gets this agent's questions and drafts. Automatic asks the conversation owner, then whoever handed over the work, then the owner team. Someone who is away is skipped.",
+      "askTargetAuto": "Automatic",
+      "askTargetError": "Could not save who this agent asks."
     },
     "pageMeta": {
       "overview": {
@@ -4661,7 +4636,7 @@
       "govern": "Approvals and how much agents may do",
       "trust": "Retention, data subject requests, and AI data use",
       "reports": "Daily scan, attention and usage",
-      "developers": "API keys and webhooks",
+      "developers": "AI tools, API tokens and webhooks",
       "models": "Bokito AI and optional own keys"
     },
     "signals": {
@@ -5079,34 +5054,18 @@
     },
     "copyCurl": "Copy REST curl",
     "copiedCurl": "REST curl copied",
-    "copyCursorMcp": "Copy Cursor MCP config",
-    "copiedCursorMcp": "Cursor MCP config copied",
-    "downloadMcpJson": "Download bokito-mcp.json",
-    "downloadedMcpJson": "Downloaded bokito-mcp.json",
-    "cursorDeeplinkHint": "Cursor has no stable public deeplink for remote HTTP MCP yet — paste or download the JSON into Settings → MCP.",
-    "copyClaudeMcp": "Copy Claude Desktop config",
-    "copiedClaudeMcp": "Claude Desktop config copied",
-    "copyMcpCurl": "Copy MCP curl",
-    "copiedMcpCurl": "MCP curl copied",
-    "mcpOauthTitle": "Connect Cursor with OAuth",
-    "mcpOauthHint": "Paste only the MCP URL into Cursor. On first use Cursor opens the browser — sign in and pick a workspace under your account. No token to copy.",
-    "copyCursorMcpOauth": "Copy Cursor MCP URL config",
-    "copiedCursorMcpOauth": "Cursor OAuth MCP config copied",
     "oauthGrants": {
       "title": "Connected MCP clients",
       "body": "OAuth sessions from Cursor and other MCP clients. Revoke to cut access immediately; the client must authorize again.",
       "loading": "Loading connected clients...",
-      "empty": "No OAuth clients connected yet. Authorize from Cursor to see them here.",
+      "empty": "No OAuth clients connected yet. Connect an AI tool above with OAuth to see it here.",
       "revoke": "Revoke",
       "revokeConfirm": "Revoke access for \"{{name}}\"? Tools stop working until they authorize again.",
       "revoked": "MCP client access revoked.",
       "revokeError": "Could not revoke MCP client."
     },
-    "mcpSetupTitle": "API token fallback (CI / scripts)",
-    "mcpSetupHint": "For automation that cannot open a browser, create a token above and paste a bearer config. Governed tools still ask when policy requires it.",
-    "mcpSetupPlaceholderHint": "Replace YOUR_BOKITO_API_TOKEN with a token from above after you create one.",
-    "controlFromCursor": "Control this workspace from Cursor",
-    "controlFromCursorBody": "Copy the URL-only MCP config under Developers, paste it in Cursor Settings → MCP, then authorize and pick a workspace in the browser.",
+    "controlFromCursor": "Use this workspace from your AI tools",
+    "controlFromCursorBody": "Connect Cursor, Claude, Codex, VS Code, Windsurf or ChatGPT under Developers. Most sign in with OAuth in the browser.",
     "hideRevoked": "Hide revoked",
     "showRevoked": "Show revoked",
     "justNow": "just now",
@@ -5174,7 +5133,146 @@
       "colStatus": "Status",
       "colAttempts": "Attempts",
       "colTime": "Time"
-    }
+    },
+    "aiTools": {
+      "title": "Connect AI tools",
+      "body": "Use this workspace's governed tools from the AI tool you already work in. OAuth signs in through the browser; an app token is the fallback for scripts and CI.",
+      "mode": {
+        "oauth": "OAuth (recommended)",
+        "token": "App token"
+      },
+      "tokenHint": "Create a token under App tokens below and the snippets fill it in. Until then they show YOUR_BOKITO_API_TOKEN.",
+      "status": {
+        "connected": "Connected",
+        "oauth": "OAuth available",
+        "token": "App token"
+      },
+      "download": "Download {{file}}",
+      "downloaded": "Downloaded {{file}}",
+      "docsLink": "Read the setup guide",
+      "providers": {
+        "cursor": {
+          "name": "Cursor",
+          "description": "Use Bokito tools in Cursor's agent.",
+          "body": "Cursor signs in with OAuth: paste the URL and approve in the browser. Use a token only for setups that cannot open a browser.",
+          "oauth1": "Open Cursor Settings, then MCP, and add a server.",
+          "oauth2": "Paste the JSON below. It holds only the URL, no token.",
+          "oauth3": "Save. Cursor opens the browser: sign in to Bokito and pick a workspace.",
+          "token1": "Create an app token under App tokens below.",
+          "token2": "Paste the JSON below into Cursor Settings, then MCP.",
+          "token3": "Save. The tools that token allows appear for the agent."
+        },
+        "claudeCode": {
+          "name": "Claude Code",
+          "description": "Add Bokito to the Claude Code CLI.",
+          "body": "Claude Code supports OAuth for remote MCP servers. Add the server once for your user, then sign in from inside Claude Code.",
+          "oauth1": "Run the command below in a terminal.",
+          "oauth2": "Start Claude Code and type /mcp.",
+          "oauth3": "Choose bokito, then Authenticate. Sign in to Bokito in the browser and pick a workspace.",
+          "token1": "Create an app token under App tokens below.",
+          "token2": "Run the command below. Claude Code sends the token on every call."
+        },
+        "claudeDesktop": {
+          "name": "Claude Desktop",
+          "description": "Add Bokito as a custom connector in Claude.",
+          "body": "Claude adds remote servers as connectors in its settings, with OAuth. Its JSON config only runs local servers, so the token route uses the mcp-remote bridge.",
+          "oauth1": "In Claude, open Settings, then Connectors, and choose Add custom connector.",
+          "oauth2": "Enter {{url}} as the URL.",
+          "oauth3": "Choose Connect, sign in to Bokito and pick a workspace. Claude connects from Anthropic's servers, so this needs a public Bokito address.",
+          "token1": "Create an app token under App tokens below.",
+          "token2": "Open claude_desktop_config.json from Settings, then Developer, and paste the config below. The mcp-remote bridge needs Node.js.",
+          "token3": "Restart Claude Desktop and check that the Bokito tools load."
+        },
+        "codex": {
+          "name": "Codex CLI",
+          "description": "Add Bokito to the OpenAI Codex CLI.",
+          "body": "Codex reads MCP servers from config.toml. It signs in with OAuth, or reads a token from an environment variable so the token stays out of the file.",
+          "oauth1": "Add the lines below to ~/.codex/config.toml.",
+          "oauth2": "Run codex mcp login bokito and sign in to Bokito in the browser.",
+          "oauth3": "Start Codex. The Bokito tools are listed under /mcp.",
+          "token1": "Create an app token under App tokens below.",
+          "token2": "Set BOKITO_MCP_TOKEN in the shell where Codex runs, with the first line below.",
+          "token3": "Add the remaining lines to ~/.codex/config.toml."
+        },
+        "vscode": {
+          "name": "VS Code",
+          "description": "Use Bokito in Copilot agent mode.",
+          "body": "VS Code reads MCP servers from mcp.json and offers them to Copilot in agent mode. It signs in with OAuth, or asks for a token once.",
+          "oauth1": "Create .vscode/mcp.json in your project, or run MCP: Open User Configuration.",
+          "oauth2": "Paste the JSON below and save.",
+          "oauth3": "Choose Start above the server entry. VS Code opens the browser to sign in to Bokito.",
+          "token1": "Create an app token under App tokens below.",
+          "token2": "Paste the JSON below into .vscode/mcp.json.",
+          "token3": "Choose Start and paste the token when VS Code asks. It keeps the token in its secret storage."
+        },
+        "windsurf": {
+          "name": "Windsurf",
+          "description": "Use Bokito in Windsurf's agent.",
+          "body": "Windsurf reads remote MCP servers from mcp_config.json. It signs in with OAuth, or reads a token from an environment variable.",
+          "oauth1": "In Windsurf, open the MCP settings and choose to edit mcp_config.json.",
+          "oauth2": "Paste the JSON below and save.",
+          "oauth3": "Refresh the servers. Windsurf opens the browser to sign in to Bokito.",
+          "token1": "Create an app token under App tokens below.",
+          "token2": "Set BOKITO_MCP_TOKEN in the environment Windsurf starts from, with the first line below.",
+          "token3": "Paste the JSON into mcp_config.json and refresh the servers."
+        },
+        "chatgpt": {
+          "name": "ChatGPT",
+          "description": "Add Bokito as an app in ChatGPT developer mode.",
+          "body": "ChatGPT connects remote MCP servers as apps in developer mode. It supports OAuth only, so there is no token route.",
+          "oauth1": "In ChatGPT, open Settings, then Apps, then Advanced settings, and turn on Developer mode.",
+          "oauth2": "Choose Create app and enter {{url}} as the server URL.",
+          "oauth3": "Pick OAuth as the authentication and save.",
+          "oauth4": "Sign in to Bokito and pick a workspace. ChatGPT connects from OpenAI's servers, so this needs a public Bokito address."
+        },
+        "generic": {
+          "name": "Any MCP client",
+          "description": "Call the MCP endpoint from scripts or CI.",
+          "body": "Any client that speaks MCP over Streamable HTTP can use the endpoint with an app token. Governed tools still ask when policy requires it.",
+          "token1": "POST JSON-RPC to {{url}} with Authorization: Bearer and your token.",
+          "token2": "Call tools/list, then tools/call with the same token.",
+          "token3": "A token with scopes only sees those tool categories. No scopes means every tool."
+        }
+      }
+    },
+    "workbench": {
+      "title": "Hand work to a coding tool",
+      "body": "Soon an agent can hand a bug or feature from a conversation to a coding tool, follow it in the thread, and get the pull request back on the project. None of these can be connected yet.",
+      "notYet": "Not available yet",
+      "phase1": "Planned for the first Workbench release.",
+      "phase2": "Planned after the Bokito GitHub App, which brings pull request status and issue sync.",
+      "phase3": "Planned with the local relay for your own machine.",
+      "docsLink": "How the Workbench will work",
+      "providers": {
+        "cursorAgents": {
+          "name": "Cursor Cloud Agents",
+          "description": "Cursor runs the job in the cloud and opens a pull request.",
+          "body": "Bokito starts a Cursor cloud agent on your repository with the brief from the conversation, streams its progress into the thread, and passes your answers back while it runs. You connect your own Cursor API key."
+        },
+        "claudeManaged": {
+          "name": "Claude Managed Agents",
+          "description": "Claude works the job in an Anthropic-hosted sandbox.",
+          "body": "Bokito starts a Claude session on your repository with the brief from the conversation, streams its progress into the thread, and stops it at the budget you set. You connect your own Anthropic API key."
+        },
+        "devin": {
+          "name": "Devin",
+          "description": "Devin works the task in its own environment.",
+          "body": "Bokito starts a Devin session, shows its questions as decisions in the thread, and stops it at the budget you set. You connect your own Devin service user key."
+        },
+        "copilot": {
+          "name": "GitHub Copilot cloud agent",
+          "description": "Copilot works on a task in your GitHub repository.",
+          "body": "Bokito starts a Copilot task in your repository as the person who approved it. Follow-ups go through pull request comments. Needs the Bokito GitHub App."
+        },
+        "claudeCodeCi": {
+          "name": "Claude Code in GitHub Actions",
+          "description": "Claude Code runs in your own GitHub Actions.",
+          "body": "Bokito proposes a workflow for your repository, then starts it per job with the brief. The job runs on your Actions minutes with your own Anthropic key."
+        }
+      }
+    },
+    "createdHint": "Pick your tool under Connect AI tools: its snippets now include this token.",
+    "openAiTools": "Go to Connect AI tools"
   },
   "messengerPage": {
     "title": "Chat widget",
@@ -5226,14 +5324,6 @@
     "loading": "Loading...",
     "preChat": "Pre-chat form",
     "preChatHint": "Ask website visitors for a name and email before their first message.",
-    "officeHours": "Team hours",
-    "officeHoursHint": "When the team is reachable for a live handoff. Chat stays open; outside these hours visitors can leave a callback instead.",
-    "currentlyOpen": "Team is reachable now.",
-    "currentlyClosed": "Team is away. Visitors can still chat and leave a callback.",
-    "from": "From",
-    "until": "Until",
-    "timezone": "Timezone",
-    "timezonePlaceholder": "Europe/Amsterdam",
     "offlineMessage": "Offline message",
     "offlinePlaceholder": "We are currently offline. Leave a message and we will get back to you.",
     "installInternalTitle": "Assistant for signed-in users",
@@ -5257,6 +5347,18 @@
       "messages": "Messages",
       "help": "Help",
       "tools": "Tools"
+    },
+    "liveHandoff": "Live handoff",
+    "liveHandoffHint": "Visitors can ask for a person when someone with Handle access on this widget is available. Otherwise the agent says so and offers email follow-up, a callback, or continuing on WhatsApp.",
+    "liveAvailable": "Someone is available",
+    "liveAway": "Nobody available",
+    "whatsappHandover": {
+      "title": "Continue on WhatsApp",
+      "hint": "When nobody is available, the agent can give the visitor a WhatsApp link. The chat continues there with the same owner and a short summary.",
+      "noChannel": "Connect a WhatsApp channel first to offer this.",
+      "channel": "WhatsApp channel",
+      "number": "WhatsApp number",
+      "numberHint": "Only needed until the first WhatsApp message arrives; then the channel reports its own number."
     }
   },
   "assistantSettings": {
@@ -5608,5 +5710,142 @@
     "copyUrl": "Copy article link",
     "copiedUrl": "Article link copied",
     "copyFailed": "Could not copy the link"
+  },
+  "teamPage": {
+    "loadError": "Could not load the team.",
+    "saveError": "Could not save.",
+    "away": "Away",
+    "tabs": {
+      "people": "People",
+      "agents": "Agents",
+      "teams": "Teams"
+    },
+    "cols": {
+      "agent": "Agent",
+      "teams": "Teams",
+      "open": "Open conversations",
+      "ceiling": "Ceiling",
+      "questions": "Questions (30 days)",
+      "unchanged": "Approved unchanged",
+      "answerTime": "Answer time",
+      "pickedUp": "Picked up"
+    },
+    "ceiling": {
+      "manual": "Manual",
+      "assisted": "Assisted",
+      "autonomous": "Autonomous"
+    },
+    "noAgents": "No company agents yet.",
+    "openCount_one": "{{count}} open",
+    "openCount_other": "{{count}} open",
+    "turnCount_one": "{{count}} waiting on them",
+    "turnCount_other": "{{count}} waiting on them",
+    "newTeam": "New team",
+    "editTitle": "Edit team",
+    "dialogHint": "A team can own conversations and receive agent questions. Mix people and agents.",
+    "namePlaceholder": "Team name, for example Support",
+    "descriptionPlaceholder": "What this team handles (optional)",
+    "pickupLabel": "Pick up conversations",
+    "pickup": {
+      "people": "People pick up",
+      "agent_first": "Agent first",
+      "round_robin": "Round robin",
+      "least_open": "Least open"
+    },
+    "pickupHint": {
+      "people": "The conversation stays with the team until someone reacts; the first reaction takes it.",
+      "agent_first": "An agent in the team answers first; people step in when it asks.",
+      "round_robin": "New conversations go to the next available member in turn.",
+      "least_open": "New conversations go to the available member with the fewest open conversations."
+    },
+    "system": {
+      "people": "All people",
+      "agents": "All agents"
+    },
+    "systemBadge": "System",
+    "systemHint": {
+      "people": "Everyone in the workspace. Members follow the workspace.",
+      "agents": "Every company agent. Members follow the agents list."
+    },
+    "noDescription": "No description",
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "edit": "Edit",
+    "delete": "Delete team",
+    "deleteConfirm": "Delete {{name}}? Its conversations and questions move to All people.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "pinLabel": "Show in the Communication sidebar",
+    "pinHint": "Everyone sees this team as a folder with For you, Open, Unassigned and Closed.",
+    "pinnedBadge": "In sidebar",
+    "metrics": "30 days: {{questions}} questions, answered in {{answerTime}}, {{pickedUp}} picked up"
+  },
+  "channelAccess": {
+    "title": "Channel access",
+    "description": "Choose who sees this channel and who may handle it. Handle means reply, take conversations and receive them; View means read only. Agents without access do not act on this channel.",
+    "hint": "Who sees and handles this channel",
+    "default": "All people and agents",
+    "count_one": "{{count}} grant",
+    "count_other": "{{count}} grants",
+    "teams": "Teams",
+    "people": "People",
+    "agents": "Agents",
+    "level": {
+      "none": "No access",
+      "view": "View",
+      "handle": "Handle"
+    },
+    "adminsNote": "Owners and admins always handle every channel.",
+    "reset": "Back to default",
+    "loadError": "Could not load people and agents.",
+    "saveError": "Could not update channel access."
+  },
+  "agentRules": {
+    "title": "When this agent acts on its own",
+    "hint": "The ceiling caps everything this agent does. Rules make exceptions for specific actions or situations.",
+    "workspaceTitle": "Rules for all agents",
+    "workspaceHint": "Exceptions every agent in this workspace follows, next to its own rules. Sending to customers always asks.",
+    "ceiling": "Ceiling",
+    "ceilingHint": {
+      "manual": "This agent waits for you before it sends or changes anything.",
+      "assisted": "This agent prepares the work and asks before actions that need approval.",
+      "autonomous": "This agent acts on its own within the Govern limits. Sending to customers still asks."
+    },
+    "rulesTitle": "Rules",
+    "empty": "No rules yet. The agent follows its ceiling and the Govern settings.",
+    "modeLine": {
+      "manual": "Never do this",
+      "assisted": "Ask first",
+      "autonomous": "Do it without asking"
+    },
+    "hardFor": "Always for {{target}}",
+    "judgement": "The agent weighs it per case",
+    "counts": "Used {{uses}}, approved {{approved}}, rejected {{rejected}}",
+    "fromWorkspace": "For all agents",
+    "remove": "Remove rule",
+    "textPlaceholder": "For example: Ask before anything about refunds",
+    "mode": "What the agent does",
+    "kind": "Kind of rule",
+    "kindJudgement": "The agent weighs it",
+    "kindHard": "Always for one action",
+    "target": "Action",
+    "targetPlaceholder": "Choose an action",
+    "allIn": "Everything in {{category}}",
+    "add": "Add rule",
+    "tryTitle": "Try out",
+    "tryAction": "Choose an action",
+    "tryCertainty": "Certainty 1-10",
+    "tryRun": "Try",
+    "outcome": {
+      "runs": "The agent does this on its own.",
+      "asks": "The agent asks first.",
+      "refused": "The agent may not do this."
+    },
+    "outcomeRule": "Rule: {{rule}}",
+    "outcomeUnsure": "The agent is not sure enough.",
+    "outcomeDefault": "Follows the ceiling and Govern.",
+    "loadError": "Could not load the rules",
+    "saveError": "Could not save the rules",
+    "tryError": "Could not try this action"
   }
 }

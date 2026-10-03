@@ -2,7 +2,7 @@
 title: How Govern works
 intro: Structural change and risk live here. Day-to-day replies stay in Communication.
 description: Review pending platform changes, set policy sliders, undo applied edits, and read the audit log in Govern.
-keywords: govern, pending reviews, policy, audit, undo, allowances
+keywords: govern, pending reviews, policy, audit, undo, allowances, rules, routing rules
 sort: 10
 related: autonomy,agents,decisions
 ---
@@ -33,6 +33,15 @@ Govern has two sections: **Ledger** records workspace changes and audit events, 
 6. Under **Type and playbook autonomy**, set each active Signal type and playbook to **Manual**, **Ask first**, or **Automatic**.
 
 Per-agent overrides live on the agent page under Tools and permissions.
+
+## Set rules for all agents
+
+1. Under **Autonomy**, find **Rules for all agents**. Every agent follows these next to its own rules.
+2. Add a rule the same way as on an agent: the situation, **What the agent does** and the **Kind of rule**. Choose **Add rule**.
+3. Use **Try out** to check an action before you rely on it.
+4. Proposed rules (from an agent or from the **Next time:** buttons on a card) and proposed routing rules (*Questions about invoices go to Lisa*) arrive as cards to confirm and are recorded under **Ledger**.
+
+Sending to customers always asks. See [Agents](/docs/ai/agents) for rules on one agent.
 
 ## Guard autonomous conversations
 

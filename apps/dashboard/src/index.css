@@ -493,6 +493,43 @@
     box-shadow: 0 0 0 1px rgb(var(--color-ai) / 0.22);
   }
 
+  /* Brief cue when an AI draft lands in the composer (proposal or write-assist). */
+  @keyframes composer-ai-arrive {
+    0% {
+      border-color: rgb(var(--color-ai) / 0.72);
+      box-shadow:
+        0 0 0 3px rgb(var(--color-ai) / 0.28),
+        inset 0 0 28px rgb(var(--color-ai) / 0.14);
+    }
+    40% {
+      border-color: rgb(var(--color-ai) / 0.42);
+      box-shadow:
+        0 0 0 3px rgb(var(--color-ai) / 0.14),
+        inset 0 0 16px rgb(var(--color-ai) / 0.08);
+    }
+    100% {
+      border-color: rgb(var(--color-border) / 0.6);
+      box-shadow: 0 0 0 0 rgb(var(--color-ai) / 0);
+    }
+  }
+  @keyframes composer-ai-ink {
+    0%,
+    30% {
+      color: rgb(var(--color-ai-ink));
+    }
+    100% {
+      color: rgb(var(--color-text-primary));
+    }
+  }
+  .composer-ai-flash {
+    transition: none;
+    animation: composer-ai-arrive 2s ease-out;
+  }
+  .composer-ai-flash .composer-ai-flash-text,
+  .composer-ai-flash textarea:not(.text-transparent) {
+    animation: composer-ai-ink 2s ease-out;
+  }
+
   .panel-header {
     @apply px-5 py-4 border-b border-border/40 flex items-center justify-between;
   }

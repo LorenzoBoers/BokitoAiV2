@@ -94,10 +94,11 @@ describe('threadMatchesFilters', () => {
     expect(threadMatchesFilters(thread({ status: 'pending' }), { view: 'snoozed' }, me)).toBe(true)
   })
 
-  it('resolves mine / unassigned against the signed-in user', () => {
-    expect(threadMatchesFilters(thread({ assignedToUserId: me }), { view: 'mine' }, me)).toBe(true)
-    expect(threadMatchesFilters(thread({ assignedToUserId: 9 }), { view: 'mine' }, me)).toBe(false)
-    expect(threadMatchesFilters(thread(), { view: 'mine' }, null)).toBeNull()
+  it('resolves for_you / unassigned against the signed-in user', () => {
+    expect(threadMatchesFilters(thread({ assignedToUserId: me }), { view: 'for_you' }, me)).toBe(true)
+    // Team turns and mentions need the server: refetch instead of evicting.
+    expect(threadMatchesFilters(thread({ assignedToUserId: 9 }), { view: 'for_you' }, me)).toBeNull()
+    expect(threadMatchesFilters(thread(), { view: 'for_you' }, null)).toBeNull()
     expect(threadMatchesFilters(thread(), { view: 'unassigned' }, me)).toBe(true)
     expect(
       threadMatchesFilters(thread({ assignedToUserId: 9 }), { view: 'unassigned' }, me),

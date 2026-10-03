@@ -10,7 +10,16 @@ from sqlalchemy import select
 
 from app.models.auth import Tenant
 from app.models.notification import DecisionRequest, Notification
+from app.services.addressee import parse_target
 from app.tools.registry import ToolContext, ToolSpec, register_tool
+
+TO_TARGET_SCHEMA = {
+    "type": "string",
+    "description": (
+        "Optional: who to ask. 'user:<email>' or 'team:<team name>'. "
+        "Leave empty to follow the agent's Ask questions to setting."
+    ),
+}
 
 
 async def _get_tenant(ctx: ToolContext) -> Tenant:
@@ -755,6 +764,7 @@ async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         signal,
         reason=reason,
         via="handoff_to_human",
+        to=await parse_target(ctx.session, ctx.tenant_id, tool_input.get("to")),
         actor_type="agent" if ctx.agent else "user",
         actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
     )
@@ -765,6 +775,31 @@ async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         "note": (
             "The team has been notified and AI replies are paused on this thread. "
             "Tell the visitor a team member will take over in this same conversation."
+        ),
+    }
+
+
+async def _continue_on_whatsapp(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Give the visitor a WhatsApp link that carries this chat over."""
+    from app.models.auth import Tenant
+    from app.models.signal import Signal
+    from app.services.whatsapp_handover import create_handover
+
+    if not ctx.signal_id:
+        return {"error": "continue_on_whatsapp only works inside a website chat"}
+    signal = await ctx.session.get(Signal, ctx.signal_id)
+    tenant = await ctx.session.get(Tenant, ctx.tenant_id)
+    if signal is None or tenant is None or signal.tenant_id != ctx.tenant_id:
+        return {"error": "Conversation not found"}
+    result = await create_handover(ctx.session, tenant, signal, language=str(tool_input.get("language") or ""))
+    if result.get("error"):
+        return result
+    await ctx.session.commit()
+    return {
+        **result,
+        "instruction": (
+            "Give the visitor this link as a markdown link, for example [Continue on WhatsApp](link). "
+            "Tell them the message is filled in already; they only press send."
         ),
     }
 
@@ -798,6 +833,7 @@ async def _request_callback(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         signal,
         reason=reason,
         via="request_callback",
+        to=await parse_target(ctx.session, ctx.tenant_id, tool_input.get("to")),
         actor_type="agent" if ctx.agent else "user",
         actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
     )
@@ -908,6 +944,7 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         agent_task_id=task_uuid,
         run_id=ctx.run_id,
         notification_payload=tool_input,
+        to=await parse_target(ctx.session, ctx.tenant_id, tool_input.get("to")),
     )
     await ctx.session.commit()
     return {"decision_request_id": str(decision.id), "status": "awaiting_human"}
@@ -1096,6 +1133,125 @@ async def _delegate_to_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> di
         "signal_id": str(task.signal_id) if task.signal_id else None,
         "status": task.status,
     }
+
+
+async def _propose_agent_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Suggest a rule for yourself; a person confirms it inline before it applies."""
+    from fastapi import HTTPException
+
+    from app.models.auth import Tenant
+    from app.services.agent_rules import propose_rule
+
+    if ctx.agent is None:
+        return {"error": "Only agents can propose rules for themselves"}
+    tenant = await ctx.session.get(Tenant, ctx.tenant_id)
+    if tenant is None:
+        return {"error": "Workspace not found"}
+    rule = {
+        "text": tool_input.get("text"),
+        "mode": tool_input.get("mode"),
+        "kind": tool_input.get("kind") or "judgement",
+        "tool": tool_input.get("tool") or "",
+        "category": tool_input.get("category") or "",
+    }
+    try:
+        return await propose_rule(
+            ctx.session,
+            tenant,
+            rule=rule,
+            agent=ctx.agent,
+            proposer_agent=ctx.agent,
+            signal_id=ctx.signal_id,
+        )
+    except HTTPException as exc:
+        return {"error": str(exc.detail)}
+
+
+async def _assign_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Hand the current conversation to another agent or a team, with an optional message."""
+    import json as _json
+    from datetime import datetime
+
+    from app.gateway.publish import publish_signal_message, publish_thread_update
+    from app.models.signal import Signal, SignalEvent, SignalMessage
+    from app.services.ai_handling import on_assignment_change
+    from app.services.ownership import owner_payload, resolve_assignee, set_owner
+    from app.services.thread_dispatch import dispatch_to
+
+    if not ctx.signal_id:
+        return {"error": "assign_conversation only works inside a conversation"}
+    kind = str(tool_input.get("kind") or "")
+    if kind not in ("agent", "team"):
+        return {"error": "kind must be agent or team"}
+    signal = await ctx.session.get(Signal, ctx.signal_id)
+    if signal is None or signal.tenant_id != ctx.tenant_id:
+        return {"error": "Conversation not found"}
+    try:
+        owner_id = await resolve_assignee(ctx.session, ctx.tenant_id, signal, kind, tool_input.get("id"))
+    except ValueError as exc:
+        return {"error": str(exc)}
+    if ctx.agent is not None and kind == "agent" and owner_id == ctx.agent.id:
+        return {"error": "This conversation is already yours"}
+    before = owner_payload(signal)
+    before_assignee = signal.assigned_user_id
+    set_owner(signal, kind, owner_id, by_user_id=ctx.user_id)
+    on_assignment_change(
+        ctx.session,
+        signal,
+        before_assignee=before_assignee,
+        before_kind=before["kind"],
+        actor_id=str(ctx.agent.id) if ctx.agent is not None else "",
+    )
+    ctx.session.add(signal)
+    ctx.session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=ctx.tenant_id,
+            event_type="assigned",
+            actor_type="agent" if ctx.agent is not None else "user",
+            actor_id=str(ctx.agent.id) if ctx.agent is not None else str(ctx.user_id or ""),
+            payload_json=_json.dumps({"before": before, "after": owner_payload(signal)}),
+        )
+    )
+    message_text = str(tool_input.get("message") or "").strip()
+    note: SignalMessage | None = None
+    if message_text and ctx.agent is not None:
+        note = SignalMessage(
+            signal_id=signal.id,
+            tenant_id=ctx.tenant_id,
+            kind="internal_note",
+            direction="internal",
+            role="assistant",
+            author_agent_id=ctx.agent.id,
+            from_address="",
+            to_addresses="",
+            subject=signal.subject,
+            body_text=message_text,
+            body_preview=message_text[:200],
+            body_html=f"<p>{message_text}</p>",
+            metadata_json=_json.dumps({"agent_name": ctx.agent.name, "handover": True}),
+            received_at=datetime.utcnow(),
+        )
+        ctx.session.add(note)
+    await ctx.session.commit()
+    await publish_thread_update(signal)
+    if note is not None:
+        await ctx.session.refresh(note)
+        await publish_signal_message(signal, note)
+    result = {"assigned_to": {"kind": kind, "id": str(owner_id)}}
+    if message_text and ctx.user_id:
+        result["dispatch"] = await dispatch_to(
+            ctx.session,
+            ctx.tenant_id,
+            signal,
+            kind=kind,
+            target_id=owner_id,
+            author_user_id=ctx.user_id,
+            author_name=ctx.agent.name if ctx.agent is not None else "",
+            text=message_text,
+            user_role=ctx.user_role or "member",
+        )
+    return result
 
 
 # ── integrations ─────────────────────────────────────────────────
@@ -1634,6 +1790,7 @@ register_tool(
                     "type": "string",
                     "description": "Short summary of why the visitor needs a human.",
                 },
+                "to": TO_TARGET_SCHEMA,
             },
             "required": [],
         },
@@ -1648,8 +1805,8 @@ register_tool(
     ToolSpec(
         name="request_callback",
         description=(
-            "Ask the team to get back to this visitor later. Use when the team "
-            "is not reachable for a live handoff. Chat stays open; do not say "
+            "Ask the team to get back to this visitor later. Use when nobody is "
+            "available for a live handoff. Chat stays open; do not say "
             "the chat is closed or offline."
         ),
         category="messaging",
@@ -1661,10 +1818,36 @@ register_tool(
                     "type": "string",
                     "description": "Short summary of what the visitor needs a callback for.",
                 },
+                "to": TO_TARGET_SCHEMA,
             },
             "required": [],
         },
         handler=_request_callback,
+        gated=False,
+        audience="both",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="continue_on_whatsapp",
+        description=(
+            "Offer the website visitor to continue this chat on WhatsApp. Returns a link "
+            "with a prefilled message; when they send it, the conversation continues there "
+            "with a colleague. Use when nobody is available live and the visitor prefers WhatsApp."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "language": {
+                    "type": "string",
+                    "description": "The visitor's language code (nl, en) for the prefilled message",
+                },
+            },
+            "required": [],
+        },
+        handler=_continue_on_whatsapp,
         gated=False,
         audience="both",
     )
@@ -1718,6 +1901,7 @@ register_tool(
                 "title": {"type": "string"},
                 "summary": {"type": "string"},
                 "signal_id": {"type": "string"},
+                "to": TO_TARGET_SCHEMA,
                 "options": {
                     "type": "array",
                     "items": {
@@ -1872,6 +2056,57 @@ register_tool(
             },
         },
         handler=_delegate_to_agent,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="assign_conversation",
+        description=(
+            "Hand this conversation to another agent or a team that fits it better. "
+            "The new owner takes over; add a short message saying what they should do. "
+            "Only agents and teams with access to this channel can take it."
+        ),
+        category="delegation",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": ["agent", "team"]},
+                "id": {"type": "string", "description": "Agent or team id"},
+                "message": {"type": "string", "description": "Handover note for the new owner"},
+            },
+            "required": ["kind", "id"],
+        },
+        handler=_assign_conversation,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="propose_agent_rule",
+        description=(
+            "Propose a rule for when you act on your own and when you ask first. "
+            "Use it when a person tells you how to handle a kind of situation from now on. "
+            "Nothing changes until a person confirms the proposal in the conversation."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "The rule in one sentence, as the person said it"},
+                "mode": {"type": "string", "enum": ["manual", "assisted", "autonomous"]},
+                "kind": {
+                    "type": "string",
+                    "enum": ["hard", "judgement"],
+                    "description": "hard: always for one action or category; judgement: you weigh it per case",
+                },
+                "tool": {"type": "string", "description": "Action name for a hard rule"},
+                "category": {"type": "string", "description": "Tool category for a hard rule"},
+            },
+            "required": ["text", "mode"],
+        },
+        handler=_propose_agent_rule,
+        gated=False,
     )
 )
 

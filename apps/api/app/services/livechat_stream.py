@@ -129,6 +129,10 @@ async def get_or_create_widget_thread(
     )
     session.add(signal)
     await session.flush()
+    from app.services.distribution import distribute
+
+    if await distribute(session, signal):
+        await session.flush()
     # Transient flag: callers emit the signal.created webhook after their
     # own commit (this function only flushes).
     signal._newly_created = True  # type: ignore[attr-defined]

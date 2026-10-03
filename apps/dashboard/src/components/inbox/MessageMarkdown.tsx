@@ -38,7 +38,7 @@ function formatMarkdown(text: string): string {
   // Mentions first: their `@[Name](user:id)` markup would otherwise be
   // swallowed by the generic link rule below.
   out = out.replace(
-    /@\[([^\]]+)\]\((user|agent):([^)]+)\)/g,
+    /@\[([^\]]+)\]\((user|agent|team):([^)]+)\)/g,
     (_, name: string, type: string) =>
       `<span class="mention-chip" data-mention-type="${type}">@${name}</span>`,
   )

@@ -69,6 +69,13 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "snoozed_until": "DATETIME",
         "follow_up_at": "DATETIME",
         "follow_up_title": "VARCHAR DEFAULT ''",
+        "contact_basis": "VARCHAR DEFAULT ''",
+    },
+    "handover_codes": {
+        "language": "VARCHAR DEFAULT 'en'",
+    },
+    "decision_requests": {
+        "resolved_by_user_id": "VARCHAR",
     },
     "agent_runs": {
         "tenant_id": "VARCHAR",

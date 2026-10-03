@@ -1,7 +1,7 @@
 /**
  * Navigation model for the control shell.
  *
- * Rail: Overview, Communication, Agenda, Projects, Agents, Knowledge,
+ * Rail: Overview, Communication, Agenda, Team, Projects, Agents, Knowledge,
  * installed module workspaces, Connections, Settings.
  * Govern lives under Settings (not a primary rail item).
  * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Plug,
   Settings,
+  Users,
   Workflow,
   type LucideIcon,
 } from 'lucide-react'
@@ -24,6 +25,7 @@ export type Tab =
   | 'overview'
   | 'communication'
   | 'agenda'
+  | 'team'
   | 'agents'
   | 'workstreams'
   | 'knowledge'
@@ -34,7 +36,7 @@ export type Tab =
 export const PINNED_TABS: readonly Tab[] = ['overview']
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Control', tabs: ['communication', 'agenda'] },
+  { label: 'Control', tabs: ['communication', 'agenda', 'team'] },
   { label: 'Work', tabs: ['projects', 'workstreams'] },
   { label: 'AI', tabs: ['agents', 'knowledge'] },
   { label: 'Connections', tabs: ['modules'] },
@@ -45,6 +47,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   overview: '/cockpit',
   communication: '/communication/inbox/open',
   agenda: '/agenda',
+  team: '/team',
   agents: '/agents',
   workstreams: '/workstreams',
   knowledge: '/knowledge',
@@ -66,6 +69,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   overview: LayoutDashboard,
   communication: MessageSquare,
   agenda: CalendarDays,
+  team: Users,
   agents: Bot,
   workstreams: Workflow,
   knowledge: Brain,
@@ -78,6 +82,7 @@ const TAB_TITLES: Record<Tab, string> = {
   overview: 'Overview',
   communication: 'Communication',
   agenda: 'Agenda',
+  team: 'Team',
   agents: 'Agents',
   workstreams: 'Playbooks',
   knowledge: 'Knowledge',
@@ -90,6 +95,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   overview: 'Daily scan, attention and usage',
   communication: 'Chats, customer and agent threads',
   agenda: 'Planned and past trigger occurrences',
+  team: 'People, agents and teams of the company',
   agents: 'People and agents you can chat with',
   workstreams: 'Repeatable step-by-step playbooks for agents',
   knowledge: 'Docs, skills and memory',
@@ -156,6 +162,7 @@ export function tabFromPath(pathname: string): Tab | null {
   // Contacts nest under Communication.
   if (pathname.startsWith('/contacts')) return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
+  if (pathname.startsWith('/team')) return 'team'
   if (pathname.startsWith('/agents')) return 'agents'
   if (pathname.startsWith('/workstreams')) return 'workstreams'
   if (pathname.startsWith('/projects')) return 'projects'

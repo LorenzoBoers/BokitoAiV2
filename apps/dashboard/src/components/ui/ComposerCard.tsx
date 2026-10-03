@@ -30,6 +30,8 @@ type Props = {
    */
   highlighter?: React.ReactNode
   children?: React.ReactNode
+  /** Increment to play the 2s AI-draft arrival glow. */
+  aiFlashNonce?: number
 } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'children' | 'className' | 'rows' | 'style'>
 
 function assignRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
@@ -43,11 +45,12 @@ function assignRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
 }
 
 export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function ComposerCard(
-  { mode, value, className, textareaClassName, overlay, highlighter, children, ...textareaProps },
+  { mode, value, className, textareaClassName, overlay, highlighter, children, aiFlashNonce, ...textareaProps },
   forwardedRef,
 ) {
   const { t } = useTranslation('communication')
   const innerRef = useRef<HTMLTextAreaElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
   const syncHighlightScroll = useCallback(() => {
     const el = innerRef.current
@@ -78,6 +81,15 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
     applyHeight()
     syncHighlightScroll()
   }, [applyHeight, syncHighlightScroll])
+
+  useLayoutEffect(() => {
+    if (!aiFlashNonce) return
+    const el = cardRef.current
+    if (!el) return
+    el.classList.remove('composer-ai-flash')
+    void el.offsetWidth
+    el.classList.add('composer-ai-flash')
+  }, [aiFlashNonce])
 
   const commitFloor = (next: number) => {
     const clamped = clampComposerFloor(mode, next)
@@ -114,9 +126,13 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
   }
 
   const expanded = floor >= preset.max - 8
+  // Email/note drafts are multi-line; keep the editor full width and the
+  // actions on a row underneath. Chat stays one line + send on the right.
+  const stacked = mode === 'email' || mode === 'note'
 
   return (
     <div
+      ref={cardRef}
       className={cn(
         'group/composer relative rounded-xl border bg-bg-elevated/40 px-3 pb-2 pt-3 transition-[border-color,box-shadow] duration-200',
         'focus-within:border-accent/55 focus-within:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.16)]',
@@ -168,15 +184,13 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
           {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
         </button>
       </div>
-      <div className="flex items-end gap-2">
-        <div className="relative min-w-0 flex-1">
+      <div className={cn(stacked ? 'flex flex-col gap-2' : 'flex items-end gap-2')}>
+        <div className="relative min-w-0 w-full flex-1">
           {highlighter ? (
-            // Mirror layer: same metrics as the textarea, draws pills/colors
-            // while the textarea itself only shows the caret and selection.
             <div
               ref={highlightRef}
               aria-hidden
-              className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words text-base leading-[22px] text-text-primary"
+              className="composer-ai-flash-text pointer-events-none absolute inset-0 min-w-0 overflow-hidden whitespace-pre-wrap break-words text-base leading-[22px] text-text-primary"
             >
               {highlighter}
             </div>
@@ -191,13 +205,15 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
               textareaProps.onScroll?.(event)
             }}
             className={cn(
-              'relative block min-h-0 w-full resize-none bg-transparent text-base leading-[22px] placeholder:text-text-muted focus:outline-none disabled:opacity-50',
-              highlighter ? 'text-transparent caret-text-primary' : 'text-text-primary',
+              'relative block min-h-0 min-w-0 w-full resize-none bg-transparent text-base leading-[22px] placeholder:text-text-muted focus:outline-none disabled:opacity-50',
+              highlighter ? 'text-transparent caret-[rgb(var(--color-text-primary))]' : 'text-text-primary',
               textareaClassName,
             )}
           />
         </div>
-        {children}
+        {children ? (
+          <div className="flex shrink-0 items-center justify-end gap-1.5">{children}</div>
+        ) : null}
       </div>
     </div>
   )

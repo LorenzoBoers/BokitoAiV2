@@ -34,6 +34,15 @@ Govern heeft twee onderdelen: **Ledger** legt workspace-wijzigingen en auditgebe
 
 Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 
+## Stel regels voor alle agents in
+
+1. Zoek onder **Autonomie** **Regels voor alle agents**. Elke agent volgt deze naast zijn eigen regels.
+2. Voeg een regel toe zoals op een agent: de situatie, **Wat de agent doet** en de **Soort regel**. Kies **Regel toevoegen**.
+3. Gebruik **Probeer uit** om een actie te controleren voordat je erop vertrouwt.
+4. Voorgestelde regels (van een agent of van de knoppen **Volgende keer:** op een kaart) en voorgestelde routeringsregels (*Vragen over facturen naar Lisa*) komen als kaart om te bevestigen en worden vastgelegd onder **Ledger**.
+
+Versturen naar klanten vraagt altijd. Zie [Agents](/docs/ai/agents) voor regels op één agent.
+
 ## Autonome gesprekken bewaken
 
 ![Kaart Gesprekken op Govern](/api/docs/assets/govern/conversations.png)

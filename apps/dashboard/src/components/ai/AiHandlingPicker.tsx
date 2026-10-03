@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, CornerUpLeft, Settings2, ShieldAlert } from 'lucide-react'
+import { Check, ChevronDown, Settings2, ShieldAlert } from 'lucide-react'
 import {
   AI_HANDLING_META,
   AI_HANDLING_MODES,
@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { DefaultBadge } from '../ui/DefaultBadge'
 import { AiHandlingIcon } from './AiHandlingIcon'
 
 export const AI_HANDLING_SETTINGS_PATH = '/settings/communication'
@@ -54,6 +55,11 @@ function useSourceLine(handling: AiHandling | null, scope: AiHandlingScope): str
   return name ? t('aiHandling.followsNamed', { source, name }) : t('aiHandling.follows', { source })
 }
 
+function sourceName(handling: AiHandling, scope: AiHandlingScope): string | undefined {
+  const name = scope === 'conversation' ? handling.sourceLabel : handling.inheritedSourceLabel
+  return name || undefined
+}
+
 function ClampNote({ handling }: { handling: AiHandling }) {
   const { t } = useTranslation('common')
   if (!handling.clampedBy) return null
@@ -76,34 +82,50 @@ function ModeMenu({
   hideSettingsLink,
 }: Pick<Props, 'handling' | 'scope' | 'canRaise' | 'onChange' | 'extraItems' | 'hideSettingsLink'>) {
   const { t } = useTranslation('common')
-  const sourceLine = useSourceLine(handling, scope)
   const inherited = handling ? inheritedEffective(handling) : null
   const reason = handling?.own && handling.reason ? t(`aiHandling.reasons.${handling.reason}`, '') : ''
+  const untilClose = handling?.own && handling.untilClose ? t('aiHandling.untilClose') : ''
+  // Workspace is the top layer: nothing to inherit, so no default badge.
+  const defaultMode = scope !== 'workspace' ? inherited : null
+  const selectedMode = handling?.own ?? defaultMode
   return (
     <DropdownMenuContent align="end" className="w-72">
       <div className="space-y-1 px-2 py-1.5">
         <p className="text-xs font-medium text-text-heading">{t('aiHandling.title')}</p>
-        {sourceLine ? <p className="text-xs text-text-muted">{sourceLine}</p> : null}
-        {reason ? <p className="text-xs text-text-secondary">{reason}</p> : null}
+        {reason || untilClose ? (
+          <p className="text-xs text-text-secondary">{reason || untilClose}</p>
+        ) : null}
         {handling ? <ClampNote handling={handling} /> : null}
       </div>
       <DropdownMenuSeparator />
       {AI_HANDLING_MODES.map((mode) => {
-        const allowed = canSetMode(canRaise, scope, mode, inherited)
-        const selected = handling?.own ? handling.own === mode : false
+        const isDefault = mode === defaultMode && handling != null
+        // Picking the default clears the override instead of pinning the same mode.
+        const allowed = isDefault
+          ? canSetMode(canRaise, scope, null)
+          : canSetMode(canRaise, scope, mode, inherited)
+        const selected = selectedMode === mode
         return (
           <DropdownMenuItem
             key={mode}
             disabled={!allowed}
             data-testid={`ai-handling-option-${mode}`}
+            data-default={isDefault ? 'true' : undefined}
             className="items-start gap-2.5 py-2"
             title={allowed ? undefined : t('aiHandling.needsAdmin')}
-            onSelect={() => void onChange(mode)}
+            onSelect={() => void onChange(isDefault ? null : mode)}
           >
             <AiHandlingIcon mode={mode} size={14} className="mt-0.5" />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-text-heading">
-                {t(`aiHandling.modes.${mode}.label`)}
+              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="text-sm font-medium text-text-heading">
+                  {t(`aiHandling.modes.${mode}.label`)}
+                </span>
+                {isDefault ? (
+                  <DefaultBadge title={sourceName(handling, scope)}>
+                    {t(`aiHandling.defaultBadge.${handling.inheritedSource}`)}
+                  </DefaultBadge>
+                ) : null}
               </span>
               <span className="block text-xs leading-snug text-text-muted">
                 {t(`aiHandling.modes.${mode}.description`)}
@@ -113,33 +135,6 @@ function ModeMenu({
           </DropdownMenuItem>
         )
       })}
-      {handling?.own && scope !== 'workspace' ? (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="items-start gap-2.5 py-2"
-            data-testid="ai-handling-option-inherit"
-            disabled={!canSetMode(canRaise, scope, null)}
-            onSelect={() => void onChange(null)}
-          >
-            <CornerUpLeft size={14} className="mt-0.5 shrink-0 text-text-muted" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm text-text-heading">
-                {t('aiHandling.useInherited', {
-                  source: t(`aiHandling.sources.${handling.inheritedSource}`),
-                })}
-              </span>
-              {inherited ? (
-                <span className="block text-xs text-text-muted">
-                  {t('aiHandling.useInheritedHint', {
-                    mode: t(`aiHandling.modes.${inherited}.label`),
-                  })}
-                </span>
-              ) : null}
-            </span>
-          </DropdownMenuItem>
-        </>
-      ) : null}
       {extraItems ? (
         <>
           <DropdownMenuSeparator />
@@ -168,6 +163,7 @@ function Chip({
   testId,
   className,
   compact = false,
+  title,
 }: {
   handling: AiHandling | null
   saving?: boolean
@@ -175,6 +171,7 @@ function Chip({
   testId?: string
   className?: string
   compact?: boolean
+  title?: string
 }) {
   const { t } = useTranslation('common')
   const mode = handling?.effective ?? 'assisted'
@@ -185,6 +182,7 @@ function Chip({
         type="button"
         disabled={saving || disabled || !handling}
         aria-label={`${t('aiHandling.title')}: ${label}`}
+        title={title || undefined}
         data-testid={testId ?? 'ai-handling-chip'}
         data-mode={mode}
         className={cn(
@@ -206,7 +204,8 @@ function Chip({
  * One picker for AI handling at every layer.
  *
  * - ``chip``: compact dropdown (thread header, lists, mobile).
- * - ``row``: label and description with the chip on the right (contact panel, channels).
+ * - ``row``: label with the chip on the right (contact panel, channels); the inherited
+ *   source shows in the menu and the chip tooltip, not as a line.
  * - ``cards``: three large choices (workspace default in settings).
  */
 export default function AiHandlingPicker({
@@ -282,6 +281,7 @@ export default function AiHandlingPicker({
         disabled={disabled}
         testId={testId}
         className={variant === 'chip' ? className : undefined}
+        title={sourceLine}
       />
       <ModeMenu
         handling={handling}
@@ -297,11 +297,10 @@ export default function AiHandlingPicker({
   if (variant === 'chip') return menu
 
   return (
-    <div className={cn('flex items-start justify-between gap-4', className)}>
+    <div className={cn('flex items-center justify-between gap-4', className)}>
       <div className="min-w-0">
         {label ? <p className="text-sm font-medium text-text-heading">{label}</p> : null}
         {description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}
-        {sourceLine ? <p className="mt-0.5 text-xs text-text-secondary">{sourceLine}</p> : null}
       </div>
       {menu}
     </div>

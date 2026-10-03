@@ -1,15 +1,12 @@
-"""Email delivery for in-app notifications (assignment, mention, decision).
+"""Notification email transport and the stored per-category switches.
 
-Per-user notification preferences (`user_notification_preferences`) expose a
-desktop and an email channel per category. This module resolves those channels
-and sends a plain-text mail via the transactional SMTP path when the email
-channel is enabled. Delivery is best-effort: failures are logged by
-`transactional_mail` and never break the calling flow.
+Which notice goes where is decided in ``services/notify.py``. Delivery is
+best-effort: failures are logged by `transactional_mail` and never break the
+calling flow.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from uuid import UUID
 
@@ -22,75 +19,42 @@ from app.services.transactional_mail import send_mail
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CHANNELS = {"desktop": True, "email": False, "push": True, "slack": False}
-# User-toggleable rows in Notification Settings.
-NOTIFICATION_CATEGORIES = {"assigned-to-me", "mentions", "decisions", "handoff"}
-# Email digests: opt-in only (email off until the user enables it).
-DIGEST_CATEGORIES = {"digest-daily", "digest-weekly"}
-DIGEST_DEFAULT_CHANNELS = {"desktop": False, "email": False, "push": False, "slack": False}
-
-
 async def notification_channels(
     session: AsyncSession, tenant_id: UUID, user_id: UUID, category: str
 ) -> dict[str, bool]:
-    """The user's enabled channels for a notification category.
+    """Stored switches for one category, without availability: ``inapp``, ``email``, ``push``.
 
-    Channels: `desktop` (in-app bell + device push), `email`, and `slack`
-    (decision DMs). Preference categories (assigned/mentions/decisions/
-    handoff) and digest rows honour stored toggles. System categories (ops,
-    billing, …) always deliver desktop so operational alerts never vanish.
+    ``digest-daily`` is the tier 3 email switch. Event categories combine the
+    tier 1 switch with the category row. Other ids (system notices) use tier 2.
+    Live delivery goes through ``services/notify.py``; this view serves the
+    digest cron and Slack.
     """
-    from app.models.notification import UserNotificationPreference
+    from app.services.notify import TIER_DIGEST, TIER_LATER, TIER_NOW, load_prefs
 
-    fallback = (
-        DIGEST_DEFAULT_CHANNELS
-        if category in DIGEST_CATEGORIES
-        else DEFAULT_CHANNELS
-    )
-    # System alerts (not in the prefs UI) ignore stored toggles.
-    if category not in NOTIFICATION_CATEGORIES and category not in DIGEST_CATEGORIES:
-        return dict(DEFAULT_CHANNELS)
-
-    result = await session.execute(
-        select(UserNotificationPreference).where(
-            UserNotificationPreference.tenant_id == tenant_id,
-            UserNotificationPreference.user_id == user_id,
-        )
-    )
-    row = result.scalar_one_or_none()
-    if not row or not row.prefs_json.strip():
-        return dict(fallback)
-    try:
-        rows = json.loads(row.prefs_json)
-    except json.JSONDecodeError:
-        return dict(fallback)
-    for pref in rows if isinstance(rows, list) else []:
-        if isinstance(pref, dict) and pref.get("id") == category:
-            channels = pref.get("channels") or {}
-            return {
-                "desktop": bool(channels.get("desktop", fallback["desktop"])),
-                "email": bool(channels.get("email", fallback["email"])),
-                "push": bool(channels.get("push", fallback["push"])),
-                "slack": False,
-            }
-    return dict(fallback)
+    prefs = await load_prefs(session, tenant_id, user_id)
+    if category == "digest-daily":
+        channels = {"inapp": False, "push": False, "email": prefs["tiers"][TIER_DIGEST]["email"]}
+    elif category in prefs["categories"]:
+        tier = prefs["tiers"][TIER_NOW] if category != "digest-weekly" else {"inapp": True, "push": True, "email": True}
+        row = prefs["categories"][category]
+        channels = {key: bool(tier.get(key) and row.get(key)) for key in ("inapp", "push", "email")}
+    else:
+        channels = dict(prefs["tiers"][TIER_LATER])
+    return {**channels, "desktop": channels["inapp"], "slack": False}
 
 
 async def decision_bell_status(
     session: AsyncSession, tenant_id: UUID, user_id: UUID | None
 ) -> str:
-    """Initial bell status for a decision notification targeted at a user.
+    """Initial status of a decision's anchor Notification row.
 
-    Decision notifications anchor DecisionRequest rows, so the row must always
-    exist; honoring the user's `decisions` preference means creating it as
-    already-read (no unread badge, no realtime ping) instead of skipping it.
-    Broadcasts (no target user) stay unread: unassigned decisions must reach
-    someone.
+    The row must always exist; a person who switched decisions off in the app
+    gets it as already read. Team and broadcast rows stay unread.
     """
     if user_id is None:
         return "unread"
     channels = await notification_channels(session, tenant_id, user_id, "decisions")
-    return "unread" if channels["desktop"] else "read"
+    return "unread" if channels["inapp"] else "read"
 
 
 def thread_link(signal_id: UUID | str) -> str:

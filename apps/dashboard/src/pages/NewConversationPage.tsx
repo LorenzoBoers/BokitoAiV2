@@ -360,7 +360,7 @@ export default function NewConversationPage() {
         bodyText: content,
         connectionId,
       })
-      navigate(channelPath('email', { connectionId, queue: 'open', threadId: result.threadId }))
+      navigate(channelPath(`email:${connectionId}`, { threadId: result.threadId }))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('newConversation.startError'))
       setSending(false)

@@ -43,10 +43,10 @@ describe('threadFitsInboxQueue', () => {
 })
 
 describe('resolvedStatusLeavesInboxQueue', () => {
-  it('leaves Open/All/Mine after close, but stays on Closed', () => {
+  it('leaves Open/All/For you after close, but stays on Closed', () => {
     expect(resolvedStatusLeavesInboxQueue('closed', 'open')).toBe(true)
     expect(resolvedStatusLeavesInboxQueue('closed', 'all')).toBe(true)
-    expect(resolvedStatusLeavesInboxQueue('closed', 'mine')).toBe(true)
+    expect(resolvedStatusLeavesInboxQueue('closed', 'for_you')).toBe(true)
     expect(resolvedStatusLeavesInboxQueue('closed', 'closed')).toBe(false)
   })
 

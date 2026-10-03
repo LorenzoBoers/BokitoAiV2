@@ -13,7 +13,7 @@ import type { HubLeaf, SubQueue } from '../lib/messages-paths'
 let cached: InboxFolderPrefs | null = null
 
 /**
- * Roaming default sub-view (Open / Mine / ...) for channel and agent folders.
+ * Roaming default sub-view (For you / Open / ...) for All communication and team folders.
  * Reads `/me/preferences` once per session; writes update the cache so the
  * sidebar and settings stay in sync within a tab.
  */

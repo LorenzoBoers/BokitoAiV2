@@ -14,7 +14,7 @@ import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { formatAgentModelLine } from '../lib/model-label'
-import { activityTerminalPath, agentChatPath, decisionsPath } from '../lib/messages-paths'
+import { activityTerminalPath, agentChatPath, forYouPath } from '../lib/messages-paths'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { filterLibraryAgents, sortAgentsForLibrary } from '../lib/workforce-nav-agents'
@@ -159,7 +159,7 @@ function AgentLibraryCard({
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      navigate(decisionsPath(null, { agent: agent.id }))
+                      navigate(forYouPath(null, { agent: agent.id }))
                     }}
                     className="text-xs font-medium text-text-heading hover:underline"
                   >

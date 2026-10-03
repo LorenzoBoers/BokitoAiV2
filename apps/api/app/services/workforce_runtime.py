@@ -136,6 +136,9 @@ def serialize_runtime_agent(
     # Keep HTML field for older clients / preview: derived from plain text or legacy.
     payload["email_signature_html"] = agent_signature_html(agent)
     payload["reply_send_as"] = agent_reply_send_as(agent)
+    from app.services.addressee import agent_ask_target
+
+    payload["ask_target"] = agent_ask_target(agent)
     payload.update(avatar_payload(agent))
     from app.services.managed_resources import management_payload
 
@@ -451,8 +454,9 @@ async def update_agent(
     avatar_icon: str | None = None,
     avatar_color: str | None = None,
     avatar_image_url: str | None = None,
+    ask_target: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Edit a company agent's identity (name), system prompt, signature, avatar."""
+    """Edit a company agent's identity, system prompt, signature, avatar, and who it asks."""
     result = await session.execute(
         select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
     )
@@ -535,6 +539,19 @@ async def update_agent(
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         agent.settings_json = json.dumps(stored)
+    if ask_target is not None:
+        from app.services.addressee import parse_target, set_agent_ask_target
+
+        kind = str(ask_target.get("kind") or "auto")
+        target = None
+        if kind != "auto":
+            target = await parse_target(session, tenant_id, ask_target)
+            if target is None:
+                raise HTTPException(status_code=400, detail="Ask target not found")
+        try:
+            set_agent_ask_target(agent, kind, UUID(target["id"]) if target else None)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()

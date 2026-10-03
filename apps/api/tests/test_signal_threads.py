@@ -231,7 +231,8 @@ async def test_signal_badge_counts(client: AsyncClient):
     body = res.json()
     assert "inbox_unread" in body
     assert "agents_attention" in body
-    assert set(body["inbox_by_queue"].keys()) == {"my", "unassigned", "all"}
+    assert set(body["inbox_by_queue"].keys()) == {"for_you", "for_you_unread", "unassigned", "all"}
+    assert body["by_team"] == {}
 
 
 @pytest.mark.asyncio

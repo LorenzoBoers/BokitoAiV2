@@ -1,9 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { toast } from 'sonner'
-import { Building2, Check, Loader2, Mail, Phone, ShieldBan, Users, UserRound } from 'lucide-react'
+import {
+  Building2,
+  Check,
+  Loader2,
+  Mail,
+  Phone,
+  Plus,
+  ShieldBan,
+  ShieldCheck,
+  Unlink,
+  Users,
+  UserRound,
+} from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -12,8 +24,12 @@ import { useAuth } from '../../context/AuthContext'
 import {
   findThreadsForContact,
   latestThreadActivityAt,
+  linkConversationContact,
+  normalizeContactBasis,
   resolveContact,
+  unlinkConversationContact,
   updateContact,
+  type ContactLinkCandidate,
   type ContactRow,
   type ContactStatus,
 } from '../../lib/contacts-api'
@@ -26,6 +42,7 @@ import {
 import type { InboxMember, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
+import { IdentitySeenLine, timeAgo } from './IdentitySeenLine'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { useAiHandling } from '../../hooks/useAiHandling'
@@ -55,17 +72,14 @@ type Props = {
   currentThreadId?: ThreadId | null
   threadSubject?: string | null
   threadPreview?: string | null
-}
-
-function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  if (!iso) return ''
-  const diff = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return t('contactPanel.now')
-  if (minutes < 60) return t('contactPanel.minutesAgo', { count: minutes })
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return t('contactPanel.hoursAgo', { count: hours })
-  return t('contactPanel.daysAgo', { count: Math.floor(hours / 24) })
+  /** How the current thread is linked: verified | claimed | manual; '' = inbound address. */
+  contactBasis?: string
+  /** Rendered above previous conversations (This conversation). */
+  children?: ReactNode
+  /** Close control on the identity row (no separate Who chrome). */
+  closeAction?: ReactNode
+  /** Activity on the open thread; fallback when the book has no last-seen. */
+  threadActivityAt?: string | null
 }
 
 function FieldRow({ icon: Icon, value }: { icon: typeof Mail; value?: string | null }) {
@@ -85,6 +99,10 @@ export default function ContactPanel({
   currentThreadId,
   threadSubject,
   threadPreview,
+  contactBasis,
+  children,
+  closeAction,
+  threadActivityAt,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token, user } = useAuth()
@@ -98,9 +116,22 @@ export default function ContactPanel({
   const [notesDirty, setNotesDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [captureName, setCaptureName] = useState('')
-  const [captureEmail, setCaptureEmail] = useState('')
+  const [captureIdentifier, setCaptureIdentifier] = useState('')
+  const [captureOpen, setCaptureOpen] = useState(false)
+  const [candidates, setCandidates] = useState<ContactLinkCandidate[]>([])
+  // The thread prop catches up through the realtime thread update; until
+  // then the panel follows the link result.
+  const [linked, setLinked] = useState<{ contactId: string | null; basis: string } | null>(null)
   const { t: tc } = useTranslation('common')
   const aiHandling = useAiHandling('contact', contact?.id ?? null)
+  const effectiveContactId = linked ? linked.contactId : contactId
+  const basis = normalizeContactBasis(linked ? linked.basis : contactBasis)
+
+  useEffect(() => {
+    setLinked(null)
+    setCandidates([])
+    setCaptureOpen(false)
+  }, [currentThreadId, contactId, contactBasis])
 
   const load = useCallback(async () => {
     if (!token) {
@@ -112,9 +143,9 @@ export default function ContactPanel({
     setLoading(true)
     try {
       const row = await resolveContact(token, {
-        id: contactId,
-        email: fallbackEmail,
-        name: fallbackName,
+        id: effectiveContactId,
+        email: linked ? null : fallbackEmail,
+        name: linked ? null : fallbackName,
       })
       setContact(row)
       if (row) {
@@ -125,14 +156,12 @@ export default function ContactPanel({
         }
         setNotesDraft(row.notes ?? '')
         setCaptureName(isGenericVisitorName(row.displayName) ? '' : row.displayName)
-        setCaptureEmail(isPlaceholderContactAddress(row.address) ? '' : row.address)
+        setCaptureIdentifier('')
       } else {
         setThreads([])
         setNotesDraft('')
         setCaptureName(fallbackName && !isGenericVisitorName(fallbackName) ? fallbackName : '')
-        setCaptureEmail(
-          fallbackEmail && !isPlaceholderContactAddress(fallbackEmail) ? fallbackEmail : '',
-        )
+        setCaptureIdentifier('')
       }
       setNotesDirty(false)
     } catch (err) {
@@ -142,7 +171,7 @@ export default function ContactPanel({
     } finally {
       setLoading(false)
     }
-  }, [token, contactId, fallbackEmail, fallbackName, t])
+  }, [token, effectiveContactId, linked, fallbackEmail, fallbackName, t])
 
   useEffect(() => {
     void load()
@@ -165,23 +194,51 @@ export default function ContactPanel({
     }
   }
 
-  const saveIdentity = async () => {
-    if (!token || !contact || saving) return
-    const email = captureEmail.trim().toLowerCase()
-    if (!email || !email.includes('@')) {
-      toast.error(t('contactPanel.emailRequired'))
+  const linkContact = async (pickedId?: string) => {
+    if (!token || !currentThreadId || saving) return
+    const identifier = captureIdentifier.trim()
+    if (!pickedId && !identifier) {
+      toast.error(t('contactPanel.identifierRequired'))
       return
     }
     setSaving(true)
     try {
-      const updated = await updateContact(token, contact.id, {
-        address: email,
-        display_name: captureName.trim() || email.split('@')[0] || contact.displayName,
+      const isEmail = identifier.includes('@')
+      const result = await linkConversationContact(token, String(currentThreadId), {
+        contactId: pickedId,
+        email: !pickedId && isEmail ? identifier : undefined,
+        phone: !pickedId && !isEmail ? identifier : undefined,
+        name: captureName.trim() || undefined,
       })
-      if (updated) setContact(updated)
-      toast.success(t('contactPanel.emailSaved'))
+      if (result.status === 'choose') {
+        setCandidates(result.candidates)
+        return
+      }
+      setCandidates([])
+      setCaptureOpen(false)
+      setLinked({ contactId: result.contactId, basis: result.basis })
+      const name = result.contactName || identifier
+      if (result.status === 'created') toast.success(t('contactPanel.linkCreated', { name }))
+      else if (result.status === 'unchanged') toast.message(t('contactPanel.linkUnchanged'))
+      else toast.success(t('contactPanel.linked', { name }))
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('contactPanel.emailSaveError')))
+      toast.error(formatApiErrorMessage(err, t('contactPanel.linkError')))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const unlinkContact = async () => {
+    if (!token || !currentThreadId || saving) return
+    if (!window.confirm(t('contactPanel.unlinkConfirm'))) return
+    setSaving(true)
+    try {
+      await unlinkConversationContact(token, String(currentThreadId))
+      // The previous identity comes back with the realtime thread update.
+      setLinked(null)
+      toast.success(t('contactPanel.unlinked'))
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('contactPanel.unlinkError')))
     } finally {
       setSaving(false)
     }
@@ -200,12 +257,100 @@ export default function ContactPanel({
     }
   }
 
+  const canLink = Boolean(currentThreadId)
+  const linkButton = canLink ? (
+    <button
+      type="button"
+      onClick={() => setCaptureOpen(true)}
+      title={t('contactPanel.linkHint')}
+      data-testid="contact-link-open"
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+    >
+      <Plus size={11} />
+      {t('contactPanel.link')}
+    </button>
+  ) : null
+  const inputClass =
+    'w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50'
+  const linkForm =
+    canLink && captureOpen ? (
+      <form
+        className="mt-3 space-y-1.5 text-left"
+        data-testid="contact-link-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void linkContact()
+        }}
+      >
+        <input
+          type="text"
+          value={captureIdentifier}
+          onChange={(e) => {
+            setCaptureIdentifier(e.target.value)
+            setCandidates([])
+          }}
+          placeholder={t('contactPanel.identifierPlaceholder')}
+          autoFocus
+          className={inputClass}
+        />
+        <input
+          type="text"
+          value={captureName}
+          onChange={(e) => setCaptureName(e.target.value)}
+          placeholder={t('contactPanel.namePlaceholder')}
+          className={inputClass}
+        />
+        {candidates.length > 0 ? (
+          <div className="space-y-1">
+            <p className="text-xs text-text-muted">{t('contactPanel.linkChoose')}</p>
+            {candidates.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                disabled={saving}
+                onClick={() => void linkContact(candidate.id)}
+                className="flex w-full items-center gap-2 rounded-md border border-border/60 px-2 py-1 text-left text-xs hover:bg-bg-hover/60 disabled:opacity-50"
+              >
+                <span className="min-w-0 flex-1 truncate-fade font-medium text-text-primary">
+                  {candidate.displayName || candidate.address}
+                </span>
+                <span className="min-w-0 truncate-fade text-text-muted">{candidate.address}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+          >
+            {saving ? t('contactPanel.saving') : t('contactPanel.linkSubmit')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCaptureOpen(false)
+              setCandidates([])
+            }}
+            className="rounded-md px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+          >
+            {t('contactPanel.cancel')}
+          </button>
+        </div>
+      </form>
+    ) : null
+
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-4 py-4 text-sm text-text-muted">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        {t('contactPanel.loading')}
-      </div>
+      <>
+        <div className="flex items-center gap-2 px-4 py-4 text-sm text-text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="min-w-0 flex-1">{t('contactPanel.loading')}</span>
+          {closeAction}
+        </div>
+        {children}
+      </>
     )
   }
 
@@ -219,8 +364,9 @@ export default function ContactPanel({
 
   if (teammate) {
     return (
-      <div className="flex flex-col">
-        <div className="border-b border-border/40 px-4 pb-3 pt-4">
+      <>
+        <div className="flex flex-col">
+          <div className="border-b border-border/40 px-4 pb-3 pt-4">
           <div className="flex items-start gap-2.5">
             <PersonAvatar
               name={teammate.name}
@@ -235,10 +381,12 @@ export default function ContactPanel({
                 <Users size={9} />
                 {isSelf ? t('contactPanel.you') : t('contactPanel.teammate')}
               </span>
+              <IdentitySeenLine at={latestThreadActivityAt(threads) || threadActivityAt} />
               <p className="mt-1 truncate-fade text-xs text-text-muted">
                 {roleLabel(teammate.role, t)}
               </p>
             </div>
+            {closeAction}
           </div>
           <div className="mt-3 space-y-1.5">
             <FieldRow icon={Mail} value={teammate.email} />
@@ -246,7 +394,7 @@ export default function ContactPanel({
           <p className="mt-2 text-xs text-text-muted">{t('contactPanel.teammateHint')}</p>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <Link
-              to="/settings/members"
+              to="/team"
               className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               {t('contactPanel.openMembers')}
@@ -254,6 +402,8 @@ export default function ContactPanel({
           </div>
         </div>
       </div>
+      {children}
+    </>
     )
   }
 
@@ -261,18 +411,23 @@ export default function ContactPanel({
     const readableEmail =
       fallbackEmail && !isPlaceholderContactAddress(fallbackEmail) ? fallbackEmail : ''
     return (
+      <>
       <div className="px-4 py-4">
+        {closeAction ? <div className="mb-1 flex justify-end">{closeAction}</div> : null}
         <div className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center">
           <UserRound size={18} className="mx-auto text-text-muted" />
           <p className="mt-2 text-sm font-medium text-text-primary">
             {humanizeContactName(fallbackName, fallbackEmail, t('contactPanel.widgetVisitor')) ||
               t('contactPanel.noContact')}
           </p>
+          <IdentitySeenLine at={threadActivityAt} />
           {readableEmail ? <p className="text-xs text-text-muted">{readableEmail}</p> : null}
           <p className="mt-2 text-xs text-text-muted">
             {t('contactPanel.noContactHint')}
           </p>
+          {linkForm}
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {!captureOpen ? linkButton : null}
             {readableEmail ? (
               <Link
                 to={newContactPath(readableEmail)}
@@ -298,6 +453,8 @@ export default function ContactPanel({
           </div>
         </div>
       </div>
+      {children}
+    </>
     )
   }
 
@@ -315,6 +472,8 @@ export default function ContactPanel({
     headlineName.trim().toLowerCase() !== t('contactPanel.widgetVisitor').trim().toLowerCase()
   // Legacy rows may still be "approved" without an email — treat as awaiting identity.
   const statusPending = contact.status === 'pending' || (anonymous && contact.status === 'approved')
+  const lastSeenAt = contact.lastSeenAt || latestThreadActivityAt(threads)
+  const needsIdentity = isPlaceholderContactAddress(contact.address)
   const alsoSeenAsVisitor =
     namedHeadline &&
     (isPlaceholderContactAddress(contact.address) ||
@@ -323,35 +482,48 @@ export default function ContactPanel({
 
   return (
     <div className="flex flex-col">
-      {/* Identity card — panel chrome already titles this as Who */}
       <div className="border-b border-border/40 px-4 pb-3 pt-3">
         <div className="flex items-start gap-2.5">
           <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
           <div className="min-w-0 flex-1">
             <p className="truncate-fade text-base font-semibold text-text-heading">{headlineName}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span
-              className={`mt-0.5 inline-flex rounded-full px-1.5 py-px text-2xs font-semibold ${
+              className={`text-2xs font-semibold ${
                 contact.status === 'blocked'
-                  ? 'bg-status-error/12 text-status-error'
-                  : statusPending
-                    ? 'bg-status-warning/15 text-status-warning'
-                    : 'bg-status-success/12 text-status-success'
+                  ? 'text-status-error'
+                  : 'text-text-muted'
               }`}
             >
               {contact.status === 'blocked'
                 ? t('contactPanel.statusBlocked')
-                : statusPending
-                  ? anonymous
-                    ? t('contactPanel.statusAwaitingEmail')
-                    : t('contactPanel.statusPending')
-                  : t('contactPanel.statusApproved')}
+                : anonymous
+                  ? t('contactPanel.kindUnknownChatter')
+                  : t('contactPanel.kindContact')}
             </span>
+            {basis === 'verified' || basis === 'claimed' ? (
+              <span
+                data-testid="contact-basis"
+                title={t(basis === 'verified' ? 'contactPanel.basisVerifiedHint' : 'contactPanel.basisClaimedHint')}
+                className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-2xs font-semibold ${
+                  basis === 'verified'
+                    ? 'bg-status-success/12 text-status-success'
+                    : 'bg-bg-hover text-text-secondary'
+                }`}
+              >
+                {basis === 'verified' ? <ShieldCheck size={9} /> : null}
+                {t(basis === 'verified' ? 'contactPanel.basisVerified' : 'contactPanel.basisClaimed')}
+              </span>
+            ) : null}
+            </div>
+            <IdentitySeenLine at={lastSeenAt || threadActivityAt} />
             {contact.title || contact.company ? (
               <p className="truncate-fade text-xs text-text-muted">
                 {[contact.title, contact.company].filter(Boolean).join(' - ')}
               </p>
             ) : null}
           </div>
+          {closeAction}
         </div>
         <div className="mt-3 space-y-1.5">
           {!isPlaceholderContactAddress(contact.address) &&
@@ -381,46 +553,21 @@ export default function ContactPanel({
             </Link>
           ) : null}
         </div>
-        {contact.lastSeenAt || latestThreadActivityAt(threads) ? (
-          <p className="mt-2 text-xs text-text-muted">
-            {t('contactPanel.lastSeen', {
-              time: timeAgo(contact.lastSeenAt || latestThreadActivityAt(threads), t),
-            })}
-          </p>
-        ) : null}
-        {isPlaceholderContactAddress(contact.address) ? (
-          <form
-            className="mt-3 space-y-2 rounded-md border border-border/50 bg-bg-elevated/40 px-2.5 py-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void saveIdentity()
-            }}
-          >
-            <p className="text-xs text-text-muted">{t('contactPanel.askForEmail')}</p>
-            <input
-              type="text"
-              value={captureName}
-              onChange={(e) => setCaptureName(e.target.value)}
-              placeholder={t('contactPanel.namePlaceholder')}
-              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-            />
-            <input
-              type="email"
-              value={captureEmail}
-              onChange={(e) => setCaptureEmail(e.target.value)}
-              placeholder={t('contactPanel.emailPlaceholder')}
-              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-            />
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
-            >
-              {saving ? t('contactPanel.saving') : t('contactPanel.saveEmail')}
-            </button>
-          </form>
-        ) : null}
+        {needsIdentity ? linkForm : null}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {needsIdentity && !captureOpen ? linkButton : null}
+          {basis && currentThreadId ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void unlinkContact()}
+              data-testid="contact-unlink"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
+            >
+              <Unlink size={11} />
+              {t('contactPanel.unlink')}
+            </button>
+          ) : null}
           {statusPending && !anonymous ? (
             <button
               type="button"
@@ -474,16 +621,18 @@ export default function ContactPanel({
               {t('contactPanel.writeEmail')}
             </Link>
           ) : null}
-          <Link
-            to={`/contacts/${contact.id}`}
-            className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-1 text-xs font-medium text-accent hover:underline"
-          >
-            {t('contactPanel.fullProfile')}
-          </Link>
+          {!namedHeadline ? null : (
+            <Link
+              to={`/contacts/${contact.id}`}
+              className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-1 text-xs font-medium text-accent hover:underline"
+            >
+              {t('contactPanel.fullProfile')}
+            </Link>
+          )}
         </div>
       </div>
 
-      <div className="border-b border-border/40 px-4 py-3">
+      <div className="border-b border-border/40 px-4 py-2">
         <AiHandlingPicker
           variant="row"
           scope="contact"
@@ -525,42 +674,18 @@ export default function ContactPanel({
         ) : null}
       </div>
 
+      {children}
+
       {/* Previous conversations (Who — history with this person) */}
       <div className="border-b border-border/40 px-4 py-3">
         <h3 className="mb-2 text-xs font-semibold text-text-muted">
           {t('contactPanel.previous')}
         </h3>
         {previousThreads.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 px-3 py-3 space-y-1.5">
-            <p className="text-xs text-text-muted">{t('contactPanel.noPrevious')}</p>
-            <p className="text-xs text-text-muted/90">
-              {isGenericVisitorName(contact?.displayName || fallbackName) ||
-              isPlaceholderContactAddress(contact?.address || fallbackEmail)
-                ? t('contactPanel.noPreviousVisitorHint')
-                : t('contactPanel.noPreviousHint')}
-            </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {contact?.address && canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
-                <Link
-                  to={composeEmailPath({ to: contact.address })}
-                  className="text-xs font-medium text-accent hover:underline"
-                >
-                  {t('contactPanel.writeEmail')}
-                </Link>
-              ) : null}
-              {!contactId ? (
-                <Link
-                  to="/contacts"
-                  className="text-xs font-medium text-accent hover:underline"
-                >
-                  {t('contactPanel.openContacts')}
-                </Link>
-              ) : null}
-            </div>
-          </div>
+          <p className="text-xs text-text-muted">{t('contactPanel.noPrevious')}</p>
         ) : (
           <div className="space-y-1">
-            {previousThreads.slice(0, 8).map((thread) => (
+            {previousThreads.slice(0, 5).map((thread) => (
               <Link
                 key={String(thread.id)}
                 to={inboxPath('open', String(thread.id))}
@@ -578,6 +703,14 @@ export default function ContactPanel({
                 </span>
               </Link>
             ))}
+            {previousThreads.length > 5 && contactId && namedHeadline ? (
+              <Link
+                to={`/contacts/${contactId}#conversations`}
+                className="mt-1 block px-2.5 py-1 text-xs font-medium text-accent hover:underline"
+              >
+                {t('contactPanel.showMore')}
+              </Link>
+            ) : null}
           </div>
         )}
       </div>

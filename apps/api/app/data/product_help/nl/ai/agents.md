@@ -33,8 +33,22 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 
 1. Open de agent. Wijzig **Naam**, **Doel**, **Doelgroep** en **Model**.
 2. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
-3. Zet **Autonomieniveau** op de agent: **Handmatig — altijd vragen**, **Goedkeuring — begrensde acties**, **Automatisch — zelfstandig handelen**, of **Workspace-standaard**. Dat zit op of onder het workspaceplafond op [Autonomie](/docs/govern/autonomy).
-4. Kies in **Communicatie-instellingen** per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Archiveren** verbergt de agent en wist de kanaalstandaarden; run-geschiedenis blijft.
+3. Kies in **Communicatie-instellingen** per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Archiveren** verbergt de agent en wist de kanaalstandaarden; run-geschiedenis blijft.
+
+## Bepaal wanneer de agent zelf handelt
+
+1. Open de agent en zoek **Wanneer deze agent zelf handelt**. Zet het **Plafond**: **Handmatig**, **Geassisteerd** of **Autonoom**. Het plafond begrenst alles wat de agent doet, ook de AI-afhandeling van gesprekken die hij bezit. Alleen een eigenaar of beheerder kan Autonoom kiezen.
+2. Voeg onder **Regels** een uitzondering toe. Schrijf de situatie op, bijvoorbeeld *Vraag eerst bij alles over terugbetalingen*, kies **Wat de agent doet** (**Nooit doen**, **Eerst vragen**, **Zonder vragen doen**) en de **Soort regel**: **De agent weegt het af** voor een situatie, of **Altijd voor een actie** voor een vaste actie of categorie.
+3. Kies **Regel toevoegen**. Regels uit **Regels voor alle agents** op [Govern](/docs/govern/govern) staan hier ook. Elke regel telt hoe vaak hij gebruikt, goedgekeurd en afgewezen is.
+4. Kies onder **Probeer uit** een actie en een zekerheid van 1 tot 10, en daarna **Probeer**. Het antwoord zegt of de agent het zelf doet, eerst vraagt of niet mag, en welke regel besliste. Onder zekerheid 7 vraagt de agent altijd.
+
+Versturen naar klanten vraagt altijd, wat de regels ook zeggen. Agents kunnen zelf een regel voorstellen; die komt als kaart in het gesprek om te bevestigen.
+
+## Kies wie de agent iets vraagt
+
+1. Open de agent en zoek **Vragen stellen aan**.
+2. Laat **Automatisch** staan om de eigenaar van het gesprek te vragen, dan wie het werk overdroeg, dan het eigenaarsteam. Wie afwezig is, wordt overgeslagen.
+3. Of kies één persoon of één team. Vragen en concepten gaan daarheen; de agent slaat die persoon nog steeds over zolang die afwezig is.
 
 ## Beheerde agents
 

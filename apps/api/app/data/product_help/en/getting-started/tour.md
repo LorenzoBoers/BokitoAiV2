@@ -21,6 +21,7 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 - **Overview** — the morning scan of open work, decisions and usage. See [Overview](/docs/getting-started/cockpit). You can set Overview as your start page under Profile; Communication is the default.
 - **Communication** — the conversations, and the contacts behind them. See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
 - **Agenda** — when agents wake. See [Agenda](/docs/ai/agenda).
+- **Team** — the people, the agents and the teams they form, with who is available now. See [Team](/docs/getting-started/team).
 - **Projects** — work that spans days. See [Projects](/docs/ai/projects).
 
 ## AI: the workforce
@@ -35,7 +36,7 @@ Installed modules (for example **Accounting**) live under **Connections** in the
 
 ## Settings
 
-- **Settings** — **Channels**, **AI replies**, chat widget, members, **Providers & models** and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).
+- **Settings** — **Channels**, **AI replies**, chat widget, **Providers & models** and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).
 
 Owners and admins come here; members rarely. See the [setup guide](/docs/getting-started/setup-guide). **Overview** sits above Control in the rail — see [Overview](/docs/getting-started/cockpit).
 

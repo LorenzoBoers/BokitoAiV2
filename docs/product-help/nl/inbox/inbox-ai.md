@@ -11,7 +11,7 @@ related: communication,contacts,channels,govern,autonomy,agents
 
 AI-afhandeling is een instelling met drie modi: **Autonoom** (AI antwoordt zelf), **Geassisteerd** (AI stelt antwoorden en acties voor, een mens verstuurt) en **Handmatig** (AI blijft stil). Je stelt het een keer in voor de workspace en alleen opnieuw waar een kanaal, een contact of een enkel gesprek moet afwijken — de meest specifieke instelling wint.
 
-Overal zie je dezelfde iconen: een bliksem voor Autonoom en een pen voor Geassisteerd (beide paars), en een hand voor Handmatig (grijs). [Govern](/docs/govern/govern) bepaalt het plafond: niets daaronder kan autonomer zijn dan Govern toestaat.
+Overal zie je dezelfde iconen: een bliksem voor Autonoom en een pen voor Geassisteerd (beide paars), en een hand voor Handmatig (grijs). [Govern](/docs/govern/govern) bepaalt het plafond: niets daaronder kan autonomer zijn dan Govern toestaat. Elke agent heeft ook een eigen plafond (zie [Agents](/docs/ai/agents)): een gesprek dat de agent afhandelt komt daar nooit boven, en de keuzelijst laat dat zien.
 
 ## De workspace-standaard instellen
 
@@ -60,6 +60,8 @@ De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de red
 - De mailbox moet nog ingesteld of opnieuw gekoppeld worden. Het gesprek krijgt dan een **Interne notitie** met een verwijzing naar **Instellingen → Kanalen** in plaats van een concept.
 
 Beweeg over de modus in de kop van het gesprek om te zien welke laag besliste en waarom.
+
+Dezelfde modus bepaalt wie een onbekende chatter is. Geeft een bezoeker een e-mail of telefoonnummer, dan koppelt **Autonoom** het gesprek aan het passende contact (of maakt er een aan), koppelt **Geassisteerd** alleen bevestigde adressen en vraagt je voor de rest, en laat **Handmatig** het koppelen aan jou. Zie [Een gesprek aan een contact koppelen](/docs/inbox/contacts).
 
 ## Wat nu
 

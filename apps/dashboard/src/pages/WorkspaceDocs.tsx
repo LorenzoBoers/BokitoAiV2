@@ -43,7 +43,7 @@ import {
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listAgents } from '../lib/agents-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
-import { agentRunsPath } from '../lib/messages-paths'
+import { activityTerminalPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { titleToDocPath } from '../lib/workspace-doc-path'
 import { cn } from '../lib/utils'
@@ -767,7 +767,7 @@ export default function WorkspaceDocs() {
                       {t('knowledgePage.openAgents')}
                     </Link>
                     {' · '}
-                    <Link to={agentRunsPath('all')} className="font-medium text-accent hover:underline">
+                    <Link to={activityTerminalPath()} className="font-medium text-accent hover:underline">
                       {t('knowledgePage.openRuns')}
                     </Link>
                     {' · '}

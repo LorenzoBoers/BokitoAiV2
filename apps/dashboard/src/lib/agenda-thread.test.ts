@@ -72,7 +72,7 @@ describe('pickClosestThreadBySubject', () => {
     ).toBe('/agenda?trigger=trig-scan')
   })
 
-  it('still opens the matching Agent-runs conversation for a past occurrence', () => {
+  it('still opens the matching conversation for a past occurrence', () => {
     expect(
       agendaOccurrenceHref(
         {
@@ -85,10 +85,10 @@ describe('pickClosestThreadBySubject', () => {
         'agent-1',
         Date.parse('2026-08-26T10:00:00Z'),
       ),
-    ).toBe('/communication/runs/all/t/near')
+    ).toBe('/communication/inbox/all/t/near')
   })
 
-  it('sends a check-in to the agent channel and other triggers to Agent runs', () => {
+  it('sends a check-in to the agent channel and other triggers to All communication', () => {
     expect(
       triggerThreadPath({
         kind: 'heartbeat',
@@ -96,10 +96,10 @@ describe('pickClosestThreadBySubject', () => {
         agent_id: 'agent-1',
         status: 'reported',
       }),
-    ).toBe('/communication/agent/agent-1/t/chan-1')
+    ).toBe('/communication/inbox/all/t/chan-1?agent=agent-1')
     expect(
       triggerThreadPath({ kind: 'interval', signal_id: 'thread-1', status: 'completed' }),
-    ).toBe('/communication/runs/results/t/thread-1')
+    ).toBe('/communication/inbox/all/t/thread-1')
     expect(triggerThreadPath({ kind: 'heartbeat', signal_id: null })).toBeNull()
   })
 
@@ -117,10 +117,10 @@ describe('pickClosestThreadBySubject', () => {
         'agent-1',
         Date.parse('2026-08-26T10:00:00Z'),
       ),
-    ).toBe('/communication/agent/agent-1/t/chan-1')
+    ).toBe('/communication/inbox/all/t/chan-1?agent=agent-1')
   })
 
-  it('opens the matching Agent-runs conversation for a completed work log', () => {
+  it('opens the matching conversation for a completed work log', () => {
     expect(
       workLogRunsPath(
         { task_subject: 'Daily platform scan', started_at: '2026-08-24T14:56:00Z', status: 'completed' },
@@ -130,6 +130,6 @@ describe('pickClosestThreadBySubject', () => {
         ],
         '/agents/a/runs/r',
       ),
-    ).toBe('/communication/runs/results/t/near')
+    ).toBe('/communication/inbox/all/t/near')
   })
 })

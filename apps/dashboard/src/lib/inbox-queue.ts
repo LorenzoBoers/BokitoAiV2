@@ -3,7 +3,7 @@ import { isAgentRunThread } from './message-composer'
 import type { InboxQueue } from './messages-paths'
 
 export function threadFitsInboxQueue(
-  thread: Pick<InboxThread, 'status' | 'assignedToUserId' | 'channel' | 'folder'>,
+  thread: Pick<InboxThread, 'status' | 'assignedToUserId' | 'channel' | 'folder' | 'owner' | 'turn'>,
   queue: InboxQueue,
   userId: number | null,
 ): boolean {
@@ -11,13 +11,23 @@ export function threadFitsInboxQueue(
     case 'all':
       // Mirrors view=all server-side: closing moves a thread out of "All".
       return thread.status !== 'closed' && thread.status !== 'spam'
-    case 'mine':
-      return thread.status === 'open' && thread.assignedToUserId === userId
+    case 'for_you':
+      // Team turns and mentions are decided server-side; keep the row.
+      return (
+        thread.status === 'open' &&
+        (thread.assignedToUserId === userId ||
+          thread.turn?.userNum === userId ||
+          thread.turn?.kind === 'team' ||
+          thread.owner?.kind === 'team')
+      )
     case 'open':
-      // Customer + assistant chats; agent-run threads live under Agent-runs.
-      return thread.status === 'open' && !isAgentRunThread(thread)
+      // Agent runs stay out unless a person or team must act on them.
+      return (
+        thread.status === 'open' &&
+        (!isAgentRunThread(thread) || thread.turn?.kind === 'user' || thread.turn?.kind === 'team')
+      )
     case 'unassigned':
-      return thread.status === 'open' && thread.assignedToUserId == null
+      return thread.status === 'open' && (thread.owner ? thread.owner.kind === 'team' : thread.assignedToUserId == null)
     case 'snoozed':
       return thread.status === 'pending'
     case 'closed':

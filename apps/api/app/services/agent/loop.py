@@ -370,11 +370,13 @@ class AgentLoop:
                 )
             else:
                 parts.append(
-                    "## Team reachability\n"
-                    "The team is away from live handoff right now. Chat stays open. "
-                    "Never say the chat is closed or offline. If the visitor wants a "
-                    "person, call request_callback and tell them the team will follow "
-                    "up in this conversation."
+                    "## Team availability\n"
+                    "Nobody who can take a live handoff is available right now. Chat "
+                    "stays open; never say the chat is closed or offline. If the visitor "
+                    "wants a person, say honestly that nobody is available at this moment "
+                    "and offer the alternatives: leave an email address so the team can "
+                    "write back, or a callback (call request_callback). Tell them the team "
+                    "follows up in this conversation."
                 )
             parts.append(
                 "## Customer confirmation\n"
@@ -382,7 +384,12 @@ class AgentLoop:
                 "visitor has confirmed a short email link. Call "
                 "request_customer_verify with the email they give you. Always "
                 "tell them to check their inbox. Never say whether an account "
-                "exists. Chat stays open after the link is sent."
+                "exists. Chat stays open after the link is sent.\n\n"
+                "## Who is this\n"
+                "When the visitor gives an email address or phone number, call "
+                "link_conversation_contact once with it (and their name if "
+                "given). It never tells you whether a contact exists; continue "
+                "the conversation normally."
             )
         else:
             operator = await self._operator_context()
@@ -412,6 +419,10 @@ class AgentLoop:
 
         tenant_for_lang = await self.session.get(Tenant, self.tenant_id)
         parts.append(language_rules_for_trust(self.trust, tenant_for_lang))
+        if self.agent is not None and self.trust != "external":
+            from app.services.agent_rules import all_rules, when_to_ask_prompt
+
+            parts.append(when_to_ask_prompt(all_rules(tenant_for_lang, self.agent)))
         # Bokito virtual models present as Bokito's own model; agents on
         # BYOK/real models keep their actual identity.
         resolved = getattr(self, "resolved_call", None)
@@ -430,11 +441,27 @@ class AgentLoop:
         ).scalar_one_or_none()
         if tenant is None:
             return True
-        return team_is_reachable(tenant)
+        return await team_is_reachable(self.session, tenant)
+
+    async def _whatsapp_handover_on(self) -> bool:
+        from app.models.auth import Tenant
+        from app.services.whatsapp_handover import handover_target
+
+        tenant = await self.session.get(Tenant, self.tenant_id)
+        account, _ = await handover_target(self.session, tenant)
+        return account is not None
 
     async def _apply_reachability_tools(self) -> None:
         reachable = await self._team_reachable()
         names = {t["name"] for t in self.tools}
+        self.tools = [t for t in self.tools if t["name"] != "continue_on_whatsapp"]
+        if not reachable and self.trust == "external" and await self._whatsapp_handover_on():
+            whatsapp = next(
+                (t for t in get_tool_definitions() if t["name"] == "continue_on_whatsapp"),
+                None,
+            )
+            if whatsapp:
+                self.tools = [*self.tools, whatsapp]
         if reachable:
             self.tools = [t for t in self.tools if t["name"] != "request_callback"]
             if "handoff_to_human" not in names:
@@ -453,13 +480,15 @@ class AgentLoop:
                 )
                 if callback:
                     self.tools = [*self.tools, callback]
-        if "request_customer_verify" not in {t["name"] for t in self.tools}:
-            verify = next(
-                (t for t in get_tool_definitions() if t["name"] == "request_customer_verify"),
+        for always_on in ("request_customer_verify", "link_conversation_contact"):
+            if always_on in {t["name"] for t in self.tools}:
+                continue
+            definition = next(
+                (t for t in get_tool_definitions() if t["name"] == always_on),
                 None,
             )
-            if verify:
-                self.tools = [*self.tools, verify]
+            if definition:
+                self.tools = [*self.tools, definition]
 
     async def _prepare_chat(
         self,

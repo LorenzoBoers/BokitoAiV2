@@ -27,7 +27,7 @@ Sections (fixed set, in nav order):
 
 | Section | Contents |
 | --- | --- |
-| `getting-started` | welcome, quickstart, setup-guide, tour, cockpit, members |
+| `getting-started` | welcome, quickstart, setup-guide, tour, cockpit, team |
 | `inbox` | communication, agent-runs, channels, contacts, inbox-ai, widget |
 | `ai` | agents, decisions, knowledge, projects, workstreams, cases, agenda |
 | `govern` | govern, autonomy, models |

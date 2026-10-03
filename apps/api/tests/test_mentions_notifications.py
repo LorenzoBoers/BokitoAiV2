@@ -5,6 +5,15 @@ from httpx import AsyncClient
 
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
+_SESSION: dict = {}
+
+
+@pytest.fixture(autouse=True)
+def _capture_session(session_override):
+    _SESSION["s"] = session_override
+    yield
+    _SESSION.clear()
+
 
 async def _login(client: AsyncClient, email: str, password: str) -> dict:
     r = await client.post("/api/auth/login", json={"email": email, "password": password})
@@ -51,9 +60,27 @@ async def _member_num(client: AsyncClient, headers: dict, email: str) -> int:
 
 
 async def _notifications(client: AsyncClient, headers: dict) -> list[dict]:
-    r = await client.get("/api/notifications", headers=headers)
-    assert r.status_code == 200
-    return r.json()
+    """Conversation notices for this person; they live in For you, not in the bell."""
+    import json
+
+    from sqlalchemy import select
+
+    from app.models.auth import User
+    from app.models.notification import Notification
+
+    me = await client.get("/api/auth/me", headers=headers)
+    assert me.status_code == 200, me.text
+    email = me.json().get("email") or me.json()["user"]["email"]
+    session = _SESSION["s"]
+    session.expire_all()
+    user = (await session.execute(select(User).where(User.email == email))).scalar_one()
+    rows = (
+        await session.execute(select(Notification).where(Notification.user_id == user.id))
+    ).scalars().all()
+    return [
+        {"kind": n.kind, "title": n.title, "payload": json.loads(n.payload_json or "{}")}
+        for n in rows
+    ]
 
 
 @pytest.mark.asyncio

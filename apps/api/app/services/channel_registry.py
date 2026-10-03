@@ -273,8 +273,6 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
 
 def _resolve_widget(ctx: ChannelContext) -> ChannelFacts:
     """Website chat: always reachable once embedded, no credentials to expire."""
-    from app.services.livechat_compat import office_hours_open, widget_settings_from_tenant
-
     checks = [
         _check(
             "installed",
@@ -282,20 +280,6 @@ def _resolve_widget(ctx: ChannelContext) -> ChannelFacts:
             detail=_iso(ctx.last_event_at) or "",
         )
     ]
-    if ctx.tenant is not None:
-        widget = widget_settings_from_tenant(ctx.tenant)
-        hours = widget.get("office_hours") or {}
-        if not hours.get("enabled"):
-            checks.append(_check("office_hours", "na"))
-        else:
-            open_now = office_hours_open(hours)
-            checks.append(
-                _check(
-                    "office_hours",
-                    "ok" if open_now else "warn",
-                    detail=f"{hours.get('start', '')}-{hours.get('end', '')}",
-                )
-            )
     return ChannelFacts(
         capabilities=("receive", "send"),
         checks=checks,
@@ -395,7 +379,7 @@ def resolve_channel(
 ) -> dict[str, Any]:
     """One uniform row for any channel kind: state, capabilities, checks, actions."""
     from app.services.ai_handling import breaker_tripped_at, resolve_ai_handling
-    from app.services.channel_visibility import account_visibility
+    from app.services.channel_access import account_access, is_default_access
     from app.services.crypto import credentials_ready_from_settings, get_connection_credentials
     from app.services.email_sync import account_sync_window_days
 
@@ -448,7 +432,11 @@ def resolve_channel(
             "breaker_tripped_at": breaker_tripped_at(account),
         },
         "default_agent_id": str(account.default_agent_id) if account.default_agent_id else None,
-        "visibility": account_visibility(account),
+        "default_team_id": (settings.get("routing") or {}).get("team_id")
+        if isinstance(settings.get("routing"), dict)
+        else None,
+        "access": account_access(account),
+        "access_is_default": is_default_access(account),
         "created_at": account.created_at.isoformat(),
         "sync_window_days": account_sync_window_days(settings),
     }
@@ -566,17 +554,18 @@ async def list_channels(
     """Every configurable channel of a tenant as uniform rows."""
     from sqlalchemy import select
 
-    from app.services.channel_visibility import is_account_visible_to
+    from app.services.channel_access import visible_channel_account_ids
 
     result = await session.execute(
         select(ChannelAccount)
         .where(ChannelAccount.tenant_id == tenant.id)
         .order_by(ChannelAccount.channel, ChannelAccount.created_at)
     )
+    visible = await visible_channel_account_ids(session, tenant.id, user_id=user_id, role=role)
     accounts = [
         a
         for a in result.scalars().all()
-        if is_configurable_channel(a) and is_account_visible_to(a, user_id=user_id, role=role)
+        if is_configurable_channel(a) and (visible is None or a.id in visible)
     ]
     events = await last_event_by_account(session, tenant.id)
     now = datetime.utcnow()

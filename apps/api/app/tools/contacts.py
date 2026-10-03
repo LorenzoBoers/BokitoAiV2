@@ -156,6 +156,224 @@ async def _upsert_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
     return {"created": not existed, **_serialize(contact)}
 
 
+# The customer-facing agent always gets this, so it cannot learn whether a
+# contact exists or what happened next.
+LINK_CUSTOMER_RESPONSE: dict[str, str] = {
+    "status": "noted",
+    "copy": "Thanks. Continue the conversation; do not mention accounts or records.",
+}
+
+
+def _link_copy(locale: str, key: str, **values: str) -> str:
+    nl = {
+        "link_title": "Gesprek koppelen aan {name}?",
+        "link_summary": "De bezoeker gaf {identifier} op. Dat hoort bij {name}. Niet bevestigd.",
+        "create_title": "Nieuw contact maken voor {identifier}?",
+        "create_summary": "De bezoeker gaf {identifier} op. Er is nog geen contact met dit adres.",
+        "choose_title": "Welk contact is dit?",
+        "choose_summary": "{identifier} hoort bij meer dan een contact.",
+        "merge_summary": " Dit gesprek hoort al bij een ander contact; koppelen voegt ze samen (owner of admin).",
+        "link": "Koppelen",
+        "create": "Contact maken",
+        "reject": "Niet koppelen",
+    }
+    en = {
+        "link_title": "Link conversation to {name}?",
+        "link_summary": "The visitor gave {identifier}. That belongs to {name}. Not verified.",
+        "create_title": "Create a contact for {identifier}?",
+        "create_summary": "The visitor gave {identifier}. No contact has this address yet.",
+        "choose_title": "Which contact is this?",
+        "choose_summary": "{identifier} belongs to more than one contact.",
+        "merge_summary": " This conversation already belongs to another contact; linking merges them (owner or admin).",
+        "link": "Link",
+        "create": "Create contact",
+        "reject": "Don't link",
+    }
+    return (nl if locale == "nl" else en)[key].format(**values)
+
+
+async def _link_decision(
+    ctx: ToolContext,
+    signal: Signal,
+    proposal: Any,
+    locale: str,
+) -> None:
+    from app.services.signal_decisions import create_decision
+
+    identifier = proposal.email or proposal.phone
+    base = {
+        "signal_id": str(signal.id),
+        "email": proposal.email,
+        "phone": proposal.phone,
+        "name": proposal.name,
+        "basis": proposal.basis,
+        "merge": proposal.needs_merge,
+    }
+    reject = {"id": "reject", "label": _link_copy(locale, "reject"), "action_type": "reject"}
+    if proposal.outcome == "suggest":
+        title = _link_copy(locale, "choose_title")
+        summary = _link_copy(locale, "choose_summary", identifier=identifier)
+        options = [
+            {
+                "id": f"link_{c.id}",
+                "label": f"{_link_copy(locale, 'link')}: {c.display_name or c.address}",
+                "action_type": "contact_link",
+                "payload": {**base, "contact_id": str(c.id)},
+            }
+            for c in proposal.candidates[:4]
+        ]
+    elif proposal.outcome == "create":
+        title = _link_copy(locale, "create_title", identifier=identifier)
+        summary = _link_copy(locale, "create_summary", identifier=identifier)
+        options = [
+            {
+                "id": "create",
+                "label": _link_copy(locale, "create"),
+                "action_type": "contact_create",
+                "payload": base,
+            }
+        ]
+    else:
+        name = proposal.person.display_name or proposal.person.address
+        title = _link_copy(locale, "link_title", name=name)
+        summary = _link_copy(locale, "link_summary", identifier=identifier, name=name)
+        options = [
+            {
+                "id": "link",
+                "label": _link_copy(locale, "link"),
+                "action_type": "contact_link",
+                "payload": {**base, "contact_id": str(proposal.person.id)},
+            }
+        ]
+    if proposal.needs_merge:
+        summary += _link_copy(locale, "merge_summary")
+    await create_decision(
+        ctx.session,
+        ctx.tenant_id,
+        title=title,
+        summary=summary,
+        options=[*options, reject],
+        agent_id=ctx.agent.id if ctx.agent else None,
+        signal_id=signal.id,
+        run_id=ctx.run_id,
+        source_type="agent" if ctx.agent else "system",
+        source_id="link_conversation_contact",
+    )
+
+
+async def _link_conversation_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Link the conversation to a person from an email or phone the visitor gave.
+
+    AI handling decides: manual does nothing; assisted links only verified
+    addresses and asks for the rest; autonomous also links claimed addresses
+    and creates a contact when none exists. Ambiguous matches and merging two
+    known persons always ask.
+    """
+    from app.models.auth import Tenant
+    from app.services import contact_identity as identity
+    from app.services.ai_handling import resolve_for_signal
+    from app.services.customer_verify import thread_assurance_valid
+    from app.services.language import resolve_workspace_language
+
+    customer = ctx.audience == "customer"
+    raw_signal = str(tool_input.get("signal_id") or "") or (str(ctx.signal_id) if ctx.signal_id else "")
+    try:
+        signal = await ctx.session.get(Signal, UUID(raw_signal)) if raw_signal else None
+    except ValueError:
+        signal = None
+    if signal is None or signal.tenant_id != ctx.tenant_id:
+        return dict(LINK_CUSTOMER_RESPONSE) if customer else {"error": "Conversation not found"}
+
+    tenant = await ctx.session.get(Tenant, ctx.tenant_id)
+    email = identity.normalize_email(str(tool_input.get("email") or ""))
+    basis = "claimed"
+    if email and thread_assurance_valid(signal) and (signal.assurance_email or "").lower() == email:
+        basis = "verified"
+    if not customer and ctx.user_id is not None:
+        basis = "manual"
+    proposal = await identity.resolve_link(
+        ctx.session,
+        tenant,
+        signal,
+        email=email,
+        phone=str(tool_input.get("phone") or ""),
+        name=str(tool_input.get("name") or ""),
+        basis=basis,
+    )
+
+    def done(result: dict[str, Any]) -> dict[str, Any]:
+        return dict(LINK_CUSTOMER_RESPONSE) if customer else result
+
+    if proposal.outcome == "none":
+        return done({"status": "unchanged", "reason": proposal.reason})
+
+    mode = (await resolve_for_signal(ctx.session, tenant, signal)).effective
+    if customer and mode == "manual":
+        return done({"status": "skipped", "reason": "manual"})
+
+    if basis == "manual":
+        may_apply = proposal.outcome in ("link", "create") and not (
+            proposal.needs_merge and ctx.user_role not in ("owner", "admin")
+        )
+    elif proposal.outcome == "suggest" or proposal.needs_merge or ctx.mode == "ask":
+        may_apply = False
+    elif basis == "verified":
+        may_apply = mode in ("assisted", "autonomous")
+    else:
+        may_apply = mode == "autonomous"
+
+    if not may_apply:
+        await _link_decision(ctx, signal, proposal, resolve_workspace_language(tenant))
+        await ctx.session.commit()
+        return done({"status": "asked", "outcome": proposal.outcome})
+
+    created = proposal.outcome == "create"
+    person = await identity.apply_link(
+        ctx.session,
+        signal,
+        proposal,
+        actor_type="agent" if ctx.agent else "user",
+        actor_id=str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
+    )
+    await ctx.session.commit()
+    return done(
+        {
+            "status": "created" if created else "linked",
+            "contact_id": str(person.id),
+            "basis": proposal.basis,
+        }
+    )
+
+
+register_tool(
+    ToolSpec(
+        name="link_conversation_contact",
+        description=(
+            "When the visitor gives an email address or phone number, call this "
+            "once to link the conversation to the right contact. AI handling "
+            "decides whether it links now or asks the team. The answer never "
+            "says whether a contact exists; do not tell the visitor about "
+            "accounts. Linking does not verify the visitor; personal data "
+            "still needs request_customer_verify."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "email": {"type": "string"},
+                "phone": {"type": "string"},
+                "name": {"type": "string", "description": "Name the visitor gave, if any."},
+                "signal_id": {"type": "string"},
+            },
+        },
+        handler=_link_conversation_contact,
+        mutating=True,
+        gated=False,
+        handles_ask=True,
+        audience="both",
+    )
+)
+
 register_tool(
     ToolSpec(
         name="list_contacts",
@@ -201,7 +419,8 @@ register_tool(
         description=(
             "Create or update the email contact for one address. Existing CRM "
             "fields are only overwritten by the values you pass, so send just "
-            "what you learned."
+            "what you learned. To say who a conversation is with, use "
+            "link_conversation_contact instead."
         ),
         category="messaging",
         input_schema={

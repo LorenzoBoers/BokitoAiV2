@@ -2,7 +2,8 @@
 
 Subscription endpoints prefixed with ``expo:`` hold an Expo push token and are
 delivered via the Expo push API; everything else is treated as a standard web
-push subscription.
+push subscription. Which events push, and when, is decided in
+``services/notify.py``; this module only transports.
 """
 
 from __future__ import annotations
@@ -22,15 +23,13 @@ from app.models.auth import Membership
 from app.models.usage import PushSubscription
 
 if TYPE_CHECKING:
-    from app.models.notification import DecisionRequest, Notification
-    from app.models.signal import Signal, SignalMessage
+    from app.models.notification import DecisionRequest
+    from app.models.signal import Signal
 
 logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 EXPO_ENDPOINT_PREFIX = "expo:"
-
-_SKIP_MESSAGE_KINDS = frozenset({"internal_note", "system_event"})
 
 
 async def _send_expo_push(token: str, title: str, body: str, payload: dict | None) -> bool:
@@ -117,43 +116,26 @@ async def resolve_thread_recipient_ids(session: AsyncSession, signal: "Signal") 
     return list(result.scalars().all())
 
 
-async def notify_thread_message(
-    session: AsyncSession,
-    signal: "Signal",
-    message: "SignalMessage",
-) -> int:
-    """Send push for a new inbound thread message. Returns number of deliveries."""
-    if message.direction != "inbound":
-        return 0
-    if message.kind in _SKIP_MESSAGE_KINDS:
-        return 0
-
-    title = signal.subject or "New message"
-    preview = (message.body_preview or message.body_text or "").strip()
-    body = preview[:200] if preview else "You have a new message"
-    payload = {
-        "kind": "thread_message",
-        "signal_id": str(signal.id),
-        "message_id": str(message.id),
-    }
-
-    sent = 0
-    for user_id in await resolve_thread_recipient_ids(session, signal):
-        sent += await send_push_to_user(session, signal.tenant_id, user_id, title, body, payload)
-    return sent
-
-
 async def notify_decision(
     session: AsyncSession,
     decision: "DecisionRequest",
     *,
     signal_id: UUID | None = None,
 ) -> int:
-    """Send push when a decision awaits human input. Returns number of deliveries."""
+    """Deliver a waiting decision outside the app (push, email) to its addressee.
+
+    Tier 1 with the ``decisions`` category, gated by availability through
+    ``notify.channels_for``. Returns the number of push deliveries.
+    """
     if decision.status != "awaiting_human":
         return 0
 
+    from app.models.auth import User
     from app.models.signal import Signal
+    from app.services.addressee import addressee_user_ids
+    from app.services.notification_mail import send_notification_mail, thread_link
+    from app.services.notify import TIER_NOW, channels_for, load_prefs
+    from app.services.presence import user_status
 
     title = "Decision required"
     body = (decision.title or decision.summary or "A decision needs your attention")[:200]
@@ -168,8 +150,8 @@ async def notify_decision(
         "message_id": str(decision.message_id) if decision.message_id else "",
     }
 
-    recipients: list[UUID] = []
-    if resolved_signal_id:
+    recipients: list[UUID] = await addressee_user_ids(session, decision)
+    if not recipients and not decision.addressee_kind and resolved_signal_id:
         signal_result = await session.execute(
             select(Signal).where(Signal.id == resolved_signal_id, Signal.tenant_id == decision.tenant_id)
         )
@@ -177,55 +159,27 @@ async def notify_decision(
         if signal:
             recipients = await resolve_thread_recipient_ids(session, signal)
 
-    if not recipients:
-        result = await session.execute(
-            select(Membership.user_id).where(
-                Membership.tenant_id == decision.tenant_id,
-                Membership.role.in_(("owner", "admin")),
-            )
-        )
-        recipients = list(result.scalars().all())
-
-    # Push mirrors the in-app channel: users who turned the `decisions`
-    # category off in Notification Settings get no device push either.
-    from app.services.notification_mail import notification_channels
-
     sent = 0
-    for user_id in recipients:
-        channels = await notification_channels(session, decision.tenant_id, user_id, "decisions")
-        if not channels["push"]:
+    for user_id in dict.fromkeys(recipients):
+        user = await session.get(User, user_id)
+        if not user or not user.is_active:
             continue
-        sent += await send_push_to_user(session, decision.tenant_id, user_id, title, body, payload)
+        prefs = await load_prefs(session, decision.tenant_id, user_id)
+        channels = channels_for(prefs, tier=TIER_NOW, category="decisions", status=user_status(user))
+        if "push" in channels:
+            sent += await send_push_to_user(session, decision.tenant_id, user_id, title, body, payload)
+        if "email" in channels:
+            text = f"{decision.title}\n\n{(decision.summary or '').strip()[:500]}".strip()
+            if resolved_signal_id:
+                text += f"\n\nReview and decide:\n{thread_link(resolved_signal_id)}"
+            await send_notification_mail(
+                session,
+                user_id,
+                subject=f"Decision needed: {decision.title}"[:200],
+                text=text,
+                tenant_id=decision.tenant_id,
+            )
     return sent
-
-
-async def notify_notification(session: AsyncSession, notification: "Notification") -> int:
-    """Push assignment and mention notifications to their target user."""
-    category = {
-        "assignment": "assigned-to-me",
-        "mention": "mentions",
-    }.get(notification.kind)
-    if not category or not notification.user_id or notification.status != "unread":
-        return 0
-    from app.services.notification_mail import notification_channels
-
-    channels = await notification_channels(
-        session, notification.tenant_id, notification.user_id, category
-    )
-    if not channels["push"]:
-        return 0
-    try:
-        payload = json.loads(notification.payload_json or "{}")
-    except json.JSONDecodeError:
-        payload = {}
-    return await send_push_to_user(
-        session,
-        notification.tenant_id,
-        notification.user_id,
-        notification.title,
-        notification.body[:200],
-        {"kind": notification.kind, **payload},
-    )
 
 
 def _schedule_push_task(coro) -> None:
@@ -243,24 +197,6 @@ def _schedule_push_task(coro) -> None:
         logger.debug("no running event loop for push task")
 
 
-def schedule_notify_thread_message(signal_id: UUID, message_id: UUID) -> None:
-    async def _run() -> None:
-        from app.db.session import async_session_factory
-        from app.models.signal import Signal, SignalMessage
-
-        async with async_session_factory() as session:
-            signal = (
-                await session.execute(select(Signal).where(Signal.id == signal_id))
-            ).scalar_one_or_none()
-            message = (
-                await session.execute(select(SignalMessage).where(SignalMessage.id == message_id))
-            ).scalar_one_or_none()
-            if signal and message:
-                await notify_thread_message(session, signal, message)
-
-    _schedule_push_task(_run())
-
-
 def schedule_notify_decision(decision_id: UUID, *, signal_id: UUID | None = None) -> None:
     async def _run() -> None:
         from app.db.session import async_session_factory
@@ -272,22 +208,5 @@ def schedule_notify_decision(decision_id: UUID, *, signal_id: UUID | None = None
             ).scalar_one_or_none()
             if decision:
                 await notify_decision(session, decision, signal_id=signal_id)
-
-    _schedule_push_task(_run())
-
-
-def schedule_notify_notification(notification_id: UUID) -> None:
-    async def _run() -> None:
-        from app.db.session import async_session_factory
-        from app.models.notification import Notification
-
-        async with async_session_factory() as session:
-            notification = (
-                await session.execute(
-                    select(Notification).where(Notification.id == notification_id)
-                )
-            ).scalar_one_or_none()
-            if notification:
-                await notify_notification(session, notification)
 
     _schedule_push_task(_run())

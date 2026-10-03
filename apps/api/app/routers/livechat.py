@@ -122,6 +122,8 @@ async def session_start(
         agent_avatar = (
             avatar_payload(assistant_agent) if assistant_agent is not None else None
         )
+    from app.services.livechat_compat import team_is_reachable
+
     return session_start_payload(
         tenant,
         user,
@@ -131,6 +133,7 @@ async def session_start(
         assistant_name=assistant_name,
         agent_avatar=agent_avatar,
         surface=surface,
+        team_available=await team_is_reachable(session, tenant, surface=surface),
     )
 
 
@@ -503,7 +506,7 @@ async def request_conversation_handoff(
     tenant, user, token = ctx
     signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
     surface = surface_from_widget_token(token)
-    if surface != SURFACE_IN_APP and not team_is_reachable(tenant, surface=surface):
+    if surface != SURFACE_IN_APP and not await team_is_reachable(session, tenant, surface=surface):
         await request_callback(
             session,
             tenant.id,

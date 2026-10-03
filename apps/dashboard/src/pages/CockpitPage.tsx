@@ -38,7 +38,7 @@ import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { patchSignalThread } from '../lib/signals-api'
 import { snoozeUntilIso, SNOOZE_PRESETS } from '../lib/snooze'
 import { translateDecisionText } from '../lib/activity-labels'
-import { agentRunsPath, attentionThreadPath, channelPath, decisionsPath, inboxPath } from '../lib/messages-paths'
+import { attentionThreadPath, channelPath, forYouPath, inboxPath } from '../lib/messages-paths'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { enrichContactsFromThreads, listContacts, type ContactRow } from '../lib/contacts-api'
 import {
@@ -418,7 +418,7 @@ function LegacyCockpitPage() {
   const firstAttention = attentionThreads[0]
   const decisionHref = firstAttention
     ? attentionThreadPath(firstAttention)
-    : decisionsPath()
+    : forYouPath()
   // Prefer live attention list when summary lags (e.g. internal agent-run decisions).
   const openDecisionCount = Math.max(summary?.open_decisions ?? 0, attentionThreads.length)
   const freshAttention = attentionThreads.filter((thread) => {
@@ -773,7 +773,7 @@ function LegacyCockpitPage() {
                 // Deep-link an event to its thread, or to the run detail.
                 const target = ev.signal_id
                   ? ev.kind === 'agent_run'
-                    ? agentRunsPath('all', ev.signal_id)
+                    ? inboxPath('all', ev.signal_id)
                     : inboxPath('open', ev.signal_id)
                   : ev.agent_id && ev.run_id
                     ? agentWorkforceRunUrl(ev.agent_id, ev.run_id)

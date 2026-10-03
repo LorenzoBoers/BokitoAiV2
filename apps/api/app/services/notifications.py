@@ -12,7 +12,6 @@ from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalMessage
 from app.services.audit import record_audit
 from app.services.platform_changes import accept_platform_change
-from app.tools.policy import set_tool_override
 
 
 class DecisionActionError(HTTPException):
@@ -29,6 +28,31 @@ class DecisionActionError(HTTPException):
         )
 
 
+async def _count_rule_verdict(
+    session: AsyncSession, tenant_id: UUID, options: list[dict[str, Any]], action: str
+) -> None:
+    """A card a rule asked for counts as approved or rejected on that rule."""
+    learn = next(
+        (o["learn"] for o in options if isinstance(o, dict) and isinstance(o.get("learn"), dict)), None
+    )
+    reason = str((learn or {}).get("reason") or "")
+    if not reason.startswith("rule:") or action not in ("approved", "rejected"):
+        return
+    from app.models.agent import Agent
+    from app.models.auth import Tenant
+    from app.services.agent_rules import record_outcome
+
+    tenant = await session.get(Tenant, tenant_id)
+    try:
+        agent = await session.get(Agent, UUID(str(learn.get("agent_id") or "")))
+    except ValueError:
+        agent = None
+    if tenant is not None and record_outcome(tenant, agent, reason[5:], action):
+        session.add(tenant)
+        if agent is not None:
+            session.add(agent)
+
+
 async def resolve_decision(
     session: AsyncSession,
     tenant_id: UUID,
@@ -37,7 +61,6 @@ async def resolve_decision(
     action: str,
     *,
     user_id: UUID | None = None,
-    always_auto: bool = False,
     payload_override: dict[str, Any] | None = None,
 ) -> DecisionRequest:
     result = await session.execute(
@@ -55,6 +78,8 @@ async def resolve_decision(
     decision.chosen_option_id = option_id
     decision.status = action
     decision.resolved_at = datetime.utcnow()
+    decision.resolved_by_user_id = user_id
+    await _count_rule_verdict(session, tenant_id, options, action)
 
     if decision.notification_id:
         notif_result = await session.execute(
@@ -80,18 +105,6 @@ async def resolve_decision(
                         payload.setdefault("body_text", value)
                     if key == "body_text":
                         payload.setdefault("body", value)
-
-        if always_auto and user_id and action_type:
-            from app.tools.decision_copy import mcp_override_key
-
-            # Prefer a per-MCP-tool key so "Always allow" for one remote tool
-            # does not unlock every call_mcp_tool invocation.
-            override_name = action_type
-            if action_type == "call_mcp_tool":
-                mcp_key = mcp_override_key(payload)
-                if mcp_key:
-                    override_name = mcp_key
-            await set_tool_override(session, tenant_id, override_name, "allow")
 
         if payload.get("session_checkout"):
             # Inline agent session checkout: end the session, or send it back
@@ -245,6 +258,18 @@ async def resolve_decision(
                         actor_id=str(user_id) if user_id else "",
                     )
 
+        if action_type in ("contact_link", "contact_create"):
+            from app.services.contact_identity import apply_decided_link
+
+            if decision.signal_id and "signal_id" not in payload:
+                payload["signal_id"] = str(decision.signal_id)
+            try:
+                await apply_decided_link(
+                    session, tenant_id, action_type, payload, user_id=user_id
+                )
+            except (ValueError, PermissionError) as exc:
+                raise DecisionActionError(action_type, str(exc)) from exc
+
         change_id = decision.platform_change_id
         platform_change_id = payload.get("platform_change_id") or chosen.get("platform_change_id")
         if change_id and user_id:
@@ -274,6 +299,8 @@ async def resolve_decision(
             "session_checkout",
             "reset_ai_breaker",
             "keep_ai_assisted",
+            "contact_link",
+            "contact_create",
         ):
             from app.tools import execute_tool
             from app.tools.registry import get_tool_spec
@@ -411,4 +438,8 @@ async def resolve_decision(
     await emit_webhook_event(
         session, tenant_id, "decision.resolved", decision_event_data(decision)
     )
+    if user_id is not None and action in ("approved", "rejected"):
+        from app.services.routing_learning import learn_from_answer
+
+        await learn_from_answer(session, decision)
     return decision

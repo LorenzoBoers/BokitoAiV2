@@ -65,6 +65,10 @@
     "settings": {
       "title": "Instellingen",
       "subtitle": "Workspace-configuratie"
+    },
+    "team": {
+      "title": "Team",
+      "subtitle": "Mensen, agents en teams van het bedrijf"
     }
   },
   "workstreamsPage": {
@@ -190,7 +194,6 @@
   },
   "cases": {
     "listTitle": "Signalen",
-    "emptyThread": "Nog geen signalen. Voeg er een toe — bijvoorbeeld Factuur/betaling bij een aanmaning.",
     "openHub": "Alle signalen",
     "manageTypes": "Signaaltypes instellen",
     "openWorkstream": "Draaiboek",
@@ -429,7 +432,6 @@
     "learn": "Hulp",
     "docs": "Docs",
     "newConversation": "Nieuw gesprek",
-    "decisions": "Beslissingen",
     "widgetInstall": "Installeren",
     "widgetVoice": "Stem en uren",
     "widgetLook": "Uiterlijk",
@@ -439,7 +441,9 @@
     "moduleWorkspace": "Module",
     "connectedTools": "Gekoppelde tools",
     "connected": "Koppelingen",
-    "myAssistant": "Mijn assistent"
+    "myAssistant": "Mijn assistent",
+    "forYou": "Voor jou",
+    "team": "Team"
   },
   "pageHeaders": {
     "cockpitOverview": "Werkruimtegezondheid in één oogopslag",
@@ -538,7 +542,6 @@
       "govern": "Govern",
       "knowledge": "Kennis",
       "developers": "Developer-instellingen",
-      "agentRuns": "AI check-ins",
       "widget": "Website-chatwidget",
       "automations": "Automatiseringen",
       "models": "Modellen",
@@ -546,7 +549,8 @@
       "autonomy": "Autonomiehouding",
       "usage": "Verbruik",
       "workstreams": "Draaiboeken",
-      "cases": "Signalen"
+      "cases": "Signalen",
+      "activity": "Activiteit"
     },
     "cockpit": {
       "bannerTitle": "Overview is de polsslag van de workspace",
@@ -798,6 +802,12 @@
     "sourceWakes": "Wakes",
     "sourceTasks": "Opvolging",
     "sourceCalendar": "Kalender",
+    "emptyLookbacksTitle": "Nog geen kijkmomenten",
+    "emptyLookbacksBody": "Kijkmomenten uit gesprekken en kalenderblokken staan hier. Agent-scans staan onder Alles.",
+    "showAllIncludingAutomations": "Alles tonen",
+    "automationsCollapsed": "{{count}} agent-scans en check-ins",
+    "automationsShow": "Tonen",
+    "automationsHide": "Verbergen",
     "actor": {
       "agent": "Agent",
       "person": "Persoon"
@@ -1084,6 +1094,12 @@
     "lastSeen": "Laatst gezien {{time}}",
     "widgetVisitor": "Websitebezoeker",
     "alsoSeenAsVisitor": "Ook gezien als websitebezoeker",
+    "identities": "Ook bereikbaar via",
+    "detach": "Losmaken",
+    "detachHint": "Maak hier weer een apart contact van; gekoppelde gesprekken gaan mee.",
+    "detachConfirm": "Deze identiteit losmaken als apart contact?",
+    "detached": "Losgemaakt als apart contact.",
+    "detachError": "Kon deze identiteit niet losmaken.",
     "statusAwaitingEmail": "Wacht op e-mail",
     "anonymousGroupHint": "{{count}} websitebezoekers wachten op een e-mail — leg identiteit vast vóór goedkeuren.",
     "neverSeen": "Nog geen gesprekken",
@@ -1657,9 +1673,8 @@
     "title": "Notificaties",
     "markAll": "Alles gelezen",
     "empty": "Geen notificaties",
-    "emptyHint": "Bokito laat je weten wanneer een klant schrijft of een agent een beslissing nodig heeft.",
+    "emptyHint": "De bel bevat systeemmeldingen. Gesprekken die jou nodig hebben staan in Voor jou.",
     "settings": "Instellingen",
-    "openDecisions": "Beslissingen",
     "openChannels": "E-mail en berichten",
     "openCommunication": "Communicatie openen",
     "now": "Nu",
@@ -1671,24 +1686,18 @@
     "markRead": "Gelezen",
     "dayToday": "Vandaag",
     "dayOlder": "Eerder",
-    "openInbox": "Inbox"
+    "forYouLine_one": "Nu {{count}} gesprek in Voor jou",
+    "forYouLine_other": "Nu {{count}} gesprekken in Voor jou",
+    "digestGroup_one": "Overzicht: {{count}} update",
+    "digestGroup_other": "Overzicht: {{count}} updates"
   },
   "bindingPicker": {
     "ariaLabel": "Behandelende agent",
     "hint": "De agent die nieuwe gesprekken op dit item behandelt.",
     "leadDefault": "Standaardagent",
-    "leadDefaultNamed": "{{name}} — standaardagent",
+    "defaultBadge": "Standaard",
     "unknownAgent": "Onbekende agent",
     "saveError": "Kon de behandelende agent niet bijwerken."
-  },
-  "channelVisibility": {
-    "title": "Zichtbaarheid",
-    "hint": "Welke workspace-members gesprekken op dit kanaal zien. Owners en admins zien altijd alles.",
-    "everyone": "Iedereen",
-    "selected": "Geselecteerde members",
-    "selectedCount": "{{count}} member(s)",
-    "membersLabel": "Members",
-    "saveError": "Kon zichtbaarheid niet bijwerken."
   },
   "channelsPage": {
     "listTitle": "Kanalen",
@@ -1703,12 +1712,8 @@
     "loadError": "Kanalen konden niet worden geladen.",
     "back": "Terug",
     "done": "Klaar",
-    "colAgent": "Agent",
-    "colVisibility": "Zichtbaarheid",
     "copied": "Gekopieerd",
     "copy": "Kopiëren",
-    "copyAddress": "Adres kopiëren",
-    "configure": "Instellen",
     "syncing": "Synchroniseren...",
     "syncNow": "Nu synchroniseren",
     "retrySync": "Sync opnieuw proberen",
@@ -1732,10 +1737,38 @@
     "oauthContinue": "Doorgaan met {{provider}}",
     "lastActivity": "Laatste activiteit {{when}}",
     "noActivityYet": "Nog geen activiteit",
-    "toggleEnabledAria": "Dit kanaal aan- of uitzetten",
-    "toggleChecks": "Kanaalcontroles tonen",
-    "checksTitle": "Controles",
+    "toggleSettings": "Instellingen voor {{name}}",
     "noChecks": "Geen controles voor dit kanaal.",
+    "section": {
+      "status": "Status",
+      "general": "Algemeen",
+      "manage": "Beheer"
+    },
+    "edit": "Wijzigen",
+    "open": "Openen",
+    "name": "Naam",
+    "agent": "AI-agent",
+    "agentHint": "De agent die nieuwe gesprekken met AI-afhandeling oppakt. Zonder keuze doet de standaardagent van de werkruimte dat.",
+    "foldersHint": "Welke mappen Bokito bijhoudt.",
+    "signatureHint": "Komt onder elk antwoord vanaf dit adres.",
+    "primarySender": "Primaire afzender",
+    "primarySenderHint": "Het adres waarvandaan nieuwe mail vertrekt als je er meerdere hebt.",
+    "address": "Adres",
+    "connection": "Verbinding",
+    "connectionHint": "Log opnieuw in als de toegang verlopen of ingetrokken is.",
+    "phoneNumber": "Telefoonnummer",
+    "widgetDesign": "Uiterlijk en teksten",
+    "widgetDesignHint": "Kleuren, naam, avatar en welkomstbericht.",
+    "widgetInstall": "Installatie",
+    "widgetInstallHint": "De code voor je website.",
+    "pauseTitle": "Kanaal pauzeren",
+    "pauseHint": "Ontvangt en verstuurt niets nieuws. Gesprekken en instellingen blijven bewaard.",
+    "pause": "Pauzeren",
+    "resumeTitle": "Kanaal staat op pauze",
+    "resumeHint": "Hervat om op dit kanaal weer te ontvangen en te verzenden.",
+    "resume": "Hervatten",
+    "removeTitleShort": "Kanaal verwijderen",
+    "removeHint": "Ontkoppelt dit kanaal. Bestaande gesprekken blijven in Communicatie.",
     "reconnect": "Opnieuw koppelen",
     "folders": "Mappen",
     "signature": "Handtekening",
@@ -1749,7 +1782,6 @@
     "renameSave": "Naam opslaan",
     "renameSaved": "Kanaal hernoemd",
     "remove": "Verwijderen",
-    "actionsFor": "Acties voor {{email}}",
     "close": "Sluiten",
     "kind": {
       "email_mailbox": "Mailbox",
@@ -1757,11 +1789,6 @@
       "widget": "Websitechat",
       "whatsapp": "WhatsApp",
       "slack": "Slack"
-    },
-    "capability": {
-      "receive": "Ontvangen",
-      "send": "Verzenden",
-      "sync": "Sync"
     },
     "checkState": {
       "ok": "OK",
@@ -1779,7 +1806,6 @@
       "last_sync": "Laatste sync",
       "sync_errors": "Syncfouten",
       "installed": "Widget op je site",
-      "office_hours": "Openingstijden",
       "phone_number": "Telefoonnummer",
       "webhook": "Webhook",
       "bot_token": "Bot-token",
@@ -1958,7 +1984,14 @@
     "foldersSaveError": "Kon mappen niet opslaan.",
     "mailboxSaveError": "Kon mailboxinstellingen niet opslaan.",
     "oauthConnected": "{{provider}} gekoppeld en gesynchroniseerd.",
-    "oauthFailedTitle": "Kon {{provider}} niet koppelen"
+    "oauthFailedTitle": "Kon {{provider}} niet koppelen",
+    "access": "Toegang",
+    "accessHint": "Welke mensen, agents en teams dit kanaal zien of afhandelen.",
+    "team": "Eigenaar-team",
+    "teamHint": "Het team dat nieuwe gesprekken op dit kanaal bezit tot iemand ze oppakt.",
+    "defaultBadge": "Standaard",
+    "widgetLive": "Live overdracht",
+    "widgetLiveHint": "Beschikbaar zodra iemand met Afhandelen-toegang op de widget beschikbaar is."
   },
   "foldersTags": {
     "title": "Mapstandaarden",
@@ -2030,32 +2063,30 @@
     "deleteFailed": "Regel kon niet worden verwijderd."
   },
   "notificationsPage": {
-    "intro": "Kies welke in-app notificaties je in Bokito ontvangt.",
-    "notifyMe": "Meld me over",
+    "intro": "Bokito deelt elke melding in drie niveaus in. Kies per niveau waar die je bereikt. Ben je in de app, dan krijg je geen push; ben je afwezig, dan bereiken alleen kritieke meldingen je buiten de app.",
+    "notifyMe": "Gebeurtenis",
     "inApp": "In-app",
     "email": "E-mail",
     "push": "Push",
     "slack": "Slack",
     "pushTitle": "Pushnotificaties op dit apparaat",
-    "pushBody": "Krijg een systeemmelding voor nieuwe berichten en openstaande beslissingen, ook als Bokito gesloten is. Geldt alleen voor deze browser; beslissings-pushes volgen je in-app voorkeur hierboven.",
+    "pushBody": "Krijg een systeemmelding voor niveau 1 als je niet in Bokito bent. Geldt alleen voor deze browser.",
     "pushUnsupported": "Deze browser ondersteunt geen pushnotificaties.",
     "pushNotConfigured": "Push staat niet aan op deze server. Zet VAPID_PUBLIC_KEY en VAPID_PRIVATE_KEY in de API-omgeving (zie docs/PRODUCTION_READINESS.md).",
     "pushAria": "Pushnotificaties op dit apparaat",
     "pushFailed": "Pushnotificaties konden niet worden bijgewerkt.",
-    "channelsTitle": "Kanalen",
-    "channelsBody": "Kies in-app, e-mail en push apart voor beslissingen, vermeldingen en toewijzingen.",
+    "channelsTitle": "Waar gespreksmeldingen heen gaan",
+    "channelsBody": "Toewijzingen, vermeldingen, beslissingen en overdrachten komen in Voor jou; het gesprek openen markeert ze gelezen op elk apparaat. De bel bevat alleen systeemmeldingen.",
     "connectSlack": "Slack koppelen",
     "enableSlack": "om de Slack-schakelaars te gebruiken.",
     "budgetHint": "Budgetwaarschuwingen volgen de uitgavenlimieten op",
     "openUsage": "Verbruik",
-    "inAppEnabled": "{{count}} in-app aan",
     "slackFirst": "Koppel eerst een Slack-workspace (Instellingen > E-mail en berichten)",
     "loading": "Voorkeuren laden...",
     "saved": "Opgeslagen.",
     "savedHint": "Voorkeuren worden op je account bewaard.",
     "saveFailed": "Notificatievoorkeuren konden niet worden opgeslagen.",
     "loadFailed": "Laden mislukt",
-    "pauseInApp": "Pauzeer in-app meldingen",
     "restoreDefaults": "Herstel aanbevolen",
     "preview": "Bekijk een voorbeeld",
     "previewTitle": "Voorbeeld: beslissing nodig",
@@ -2064,14 +2095,26 @@
     "rows": {
       "assigned-to-me": "Wanneer een gesprek aan jou wordt toegewezen",
       "mentions": "Wanneer je wordt genoemd in gesprekken",
-      "decisions": "Wanneer een agent je beslissing nodig heeft bij een toegewezen gesprek",
+      "decisions": "Wanneer een vraag of beslissing aan jou is gericht",
       "handoff": "Wanneer een klant een medewerker vraagt",
-      "ops-run-failed": "Wanneer een agent-run of trigger faalt",
-      "ops-channel-disconnect": "Wanneer een gekoppeld kanaal stopt met synchroniseren",
-      "billing-alerts": "Wanneer LLM-verbruik 80% of 100% van het budget bereikt",
-      "digest-daily": "Dagelijks e-maildigest (open gesprekken, openstaande beslissingen, agentactiviteit)",
       "digest-weekly": "Wekelijks e-maildigest"
-    }
+    },
+    "tierColumn": "Niveau",
+    "tiers": {
+      "1": {
+        "title": "Nu",
+        "hint": "Je bent eigenaar van een gesprek, een vraag of beslissing voor jou, een vermelding, een klant die op een mens wacht, een kritieke systeemmelding."
+      },
+      "2": {
+        "title": "Later",
+        "hint": "Systeemmeldingen zoals een mislukte run, een Govern-voorstel of een uitnodiging. In de app en de bel, nooit push."
+      },
+      "3": {
+        "title": "Overzicht",
+        "hint": "Teamactiviteit en afgeronde runs. Ingeklapt in de bel; e-mail stuurt een dagelijks overzicht."
+      }
+    },
+    "perEvent": "Per gebeurtenis"
   },
   "whatsappCard": {
     "title": "WhatsApp",
@@ -2238,10 +2281,8 @@
     "groupSettings": "Instellingen",
     "groupInbox": "Communicatie-wachtrijen",
     "inboxOpenHint": "J/K om te bewegen, ? voor sneltoetsen",
-    "decisionsHint": "Open goedkeuringen over alle kanalen",
     "needsReply": "Jij aan zet",
     "needsDecision": "Wacht op beslissing",
-    "agentRuns": "AI check-ins",
     "groupKnowledge": "Kennis",
     "unnamedContact": "Naamloos contact",
     "untitledConversation": "Naamloos gesprek",
@@ -2271,7 +2312,9 @@
     "openPlaybook": "Draaiboek openen",
     "openProject": "Project openen",
     "openKnowledge": "Kennis openen",
-    "openGovernDrafts": "Govern-concepten bekijken"
+    "openGovernDrafts": "Govern-concepten bekijken",
+    "activity": "Activiteit",
+    "forYouHint": "Vragen, concepten en antwoorden die op jou wachten"
   },
   "gateway": {
     "connected": "Live",
@@ -2503,10 +2546,6 @@
       "agentOps": "Agent-ops"
     },
     "newChat": "Nieuwe chat",
-    "decisions": {
-      "label": "Wacht op jou",
-      "hint": "Alles wat op jou wacht: een antwoord aan de klant, een ja of nee, of een goedgekeurd concept"
-    },
     "activity": {
       "label": "Activiteit",
       "hint": "Live tijdlijn van agent- en teamwerk"
@@ -2519,9 +2558,7 @@
       "all": "Alles",
       "allHint": "Elk klantgesprek, inclusief gesloten",
       "allCommunication": "Alle communicatie",
-      "allCommunicationHint": "Elk klantgesprek over alle kanalen",
-      "mine": "Van mij",
-      "mineHint": "Aan jou toegewezen",
+      "allCommunicationHint": "Elk gesprek over alle kanalen, te verfijnen met de kanaal- en agentchips",
       "open": "Open",
       "openHint": "Wachten nog tot iemand ze afrondt",
       "unassigned": "Niet toegewezen",
@@ -2531,18 +2568,14 @@
       "closed": "Gesloten",
       "closedHint": "Afgeronde gesprekken",
       "spam": "Spam",
-      "spamHint": "Verborgen uit de open wachtrij"
+      "spamHint": "Verborgen uit de open wachtrij",
+      "forYou": "Voor jou",
+      "forYouHint": "Van jou, jouw beurt, de beurt van je team, vragen aan iedereen en vermeldingen"
     },
     "section": {
       "inbox": "Wachtrijen",
-      "assistant": "Assistent",
-      "bokito": "Bokito",
-      "views": "Weergaven",
-      "channels": "Kanalen",
-      "agents": "Chat met agents",
-      "labels": "Labels",
-      "tags": "Tags",
-      "settings": "Instellingen"
+      "settings": "Instellingen",
+      "teams": "Teams"
     },
     "settings": {
       "channels": "Kanalen",
@@ -2551,11 +2584,6 @@
       "integrations": "Integraties",
       "setupGuide": "Setupgids",
       "allSettings": "Alle instellingen"
-    },
-    "bokito": {
-      "loading": "Gesprekken laden...",
-      "empty": "Je privégesprekken met Bokito komen hier te staan.",
-      "newChat": "Nieuw gesprek met Bokito"
     },
     "views": {
       "support": "Support",
@@ -2566,34 +2594,12 @@
       "custom": "Eigen weergaven..."
     },
     "channels": {
-      "loading": "Kanalen laden...",
       "webchat": "Websitechat",
       "internal": "Teamchat",
       "internalHint": "Notities en chats met teamleden — klanten zien dit nooit",
-      "connectEmail": "E-mail koppelen",
-      "connectChannel": "Kanaal toevoegen",
-      "emptyHint": "Koppel e-mail of chat zodat klantgesprekken hier landen.",
       "agent": "Agentberichten",
       "whatsapp": "WhatsApp",
-      "slack": "Slack",
-      "settingsAria": "Kanalen en koppelingen beheren"
-    },
-    "composeFromChannel": "Nieuw bericht vanaf dit kanaal",
-    "composeToAgent": "Bericht naar deze agent",
-    "agents": {
-      "loading": "Agents laden...",
-      "empty": "Geen agents beschikbaar voor chat.",
-      "runs": "AI check-ins",
-      "activity": "Activiteit",
-      "activityHint": "Werklog van deze agent",
-      "settingsAria": "Agents beheren"
-    },
-    "tags": {
-      "loading": "Tags laden...",
-      "empty": "Geef een gesprek een tag en het verschijnt hier, over alle kanalen heen.",
-      "openToTag": "Open een gesprek om een tag toe te voegen",
-      "manage": "Tags beheren",
-      "settingsAria": "Tags beheren en vastzetten in deze zijbalk"
+      "slack": "Slack"
     },
     "folder": {
       "expand": "Submappen tonen",
@@ -2639,12 +2645,9 @@
     "moreQueuesHint": "Uitgesteld, gesloten en spam",
     "agentOpsHint": "Beslissingen verschijnen inline in gesprekken",
     "mailboxes": "Kanalen",
-    "channelViews": {
-      "open": "Open",
-      "mine": "Van mij",
-      "unassigned": "Niet toegewezen",
-      "outbound": "Uitgaand",
-      "closed": "Gesloten"
+    "teams": {
+      "settingsAria": "Teams beheren",
+      "pinHint": "Zet een team vast om het hier te tonen"
     }
   },
   "users": {
@@ -3527,28 +3530,8 @@
         "customMcpDescription": "Koppel een externe tool via URL met een API-sleutel of token."
       },
       "bokito": {
-        "title": "Bokito gebruiken in Cursor",
-        "description": "Laat Cursor of Claude de governed tools van deze workspace aanroepen via MCP.",
-        "clients": {
-          "cursor": "Cursor (OAuth)",
-          "cursorToken": "Cursor (API-token)",
-          "claude": "Claude Desktop",
-          "generic": "Generiek HTTP"
-        },
-        "steps": {
-          "oauth1": "Open Cursor-instellingen, daarna MCP.",
-          "oauth2": "Plak de JSON hieronder (alleen URL — geen token).",
-          "oauth3": "Opslaan. Cursor opent de browser: log in bij Bokito en kies een workspace.",
-          "cursor1": "Maak hierboven een app-token (voor automatisering / CI).",
-          "cursor2": "Plak de JSON hieronder in Cursor-instellingen → MCP (url + Authorization bearer).",
-          "cursor3": "Opslaan — tools van die token-workspace verschijnen voor de agent.",
-          "claude1": "Open Claude Desktop-instellingen.",
-          "claude2": "Bewerk claude_desktop_config.json en plak de configuratie hieronder (gebruikt mcp-remote).",
-          "claude3": "Herstart Claude Desktop en controleer of Bokito-tools laden.",
-          "generic1": "POST JSON-RPC naar /api/mcp met Authorization: Bearer bok_…",
-          "generic2": "Roep tools/list aan, daarna tools/call met dezelfde bearer-token.",
-          "generic3": "Scoped tokens zien alleen passende categorieën; lege scopes = alle tools."
-        }
+        "copy": "Kopieer",
+        "copied": "Gekopieerd"
       }
     }
   },
@@ -3624,9 +3607,6 @@
       "archiveConfirmAction": "Agent archiveren",
       "archiveCancel": "Agent behouden",
       "knowledgeHint": "Agents lezen hier Stem en Geheugen tijdens het werk.",
-      "autonomyManualHint": "Deze agent wacht op jou voordat hij iets verstuurt of wijzigt.",
-      "autonomyApprovalHint": "Routineantwoorden mogen uit. Grotere acties vragen eerst.",
-      "autonomyAutoHint": "Deze agent handelt zelf, begrensd door de workspace-regels in Govern.",
       "autonomyGovernLink": "Workspace-houding",
       "modelCostLow": "Lage kosten",
       "modelCostMedium": "Gemiddelde kosten",
@@ -3788,9 +3768,6 @@
       "permissionsDescription": "Wat deze agent mag doen. Workspace-brede regels stel je in bij Govern.",
       "editPolicies": "Govern",
       "autonomyLevel": "Autonomieniveau",
-      "autonomyManual": "Handmatig — altijd vragen",
-      "autonomyApproval": "Goedkeuring — begrensde acties",
-      "autonomyAuto": "Automatisch — zelfstandig handelen",
       "autonomyDefault": "Workspace-standaard",
       "allowedTools": "Toegestane tools",
       "allToolsByPolicy": "Deze agent mag alle tools gebruiken die de workspace toestaat.",
@@ -3859,7 +3836,11 @@
         "initials": "Initialen",
         "icon": "Icoon",
         "image": "Afbeelding"
-      }
+      },
+      "askTargetTitle": "Vragen stellen aan",
+      "askTargetHint": "Wie de vragen en concepten van deze agent krijgt. Automatisch vraagt de eigenaar van het gesprek, dan wie het werk gaf, dan het eigenaar-team. Wie afwezig is, wordt overgeslagen.",
+      "askTargetAuto": "Automatisch",
+      "askTargetError": "Opslaan van wie deze agent vraagt is mislukt."
     },
     "pageMeta": {
       "overview": {
@@ -4655,7 +4636,7 @@
       "govern": "Goedkeuringen en hoeveel agents mogen doen",
       "trust": "Bewaartermijnen, inzageverzoeken en AI-datagebruik",
       "reports": "Dagelijkse scan, aandacht en verbruik",
-      "developers": "API-sleutels en webhooks",
+      "developers": "AI-tools, API-tokens en webhooks",
       "models": "Bokito AI en optioneel eigen sleutels"
     },
     "signals": {
@@ -5073,34 +5054,18 @@
     },
     "copyCurl": "REST-curl kopiëren",
     "copiedCurl": "REST-curl gekopieerd",
-    "copyCursorMcp": "Cursor MCP-config kopiëren",
-    "copiedCursorMcp": "Cursor MCP-config gekopieerd",
-    "downloadMcpJson": "bokito-mcp.json downloaden",
-    "downloadedMcpJson": "bokito-mcp.json gedownload",
-    "cursorDeeplinkHint": "Cursor heeft nog geen stabiele publieke deeplink voor remote HTTP-MCP — plak of download de JSON in Instellingen → MCP.",
-    "copyClaudeMcp": "Claude Desktop-config kopiëren",
-    "copiedClaudeMcp": "Claude Desktop-config gekopieerd",
-    "copyMcpCurl": "MCP-curl kopiëren",
-    "copiedMcpCurl": "MCP-curl gekopieerd",
-    "mcpOauthTitle": "Cursor koppelen met OAuth",
-    "mcpOauthHint": "Plak alleen de MCP-URL in Cursor. Bij eerste gebruik opent Cursor de browser — log in en kies een workspace onder je account. Geen token kopiëren.",
-    "copyCursorMcpOauth": "Cursor MCP-URL-config kopiëren",
-    "copiedCursorMcpOauth": "Cursor OAuth MCP-config gekopieerd",
     "oauthGrants": {
       "title": "Gekoppelde MCP-clients",
       "body": "OAuth-sessies van Cursor en andere MCP-clients. Intrekken stopt de toegang meteen; de client moet opnieuw autoriseren.",
       "loading": "Gekoppelde clients laden...",
-      "empty": "Nog geen OAuth-clients. Autoriseer vanuit Cursor om ze hier te zien.",
+      "empty": "Nog geen OAuth-clients. Koppel hierboven een AI-tool met OAuth om hem hier te zien.",
       "revoke": "Intrekken",
       "revokeConfirm": "Toegang voor \"{{name}}\" intrekken? Tools stoppen tot ze opnieuw autoriseren.",
       "revoked": "MCP-clienttoegang ingetrokken.",
       "revokeError": "Kon MCP-client niet intrekken."
     },
-    "mcpSetupTitle": "API-token fallback (CI / scripts)",
-    "mcpSetupHint": "Voor automatisering zonder browser: maak hierboven een token en plak een bearer-config. Governed tools vragen nog steeds om goedkeuring als policy dat eist.",
-    "mcpSetupPlaceholderHint": "Vervang YOUR_BOKITO_API_TOKEN door een token hierboven nadat je er een hebt aangemaakt.",
-    "controlFromCursor": "Stuur deze workspace vanuit Cursor",
-    "controlFromCursorBody": "Kopieer de URL-only MCP-config onder Developers, plak die in Cursor-instellingen → MCP, en autoriseer daarna in de browser met workspacekeuze.",
+    "controlFromCursor": "Gebruik deze workspace vanuit je AI-tools",
+    "controlFromCursorBody": "Koppel Cursor, Claude, Codex, VS Code, Windsurf of ChatGPT onder Developers. De meeste melden zich aan met OAuth in de browser.",
     "hideRevoked": "Ingetrokken verbergen",
     "showRevoked": "Ingetrokken tonen",
     "justNow": "zojuist",
@@ -5168,7 +5133,146 @@
       "colStatus": "Status",
       "colAttempts": "Pogingen",
       "colTime": "Tijd"
-    }
+    },
+    "aiTools": {
+      "title": "Koppel AI-tools",
+      "body": "Gebruik de tools van deze workspace, met de regels uit Govern, vanuit de AI-tool waarin je al werkt. OAuth meldt je aan via de browser; een app-token is de terugval voor scripts en CI.",
+      "mode": {
+        "oauth": "OAuth (aanbevolen)",
+        "token": "App-token"
+      },
+      "tokenHint": "Maak hieronder een token aan onder App-tokens, dan vullen de fragmenten het in. Tot die tijd staat er YOUR_BOKITO_API_TOKEN.",
+      "status": {
+        "connected": "Gekoppeld",
+        "oauth": "OAuth beschikbaar",
+        "token": "App-token"
+      },
+      "download": "Download {{file}}",
+      "downloaded": "{{file}} gedownload",
+      "docsLink": "Lees de handleiding",
+      "providers": {
+        "cursor": {
+          "name": "Cursor",
+          "description": "Gebruik Bokito-tools in de agent van Cursor.",
+          "body": "Cursor meldt zich aan met OAuth: plak de URL en keur goed in de browser. Gebruik een token alleen als er geen browser kan openen.",
+          "oauth1": "Open de instellingen van Cursor, daarna MCP, en voeg een server toe.",
+          "oauth2": "Plak de JSON hieronder. Die bevat alleen de URL, geen token.",
+          "oauth3": "Sla op. Cursor opent de browser: meld je aan bij Bokito en kies een workspace.",
+          "token1": "Maak hieronder een app-token aan onder App-tokens.",
+          "token2": "Plak de JSON hieronder in de instellingen van Cursor, onder MCP.",
+          "token3": "Sla op. De tools die het token toestaat verschijnen bij de agent."
+        },
+        "claudeCode": {
+          "name": "Claude Code",
+          "description": "Voeg Bokito toe aan de Claude Code-CLI.",
+          "body": "Claude Code ondersteunt OAuth voor externe MCP-servers. Voeg de server eenmalig toe voor je gebruiker en meld je daarna aan vanuit Claude Code.",
+          "oauth1": "Voer het commando hieronder uit in een terminal.",
+          "oauth2": "Start Claude Code en typ /mcp.",
+          "oauth3": "Kies bokito en daarna Authenticate. Meld je in de browser aan bij Bokito en kies een workspace.",
+          "token1": "Maak hieronder een app-token aan onder App-tokens.",
+          "token2": "Voer het commando hieronder uit. Claude Code stuurt het token bij elke aanroep mee."
+        },
+        "claudeDesktop": {
+          "name": "Claude Desktop",
+          "description": "Voeg Bokito toe als eigen connector in Claude.",
+          "body": "Claude voegt externe servers toe als connectors in de instellingen, met OAuth. De JSON-config draait alleen lokale servers, dus de tokenroute gebruikt de mcp-remote-brug.",
+          "oauth1": "Open in Claude de instellingen, daarna Connectors, en kies Add custom connector.",
+          "oauth2": "Vul {{url}} in als URL.",
+          "oauth3": "Kies Connect, meld je aan bij Bokito en kies een workspace. Claude verbindt vanaf de servers van Anthropic, dus Bokito moet publiek bereikbaar zijn.",
+          "token1": "Maak hieronder een app-token aan onder App-tokens.",
+          "token2": "Open claude_desktop_config.json via Settings, daarna Developer, en plak de config hieronder. De mcp-remote-brug heeft Node.js nodig.",
+          "token3": "Herstart Claude Desktop en controleer dat de Bokito-tools laden."
+        },
+        "codex": {
+          "name": "Codex CLI",
+          "description": "Voeg Bokito toe aan de Codex-CLI van OpenAI.",
+          "body": "Codex leest MCP-servers uit config.toml. Het meldt zich aan met OAuth, of leest een token uit een omgevingsvariabele zodat het token niet in het bestand staat.",
+          "oauth1": "Zet de regels hieronder in ~/.codex/config.toml.",
+          "oauth2": "Voer codex mcp login bokito uit en meld je in de browser aan bij Bokito.",
+          "oauth3": "Start Codex. De Bokito-tools staan onder /mcp.",
+          "token1": "Maak hieronder een app-token aan onder App-tokens.",
+          "token2": "Zet BOKITO_MCP_TOKEN in de shell waar Codex draait, met de eerste regel hieronder.",
+          "token3": "Zet de overige regels in ~/.codex/config.toml."
+        },
+        "vscode": {
+          "name": "VS Code",
+          "description": "Gebruik Bokito in de agentmodus van Copilot.",
+          "body": "VS Code leest MCP-servers uit mcp.json en biedt ze aan Copilot in agentmodus. Het meldt zich aan met OAuth, of vraagt eenmalig om een token.",
+          "oauth1": "Maak .vscode/mcp.json in je project, of voer MCP: Open User Configuration uit.",
+          "oauth2": "Plak de JSON hieronder en sla op.",
+          "oauth3": "Kies Start boven de serverregel. VS Code opent de browser om je aan te melden bij Bokito.",
+          "token1": "Maak hieronder een app-token aan onder App-tokens.",
+          "token2": "Plak de JSON hieronder in .vscode/mcp.json.",
+          "token3": "Kies Start en plak het token wanneer VS Code erom vraagt. Het bewaart het token in zijn geheime opslag."
+        },
+        "windsurf": {
+          "name": "Windsurf",
+          "description": "Gebruik Bokito in de agent van Windsurf.",
+          "body": "Windsurf leest externe MCP-servers uit mcp_config.json. Het meldt zich aan met OAuth, of leest een token uit een omgevingsvariabele.",
+          "oauth1": "Open in Windsurf de MCP-instellingen en kies mcp_config.json bewerken.",
+          "oauth2": "Plak de JSON hieronder en sla op.",
+          "oauth3": "Ververs de servers. Windsurf opent de browser om je aan te melden bij Bokito.",
+          "token1": "Maak hieronder een app-token aan onder App-tokens.",
+          "token2": "Zet BOKITO_MCP_TOKEN in de omgeving waaruit Windsurf start, met de eerste regel hieronder.",
+          "token3": "Plak de JSON in mcp_config.json en ververs de servers."
+        },
+        "chatgpt": {
+          "name": "ChatGPT",
+          "description": "Voeg Bokito toe als app in de ontwikkelaarsmodus van ChatGPT.",
+          "body": "ChatGPT koppelt externe MCP-servers als apps in de ontwikkelaarsmodus. Het ondersteunt alleen OAuth, dus er is geen tokenroute.",
+          "oauth1": "Open in ChatGPT de instellingen, daarna Apps, daarna Advanced settings, en zet Developer mode aan.",
+          "oauth2": "Kies Create app en vul {{url}} in als server-URL.",
+          "oauth3": "Kies OAuth als authenticatie en sla op.",
+          "oauth4": "Meld je aan bij Bokito en kies een workspace. ChatGPT verbindt vanaf de servers van OpenAI, dus Bokito moet publiek bereikbaar zijn."
+        },
+        "generic": {
+          "name": "Elke MCP-client",
+          "description": "Roep het MCP-endpoint aan vanuit scripts of CI.",
+          "body": "Elke client die MCP via Streamable HTTP spreekt kan het endpoint gebruiken met een app-token. Tools onder Govern vragen nog steeds wanneer het beleid dat eist.",
+          "token1": "Stuur JSON-RPC met POST naar {{url}} met Authorization: Bearer en je token.",
+          "token2": "Roep tools/list aan en daarna tools/call met hetzelfde token.",
+          "token3": "Een token met scopes ziet alleen die toolcategorieen. Zonder scopes ziet het elke tool."
+        }
+      }
+    },
+    "workbench": {
+      "title": "Geef werk aan een codingtool",
+      "body": "Binnenkort geeft een agent een bug of feature uit een gesprek door aan een codingtool, volg je het in de thread, en komt de pull request terug op het project. Geen van deze is al te koppelen.",
+      "notYet": "Nog niet beschikbaar",
+      "phase1": "Gepland voor de eerste versie van de Workbench.",
+      "phase2": "Gepland na de GitHub-app van Bokito, die de status van pull requests en issues meebrengt.",
+      "phase3": "Gepland met de lokale relay voor je eigen machine.",
+      "docsLink": "Zo gaat de Workbench werken",
+      "providers": {
+        "cursorAgents": {
+          "name": "Cursor Cloud Agents",
+          "description": "Cursor voert de job uit in de cloud en opent een pull request.",
+          "body": "Bokito start een Cursor-cloudagent op je repository met de opdracht uit het gesprek, toont de voortgang in de thread en geeft je antwoorden door terwijl hij werkt. Je koppelt je eigen Cursor-API-sleutel."
+        },
+        "claudeManaged": {
+          "name": "Claude Managed Agents",
+          "description": "Claude voert de job uit in een sandbox die Anthropic host.",
+          "body": "Bokito start een Claude-sessie op je repository met de opdracht uit het gesprek, toont de voortgang in de thread en stopt bij het budget dat je instelt. Je koppelt je eigen Anthropic-API-sleutel."
+        },
+        "devin": {
+          "name": "Devin",
+          "description": "Devin werkt de taak af in zijn eigen omgeving.",
+          "body": "Bokito start een Devin-sessie, toont de vragen als beslissingen in de thread en stopt bij het budget dat je instelt. Je koppelt je eigen Devin-sleutel."
+        },
+        "copilot": {
+          "name": "GitHub Copilot cloud agent",
+          "description": "Copilot werkt aan een taak in je GitHub-repository.",
+          "body": "Bokito start een Copilot-taak in je repository namens wie hem goedkeurde. Vervolgvragen gaan via opmerkingen op de pull request. Vraagt de GitHub-app van Bokito."
+        },
+        "claudeCodeCi": {
+          "name": "Claude Code in GitHub Actions",
+          "description": "Claude Code draait in je eigen GitHub Actions.",
+          "body": "Bokito stelt een workflow voor je repository voor en start die per job met de opdracht. De job draait op je eigen Actions-minuten met je eigen Anthropic-sleutel."
+        }
+      }
+    },
+    "createdHint": "Kies je tool onder Koppel AI-tools: de fragmenten bevatten nu dit token.",
+    "openAiTools": "Naar Koppel AI-tools"
   },
   "messengerPage": {
     "title": "Chatwidget",
@@ -5220,14 +5324,6 @@
     "loading": "Laden...",
     "preChat": "Vooraf-formulier",
     "preChatHint": "Vraag websitebezoekers om naam en e-mail voor hun eerste bericht.",
-    "officeHours": "Teambereikbaarheid",
-    "officeHoursHint": "Wanneer het team bereikbaar is voor een live overdracht. Chat blijft open; buiten deze uren kunnen bezoekers een terugbelverzoek achterlaten.",
-    "currentlyOpen": "Het team is nu bereikbaar.",
-    "currentlyClosed": "Het team is afwezig. Bezoekers kunnen blijven chatten en een terugbelverzoek achterlaten.",
-    "from": "Van",
-    "until": "Tot",
-    "timezone": "Tijdzone",
-    "timezonePlaceholder": "Europe/Amsterdam",
     "offlineMessage": "Offlinebericht",
     "offlinePlaceholder": "We zijn nu offline. Laat een bericht achter, dan komen we bij je terug.",
     "installInternalTitle": "Assistent voor ingelogde gebruikers",
@@ -5251,6 +5347,18 @@
       "messages": "Communicatie",
       "help": "Help",
       "tools": "Tools"
+    },
+    "liveHandoff": "Live overdracht",
+    "liveHandoffHint": "Bezoekers kunnen om een mens vragen zodra iemand met Afhandelen-toegang op deze widget beschikbaar is. Anders zegt de agent dat eerlijk en biedt opvolging per e-mail, een terugbelverzoek of doorgaan op WhatsApp aan.",
+    "liveAvailable": "Iemand beschikbaar",
+    "liveAway": "Niemand beschikbaar",
+    "whatsappHandover": {
+      "title": "Doorgaan op WhatsApp",
+      "hint": "Als niemand beschikbaar is, kan de agent de bezoeker een WhatsApp-link geven. Het gesprek gaat daar verder met dezelfde eigenaar en een korte samenvatting.",
+      "noChannel": "Koppel eerst een WhatsApp-kanaal om dit aan te bieden.",
+      "channel": "WhatsApp-kanaal",
+      "number": "WhatsApp-nummer",
+      "numberHint": "Alleen nodig tot het eerste WhatsApp-bericht binnenkomt; daarna meldt het kanaal zijn eigen nummer."
     }
   },
   "assistantSettings": {
@@ -5602,5 +5710,142 @@
     "copyUrl": "Artikellink kopiëren",
     "copiedUrl": "Artikellink gekopieerd",
     "copyFailed": "Kon de link niet kopiëren"
+  },
+  "teamPage": {
+    "loadError": "Het team kon niet worden geladen.",
+    "saveError": "Opslaan is mislukt.",
+    "away": "Afwezig",
+    "tabs": {
+      "people": "Mensen",
+      "agents": "Agents",
+      "teams": "Teams"
+    },
+    "cols": {
+      "agent": "Agent",
+      "teams": "Teams",
+      "open": "Open gesprekken",
+      "ceiling": "Plafond",
+      "questions": "Vragen (30 dagen)",
+      "unchanged": "Ongewijzigd goedgekeurd",
+      "answerTime": "Antwoordtijd",
+      "pickedUp": "Opgepakt"
+    },
+    "ceiling": {
+      "manual": "Handmatig",
+      "assisted": "Geassisteerd",
+      "autonomous": "Autonoom"
+    },
+    "noAgents": "Nog geen bedrijfsagents.",
+    "openCount_one": "{{count}} open",
+    "openCount_other": "{{count}} open",
+    "turnCount_one": "{{count}} wacht op hen",
+    "turnCount_other": "{{count}} wachten op hen",
+    "newTeam": "Nieuw team",
+    "editTitle": "Team bewerken",
+    "dialogHint": "Een team kan eigenaar zijn van gesprekken en vragen van agents krijgen. Combineer mensen en agents.",
+    "namePlaceholder": "Teamnaam, bijvoorbeeld Support",
+    "descriptionPlaceholder": "Wat dit team afhandelt (optioneel)",
+    "pickupLabel": "Gesprekken oppakken",
+    "pickup": {
+      "people": "Mensen pakken op",
+      "agent_first": "Agent eerst",
+      "round_robin": "Om de beurt",
+      "least_open": "Minst open"
+    },
+    "pickupHint": {
+      "people": "Het gesprek blijft bij het team tot iemand reageert; de eerste reactie pakt het op.",
+      "agent_first": "Een agent in het team antwoordt eerst; mensen springen bij als die het vraagt.",
+      "round_robin": "Nieuwe gesprekken gaan om de beurt naar het volgende beschikbare lid.",
+      "least_open": "Nieuwe gesprekken gaan naar het beschikbare lid met de minste open gesprekken."
+    },
+    "system": {
+      "people": "Alle mensen",
+      "agents": "Alle agents"
+    },
+    "systemBadge": "Systeem",
+    "systemHint": {
+      "people": "Iedereen in de werkruimte. Leden volgen de werkruimte.",
+      "agents": "Elke bedrijfsagent. Leden volgen de agentlijst."
+    },
+    "noDescription": "Geen omschrijving",
+    "memberCount_one": "{{count}} lid",
+    "memberCount_other": "{{count}} leden",
+    "edit": "Bewerken",
+    "delete": "Team verwijderen",
+    "deleteConfirm": "{{name}} verwijderen? Gesprekken en vragen gaan naar Alle mensen.",
+    "cancel": "Annuleren",
+    "save": "Opslaan",
+    "pinLabel": "Tonen in de zijbalk van Communicatie",
+    "pinHint": "Iedereen ziet dit team als map met Voor jou, Open, Niet toegewezen en Gesloten.",
+    "pinnedBadge": "In zijbalk",
+    "metrics": "30 dagen: {{questions}} vragen, beantwoord in {{answerTime}}, {{pickedUp}} opgepakt"
+  },
+  "channelAccess": {
+    "title": "Toegang tot kanaal",
+    "description": "Kies wie dit kanaal ziet en wie het mag afhandelen. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Agents zonder toegang doen niets op dit kanaal.",
+    "hint": "Wie dit kanaal ziet en afhandelt",
+    "default": "Alle mensen en agents",
+    "count_one": "{{count}} toegang",
+    "count_other": "{{count}} toegangen",
+    "teams": "Teams",
+    "people": "Mensen",
+    "agents": "Agents",
+    "level": {
+      "none": "Geen toegang",
+      "view": "Zien",
+      "handle": "Afhandelen"
+    },
+    "adminsNote": "Eigenaren en beheerders handelen altijd elk kanaal af.",
+    "reset": "Terug naar standaard",
+    "loadError": "Mensen en agents konden niet worden geladen.",
+    "saveError": "Toegang tot het kanaal kon niet worden bijgewerkt."
+  },
+  "agentRules": {
+    "title": "Wanneer deze agent zelf handelt",
+    "hint": "Het plafond begrenst alles wat deze agent doet. Regels maken uitzonderingen voor bepaalde acties of situaties.",
+    "workspaceTitle": "Regels voor alle agents",
+    "workspaceHint": "Uitzonderingen die elke agent in deze workspace volgt, naast zijn eigen regels. Versturen naar klanten vraagt altijd.",
+    "ceiling": "Plafond",
+    "ceilingHint": {
+      "manual": "Deze agent wacht op jou voordat hij iets verstuurt of wijzigt.",
+      "assisted": "Deze agent bereidt het werk voor en vraagt voor acties die goedkeuring nodig hebben.",
+      "autonomous": "Deze agent handelt zelf binnen de grenzen van Govern. Versturen naar klanten vraagt nog steeds."
+    },
+    "rulesTitle": "Regels",
+    "empty": "Nog geen regels. De agent volgt zijn plafond en de instellingen in Govern.",
+    "modeLine": {
+      "manual": "Nooit doen",
+      "assisted": "Eerst vragen",
+      "autonomous": "Zonder vragen doen"
+    },
+    "hardFor": "Altijd voor {{target}}",
+    "judgement": "De agent weegt het per geval",
+    "counts": "{{uses}} keer gebruikt, {{approved}} goedgekeurd, {{rejected}} afgewezen",
+    "fromWorkspace": "Voor alle agents",
+    "remove": "Regel verwijderen",
+    "textPlaceholder": "Bijvoorbeeld: Vraag eerst bij alles over terugbetalingen",
+    "mode": "Wat de agent doet",
+    "kind": "Soort regel",
+    "kindJudgement": "De agent weegt het af",
+    "kindHard": "Altijd voor een actie",
+    "target": "Actie",
+    "targetPlaceholder": "Kies een actie",
+    "allIn": "Alles in {{category}}",
+    "add": "Regel toevoegen",
+    "tryTitle": "Probeer uit",
+    "tryAction": "Kies een actie",
+    "tryCertainty": "Zekerheid 1-10",
+    "tryRun": "Probeer",
+    "outcome": {
+      "runs": "De agent doet dit zelf.",
+      "asks": "De agent vraagt eerst.",
+      "refused": "De agent mag dit niet."
+    },
+    "outcomeRule": "Regel: {{rule}}",
+    "outcomeUnsure": "De agent is niet zeker genoeg.",
+    "outcomeDefault": "Volgt het plafond en Govern.",
+    "loadError": "Kon de regels niet laden",
+    "saveError": "Kon de regels niet opslaan",
+    "tryError": "Kon deze actie niet uitproberen"
   }
 }

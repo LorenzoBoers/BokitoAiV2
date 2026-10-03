@@ -10,8 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.learning import Feedback
-from app.models.notification import UserNotificationPreference
-
 router = APIRouter(tags=["inbox-settings"])
 
 
@@ -98,71 +96,110 @@ async def update_ai_language(
     }
 
 
+class WhatsAppHandoverSetting(BaseModel):
+    enabled: bool = False
+    account_id: str = ""
+    # Public number customers write to; only needed until the account reports it.
+    number: str = ""
+
+
+class WhatsAppHandoverState(WhatsAppHandoverSetting):
+    number_known: bool = False
+    ready: bool = False
+
+
 class WidgetSettingsUpdate(BaseModel):
     pre_chat_form: bool | None = None
     offline_message: str | None = None
-    office_hours: dict | None = None
+    whatsapp_handover: WhatsAppHandoverSetting | None = None
 
 
-@router.get("/settings/widget")
+class WidgetSettingsResponse(BaseModel):
+    pre_chat_form: bool
+    offline_message: str
+    team_available: bool
+    whatsapp_handover: WhatsAppHandoverState
+
+
+async def _widget_settings_payload(session: AsyncSession, tenant) -> dict:
+    from app.models.channel import ChannelAccount
+    from app.services.livechat_compat import team_is_reachable, widget_settings_from_tenant
+    from app.services.whatsapp_handover import account_number, handover_settings, handover_target
+
+    cfg = handover_settings(tenant)
+    account = None
+    if cfg["account_id"]:
+        try:
+            account = await session.get(ChannelAccount, UUID(cfg["account_id"]))
+        except ValueError:
+            account = None
+    ready_account, _ = await handover_target(session, tenant)
+    return {
+        **widget_settings_from_tenant(tenant),
+        "team_available": await team_is_reachable(session, tenant),
+        "whatsapp_handover": {
+            **cfg,
+            "number_known": bool(account_number(account)),
+            "ready": ready_account is not None,
+        },
+    }
+
+
+@router.get("/settings/widget", response_model=WidgetSettingsResponse)
 async def get_widget_settings(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Widget behaviour: pre-chat form and team reachability hours."""
-    from app.services.livechat_compat import office_hours_open, widget_settings_from_tenant
-
-    cfg = widget_settings_from_tenant(auth.tenant)
-    return {**cfg, "office_open": office_hours_open(cfg["office_hours"])}
+    """Widget behaviour: pre-chat form, and whether someone who handles the widget is available now."""
+    return await _widget_settings_payload(session, auth.tenant)
 
 
-@router.put("/settings/widget")
+@router.put("/settings/widget", response_model=WidgetSettingsResponse)
 async def update_widget_settings(
     body: WidgetSettingsUpdate,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    auth.require_role("owner", "admin")
-    from app.services.livechat_compat import (
-        DEFAULT_OFFICE_HOURS,
-        office_hours_open,
-        widget_settings_from_tenant,
-    )
+    """Change the pre-chat form, the offline message, or continuing on WhatsApp.
 
+    Continuing on WhatsApp needs a connected WhatsApp channel of this workspace.
+    """
+    from app.models.channel import ChannelAccount
+    from app.services.whatsapp_handover import digits
+
+    auth.require_role("owner", "admin")
     tenant = auth.tenant
     settings = json.loads(tenant.settings_json or "{}")
     livechat = settings.get("livechat_settings")
     if not isinstance(livechat, dict):
         livechat = {}
         settings["livechat_settings"] = livechat
-
+    livechat.pop("office_hours", None)
     if body.pre_chat_form is not None:
         livechat["pre_chat_form"] = body.pre_chat_form
     if body.offline_message is not None:
         livechat["offline_message"] = body.offline_message.strip()[:500]
-    if body.office_hours is not None:
-        hours = {**DEFAULT_OFFICE_HOURS, **{
-            k: v for k, v in body.office_hours.items() if k in DEFAULT_OFFICE_HOURS
-        }}
-        if not isinstance(hours.get("days"), list):
-            raise HTTPException(status_code=400, detail="office_hours.days must be a list")
-        try:
-            hours["days"] = sorted({int(d) for d in hours["days"] if 0 <= int(d) <= 6})
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="office_hours.days must contain 0-6")
-        for key in ("start", "end"):
-            value = str(hours.get(key) or "")
-            parts = value.split(":")
-            if len(parts) != 2 or not all(p.isdigit() for p in parts):
-                raise HTTPException(status_code=400, detail=f"office_hours.{key} must be HH:MM")
-        hours["enabled"] = bool(hours.get("enabled"))
-        hours["timezone"] = str(hours.get("timezone") or "Europe/Amsterdam")
-        livechat["office_hours"] = hours
-
+    if body.whatsapp_handover is not None:
+        handover = body.whatsapp_handover
+        if handover.account_id:
+            try:
+                account = await session.get(ChannelAccount, UUID(handover.account_id))
+            except ValueError:
+                account = None
+            if account is None or account.tenant_id != tenant.id or account.channel != "whatsapp":
+                raise HTTPException(status_code=422, detail="Choose a WhatsApp channel of this workspace")
+        elif handover.enabled:
+            raise HTTPException(status_code=422, detail="Choose the WhatsApp channel to continue on")
+        livechat["whatsapp_handover"] = {
+            "enabled": handover.enabled,
+            "account_id": handover.account_id,
+            "number": digits(handover.number)[:20],
+        }
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
     await session.commit()
-    cfg = widget_settings_from_tenant(tenant)
-    return {**cfg, "office_open": office_hours_open(cfg["office_hours"])}
+    return await _widget_settings_payload(session, tenant)
+
 
 
 @router.post("/messages/{message_id}/feedback")
@@ -239,75 +276,57 @@ async def create_feedback(
     return {"id": str(fb.id), "score": score, "sentiment": sentiment}
 
 
-# Only categories the platform actually emits and enforces. Add a row here
-# only together with an enforcement check at the emission point.
-DEFAULT_NOTIFICATION_ROWS = [
-    {"id": "assigned-to-me", "label": "When a conversation is assigned to you", "channels": {"desktop": True, "email": False, "push": True}},
-    {"id": "mentions", "label": "When you are mentioned in conversations", "channels": {"desktop": True, "email": False, "push": True}},
-    {"id": "decisions", "label": "When a decision needs you", "channels": {"desktop": True, "email": False, "push": True}},
-    {"id": "handoff", "label": "When a customer asks for a human", "channels": {"desktop": True, "email": False, "push": True}},
-    {"id": "digest-daily", "label": "Daily email digest", "channels": {"desktop": False, "email": False, "push": False}},
-    {"id": "digest-weekly", "label": "Weekly email digest", "channels": {"desktop": False, "email": False, "push": False}},
-]
+class NotificationChannelsModel(BaseModel):
+    inapp: bool
+    push: bool
+    email: bool
+
+
+class NotificationCategoryModel(BaseModel):
+    id: str
+    channels: NotificationChannelsModel
+
+
+class NotificationPrefsResponse(BaseModel):
+    tiers: dict[str, NotificationChannelsModel]
+    rows: list[NotificationCategoryModel]
 
 
 class NotificationPrefsBody(BaseModel):
+    tiers: dict[str, dict[str, bool]] | None = None
     rows: list[dict] | None = None
 
 
-@router.get("/user/notification-preferences")
+@router.get("/user/notification-preferences", response_model=NotificationPrefsResponse)
 async def get_notification_preferences(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    result = await session.execute(
-        select(UserNotificationPreference).where(
-            UserNotificationPreference.tenant_id == auth.tenant.id,
-            UserNotificationPreference.user_id == auth.user.id,
-        )
-    )
-    row = result.scalar_one_or_none()
-    if not row or not row.prefs_json.strip():
-        return {"rows": DEFAULT_NOTIFICATION_ROWS}
-    try:
-        parsed = json.loads(row.prefs_json)
-        if isinstance(parsed, list) and parsed:
-            # Keep only known categories; older accounts may have stored rows
-            # for categories that no longer exist.
-            merged = []
-            for default in DEFAULT_NOTIFICATION_ROWS:
-                stored = next(
-                    (p for p in parsed if isinstance(p, dict) and p.get("id") == default["id"]),
-                    None,
-                )
-                merged.append(stored or default)
-            return {"rows": merged}
-    except json.JSONDecodeError:
-        pass
-    return {"rows": DEFAULT_NOTIFICATION_ROWS}
+    """Your notification switches: per tier (1 now, 2 later, 3 digest) and per event category.
+
+    Tier 2 and 3 never push; tier 3 email is the daily digest.
+    """
+    from app.services.notify import load_prefs, serialize_prefs
+
+    return serialize_prefs(await load_prefs(session, auth.tenant.id, auth.user.id))
 
 
-@router.patch("/user/notification-preferences")
+@router.patch("/user/notification-preferences", response_model=NotificationPrefsResponse)
 async def patch_notification_preferences(
     body: NotificationPrefsBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    rows = body.rows if isinstance(body.rows, list) else DEFAULT_NOTIFICATION_ROWS
-    result = await session.execute(
-        select(UserNotificationPreference).where(
-            UserNotificationPreference.tenant_id == auth.tenant.id,
-            UserNotificationPreference.user_id == auth.user.id,
-        )
+    """Change tier or category switches; omitted switches keep their value."""
+    from app.services.notify import save_prefs, serialize_prefs
+
+    prefs = await save_prefs(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        {"tiers": body.tiers or {}, "rows": body.rows or []},
     )
-    pref = result.scalar_one_or_none() or UserNotificationPreference(
-        tenant_id=auth.tenant.id,
-        user_id=auth.user.id,
-    )
-    pref.prefs_json = json.dumps(rows)
-    session.add(pref)
-    await session.commit()
-    return {"rows": rows}
+    return serialize_prefs(prefs)
 
 
 # Persona lives in the persona.md workspace doc (the same doc agents read in

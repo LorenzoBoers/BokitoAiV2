@@ -2,7 +2,7 @@
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
 description: Brief company agents, set chat access, archive them, add a signature, and set initials or icon.
-keywords: agents, ai workforce, archive, chat access, signature, avatar, icon, default agent
+keywords: agents, ai workforce, archive, chat access, signature, avatar, icon, default agent, ceiling, rules, try out, ask questions to
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -33,8 +33,22 @@ New chats in Communication require a **company agent**. If none are available fo
 
 1. Open the agent. Edit its **Name**, **Purpose**, **Audience**, and **Model**.
 2. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
-3. Set **Autonomy level** on the agent: **Manual — always ask**, **Approval — gated actions**, **Auto — act independently**, or **Workspace default**. This sits at or below the workspace ceiling on [Autonomy](/docs/govern/autonomy).
-4. In **Communication settings**, choose one default agent for each connected channel. A conversation-level agent pin always wins. **Archive** hides an agent and clears its channel defaults; run history stays.
+3. In **Communication settings**, choose one default agent for each connected channel. A conversation-level agent pin always wins. **Archive** hides an agent and clears its channel defaults; run history stays.
+
+## Set when the agent acts on its own
+
+1. Open the agent and find **When this agent acts on its own**. Set the **Ceiling**: **Manual**, **Assisted** or **Autonomous**. The ceiling caps everything the agent does, also the AI handling of conversations it owns. Only an owner or admin can set Autonomous.
+2. Under **Rules**, add an exception. Write the situation, for example *Ask before anything about refunds*, choose **What the agent does** (**Never do this**, **Ask first**, **Do it without asking**) and the **Kind of rule**: **The agent weighs it** for a situation, or **Always for one action** for a specific action or category.
+3. Choose **Add rule**. Rules from **Rules for all agents** on [Govern](/docs/govern/govern) show here too. Each rule counts how often it was used, approved and rejected.
+4. Under **Try out**, pick an action and a certainty from 1 to 10, then **Try**. The answer says whether the agent does it on its own, asks first, or may not, and which rule decided. Below certainty 7 the agent always asks.
+
+Sending to customers always asks, whatever the rules say. Agents can propose a rule themselves; it arrives as a card to confirm in the conversation.
+
+## Choose who the agent asks
+
+1. Open the agent and find **Ask questions to**.
+2. Keep **Automatic** to ask the conversation owner, then whoever handed over the work, then the owner team. Someone who is away is skipped.
+3. Or pick one person or one team. Their questions and drafts go there; the agent still skips that person while they are away.
 
 ## Managed agents
 
@@ -74,4 +88,4 @@ The same look shows on the Agents library, agent detail, Communication, and the 
 
 ## What to do next
 
-Point the agent at [Knowledge](/docs/ai/knowledge). Set how far it may go on [Autonomy](/docs/govern/autonomy).
+Point the agent at [Knowledge](/docs/ai/knowledge). Set how far it may go on [Autonomy](/docs/govern/autonomy). See its numbers on [Team](/docs/getting-started/team).

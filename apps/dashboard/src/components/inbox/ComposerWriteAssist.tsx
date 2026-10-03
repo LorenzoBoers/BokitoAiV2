@@ -44,7 +44,7 @@ type Props = {
   threadId: string
   body: string
   disabled?: boolean
-  onApply: (text: string) => void
+  onApply: (text: string, meta?: { fromAi?: boolean }) => void
 }
 
 function buildInstruction(action: ComposeAiAction, body: string, intent: string): string {
@@ -170,7 +170,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
         toast.error(t('composer.aiEmpty'))
         return
       }
-      onApply(draft.trim())
+      onApply(draft.trim(), { fromAi: true })
       setIntent('')
       setOpen(false)
     } catch (err) {

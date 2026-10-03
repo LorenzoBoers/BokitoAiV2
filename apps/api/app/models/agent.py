@@ -37,8 +37,8 @@ class Agent(SQLModel, table=True):
     max_cost_cents: int = 0
     # Passport: allowed tools (enforced). Empty list = all default tools allowed.
     tools_json: str = Field(default="[]")
-    # Passport: autonomy level governs how tool actions are gated.
-    autonomy_level: str = Field(default="approval")  # manual | approval | auto
+    # Passport: the agent's autonomy ceiling, same modes as AI handling.
+    autonomy_level: str = Field(default="assisted")  # manual | assisted | autonomous
     # Passport: free-form permission scopes (e.g. ["platform:doc:write"]).
     permission_scopes_json: str = Field(default="[]")
     # When true, this agent acts for the signed-in user (Bokito assistant).

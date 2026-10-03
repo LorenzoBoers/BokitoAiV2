@@ -1,8 +1,8 @@
 ---
 title: Install the website widget
 intro: Put Bokito chat on your site so visitors land in Communication next to email.
-description: Install the Bokito chat widget, set Look and Voice and hours, and show help articles next to chat.
-keywords: widget, website chat, livechat, install, appearance, office hours
+description: Install the Bokito chat widget, set Look and Voice, live handoff by availability, continuing on WhatsApp, and help articles next to chat.
+keywords: widget, website chat, livechat, install, appearance, availability, live handoff, whatsapp
 sort: 40
 related: channels,communication,widget-embed,cases,assistant
 ---
@@ -31,15 +31,26 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 
 The chat itself uses the same bubble design as [Communication](/docs/inbox/communication): messages from the same author within five minutes stack into one group, the first bubble of a group carries the avatar and name, and the last one carries the time. Assistant replies show the agent avatar with an **AI** chip; a reply from a colleague shows a **Team** chip instead, so visitors can see who answered.
 
-## Set Voice, hours and the pre-chat form
+## Set Voice, live handoff and the pre-chat form
 
 1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not**, then **Save changes**. The model itself is set on the agent page.
-2. Under **Availability**, set **Team hours** with **From**, **Until** and **Timezone**. Choose **Save availability**. Outside those hours chat stays open. The widget does not show a shared status pill; after a visitor sends a message, the assistant offers a callback instead of a live handoff when the team is away.
+2. Under **Availability**, **Live handoff** shows **Someone is available** or **Nobody available**. There are no fixed hours: a visitor can ask for a person when someone with Handle access on the widget is available (see [Team](/docs/getting-started/team) for **Away**). Otherwise the agent says so and offers an email follow-up, a callback, or continuing on WhatsApp.
 3. Turn on **Pre-chat form** when you want a name and email before the first message. Those visitors become real [contacts](/docs/inbox/contacts) instead of anonymous website visitors.
 4. In the chat composer, visitors can dictate with the microphone when the browser supports speech recognition (same pattern on the website widget and the in-app assistant): hold to talk or click to start; while listening the button shows a green glow and animated wave bars, with a check on hover to confirm. Commit/dedupe rules and wave geometry are shared via `@bokito/shared` with the Messages composer.
 5. Visitors can send another message while the assistant is still replying. The widget stops the unfinished answer, keeps both visitor messages on screen, and starts a new reply that covers them together. Typing alone does not stop the assistant — only Send or Stop does. After Send, the message box stays focused so the next line is ready.
 
 The website widget follows the visitor's system light or dark setting. There is no theme switcher in the widget. Preview Light and Dark on this page only to check contrast.
+
+## Continue on WhatsApp
+
+When nobody is available, the agent can move the chat to WhatsApp so the visitor does not wait on the website.
+
+1. Connect a WhatsApp channel first (see [Channels](/docs/inbox/channels)).
+2. Open **Voice & hours**. Under **Availability**, switch on **Continue on WhatsApp** and choose the **WhatsApp channel**. Fill **WhatsApp number** only when the page asks for it; after the first WhatsApp message the channel knows its own number. Choose **Save availability**.
+3. When a visitor asks for a person and nobody is available, the agent offers a WhatsApp link with the message already filled in. The visitor only presses send.
+4. That message starts a WhatsApp conversation linked to the same contact and owner. It opens with a short summary, waits for a person, and the website chat closes with **Continued on WhatsApp**.
+
+A link works once and for seven days. A WhatsApp message without a valid link starts a normal conversation.
 
 ## Show your help articles
 

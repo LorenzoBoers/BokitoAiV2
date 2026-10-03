@@ -15,7 +15,7 @@ type PrefRow = {
   channels: { desktop: boolean; email: boolean; mobile: boolean };
 };
 
-// Mirrors the backend defaults (inbox_settings DEFAULT_NOTIFICATION_ROWS).
+// Tier 1 events offered for email at sign-up; the rest lives in Notification settings.
 const DEFAULT_PREF_ROWS: PrefRow[] = [
   {
     id: 'assigned-to-me',
@@ -158,7 +158,10 @@ export default function AcceptInvite() {
               'Content-Type': 'application/json',
             },
             credentials: 'include',
-            body: JSON.stringify({ rows: prefRows }),
+            body: JSON.stringify({
+              tiers: { '1': { email: prefRows.some((row) => row.channels.email) } },
+              rows: prefRows.map((row) => ({ id: row.id, channels: { email: row.channels.email } })),
+            }),
           });
         }
       } catch {

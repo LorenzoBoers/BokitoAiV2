@@ -4,14 +4,16 @@ One shared path for every way a conversation can escalate to the team:
 the agent's ``handoff_to_human`` tool and the widget visitor's own
 "talk to a human" action both land here. Sets the conversation's AI handling
 to manual (reason ``handoff_requested``), records an ``ai_handling_changed``
-SignalEvent, publishes the thread update, and alerts owners/admins
-(notification category ``handoff``).
+SignalEvent, publishes the thread update, and alerts the addressee: the person
+or the people in the team the question goes to (``services/addressee.py``;
+notification category ``handoff``). An agent-owned conversation moves to them.
 """
 
 from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -57,6 +59,32 @@ def _callback_copy(lang: str, *, who: str, subject: str | None) -> tuple[str, st
     return title, body
 
 
+async def _route_to_people(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    to: dict[str, Any] | None,
+) -> list[UUID]:
+    """Who the escalation goes to; an agent-owned conversation moves to them."""
+    from app.services.addressee import resolve_addressee
+    from app.services.ownership import set_owner
+    from app.services.teams import get_team, team_user_ids
+
+    addressee = await resolve_addressee(
+        session, tenant_id, agent_id=signal.agent_id, signal=signal, to=to
+    )
+    if signal.assignee_kind == "agent":
+        if addressee.kind == "user":
+            set_owner(signal, "user", addressee.user_id)
+        else:
+            set_owner(signal, "team", addressee.team_id)
+        session.add(signal)
+    if addressee.kind == "user" and addressee.user_id:
+        return [addressee.user_id]
+    team = await get_team(session, tenant_id, addressee.team_id) if addressee.team_id else None
+    return await team_user_ids(session, team) if team is not None else []
+
+
 async def _workspace_lang(session: AsyncSession, tenant_id: UUID) -> str:
     tenant = (
         await session.execute(select(Tenant).where(Tenant.id == tenant_id))
@@ -73,6 +101,7 @@ async def request_human_handoff(
     via: str = "handoff_to_human",
     actor_type: str = "user",
     actor_id: str = "",
+    to: dict[str, Any] | None = None,
 ) -> bool:
     """Escalate ``signal`` to the team. Returns True when newly held."""
     from app.gateway.publish import publish_thread_update
@@ -95,6 +124,8 @@ async def request_human_handoff(
         await publish_thread_update(signal)
         newly_paused = True
 
+    recipients = await _route_to_people(session, tenant_id, signal, to)
+    await session.flush()
     lang = await _workspace_lang(session, tenant_id)
     who = signal.contact_name or ("Een bezoeker" if lang == "nl" else "A visitor")
     title, default_body = _handoff_copy(lang, who=who, subject=signal.subject)
@@ -104,8 +135,12 @@ async def request_human_handoff(
         category="handoff",
         title=title,
         body=reason or default_body,
-        payload={"signal_id": str(signal.id), "channel": signal.channel},
+        payload={"channel": signal.channel},
         cooldown_minutes=30,
+        user_ids=recipients,
+        kind="handoff",
+        tier=1,
+        signal_id=signal.id,
     )
     return newly_paused
 
@@ -119,6 +154,7 @@ async def request_callback(
     via: str = "request_callback",
     actor_type: str = "user",
     actor_id: str = "",
+    to: dict[str, Any] | None = None,
 ) -> None:
     """Ask the team to get back later. Does not pause AI replies."""
     from app.gateway.publish import publish_thread_update
@@ -137,6 +173,7 @@ async def request_callback(
             payload_json=json.dumps({"via": via, "reason": reason}),
         )
     )
+    recipients = await _route_to_people(session, tenant_id, signal, to)
     await session.flush()
     await publish_thread_update(signal)
 
@@ -149,6 +186,10 @@ async def request_callback(
         category="handoff",
         title=title,
         body=reason or default_body,
-        payload={"signal_id": str(signal.id), "channel": signal.channel, "via": via},
+        payload={"channel": signal.channel, "via": via},
         cooldown_minutes=30,
+        user_ids=recipients,
+        kind="handoff",
+        tier=2,
+        signal_id=signal.id,
     )

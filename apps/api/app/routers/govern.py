@@ -19,6 +19,7 @@ from app.models.api_token import ApiToken
 from app.models.auth import Tenant
 from app.models.case import CaseType
 from app.models.orchestra import Workstream
+from app.services.agent_rules import AUTONOMY_MODES, dry_run, normalize_autonomy, set_rules, workspace_rules
 from app.services.audit import record_audit, search_audit, serialize_audit
 from app.services.platform_changes import (
     accept_platform_change,
@@ -440,8 +441,96 @@ async def list_passports(
     }
 
 
+class RuleItem(BaseModel):
+    id: str = ""
+    text: str
+    mode: str  # manual | assisted | autonomous
+    kind: str = "judgement"  # hard | judgement
+    tool: str = ""
+    category: str = ""
+    uses: int = 0
+    approved: int = 0
+    rejected: int = 0
+
+
+class RulesBody(BaseModel):
+    rules: list[RuleItem]
+
+
+class RulesOut(BaseModel):
+    rules: list[dict]
+
+
+class RuleTestBody(BaseModel):
+    tool: str
+    agent_id: UUID | None = None
+    certainty: int | None = None
+    rule_id: str = ""
+
+
+class RuleTestOut(BaseModel):
+    tool: str
+    mode: str
+    reason: str
+    outcome: str  # runs | asks | refused
+    rule: dict | None = None
+
+
+@router.get("/rules", response_model=RulesOut)
+async def get_workspace_rules(auth: Annotated[AuthContext, Depends(get_current_auth)]):
+    """Exception rules for all agents in this workspace (hard and judgement)."""
+    return {"rules": workspace_rules(auth.tenant)}
+
+
+@router.put("/rules", response_model=RulesOut)
+async def put_workspace_rules(
+    body: RulesBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Replace the workspace rules. A rule to Autonomous needs an owner or admin."""
+    tenant = await session.get(Tenant, auth.tenant.id)
+    before = workspace_rules(tenant)
+    rules = await set_rules(
+        session, tenant, None, [r.model_dump() for r in body.rules], role=auth.role, user_id=auth.user.id
+    )
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:agent_rules_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(auth.tenant.id),
+        outcome="applied",
+        summary=f"Workspace rules updated ({len(rules)})",
+        before={"rules": before},
+        after={"rules": rules},
+        commit=False,
+    )
+    await session.commit()
+    return {"rules": rules}
+
+
+@router.post("/rules/test", response_model=RuleTestOut)
+async def test_workspace_rules(
+    body: RuleTestBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Try out: which rule applies to an action and whether the agent runs it, asks, or refuses."""
+    agent = None
+    if body.agent_id is not None:
+        agent = await session.get(Agent, body.agent_id)
+        if agent is None or agent.tenant_id != auth.tenant.id:
+            raise HTTPException(status_code=404, detail="Agent not found")
+    return await dry_run(
+        session, auth.tenant, agent, tool=body.tool, certainty=body.certainty, rule_id=body.rule_id
+    )
+
+
 class PassportUpdate(BaseModel):
-    autonomy_level: str | None = None  # manual | approval | auto
+    autonomy_level: str | None = None  # manual | assisted | autonomous
     allowed_tools: list[str] | None = None
     permission_scopes: list[str] | None = None
 
@@ -463,10 +552,11 @@ async def update_passport(
 
     changed: dict[str, object] = {}
     if body.autonomy_level is not None:
-        if body.autonomy_level not in ("manual", "approval", "auto"):
+        level = normalize_autonomy(body.autonomy_level)
+        if level not in AUTONOMY_MODES or body.autonomy_level not in (*AUTONOMY_MODES, "approval", "auto"):
             raise HTTPException(status_code=400, detail="Invalid autonomy level")
-        agent.autonomy_level = body.autonomy_level
-        changed["autonomy_level"] = body.autonomy_level
+        agent.autonomy_level = level
+        changed["autonomy_level"] = level
     if body.allowed_tools is not None:
         agent.tools_json = json.dumps([str(t) for t in body.allowed_tools])
         changed["allowed_tools"] = body.allowed_tools

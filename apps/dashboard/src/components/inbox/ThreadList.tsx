@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Filter, X } from 'lucide-react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
-import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
+import type { BulkThreadAction, InboxMember, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
 import { cn } from '../../lib/utils'
@@ -45,9 +45,7 @@ type Props = {
   onAssigneeFilter?: (id: number | null) => void
   priorityFilter?: string | null
   onPriorityFilter?: (value: string | null) => void
-  channelFilter?: string | null
-  onChannelFilter?: (value: string | null) => void
-  /** Visible scope when the list is filtered by agent or project. */
+  /** Visible scope when the list is filtered by project. */
   scopeLabel?: string | null
   onClearScope?: () => void
   /** Total thread count for the current folder (server-side). */
@@ -102,8 +100,6 @@ export default function ThreadList({
   onAssigneeFilter,
   priorityFilter = null,
   onPriorityFilter,
-  channelFilter = null,
-  onChannelFilter,
   scopeLabel = null,
   onClearScope,
   total = null,
@@ -131,24 +127,14 @@ export default function ThreadList({
     for (const m of members) map.set(String(m.id), m.name || m.email)
     return map
   }, [members])
+  const memberPresence = useMemo(() => {
+    const map = new Map<string, InboxMember['presence']>()
+    for (const m of members) map.set(String(m.id), m.presence)
+    return map
+  }, [members])
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const scrollTopRef = useRef(0)
   const restoredRef = useRef(false)
-  const channelOptions = useMemo(() => {
-    // One option per display kind; prefer the canonical channel string when present
-    // so filters match stored Signal.channel values (widget vs customer_widget).
-    const byKind = new Map<string, string>()
-    for (const thread of allThreads) {
-      if (!thread.channel) continue
-      const kind = channelKind(thread.channel)
-      const current = byKind.get(kind)
-      if (!current || (current !== kind && thread.channel === kind)) {
-        byKind.set(kind, thread.channel)
-      }
-    }
-    return [...byKind.values()].sort()
-  }, [allThreads])
-
   useEffect(() => {
     restoredRef.current = false
     if (!scrollKey) return
@@ -194,6 +180,9 @@ export default function ThreadList({
               ? memberNames.get(String(thread.assignedToUserId)) ?? null
               : null
           }
+          assigneePresence={
+            thread.assignedToUserId != null ? memberPresence.get(String(thread.assignedToUserId)) : undefined
+          }
           compact={density === 'compact'}
           enterIndex={index}
         />
@@ -215,6 +204,7 @@ export default function ThreadList({
       onToggleBulkSelect,
       selectionActive,
       memberNames,
+      memberPresence,
     ],
   )
 
@@ -272,9 +262,6 @@ export default function ThreadList({
           members={members}
           priorityFilter={variant === 'customer' ? priorityFilter : undefined}
           onPriorityFilter={variant === 'customer' ? onPriorityFilter : undefined}
-          channelFilter={variant === 'customer' ? channelFilter : undefined}
-          onChannelFilter={variant === 'customer' ? onChannelFilter : undefined}
-          channelOptions={channelOptions}
         />
       )}
 

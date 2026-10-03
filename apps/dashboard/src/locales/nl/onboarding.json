@@ -60,10 +60,13 @@
   },
   "notifications": {
     "title": "Meldingen",
-    "subtitle": "Desktopmeldingen voor momenten die jou nodig hebben. Later verder af te stemmen onder Instellingen.",
-    "desktop": "Desktop",
-    "email": "E-mail",
-    "hint": "Browser-push kun je later aanzetten onder Instellingen → Meldingen."
+    "subtitle": "Bokito deelt meldingen in drie niveaus in. Kies hoe elk niveau je bereikt; per gebeurtenis stel je later in onder Instellingen.",
+    "hint": "Push bereikt je alleen als je niet in de app bent. Browser-push zet je aan onder Instellingen > Meldingen.",
+    "tierChannel": {
+      "1": "Push",
+      "2": "In-app",
+      "3": "Dagelijkse e-mail"
+    }
   },
   "govern": {
     "title": "Hoeveel mogen agents zelf doen?",

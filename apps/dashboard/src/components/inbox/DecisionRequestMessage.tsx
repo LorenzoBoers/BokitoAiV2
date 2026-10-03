@@ -17,8 +17,11 @@ import {
 import {
   decisionSourceLabelKey,
   decisionSourcePath,
+  parseDecisionAddressee,
   parseDecisionSource,
 } from '../../lib/decision-source'
+import { useMembers } from '../../hooks/useMembers'
+import { useTeams } from '../../hooks/useTeams'
 import { moduleProposalFromOptions } from '../../lib/module-proposal'
 import { ModuleProposalBlock } from './ModuleProposalBlock'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
@@ -30,6 +33,7 @@ import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
 import { useCorrectionChat } from '../../lib/correction-chat'
 import { apiPost } from '../../lib/api'
+import { learnFromDecision, type LearnChoice } from '../../lib/agent-rules-api'
 import { appRoutes } from '../../api/routes'
 import {
   patchThread,
@@ -60,6 +64,7 @@ type DecisionOption = {
   payload?: Record<string, unknown>
   input_type?: 'text'
   input_placeholder?: string
+  learn?: { tool: string; reason: string; ruleText: string }
 }
 
 type Props = {
@@ -124,6 +129,14 @@ function extractOptions(message: InboxMessage): DecisionOption[] {
         input_type: raw.input_type === 'text' ? 'text' : undefined,
         input_placeholder:
           typeof raw.input_placeholder === 'string' ? raw.input_placeholder : undefined,
+        learn:
+          raw.learn && typeof raw.learn === 'object'
+            ? {
+                tool: String((raw.learn as Record<string, unknown>).tool ?? ''),
+                reason: String((raw.learn as Record<string, unknown>).reason ?? ''),
+                ruleText: String((raw.learn as Record<string, unknown>).rule_text ?? ''),
+              }
+            : undefined,
       }
     })
     .filter((o): o is DecisionOption => o !== null)
@@ -209,7 +222,6 @@ function optionLabelKey(option: DecisionOption): string | null {
   // Queue proposals: approve reads as the action it performs.
   if (option.action_type === 'create_queue_item') {
     if (option.id === 'approve') return 'addToQueue'
-    if (option.id === 'always_auto') return 'alwaysAllow'
   }
   const byId: Record<string, string> = {
     send: 'send',
@@ -219,7 +231,6 @@ function optionLabelKey(option: DecisionOption): string | null {
     create_task: 'createTask',
     keep_open: 'keepOpen',
     approve: 'approve',
-    always_auto: 'alwaysAllow',
     reject: 'reject',
     later: 'later',
     defer: 'defer',
@@ -298,6 +309,8 @@ export default function DecisionRequestMessage({
   const [responseText, setResponseText] = useState('')
   const [ruleSuggestion, setRuleSuggestion] = useState<InboxRuleSuggestion | null>(null)
   const [ruleBusy, setRuleBusy] = useState(false)
+  const [learned, setLearned] = useState<LearnChoice | null>(null)
+  const [learnBusy, setLearnBusy] = useState(false)
   const resolved = isDecisionResolved(message, events)
   const options = useMemo(() => extractOptions(message), [message])
   const integrationProvider = useMemo(() => integrationProviderFromOptions(options), [options])
@@ -330,6 +343,21 @@ export default function DecisionRequestMessage({
       ),
     [message.payload],
   )
+  const addressee = parseDecisionAddressee(
+    (message.payload?.decision as { addressee?: unknown } | undefined)?.addressee,
+  )
+  const { members } = useMembers()
+  const { teams } = useTeams()
+  const addresseeName = useMemo(() => {
+    if (!addressee) return null
+    if (addressee.kind === 'user') {
+      const person = members.find((m) => m.uuid === addressee.id)
+      return person ? person.name || person.email : null
+    }
+    const team = teams.find((tm) => tm.id === addressee.id)
+    if (!team) return null
+    return team.kind === 'people' ? t('nav:teamPage.system.people') : team.name
+  }, [addressee, members, teams, t])
   const draftBody = useMemo(() => {
     if (toolCopy) return toolCopy.summary
     return translateMockAgentBody(
@@ -354,6 +382,25 @@ export default function DecisionRequestMessage({
     !isActionSuggestion &&
     options.some((o) => o.action_type === 'create_queue_item')
   const internalNote = useMemo(() => internalNoteFromOptions(options), [options])
+  const learnFrom = useMemo(() => options.find((o) => o.learn)?.learn ?? null, [options])
+
+  async function teach(choice: LearnChoice) {
+    if (!message.decisionId || learnBusy) return
+    setLearnBusy(true)
+    try {
+      const result = await learnFromDecision(String(message.decisionId), choice)
+      setLearned(choice)
+      toast.success(
+        result.status === 'collected'
+          ? t('decisionCard.learn.collected')
+          : t('decisionCard.learn.proposed'),
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('decisionCard.learn.error'))
+    } finally {
+      setLearnBusy(false)
+    }
+  }
   const moduleProposal = useMemo(() => moduleProposalFromOptions(options), [options])
 
   // Sender identity for the approved reply: the operator's last choice wins,
@@ -700,6 +747,11 @@ export default function DecisionRequestMessage({
             </Link>
           </p>
         ) : null}
+        {!resolved && addresseeName ? (
+          <p className="mb-1.5 text-xs text-text-muted" data-testid="decision-addressee">
+            {t('decisionCard.askedTo', { name: addresseeName })}
+          </p>
+        ) : null}
         {message.decisionId ? (
           <details className="mb-1.5 group/tech">
             <summary className="cursor-pointer list-none text-2xs font-medium text-text-muted/80 hover:text-text-muted [&::-webkit-details-marker]:hidden">
@@ -894,6 +946,28 @@ export default function DecisionRequestMessage({
                   {t('decisionCard.options.reject')}
                 </Button>
               </>
+            )}
+          </div>
+        ) : null}
+        {!resolved && learnFrom && message.decisionId ? (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="decision-learn">
+            <span className="text-2xs font-medium text-text-muted">{t('decisionCard.learn.label')}</span>
+            {learned ? (
+              <span className="text-2xs text-text-secondary">{t(`decisionCard.learn.done.${learned}`)}</span>
+            ) : (
+              (['allow', 'ask', 'unsure'] as const).map((choice) => (
+                <Button
+                  key={choice}
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs text-text-secondary"
+                  disabled={learnBusy || busy}
+                  onClick={() => void teach(choice)}
+                >
+                  {t(`decisionCard.learn.${choice}`)}
+                </Button>
+              ))
             )}
           </div>
         ) : null}

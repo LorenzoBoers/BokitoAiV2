@@ -17,15 +17,9 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { buildApiTokenCurl } from '../lib/api-token-curl'
-import {
-  buildClaudeDesktopMcpConfig,
-  buildCursorMcpConfig,
-  buildCursorMcpOAuthConfig,
-  buildMcpToolsListCurl,
-  MCP_TOKEN_PLACEHOLDER,
-  TOKEN_SCOPE_PRESETS,
-} from '../lib/api-token-mcp'
-import { McpClientSetupCard } from '../components/mcp/McpClientSetupCard'
+import { TOKEN_SCOPE_PRESETS } from '../lib/api-token-mcp'
+import { ConnectAiToolsSection } from '../components/developers/ConnectAiToolsSection'
+import { WorkbenchSection } from '../components/developers/WorkbenchSection'
 import { isHttpsUrl } from '../lib/https-url'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -76,12 +70,10 @@ function formatTime(iso: string | null): string {
   return Number.isFinite(d.getTime()) ? d.toLocaleString() : '-'
 }
 
-function McpOAuthGrantsSection() {
-  const { t } = useTranslation('nav')
+function useMcpOAuthGrants() {
   const { token } = useAuth()
   const [grants, setGrants] = useState<McpOAuthGrant[]>([])
   const [loading, setLoading] = useState(true)
-  const [busyId, setBusyId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!token) {
@@ -102,6 +94,22 @@ function McpOAuthGrantsSection() {
     void load()
   }, [load])
 
+  return { grants, loading, load }
+}
+
+function McpOAuthGrantsSection({
+  grants,
+  loading,
+  load,
+}: {
+  grants: McpOAuthGrant[]
+  loading: boolean
+  load: () => Promise<void>
+}) {
+  const { t } = useTranslation('nav')
+  const { token } = useAuth()
+  const [busyId, setBusyId] = useState<string | null>(null)
+
   async function handleRevoke(grant: McpOAuthGrant) {
     if (!token) return
     if (!window.confirm(t('developersPage.oauthGrants.revokeConfirm', { name: grant.client_name }))) {
@@ -120,7 +128,7 @@ function McpOAuthGrantsSection() {
   }
 
   return (
-    <section className="mt-6 rounded-lg border border-border/60 bg-bg-surface p-4">
+    <section id="mcp-clients" className="rounded-lg border border-border/60 bg-bg-surface p-4">
       <h2 className="text-lg font-semibold text-text-heading">
         {t('developersPage.oauthGrants.title')}
       </h2>
@@ -162,7 +170,13 @@ function McpOAuthGrantsSection() {
   )
 }
 
-function ApiTokensSection() {
+function ApiTokensSection({
+  createdToken,
+  setCreatedToken,
+}: {
+  createdToken: string | null
+  setCreatedToken: (token: string | null) => void
+}) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const [tokens, setTokens] = useState<ApiTokenRow[]>([])
@@ -171,7 +185,6 @@ function ApiTokensSection() {
   const [name, setName] = useState('')
   const [scopes, setScopes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
-  const [createdToken, setCreatedToken] = useState<string | null>(null)
   const [showRevoked, setShowRevoked] = useState(false)
 
   const load = useCallback(async () => {
@@ -244,7 +257,7 @@ function ApiTokensSection() {
   }
 
   return (
-    <section id="mcp-setup">
+    <section id="app-tokens">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-1.5 text-lg font-semibold text-text-heading">
@@ -354,58 +367,10 @@ function ApiTokensSection() {
               {t('developersPage.copy')}
             </Button>
           </div>
+          <p className="text-xs text-text-muted">{t('developersPage.createdHint')}</p>
           <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                const text = buildCursorMcpConfig(createdToken, window.location.origin)
-                void navigator.clipboard.writeText(text)
-                toast.success(t('developersPage.copiedCursorMcp'))
-              }}
-            >
-              {t('developersPage.copyCursorMcp')}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                const text = buildCursorMcpConfig(createdToken, window.location.origin)
-                const blob = new Blob([text], { type: 'application/json' })
-                const href = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = href
-                a.download = 'bokito-mcp.json'
-                a.click()
-                URL.revokeObjectURL(href)
-                toast.success(t('developersPage.downloadedMcpJson'))
-              }}
-            >
-              {t('developersPage.downloadMcpJson')}
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                void navigator.clipboard.writeText(
-                  buildClaudeDesktopMcpConfig(createdToken, window.location.origin),
-                )
-                toast.success(t('developersPage.copiedClaudeMcp'))
-              }}
-            >
-              {t('developersPage.copyClaudeMcp')}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                void navigator.clipboard.writeText(
-                  buildMcpToolsListCurl(createdToken, window.location.origin),
-                )
-                toast.success(t('developersPage.copiedMcpCurl'))
-              }}
-            >
-              {t('developersPage.copyMcpCurl')}
+            <Button size="sm" variant="secondary" asChild>
+              <a href="#connect-ai-tools">{t('developersPage.openAiTools')}</a>
             </Button>
             <Button
               size="sm"
@@ -423,79 +388,6 @@ function ApiTokensSection() {
           </div>
         </div>
       ) : null}
-
-      {/* OAuth URL-only is primary; bearer token snippets stay as automation fallback. */}
-      <div className="mt-4 space-y-3 rounded-lg border border-border/50 bg-bg-elevated/40 p-3">
-        <p className="text-xs font-medium text-text-heading">{t('developersPage.mcpOauthTitle')}</p>
-        <p className="text-xs text-text-muted">{t('developersPage.mcpOauthHint')}</p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              const text = buildCursorMcpOAuthConfig(window.location.origin)
-              void navigator.clipboard.writeText(text)
-              toast.success(t('developersPage.copiedCursorMcpOauth'))
-            }}
-          >
-            <Copy size={13} className="mr-1" />
-            {t('developersPage.copyCursorMcpOauth')}
-          </Button>
-        </div>
-        <McpClientSetupCard
-          clientId="cursor"
-          configSnippet={buildCursorMcpOAuthConfig(
-            typeof window !== 'undefined' ? window.location.origin : '',
-          )}
-          stepKeys={[
-            'integrations.mcp.bokito.steps.oauth1',
-            'integrations.mcp.bokito.steps.oauth2',
-            'integrations.mcp.bokito.steps.oauth3',
-          ]}
-        />
-        <p className="pt-1 text-xs font-medium text-text-heading">{t('developersPage.mcpSetupTitle')}</p>
-        <p className="text-xs text-text-muted">{t('developersPage.mcpSetupHint')}</p>
-        {!createdToken ? (
-          <p className="text-xs text-text-muted">{t('developersPage.mcpSetupPlaceholderHint')}</p>
-        ) : null}
-        <p className="text-xs text-text-muted">{t('developersPage.cursorDeeplinkHint')}</p>
-        <McpClientSetupCard
-          clientId="cursorToken"
-          configSnippet={buildCursorMcpConfig(
-            createdToken ?? MCP_TOKEN_PLACEHOLDER,
-            typeof window !== 'undefined' ? window.location.origin : '',
-          )}
-          stepKeys={[
-            'integrations.mcp.bokito.steps.cursor1',
-            'integrations.mcp.bokito.steps.cursor2',
-            'integrations.mcp.bokito.steps.cursor3',
-          ]}
-        />
-        <McpClientSetupCard
-          clientId="claude"
-          configSnippet={buildClaudeDesktopMcpConfig(
-            createdToken ?? MCP_TOKEN_PLACEHOLDER,
-            typeof window !== 'undefined' ? window.location.origin : '',
-          )}
-          stepKeys={[
-            'integrations.mcp.bokito.steps.claude1',
-            'integrations.mcp.bokito.steps.claude2',
-            'integrations.mcp.bokito.steps.claude3',
-          ]}
-        />
-        <McpClientSetupCard
-          clientId="generic"
-          configSnippet={buildMcpToolsListCurl(
-            createdToken ?? MCP_TOKEN_PLACEHOLDER,
-            typeof window !== 'undefined' ? window.location.origin : '',
-          )}
-          stepKeys={[
-            'integrations.mcp.bokito.steps.generic1',
-            'integrations.mcp.bokito.steps.generic2',
-            'integrations.mcp.bokito.steps.generic3',
-          ]}
-        />
-      </div>
 
       {loading ? (
         <div className="mt-4 flex items-center gap-2 text-sm text-text-muted">
@@ -589,6 +481,8 @@ function StatusPill({ endpoint }: { endpoint: WebhookEndpoint }) {
 
 export default function DeveloperSettings() {
   const { t } = useTranslation('nav')
+  const [createdToken, setCreatedToken] = useState<string | null>(null)
+  const grantsState = useMcpOAuthGrants()
   const [items, setItems] = useState<WebhookEndpoint[]>([])
   const [eventCatalog, setEventCatalog] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -724,7 +618,12 @@ export default function DeveloperSettings() {
   return (
     <PageContent>
       <div className="max-w-3xl space-y-8">
-        <section>
+        <ConnectAiToolsSection token={createdToken} grants={grantsState.grants} />
+        <WorkbenchSection />
+        <ApiTokensSection createdToken={createdToken} setCreatedToken={setCreatedToken} />
+        <McpOAuthGrantsSection {...grantsState} />
+
+        <section id="webhooks">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-text-heading">{t('developersPage.webhooks.title')}</h2>
@@ -960,9 +859,6 @@ export default function DeveloperSettings() {
             </div>
           )}
         </section>
-
-        <ApiTokensSection />
-        <McpOAuthGrantsSection />
 
         <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <h2 className="text-lg font-semibold text-text-heading">{t('developersPage.publicTitle')}</h2>

@@ -1,4 +1,4 @@
-import { Building2, ChevronsUpDown, CircleHelp, LogOut, Settings, UserCircle2 } from 'lucide-react'
+import { Building2, Check, ChevronsUpDown, CircleHelp, LaptopMinimal, LogOut, Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -10,8 +10,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
@@ -24,7 +22,11 @@ const STATUS_DOT = {
   disconnected: 'bg-status-error',
 } as const
 
-const THEME_MODES: ThemeMode[] = ['dark', 'light', 'system']
+const THEME_MODES: { value: ThemeMode; icon: typeof Moon }[] = [
+  { value: 'dark', icon: Moon },
+  { value: 'light', icon: Sun },
+  { value: 'system', icon: LaptopMinimal },
+]
 
 type SidebarUserMenuProps = {
   collapsed: boolean
@@ -119,13 +121,27 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t('theme.label', { defaultValue: 'Theme' })}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={mode} onValueChange={(value) => setMode(value as ThemeMode)}>
-          {THEME_MODES.map((value) => (
-            <DropdownMenuRadioItem key={value} value={value}>
+        {THEME_MODES.map(({ value, icon: Icon }) => {
+          const selected = mode === value
+          return (
+            <DropdownMenuItem
+              key={value}
+              onSelect={(event) => {
+                event.preventDefault()
+                setMode(value)
+              }}
+              className={selected ? 'bg-bg-hover' : undefined}
+              aria-checked={selected}
+              role="menuitemradio"
+            >
+              <Icon size={14} className="mr-2 shrink-0 text-text-muted" aria-hidden />
               {t(`theme.${value}`)}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+              {selected ? (
+                <Check size={14} className="ml-auto shrink-0 text-text-heading" aria-hidden />
+              ) : null}
+            </DropdownMenuItem>
+          )
+        })}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout}>
           <LogOut size={14} className="mr-2 shrink-0 text-text-muted" aria-hidden />

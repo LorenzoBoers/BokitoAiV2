@@ -51,9 +51,11 @@ from app.models.module_agent import AgentScope, ModuleAgent
 from app.models.module_install import ModuleInstall
 from app.models.calendar import CalendarEvent
 from app.models.user_memory import UserAssistantMemory
-from app.models.customer_verify import CustomerVerifyToken
+from app.models.customer_verify import CustomerVerifyToken, HandoverCode
 from app.models.case import Case, CaseType, CaseTypeBinding, CaseTypeField
 from app.models.workbench import WorkJob
+from app.models.team import Team, TeamMember
+from app.models.outcome import OperationalOutcome
 
 __all__ = [
     "Tenant",
@@ -132,9 +134,16 @@ __all__ = [
     "CalendarEvent",
     "UserAssistantMemory",
     "CustomerVerifyToken",
+    "HandoverCode",
     "Case",
     "CaseType",
     "CaseTypeBinding",
     "CaseTypeField",
     "WorkJob",
+    "Team",
+    "TeamMember",
+    "OperationalOutcome",
 ]
+
+# Owner normalization and turn hooks attach to the mappers on import.
+import app.services.ownership  # noqa: E402, F401

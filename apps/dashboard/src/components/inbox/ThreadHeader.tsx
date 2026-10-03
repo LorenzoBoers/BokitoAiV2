@@ -17,7 +17,7 @@ import {
   Mail,
   MoreHorizontal,
   OctagonAlert,
-  PanelRight,
+  PanelRightOpen,
   Pin,
   PinOff,
   Star,
@@ -27,7 +27,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { InboxThread, PatchThreadInput, ThreadDetail as ThreadDetailType } from '../../lib/inbox-api'
-import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
+import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import { isInternalThread, threadCounterpartyName, threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { threadStatusLabel } from '../../lib/status-labels'
@@ -52,6 +52,8 @@ import AssigneeSelector from './AssigneeSelector'
 import AiHandlingPicker from '../ai/AiHandlingPicker'
 import { AI_HANDLING_CHANNELS, type AiHandlingMode } from '../../lib/ai-handling'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
+import { useMembers } from '../../hooks/useMembers'
+import { useAuth } from '../../context/AuthContext'
 import { PRIORITY_META } from './ConversationWorkSection'
 
 const HEADER_ICON = THREAD_HEADER_ICON_CLASS
@@ -121,6 +123,10 @@ export default function ThreadHeader({
   const showHandling =
     !internal && Boolean(onChangeAiHandling) && AI_HANDLING_CHANNELS.has((thread.channel ?? '').toLowerCase())
   const held = handling?.own === 'manual'
+  const { user } = useAuth()
+  const { members } = useMembers()
+  const myNum =
+    members.find((member) => member.email.toLowerCase() === (user?.email ?? '').toLowerCase())?.id ?? null
   const canSnooze = !internal && thread.status !== 'closed' && thread.status !== 'spam'
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
@@ -164,7 +170,9 @@ export default function ThreadHeader({
             </>
           ) : (
             <>
-              {thread.contactId ? (
+              {thread.contactId &&
+              !isGenericVisitorName(thread.contactName) &&
+              Boolean((thread.contactName || '').trim()) ? (
                 <Link to={`/contacts/${thread.contactId}`} className="hover:text-accent hover:underline">
                   {humanizeContactName(
                     thread.contactName,
@@ -266,10 +274,29 @@ export default function ThreadHeader({
             }
           />
         ) : null}
+        {myNum != null && thread.owner?.kind === 'team' && thread.status === 'open' ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                disabled={saving}
+                data-testid="thread-pick-up"
+                onClick={() => void onPatch({ assignedToUserId: myNum })}
+                className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 px-2 text-xs font-medium text-text-primary hover:bg-bg-hover disabled:opacity-40"
+              >
+                <Hand size={12} aria-hidden />
+                {t('threadChrome.pickUp')}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{t('threadChrome.pickUpHint')}</TooltipContent>
+          </Tooltip>
+        ) : null}
         <AssigneeSelector
+          threadId={String(thread.id)}
+          owner={thread.owner}
           currentAssigneeId={thread.assignedToUserId}
           disabled={saving}
-          onChange={(userId) => void onPatch({ assignedToUserId: userId ?? 0 })}
+          onAssign={(assignee) => onPatch({ assignee })}
         />
         <Tooltip>
           <TooltipTrigger asChild>
@@ -471,18 +498,17 @@ export default function ThreadHeader({
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-        {onToggleContact ? (
+        {onToggleContact && !contactOpen ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
                 onClick={onToggleContact}
-                aria-label={contactOpen ? t('threadChrome.hideDetails') : t('threadChrome.showDetails')}
-                aria-pressed={contactOpen}
-                className={`relative ${HEADER_ICON}${contactOpen ? ' text-text-heading' : ''}`}
+                aria-label={t('threadChrome.showDetails')}
+                className={`relative ${HEADER_ICON}`}
               >
-                <PanelRight size={13} />
-                {!contactOpen && panelCount > 0 ? (
+                <PanelRightOpen size={13} />
+                {panelCount > 0 ? (
                   <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-text-heading px-1 text-[9px] font-medium leading-none text-bg tabular-nums">
                     {panelCount > 9 ? '9+' : panelCount}
                   </span>
@@ -490,7 +516,7 @@ export default function ThreadHeader({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {contactOpen ? t('threadChrome.hideDetails') : t('threadChrome.showDetails')}
+              {t('threadChrome.showDetails')}
             </TooltipContent>
           </Tooltip>
         ) : null}

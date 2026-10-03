@@ -26,6 +26,37 @@ export type ContactRow = {
   threadCount: number
   /** Own AI handling override; null follows the channel. */
   aiHandling: AiHandlingMode | null
+  /** Other ways to reach this person (visitor key, email, WhatsApp number). Detail only. */
+  identities: ContactIdentity[]
+}
+
+export type ContactIdentity = {
+  id: string
+  channel: string
+  address: string
+  displayName: string
+  lastSeenAt: string | null
+}
+
+/** How a conversation is linked to its contact; empty = matched on the inbound address. */
+export type ContactBasis = '' | 'verified' | 'claimed' | 'manual'
+
+export function normalizeContactBasis(value: unknown): ContactBasis {
+  return value === 'verified' || value === 'claimed' || value === 'manual' ? value : ''
+}
+
+function normalizeIdentity(row: unknown): ContactIdentity | null {
+  if (!row || typeof row !== 'object') return null
+  const raw = row as Record<string, unknown>
+  const id = asString(raw.id)
+  if (!id) return null
+  return {
+    id,
+    channel: asString(raw.channel),
+    address: asString(raw.address),
+    displayName: asString(raw.display_name),
+    lastSeenAt: asString(raw.last_seen_at) || null,
+  }
 }
 
 export type ContactAiHandlingFilter = AiHandlingMode | 'custom'
@@ -67,6 +98,9 @@ function normalizeContact(row: unknown): ContactRow | null {
     createdAt: asString(raw.created_at),
     threadCount: typeof raw.thread_count === 'number' ? raw.thread_count : 0,
     aiHandling: normalizeMode(raw.ai_handling),
+    identities: Array.isArray(raw.identities)
+      ? raw.identities.map(normalizeIdentity).filter((i): i is ContactIdentity => i !== null)
+      : [],
   }
 }
 
@@ -296,6 +330,74 @@ export async function createContact(
 
 export async function deleteContact(token: string, contactId: string): Promise<void> {
   await apiDelete<unknown>(appRoutes.contacts.byId(contactId), token)
+}
+
+export type ContactLinkInput = {
+  contactId?: string
+  email?: string
+  phone?: string
+  name?: string
+}
+
+export type ContactLinkCandidate = { id: string; displayName: string; address: string }
+
+export type ContactLinkResult = {
+  status: 'linked' | 'created' | 'choose' | 'unchanged'
+  contactId: string | null
+  contactName: string
+  basis: ContactBasis
+  candidates: ContactLinkCandidate[]
+}
+
+/** Link a conversation to a person by email, phone or an existing contact. */
+export async function linkConversationContact(
+  token: string,
+  threadId: string,
+  input: ContactLinkInput,
+): Promise<ContactLinkResult> {
+  const payload = await apiPost<Record<string, unknown>>(
+    appRoutes.signals.threadContactLink(threadId),
+    {
+      contact_id: input.contactId ?? null,
+      email: input.email ?? '',
+      phone: input.phone ?? '',
+      name: input.name ?? '',
+    },
+    token,
+  )
+  const status = asString(payload.status)
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : []
+  return {
+    status:
+      status === 'created' || status === 'choose' || status === 'unchanged' ? status : 'linked',
+    contactId: asString(payload.contact_id) || null,
+    contactName: asString(payload.contact_name),
+    basis: normalizeContactBasis(payload.basis),
+    candidates: candidates
+      .map((row) => {
+        if (!row || typeof row !== 'object') return null
+        const raw = row as Record<string, unknown>
+        const id = asString(raw.id)
+        return id
+          ? { id, displayName: asString(raw.display_name), address: asString(raw.address) }
+          : null
+      })
+      .filter((c): c is ContactLinkCandidate => c !== null),
+  }
+}
+
+/** Split one identity off a person; it becomes its own contact again. */
+export async function detachContactIdentity(
+  token: string,
+  contactId: string,
+  identityId: string,
+): Promise<void> {
+  await apiPost<unknown>(appRoutes.contacts.detachIdentity(contactId, identityId), {}, token)
+}
+
+/** Undo the latest contact link on a conversation. */
+export async function unlinkConversationContact(token: string, threadId: string): Promise<void> {
+  await apiDelete<unknown>(appRoutes.signals.threadContactLink(threadId), token)
 }
 
 // ── companies (CRM) ──────────────────────────────────────────────────

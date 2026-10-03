@@ -85,10 +85,6 @@
     "sendAsk": "Ask {{name}}",
     "sendAgent": "Ask {{name}}",
     "stop": "Stop",
-    "proposalBanner": "AI proposed a reply — review it below, then send, edit, or dismiss.",
-    "proposalSend": "Send",
-    "proposalEdit": "Edit",
-    "proposalDismiss": "Dismiss",
     "channelTooltip": "{{channel}}{{detail}}",
     "ownerChipHint": "Open AI chat with {{name}}",
     "ownerChipPick": "Choose agent",
@@ -182,13 +178,6 @@
     "spam": "Marked as spam",
     "snoozed": "Conversation snoozed until later"
   },
-  "runsChips": {
-    "heading": "Agent runs",
-    "subtitle": "Background work and results.",
-    "all": "All",
-    "updates": "Updates",
-    "results": "Results"
-  },
   "threadList": {
     "loading": "Loading...",
     "empty": "No threads found.",
@@ -196,12 +185,9 @@
     "emptyUnread": "No unread conversations in this list.",
     "emptyNeedsReply": "Nothing waiting on you. Customers you already answered sit in All.",
     "emptyNeedsDecision": "No conversations waiting on a decision in this list.",
-    "emptyDecisions": "Nothing waiting on a decision.",
-    "emptyDecisionsHint": "When an agent needs a yes or no, the thread appears here — customer and internal in one list.",
     "emptyPinned": "No pinned conversations yet. Pin one to keep it at the top.",
     "showAllConversations": "Show all conversations",
     "openDecisionsQueue": "Open Decisions",
-    "emptyRuns": "No agent runs yet.",
     "emptySnoozed": "Nothing waiting for later.",
     "emptySnoozedHint": "Snooze a conversation when you have replied, or when it can wait.",
     "emptySpam": "No spam here.",
@@ -238,13 +224,13 @@
     "filterAssigneeAll": "Any assignee",
     "filterPriority": "Filter by priority",
     "filterPriorityAll": "Any priority",
-    "filterChannel": "Filter by channel",
-    "filterChannelAll": "Any channel",
     "searchPlaceholder": "Search conversations",
     "filters": "Filters",
     "quickFilters": "Quick filters",
     "narrowBy": "Narrow by",
-    "clearFilters": "Clear"
+    "clearFilters": "Clear",
+    "emptyForYou": "Nothing waits on you.",
+    "emptyForYouHint": "Conversations you own, your turn, your team's turn, questions to everyone and mentions land here."
   },
   "decisionCard": {
     "titleSuggestedReply": "Suggested reply",
@@ -344,8 +330,7 @@
       "turnOn": "Turn on",
       "connectPackage": "Connect a package",
       "addSource": "Add source",
-      "addToQueue": "Add to queue",
-      "alwaysAllow": "Always allow"
+      "addToQueue": "Add to queue"
     },
     "correctInterpretation": "Correct this",
     "feedbackGood": "Looks right",
@@ -366,6 +351,21 @@
     },
     "knownSummaries": {
       "draftForReview": "Draft reply prepared for review."
+    },
+    "askedTo": "Asked to {{name}}",
+    "learn": {
+      "label": "Next time:",
+      "allow": "You may do this yourself from now on",
+      "ask": "Always ask",
+      "unsure": "Not sure yet",
+      "proposed": "Rule proposed. Confirm it in this conversation.",
+      "collected": "Noted. After a few more, the agent proposes a rule.",
+      "error": "Could not save what the agent should learn",
+      "done": {
+        "allow": "Rule proposed: do it yourself from now on.",
+        "ask": "Rule proposed: always ask.",
+        "unsure": "Noted as an example."
+      }
     }
   },
   "agentSteps": {
@@ -745,7 +745,7 @@
     "loadFailed": "Thread #{{id}} could not be loaded.",
     "threadGone": "This conversation is no longer available.",
     "tryAgain": "Try again",
-    "agentsLoadError": "Could not load agents; @agent mentions are unavailable.",
+    "agentsLoadError": "Could not load who you can mention here.",
     "teamLoadError": "Could not load team members; @mentions may be incomplete.",
     "taskCreated": "Look-at planned: {{title}}",
     "taskCreatedHint": "It appears on this conversation and on the Agenda.",
@@ -777,7 +777,20 @@
     "emailCopied": "Email copied",
     "copyExternalId": "Copy external conversation ID",
     "externalIdCopied": "External conversation ID copied",
-    "newMessages": "{{count}} new"
+    "newMessages": "{{count}} new",
+    "pickUp": "Pick up",
+    "pickUpHint": "Make this conversation yours. It leaves Unassigned and For you of the rest of the team.",
+    "assignPeople": "People",
+    "assignAgents": "Agents",
+    "assignTeams": "Teams",
+    "noChannelAccess": "No access to this channel",
+    "assigneesLoadError": "Could not load who can take this conversation.",
+    "handoverTitle": "Assign to {{name}}",
+    "handoverHintAgent": "Add what the agent should do. It starts right away and answers as an internal note.",
+    "handoverHintTeam": "Add a message for the team. The team picks it up the way it is set to pick up work.",
+    "handoverPlaceholder": "Message (optional)",
+    "handoverCancel": "Cancel",
+    "handoverConfirm": "Assign"
   },
   "addToProject": {
     "title": "Link to project",
@@ -833,10 +846,12 @@
     "linkProjects": "Projects",
     "linkKnowledge": "Knowledge",
     "noContact": "No contact linked",
-    "noContactHint": "We could not match this conversation to a saved person yet. Open Contacts to add them.",
+    "noContactHint": "We could not match this conversation to a saved person yet. Choose + Contact to connect it by email or phone.",
     "widgetVisitor": "Website visitor",
     "alsoSeenAs": "Also seen as {{label}}",
-    "statusAwaitingEmail": "Awaiting email",
+    "statusAwaitingEmail": "Unknown chatter",
+    "kindUnknownChatter": "Unknown chatter",
+    "kindContact": "Contact",
     "unknown": "Unknown contact",
     "lastSeen": "Last seen {{time}}",
     "now": "now",
@@ -847,6 +862,7 @@
     "blockConfirm": "Block {{name}}? New messages from them will be dropped and never reach Communication.",
     "thisContact": "this contact",
     "fullProfile": "Profile",
+    "showMore": "Show more",
     "writeEmail": "Email",
     "teammate": "Teammate",
     "you": "You",
@@ -857,13 +873,26 @@
     "roleMember": "Member",
     "openBookkeeping": "Look up this invoice",
     "openBookkeepingHint": "Bookkeeping is the place to check the amount before you reply.",
-    "askForEmail": "Save their email so you can follow up later.",
+    "linkHint": "Link this conversation to an existing contact or create one.",
     "namePlaceholder": "Name",
-    "emailPlaceholder": "name@example.com",
-    "saveEmail": "Save email",
-    "emailRequired": "Enter a valid email address.",
-    "emailSaved": "Email saved. You can write them from here.",
-    "emailSaveError": "Could not save that email.",
+    "identifierPlaceholder": "Email or phone number",
+    "link": "+ Contact",
+    "linkSubmit": "Link",
+    "cancel": "Cancel",
+    "identifierRequired": "Enter an email address or phone number.",
+    "linked": "Linked to {{name}}.",
+    "linkCreated": "Created contact {{name}} and linked it.",
+    "linkUnchanged": "This conversation is already linked to this contact.",
+    "linkChoose": "More than one contact matches. Pick who this is:",
+    "linkError": "Could not link this conversation.",
+    "unlink": "Unlink",
+    "unlinkConfirm": "Undo the link with this contact?",
+    "unlinked": "Link undone.",
+    "unlinkError": "Could not undo the link.",
+    "basisVerified": "Verified",
+    "basisVerifiedHint": "The visitor confirmed this address through a link.",
+    "basisClaimed": "Claimed",
+    "basisClaimedHint": "The visitor gave this address but has not confirmed it. Personal data stays protected.",
     "followUpTomorrow": "Look again tomorrow 9:00",
     "followUpSet": "Look-at set for tomorrow morning.",
     "followUpScheduled": "Look-at scheduled — stays visible until then.",
@@ -886,9 +915,7 @@
     "followUpCompleteError": "Could not clear the look-at.",
     "openAgendaFollowUps": "Agenda",
     "previous": "Previous conversations",
-    "noPrevious": "No other conversations with this contact.",
-    "noPreviousHint": "This is the first thread with them. Notes keep context for next time.",
-    "noPreviousVisitorHint": "Save their email or name so later chats land on the same person.",
+    "noPrevious": "No previous conversations",
     "openCommunication": "Open Communication",
     "addContact": "Add to contacts",
     "openContacts": "Open Contacts",
@@ -901,15 +928,18 @@
     "loadFailed": "Some agent context failed to load.",
     "retry": "Retry",
     "agent": "Agent",
+    "kindAiAgent": "AI agent",
     "workspaceAssistant": "Workspace assistant",
     "inboxAiSettings": "AI reply settings",
     "agentProfile": "Agent profile",
     "schedule": "Schedule",
     "govern": "Govern",
     "openAgent": "Open agent",
+    "configure": "Configure",
     "activeTask": "In progress",
     "openRun": "Open run",
     "recentConversations": "Recent conversations",
+    "showMore": "Show more",
     "noOtherConversations": "No other conversations with this agent.",
     "chatWithAgent": "Chat with this agent",
     "mayDo": "What this agent may do",
@@ -1118,7 +1148,10 @@
       "teamMember": "Team member",
       "sender": "Sender",
       "messageAdded": "Message added",
-      "websiteVisitor": "Website visitor"
+      "websiteVisitor": "Website visitor",
+      "someone": "Someone",
+      "pickedUp": "Picked up by {{name}}",
+      "pickedUpVia": "Picked up by {{name}} (via {{team}})"
     }
   },
   "triage": {
@@ -1194,5 +1227,16 @@
     "closeContext": "Close contact panel",
     "nav": "Resize communication sidebar",
     "resetHint": "Drag to resize. Double-click or press Enter to reset."
+  },
+  "scopeChips": {
+    "aria": "Narrow by channel or agent",
+    "allChannels": "All channels",
+    "agent": "Agent",
+    "clearAgent": "Show all agents"
+  },
+  "mentions": {
+    "title": "Mention",
+    "agent": "Agent",
+    "team": "Team"
   }
 }

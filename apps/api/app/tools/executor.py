@@ -21,8 +21,44 @@ from app.tools.registry import (
 )
 
 _EXTERNAL_PASSPORT_BYPASS = frozenset(
-    {"handoff_to_human", "request_callback", "request_customer_verify"}
+    {
+        "handoff_to_human",
+        "request_callback",
+        "continue_on_whatsapp",
+        "request_customer_verify",
+        "link_conversation_contact",
+    }
 )
+
+
+async def _agent_channel_error(
+    session: AsyncSession,
+    tenant_id: UUID,
+    agent: Any,
+    signal: Any | None,
+    tool_input: dict[str, Any],
+) -> str | None:
+    """Deny reason when a mutating call targets a conversation on a channel the agent may not handle."""
+    from app.models.channel import ChannelAccount
+    from app.models.signal import Signal
+    from app.services.channel_access import agent_can_handle
+
+    target = signal
+    raw = tool_input.get("signal_id") or tool_input.get("thread_id")
+    if raw:
+        try:
+            target = await session.get(Signal, UUID(str(raw)))
+        except ValueError:
+            target = signal
+    if target is None or target.tenant_id != tenant_id or not target.channel_account_id:
+        return None
+    account = await session.get(ChannelAccount, target.channel_account_id)
+    if await agent_can_handle(session, account, agent.id):
+        return None
+    return (
+        "This agent has no access to that channel. An operator can grant it under "
+        "Settings, Channels, Access."
+    )
 
 
 async def execute_tool(
@@ -49,6 +85,12 @@ async def execute_tool(
     spec = get_tool_spec(tool_name)
     if spec is None:
         return {"error": f"Unknown tool: {tool_name}"}
+    from app.services.agent_rules import META_ARGS
+
+    certainty = tool_input.get("certainty")
+    cited_rule = str(tool_input.get("rule_id") or "")
+    own_args = set((spec.input_schema or {}).get("properties") or {})
+    tool_input = {k: v for k, v in tool_input.items() if k not in META_ARGS or k in own_args}
 
     actor_id = str(agent.id) if agent else (str(user_id) if user_id else "")
     actor_type = "agent" if agent else ("user" if user_id else "system")
@@ -99,6 +141,16 @@ async def execute_tool(
             )
         ).scalar_one_or_none()
 
+    if agent is not None and spec.mutating:
+        channel_error = await _agent_channel_error(session, tenant_id, agent, signal, tool_input)
+        if channel_error:
+            await record_audit(
+                session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+                agent_id=agent_id, run_id=run_id, outcome="denied",
+                summary="Denied by channel access", payload=tool_input,
+            )
+            return {"error": channel_error, "status": "denied", "reason": "channel_access"}
+
     if not tool_matches_audience(spec, audience):
         await record_audit(
             session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
@@ -142,15 +194,24 @@ async def execute_tool(
         tenant_row = (
             await session.execute(select(Tenant).where(Tenant.id == tenant_id))
         ).scalar_one_or_none()
-        if tenant_row is not None and not team_is_reachable(tenant_row):
+        if tenant_row is not None and not await team_is_reachable(session, tenant_row):
+            from app.services.whatsapp_handover import handover_target
+
             await record_audit(
                 session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
                 agent_id=agent_id, run_id=run_id, outcome="denied",
-                summary="Live handoff is unavailable outside team hours",
+                summary="Live handoff is unavailable: nobody who handles the widget is available",
                 payload=tool_input,
             )
+            whatsapp_account, _ = await handover_target(session, tenant_row)
+            alternatives = "an email follow-up or a callback (request_callback)"
+            if whatsapp_account is not None:
+                alternatives += ", or continuing on WhatsApp (continue_on_whatsapp)"
             return {
-                "error": "The team is not reachable for a live handoff right now. Use request_callback.",
+                "error": (
+                    "Nobody is available for a live handoff right now. Say so honestly and "
+                    f"offer {alternatives}."
+                ),
                 "status": "denied",
                 "reason": "team_away",
             }
@@ -171,6 +232,20 @@ async def execute_tool(
             session, tenant, agent, spec, trust=trust, tool_input=policy_input,
             user_role=user_role,
         )
+        if agent is not None and spec.mutating and spec.gated:
+            from app.services.agent_rules import all_rules, apply_judgement, record_outcome
+
+            mode, reason = apply_judgement(
+                mode,
+                reason,
+                rules=all_rules(tenant, agent),
+                certainty=certainty,
+                rule_id=cited_rule,
+                consequential=spec.consequential,
+            )
+            if reason.startswith("rule:") and record_outcome(tenant, agent, reason[5:], "used"):
+                session.add(tenant)
+                session.add(agent)
 
     if mode == "deny":
         await record_audit(
@@ -238,7 +313,7 @@ async def execute_tool(
         if spec.handles_ask:
             # Platform mutations create a pending PlatformChange + DecisionRequest.
             return await spec.handler(ctx, tool_input)
-        return await _create_policy_decision(session, tenant_id, user_id, tool_name, tool_input, signal_id)
+        return await _create_policy_decision(ctx, tool_name, tool_input, reason=reason)
 
     result = await spec.handler(ctx, tool_input)
     if spec.mutating and not (isinstance(result, dict) and result.get("change_id")):
@@ -284,40 +359,50 @@ async def _mcp_unavailable_in_env(
 
 
 async def _create_policy_decision(
-    session: AsyncSession,
-    tenant_id: UUID,
-    user_id: UUID | None,
+    ctx: ToolContext,
     tool_name: str,
     tool_input: dict[str, Any],
-    signal_id: UUID | None,
+    *,
+    reason: str = "",
 ) -> dict[str, Any]:
+    """Ask about a gated action; the card goes to whoever the acting agent asks.
+
+    The approve option carries ``learn`` so the card can offer "You may do this
+    yourself from now on" / "Always ask" / "Not sure yet" (agent_rules).
+    """
+    from app.services.agent_rules import rule_reason_text
+
+    rule_text = ""
+    if reason.startswith("rule:"):
+        tenant = (await ctx.session.execute(select(Tenant).where(Tenant.id == ctx.tenant_id))).scalar_one_or_none()
+        rule_text = rule_reason_text(reason, tenant, ctx.agent)
+    learn = (
+        {"tool": tool_name, "agent_id": str(ctx.agent.id), "reason": reason, "rule_text": rule_text}
+        if ctx.agent is not None
+        else None
+    )
     options = [
         {
             "id": "approve",
             "label": "Approve",
             "action_type": tool_name,
             "payload": tool_input,
-        },
-        {
-            "id": "always_auto",
-            "label": "Always allow",
-            "action_type": tool_name,
-            "payload": tool_input,
-            "always_auto": True,
+            **({"learn": learn} if learn else {}),
         },
         {"id": "reject", "label": "Reject", "action_type": "reject"},
     ]
     title, summary = format_policy_decision(tool_name, tool_input)
-    return await execute_tool(
-        session,
-        tenant_id,
-        user_id,
-        "create_decision_request",
+    if rule_text:
+        summary = f"{summary}\n\nAsked because of rule: {rule_text}".strip()
+    elif reason == "low_certainty":
+        summary = f"{summary}\n\nAsked because the agent was not sure enough.".strip()
+    spec = get_tool_spec("create_decision_request")
+    return await spec.handler(
+        ctx,
         {
             "title": title,
             "summary": summary,
-            "signal_id": str(signal_id) if signal_id else None,
+            "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
             "options": options,
         },
-        signal_id=signal_id,
     )

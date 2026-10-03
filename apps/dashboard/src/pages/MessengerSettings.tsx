@@ -55,6 +55,8 @@ import {
   type WidgetSettings,
 } from '../lib/inbox-api'
 import { listAgents } from '../lib/agents-api'
+import { listChannelAccounts, type ChannelAccountRow } from '../lib/channel-accounts-api'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import AgentBindingPicker from '../components/settings/AgentBindingPicker'
 import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
@@ -209,6 +211,7 @@ function MessengerSettingsContent({
 
   const [widgetBehaviour, setWidgetBehaviour] = useState<WidgetSettings | null>(null)
   const [widgetBehaviourSaving, setWidgetBehaviourSaving] = useState(false)
+  const [whatsappAccounts, setWhatsappAccounts] = useState<ChannelAccountRow[]>([])
 
   // Placeholders mirror what the widget really shows when a field is empty:
   // assistant/tenant name and localized welcome defaults in the team language.
@@ -323,6 +326,11 @@ function MessengerSettingsContent({
       .catch(() => {
         // keep defaults; the section shows a loading placeholder
       })
+    listChannelAccounts(token)
+      .then((rows) => setWhatsappAccounts(rows.filter((row) => row.channel === 'whatsapp')))
+      .catch(() => {
+        // no WhatsApp option without the list
+      })
   }, [token])
 
   useEffect(() => {
@@ -348,7 +356,7 @@ function MessengerSettingsContent({
     try {
       const next = await saveWidgetSettings(token, {
         preChatForm: widgetBehaviour.preChatForm,
-        officeHours: widgetBehaviour.officeHours,
+        whatsappHandover: widgetBehaviour.whatsappHandover,
       })
       setWidgetBehaviour(next)
       setSavedWidgetBehaviour(next)
@@ -786,105 +794,109 @@ function MessengerSettingsContent({
                       </div>
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
-                          <span className="text-sm text-text-primary">{t('messengerPage.officeHours')}</span>
-                          <p className="text-2xs text-text-muted">
-                            {t('messengerPage.officeHoursHint')}
-                            {widgetBehaviour.officeHours.enabled
-                              ? widgetBehaviour.officeOpen
-                                ? ` ${t('messengerPage.currentlyOpen')}`
-                                : ` ${t('messengerPage.currentlyClosed')}`
-                              : ''}
-                          </p>
+                          <span className="text-sm text-text-primary">{t('messengerPage.liveHandoff')}</span>
+                          <p className="text-2xs text-text-muted">{t('messengerPage.liveHandoffHint')}</p>
                         </div>
-                        <Switch
-                          checked={widgetBehaviour.officeHours.enabled}
-                          onCheckedChange={(checked) =>
-                            setWidgetBehaviour({
-                              ...widgetBehaviour,
-                              officeHours: { ...widgetBehaviour.officeHours, enabled: checked },
-                            })
-                          }
-                          aria-label={t('messengerPage.officeHours')}
-                        />
+                        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-text-secondary">
+                          <span
+                            aria-hidden
+                            className={cn(
+                              'h-2 w-2 rounded-full',
+                              widgetBehaviour.teamAvailable ? 'bg-status-success' : 'bg-text-muted/60',
+                            )}
+                          />
+                          {widgetBehaviour.teamAvailable
+                            ? t('messengerPage.liveAvailable')
+                            : t('messengerPage.liveAway')}
+                        </span>
                       </div>
-                      {widgetBehaviour.officeHours.enabled ? (
-                        <div className="space-y-3 rounded-lg border border-border/60 bg-bg-surface/50 p-3 dark:bg-bg-surface/25">
-                          <div className="flex flex-wrap gap-1.5">
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, day) => {
-                              const active = widgetBehaviour.officeHours.days.includes(day)
-                              return (
-                                <button
-                                  key={label}
-                                  type="button"
-                                  onClick={() =>
+                      <div
+                        className="space-y-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30"
+                        data-testid="whatsapp-handover"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <span className="text-sm text-text-primary">
+                              {t('messengerPage.whatsappHandover.title')}
+                            </span>
+                            <p className="text-2xs text-text-muted">
+                              {whatsappAccounts.length
+                                ? t('messengerPage.whatsappHandover.hint')
+                                : t('messengerPage.whatsappHandover.noChannel')}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={widgetBehaviour.whatsappHandover.enabled}
+                            disabled={!whatsappAccounts.length}
+                            onCheckedChange={(checked) =>
+                              setWidgetBehaviour({
+                                ...widgetBehaviour,
+                                whatsappHandover: {
+                                  ...widgetBehaviour.whatsappHandover,
+                                  enabled: checked,
+                                  accountId:
+                                    widgetBehaviour.whatsappHandover.accountId || whatsappAccounts[0]?.id || '',
+                                },
+                              })
+                            }
+                            aria-label={t('messengerPage.whatsappHandover.title')}
+                          />
+                        </div>
+                        {widgetBehaviour.whatsappHandover.enabled ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="space-y-1">
+                              <span className="text-xs text-text-secondary">
+                                {t('messengerPage.whatsappHandover.channel')}
+                              </span>
+                              <Select
+                                value={widgetBehaviour.whatsappHandover.accountId}
+                                onValueChange={(value) =>
+                                  setWidgetBehaviour({
+                                    ...widgetBehaviour,
+                                    whatsappHandover: { ...widgetBehaviour.whatsappHandover, accountId: value },
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {whatsappAccounts.map((row) => (
+                                    <SelectItem key={row.id} value={row.id}>
+                                      {row.displayName || row.address}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </label>
+                            {!widgetBehaviour.whatsappHandover.numberKnown ? (
+                              <label className="space-y-1">
+                                <span className="text-xs text-text-secondary">
+                                  {t('messengerPage.whatsappHandover.number')}
+                                </span>
+                                <Input
+                                  className="h-8 text-xs"
+                                  inputMode="tel"
+                                  placeholder="+31 6 12345678"
+                                  value={widgetBehaviour.whatsappHandover.number}
+                                  onChange={(e) =>
                                     setWidgetBehaviour({
                                       ...widgetBehaviour,
-                                      officeHours: {
-                                        ...widgetBehaviour.officeHours,
-                                        days: active
-                                          ? widgetBehaviour.officeHours.days.filter((d) => d !== day)
-                                          : [...widgetBehaviour.officeHours.days, day].sort(),
+                                      whatsappHandover: {
+                                        ...widgetBehaviour.whatsappHandover,
+                                        number: e.target.value,
                                       },
                                     })
                                   }
-                                  className={cn(
-                                    'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                                    active
-                                      ? 'border-border-light bg-bg-hover text-text-heading'
-                                      : 'border-border/60 text-text-secondary hover:text-text-primary',
-                                  )}
-                                >
-                                  {label}
-                                </button>
-                              )
-                            })}
+                                />
+                                <p className="text-2xs text-text-muted">
+                                  {t('messengerPage.whatsappHandover.numberHint')}
+                                </p>
+                              </label>
+                            ) : null}
                           </div>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div>
-                              <p className="text-2xs font-medium text-text-muted">{t('messengerPage.from')}</p>
-                              <Input
-                                className="mt-1 w-[110px]"
-                                type="time"
-                                value={widgetBehaviour.officeHours.start}
-                                onChange={(e) =>
-                                  setWidgetBehaviour({
-                                    ...widgetBehaviour,
-                                    officeHours: { ...widgetBehaviour.officeHours, start: e.target.value },
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <p className="text-2xs font-medium text-text-muted">{t('messengerPage.until')}</p>
-                              <Input
-                                className="mt-1 w-[110px]"
-                                type="time"
-                                value={widgetBehaviour.officeHours.end}
-                                onChange={(e) =>
-                                  setWidgetBehaviour({
-                                    ...widgetBehaviour,
-                                    officeHours: { ...widgetBehaviour.officeHours, end: e.target.value },
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <p className="text-2xs font-medium text-text-muted">{t('messengerPage.timezone')}</p>
-                              <Input
-                                className="mt-1 w-[200px]"
-                                value={widgetBehaviour.officeHours.timezone}
-                                onChange={(e) =>
-                                  setWidgetBehaviour({
-                                    ...widgetBehaviour,
-                                    officeHours: { ...widgetBehaviour.officeHours, timezone: e.target.value },
-                                  })
-                                }
-                                placeholder={t('messengerPage.timezonePlaceholder')}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                       <Button
                         size="sm"
                         disabled={widgetBehaviourSaving}

@@ -26,6 +26,58 @@ export type ThreadId = string | number
 
 export type MessageFolder = 'external' | 'internal' | 'all'
 
+export type OwnerKind = 'user' | 'agent' | 'team'
+
+/** Who is responsible for the conversation. Every conversation has one. */
+export type ThreadOwner = {
+  kind: OwnerKind
+  userId: string | null
+  agentId: string | null
+  teamId: string | null
+}
+
+export type TurnReason = 'reply_needed' | 'question' | 'draft_ready' | ''
+
+/** Who must act now (derived on the server). */
+export type ThreadTurn = {
+  kind: 'customer' | 'agent' | 'user' | 'team' | ''
+  userId: string | null
+  /** Numeric inbox id of the person whose turn it is. */
+  userNum: number | null
+  teamId: string | null
+  reason: TurnReason
+}
+
+export function normalizeOwner(value: unknown): ThreadOwner {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+  const kind = raw.kind === 'user' || raw.kind === 'agent' ? raw.kind : 'team'
+  const str = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v : null)
+  return { kind, userId: str(raw.user_id), agentId: str(raw.agent_id), teamId: str(raw.team_id) }
+}
+
+export function normalizeTurn(value: unknown): ThreadTurn {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+  const kinds = ['customer', 'agent', 'user', 'team'] as const
+  const reasons = ['reply_needed', 'question', 'draft_ready'] as const
+  const kind = kinds.find((k) => k === raw.kind) ?? ''
+  const reason = reasons.find((r) => r === raw.reason) ?? ''
+  const str = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v : null)
+  return {
+    kind,
+    userId: str(raw.user_id),
+    userNum: typeof raw.user_num === 'number' ? raw.user_num : null,
+    teamId: str(raw.team_id),
+    reason,
+  }
+}
+
+/** New owner for a conversation; a team without id means the channel's owner team. */
+export type AssigneeInput = {
+  kind: OwnerKind
+  id?: string | number | null
+  message?: string
+}
+
 export type InboxThread = {
   id: ThreadId
   organisationId: string
@@ -42,6 +94,8 @@ export type InboxThread = {
   contactEmail: string
   contactName: string
   contactPhone: string
+  /** How the thread is linked to its contact: verified | claimed | manual; '' = inbound address. */
+  contactBasis: string
   status: ThreadStatus
   /** ISO wake time while snoozed (status pending); null = wait for reply. */
   snoozedUntil: string | null
@@ -50,6 +104,8 @@ export type InboxThread = {
   followUpTitle: string
   priority: ThreadPriority
   assignedToUserId: number | null
+  owner?: ThreadOwner
+  turn?: ThreadTurn
   tags: string[]
   lastMessageAt: string | null
   hasUnread: boolean
@@ -147,6 +203,7 @@ export type InboxMember = {
   avatarUrl: string | null
   /** Workspace role when known: owner | admin | member */
   role?: string | null
+  presence?: 'available' | 'away' | 'offline'
 }
 
 export type MailboxFolder = {
@@ -184,7 +241,8 @@ export type ThreadFilters = {
     | 'all'
     | 'all_open'
     | 'unassigned'
-    | 'mine'
+    /** Yours: owned, your turn or your team's, questions to All people, mentions. */
+    | 'for_you'
     | 'pending'
     | 'snoozed'
     | 'closed'
@@ -192,8 +250,6 @@ export type ThreadFilters = {
     | 'outbound'
     | 'pinned'
     | 'awaiting_decision'
-    /** Open decision or a customer reply due: the hub's "You" leaf. */
-    | 'your_turn'
     | 'updates'
     | 'results'
     | 'external'
@@ -202,6 +258,8 @@ export type ThreadFilters = {
   /** Filter on the signal channel (e.g. widget, chat, internal). */
   channel?: string
   agentId?: string
+  /** Owner team or the team whose turn it is. */
+  teamId?: string
   projectId?: string
   tag?: string
   assigneeId?: number
@@ -273,6 +331,7 @@ export type ReplyInput = {
 export type PatchThreadInput = {
   status?: ThreadStatus
   assignedToUserId?: number
+  assignee?: AssigneeInput
   tags?: string[]
   priority?: ThreadPriority
   projectId?: string | null
@@ -382,6 +441,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),
+    contactBasis: asString(raw.contact_basis),
     status,
     snoozedUntil: asNullableTimestampString(raw.snoozed_until),
     followUpAt: asNullableTimestampString(raw.follow_up_at),
@@ -389,6 +449,8 @@ function normalizeThread(row: unknown): InboxThread | null {
     priority,
     assignedToUserId:
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0 ? null : asNumber(raw.assigned_to_user_id),
+    owner: normalizeOwner(raw.owner),
+    turn: normalizeTurn(raw.turn),
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
@@ -810,49 +872,38 @@ export async function saveAiCommunicationSettings(
 }
 
 // ---------------------------------------------------------------------------
-// Widget behaviour (pre-chat form, office hours, offline message)
+// Widget behaviour (pre-chat form, offline message, continue on WhatsApp)
 // ---------------------------------------------------------------------------
 
-export type WidgetOfficeHours = {
+export type WhatsAppHandover = {
   enabled: boolean
-  timezone: string
-  days: number[]
-  start: string
-  end: string
+  accountId: string
+  /** Fallback public number until the WhatsApp account reports its own. */
+  number: string
+  numberKnown: boolean
+  ready: boolean
 }
 
 export type WidgetSettings = {
   preChatForm: boolean
   offlineMessage: string
-  officeHours: WidgetOfficeHours
-  officeOpen: boolean
-}
-
-const DEFAULT_WIDGET_OFFICE_HOURS: WidgetOfficeHours = {
-  enabled: false,
-  timezone: 'Europe/Amsterdam',
-  days: [0, 1, 2, 3, 4],
-  start: '09:00',
-  end: '17:00',
+  /** True when someone with Handle access on the widget is available now. */
+  teamAvailable: boolean
+  whatsappHandover: WhatsAppHandover
 }
 
 function normalizeWidgetSettings(raw: Record<string, unknown>): WidgetSettings {
-  const hours =
-    raw.office_hours && typeof raw.office_hours === 'object'
-      ? (raw.office_hours as Record<string, unknown>)
-      : {}
+  const handover = (raw.whatsapp_handover ?? {}) as Record<string, unknown>
   return {
     preChatForm: Boolean(raw.pre_chat_form),
     offlineMessage: asString(raw.offline_message),
-    officeOpen: raw.office_open !== false,
-    officeHours: {
-      enabled: Boolean(hours.enabled),
-      timezone: asString(hours.timezone) || DEFAULT_WIDGET_OFFICE_HOURS.timezone,
-      days: Array.isArray(hours.days)
-        ? hours.days.map((d) => Number(d)).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
-        : DEFAULT_WIDGET_OFFICE_HOURS.days,
-      start: asString(hours.start) || DEFAULT_WIDGET_OFFICE_HOURS.start,
-      end: asString(hours.end) || DEFAULT_WIDGET_OFFICE_HOURS.end,
+    teamAvailable: raw.team_available !== false,
+    whatsappHandover: {
+      enabled: Boolean(handover.enabled),
+      accountId: asString(handover.account_id),
+      number: asString(handover.number),
+      numberKnown: Boolean(handover.number_known),
+      ready: Boolean(handover.ready),
     },
   }
 }
@@ -864,12 +915,22 @@ export async function getWidgetSettings(token: string): Promise<WidgetSettings> 
 
 export async function saveWidgetSettings(
   token: string,
-  input: { preChatForm?: boolean; offlineMessage?: string; officeHours?: WidgetOfficeHours },
+  input: {
+    preChatForm?: boolean
+    offlineMessage?: string
+    whatsappHandover?: Pick<WhatsAppHandover, 'enabled' | 'accountId' | 'number'>
+  },
 ): Promise<WidgetSettings> {
   const body: Record<string, unknown> = {}
   if (input.preChatForm !== undefined) body.pre_chat_form = input.preChatForm
   if (input.offlineMessage !== undefined) body.offline_message = input.offlineMessage
-  if (input.officeHours !== undefined) body.office_hours = input.officeHours
+  if (input.whatsappHandover !== undefined) {
+    body.whatsapp_handover = {
+      enabled: input.whatsappHandover.enabled,
+      account_id: input.whatsappHandover.accountId,
+      number: input.whatsappHandover.number,
+    }
+  }
   const payload = await apiPut<Record<string, unknown>>(policyRoutes.widgetSettings(), body, token)
   return normalizeWidgetSettings(payload)
 }

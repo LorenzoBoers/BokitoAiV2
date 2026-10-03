@@ -29,7 +29,7 @@ import {
 } from '../ui/dialog'
 import { isAiHandlingVerb, type ParsedComposerVerb } from '../../lib/composer-verbs'
 import type { AiHandlingMode } from '../../lib/ai-handling'
-import { patchSignalThread } from '../../lib/signals-api'
+import { listSignalAssignees, patchSignalThread, type AssigneeCandidates } from '../../lib/signals-api'
 import { replyProposalFromMessage } from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
 import ThreadHeader from './ThreadHeader'
@@ -57,7 +57,6 @@ import {
   type ChatMessage,
 } from '../../lib/signals-api'
 import { useAiChatStream } from '../../lib/use-agent-session-chat'
-import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { toast } from 'sonner'
@@ -206,15 +205,17 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [detail, applyComposerDraft])
 
-  // Active agents are @-mentionable in notes; a mention invokes the agent on
-  // this thread and its answer lands as an internal note.
-  const [agents, setAgents] = useState<RuntimeAgent[]>([])
+  // People, agents and teams are @-mentionable; those without access to this
+  // channel stay listed but greyed out. An @agent opens that agent's session;
+  // an @team note goes to the team (see thread_dispatch on the server).
+  const [assignees, setAssignees] = useState<AssigneeCandidates | null>(null)
+  const assigneesThreadId = detail ? String(detail.thread.id) : null
   useEffect(() => {
-    if (!token) return
+    if (!token || !assigneesThreadId) return
     let cancelled = false
-    getAgents(token)
+    listSignalAssignees(token, assigneesThreadId)
       .then((rows) => {
-        if (!cancelled) setAgents(rows)
+        if (!cancelled) setAssignees(rows)
       })
       .catch(() => {
         if (!cancelled) {
@@ -226,16 +227,41 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return () => {
       cancelled = true
     }
-  }, [token, t])
-  const mentionAgents: MentionItem[] = useMemo(
-    () =>
-      agents.map((a) => ({
-        type: 'agent' as const,
-        id: String(a.id),
-        name: a.name,
-      })),
-    [agents],
-  )
+  }, [token, assigneesThreadId, t])
+  const mentionExtras: MentionItem[] = useMemo(() => {
+    if (!assignees) return []
+    const reason = t('threadChrome.noChannelAccess')
+    return [
+      ...assignees.people.map(
+        (p): MentionItem => ({
+          type: 'user',
+          id: String(p.id),
+          name: p.name,
+          email: p.email,
+          avatarUrl: p.avatarUrl,
+          presence: p.presence,
+          disabled: !p.canHandle,
+          disabledReason: p.canHandle ? undefined : reason,
+        }),
+      ),
+      ...assignees.agents.map(
+        (a): MentionItem => ({
+          type: 'agent',
+          id: a.id,
+          name: a.name,
+          disabled: !a.canHandle,
+          disabledReason: a.canHandle ? undefined : reason,
+        }),
+      ),
+      ...assignees.teams.map(
+        (team): MentionItem => ({
+          type: 'team',
+          id: team.id,
+          name: team.kind === 'custom' ? team.name : t(`teamPage.system.${team.kind}`, { ns: 'nav' }),
+        }),
+      ),
+    ]
+  }, [assignees, t])
 
   useEffect(() => {
     if (!token) return
@@ -663,7 +689,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // one is closed (or discarded when it has no turns yet) first.
   const handleMentionInserted = useCallback(
     async (item: MentionItem) => {
-      if (item.type === 'user') {
+      if (item.type === 'user' || item.type === 'team') {
         setComposerMode((prev) => (prev === 'reply' ? 'note' : prev))
         return
       }
@@ -1156,7 +1182,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               : null
           }
           suggestedCc={suggestedCc}
-          mentionExtras={mentionAgents}
+          mentionExtras={mentionExtras}
         />
       ) : null}
       <Dialog

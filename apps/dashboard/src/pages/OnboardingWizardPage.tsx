@@ -13,10 +13,14 @@ import {
 import { bokitoUpdateAgent } from '../lib/bokito-api'
 import { applyUiLanguageLocally, persistUiLanguage } from '../lib/language-preference'
 import {
-  canonicalizeNotificationRows,
-  DEFAULT_NOTIFICATION_ROWS,
-  type NotificationPrefRow,
-} from '../lib/notification-rows'
+  defaultNotificationPrefs,
+  NOTIFICATION_TIERS,
+  normalizeNotificationPrefs,
+  setTierChannel,
+  type NotificationChannel,
+  type NotificationPrefs,
+  type NotificationTier,
+} from '../lib/notification-prefs'
 import {
   getOnboardingWizard,
   patchOnboardingWizard,
@@ -48,6 +52,12 @@ const WORKSPACE_LANGS = ['nl', 'en', 'de', 'fr', 'es'] as const
 const INTAKE_SOURCES = ['search', 'referral', 'social', 'partner', 'other'] as const
 const ORG_SIZES = ['1', '2-10', '11-50', '51-200', '200+'] as const
 const USE_CASES = ['inbox', 'support', 'sales', 'ops', 'agency', 'other'] as const
+/** The one switch per tier offered at onboarding; the rest lives in Notification settings. */
+const ONBOARDING_TIER_CHANNEL: Record<NotificationTier, NotificationChannel> = {
+  '1': 'push',
+  '2': 'inapp',
+  '3': 'email',
+}
 
 function ChoiceGrid({
   options,
@@ -88,6 +98,7 @@ function ChoiceGrid({
 export default function OnboardingWizardPage() {
   const { t, i18n } = useTranslation('onboarding')
   const { t: tg } = useTranslation('govern')
+  const { t: tn } = useTranslation('nav')
   const { token, logout, currentTenantRole } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -106,7 +117,7 @@ export default function OnboardingWizardPage() {
   const [agentName, setAgentName] = useState('')
   const [avatarKind, setAvatarKind] = useState<'initials' | 'icon'>('icon')
   const [avatarIcon, setAvatarIcon] = useState('bot')
-  const [notifRows, setNotifRows] = useState<NotificationPrefRow[]>(DEFAULT_NOTIFICATION_ROWS)
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs)
 
   const steps = isOwnerScope ? OWNER_STEPS : MEMBER_STEPS
   const step = steps[stepIndex] ?? steps[0]
@@ -149,11 +160,8 @@ export default function OnboardingWizardPage() {
       credentials: 'include',
     })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { rows?: NotificationPrefRow[] } | null) => {
-        if (Array.isArray(data?.rows) && data.rows.length > 0) {
-          const next = canonicalizeNotificationRows(data.rows)
-          setNotifRows(next.length > 0 ? next : DEFAULT_NOTIFICATION_ROWS)
-        }
+      .then((data: unknown) => {
+        if (data) setNotifPrefs(normalizeNotificationPrefs(data))
       })
       .catch(() => undefined)
   }, [token])
@@ -173,7 +181,7 @@ export default function OnboardingWizardPage() {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ rows: notifRows }),
+      body: JSON.stringify(notifPrefs),
     })
     if (!res.ok) throw new Error('notif')
   }
@@ -270,14 +278,8 @@ export default function OnboardingWizardPage() {
 
   const goBack = () => setStepIndex((i) => Math.max(0, i - 1))
 
-  const updateNotifDesktop = (rowId: string, checked: boolean) => {
-    setNotifRows((prev) =>
-      prev.map((row) =>
-        row.id === rowId
-          ? { ...row, channels: { ...row.channels, desktop: checked } }
-          : row,
-      ),
-    )
+  const updateNotifTier = (tier: NotificationTier, checked: boolean) => {
+    setNotifPrefs((prev) => setTierChannel(prev, tier, ONBOARDING_TIER_CHANNEL[tier], checked))
   }
 
   if (loading || !state) {
@@ -428,14 +430,17 @@ export default function OnboardingWizardPage() {
               <p className="mt-1 text-sm text-text-secondary">{t('notifications.subtitle')}</p>
             </div>
             <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-bg-surface">
-              {notifRows.map((row) => (
-                <li key={row.id} className="flex items-center justify-between gap-3 px-3.5 py-3">
-                  <span className="text-sm text-text-heading">{row.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-muted">{t('notifications.desktop')}</span>
+              {NOTIFICATION_TIERS.map((tier) => (
+                <li key={tier} className="flex items-center justify-between gap-3 px-3.5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-text-heading">{tn(`notificationsPage.tiers.${tier}.title`)}</p>
+                    <p className="text-xs text-text-muted">{tn(`notificationsPage.tiers.${tier}.hint`)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-xs text-text-muted">{t(`notifications.tierChannel.${tier}`)}</span>
                     <Switch
-                      checked={Boolean(row.channels.desktop)}
-                      onCheckedChange={(checked) => updateNotifDesktop(row.id, checked)}
+                      checked={notifPrefs.tiers[tier][ONBOARDING_TIER_CHANNEL[tier]]}
+                      onCheckedChange={(checked) => updateNotifTier(tier, checked)}
                     />
                   </div>
                 </li>

@@ -227,7 +227,7 @@ async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_o
         headers=headers,
         json={
             "inbox_folders": {
-                "default_queue": "mine",
+                "default_queue": "for_you",
                 "channel_defaults": {"channel:email:12": "closed", "bogus": "not-a-queue"},
                 # Retired preference is ignored instead of reviving tag folders.
                 "sidebar_tags": ["Billing", "vip", "billing", "  ", 12],
@@ -236,7 +236,7 @@ async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_o
     )
     assert patched.status_code == 200
     body = patched.json()["inbox_folders"]
-    assert body["default_queue"] == "mine"
+    assert body["default_queue"] == "for_you"
     # Invalid queue values are dropped, valid overrides kept.
     assert body["channel_defaults"] == {"channel:email:12": "closed"}
     assert "sidebar_tags" not in body

@@ -278,7 +278,7 @@ async def test_bulk_assign_and_read(client: AsyncClient):
     )
     assert r.status_code == 200
 
-    items = await _list(client, owner, view="mine")
+    items = await _list(client, owner, view="for_you")
     row = next(t for t in items if t["id"] == a)
     assert row["assigned_to_user_id"] == me
     assert row["has_unread"] is False

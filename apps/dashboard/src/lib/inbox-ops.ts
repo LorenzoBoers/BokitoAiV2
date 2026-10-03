@@ -50,12 +50,12 @@ export function nextUnreadId(
 
 /**
  * `?filter=` on a Communication folder. Legacy "needs reply" / "needs
- * decision" values resolve to `yourTurn`: the caller redirects those to the
- * hub's "You" leaf instead of filtering the current folder.
+ * decision" values resolve to `forYou`: the caller redirects those to the
+ * For you folder instead of filtering the current folder.
  */
 export function parseQuickFilterParam(
   raw: string | null | undefined,
-): InboxListQuickFilter | 'yourTurn' | null {
+): InboxListQuickFilter | 'forYou' | null {
   if (!raw) return null
   if (raw === 'unread' || raw === 'pinned' || raw === 'all') return raw
   if (
@@ -65,7 +65,7 @@ export function parseQuickFilterParam(
     raw === 'needs_decision' ||
     raw === 'awaiting_decision'
   ) {
-    return 'yourTurn'
+    return 'forYou'
   }
   return null
 }

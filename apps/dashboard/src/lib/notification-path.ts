@@ -1,4 +1,4 @@
-import { activityTerminalPath, decisionsPath, inboxPath, agentRunsPath } from './messages-paths'
+import { activityTerminalPath, forYouPath, inboxPath } from './messages-paths'
 
 export type NotificationPayload = Record<string, unknown>
 
@@ -29,16 +29,16 @@ export function pathForNotification(input: {
   const signalId = notificationSignalId(payload)
 
   if (kind === 'decision_request') {
-    if (!signalId) return decisionsPath()
+    if (!signalId) return forYouPath()
     // `?message=` scrolls straight to the card instead of the thread top,
     // which matters most on mobile where a thread can be long.
     const messageId = stringField(payload, 'message_id')
-    return decisionsPath(signalId, messageId ? { message: messageId } : undefined)
+    return forYouPath(signalId, messageId ? { message: messageId } : undefined)
   }
 
   if (signalId) {
     if (isInternalNotificationPayload(payload)) {
-      return agentRunsPath('all', signalId)
+      return inboxPath('all', signalId)
     }
     // Prefer All so pending/unassigned/closed deep links still land on the
     // intended thread; Communication retargets closed/spam/snoozed boxes.

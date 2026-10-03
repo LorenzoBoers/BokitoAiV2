@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import { Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessagesHubNav from '../inbox/MessagesHubNav'
@@ -9,15 +9,13 @@ import { SidebarPrefsProvider } from '../../context/SidebarPrefsContext'
 import { SplitPane, SplitRow } from '../ui/SplitRow'
 
 /**
- * Communication hub layout: customizable inner rail (New chat, Inbox,
- * Assistant, Channels, Agents, Settings), thread list and
- * conversation on the right.
+ * Communication hub layout: customizable inner rail (New chat, All
+ * communication, pinned teams, Settings), thread list and conversation on
+ * the right.
  */
 export default function MessagesHub() {
   const { t } = useTranslation(['nav', 'communication'])
-  const location = useLocation()
   const [customizeOpen, setCustomizeOpen] = useState(false)
-  const runsGuide = location.pathname.includes('/communication/runs')
 
   return (
     <SidebarPrefsProvider>
@@ -41,7 +39,6 @@ export default function MessagesHub() {
               <div className="flex items-center">
                 <PageGuideLink
                   page="communication"
-                  variant={runsGuide ? 'runs' : undefined}
                   compact
                   className="h-6 w-6"
                 />

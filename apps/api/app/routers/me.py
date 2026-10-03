@@ -29,7 +29,7 @@ class PreferencesPatch(BaseModel):
     # Communication hub folder defaults: which sub-view a folder opens on.
     # Shape: {
     #   "default_queue": "open",
-    #   "channel_defaults": {"channel:email:12": "mine"},
+    #   "channel_defaults": {"team:<uuid>": "for_you"},
     # }
     inbox_folders: dict | None = None
     # Post-login / home landing: communication (default) or overview (/cockpit).
@@ -40,7 +40,7 @@ class PreferencesPatch(BaseModel):
 
 
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
-INBOX_SUB_QUEUES = ("open", "mine", "unassigned", "closed")
+INBOX_SUB_QUEUES = ("for_you", "open", "unassigned", "closed")
 DEFAULT_LANDINGS = ("communication", "overview")
 
 def _default_landing_state(stored: dict) -> str:

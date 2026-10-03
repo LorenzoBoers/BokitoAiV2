@@ -36,6 +36,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/communication/runs/all", "agent-runs", "runs-list"),
     ("/contacts", "contacts", "contact-card"),
     ("/contacts", "contacts", "contact-handling"),
+    ("/communication/inbox/open", "contacts", "link-conversation"),
     ("/settings/channels", "channels", "mailbox-status"),
     ("/settings/channels", "quickstart", "mailbox"),
     ("/settings/communication", "inbox-ai", "workspace-default"),
@@ -53,8 +54,9 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/settings/models", "models", "data-region"),
     ("/settings/marketplace", "integrations", "marketplace"),
     ("/settings/mcp", "mcp", "servers"),
-    ("/settings/members", "members", "invite"),
+    ("/team", "team", "invite"),
     ("/settings/help-centers", "help-centers", "publish"),
+    ("/settings/developers", "mcp-endpoint", "connect-ai-tools"),
     ("/settings/general", "setup-guide", "workspace"),
 ]
 
@@ -74,8 +76,23 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
         ("click", "main tbody tr"),
         ("scroll", '[data-testid="contact-ai-handling"]'),
     ],
+    ("contacts", "link-conversation"): [
+        (
+            "click",
+            'main [role="button"][tabindex="0"]:has-text("bezoeker"), '
+            'main [role="button"][tabindex="0"]:has-text("visitor")',
+        ),
+        ("click", '[data-testid="contact-link-open"]'),
+    ],
     ("govern", "conversations"): [
         ("scroll", '[data-testid="govern-conversations"]'),
+    ],
+    ("mcp-endpoint", "connect-ai-tools"): [
+        ("click", '[data-testid="ai-tool-claudeCode"] summary'),
+    ],
+    ("channels", "mailbox-status"): [
+        ("click", '[data-testid="channel-row"] button[aria-expanded="false"]'),
+        ("scroll", '[data-testid="channel-row"]'),
     ],
 }
 

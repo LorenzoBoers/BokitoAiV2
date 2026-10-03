@@ -149,14 +149,7 @@ export function ThreadCasesList({ signalId }: Props) {
           </Link>
         )}
       </div>
-      {rows.length === 0 ? (
-        <p className="text-xs text-text-muted">
-          {t('cases.emptyThread', {
-            defaultValue:
-              'No signals yet. Add one — for example Invoice / payment on a dunning email.',
-          })}
-        </p>
-      ) : (
+      {rows.length === 0 ? null : (
         <ul className="space-y-1">
           {rows.map((row) => {
             const labelOnly = isLabelOnly(row)

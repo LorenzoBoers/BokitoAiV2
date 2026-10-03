@@ -1,6 +1,6 @@
-/** Inline mention markup shared with the API: `@[Name](user:123)` / `@[Name](agent:uuid)`. */
+/** Inline mention markup shared with the API: `@[Name](user:123)`, `@[Name](agent:uuid)`, `@[Name](team:uuid)`. */
 
-export type MentionTargetType = 'user' | 'agent'
+export type MentionTargetType = 'user' | 'agent' | 'team'
 
 export type MentionItem = {
   type: MentionTargetType
@@ -9,9 +9,13 @@ export type MentionItem = {
   name: string
   email?: string
   avatarUrl?: string | null
+  presence?: 'available' | 'away' | 'offline'
+  /** Listed but not selectable (for example: no access to this channel). */
+  disabled?: boolean
+  disabledReason?: string
 }
 
-export const MENTION_MARKUP_PATTERN = /@\[([^\]]+)\]\((user|agent):([^)]+)\)/g
+export const MENTION_MARKUP_PATTERN = /@\[([^\]]+)\]\((user|agent|team):([^)]+)\)/g
 
 export function mentionMarkup(item: MentionItem): string {
   return `@[${item.name}](${item.type}:${item.id})`

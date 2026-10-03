@@ -75,7 +75,7 @@ async def test_contact_create_rejects_invalid_input(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_contact_address_capture_updates_linked_thread(client: AsyncClient, session_override):
+async def test_contact_link_updates_visitor_thread(client: AsyncClient, session_override):
     from app.models.auth import Tenant
     from app.models.channel import Contact
     from app.models.signal import Signal
@@ -103,18 +103,20 @@ async def test_contact_address_capture_updates_linked_thread(client: AsyncClient
     session_override.add(signal)
     await session_override.commit()
 
-    patched = await client.patch(
-        f"/api/channels/contacts/{contact.id}",
+    linked = await client.post(
+        f"/api/signals/{signal.id}/contact-link",
         headers=owner,
-        json={"address": "visitor@acme.test", "display_name": "Sanne"},
+        json={"email": "visitor@acme.test", "name": "Sanne"},
     )
-    assert patched.status_code == 200, patched.text
-    assert patched.json()["address"] == "visitor@acme.test"
-    assert patched.json()["display_name"] == "Sanne"
+    assert linked.status_code == 200, linked.text
+    assert linked.json()["status"] == "created"
 
     await session_override.refresh(signal)
+    await session_override.refresh(contact)
     assert signal.contact_email == "visitor@acme.test"
     assert signal.contact_name == "Sanne"
+    assert contact.address == "cust_visitor_1"
+    assert str(contact.merged_into_id) == linked.json()["contact_id"]
 
 
 # ---------------------------------------------------------------------------
@@ -208,16 +210,16 @@ async def test_passport_autonomy_level_patch(client: AsyncClient):
     agent_id = await _create_agent(client, owner, "Passport Agent")
 
     r = await client.patch(
-        f"/api/govern/passports/{agent_id}", headers=owner, json={"autonomy_level": "auto"}
+        f"/api/govern/passports/{agent_id}", headers=owner, json={"autonomy_level": "autonomous"}
     )
     assert r.status_code == 200, r.text
-    assert r.json()["passport"]["autonomy_level"] == "auto"
+    assert r.json()["passport"]["autonomy_level"] == "autonomous"
 
     # Persisted and visible in the passports list.
     r = await client.get("/api/govern/passports", headers=owner)
     assert r.status_code == 200
     row = next(p for p in r.json()["items"] if p["id"] == agent_id)
-    assert row["autonomy_level"] == "auto"
+    assert row["autonomy_level"] == "autonomous"
 
     r = await client.patch(
         f"/api/govern/passports/{agent_id}", headers=owner, json={"autonomy_level": "sometimes"}

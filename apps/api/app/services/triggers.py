@@ -337,6 +337,7 @@ async def _fire_event(session: AsyncSession, trigger: Trigger, now: datetime) ->
     notification = Notification(
         tenant_id=trigger.tenant_id,
         kind="status_update",
+        tier=3,
         title=trigger.name,
         body=trigger.instructions or "Scheduled event",
         payload_json=json.dumps({"trigger_id": str(trigger.id), "trigger_kind": "event"}),

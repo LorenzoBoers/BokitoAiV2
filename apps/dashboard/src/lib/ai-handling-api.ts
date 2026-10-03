@@ -87,7 +87,9 @@ function toOverview(raw: Raw): AiHandlingOverview {
   return {
     workspace: normalizeAiHandling(raw.workspace) as AiHandling,
     ceiling: normalizeMode(raw.ceiling) ?? 'autonomous',
-    clampedBy: clamped === 'govern' || clamped === 'privacy' || clamped === 'breaker' ? clamped : null,
+    clampedBy: clamped === 'govern' || clamped === 'privacy' || clamped === 'breaker' || clamped === 'agent'
+        ? clamped
+        : null,
     safeguards: {
       certaintyThreshold: num(safeguards.certainty_threshold, 7),
       newContacts: safeguards.new_contacts !== false,

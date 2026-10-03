@@ -237,20 +237,20 @@ async def test_channel_visibility_acl(client: AsyncClient, session_override: Asy
     r = await client.get("/api/signals", headers=member)
     assert any(item["id"] == str(signal.id) for item in r.json()["items"])
 
-    # Restrict the account to nobody (selected with empty list).
-    r = await client.patch(
-        f"/api/channels/accounts/{account.id}/visibility",
+    # Restrict the account to agents only.
+    r = await client.put(
+        f"/api/channels/accounts/{account.id}/access",
         headers=owner,
-        json={"mode": "selected", "user_ids": []},
+        json={"entries": [{"kind": "team", "id": "agents", "level": "handle"}]},
     )
     assert r.status_code == 200, r.text
-    assert r.json()["visibility"]["mode"] == "selected"
+    assert r.json()["is_default"] is False
 
-    # Members can no longer update visibility themselves.
-    r = await client.patch(
-        f"/api/channels/accounts/{account.id}/visibility",
+    # Members cannot change access themselves.
+    r = await client.put(
+        f"/api/channels/accounts/{account.id}/access",
         headers=member,
-        json={"mode": "everyone", "user_ids": []},
+        json={"entries": None},
     )
     assert r.status_code == 403
 
@@ -280,10 +280,10 @@ async def test_channel_visibility_acl(client: AsyncClient, session_override: Asy
     member_user = (
         await session_override.execute(select(User).where(User.email == "member-vis@example.com"))
     ).scalar_one()
-    r = await client.patch(
-        f"/api/channels/accounts/{account.id}/visibility",
+    r = await client.put(
+        f"/api/channels/accounts/{account.id}/access",
         headers=owner,
-        json={"mode": "selected", "user_ids": [str(member_user.id)]},
+        json={"entries": [{"kind": "user", "id": str(member_user.id), "level": "view"}]},
     )
     assert r.status_code == 200
 
@@ -293,3 +293,34 @@ async def test_channel_visibility_acl(client: AsyncClient, session_override: Asy
     assert r.status_code == 200
     r = await client.get("/api/channels/accounts", headers=member)
     assert any(a["id"] == str(account.id) for a in r.json()["accounts"])
+
+    # View-only access reads but cannot act.
+    r = await client.patch(f"/api/signals/{signal.id}", headers=member, json={"status": "closed"})
+    assert r.status_code == 403
+
+    # A team grant gives handle access through membership.
+    team = (
+        await client.post(
+            "/api/teams",
+            headers=owner,
+            json={"name": "Mailbox team", "members": [{"kind": "user", "id": str(member_user.id)}]},
+        )
+    ).json()
+    r = await client.put(
+        f"/api/channels/accounts/{account.id}/access",
+        headers=owner,
+        json={"entries": [{"kind": "team", "id": team["id"], "level": "handle"}]},
+    )
+    assert r.status_code == 200
+    r = await client.patch(f"/api/signals/{signal.id}", headers=member, json={"status": "closed"})
+    assert r.status_code == 200
+
+    # Agents without access are not routed to the channel.
+    from app.models.agent import Agent
+    from app.services.channel_access import agent_can_handle
+
+    agent = Agent(tenant_id=account.tenant_id, name="Outside agent")
+    session_override.add(agent)
+    await session_override.commit()
+    await session_override.refresh(account)
+    assert not await agent_can_handle(session_override, account, agent.id)

@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, AtSign, Bell, CalendarClock, MessageSquare, Settings, ShieldCheck, UserCheck } from 'lucide-react';
+import { AlertTriangle, AtSign, Bell, CalendarClock, ChevronDown, ChevronRight, Hand, Inbox, ListTodo, MessageSquare, Settings, ShieldCheck, UserCheck } from 'lucide-react';
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
 import { Button } from '../ui/button';
 import { Dropdown } from '../ui/dropdown';
 import { translateDecisionText } from '../../lib/activity-labels';
-import { collapseNotifications } from '../../lib/notification-groups';
+import { collapseNotifications, type GroupedNotification } from '../../lib/notification-groups';
 import { activityDayBucket } from '../../lib/activity-day';
 import { pathForNotification } from '../../lib/notification-path';
-import { decisionsPath, inboxPath } from '../../lib/messages-paths';
+import { forYouPath, inboxPath } from '../../lib/messages-paths';
 
 const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
   status_update: CalendarClock,
@@ -17,6 +17,8 @@ const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: 
   proactive: MessageSquare,
   mention: AtSign,
   assignment: UserCheck,
+  handoff: Hand,
+  task_due: ListTodo,
   ops_alert: AlertTriangle,
 };
 
@@ -37,11 +39,12 @@ function formatTimeAgo(timestamp: string, t: (key: string, opts?: { count: numbe
 
 export default function NotificationDropdown() {
   const { t } = useTranslation(['nav', 'communication']);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, forYouCount, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
-  const hasDecisions = notifications.some((item) => item.kind === 'decision_request');
+  const [showDigest, setShowDigest] = useState(false);
 
-  const groupedNotifications = collapseNotifications(notifications);
+  const groupedNotifications = collapseNotifications(notifications.filter((item) => item.tier < 3));
+  const digestNotifications = collapseNotifications(notifications.filter((item) => item.tier === 3));
 
   const handleNotificationClick = (notification: AppNotification, ids: string[]) => {
     for (const id of ids) {
@@ -50,6 +53,54 @@ export default function NotificationDropdown() {
     }
     const target = pathForNotification({ kind: notification.kind, payload: notification.payload });
     if (target) navigate(target);
+  };
+
+  const renderItem = (notification: GroupedNotification<AppNotification>) => {
+    const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare;
+    const unread = notification.status === 'unread' || notification.ids.some((id) =>
+      notifications.find((item) => item.id === id)?.status === 'unread',
+    );
+    return (
+      <div
+        onClick={() => handleNotificationClick(notification, notification.ids)}
+        data-active={unread || undefined}
+        className={`row-interactive p-3 rounded-lg cursor-pointer hover:bg-bg-muted/50 ${unread ? 'bg-accent/5' : ''}`}
+      >
+        <div className="flex gap-3">
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              unread ? 'bg-accent/10 text-accent' : 'bg-bg-muted text-text-muted'
+            }`}
+          >
+            <IconComponent size={14} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm ${unread ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
+              {translateDecisionText(notification.title, t)}
+            </p>
+            <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
+              {translateDecisionText(notification.body, t)}
+            </p>
+            <p className="text-xs text-text-muted mt-1">
+              {formatTimeAgo(notification.createdAt, t)}
+              {notification.count > 1 ? ` · ${t('notificationsUi.similarCount', { count: notification.count })}` : ''}
+            </p>
+          </div>
+          {unread ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                for (const id of notification.ids) markAsRead(id)
+              }}
+              className="shrink-0 self-start text-xs font-medium text-accent hover:underline"
+            >
+              {t('notificationsUi.markRead')}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
   };
 
   const trigger = (
@@ -98,30 +149,21 @@ export default function NotificationDropdown() {
               </button>
             </div>
           </div>
-          {notifications.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              <button
-                type="button"
-                onClick={() => navigate(inboxPath('open'))}
-                className="font-medium text-text-muted transition-colors hover:text-accent"
-              >
-                {t('notificationsUi.openInbox')}
-              </button>
-              {hasDecisions ? (
-                <button
-                  type="button"
-                  onClick={() => navigate(decisionsPath())}
-                  className="font-medium text-text-muted transition-colors hover:text-accent"
-                >
-                  {t('notificationsUi.openDecisions')}
-                </button>
-              ) : null}
-            </div>
+          {forYouCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => navigate(forYouPath())}
+              data-testid="bell-for-you"
+              className="flex w-full items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-heading"
+            >
+              <Inbox size={13} className="shrink-0 text-text-muted" aria-hidden />
+              {t('notificationsUi.forYouLine', { count: forYouCount })}
+            </button>
           ) : null}
         </div>
 
         <div className="space-y-1 max-h-96 overflow-y-auto">
-          {notifications.length === 0 ? (
+          {groupedNotifications.length === 0 && digestNotifications.length === 0 ? (
             <div className="py-6 text-center">
               <p className="text-sm text-text-muted">{t('notificationsUi.empty')}</p>
               <p className="mt-1 text-xs text-text-muted">{t('notificationsUi.emptyHint')}</p>
@@ -143,69 +185,42 @@ export default function NotificationDropdown() {
               </div>
             </div>
           ) : (
-            groupedNotifications.map((notification, index) => {
-              const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare;
-              const unread = notification.status === 'unread' || notification.ids.some((id) =>
-                notifications.find((item) => item.id === id)?.status === 'unread',
-              );
-              const day = activityDayBucket(notification.createdAt)
-              const prevDay = index > 0 ? activityDayBucket(groupedNotifications[index - 1]!.createdAt) : null
-              const showDay = day !== prevDay && (day === 'today' || day === 'older' || prevDay === 'today')
-
-              return (
-                <div key={notification.id}>
-                {showDay ? (
-                  <p className="px-1 pt-2 pb-1 text-xs font-medium text-text-muted">
-                    {t(day === 'today' ? 'notificationsUi.dayToday' : 'notificationsUi.dayOlder')}
-                  </p>
-                ) : null}
-                <div
-                  onClick={() => handleNotificationClick(notification, notification.ids)}
-                  data-active={unread || undefined}
-                  className={`
-                    row-interactive p-3 rounded-lg cursor-pointer
-                    hover:bg-bg-muted/50
-                    ${unread ? 'bg-accent/5' : ''}
-                  `}
-                >
-                  <div className="flex gap-3">
-                    <div className={`
-                      w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
-                      ${unread ? 'bg-accent/10 text-accent' : 'bg-bg-muted text-text-muted'}
-                    `}>
-                      <IconComponent size={14} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${unread ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
-                        {translateDecisionText(notification.title, t)}
+            <>
+              {groupedNotifications.map((notification, index) => {
+                const day = activityDayBucket(notification.createdAt)
+                const prevDay = index > 0 ? activityDayBucket(groupedNotifications[index - 1]!.createdAt) : null
+                const showDay = day !== prevDay && (day === 'today' || day === 'older' || prevDay === 'today')
+                return (
+                  <div key={notification.id}>
+                    {showDay ? (
+                      <p className="px-1 pt-2 pb-1 text-xs font-medium text-text-muted">
+                        {t(day === 'today' ? 'notificationsUi.dayToday' : 'notificationsUi.dayOlder')}
                       </p>
-                      <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
-                        {translateDecisionText(notification.body, t)}
-                      </p>
-                      <p className="text-xs text-text-muted mt-1">
-                        {formatTimeAgo(notification.createdAt, t)}
-                        {notification.count > 1
-                          ? ` · ${t('notificationsUi.similarCount', { count: notification.count })}`
-                          : ''}
-                      </p>
-                    </div>
-                    {unread ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          for (const id of notification.ids) markAsRead(id)
-                        }}
-                        className="shrink-0 self-start text-xs font-medium text-accent hover:underline"
-                      >
-                        {t('notificationsUi.markRead')}
-                      </button>
                     ) : null}
+                    {renderItem(notification)}
                   </div>
+                )
+              })}
+              {digestNotifications.length > 0 ? (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowDigest((v) => !v)}
+                    aria-expanded={showDigest}
+                    data-testid="bell-digest-toggle"
+                    className="inline-flex items-center gap-1 px-1 py-1.5 text-xs font-medium text-text-muted hover:text-text-heading"
+                  >
+                    {showDigest ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    {t('notificationsUi.digestGroup', { count: digestNotifications.length })}
+                  </button>
+                  {showDigest
+                    ? digestNotifications.map((notification) => (
+                        <div key={notification.id}>{renderItem(notification)}</div>
+                      ))
+                    : null}
                 </div>
-                </div>
-              );
-            })
+              ) : null}
+            </>
           )}
         </div>
       </div>

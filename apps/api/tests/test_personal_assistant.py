@@ -144,7 +144,7 @@ async def test_in_app_session_is_bokito_branded(client: AsyncClient):
     assert theme["help_source"] == "product_help"
     # No pre-chat form and no office hours: the person is already signed in.
     assert data["agent_config"]["pre_chat_form"] is False
-    assert data["agent_config"]["office_open"] is True
+    assert data["agent_config"]["team_available"] is True
     assert decode_widget_session_token(data["session_token"])["surface"] == SURFACE_IN_APP
 
 

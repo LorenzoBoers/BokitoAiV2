@@ -168,16 +168,46 @@
     }
   },
   "toolCategories": {
-    "messaging": { "label": "Gesprekken", "hint": "Antwoorden, beslissingen en gespreksacties." },
-    "workspace": { "label": "Workspace", "hint": "Geheugen, documenten, skill-wijzigingen en canvas-nodes." },
-    "agents": { "label": "Agents", "hint": "Agents en draaiboeken aanmaken of bijwerken." },
-    "delegation": { "label": "Delegeren", "hint": "Werk overdragen aan een agent en taken plannen." },
-    "channels": { "label": "Kanalen", "hint": "Kanaalaccounts en routing." },
-    "triggers": { "label": "Triggers", "hint": "Planningen, check-ins en inkomende triggers." },
-    "integrations": { "label": "Integraties", "hint": "Externe koppelingen en verbonden tools." },
-    "govern": { "label": "Govern", "hint": "Beleid en governance-wijzigingen." },
-    "projects": { "label": "Projecten", "hint": "Projectdocumenten, queue-items en repositorywerk." },
-    "cases": { "label": "Signalen", "hint": "Getypte intake op een gesprek openen en koppelen." }
+    "messaging": {
+      "label": "Gesprekken",
+      "hint": "Antwoorden, beslissingen en gespreksacties."
+    },
+    "workspace": {
+      "label": "Workspace",
+      "hint": "Geheugen, documenten, skill-wijzigingen en canvas-nodes."
+    },
+    "agents": {
+      "label": "Agents",
+      "hint": "Agents en draaiboeken aanmaken of bijwerken."
+    },
+    "delegation": {
+      "label": "Delegeren",
+      "hint": "Werk overdragen aan een agent en taken plannen."
+    },
+    "channels": {
+      "label": "Kanalen",
+      "hint": "Kanaalaccounts en routing."
+    },
+    "triggers": {
+      "label": "Triggers",
+      "hint": "Planningen, check-ins en inkomende triggers."
+    },
+    "integrations": {
+      "label": "Integraties",
+      "hint": "Externe koppelingen en verbonden tools."
+    },
+    "govern": {
+      "label": "Govern",
+      "hint": "Beleid en governance-wijzigingen."
+    },
+    "projects": {
+      "label": "Projecten",
+      "hint": "Projectdocumenten, queue-items en repositorywerk."
+    },
+    "cases": {
+      "label": "Signalen",
+      "hint": "Getypte intake op een gesprek openen en koppelen."
+    }
   },
   "tokens": {
     "title": "App-tokens",
@@ -226,7 +256,9 @@
       "autonomy_posture": "Hoeveel agents mogen doen",
       "persona_review": "Stemreview",
       "case_type": "Intake-type",
-      "case_type_binding": "Intake-routing"
+      "case_type_binding": "Intake-routing",
+      "agent_rule": "Agentregel",
+      "routing_rule": "Routeringsregel"
     },
     "changeKind": {
       "create": "Aanmaken",

@@ -54,9 +54,11 @@ async def resolve_agent_for_channel(
                 .limit(1)
             )
         ).scalars().first()
+    from app.services.channel_access import agent_can_handle
+
     if account and account.default_agent_id:
         selected = await _agent_by_id(session, tenant_id, account.default_agent_id)
-        if selected:
+        if selected and await agent_can_handle(session, account, selected.id):
             return selected
 
     result = await session.execute(
@@ -69,9 +71,11 @@ async def resolve_agent_for_channel(
             Agent.audience == "customers",
         )
         .order_by(Agent.is_lead.desc(), Agent.created_at)
-        .limit(1)
     )
-    return result.scalars().first()
+    for candidate in result.scalars().all():
+        if await agent_can_handle(session, account, candidate.id):
+            return candidate
+    return None
 
 
 async def resolve_agent_for_signal(session: AsyncSession, signal: Signal) -> Agent | None:
@@ -81,10 +85,18 @@ async def resolve_agent_for_signal(session: AsyncSession, signal: Signal) -> Age
     when an agent takes it over, or when it raised the thread). Honouring it
     keeps a conversation with the agent that has been in it.
     """
+    from app.services.channel_access import agent_can_handle
+
     if signal.agent_id:
         pinned = await _agent_by_id(session, signal.tenant_id, signal.agent_id)
         if pinned and pinned.kind == "company":
-            return pinned
+            account = (
+                await session.get(ChannelAccount, signal.channel_account_id)
+                if signal.channel_account_id
+                else None
+            )
+            if await agent_can_handle(session, account, pinned.id):
+                return pinned
 
     return await resolve_agent_for_channel(
         session,

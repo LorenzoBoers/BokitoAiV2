@@ -90,7 +90,7 @@ type Props = {
   lastInboundText?: string | null
   /** Bound mailbox UUID for email threads (default From). */
   channelAccountId?: string | null
-  /** Open AI reply proposal loaded into the composer (Verstuur / Bewerk / Weg). */
+  /** Open AI reply proposal loaded into the composer. Discarding the draft rejects it. */
   proposal?: {
     decisionMessageId: string
     onDismiss: () => void | Promise<void>
@@ -175,25 +175,30 @@ export default function ReplyComposer({
   const [cc, setCc] = useState('')
   const [bcc, setBcc] = useState('')
   const [draftRestored, setDraftRestored] = useState(false)
+  const [aiFlashNonce, setAiFlashNonce] = useState(0)
+  const flashAiDraft = () => setAiFlashNonce((n) => n + 1)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // @mention autocomplete state
   const { members } = useMembers()
-  const mentionItems: MentionItem[] = useMemo(
-    () => [
-      ...members.map((m): MentionItem => ({
+  // Extras win over workspace members with the same key (they carry access per conversation).
+  const mentionItems: MentionItem[] = useMemo(() => {
+    const byKey = new Map<string, MentionItem>()
+    for (const m of members) {
+      byKey.set(`user-${m.id}`, {
         type: 'user',
         id: String(m.id),
         name: m.name,
         email: m.email,
         avatarUrl: m.avatarUrl,
-      })),
-      ...(mentionExtras ?? []),
-    ],
-    [members, mentionExtras],
-  )
+        presence: m.presence,
+      })
+    }
+    for (const item of mentionExtras ?? []) byKey.set(`${item.type}-${item.id}`, item)
+    return [...byKey.values()]
+  }, [members, mentionExtras])
   const [mentionQuery, setMentionQuery] = useState<MentionQuery | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
   const mentionMatches = useMemo(
@@ -264,7 +269,7 @@ export default function ReplyComposer({
   }
 
   const selectMention = (item: MentionItem) => {
-    if (!mentionQuery) return
+    if (!mentionQuery || item.disabled) return
     const caret = textareaRef.current?.selectionStart ?? displayBody.length
     const applied = applyMentionAtDisplay(body, caret, mentionQuery, item)
     setBody(applied.raw)
@@ -361,6 +366,7 @@ export default function ReplyComposer({
     if (draftBody != null && draftBody !== '') {
       setMode('reply')
       setBody(draftBody)
+      flashAiDraft()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- draftKey drives re-apply
   }, [draftKey, draftBody, agentStreaming])
@@ -374,7 +380,6 @@ export default function ReplyComposer({
   const isNote = mode === 'note'
   const isAsk = mode === 'ask'
   const isReply = mode === 'reply'
-  const isProposal = Boolean(proposal?.decisionMessageId) && isReply
   const busy = saving
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
@@ -653,38 +658,6 @@ export default function ReplyComposer({
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
 
-        {isProposal && proposal ? (
-          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ai/25 bg-ai/10 px-2.5 py-1.5">
-            <p className="text-xs text-ai-ink">{t('composer.proposalBanner')}</p>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={busy || disabled}
-                onClick={() => void handleSubmit('send')}
-                className="rounded-md bg-accent px-2 py-0.5 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
-              >
-                {t('composer.proposalSend')}
-              </button>
-              <button
-                type="button"
-                disabled={busy || disabled}
-                onClick={() => requestAnimationFrame(() => textareaRef.current?.focus())}
-                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-xs font-medium text-text-primary hover:border-border-light"
-              >
-                {t('composer.proposalEdit')}
-              </button>
-              <button
-                type="button"
-                disabled={busy || disabled}
-                onClick={() => void proposal.onDismiss()}
-                className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-xs font-medium text-text-muted hover:text-text-primary"
-              >
-                {t('composer.proposalDismiss')}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
         {/* Only on Reply — Intern/Ask already work; repeating the mailbox banner there feels broken. */}
         {replyBlocked && isReply ? (
           <div className="space-y-2 rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-xs text-text-secondary">
@@ -795,6 +768,7 @@ export default function ReplyComposer({
                 setCcBccOpen(false)
                 setDraftRestored(false)
                 writeStoredDraft(persistKey, '')
+                if (proposal) void proposal.onDismiss()
               }}
               className="text-xs font-medium text-accent hover:underline"
             >
@@ -830,6 +804,7 @@ export default function ReplyComposer({
           }}
           onBlur={() => setMentionQuery(null)}
           highlighter={dictation.listening ? undefined : <MentionHighlight raw={body} />}
+          aiFlashNonce={aiFlashNonce}
           disabled={disabled || busy}
           placeholder={
             dictation.listening
@@ -875,8 +850,9 @@ export default function ReplyComposer({
               threadId={threadIdForAi}
               body={body}
               disabled={saving || disabled || busy}
-              onApply={(text) => {
+              onApply={(text, meta) => {
                 setBody(text)
+                if (meta?.fromAi) flashAiDraft()
                 requestAnimationFrame(() => textareaRef.current?.focus())
               }}
             />

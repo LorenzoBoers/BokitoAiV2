@@ -51,9 +51,9 @@ describe('nextUnreadId', () => {
 
 describe('parseQuickFilterParam', () => {
   it('accepts URL aliases', () => {
-    expect(parseQuickFilterParam('needs_reply')).toBe('needsReply')
-    expect(parseQuickFilterParam('needs_decision')).toBe('needsDecision')
-    expect(parseQuickFilterParam('awaiting_decision')).toBe('needsDecision')
+    expect(parseQuickFilterParam('needs_reply')).toBe('forYou')
+    expect(parseQuickFilterParam('needs_decision')).toBe('forYou')
+    expect(parseQuickFilterParam('awaiting_decision')).toBe('forYou')
     expect(parseQuickFilterParam('unread')).toBe('unread')
     expect(parseQuickFilterParam('nope')).toBeNull()
   })

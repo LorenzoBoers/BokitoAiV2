@@ -15,8 +15,8 @@ import NavCountBadge from '../layout/NavCountBadge'
 import { cn } from '../../lib/utils'
 
 export const SUB_QUEUE_LABEL_KEYS: Record<SubQueue, string> = {
+  for_you: 'support.inbox.forYou',
   open: 'support.inbox.open',
-  mine: 'support.inbox.mine',
   unassigned: 'support.inbox.unassigned',
   closed: 'support.inbox.closed',
 }
@@ -25,12 +25,14 @@ type QueueSublistProps = {
   /** Folder leaf without a queue; sub-rows derive from it. */
   baseLeaf: HubLeaf
   activeLeaf: HubLeaf | null
-  /** Extra rows under the standard Open / Mine / Unassigned / Closed list. */
+  /** Badge per sub-queue. */
+  counts?: Partial<Record<SubQueue, number>>
+  /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
   children?: ReactNode
 }
 
-/** The uniform Open / Mine / Unassigned / Closed rows under a folder. */
-export function QueueSublist({ baseLeaf, activeLeaf, children }: QueueSublistProps) {
+/** The uniform For you / Open / Unassigned / Closed rows under a folder. */
+export function QueueSublist({ baseLeaf, activeLeaf, counts, children }: QueueSublistProps) {
   const { t } = useTranslation('nav')
   return (
     <div className="ml-[15px] space-y-px border-l border-border/70 pl-2">
@@ -45,6 +47,7 @@ export function QueueSublist({ baseLeaf, activeLeaf, children }: QueueSublistPro
             className={cn('nav-row nav-sub-row h-[26px] text-xs')}
           >
             <span className="min-w-0 flex-1 truncate-fade">{t(SUB_QUEUE_LABEL_KEYS[queue])}</span>
+            <NavCountBadge count={counts?.[queue] ?? 0} placement="inline" />
           </NavLink>
         )
       })}
@@ -54,7 +57,7 @@ export function QueueSublist({ baseLeaf, activeLeaf, children }: QueueSublistPro
 }
 
 type SidebarFolderProps = {
-  /** Channel, tag, agent, or inbox leaf without a queue. */
+  /** Inbox or team leaf without a queue. */
   baseLeaf: HubLeaf
   label: string
   icon: ReactNode
@@ -62,15 +65,16 @@ type SidebarFolderProps = {
   /** The sub-view a first expand opens (from folder prefs). */
   defaultQueue: SubQueue
   badgeCount?: number
+  queueCounts?: Partial<Record<SubQueue, number>>
   title?: string
-  /** Extra rows under the standard Open / Mine / Unassigned / Closed list. */
+  /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
   extra?: ReactNode
   /** Optional trailing control on the folder header (e.g. compose +). */
   headerAction?: ReactNode
 }
 
 /**
- * Expandable sidebar folder for channels, tags, and agents.
+ * Expandable sidebar folder for All communication and pinned teams.
  *
  * - Sub-queues stay hidden until the folder is clicked (clutter-free default).
  * - Clicking the row toggles expand; expanding also opens the default sub-view.
@@ -84,6 +88,7 @@ export function SidebarFolder({
   activeLeaf,
   defaultQueue,
   badgeCount = 0,
+  queueCounts,
   title,
   extra,
   headerAction,
@@ -139,7 +144,7 @@ export function SidebarFolder({
       </button>
       <div className="nav-fold" data-open={expanded ? 'true' : undefined} aria-hidden={!expanded}>
         <div className="nav-fold-inner">
-          <QueueSublist baseLeaf={baseLeaf} activeLeaf={activeLeaf}>
+          <QueueSublist baseLeaf={baseLeaf} activeLeaf={activeLeaf} counts={queueCounts}>
             {extra}
           </QueueSublist>
         </div>

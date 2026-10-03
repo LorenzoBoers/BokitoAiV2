@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -16,7 +16,7 @@ import SignatureEditor from '../components/inbox/SignatureEditor'
 import FoldersAndTagsManager from '../components/inbox/FoldersAndTagsManager'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
-import ChannelList from '../components/inbox/ChannelList'
+import ChannelList, { type ChannelListProps } from '../components/channels/ChannelList'
 import AddChannelDialog from '../components/inbox/AddChannelDialog'
 import { BrandMark } from '../components/integrations/BrandMark'
 import { useAuth } from '../context/AuthContext'
@@ -149,16 +149,16 @@ export default function InboxSettings() {
     setChannels((prev) => prev.map((row) => (row.id === next.id ? next : row)))
   }, [])
 
-  const handleToggleEnabled = useCallback(
-    async (row: ChannelRow, enabled: boolean) => {
+  const handleSetPaused = useCallback(
+    async (row: ChannelRow, paused: boolean) => {
       if (!token) return
       setBusyId(row.id)
       try {
         applyRow(
           await patchChannel(token, row.id, {
-            is_enabled: enabled,
+            is_enabled: !paused,
             // A paused channel should not stay the primary sender.
-            ...(enabled ? {} : { is_primary: false }),
+            ...(paused ? { is_primary: false } : {}),
           }),
         )
         await refreshConnections()
@@ -349,6 +349,36 @@ export default function InboxSettings() {
     }
   }, [token, folderTarget, folders, refreshChannels, t])
 
+  const channelActions = useMemo<ChannelListProps['actions']>(
+    () => ({
+      setPaused: (row, paused) => void handleSetPaused(row, paused),
+      sync: (row) => void handleSync(row),
+      reconnect: () => setAddOpen(true),
+      makePrimary: (row) => void handleMakePrimary(row),
+      saveLabel: (row, label) => void handleRename(row, label),
+      remove: (row) => {
+        setDeleteError(null)
+        setDeleteTarget(row)
+      },
+      setSyncWindow: (row, days) => void handleSyncWindowChange(row, days),
+      editFolders: (row) => void handleFolders(row),
+      editSignature: (row) => void handleSignature(row),
+      aiHandlingChanged: (row, next) => applyRow({ ...row, aiHandling: next }),
+      accessChanged: () => void refreshChannels(),
+    }),
+    [
+      handleSetPaused,
+      handleSync,
+      handleMakePrimary,
+      handleRename,
+      handleSyncWindowChange,
+      handleFolders,
+      handleSignature,
+      applyRow,
+      refreshChannels,
+    ],
+  )
+
   useEffect(() => {
     if (!location.hash) return
     const id = location.hash.slice(1)
@@ -472,19 +502,7 @@ export default function InboxSettings() {
             channels={channels}
             loading={loading}
             busyId={busyId}
-            onToggleEnabled={(row, enabled) => void handleToggleEnabled(row, enabled)}
-            onSync={(row) => void handleSync(row)}
-            onReconnect={() => setAddOpen(true)}
-            onMakePrimary={(row) => void handleMakePrimary(row)}
-            onRename={(row, label) => void handleRename(row, label)}
-            onRemove={(row) => {
-              setDeleteError(null)
-              setDeleteTarget(row)
-            }}
-            onSyncWindowChange={(row, days) => void handleSyncWindowChange(row, days)}
-            onFolders={(row) => void handleFolders(row)}
-            onSignature={(row) => void handleSignature(row)}
-            onVisibilityChanged={() => void refreshChannels()}
+            actions={channelActions}
             onAddChannel={() => setAddOpen(true)}
           />
         </SettingsSection>

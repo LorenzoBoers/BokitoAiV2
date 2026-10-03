@@ -115,13 +115,11 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
                         "label": "Add to queue",
                         "action_type": "create_queue_item",
                         "payload": payload,
-                    },
-                    {
-                        "id": "always_auto",
-                        "label": "Always allow",
-                        "action_type": "create_queue_item",
-                        "payload": payload,
-                        "always_auto": True,
+                        **(
+                            {"learn": {"tool": "create_queue_item", "agent_id": str(ctx.agent.id), "reason": "", "rule_text": ""}}
+                            if ctx.agent
+                            else {}
+                        ),
                     },
                     {"id": "reject", "label": "Dismiss", "action_type": "reject"},
                 ],

@@ -18,32 +18,34 @@ const GATEWAY_DEBOUNCE_MS = 1_500
 
 export type NavBadgeCounts = {
   inboxUnread: number
-  inboxByQueue: { my: number; unassigned: number; all: number }
+  /** forYou: what waits on you now; the other queues count unread. */
+  inboxByQueue: { forYou: number; forYouUnread: number; unassigned: number; all: number }
+  /** Pinned team id -> open work waiting on that team. */
+  byTeam: Record<string, number>
   agentsAttention: number
   noReplySuggestions: number
-  /** Open decisions + customer replies due: the hub's "You" leaf. */
-  yourTurn: number
 }
 
 const EMPTY_COUNTS: NavBadgeCounts = {
   inboxUnread: 0,
-  inboxByQueue: { my: 0, unassigned: 0, all: 0 },
+  inboxByQueue: { forYou: 0, forYouUnread: 0, unassigned: 0, all: 0 },
+  byTeam: {},
   agentsAttention: 0,
   noReplySuggestions: 0,
-  yourTurn: 0,
 }
 
 function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCounts>>): NavBadgeCounts {
   return {
     inboxUnread: payload.inbox_unread,
     inboxByQueue: {
-      my: payload.inbox_by_queue.my,
+      forYou: payload.inbox_by_queue.for_you,
+      forYouUnread: payload.inbox_by_queue.for_you_unread,
       unassigned: payload.inbox_by_queue.unassigned,
       all: payload.inbox_by_queue.all,
     },
+    byTeam: payload.by_team,
     agentsAttention: payload.agents_attention,
     noReplySuggestions: payload.no_reply_suggestions,
-    yourTurn: payload.your_turn,
   }
 }
 

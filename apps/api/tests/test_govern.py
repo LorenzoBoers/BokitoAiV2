@@ -37,7 +37,7 @@ async def test_passports_endpoint_lists_agents(client: AsyncClient, session_over
     roles = {a["role"] for a in items}
     assert "assistant" in roles
     assistant = next(a for a in items if a["role"] == "assistant")
-    assert assistant["autonomy_level"] == "approval"
+    assert assistant["autonomy_level"] == "assisted"
     assert assistant["allowed_tools"] == []  # empty = all default tools
 
 

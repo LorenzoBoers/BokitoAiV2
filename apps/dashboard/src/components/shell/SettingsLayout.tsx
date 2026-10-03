@@ -25,7 +25,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     links: [
       { labelKey: 'settings.links.general', to: '/settings/general', hintKey: 'settings.hints.general' },
       { labelKey: 'settings.links.branding', to: '/settings/branding', hintKey: 'settings.hints.branding' },
-      { labelKey: 'settings.links.members', to: '/settings/members', hintKey: 'settings.hints.members' },
     ],
   },
   {

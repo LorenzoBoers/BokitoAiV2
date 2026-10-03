@@ -89,10 +89,22 @@ class ToolSpec:
     consequential: bool = False
 
     def definition(self) -> dict[str, Any]:
+        schema = self.input_schema
+        if self.mutating and self.gated and self.audience != "customer":
+            # Meta-arguments: the executor reads and strips them before the handler runs.
+            properties = dict(schema.get("properties") or {})
+            properties.setdefault(
+                "certainty",
+                {"type": "integer", "minimum": 1, "maximum": 10, "description": "How sure you are this is right (1-10)"},
+            )
+            properties.setdefault(
+                "rule_id", {"type": "string", "description": "Id of the team rule that applies, if any"}
+            )
+            schema = {**schema, "properties": properties}
         return {
             "name": self.name,
             "description": self.description,
-            "input_schema": self.input_schema,
+            "input_schema": schema,
         }
 
 

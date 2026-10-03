@@ -63,7 +63,7 @@ export type AiHandling = {
   sourceLabel: string
   ceiling: AiHandlingMode
   /** Why effective is below requested: govern | privacy | breaker. */
-  clampedBy: 'govern' | 'privacy' | 'breaker' | null
+  clampedBy: 'govern' | 'privacy' | 'breaker' | 'agent' | null
   /** Conversation reason: assigned | operator_takeover | handoff_requested | escalated | operator. */
   reason: string | null
   /** Conversation override; cleared when the conversation closes. */
@@ -107,7 +107,9 @@ export function normalizeAiHandling(raw: unknown): AiHandling | null {
     source: asScope(row.source, 'workspace'),
     sourceLabel: asText(row.source_label),
     ceiling: normalizeMode(row.ceiling) ?? 'autonomous',
-    clampedBy: clamped === 'govern' || clamped === 'privacy' || clamped === 'breaker' ? clamped : null,
+    clampedBy: clamped === 'govern' || clamped === 'privacy' || clamped === 'breaker' || clamped === 'agent'
+        ? clamped
+        : null,
     reason: asText(row.reason) || null,
     untilClose: Boolean(row.until_close),
     inherited: normalizeMode(row.inherited) ?? effective,

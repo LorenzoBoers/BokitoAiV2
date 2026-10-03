@@ -18,14 +18,25 @@ Open is gesprekswerk dat nog jou nodig heeft — klantkanalen én agentchats. Ac
 ![Wachtrij Open in Communicatie](/api/docs/assets/communication/open-queue.png)
 *Open toont gesprekswerk dat nog jou nodig heeft, inclusief agentchats.*
 
-1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Die lijst bevat chats met bedrijfsagents naast klantmail en websitechat. Direct daaronder staat **Beslissingen** — de map voor elk gesprek met een open keuzekaart (klant, agentchat en intern). Overview, bel en diepe links landen daar. **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Mappen) — meestal **Open**, of **Van mij** als je dat zo hebt gezet.
-2. Wissel naar **Van mij** voor gesprekken die aan jou zijn toegewezen, of **Niet toegewezen** voor werk zonder eigenaar. Open **Beslissingen** wanneer je alleen ja/nee-kaarten wilt.
-3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Open, Van mij of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen.
-4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per kanaal) onder **Instellingen**, dan **Kanalen** (Mappen). De sectie **Agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde. Classificeren gaat met signalen, niet met tags: bekijk ze onder **Dit gesprek** en beheer de catalogus onder **Instellingen** → **Signaaltypes**. Zie [Hoe Signalen werken](/docs/ai/cases).
+1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Die lijst bevat chats met bedrijfsagents naast klantmail en websitechat. Direct daaronder staat **Beslissingen** — de map voor elk gesprek met een open keuzekaart (klant, agentchat en intern). Overview, bel en diepe links landen daar. **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Mappen) — meestal **Open**, of **Voor jou** als je dat zo hebt gezet.
+2. Wissel naar **Voor jou** voor jouw werk: gesprekken die van jou zijn, gesprekken waar jij of je team aan de beurt is, vragen aan iedereen en vermeldingen. Rijen waar jij nu iets moet doen staan bovenaan. **Niet toegewezen** bevat gesprekken van een team die nog niemand oppakte. Open **Beslissingen** wanneer je alleen ja/nee-kaarten wilt. Teams die in de zijbalk staan krijgen een eigen map onder **Teams** (zie [Team](/docs/getting-started/team)).
+3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Voor jou, Open of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen.
+4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per kanaal) onder **Instellingen**, dan **Kanalen** (Mappen). De sectie **Agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde. Classificeren gaat met signalen, niet met tags: bekijk ze onder **Dit gesprek** en beheer de catalogus onder **Instellingen** → **Signaaltypes**. Zie [Hoe Signalen werken](/docs/ai/cases).
 5. Pin wat telt, kies **Toewijzen** of **Aan mij toewijzen**, of **Uitstellen** (klok in de toolbar). Presets zijn **1 uur**, **4 uur**, **Morgen 9:00**, **Volgende maandag 9:00**, **Tot de klant antwoordt**, of **Kies datum en tijd**. Na een antwoord biedt het pijltje naast **Versturen** de opties **Versturen en sluiten** en **Versturen en uitstellen** om in één stap af te ronden. **Geladen als gelezen markeren** wist ongelezen op de gesprekken die al in de lijst staan.
 6. Selecteer meerdere rijen voor bulk **Gelezen**, **Sluiten**, **Vastzetten**, **Markeer als spam**, **Aan mij toewijzen**, **Toewijzen**, **Heropenen**, **Markeer ongelezen** of **Uitstellen tot morgen 9:00**. Shift-klik een selectievakje om het bereik vanaf de laatste selectie te nemen. Rijacties (sluiten, uitstellen, toewijzen) zitten in het rijmenu en de thread-toolbar. **Meer** bevat Uitgesteld, Gesloten en Spam. Het commandopalet springt ook naar Gesloten, Spam, Activiteit, Assistent, Jij aan zet en Beslissingen, en kan een gesprek of run openen op ID.
 
 Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klant weer schrijft. Openen vanuit Uitgesteld brengt je terug naar Open. Een gesloten gesprek heropent vanzelf wanneer de klant in dezelfde e-mailthread antwoordt, zodat een laat "bedankt, nog één ding" terug in Open landt in plaats van een nieuw gesprek te starten.
+
+## Geef een gesprek aan een persoon, agent of team
+
+Elk gesprek heeft één eigenaar: een persoon, een agent of een team. Zonder eigenaar hoort het bij het eigenaarsteam van het kanaal, anders bij Alle mensen.
+
+1. Kies **Oppakken** op een gesprek van een team om het van jou te maken. Antwoorden of een notitie toevoegen doet hetzelfde. Het verdwijnt uit **Niet toegewezen** en uit **Voor jou** van de rest van het team.
+2. Kies **Toewijzen** voor de keuzelijst met **Mensen**, **Agents** en **Teams**. Bij elke persoon zie je of die beschikbaar is. Wie geen Afhandelen-toegang op het kanaal heeft, toont **Geen toegang tot dit kanaal** en is niet te kiezen.
+3. Kies je een agent of een team, dan kun je een bericht meegeven. Een agent begint direct en antwoordt als interne notitie. Een team pakt het gesprek op zoals het team is ingesteld (zie [Team](/docs/getting-started/team)).
+4. Typ in een notitie `@` om een persoon, agent of team te vermelden. Een agent vermelden laat hem op het gesprek werken; een team vermelden waarschuwt de mensen in het team, of laat de agent eerst antwoorden als het team op **Agent eerst** staat.
+
+Een persoon als eigenaar houdt het gesprek vast: agents maken dan alleen concepten. Geef je het aan een agent of team, dan geldt weer de AI-afhandeling van het gesprek.
 
 ## Start een nieuwe chat of e-mail
 
@@ -51,8 +62,8 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 ![AI-afhandeling in de gespreksheader](/api/docs/assets/communication/handling-picker.png)
 *De header toont de modus van AI-afhandeling en welke laag die volgt.*
 
-1. Open een klantgesprek. De header toont de modus van **AI-afhandeling** met icoon: **Autonoom** of **Geassisteerd** (paars), of **Handmatig** (grijs). Het menu laat zien waar die vandaan komt, bijvoorbeeld **Volgt het kanaal**.
-2. Kies een andere modus om die alleen voor dit gesprek in te stellen, tot het sluit. Kies **Volg het kanaal** (of het contact of de workspace) om dat weer weg te halen. Alleen een eigenaar of beheerder kan een gesprek op Autonoom zetten.
+1. Open een klantgesprek. De header toont de modus van **AI-afhandeling** met icoon: **Autonoom** of **Geassisteerd** (paars), of **Handmatig** (grijs). In het menu draagt de overgenomen modus een badge die zegt waar die vandaan komt, bijvoorbeeld **Kanaalstandaard**.
+2. Kies een andere modus om die alleen voor dit gesprek in te stellen, tot het sluit. De modus die je anders volgt draagt een badge zoals **Kanaalstandaard** of **Contactstandaard**; kies die om de afwijking weer weg te halen. Alleen een eigenaar of beheerder kan een gesprek op Autonoom zetten.
 3. Kies **Overnemen** om Handmatig te zetten en het gesprek aan jezelf toe te wijzen. **Teruggeven aan AI** zet de geërfde modus terug. Zelf antwoorden in een autonoom gesprek neemt het ook over.
 4. Typ in de composer `/handmatig`, `/geassisteerd` of `/autonoom` (of `/manual`, `/assisted`, `/autonomous`), eventueel gevolgd door een reden.
 5. Elke wijziging staat in de tijdlijn, bijvoorbeeld **AI-afhandeling op Geassisteerd gezet**. Rijen in de lijst tonen het icoon wanneer een gesprek of contact afwijkt van het kanaal. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
@@ -60,9 +71,9 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 
 ## Keur een AI-voorstel goed vanuit de composer
 
-1. Als de AI een antwoord voorstelt, laadt het concept in de composer met **Verstuur**, **Bewerk** en **Weg**. In de tijdlijn staat alleen een korte regel: **AI stelde een antwoord voor**.
-2. Pas de tekst zo nodig aan en kies **Verstuur** (of het verstuurmenu voor sluiten / uitstellen). Versturen lost de beslissing op en levert het antwoord af.
-3. **Weg** wijst het voorstel af zonder te versturen. Andere beslissingen (platform, module, agenda, afronding) blijven kaarten met de kop **Wacht op jouw OK** en gewone werkwoordknoppen — geen toolnamen in de copy.
+1. Als de AI een antwoord voorstelt, verschijnt het concept in de composer. De tekst gloeit een paar seconden paars, zodat je ziet dat het gegenereerd is. In de tijdlijn staat alleen een korte regel: **AI stelde een antwoord voor**.
+2. Pas de tekst zo nodig aan en kies **Versturen** (of het verstuurmenu voor sluiten / uitstellen). Versturen lost de beslissing op en levert het antwoord af.
+3. **Verwerpen** op de conceptbalk wijst het voorstel af zonder te versturen. Andere beslissingen (platform, module, agenda, afronding) blijven kaarten met de kop **Wacht op jouw OK** en gewone werkwoordknoppen — geen toolnamen in de copy.
 
 ## Beslis in het gesprek
 
@@ -73,11 +84,11 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 2. Lees het voorstel. Bij meerdere concrete keuzes houdt elke knop z’n eigen label (bijvoorbeeld versturen vs annuleren vs klant vragen). Keur goed, pas aan of wijs af. **Later** / **Niet nu** parkeert het gesprek tot morgen 9:00, zodat het uit Open verdwijnt. De enkele knop **Ik doe het zelf** zet het gesprek op Handmatig en wijst het aan jou toe.
 3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Wat nu** goedkeuren (of de oude keuze Taak aanmaken) zet een kijkmoment op dit gesprek — titel en wanneer — en toont het op de [Agenda](/docs/ai/agenda). Kies in het gespreksmenu **Wat nu** om een kijkmoment te plannen of een typisch Signaal te openen. Wis het kijkmoment onder **Dit gesprek** in het zijpaneel wanneer je klaar bent. Kies **Toevoegen aan project** in hetzelfde menu om het gesprek aan een project te koppelen. Zie [Beslissingen](/docs/ai/decisions).
 
-## Vang een websitebezoeker
+## Koppel een bezoeker aan een contact
 
 1. Open een websitechat. De kop kan **+N eerder** tonen als deze persoon al eerder schreef — dat opent het contactpaneel.
-2. Typ in **Details** hun naam en e-mail, daarna **E-mail opslaan**. **E-mail schrijven** wordt beschikbaar zodra er een echt adres staat.
-3. De contactkaart toont of iemand goedgekeurd, in afwachting of geblokkeerd is, en bedrijfsnamen openen de bedrijfspagina als die bestaat. Niet-opgeslagen notities blijven gemarkeerd tot je ze opslaat, en bij wegklikken vraagt Bokito om te bevestigen. Mail van een workspace-lid toont een **Teamlid**-kaart (geen Blokkeer of Goedkeuren) — dat is een collega, geen klantcontact.
+2. Kies in het contactpaneel **+ Contact**, typ hun e-mail of telefoonnummer (en een naam als je die hebt), daarna **Koppelen**. Bokito koppelt de chat aan het bestaande contact met dat adres, of maakt er een aan. Zie [Een gesprek aan een contact koppelen](/docs/inbox/contacts).
+3. Onbekende bezoekers tonen **Onbekende chatter**. Een opgeslagen persoon toont **Contact**. Mail van een workspace-lid toont **Teamlid** (geen Blokkeer of Goedkeuren) — dat is een collega, geen klantcontact. Niet-opgeslagen notities blijven gemarkeerd tot je ze opslaat, en bij wegklikken vraagt Bokito om te bevestigen.
 
 ## Zie signalen op een gesprek
 

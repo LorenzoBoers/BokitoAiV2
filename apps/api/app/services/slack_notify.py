@@ -145,10 +145,11 @@ async def notify_decision_slack(
     resolved_signal_id = signal_id or decision.signal_id
     link = thread_link(resolved_signal_id) if resolved_signal_id else thread_link("")
 
-    # Preferred target: the thread assignee's DM (opt-in via the `slack`
+    # Preferred target: the addressed person's DM (opt-in via the `slack`
     # channel on their `decisions` preference row).
     target_channel: str | None = None
-    if resolved_signal_id:
+    assignee_id = decision.addressee_user_id if decision.addressee_kind == "user" else None
+    if assignee_id is None and not decision.addressee_kind and resolved_signal_id:
         signal = (
             await session.execute(
                 select(Signal).where(
@@ -157,16 +158,16 @@ async def notify_decision_slack(
             )
         ).scalar_one_or_none()
         assignee_id = signal.assigned_user_id if signal else None
-        if assignee_id:
-            channels = await notification_channels(
-                session, decision.tenant_id, assignee_id, "decisions"
-            )
-            if channels.get("slack"):
-                user = (
-                    await session.execute(select(User).where(User.id == assignee_id))
-                ).scalar_one_or_none()
-                if user and user.email:
-                    target_channel = await _lookup_slack_user_id(token, user.email)
+    if assignee_id:
+        channels = await notification_channels(
+            session, decision.tenant_id, assignee_id, "decisions"
+        )
+        if channels.get("slack"):
+            user = (
+                await session.execute(select(User).where(User.id == assignee_id))
+            ).scalar_one_or_none()
+            if user and user.email:
+                target_channel = await _lookup_slack_user_id(token, user.email)
 
     # Fallback: the workspace notify channel configured on the account.
     if not target_channel:

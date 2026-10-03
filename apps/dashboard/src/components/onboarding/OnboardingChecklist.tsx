@@ -128,7 +128,7 @@ const STEP_META: Record<OnboardingStepId, { to: string }> = {
   assistant: { to: talkToAssistantPath('Help me set up this workspace. Walk me through it step by step.') },
   watching: { to: '/settings/setup' },
   first_decision: { to: inboxPath('open') },
-  team: { to: '/settings/members#member-invite' },
+  team: { to: '/team#member-invite' },
 }
 
 export function useDemoThread(): { start: () => void; starting: boolean } {

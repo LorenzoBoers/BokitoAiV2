@@ -66,7 +66,7 @@ export type AllowanceState = {
   /** GET /posture only: AI handling ceiling from the messaging allowance. */
   conversation_ceiling?: {
     mode: 'autonomous' | 'assisted' | 'manual'
-    clamped_by: 'govern' | 'privacy' | 'breaker' | null
+    clamped_by: 'govern' | 'privacy' | 'breaker' | 'agent' | null
   }
   autonomous_overrides?: number
 }

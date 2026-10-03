@@ -63,7 +63,9 @@ export const appRoutes = {
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
     threadAgentCandidates: (threadId: string) => `/signals/${threadId}/agent-candidates`,
+    threadAssignees: (threadId: string) => `/signals/${threadId}/assignees`,
     threadSessions: (threadId: string) => `/signals/${threadId}/sessions`,
+    threadContactLink: (threadId: string) => `/signals/${threadId}/contact-link`,
     threadSession: (threadId: string, sessionId: string) =>
       `/signals/${threadId}/sessions/${sessionId}`,
     threadSessionClose: (threadId: string, sessionId: string) =>
@@ -114,7 +116,7 @@ export const appRoutes = {
   channelAccounts: {
     list: '/channels/accounts',
     byId: (id: string) => `/channels/accounts/${id}`,
-    visibility: (id: string) => `/channels/accounts/${id}/visibility`,
+    access: (id: string) => `/channels/accounts/${id}/access`,
     verify: (id: string) => `/channels/accounts/${id}/verify`,
     whatsappSetup: '/channels/whatsapp/setup',
   },
@@ -132,12 +134,21 @@ export const appRoutes = {
     listQuery: (params: URLSearchParams) => withQuery('/channels/contacts', params),
     byId: (id: string) => `/channels/contacts/${id}`,
     threads: (id: string) => `/channels/contacts/${id}/threads`,
+    detachIdentity: (id: string, identityId: string) =>
+      `/channels/contacts/${id}/identities/${identityId}/detach`,
   },
   companies: {
     list: '/channels/companies',
     listQuery: (params: URLSearchParams) => withQuery('/channels/companies', params),
     byId: (id: string) => `/channels/companies/${id}`,
     backfill: '/channels/companies/backfill',
+  },
+  teams: {
+    list: '/teams',
+    overview: '/teams/overview',
+    byId: (id: string) => `/teams/${id}`,
+    members: (id: string) => `/teams/${id}/members`,
+    myAway: '/teams/me/away',
   },
   agenda: {
     occurrencesQuery: (params: URLSearchParams) => withQuery('/agenda', params),
@@ -149,8 +160,10 @@ export const appRoutes = {
   },
   notifications: {
     list: '/notifications',
+    summary: '/notifications/summary',
     markRead: (id: string) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
+    decisionLearn: (decisionId: string) => `/notifications/decisions/${encodeURIComponent(decisionId)}/learn`,
   },
   push: {
     subscribe: '/push/subscribe',

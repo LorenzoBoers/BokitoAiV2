@@ -4,7 +4,7 @@ intro: Richt de workspace in — branding, team, kanalen, kennis, agents en auto
 description: De volledige setupchecklist: branding, leden, kanalen, AI-afhandeling, kennis, agents en autonomiehouding.
 keywords: setup, configuratie, workspace, branding, checklist, onboarding
 sort: 30
-related: quickstart,channels,members,agents,autonomy
+related: quickstart,channels,team,agents,autonomy
 ---
 
 # Workspace-setupgids
@@ -22,9 +22,9 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 
 ## Nodig het team uit
 
-1. Open **Instellingen** en daarna **Leden**.
-2. Nodig de mensen uit die klanten beantwoorden.
-3. Zie [Het team uitnodigen](/docs/getting-started/members).
+1. Open **Team** in de zijbalk en daarna het tabblad **Mensen**.
+2. Nodig de mensen uit die klanten beantwoorden. Deel ze in teams in op het tabblad **Teams** wanneer meer dan een groep antwoordt.
+3. Zie [Zo werkt Team](/docs/getting-started/team).
 
 ## Koppel kanalen en stel AI-afhandeling in
 

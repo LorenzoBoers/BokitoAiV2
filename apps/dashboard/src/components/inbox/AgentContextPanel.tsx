@@ -3,13 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
   Activity,
-  Bot,
   ChevronDown,
   ChevronRight,
   Cpu,
   Loader2,
   Plug,
-  ShieldCheck,
+  Settings,
   Wrench,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -22,20 +21,21 @@ import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import { agentRuntimeStatusLabel, threadStatusLabel, workLogStatusLabel } from '../../lib/status-labels'
 import { humanizeLabel } from '../../lib/labels'
-import { agentRoleLabel } from '../../lib/agent-role-label'
 import { formatAgentModelLine } from '../../lib/model-label'
-import { agentChatPath, agentRunsPath } from '../../lib/messages-paths'
+import { agentChatPath, inboxPath } from '../../lib/messages-paths'
 import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { permissionScopeLabel } from '../../lib/permission-scope-label'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { ConversationWorkSection } from './ConversationWorkSection'
+import { IdentitySeenLine, timeAgo } from './IdentitySeenLine'
 
 type Props = {
   thread: InboxThread
   agent: RuntimeAgent | null
   onThreadUpdated?: () => void
+  closeAction?: ReactNode
 }
 
 type AgentPassport = {
@@ -49,14 +49,6 @@ type AgentPassport = {
   runtime_status: string | null
 }
 
-const STATUS_CLASS: Record<string, string> = {
-  active: 'text-status-success',
-  standby: 'text-text-muted',
-  sleeping: 'text-text-muted',
-  inactive: 'text-text-muted',
-  error: 'text-status-error',
-}
-
 /** Task statuses worth surfacing inline (still in flight or needs a human). */
 const ACTIVE_TASK_STATUSES = new Set([
   'running',
@@ -68,17 +60,6 @@ const ACTIVE_TASK_STATUSES = new Set([
   'verifying',
 ])
 
-function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  if (!iso) return ''
-  const diff = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return t('contactPanel.now')
-  if (minutes < 60) return t('contactPanel.minutesAgo', { count: minutes })
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return t('contactPanel.hoursAgo', { count: hours })
-  return t('contactPanel.daysAgo', { count: Math.floor(hours / 24) })
-}
-
 function SectionHeading({ title }: { title: string }) {
   return (
     <h3 className="mb-2 text-xs font-semibold text-text-muted">{title}</h3>
@@ -86,52 +67,45 @@ function SectionHeading({ title }: { title: string }) {
 }
 
 function DisclosureRow({
-  icon: Icon,
   label,
   count,
   countLabel,
-  defaultOpen = false,
   children,
 }: {
-  icon: typeof Wrench
   label: string
   count: number
   /** Optional text shown instead of the numeric badge (e.g. "Unrestricted"). */
   countLabel?: string
-  defaultOpen?: boolean
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useState(false)
   const empty = count === 0 && !countLabel
   return (
-    <div className="border-b border-border/40">
+    <div>
       <button
         type="button"
         disabled={empty}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-bg-hover/40 disabled:cursor-default disabled:hover:bg-transparent"
+        className="flex min-h-7 w-full items-center justify-between gap-3 text-left disabled:cursor-default disabled:opacity-50"
       >
-        <Icon size={13} className="shrink-0 text-text-muted" />
-        <span className="flex-1 text-sm font-medium text-text-primary">{label}</span>
-        <span className="rounded-full bg-bg-elevated px-1.5 py-px text-2xs font-semibold text-text-secondary">
-          {countLabel ?? count}
+        <span className="shrink-0 text-xs text-text-muted">{label}</span>
+        <span className="flex min-w-0 items-center gap-1 text-xs text-text-heading">
+          <span className="truncate-fade">{countLabel ?? count}</span>
+          {!empty ? (
+            open ? (
+              <ChevronDown size={11} className="shrink-0 text-text-muted" />
+            ) : (
+              <ChevronRight size={11} className="shrink-0 text-text-muted" />
+            )
+          ) : null}
         </span>
-        {!empty ? (
-          open ? (
-            <ChevronDown size={13} className="shrink-0 text-text-muted" />
-          ) : (
-            <ChevronRight size={13} className="shrink-0 text-text-muted" />
-          )
-        ) : (
-          <span className="w-[13px]" />
-        )}
       </button>
-      {open && !empty ? <div className="px-4 pb-3">{children}</div> : null}
+      {open && !empty ? <div className="pb-1.5 pt-1">{children}</div> : null}
     </div>
   )
 }
 
-export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Props) {
+export default function AgentContextPanel({ thread, agent, onThreadUpdated, closeAction }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [passport, setPassport] = useState<AgentPassport | null>(null)
@@ -162,7 +136,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         .catch(() => fallback([] as GovernToolRow[])),
       listMcpIntegrationRows().catch(() => fallback([] as McpIntegrationRow[])),
       agentId
-        ? listSignalThreads(token ?? '', { agentId, perPage: 12 })
+        ? listSignalThreads(token ?? '', { agentId, perPage: 8 })
             .then((r) => r.items)
             .catch(() => fallback([] as InboxThread[]))
         : Promise.resolve([] as InboxThread[]),
@@ -194,81 +168,163 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
 
   const model = agent?.model ?? null
   const provider = agent?.provider ?? null
-  const role = agentRoleLabel(agent?.role_name || agent?.role_slug, t)
   const status = agent?.status ?? passport?.runtime_status ?? null
 
   return (
     <div className="flex flex-col">
-      {/* Identity — panel chrome already titles this as Who */}
       <div className="border-b border-border/40 px-4 pb-3 pt-3">
-        <SectionHeading title={t('agentContext.agent')} />
-        {agent && agentId ? (
-          <Link
-            to={`/agents/${agentId}`}
-            className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2.5 transition-colors hover:border-border-light"
-          >
+        <div className="flex items-start gap-2.5">
+          {agent && agentId ? (
+            <Link to={`/agents/${agentId}`} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50">
+              <AiAvatar
+                name={agent.name}
+                seed={agentId}
+                size={36}
+                kind={agent.avatar_kind}
+                icon={agent.avatar_icon}
+                imageUrl={agent.avatar_image_url}
+                decorative
+              />
+            </Link>
+          ) : (
             <AiAvatar
-              name={agent.name}
-              seed={agentId}
-              size={32}
-              className="mt-0.5"
-              kind={agent.avatar_kind}
-              icon={agent.avatar_icon}
-              imageUrl={agent.avatar_image_url}
+              name={agent?.name || t('agentContext.workspaceAssistant')}
+              seed={agentId ?? 'assistant'}
+              size={36}
               decorative
             />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate-fade text-sm font-semibold text-text-heading">{agent.name}</span>
-              <span className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
-                <Bot size={11} />
-                {role}
-              </span>
+          )}
+          <div className="min-w-0 flex-1">
+            {agent && agentId ? (
+              <Link
+                to={`/agents/${agentId}`}
+                className="block truncate-fade text-base font-semibold text-text-heading hover:text-accent"
+              >
+                {agent.name}
+              </Link>
+            ) : (
+              <p className="truncate-fade text-base font-semibold text-text-heading">
+                {agent?.name || t('agentContext.workspaceAssistant')}
+              </p>
+            )}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-2xs font-semibold text-ai-ink">{t('agentContext.kindAiAgent')}</span>
               {status ? (
-                <span
-                  className={`mt-1 inline-flex items-center text-2xs font-semibold ${
-                    STATUS_CLASS[status] ?? 'text-text-muted'
-                  }`}
-                >
-                  {agentRuntimeStatusLabel(status, t)}
-                </span>
+                <span className="text-xs text-text-muted">{agentRuntimeStatusLabel(status, t)}</span>
               ) : null}
-              {agent.current_activity_summary ? (
-                <span className="mt-2 flex items-start gap-1.5 text-xs text-text-secondary">
-                  <Activity size={11} className="mt-0.5 shrink-0 text-text-muted" />
-                  <span className="line-clamp-3">{agent.current_activity_summary}</span>
-                </span>
-              ) : null}
-            </span>
-          </Link>
-        ) : (
-          <div className="rounded-lg border border-border/60 bg-bg-elevated px-3 py-2.5">
-            <p className="text-sm font-semibold text-text-heading">
-              {agent?.name || t('agentContext.workspaceAssistant')}
-            </p>
-            <p className="mt-1 text-xs text-text-muted">{role}</p>
+            </div>
+            <IdentitySeenLine at={agent?.updated_at || thread.lastMessageAt} />
+            {agent?.current_activity_summary ? (
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs text-text-secondary">
+                <Activity size={11} className="mt-0.5 shrink-0 text-text-muted" />
+                <span className="line-clamp-3">{agent.current_activity_summary}</span>
+              </p>
+            ) : null}
           </div>
-        )}
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-          <Link to="/settings/communication" className="text-xs font-medium text-accent hover:underline">
-            {t('agentContext.inboxAiSettings')}
-          </Link>
-          {agentId ? (
-            <Link to={`/agenda?agent=${agentId}`} className="text-xs font-medium text-accent hover:underline">
-              {t('agentContext.schedule')}
-            </Link>
-          ) : null}
-          <Link to="/settings/govern?tab=policy" className="text-xs font-medium text-accent hover:underline">
-            {t('agentContext.govern')}
-          </Link>
-          <Link to="/connections/connected" className="text-xs font-medium text-accent hover:underline">
-            {t('agentContext.openIntegrations')}
-          </Link>
+          {closeAction}
         </div>
         {model ? (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary">
             <Cpu size={12} className="shrink-0 text-text-muted" />
             <span className="min-w-0 truncate-fade">{formatAgentModelLine(model, provider, t)}</span>
           </p>
+        ) : null}
+        <div className="mt-2 space-y-0.5">
+          <DisclosureRow
+            label={t('agentContext.toolsAndIntegrations')}
+            count={toolCount + mcpRows.length}
+            countLabel={unrestricted ? t('agentContext.unrestricted') : undefined}
+          >
+            {mcpRows.length > 0 ? (
+              <div className="mb-2">
+                <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
+                  <Plug size={10} />
+                  {t('agentContext.integrations')}
+                </p>
+                <div className="space-y-1">
+                  {mcpRows.map((row) => (
+                    <Link
+                      key={row.id}
+                      to="/connections/connected"
+                      className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-bg-hover/70"
+                    >
+                      <span
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-2xs font-semibold text-white"
+                        style={{ backgroundColor: row.brandColor }}
+                      >
+                        {row.initials}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate-fade text-xs text-text-primary">{row.displayName}</span>
+                        {row.endpoint ? (
+                          <span className="block truncate-fade text-2xs text-text-muted">{row.endpoint}</span>
+                        ) : null}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div>
+              <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
+                <Wrench size={10} />
+                {t('agentContext.tools')}
+              </p>
+              {unrestricted ? (
+                <div className="flex flex-wrap gap-1">
+                  {toolCatalog.map((row) => (
+                    <span
+                      key={row.name}
+                      title={row.description}
+                      className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
+                    >
+                      {row.name}
+                    </span>
+                  ))}
+                  {toolCatalog.length === 0 ? (
+                    <span className="text-xs text-text-muted">{t('agentContext.allToolsAvailable')}</span>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {allowedTools.map((name) => (
+                    <span
+                      key={name}
+                      title={toolDescription.get(name)?.description}
+                      className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DisclosureRow>
+          <DisclosureRow
+            label={t('agentContext.mayDo')}
+            count={scopes.length}
+            countLabel={scopes.length === 0 ? t('agentContext.roleDefaults') : undefined}
+          >
+            <div className="flex flex-wrap gap-1">
+              {scopes.map((scope) => (
+                <span
+                  key={scope}
+                  className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
+                >
+                  {permissionScopeLabel(scope, t)}
+                </span>
+              ))}
+            </div>
+          </DisclosureRow>
+        </div>
+        {agentId ? (
+          <Link
+            to={`/agents/${agentId}`}
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+          >
+            <Settings size={11} />
+            {t('agentContext.configure')}
+          </Link>
         ) : null}
       </div>
 
@@ -285,118 +341,21 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         </div>
       ) : null}
 
-      <ConversationWorkSection thread={thread} />
-
       {loading ? (
-        <div className="flex items-center gap-2 px-4 py-3 text-xs text-text-muted">
+        <div className="flex items-center gap-2 px-4 py-2 text-xs text-text-muted">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           {t('agentContext.loading')}
         </div>
       ) : null}
 
-      {/* Tools & integrations */}
-      <DisclosureRow
-        icon={Wrench}
-        label={t('agentContext.toolsAndIntegrations')}
-        count={toolCount + mcpRows.length}
-        countLabel={unrestricted ? t('agentContext.unrestricted') : undefined}
-      >
-        {mcpRows.length > 0 ? (
-          <div className="mb-2">
-            <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
-              <Plug size={10} />
-              {t('agentContext.integrations')}
-            </p>
-            <div className="space-y-1">
-              {mcpRows.map((row) => (
-                <Link
-                  key={row.id}
-                  to="/connections/connected"
-                  className="flex items-center gap-2 rounded-md border border-transparent px-2 py-1 transition-colors hover:bg-bg-hover/70"
-                >
-                  <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-2xs font-semibold text-white"
-                    style={{ backgroundColor: row.brandColor }}
-                  >
-                    {row.initials}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate-fade text-xs text-text-primary">{row.displayName}</span>
-                    {row.endpoint ? (
-                      <span className="block truncate-fade text-2xs text-text-muted">{row.endpoint}</span>
-                    ) : null}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        <div>
-          <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
-            <Wrench size={10} />
-            {t('agentContext.tools')}
-            {unrestricted ? (
-              <span className="ml-1 normal-case text-text-muted">
-                ({t('agentContext.unrestricted')})
-              </span>
-            ) : null}
-          </p>
-          {unrestricted ? (
-            <div className="flex flex-wrap gap-1">
-              {toolCatalog.map((t) => (
-                <span
-                  key={t.name}
-                  title={t.description}
-                  className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
-                >
-                  {t.name}
-                </span>
-              ))}
-              {toolCatalog.length === 0 ? (
-                <span className="text-xs text-text-muted">{t('agentContext.allToolsAvailable')}</span>
-              ) : null}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-1">
-              {allowedTools.map((name) => (
-                <span
-                  key={name}
-                  title={toolDescription.get(name)?.description}
-                  className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </DisclosureRow>
-
-      {/* Govern scopes */}
-      <DisclosureRow
-        icon={ShieldCheck}
-        label={t('agentContext.mayDo')}
-        count={scopes.length}
-        countLabel={scopes.length === 0 ? t('agentContext.roleDefaults') : undefined}
-      >
-        <div className="flex flex-wrap gap-1">
-          {scopes.map((scope) => (
-            <span
-              key={scope}
-              className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
-            >
-              {permissionScopeLabel(scope, t)}
-            </span>
-          ))}
-        </div>
-      </DisclosureRow>
+      <ConversationWorkSection thread={thread} />
 
       {/* Active task (minimal) */}
       {task ? (
         <div className="border-b border-border/40 px-4 py-3">
           <SectionHeading title={t('agentContext.activeTask')} />
           <Link
-            to={agentRunsPath('all', task.signal_id || String(thread.id))}
+            to={inboxPath('all', task.signal_id || String(thread.id))}
             className="block rounded-lg border border-border/60 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-border-light"
           >
             <p className="truncate-fade text-sm font-medium text-text-primary">{task.title}</p>
@@ -426,7 +385,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           </div>
         ) : (
           <div className="space-y-1">
-            {recent.slice(0, 8).map((thread) => (
+            {recent.slice(0, 5).map((thread) => (
               <Link
                 key={String(thread.id)}
                 to={threadHubPath(thread)}
@@ -444,6 +403,14 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                 </span>
               </Link>
             ))}
+            {recent.length > 5 && agentId ? (
+              <Link
+                to={`/agents/${agentId}#conversations`}
+                className="mt-1 block px-2.5 py-1 text-xs font-medium text-accent hover:underline"
+              >
+                {t('agentContext.showMore')}
+              </Link>
+            ) : null}
           </div>
         )}
       </div>

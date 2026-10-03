@@ -9,7 +9,7 @@ related: communication,channels,widget
 
 # How Contacts works
 
-Everyone who writes in lands here. Open Contacts to recognize a person, or open them from a thread so you do not leave the conversation.
+Everyone who writes in with a real name or address lands here. Open Contacts to recognize a person, or open them from a thread so you do not leave the conversation.
 
 ## Open a contact from a thread
 
@@ -17,10 +17,23 @@ Everyone who writes in lands here. Open Contacts to recognize a person, or open 
 *Everyone who writes in lands here.*
 
 1. Open a thread in [Communication](/docs/inbox/communication).
-2. Click the contact name in the context panel.
+2. For a known person, choose **Profile** in the side panel, or click their name in the thread header.
 3. Read their history, last-seen and other conversations, then jump back to the open work. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
 
-Website visitors without a name show as **Website visitor** until they fill the widget [pre-chat form](/docs/inbox/widget).
+Unknown website visitors stay in the conversation as **Website visitor**. They have no **Profile** and are not listed under Contacts until they fill the widget [pre-chat form](/docs/inbox/widget) or you [link the conversation](#link-a-conversation-to-a-contact).
+
+## Link a conversation to a contact
+
+![Link form in the contact panel](/api/docs/assets/contacts/link-conversation.png)
+*Link an unknown chatter by email or phone number.*
+
+1. Open a website chat or WhatsApp thread with an unknown person and choose **+ Contact** in the contact panel.
+2. Type their email address or phone number, optionally a name, then **Link**. When the address belongs to a contact, the thread joins that person; otherwise Bokito creates the contact. When more than one contact matches, pick the right one from the list.
+3. The visitor stays as an identity of the person: their earlier chats move along, and the contact page lists it under **Also reachable at**. Nothing is overwritten. An owner or admin can choose **Detach** there to make an identity a separate contact again.
+4. A thread linked from an unconfirmed address shows **Claimed**; after the visitor confirms an email link it shows **Verified**. Personal data such as invoices stays behind **Verified**.
+5. Choose **Unlink** to undo a wrong link. When the AI made the link, Bokito records the correction so it learns.
+
+The AI links on its own when a visitor gives an address. **Assisted** links only verified addresses and asks you for the rest with a decision card; **Autonomous** also links claimed addresses and creates new contacts; **Manual** leaves it to you. Merging two known contacts always needs an owner or admin. See [AI handling](/docs/inbox/inbox-ai).
 
 ## Add a person or start mail
 
@@ -46,8 +59,8 @@ Website visitors without a name show as **Website visitor** until they fill the 
 *A contact can follow the channel or have its own mode.*
 
 1. Open the contact on Contacts, or open the side panel in a conversation with them.
-2. Find **AI handling** under the contact details. It shows the current mode and what it follows, for example **Follows the channel**.
-3. Pick **Autonomous**, **Assisted** or **Manual** to apply it to every conversation with this person. Choose **Follow the channel** to remove it.
+2. Find **AI handling** under the contact details. It shows the current mode. Open the menu to see what it follows: the inherited mode carries a badge such as **Channel default**.
+3. Pick **Autonomous**, **Assisted** or **Manual** to apply it to every conversation with this person. Choose the mode marked **Channel default** to remove it.
 4. On Contacts, filter the list with the **Any AI handling** menu to find contacts with **Custom AI handling** or a specific mode. Rows with their own mode show its icon.
 
 A single conversation can still differ from the contact. See [AI handling](/docs/inbox/inbox-ai).

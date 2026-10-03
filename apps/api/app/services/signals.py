@@ -50,6 +50,14 @@ def _is_anonymous_contact_identity(address: str, display_name: str = "") -> bool
     return False
 
 
+def _is_unnamed_visitor(address: str, display_name: str = "") -> bool:
+    """True when this is still an unknown website visitor, not a person in the book."""
+    if not _is_anonymous_contact_identity(address, display_name):
+        return False
+    name = (display_name or "").strip().lower()
+    return name in ("", "website visitor", "website bezoeker", "websitebezoeker", "visitor", "bezoeker")
+
+
 async def get_or_create_contact(
     session: AsyncSession,
     tenant_id: UUID,
@@ -74,12 +82,16 @@ async def get_or_create_contact(
             contact.display_name = display_name
         session.add(contact)
         return contact
+    if _is_anonymous_contact_identity(address, display_name):
+        # Unknown website visitors are a conversation identity, not a person
+        # in the address book, until someone links an email or phone.
+        return None
     contact = Contact(
         tenant_id=tenant_id,
         channel=channel,
         address=address,
         display_name=display_name,
-        status="pending" if _is_anonymous_contact_identity(address, display_name) else "approved",
+        status="approved",
         last_seen_at=datetime.utcnow(),
     )
     canonical = (

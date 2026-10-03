@@ -28,6 +28,17 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Create task** or **Keep open**. Suggested-reply cards from [AI handling](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
 3. Hover an agent message: icons next to the bubble mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent. Hover an icon to see its label. Escalate sets the conversation to Manual and assigns you.
 
+## Teach the agent for next time
+
+1. On a card that asks before an action, the row **Next time:** offers three buttons.
+2. **You may do this yourself from now on** proposes a rule that lets the agent do this on its own. **Always ask** proposes a rule that keeps asking. Both arrive as a card in the same conversation; confirm it there. Only an owner or admin can confirm a rule that lets an agent act on its own.
+3. **Not sure yet** keeps the case as an example. After a few examples the agent proposes a rule from them.
+4. Rules show on the agent under **Rules** (see [Agents](/docs/ai/agents)).
+
+## Who gets the question
+
+Each question goes to one addressee: the person or team named in the agent's **Ask questions to**, else the conversation owner, else whoever handed over the work, else the owner team. Someone who is away is skipped. When one person keeps answering questions on the same topic, Govern proposes a routing rule such as *Questions about invoices go to Lisa*; once accepted, those questions go to that person first.
+
 ## Answer from a notification
 
 1. Choose the decision in the bell menu, or open the push notification on your phone. Both open Decisions on that thread and jump straight to the waiting card.

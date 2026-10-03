@@ -29,6 +29,10 @@ PLATFORM_RESOURCE_TYPES = frozenset(
         "project",
         "project_canvas",
         "trigger",
+        # Autonomy exception rules (agent or workspace), always confirmed inline.
+        "agent_rule",
+        # Learned routing: questions on a topic go to the person who answers them.
+        "routing_rule",
     }
 )
 

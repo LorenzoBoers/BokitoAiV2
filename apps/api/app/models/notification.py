@@ -16,6 +16,10 @@ class Notification(SQLModel, table=True):
     body: str = ""
     status: str = Field(default="unread")  # unread | read | archived
     payload_json: str = Field(default="{}")
+    # Conversation the event belongs to; opening the conversation marks it read.
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
+    # 1 = interrupt now (push), 2 = later (in-app + bell), 3 = digest.
+    tier: int = Field(default=2, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -57,5 +61,13 @@ class DecisionRequest(SQLModel, table=True):
     # leaves SQLAlchemy unable to order those tables for a tenant purge.
     agent_task_id: Optional[uuid.UUID] = Field(default=None, index=True)
     run_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    # Who is asked: a person or a team (services/addressee.py).
+    addressee_kind: str = ""  # user | team
+    addressee_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    addressee_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
+    routed_by: str = ""  # auto | fixed | rule
+    # Rule that turned the action into a question (agent or workspace rule id).
+    rule_id: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     resolved_at: Optional[datetime] = None
+    resolved_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)

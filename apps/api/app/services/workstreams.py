@@ -1022,24 +1022,6 @@ async def _raise_failure_decision(
         source_id=str(run.id),
     )
     await _set_source_case_status(session, tenant_id, run, "waiting")
-    if signal and signal.assigned_user_id:
-        from app.services.notification_mail import (
-            notification_channels,
-            send_notification_mail,
-            thread_link,
-        )
-
-        channels = await notification_channels(
-            session, tenant_id, signal.assigned_user_id, "decisions"
-        )
-        if channels["email"]:
-            await send_notification_mail(
-                session,
-                signal.assigned_user_id,
-                subject=decision.title,
-                text=f"{decision.summary}\n\nOpen: {thread_link(signal.id)}",
-                tenant_id=tenant_id,
-            )
 
 
 def _worklog_lines(run: WorkstreamRun) -> str:

@@ -10,13 +10,25 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_signal_message, publish_thread_update
 from app.models.agent import Agent
 from app.models.auth import Membership, User, user_numeric_id
+from app.services.addressee import addressee_payload
+from app.services.ownership import (
+    for_you_clause,
+    owner_payload,
+    pick_up,
+    picked_up_event,
+    resolve_assignee,
+    set_owner,
+    turn_is_mine_clause,
+    turn_payload,
+    unassigned_predicate,
+)
 from app.models.channel import ChannelAccount, Contact
 from app.models.notification import DecisionRequest, Notification
 from app.services.signal_decisions import decision_provenance
@@ -258,12 +270,18 @@ def serialize_thread(
         "contact_email": signal.contact_email,
         "contact_name": signal.contact_name,
         "contact_phone": signal.contact_phone,
+        "contact_basis": signal.contact_basis or "",
         "status": signal.status,
         "snoozed_until": _iso(signal.snoozed_until),
         "follow_up_at": _iso(signal.follow_up_at),
         "follow_up_title": signal.follow_up_title or "",
         "priority": signal.priority,
         "assigned_to_user_id": assignee_num,
+        "owner": owner_payload(signal),
+        "turn": {
+            **turn_payload(signal),
+            "user_num": user_numeric_id(signal.turn_user_id) if signal.turn_user_id else None,
+        },
         "tags": json.loads(signal.tags_json or "[]"),
         "ai_handling": ai_handling,
         "suggested_actions": json.loads(signal.suggested_actions_json or "[]"),
@@ -329,6 +347,7 @@ def serialize_message(
             "options": options,
             # Provenance so the card can name and link its source.
             "source": decision_provenance(decision),
+            "addressee": addressee_payload(decision),
         }
     try:
         meta = json.loads(message.metadata_json or "{}")
@@ -602,21 +621,14 @@ async def nav_badge_counts(
             stmt = stmt.where(acl)
         return int((await session.execute(stmt)).scalar_one() or 0)
 
-    # Alle communicatie badges: customer channels + assistant chats the operator
-    # may see. Internal agent-run threads stay under Agent-runs.
-    hub_inbox = or_(
-        Signal.channel.notin_(("internal", "assistant")),
-        and_(
-            Signal.channel == "assistant",
-            or_(Signal.owner_user_id == user_id, Signal.owner_user_id.is_(None)),
-        ),
+    hub_inbox = _hub_predicate(user_id)
+    for_you = await for_you_clause(session, tenant_id, user_id)
+    # The For you badge counts what waits on you now, read or not.
+    for_you_count = await _count(
+        open_status, hub_inbox, await turn_is_mine_clause(session, tenant_id, user_id)
     )
-    my_unread = await _count(
-        open_status, unread, hub_inbox, Signal.assigned_user_id == user_id
-    )
-    unassigned_unread = await _count(
-        open_status, unread, hub_inbox, Signal.assigned_user_id.is_(None)
-    )
+    for_you_unread = await _count(open_status, unread, hub_inbox, for_you)
+    unassigned_unread = await _count(open_status, unread, hub_inbox, unassigned_predicate())
     all_unread = await _count(open_status, unread, hub_inbox)
 
     agents_attention = 0
@@ -624,20 +636,40 @@ async def nav_badge_counts(
     if include_agents_attention:
         agents_attention = await _count_open_decisions(session, tenant_id)
         no_reply_suggestions = await count_no_reply_suggestions(session, tenant_id)
-    open_dec = await _signals_with_open_decisions(session, tenant_id)
-    your_turn = await _count(_your_turn_predicate(tenant_id, open_dec))
+
+    from app.models.team import Team
+
+    pinned_teams = (
+        await session.execute(
+            select(Team.id).where(Team.tenant_id == tenant_id, Team.pinned.is_(True))
+        )
+    ).scalars().all()
+    by_team: dict[str, int] = {}
+    for team_id in pinned_teams:
+        by_team[str(team_id)] = await _count(
+            open_status,
+            hub_inbox,
+            or_(
+                and_(Signal.turn_kind == "team", Signal.turn_team_id == team_id),
+                and_(
+                    Signal.assignee_kind == "team",
+                    Signal.assignee_team_id == team_id,
+                    unread,
+                ),
+            ),
+        )
 
     return {
-        "inbox_unread": my_unread + unassigned_unread,
+        "inbox_unread": for_you_count + unassigned_unread,
         "inbox_by_queue": {
-            "my": my_unread,
+            "for_you": for_you_count,
+            "for_you_unread": for_you_unread,
             "unassigned": unassigned_unread,
             "all": all_unread,
         },
+        "by_team": by_team,
         "agents_attention": agents_attention,
         "no_reply_suggestions": no_reply_suggestions,
-        # Badge for the hub's "You" leaf (open decisions + customer replies due).
-        "your_turn": your_turn,
     }
 
 
@@ -707,19 +739,27 @@ def _needs_reply_predicate(tenant_id: UUID):
     )
 
 
-def _your_turn_predicate(tenant_id: UUID, open_decision_ids: list[UUID] | set[UUID]):
-    """The hub's "You" view: open decision, or a customer thread awaiting a reply.
+def _hub_predicate(user_id: UUID, *, include_runs: bool = False):
+    """Conversations in All communication.
 
-    Agent-run threads (``internal``) only qualify through a decision card;
-    their status updates never read as "waiting on you".
+    Customer channels, assistant chats the operator may see, and agent work
+    threads once a person must act on them. Filtering on one agent shows all
+    of that agent's threads, including its runs.
     """
-    waiting_reply = and_(
+    clauses = [
         Signal.channel.notin_(("internal", "assistant")),
-        _needs_reply_predicate(tenant_id),
-    )
-    if open_decision_ids:
-        return or_(Signal.id.in_(open_decision_ids), waiting_reply)
-    return waiting_reply
+        and_(
+            Signal.channel == "assistant",
+            or_(Signal.owner_user_id == user_id, Signal.owner_user_id.is_(None)),
+        ),
+    ]
+    if include_runs:
+        clauses.append(Signal.channel == "internal")
+    else:
+        clauses.append(
+            and_(Signal.channel == "internal", Signal.turn_kind.in_(("user", "team")))
+        )
+    return or_(*clauses)
 
 
 async def list_threads(
@@ -745,30 +785,33 @@ async def list_threads(
     page: int = 1,
     per_page: int = 30,
     visible_account_ids: set[UUID] | None = None,
+    team_id: str | None = None,
 ) -> dict[str, Any]:
     pinned = await _pinned_ids(session, tenant_id, user_id)
     query = select(Signal).where(Signal.tenant_id == tenant_id)
     acl = _visibility_predicate(visible_account_ids)
     if acl is not None:
         query = query.where(acl)
+    mine_first = None
+
+    if team_id:
+        try:
+            team_uuid = UUID(team_id)
+        except ValueError:
+            return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
+        query = query.where(
+            or_(
+                and_(Signal.assignee_kind == "team", Signal.assignee_team_id == team_uuid),
+                and_(Signal.turn_kind == "team", Signal.turn_team_id == team_uuid),
+            )
+        )
 
     if folder == "external":
         query = query.where(Signal.channel.in_(EXTERNAL_CHANNELS))
     elif folder == "internal":
         query = query.where(Signal.channel == "internal")
     elif folder == "inbox":
-        # Shared Communication hub: customer channels + assistant/agent chats
-        # the operator may see (owned or shared). Internal agent-run threads
-        # stay under Agent-runs / activity.
-        query = query.where(
-            or_(
-                Signal.channel.notin_(("internal", "assistant")),
-                and_(
-                    Signal.channel == "assistant",
-                    or_(Signal.owner_user_id == user_id, Signal.owner_user_id.is_(None)),
-                ),
-            )
-        )
+        query = query.where(_hub_predicate(user_id, include_runs=bool(agent_id)))
     elif folder == "assistant":
         query = query.where(Signal.channel == "assistant")
         query = query.where(
@@ -795,10 +838,13 @@ async def list_threads(
         query = query.where(Signal.status.notin_(("closed", "spam")))
     elif view == "all_open":
         query = query.where(Signal.status == "open")
-    elif view == "mine":
-        query = query.where(Signal.status == "open", Signal.assigned_user_id == user_id)
+    elif view == "for_you":
+        query = query.where(
+            Signal.status == "open", await for_you_clause(session, tenant_id, user_id)
+        )
+        mine_first = await turn_is_mine_clause(session, tenant_id, user_id)
     elif view == "unassigned":
-        query = query.where(Signal.status == "open", Signal.assigned_user_id.is_(None))
+        query = query.where(Signal.status == "open", unassigned_predicate())
     elif view == "pending":
         query = query.where(Signal.status == "pending")
     elif view == "snoozed":
@@ -819,11 +865,6 @@ async def list_threads(
             query = query.where(Signal.id.in_(open_dec))
         else:
             query = query.where(Signal.id.is_(None))
-    elif view == "your_turn":
-        # "You" in the hub: every conversation that waits on a person — an
-        # open decision card, or a customer thread whose last word is theirs.
-        open_dec = await _signals_with_open_decisions(session, tenant_id)
-        query = query.where(_your_turn_predicate(tenant_id, open_dec))
     elif view == "updates":
         query = query.where(_exists_message_kind(tenant_id, "status_update"))
     elif view == "results":
@@ -938,16 +979,15 @@ async def list_threads(
     count_result = await session.execute(select(func.count()).select_from(query.subquery()))
     items_total = count_result.scalar_one()
 
-    query = query.order_by(Signal.last_message_at.desc())
+    if mine_first is not None:
+        # For you: what waits on you now comes before what you merely own.
+        query = query.order_by(case((mine_first, 0), else_=1), Signal.last_message_at.desc())
+    else:
+        query = query.order_by(Signal.last_message_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     threads = list(result.scalars().all())
-    threads.sort(
-        key=lambda t: (
-            t.id not in pinned,
-            -(t.last_message_at.timestamp() if t.last_message_at else 0),
-        )
-    )
+    threads.sort(key=lambda t: t.id not in pinned)
 
     agent_ids = {t.agent_id for t in threads if t.agent_id}
     agents_by_id: dict[UUID, Agent] = {}
@@ -1028,7 +1068,7 @@ async def list_threads(
         if account is None and t.channel == "widget":
             account = widget_fallback
         contact = contacts_by_id.get(t.contact_id) if t.contact_id else None
-        handling = resolve_ai_handling(tenant, account, contact, t).to_payload()
+        handling = resolve_ai_handling(tenant, account, contact, t, agent=agent).to_payload()
         items.append(
             serialize_thread(
                 t,
@@ -1397,12 +1437,15 @@ async def patch_thread(
     follow_up_at: datetime | None = None,
     follow_up_at_set: bool = False,
     follow_up_title: str | None = None,
+    assignee: dict[str, Any] | None = None,
+    actor_role: str = "member",
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
         return None
     before_status = signal.status
     before_assignee = signal.assigned_user_id
+    before_owner = owner_payload(signal)
     if snoozed_until_set:
         # Snoozing implies pending; clearing the wake time alone keeps status.
         signal.snoozed_until = snoozed_until
@@ -1420,12 +1463,22 @@ async def patch_thread(
             # Reopen/close/spam always clears any pending wake time.
             signal.snoozed_until = None
     newly_assigned: UUID | None = None
-    if assigned_to_user_id is not None:
-        user_map = await _user_map(session, tenant_id)
-        next_assignee = user_map.get(assigned_to_user_id) if assigned_to_user_id else None
-        if next_assignee and next_assignee != signal.assigned_user_id and next_assignee != user_id:
-            newly_assigned = next_assignee
-        signal.assigned_user_id = next_assignee
+    if assignee is None and assigned_to_user_id is not None:
+        # Shorthand from the person picker: 0 clears to the channel's owner team.
+        assignee = (
+            {"kind": "user", "id": assigned_to_user_id}
+            if assigned_to_user_id
+            else {"kind": "team", "id": None}
+        )
+    if assignee is not None:
+        kind = str(assignee.get("kind") or "")
+        try:
+            owner_id = await resolve_assignee(session, tenant_id, signal, kind, assignee.get("id"))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if kind == "user" and owner_id != signal.assigned_user_id and owner_id != user_id:
+            newly_assigned = owner_id
+        set_owner(signal, kind, owner_id, by_user_id=user_id)
     if tags is not None:
         from app.services import signal_tags as tag_svc
 
@@ -1460,9 +1513,34 @@ async def patch_thread(
     if signal.status != before_status:
         handling_svc.on_status_change(session, signal, actor_id=str(user_id))
     handling_svc.on_assignment_change(
-        session, signal, before_assignee=before_assignee, actor_id=str(user_id)
+        session,
+        signal,
+        before_assignee=before_assignee,
+        before_kind=before_owner["kind"],
+        actor_id=str(user_id),
     )
+    owner_changed = owner_payload(signal) != before_owner
     session.add(signal)
+    self_pick = (
+        owner_changed
+        and before_owner["kind"] == "team"
+        and signal.assignee_kind == "user"
+        and signal.assigned_user_id == user_id
+    )
+    if self_pick:
+        before_team = UUID(before_owner["team_id"]) if before_owner.get("team_id") else None
+        session.add(await picked_up_event(session, signal, user_id, before_team, via="pick_up"))
+    elif owner_changed:
+        session.add(
+            SignalEvent(
+                signal_id=signal_id,
+                tenant_id=tenant_id,
+                event_type="assigned",
+                actor_type="user",
+                actor_id=str(user_id),
+                payload_json=json.dumps({"before": before_owner, "after": owner_payload(signal)}),
+            )
+        )
     session.add(
         SignalEvent(
             signal_id=signal_id,
@@ -1483,7 +1561,7 @@ async def patch_thread(
     )
     # Govern audit only for the mutations that matter (status / assignee) —
     # tag/priority tweaks stay thread-timeline-only to avoid audit noise.
-    if signal.status != before_status or signal.assigned_user_id != before_assignee:
+    if signal.status != before_status or owner_changed:
         from app.services.audit import record_audit
 
         await record_audit(
@@ -1495,8 +1573,8 @@ async def patch_thread(
             resource_type="signal",
             resource_id=signal_id,
             summary=(signal.subject or "")[:120],
-            before={"status": before_status, "assigned_user_id": str(before_assignee or "")},
-            after={"status": signal.status, "assigned_user_id": str(signal.assigned_user_id or "")},
+            before={"status": before_status, "owner": before_owner},
+            after={"status": signal.status, "owner": owner_payload(signal)},
             commit=False,
         )
     await session.commit()
@@ -1511,12 +1589,47 @@ async def patch_thread(
         from app.services.webhooks import emit_webhook_event, signal_event_data
 
         await emit_webhook_event(session, tenant_id, "signal.closed", signal_event_data(signal))
-    if newly_assigned:
+    handover = str((assignee or {}).get("message") or "").strip()
+    if owner_changed and handover:
+        # The handover note mentions the new owner, so the mention path notifies
+        # the person, runs the agent, or follows the team's pickup.
+        markup = await _owner_mention_markup(session, signal)
+        await reply_to_thread(
+            session,
+            tenant_id,
+            user_id,
+            user_num,
+            signal_id,
+            body_text=f"{markup} {handover}".strip(),
+            direction="internal",
+            kind="internal_note",
+            actor_role=actor_role,
+        )
+        await session.refresh(signal)
+    elif newly_assigned:
         await _notify_assignment(session, tenant_id, signal, assignee_id=newly_assigned, actor_id=user_id)
     pinned = await _pinned_ids(session, tenant_id, user_id)
     return serialize_thread(
         signal, is_pinned=signal_id in pinned, user_num=user_num, ai_handling=handling
     )
+
+
+async def _owner_mention_markup(session: AsyncSession, signal: Signal) -> str:
+    """``@[Name](kind:id)`` for the conversation's current owner."""
+    from app.models.agent import Agent
+    from app.models.team import Team
+
+    if signal.assignee_kind == "user" and signal.assigned_user_id:
+        user = await session.get(User, signal.assigned_user_id)
+        name = (user.display_name or user.email) if user else "Teammate"
+        return f"@[{name}](user:{user_numeric_id(signal.assigned_user_id)})"
+    if signal.assignee_kind == "agent" and signal.agent_id:
+        agent = await session.get(Agent, signal.agent_id)
+        return f"@[{agent.name if agent else 'Agent'}](agent:{signal.agent_id})"
+    if signal.assignee_team_id:
+        team = await session.get(Team, signal.assignee_team_id)
+        return f"@[{team.name if team else 'Team'}](team:{signal.assignee_team_id})"
+    return ""
 
 
 async def _notify_assignment(
@@ -1527,48 +1640,23 @@ async def _notify_assignment(
     assignee_id: UUID,
     actor_id: UUID,
 ) -> None:
-    """Notify a teammate that a conversation was assigned to them."""
-    from app.gateway.publish import publish_notification
-    from app.models.notification import Notification
-    from app.services.notification_mail import (
-        notification_channels,
-        send_notification_mail,
-        thread_link,
-    )
+    """Tell a teammate a conversation is theirs now (tier 1)."""
+    from app.services.notify import TIER_NOW, notify
 
-    channels = await notification_channels(session, tenant_id, assignee_id, "assigned-to-me")
-    if not channels["desktop"] and not channels["email"]:
-        return
     actor_result = await session.execute(select(User).where(User.id == actor_id))
     actor = actor_result.scalar_one_or_none()
     actor_name = (actor.display_name or actor.email) if actor else "A teammate"
-    title = f"{actor_name} assigned {signal.subject or 'a conversation'} to you"
-    if channels["desktop"]:
-        notification = Notification(
-            tenant_id=tenant_id,
-            user_id=assignee_id,
-            kind="assignment",
-            title=title,
-            body=(signal.summary or "")[:300],
-            payload_json=json.dumps({"signal_id": str(signal.id)}),
-        )
-        session.add(notification)
-        await session.commit()
-        await publish_notification(
-            tenant_id, notification_id=notification.id, kind="assignment", title=notification.title
-        )
-    if channels["email"]:
-        await send_notification_mail(
-            session,
-            assignee_id,
-            subject=title,
-            text=(
-                f"{title}.\n\n"
-                f"{(signal.summary or '').strip()[:500]}\n\n"
-                f"Open the conversation:\n{thread_link(signal.id)}"
-            ),
-            tenant_id=tenant_id,
-        )
+    await notify(
+        session,
+        tenant_id,
+        kind="assignment",
+        recipients=[assignee_id],
+        title=f"{actor_name} assigned {signal.subject or 'a conversation'} to you",
+        body=(signal.summary or "")[:300],
+        tier=TIER_NOW,
+        category="assigned-to-me",
+        signal_id=signal.id,
+    )
 
 
 async def set_read(
@@ -1585,6 +1673,10 @@ async def set_read(
         return None
     signal.has_unread = not read
     session.add(signal)
+    if read:
+        from app.services.notify import mark_conversation_read
+
+        await mark_conversation_read(session, tenant_id, user_id, signal_id)
     await session.commit()
     await session.refresh(signal)
     pinned = await _pinned_ids(session, tenant_id, user_id)
@@ -1876,7 +1968,7 @@ async def _rebind_email_account_for_reply(
     capability are enforced so members cannot escape ACL via reply.
     """
     from app.services.channel_registry import account_can_send
-    from app.services.channel_visibility import is_account_visible_to
+    from app.services.channel_access import can_handle_account
 
     if signal.channel != "email":
         raise HTTPException(
@@ -1891,7 +1983,9 @@ async def _rebind_email_account_for_reply(
         )
     )
     account = result.scalar_one_or_none()
-    if account is None or not is_account_visible_to(account, user_id=user_id, role=actor_role):
+    if account is None or not await can_handle_account(
+        session, account, user_id=user_id, role=actor_role
+    ):
         raise HTTPException(status_code=404, detail="Channel not found")
     if account.channel != "email":
         raise HTTPException(status_code=400, detail="Selected channel is not an email mailbox")
@@ -2001,8 +2095,10 @@ async def reply_to_thread(
     signal.updated_at = now
     if direction == "outbound":
         signal.has_unread = False
+    picked = False
     if direction == "outbound":
         await _defer_open_reply_suggestions(session, tenant_id, signal_id)
+        picked = await pick_up(session, signal, user_id, via="reply")
     if action == "send_and_close":
         from app.services.ai_handling import on_status_change
 
@@ -2029,8 +2125,8 @@ async def reply_to_thread(
     await session.commit()
     await session.refresh(message)
     await publish_signal_message(signal, message)
-    if action in ("send_and_close", "send_and_pending"):
-        # Status changed alongside the reply; widget conversations also need
+    if picked or action in ("send_and_close", "send_and_pending"):
+        # Status or owner changed alongside the reply; widget conversations also need
         # the visitor-safe status event (e.g. to show the CSAT prompt).
         await publish_thread_update(signal)
     if action == "send_and_close":
@@ -2040,14 +2136,27 @@ async def reply_to_thread(
     # @mentions in replies and internal notes notify the mentioned teammates.
     author_result = await session.execute(select(User).where(User.id == user_id))
     author = author_result.scalar_one_or_none()
+    author_name = (author.display_name or author.email) if author else ""
     await notify_mentions(
         session,
         tenant_id,
         signal,
         body_text=body_text,
         author_user_id=user_id,
-        author_name=(author.display_name or author.email) if author else "",
+        author_name=author_name,
     )
+    if not scheduled:
+        from app.services.thread_dispatch import dispatch_mentions
+
+        await dispatch_mentions(
+            session,
+            tenant_id,
+            signal,
+            body_text=body_text,
+            author_user_id=user_id,
+            author_name=author_name,
+            user_role=actor_role,
+        )
     # Internal agent threads are two-way chats: when an operator posts a reply
     # (not an internal note), run the thread's agent in the background so Send
     # returns immediately. Deltas stream via gateway; the final message lands
@@ -2214,73 +2323,33 @@ async def notify_mentions(
     author_user_id: UUID | None,
     author_name: str = "",
 ) -> list[UUID]:
-    """Create in-app notifications for @[Name](user:id) mentions in a message.
-
-    Returns the user ids that were notified. Commits once when anything was
-    created and publishes a gateway event so open dashboards refresh live.
-    """
-    from app.gateway.publish import publish_notification
-    from app.models.notification import Notification
-    from app.services.notification_mail import (
-        notification_channels,
-        send_notification_mail,
-        thread_link,
-    )
+    """Notify @[Name](user:id) mentions in a message (tier 1). Returns the people mentioned."""
+    from app.services.notify import TIER_NOW, notify
 
     mention_nums = {int(num) for _, num in MENTION_PATTERN.findall(body_text or "")}
     if not mention_nums:
         return []
     user_map = await _user_map(session, tenant_id)
     plain = MENTION_PATTERN.sub(lambda m: f"@{m.group(1)}", body_text or "")
-    title = f"{author_name or 'A teammate'} mentioned you in {signal.subject or 'a conversation'}"
-    notified: list[UUID] = []
-    created: list[Notification] = []
-    email_targets: list[UUID] = []
-    for num in sorted(mention_nums):
-        target = user_map.get(num)
-        if not target or target == author_user_id:
-            continue
-        channels = await notification_channels(session, tenant_id, target, "mentions")
-        if not channels["desktop"] and not channels["email"]:
-            continue
-        if channels["email"]:
-            email_targets.append(target)
-        if not channels["desktop"]:
-            notified.append(target)
-            continue
-        notification = Notification(
-            tenant_id=tenant_id,
-            user_id=target,
-            kind="mention",
-            title=title,
-            body=plain[:300],
-            payload_json=json.dumps({"signal_id": str(signal.id)}),
-        )
-        session.add(notification)
-        created.append(notification)
-        notified.append(target)
-    if created:
-        await session.commit()
-        for notification in created:
-            await publish_notification(
-                tenant_id,
-                notification_id=notification.id,
-                kind="mention",
-                title=notification.title,
-            )
-    for target in email_targets:
-        await send_notification_mail(
-            session,
-            target,
-            subject=title,
-            text=(
-                f"{title}.\n\n"
-                f"{plain[:500]}\n\n"
-                f"Open the conversation:\n{thread_link(signal.id)}"
-            ),
-            tenant_id=tenant_id,
-        )
-    return notified
+    targets = [
+        user_map[num]
+        for num in sorted(mention_nums)
+        if user_map.get(num) and user_map[num] != author_user_id
+    ]
+    if not targets:
+        return []
+    await notify(
+        session,
+        tenant_id,
+        kind="mention",
+        recipients=targets,
+        title=f"{author_name or 'A teammate'} mentioned you in {signal.subject or 'a conversation'}",
+        body=plain[:300],
+        tier=TIER_NOW,
+        category="mentions",
+        signal_id=signal.id,
+    )
+    return targets
 
 
 def _schedule_agent_reply(
@@ -2428,6 +2497,9 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
         .join(Membership, Membership.user_id == User.id)
         .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
     )
+    from app.services.presence import user_status
+
+    now = datetime.utcnow()
     members = []
     for user, membership in result.all():
         members.append(
@@ -2438,6 +2510,7 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
                 "email": user.email,
                 "avatar_url": user.avatar_url,
                 "role": membership.role,
+                "presence": user_status(user, now=now),
             }
         )
     return members

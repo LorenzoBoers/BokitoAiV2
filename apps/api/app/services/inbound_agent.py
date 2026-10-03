@@ -520,31 +520,6 @@ async def create_reply_suggestion(
     )
     await session.commit()
 
-    # Assigned owner opted into email for decisions: deliver a copy via SMTP.
-    if signal.assigned_user_id:
-        from app.services.notification_mail import (
-            notification_channels,
-            send_notification_mail,
-            thread_link,
-        )
-
-        channels = await notification_channels(
-            session, tenant_id, signal.assigned_user_id, "decisions"
-        )
-        if channels["email"]:
-            await send_notification_mail(
-                session,
-                signal.assigned_user_id,
-                subject=f"Decision needed: {signal.subject or 'a conversation'}",
-                text=(
-                    f"An agent drafted a reply on {signal.subject or 'a conversation'} "
-                    "and needs your approval.\n\n"
-                    f"{text[:500]}\n\n"
-                    f"Review and decide:\n{thread_link(signal.id)}"
-                ),
-                tenant_id=tenant_id,
-            )
-
     return {
         "suggestion": True,
         "decision_id": str(decision.id),

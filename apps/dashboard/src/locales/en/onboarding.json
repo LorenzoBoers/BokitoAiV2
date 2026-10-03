@@ -60,10 +60,13 @@
   },
   "notifications": {
     "title": "Notifications",
-    "subtitle": "Desktop alerts for the moments that need you. You can refine this later under Settings.",
-    "desktop": "Desktop",
-    "email": "Email",
-    "hint": "Browser push can be enabled later under Settings → Notifications."
+    "subtitle": "Bokito sorts notices into three tiers. Pick how each reaches you; refine per event later under Settings.",
+    "hint": "Push only reaches you when you are not in the app. Enable browser push under Settings > Notifications.",
+    "tierChannel": {
+      "1": "Push",
+      "2": "In-app",
+      "3": "Daily email"
+    }
   },
   "govern": {
     "title": "How much should agents do on their own?",

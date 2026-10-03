@@ -39,13 +39,19 @@
     "follows": "Volgt {{source}}",
     "followsNamed": "Volgt {{source}} ({{name}})",
     "setHere": "Hier ingesteld",
-    "useInherited": "Volg {{source}}",
-    "useInheritedHint": "Nu {{mode}}",
+    "defaultBadge": {
+      "default": "Platformstandaard",
+      "workspace": "Bedrijfsstandaard",
+      "channel": "Kanaalstandaard",
+      "contact": "Contactstandaard",
+      "conversation": "Gespreksstandaard"
+    },
     "untilClose": "Tot dit gesprek gesloten wordt",
     "clamped": {
       "govern": "Govern begrenst gesprekken op {{mode}}.",
       "privacy": "Privacy-instellingen houden AI weg van berichtinhoud.",
-      "breaker": "Autonoom gepauzeerd na ongebruikelijke activiteit. Alleen concepten tot iemand het hervat."
+      "breaker": "Autonoom gepauzeerd na ongebruikelijke activiteit. Alleen concepten tot iemand het hervat.",
+      "agent": "Deze agent staat op {{mode}} en gaat daarom niet verder."
     },
     "reasons": {
       "assigned": "Toegewezen aan een persoon",
@@ -81,5 +87,10 @@
       "handoffRate": "Doorgegeven aan een persoon",
       "editRate": "Concepten aangepast voor verzenden"
     }
+  },
+  "presence": {
+    "available": "Beschikbaar",
+    "away": "Afwezig",
+    "offline": "Offline"
   }
 }

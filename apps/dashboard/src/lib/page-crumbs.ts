@@ -15,9 +15,8 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (/^\/knowledge\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.document' }]
   if (pathname.startsWith('/knowledge')) return []
   if (pathname.startsWith('/communication/new')) return [{ labelKey: 'crumbs.newConversation' }]
-  if (pathname.startsWith('/communication/decisions') || pathname.includes('/awaiting-decision')) {
-    return [{ labelKey: 'crumbs.decisions' }]
-  }
+  if (pathname.startsWith('/communication/inbox/for_you')) return [{ labelKey: 'crumbs.forYou' }]
+  if (pathname.startsWith('/communication/team/')) return [{ labelKey: 'crumbs.team' }]
   if (pathname.startsWith('/ai/assistant') && pathname.includes('/installation')) {
     return [{ labelKey: 'crumbs.widgetInstall' }]
   }

@@ -21,6 +21,7 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 - **Overview** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Overview](/docs/getting-started/cockpit). Onder Profiel kun je Overview als startpagina zetten; Communicatie is de standaard.
 - **Communicatie** — de gesprekken, en de contacten erachter. Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
 - **Agenda** — wanneer agents wakker worden. Zie [Agenda](/docs/ai/agenda).
+- **Team** — de mensen, de agents en de teams die ze vormen, met wie nu beschikbaar is. Zie [Team](/docs/getting-started/team).
 - **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/projects).
 
 ## AI: de workforce
@@ -35,7 +36,7 @@ Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) staan onder **Connections
 
 ## Instellingen
 
-- **Instellingen** — **Kanalen**, **AI-antwoorden**, **Chatwidget**, **Leden**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).
+- **Instellingen** — **Kanalen**, **AI-antwoorden**, **Chatwidget**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).
 
 Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat boven Besturing in de rail — zie [Overview](/docs/getting-started/cockpit).
 

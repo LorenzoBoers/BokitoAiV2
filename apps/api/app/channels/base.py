@@ -114,13 +114,17 @@ async def _resolve_contact(
             Contact.address == inbound.sender_address,
         )
     )
-    contact = result.scalar_one_or_none()
+    contact = result.scalars().first()
     if contact:
         contact.last_seen_at = datetime.utcnow()
         if inbound.sender_name and not contact.display_name:
             contact.display_name = inbound.sender_name
         session.add(contact)
-        return contact
+        if contact.status == "blocked" or not contact.merged_into_id:
+            return contact
+        from app.services.contact_identity import canonical
+
+        return await canonical(session, contact) or contact
 
     # Automated senders (no-reply mailboxes, newsletters, bounces) are not
     # customers: never create CRM contact rows for them. An existing contact
@@ -131,6 +135,11 @@ async def _resolve_contact(
     if classify_automated_email(inbound.sender_address, headers=headers)["automated"]:
         return None
 
+    from app.services.signals import _is_anonymous_contact_identity
+
+    if _is_anonymous_contact_identity(inbound.sender_address, inbound.sender_name):
+        return None
+
     contact = Contact(
         tenant_id=tenant_id,
         channel=inbound.channel,
@@ -139,12 +148,39 @@ async def _resolve_contact(
         status="pending" if require_pairing else "approved",
         last_seen_at=datetime.utcnow(),
     )
+    person = await _existing_person(session, tenant_id, inbound)
+    if person is not None:
+        contact.merged_into_id = person.id
     session.add(contact)
     await session.flush()
+    if person is not None:
+        return person
     from app.services.companies import link_contact_company
 
     await link_contact_company(session, contact)
     return contact
+
+
+async def _existing_person(
+    session: AsyncSession, tenant_id: UUID, inbound: InboundMessage
+) -> Contact | None:
+    """A new email address or WhatsApp number that already belongs to exactly
+    one person becomes an identity of that person."""
+    from app.models.auth import Tenant
+    from app.services import contact_identity as identity
+
+    if inbound.channel == "email":
+        email = identity.normalize_email(inbound.sender_address)
+        persons = await identity.find_person(session, tenant_id, email=email) if email else []
+    elif inbound.channel == "whatsapp":
+        region = identity.phone_region(await session.get(Tenant, tenant_id))
+        phone = identity.normalize_phone(inbound.sender_address, region)
+        persons = (
+            await identity.find_person(session, tenant_id, phone=phone, region=region) if phone else []
+        )
+    else:
+        return None
+    return persons[0] if len(persons) == 1 else None
 
 
 async def _find_by_rfc_headers(
@@ -319,6 +355,9 @@ async def ingest_inbound(
             from app.services.signals import apply_email_routing
 
             await apply_email_routing(session, tenant_id, signal)
+        from app.services.distribution import distribute
+
+        await distribute(session, signal)
 
     message = SignalMessage(
         signal_id=signal.id,

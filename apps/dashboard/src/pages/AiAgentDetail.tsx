@@ -14,6 +14,8 @@ import { AgentModelCard } from '../components/workforce/AgentModelCard'
 import { AgentToolsPicker } from '../components/workforce/AgentToolsPicker'
 import { AgentInstructionsCard } from '../components/workforce/AgentInstructionsCard'
 import { AgentSignatureCard } from '../components/workforce/AgentSignatureCard'
+import { AgentAskTargetCard } from '../components/workforce/AgentAskTargetCard'
+import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
 import { AgentIdentityDialog } from '../components/workforce/AgentIdentityDialog'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -441,7 +443,7 @@ export default function AiAgentDetail() {
                       return (
                         <Link
                           key={String(thread.id)}
-                          to={agentChatPath(agent.id, { queue: 'open', threadId: String(thread.id) })}
+                          to={agentChatPath(agent.id, String(thread.id))}
                           className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover/70"
                         >
                           <ThreadStatusDot status={thread.status} unread={thread.hasUnread} />
@@ -467,7 +469,7 @@ export default function AiAgentDetail() {
                   </div>
                   <div className="mt-3 border-t border-border/50 pt-3">
                     <Button type="button" size="sm" variant="outline" className="w-full" asChild>
-                      <Link to={agentChatPath(agent.id, { queue: 'open' })}>
+                      <Link to={agentChatPath(agent.id)}>
                         {t('workforce.agents.viewAllConversations', {
                           count: openConversationsTotal,
                           defaultValue: 'View all ({{count}})',
@@ -565,6 +567,17 @@ export default function AiAgentDetail() {
               onChanged={() => void load()}
             />
           ) : null}
+
+          {agent.kind !== 'personal' ? (
+            <AgentAskTargetCard
+              agentId={agent.id}
+              askTarget={agent.ask_target}
+              canEdit={isAdmin}
+              onChanged={() => void load()}
+            />
+          ) : null}
+
+          {agent.kind !== 'personal' ? <AgentRulesEditor agentId={agent.id} canEdit canGrant={isAdmin} /> : null}
 
           {/* Chat access is a company-agent concept; the API 404s for personal agents. */}
           {agent.kind !== 'personal' ? <AgentChatAccessCard agentId={agent.id} /> : null}

@@ -3,26 +3,17 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
-import { useMailboxConnections } from '../../hooks/useMailboxConnections'
-import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
-import { isChannelParked } from '../../lib/channel-surface'
 import { folderScopeKey } from '../../lib/inbox-folder-prefs'
-import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { isSubQueue, SUB_QUEUES, type HubLeaf, type SubQueue } from '../../lib/messages-paths'
+import { listTeams, type Team } from '../../lib/teams-api'
 import { Card } from '../ui/card'
-
-const QUEUE_LABEL_KEYS: Record<SubQueue, string> = {
-  open: 'support.inbox.open',
-  mine: 'support.inbox.mine',
-  unassigned: 'support.inbox.unassigned',
-  closed: 'support.inbox.closed',
-}
+import { SUB_QUEUE_LABEL_KEYS } from './QueueSublist'
 
 /**
  * Settings card: the uniform folder system for Communication.
  *
- * - Default sub-view: which queue a channel or agent folder opens on
- *   (global default + per-folder override, roams via /me/preferences).
+ * - Default sub-view: which queue All communication and each pinned team open
+ *   on (global default + per-team override, roams via /me/preferences).
  *
  * The former tag vocabulary was superseded by Signals: classification is
  * managed as signal types on `/settings/signals`.
@@ -31,59 +22,31 @@ export default function FoldersAndTagsManager() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const { prefs, update } = useInboxFolderPrefs()
-  const { activeConnections } = useMailboxConnections()
-  const [accounts, setAccounts] = useState<ChannelAccountRow[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     if (!token) {
-      setAccounts([])
+      setTeams([])
       return
     }
-    listChannelAccounts(token)
+    listTeams(token)
       .then((rows) => {
-        if (!cancelled) setAccounts(rows)
+        if (!cancelled) setTeams(rows.filter((team) => team.pinned))
       })
       .catch(() => {
-        if (!cancelled) setAccounts([])
+        if (!cancelled) setTeams([])
       })
     return () => {
       cancelled = true
     }
   }, [token])
 
-  const enabledAccounts = accounts.filter((a) => a.isEnabled)
-  const channelRows: Array<{ leaf: HubLeaf; label: string }> = [
-    ...activeConnections.map((conn) => ({
-      leaf: { type: 'channel', channelKey: 'email', connectionId: String(conn.id) } as HubLeaf,
-      label: mailboxDisplayLabel(conn.displayName, conn.mailboxEmail),
-    })),
-    ...(enabledAccounts.some((a) => a.channel === 'widget')
-      ? [
-          {
-            leaf: { type: 'channel', channelKey: 'webchat' } as HubLeaf,
-            label: t('support.channels.webchat'),
-          },
-        ]
-      : []),
-    ...(enabledAccounts.some((a) => a.channel === 'whatsapp')
-      ? [
-          {
-            leaf: { type: 'channel', channelKey: 'whatsapp' } as HubLeaf,
-            label: t('support.channels.whatsapp'),
-          },
-        ]
-      : []),
-    ...(!isChannelParked('slack') && enabledAccounts.some((a) => a.channel === 'slack')
-      ? [
-          {
-            leaf: { type: 'channel', channelKey: 'slack' } as HubLeaf,
-            label: t('support.channels.slack'),
-          },
-        ]
-      : []),
-  ]
+  const folderRows: Array<{ leaf: HubLeaf; label: string }> = teams.map((team) => ({
+    leaf: { type: 'team', teamId: team.id },
+    label: team.name,
+  }))
 
   const setGlobalDefault = useCallback(
     (queue: SubQueue) => {
@@ -94,7 +57,7 @@ export default function FoldersAndTagsManager() {
     [prefs, update, t],
   )
 
-  const setChannelDefault = useCallback(
+  const setFolderDefault = useCallback(
     (scopeKey: string, queue: SubQueue | null) => {
       const channelDefaults = { ...prefs.channelDefaults }
       if (queue) channelDefaults[scopeKey] = queue
@@ -133,13 +96,13 @@ export default function FoldersAndTagsManager() {
           >
             {SUB_QUEUES.map((queue) => (
               <option key={queue} value={queue}>
-                {t(QUEUE_LABEL_KEYS[queue])}
+                {t(SUB_QUEUE_LABEL_KEYS[queue])}
               </option>
             ))}
           </select>
         </div>
         <div className="mt-2 space-y-1">
-          {channelRows.map((row) => {
+          {folderRows.map((row) => {
             const scopeKey = folderScopeKey(row.leaf)
             const override = prefs.channelDefaults[scopeKey] ?? ''
             return (
@@ -149,17 +112,17 @@ export default function FoldersAndTagsManager() {
                   value={override}
                   onChange={(e) => {
                     const value = e.target.value
-                    setChannelDefault(scopeKey, isSubQueue(value) ? value : null)
+                    setFolderDefault(scopeKey, isSubQueue(value) ? value : null)
                   }}
                   className={selectClass}
                   aria-label={row.label}
                 >
                   <option value="">
-                    {t('foldersTags.useGlobal', { queue: t(QUEUE_LABEL_KEYS[prefs.defaultQueue]) })}
+                    {t('foldersTags.useGlobal', { queue: t(SUB_QUEUE_LABEL_KEYS[prefs.defaultQueue]) })}
                   </option>
                   {SUB_QUEUES.map((queue) => (
                     <option key={queue} value={queue}>
-                      {t(QUEUE_LABEL_KEYS[queue])}
+                      {t(SUB_QUEUE_LABEL_KEYS[queue])}
                     </option>
                   ))}
                 </select>

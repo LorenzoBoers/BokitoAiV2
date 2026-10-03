@@ -16,7 +16,7 @@ from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.routers.signal_chat import router as chat_router
 from app.services import signal_threads as svc
-from app.services.channel_visibility import visible_channel_account_ids
+from app.services.channel_access import handled_channel_account_ids, visible_channel_account_ids
 from app.services.interpretation import triage_signal
 from app.services.signals import create_inbound_signal, serialize_signal
 
@@ -38,9 +38,22 @@ class InboundSignalBody(BaseModel):
     external_id: str = ""
 
 
+class AssigneeRef(BaseModel):
+    """New owner: a person (numeric inbox id or UUID), an agent or a team.
+
+    A team without an id means the channel's owner team (Unassigned).
+    """
+
+    kind: str  # user | agent | team
+    id: str | int | None = None
+    # Optional handover note for the new owner (agent or team).
+    message: str | None = None
+
+
 class ThreadPatch(BaseModel):
     status: str | None = None
     assigned_to_user_id: int | None = None
+    assignee: AssigneeRef | None = None
     tags: list[str] | None = None
     priority: str | None = None
     project_id: UUID | None = None
@@ -392,9 +405,16 @@ async def list_signal_threads(
     needs_reply: bool = Query(False),
     needs_decision: bool = Query(False),
     pinned: bool = Query(False),
+    team_id: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=1, le=100),
 ):
+    """List conversations.
+
+    ``view``: ``for_you`` (yours: owned, your turn, your team's turn, mentions),
+    ``all_open``, ``unassigned`` (team-owned, not picked up), ``closed``,
+    ``snoozed``, ``spam``, ``all``. ``team_id`` narrows to one team's work.
+    """
     return await svc.list_threads(
         session,
         auth.tenant.id,
@@ -414,6 +434,7 @@ async def list_signal_threads(
         needs_reply=needs_reply,
         needs_decision=needs_decision,
         pinned_only=pinned,
+        team_id=team_id,
         page=page,
         per_page=per_page,
         visible_account_ids=await visible_channel_account_ids(
@@ -468,6 +489,26 @@ async def get_signal_message(
     return row
 
 
+async def _require_handle(session: AsyncSession, auth: AuthContext, signal_id: UUID) -> None:
+    """View-only channel access may read a conversation but not act on it."""
+    from app.models.signal import Signal
+
+    account_id = (
+        await session.execute(
+            select(Signal.channel_account_id).where(
+                Signal.id == signal_id, Signal.tenant_id == auth.tenant.id
+            )
+        )
+    ).scalar_one_or_none()
+    if account_id is None:
+        return
+    handled = await handled_channel_account_ids(
+        session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+    )
+    if handled is not None and account_id not in handled:
+        raise HTTPException(status_code=403, detail="You can view this channel but not handle it")
+
+
 @router.patch("/{signal_id}")
 async def patch_signal(
     signal_id: UUID,
@@ -475,6 +516,7 @@ async def patch_signal(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    await _require_handle(session, auth, signal_id)
     updates = body.model_dump(exclude_unset=True)
     project_id_set = "project_id" in updates
     project_id = updates.pop("project_id", None)
@@ -491,6 +533,7 @@ async def patch_signal(
         signal_id,
         status=updates.get("status"),
         assigned_to_user_id=updates.get("assigned_to_user_id"),
+        assignee=updates.get("assignee"),
         tags=updates.get("tags"),
         priority=updates.get("priority"),
         project_id=project_id,
@@ -500,6 +543,7 @@ async def patch_signal(
         follow_up_at=follow_up_at,
         follow_up_at_set=follow_up_at_set,
         follow_up_title=follow_up_title,
+        actor_role=auth.role,
     )
     if not thread:
         raise HTTPException(status_code=404, detail="Signal not found")
@@ -572,6 +616,7 @@ async def reply(
     auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    await _require_handle(session, auth, signal_id)
     message = await svc.reply_to_thread(
         session,
         auth.tenant.id,
@@ -701,8 +746,6 @@ async def invoke_agent(
 
     from app.models.agent import Agent
     from app.models.signal import Signal
-    from app.services.agent.loop import AgentLoop
-    from app.services.assistant_threads import signal_chat_history
 
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == auth.tenant.id)
@@ -723,97 +766,95 @@ async def invoke_agent(
     if not agent or not agent.is_active:
         raise HTTPException(status_code=404, detail="Agent not found or inactive")
 
-    history = await signal_chat_history(session, signal.id)
-    operator = (body.instruction or "").strip()
+    from app.services.thread_dispatch import run_agent_note
+
     if body.output == "reply_suggestion":
+        from app.services.agent.loop import AgentLoop
+        from app.services.assistant_threads import signal_chat_history
+        from app.services.inbound_agent import create_reply_suggestion
+        from app.services.suggestion_format import split_suggestion
+
+        history = await signal_chat_history(session, signal.id)
         instruction = (
             "Draft a concise, professional reply to the latest customer message. "
             "Output ONLY the customer-facing email body starting with a greeting. "
             "Never mention Govern, decisions, concept cards, or these instructions."
         )
-    else:
-        instruction = (
-            "Help a teammate on this conversation: answer their question, look "
-            "things up, or propose next steps. Reply as a concise internal note "
-            "for the team (the customer will not see it). Do not repeat these "
-            "instructions."
+        operator = (body.instruction or "").strip()
+        if operator:
+            instruction += f"\nTeammate's request: {operator}"
+        loop = AgentLoop(
+            session, auth.tenant.id, auth.user.id, agent=agent, signal_id=signal.id, user_role=auth.role
         )
-    if operator:
-        instruction += f"\nTeammate's request: {operator}"
+        reply_text, tokens = await loop.run_chat([*history, {"role": "user", "content": instruction}])
+        text = (reply_text or "").strip() or "No output produced."
+        text = split_suggestion(text).body or text
+        outcome = await create_reply_suggestion(session, auth.tenant.id, signal, agent, reply_text=text)
+        return {"output": "reply_suggestion", "usage": tokens, **outcome}
 
-    loop = AgentLoop(
+    message = await run_agent_note(
         session,
         auth.tenant.id,
         auth.user.id,
-        agent=agent,
-        signal_id=signal.id,
+        signal,
+        agent,
+        operator_text=body.instruction or "",
         user_role=auth.role,
     )
-    reply_text, tokens = await loop.run_chat(
-        [*history, {"role": "user", "content": instruction}]
-    )
-    text = (reply_text or "").strip() or "No output produced."
-    if body.output == "reply_suggestion":
-        from app.services.suggestion_format import split_suggestion
+    meta = json.loads(message.metadata_json or "{}")
+    return {"output": "note", "usage": meta.get("usage"), "message": svc.serialize_message(message)}
 
-        text = split_suggestion(text).body or text
 
-    if body.output == "reply_suggestion":
-        from app.services.inbound_agent import create_reply_suggestion
+class AssigneePerson(BaseModel):
+    id: int
+    uuid: str
+    name: str
+    email: str
+    avatar_url: str | None = None
+    presence: str
+    can_handle: bool
+    reason: str = ""
 
-        outcome = await create_reply_suggestion(
-            session, auth.tenant.id, signal, agent, reply_text=text
-        )
-        return {"output": "reply_suggestion", "usage": tokens, **outcome}
 
-    from app.gateway.publish import publish_signal_message
-    from app.models.signal import SignalEvent, SignalMessage
+class AssigneeAgent(BaseModel):
+    id: str
+    name: str
+    can_handle: bool
+    reason: str = ""
 
-    now = datetime.utcnow()
-    message = SignalMessage(
-        signal_id=signal.id,
-        tenant_id=auth.tenant.id,
-        kind="internal_note",
-        direction="internal",
-        role="assistant",
-        author_agent_id=agent.id,
-        from_address="",
-        to_addresses="",
-        subject=signal.subject,
-        body_text=text,
-        body_preview=text[:200],
-        body_html=f"<p>{text}</p>",
-        metadata_json=json.dumps(
-            {
-                "usage": tokens,
-                "steps": list(loop.trace_steps),
-                "invoked_by_user_id": str(auth.user.id),
-                "agent_name": agent.name,
-            }
-        ),
-        received_at=now,
-    )
-    session.add(message)
-    signal.updated_at = now
-    session.add(signal)
-    session.add(
-        SignalEvent(
-            signal_id=signal.id,
-            tenant_id=auth.tenant.id,
-            event_type="agent_invoked",
-            actor_type="user",
-            actor_id=str(auth.user.id),
-            payload_json=json.dumps({"agent_id": str(agent.id), "agent_name": agent.name}),
-        )
-    )
-    await session.commit()
-    await session.refresh(message)
-    await publish_signal_message(signal, message)
-    return {
-        "output": "note",
-        "usage": tokens,
-        "message": svc.serialize_message(message),
-    }
+
+class AssigneeTeam(BaseModel):
+    id: str
+    name: str
+    kind: str
+    can_handle: bool = True
+    reason: str = ""
+
+
+class AssigneeCandidates(BaseModel):
+    people: list[AssigneePerson]
+    agents: list[AssigneeAgent]
+    teams: list[AssigneeTeam]
+
+
+@router.get("/{signal_id}/assignees", response_model=AssigneeCandidates)
+async def list_assignees(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """People, agents and teams this conversation can go to, for the assign picker and @mentions.
+
+    Everyone is listed. Those without Handle access on the conversation's channel
+    have ``can_handle`` false and a ``reason`` so the UI can grey them out.
+    """
+    from app.models.signal import Signal
+    from app.services.ownership import assignee_candidates
+
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return await assignee_candidates(session, auth.tenant.id, signal)
 
 
 @router.get("/{signal_id}/agent-candidates")
@@ -946,6 +987,7 @@ async def add_note(
         direction="internal",
         kind="internal_note",
         attachments=body.attachments,
+        actor_role=auth.role,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")
@@ -1051,3 +1093,182 @@ async def triage_signal_endpoint(
 ):
     result = await triage_signal(session, auth.tenant.id, signal_id)
     return result
+
+
+class ContactLinkBody(BaseModel):
+    """Who this conversation is. Give an existing ``contact_id`` or an email /
+    phone number; name is used when a new contact is created."""
+
+    contact_id: UUID | None = None
+    email: str = ""
+    phone: str = ""
+    name: str = ""
+
+
+class ContactLinkCandidate(BaseModel):
+    id: str
+    display_name: str
+    address: str
+
+
+class ContactLinkResult(BaseModel):
+    """``linked`` / ``created``: the thread now points at ``contact_id``.
+    ``choose``: more than one contact matches; post again with one of the
+    ``candidates`` as ``contact_id``. ``unchanged``: already linked."""
+
+    status: str
+    contact_id: str | None = None
+    contact_name: str = ""
+    basis: str = ""
+    candidates: list[ContactLinkCandidate] = []
+
+
+class ContactUnlinkResult(BaseModel):
+    ok: bool
+    contact_id: str | None = None
+
+
+async def _tenant_signal_or_404(session: AsyncSession, tenant_id: UUID, signal_id: UUID):
+    from app.models.signal import Signal
+
+    signal = (
+        await session.execute(
+            select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if signal is None:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return signal
+
+
+@router.post("/{signal_id}/contact-link", response_model=ContactLinkResult)
+async def link_conversation_contact(
+    signal_id: UUID,
+    body: ContactLinkBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Link the conversation to a person (basis ``manual``).
+
+    The visitor row becomes an identity of the person; no address is
+    overwritten. Linking a conversation that already belongs to another
+    known person merges the two and needs owner or admin.
+    """
+    from app.models.channel import Contact
+    from app.services import contact_identity as identity
+    from app.services.audit import record_audit
+
+    signal = await _tenant_signal_or_404(session, auth.tenant.id, signal_id)
+    if body.contact_id is not None:
+        target = await session.get(Contact, body.contact_id)
+        if target is None or target.tenant_id != auth.tenant.id:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        person = await identity.canonical(session, target)
+        current = None
+        if signal.contact_id:
+            current = await identity.canonical(session, await session.get(Contact, signal.contact_id))
+        if current is not None and current.id == person.id and signal.contact_basis:
+            return ContactLinkResult(
+                status="unchanged",
+                contact_id=str(person.id),
+                contact_name=person.display_name,
+                basis=signal.contact_basis,
+            )
+        proposal = identity.LinkProposal(
+            outcome="link",
+            basis="manual",
+            person=person,
+            needs_merge=current is not None
+            and current.id != person.id
+            and not identity.is_anonymous(current),
+        )
+    else:
+        proposal = await identity.resolve_link(
+            session,
+            auth.tenant,
+            signal,
+            email=body.email,
+            phone=body.phone,
+            name=body.name,
+            basis="manual",
+        )
+        if proposal.reason == "no_identifier":
+            raise HTTPException(status_code=400, detail="A valid email address or phone number is required")
+        if proposal.reason == "member":
+            raise HTTPException(status_code=400, detail="This address belongs to a teammate")
+        if proposal.outcome == "suggest":
+            return ContactLinkResult(
+                status="choose",
+                candidates=[
+                    ContactLinkCandidate(
+                        id=str(c.id), display_name=c.display_name, address=c.address
+                    )
+                    for c in proposal.candidates
+                ],
+            )
+        if proposal.outcome == "none":
+            person = proposal.person
+            return ContactLinkResult(
+                status="unchanged",
+                contact_id=str(person.id) if person else None,
+                contact_name=person.display_name if person else "",
+                basis=signal.contact_basis or "",
+            )
+    if proposal.needs_merge:
+        auth.require_role("owner", "admin")
+    created = proposal.outcome == "create"
+    person = await identity.apply_link(
+        session, signal, proposal, actor_type="user", actor_id=str(auth.user.id)
+    )
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="signal:contact_linked",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="signal",
+        resource_id=signal.id,
+        after={"contact_id": str(person.id), "basis": "manual", "merged": proposal.needs_merge},
+        commit=False,
+    )
+    await session.commit()
+    return ContactLinkResult(
+        status="created" if created else "linked",
+        contact_id=str(person.id),
+        contact_name=person.display_name,
+        basis="manual",
+    )
+
+
+@router.delete("/{signal_id}/contact-link", response_model=ContactUnlinkResult)
+async def unlink_conversation_contact(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Undo the latest contact link on this conversation. Undoing an AI link
+    is recorded as learning feedback."""
+    from app.services import contact_identity as identity
+    from app.services.audit import record_audit
+
+    signal = await _tenant_signal_or_404(session, auth.tenant.id, signal_id)
+    undone = await identity.unlink(
+        session, signal, actor_type="user", actor_id=str(auth.user.id), user_id=auth.user.id
+    )
+    if not undone:
+        raise HTTPException(status_code=404, detail="No contact link to undo")
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="signal:contact_unlinked",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="signal",
+        resource_id=signal.id,
+        after={"contact_id": str(signal.contact_id) if signal.contact_id else None},
+        commit=False,
+    )
+    await session.commit()
+    return ContactUnlinkResult(
+        ok=True, contact_id=str(signal.contact_id) if signal.contact_id else None
+    )

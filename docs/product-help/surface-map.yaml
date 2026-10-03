@@ -105,12 +105,22 @@ cockpit:
     - awaiting-decision
     - overview
 
-members:
+team:
   section: getting-started
   routes:
+    - /team
     - /settings/members
+    - /settings/teams
   code_globs:
+    - apps/dashboard/src/pages/TeamPage.tsx
     - apps/dashboard/src/pages/MemberManagement.tsx
+    - apps/dashboard/src/lib/teams-api.ts
+    - apps/dashboard/src/components/ui/PresenceDot.tsx
+    - apps/api/app/routers/teams.py
+    - apps/api/app/services/teams.py
+    - apps/api/app/services/presence.py
+    - apps/api/app/services/distribution.py
+    - apps/api/app/services/team_metrics.py
   screenshots:
     - invite
 
@@ -154,9 +164,8 @@ channels:
   code_globs:
     - apps/dashboard/src/pages/InboxSettings.tsx
     - apps/dashboard/src/components/settings/ChannelBindingsPanel.tsx
-    - apps/dashboard/src/components/inbox/ChannelList.tsx
+    - apps/dashboard/src/components/channels/**
     - apps/dashboard/src/components/inbox/AddChannelDialog.tsx
-    - apps/dashboard/src/components/inbox/ChannelStateBadge.tsx
     - apps/dashboard/src/components/inbox/WhatsAppConnectForm.tsx
     - apps/dashboard/src/components/inbox/SmtpImapConnectForm.tsx
     - apps/dashboard/src/components/inbox/MailboxSyncWindowField.tsx
@@ -179,9 +188,12 @@ contacts:
     - apps/dashboard/src/pages/ContactsPage.tsx
     - apps/dashboard/src/components/inbox/ContactPanel.tsx
     - apps/dashboard/src/lib/contacts-api.ts
+    - apps/api/app/services/contact_identity.py
+    - apps/api/app/tools/contacts.py
   screenshots:
     - contact-card
     - contact-handling
+    - link-conversation
 
 inbox-ai:
   section: inbox
@@ -211,6 +223,8 @@ widget:
     - apps/dashboard/src/pages/MessengerSettings.tsx
     - apps/chat-widget/src/widget-main.ts
     - packages/shared/src/chat-layout.ts
+    - apps/api/app/services/whatsapp_handover.py
+    - apps/api/app/routers/inbox_settings.py
   screenshots:
     - installation
 
@@ -222,6 +236,7 @@ agents:
     - apps/dashboard/src/pages/AiAgents.tsx
     - apps/dashboard/src/pages/AiAgentDetail.tsx
     - apps/dashboard/src/components/workforce/**
+    - apps/api/app/services/agent_rules.py
   screenshots:
     - agent-brief
     - library
@@ -321,6 +336,7 @@ govern:
     - apps/dashboard/src/pages/GovernPage.tsx
     - apps/dashboard/src/components/govern/GovernConversationsCard.tsx
     - apps/api/app/services/platform_apply.py
+    - apps/api/app/services/routing_learning.py
   screenshots:
     - drafts
     - posture
@@ -445,7 +461,10 @@ mcp-endpoint:
     - apps/dashboard/src/pages/DeveloperSettings.tsx
     - apps/dashboard/src/pages/OAuthMcpConsent.tsx
     - apps/dashboard/src/lib/api-token-mcp.ts
-  screenshots: []
+    - apps/dashboard/src/lib/ai-tool-providers.ts
+    - apps/dashboard/src/components/developers/**
+  screenshots:
+    - connect-ai-tools
 
 widget-embed:
   section: developers

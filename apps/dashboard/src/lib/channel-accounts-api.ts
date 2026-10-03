@@ -1,13 +1,22 @@
 /** Connected channel accounts (webchat, Slack, ...) for the Channels rail. */
 
 import { appRoutes } from '../api/routes/app.routes'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
-export type ChannelVisibilityMode = 'everyone' | 'selected'
+export type ChannelAccessKind = 'user' | 'agent' | 'team'
+export type ChannelAccessLevel = 'view' | 'handle'
 
-export type ChannelAccountVisibility = {
-  mode: ChannelVisibilityMode
-  userIds: string[]
+/** One grant on a channel. System teams use their kind as id: `people` or `agents`. */
+export type ChannelAccessEntry = {
+  kind: ChannelAccessKind
+  id: string
+  level: ChannelAccessLevel
+}
+
+export type ChannelAccess = {
+  entries: ChannelAccessEntry[]
+  /** No explicit list: All people and All agents handle the channel. */
+  isDefault: boolean
 }
 
 export type ChannelAccountRow = {
@@ -18,19 +27,24 @@ export type ChannelAccountRow = {
   displayName: string
   isEnabled: boolean
   defaultAgentId: string | null
-  visibility: ChannelAccountVisibility
+  defaultTeamId: string | null
+  access: ChannelAccess
 }
 
-export function normalizeVisibility(raw: unknown): ChannelAccountVisibility {
-  if (raw && typeof raw === 'object') {
-    const value = raw as Record<string, unknown>
-    const mode = value.mode === 'selected' ? 'selected' : 'everyone'
-    const userIds = Array.isArray(value.user_ids)
-      ? value.user_ids.filter((u): u is string => typeof u === 'string')
-      : []
-    return { mode, userIds }
+export function normalizeAccess(rawEntries: unknown, rawDefault: unknown): ChannelAccess {
+  const entries: ChannelAccessEntry[] = []
+  if (Array.isArray(rawEntries)) {
+    for (const item of rawEntries) {
+      if (!item || typeof item !== 'object') continue
+      const row = item as Record<string, unknown>
+      const kind = row.kind
+      const level = row.level === 'view' ? 'view' : 'handle'
+      if ((kind === 'user' || kind === 'agent' || kind === 'team') && typeof row.id === 'string' && row.id) {
+        entries.push({ kind, id: row.id, level })
+      }
+    }
   }
-  return { mode: 'everyone', userIds: [] }
+  return { entries, isDefault: rawDefault !== false }
 }
 
 function normalizeAccount(row: unknown): ChannelAccountRow | null {
@@ -46,7 +60,8 @@ function normalizeAccount(row: unknown): ChannelAccountRow | null {
     displayName: typeof raw.display_name === 'string' ? raw.display_name : '',
     isEnabled: raw.is_enabled !== false,
     defaultAgentId: typeof raw.default_agent_id === 'string' ? raw.default_agent_id : null,
-    visibility: normalizeVisibility(raw.visibility),
+    defaultTeamId: typeof raw.default_team_id === 'string' ? raw.default_team_id : null,
+    access: normalizeAccess(raw.access, raw.access_is_default),
   }
 }
 
@@ -63,18 +78,26 @@ export async function updateChannelDefaultAgent(
   return normalizeAccount(raw)
 }
 
-export async function updateChannelAccountVisibility(
+export async function updateChannelDefaultTeam(
   token: string,
   accountId: string,
-  mode: ChannelVisibilityMode,
-  userIds: string[],
-): Promise<ChannelAccountRow | null> {
-  const raw = await apiPatch<Record<string, unknown>>(
-    appRoutes.channelAccounts.visibility(accountId),
-    { mode, user_ids: mode === 'selected' ? userIds : [] },
+  defaultTeamId: string | null,
+): Promise<void> {
+  await apiPatch(appRoutes.channelAccounts.byId(accountId), { default_team_id: defaultTeamId }, token)
+}
+
+/** Replace who may view or handle a channel. `null` restores the default. */
+export async function updateChannelAccess(
+  token: string,
+  accountId: string,
+  entries: ChannelAccessEntry[] | null,
+): Promise<ChannelAccess> {
+  const raw = await apiPut<{ entries?: unknown; is_default?: unknown }>(
+    appRoutes.channelAccounts.access(accountId),
+    { entries },
     token,
   )
-  return normalizeAccount(raw)
+  return normalizeAccess(raw.entries, raw.is_default)
 }
 
 export async function listChannelAccounts(token: string): Promise<ChannelAccountRow[]> {

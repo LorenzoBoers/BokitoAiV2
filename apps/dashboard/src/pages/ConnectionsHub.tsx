@@ -412,7 +412,7 @@ export default function ConnectionsHub() {
             </p>
           </div>
           <Button size="sm" variant="secondary" asChild>
-            <Link to="/settings/developers#mcp-setup">{t('developersPage.tokensTitle')}</Link>
+            <Link to="/settings/developers#connect-ai-tools">{t('developersPage.aiTools.title')}</Link>
           </Button>
         </div>
       </section>

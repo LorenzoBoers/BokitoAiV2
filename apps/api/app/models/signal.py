@@ -73,6 +73,8 @@ class Signal(SQLModel, table=True):
     contact_name: str = ""
     contact_email: str = ""
     contact_phone: str = ""
+    # How the thread was linked to its person: verified | claimed | manual; "" = inbound address match.
+    contact_basis: str = ""
 
     status: str = Field(default="open", index=True)
     # Snooze: while status is "pending" a wake time may be set; the scheduler
@@ -84,6 +86,16 @@ class Signal(SQLModel, table=True):
     follow_up_title: str = Field(default="")
     priority: str = Field(default="normal", index=True)
     assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    # Owner: user (assigned_user_id), agent (agent_id) or team (assignee_team_id).
+    # Maintained by services/ownership.py; every conversation has one.
+    assignee_kind: str = Field(default="", index=True)  # user | agent | team
+    assignee_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
+    assigned_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    # Turn: who must act now (derived by ownership.recompute_turn).
+    turn_kind: str = Field(default="", index=True)  # customer | agent | user | team | ""
+    turn_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    turn_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
+    turn_reason: str = ""  # reply_needed | question | draft_ready
     tags_json: str = Field(default="[]")
     has_unread: bool = Field(default=True, index=True)
     # Temporary AI handling override for this conversation (manual | assisted |

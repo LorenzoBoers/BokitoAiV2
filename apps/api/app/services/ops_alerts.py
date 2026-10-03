@@ -12,9 +12,7 @@ so `notify_tenant_admins` swallows and logs its own failures.
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -22,11 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import Membership
-from app.models.notification import Notification
+from app.services.notify import TIER_LATER, TIER_NOW, notify
 
 logger = logging.getLogger(__name__)
 
-# Preference category ids; rows live in inbox_settings.DEFAULT_NOTIFICATION_ROWS.
+# System notice categories; they follow the tier switches, not a category row.
 OPS_RUN_FAILED = "ops-run-failed"
 OPS_CHANNEL_DISCONNECT = "ops-channel-disconnect"
 
@@ -42,97 +40,44 @@ async def notify_tenant_admins(
     body: str = "",
     payload: dict[str, Any] | None = None,
     cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES,
+    user_ids: list[UUID] | None = None,
+    kind: str = "ops_alert",
+    tier: int = TIER_LATER,
+    critical: bool = False,
+    signal_id: UUID | None = None,
 ) -> int:
-    """Create an ops Notification for every owner/admin. Returns count created.
+    """Notify every owner/admin (or ``user_ids``) through ``notify``. Returns rows created.
 
     Dedupe: identical titles within the cooldown window are dropped, so
     repeated failures of the same thing alert once per window.
     """
     try:
-        return await _notify_tenant_admins(
+        if user_ids is None:
+            admins = await session.execute(
+                select(Membership.user_id).where(
+                    Membership.tenant_id == tenant_id,
+                    Membership.role.in_(("owner", "admin")),
+                )
+            )
+            user_ids = [row[0] for row in admins.all()]
+        created = await notify(
             session,
             tenant_id,
-            category=category,
+            kind=kind,
+            recipients=user_ids,
             title=title,
             body=body,
+            tier=tier,
+            category=category,
+            signal_id=signal_id,
             payload=payload,
+            critical=critical,
             cooldown_minutes=cooldown_minutes,
         )
+        return len(created)
     except Exception:  # noqa: BLE001 - alerting must never break callers
         logger.exception("ops alert failed for tenant=%s title=%r", tenant_id, title)
         return 0
-
-
-async def _notify_tenant_admins(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    category: str,
-    title: str,
-    body: str,
-    payload: dict[str, Any] | None,
-    cooldown_minutes: int,
-) -> int:
-    from app.gateway.publish import publish_notification
-    from app.services.notification_mail import notification_channels, send_notification_mail
-
-    if cooldown_minutes > 0:
-        since = datetime.utcnow() - timedelta(minutes=cooldown_minutes)
-        recent = await session.execute(
-            select(Notification.id)
-            .where(
-                Notification.tenant_id == tenant_id,
-                Notification.kind == "ops_alert",
-                Notification.title == title,
-                Notification.created_at >= since,
-            )
-            .limit(1)
-        )
-        if recent.first():
-            return 0
-
-    admins = await session.execute(
-        select(Membership.user_id).where(
-            Membership.tenant_id == tenant_id,
-            Membership.role.in_(("owner", "admin")),
-        )
-    )
-    created: list[Notification] = []
-    email_targets: list[UUID] = []
-    for (user_id,) in admins.all():
-        channels = await notification_channels(session, tenant_id, user_id, category)
-        if channels["desktop"]:
-            notification = Notification(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                kind="ops_alert",
-                title=title[:200],
-                body=body[:500],
-                payload_json=json.dumps({"category": category, **(payload or {})}),
-            )
-            session.add(notification)
-            created.append(notification)
-        if channels["email"]:
-            email_targets.append(user_id)
-
-    if created:
-        await session.commit()
-        for notification in created:
-            await publish_notification(
-                tenant_id,
-                notification_id=notification.id,
-                kind="ops_alert",
-                title=notification.title,
-            )
-    for user_id in email_targets:
-        await send_notification_mail(
-            session,
-            user_id,
-            subject=title,
-            text=f"{title}\n\n{body}".strip(),
-            tenant_id=tenant_id,
-        )
-    return len(created)
 
 
 async def alert_run_failure(
@@ -194,4 +139,6 @@ async def alert_channel_disconnect(
         payload={"account_id": str(account_id)} if account_id else None,
         # Channel problems persist until fixed; don't re-alert within a day.
         cooldown_minutes=24 * 60,
+        tier=TIER_NOW,
+        critical=True,
     )

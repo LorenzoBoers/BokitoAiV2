@@ -1,12 +1,9 @@
-"""Cycle 14: widget session identify, pre-chat contact linking and office hours."""
-
-from datetime import datetime, timezone, timedelta
+"""Cycle 14: widget session identify, pre-chat contact linking and team availability."""
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from app.services.livechat_compat import office_hours_open
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
 TENANT_SLUG = "test"
@@ -39,8 +36,7 @@ async def _widget_session(client: AsyncClient) -> tuple[dict, dict]:
 async def test_session_start_exposes_availability(client: AsyncClient):
     data, _headers = await _widget_session(client)
     config = data["agent_config"]
-    assert "office_open" in config
-    assert config["office_open"] is True  # hours disabled by default -> open
+    assert isinstance(config["team_available"], bool)
     assert config["pre_chat_form"] is False
 
 
@@ -115,20 +111,14 @@ async def test_widget_settings_roundtrip(client: AsyncClient):
         json={
             "pre_chat_form": True,
             "offline_message": "We are closed. Back tomorrow.",
-            "office_hours": {
-                "enabled": True,
-                "timezone": "Europe/Amsterdam",
-                "days": [0, 1, 2, 3, 4],
-                "start": "09:00",
-                "end": "17:00",
-            },
         },
     )
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["pre_chat_form"] is True
     assert data["offline_message"] == "We are closed. Back tomorrow."
-    assert data["office_hours"]["enabled"] is True
+    assert "office_hours" not in data
+    assert isinstance(data["team_available"], bool)
 
     # Widget session reflects the new settings. Reachability stays a flag;
     # the session never carries an offline-chat banner message.
@@ -136,73 +126,31 @@ async def test_widget_settings_roundtrip(client: AsyncClient):
     assert session_data["agent_config"]["pre_chat_form"] is True
     assert "offline_message" not in session_data["agent_config"]
 
-    # Invalid hours rejected.
-    r = await client.put(
-        "/api/settings/widget",
-        headers=owner,
-        json={"office_hours": {"enabled": True, "start": "morning", "end": "17:00"}},
-    )
-    assert r.status_code == 400
 
     # Reset for other tests.
     r = await client.put(
         "/api/settings/widget",
         headers=owner,
-        json={"pre_chat_form": False, "office_hours": {"enabled": False}},
+        json={"pre_chat_form": False},
     )
     assert r.status_code == 200
 
 
-# ---------------------------------------------------------------------------
-# Office hours evaluation (pure)
-# ---------------------------------------------------------------------------
-
-
-def test_office_hours_open_logic():
-    hours = {
-        "enabled": True,
-        "timezone": "UTC",
-        "days": [0, 1, 2, 3, 4],
-        "start": "09:00",
-        "end": "17:00",
-    }
-    # Wednesday 2026-07-22 12:00 UTC -> open
-    wednesday_noon = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc)
-    assert office_hours_open(hours, now=wednesday_noon) is True
-    # Wednesday 20:00 -> closed
-    assert office_hours_open(hours, now=wednesday_noon + timedelta(hours=8)) is False
-    # Saturday noon -> closed
-    saturday_noon = datetime(2026, 7, 25, 12, 0, tzinfo=timezone.utc)
-    assert office_hours_open(hours, now=saturday_noon) is False
-    # Disabled -> always open
-    assert office_hours_open({**hours, "enabled": False}, now=saturday_noon) is True
-    # Broken config fails open
-    assert office_hours_open({**hours, "timezone": "Mars/Olympus"}, now=saturday_noon) is True
-
-
 @pytest.mark.asyncio
-async def test_handoff_denied_outside_team_hours(client: AsyncClient, session_override):
-    import json
-
-    from app.models.auth import Tenant
+async def test_handoff_denied_when_nobody_is_available(client: AsyncClient, session_override):
+    from app.models.auth import Membership, Tenant, User
     from app.models.signal import Signal
     from app.tools import execute_tool
 
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == TENANT_SLUG))).scalar_one()
-    settings = json.loads(tenant.settings_json or "{}")
-    livechat = settings.get("livechat_settings")
-    if not isinstance(livechat, dict):
-        livechat = {}
-        settings["livechat_settings"] = livechat
-    livechat["office_hours"] = {
-        "enabled": True,
-        "timezone": "UTC",
-        "days": [],
-        "start": "09:00",
-        "end": "17:00",
-    }
-    tenant.settings_json = json.dumps(settings)
-    session_override.add(tenant)
+    members = (
+        await session_override.execute(
+            select(User).join(Membership, Membership.user_id == User.id).where(Membership.tenant_id == tenant.id)
+        )
+    ).scalars().all()
+    for member in members:
+        member.away = True
+        session_override.add(member)
     signal = Signal(
         tenant_id=tenant.id,
         channel="widget",

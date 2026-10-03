@@ -39,13 +39,19 @@
     "follows": "Follows {{source}}",
     "followsNamed": "Follows {{source}} ({{name}})",
     "setHere": "Set here",
-    "useInherited": "Follow {{source}}",
-    "useInheritedHint": "Currently {{mode}}",
+    "defaultBadge": {
+      "default": "Platform default",
+      "workspace": "Company default",
+      "channel": "Channel default",
+      "contact": "Contact default",
+      "conversation": "Conversation default"
+    },
     "untilClose": "Until this conversation closes",
     "clamped": {
       "govern": "Govern caps conversations at {{mode}}.",
       "privacy": "Privacy settings keep AI away from message bodies.",
-      "breaker": "Autonomous paused after unusual activity. Drafts only until someone resumes it."
+      "breaker": "Autonomous paused after unusual activity. Drafts only until someone resumes it.",
+      "agent": "This agent is set to {{mode}}, so it does not go further."
     },
     "reasons": {
       "assigned": "Assigned to a person",
@@ -81,5 +87,10 @@
       "handoffRate": "Handed to a person",
       "editRate": "Drafts edited before sending"
     }
+  },
+  "presence": {
+    "available": "Available",
+    "away": "Away",
+    "offline": "Offline"
   }
 }

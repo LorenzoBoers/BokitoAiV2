@@ -43,6 +43,8 @@ export const workforceRoutes = {
     scopes: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/scopes`,
     scopeKind: (agentId: string, kind: string) =>
       `/agents/${encodeURIComponent(agentId)}/scopes/${encodeURIComponent(kind)}`,
+    rules: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules`,
+    rulesTest: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules/test`,
   },
   os: {
     graph: '/os/graph',

@@ -33,6 +33,7 @@ import {
   createContact,
   deleteCompany,
   deleteContact,
+  detachContactIdentity,
   getCompany,
   enrichContactsFromThreads,
   findThreadsForContact,
@@ -143,7 +144,30 @@ function ContactDetail({ contactId }: { contactId: string }) {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return
+    if (window.location.hash !== '#conversations') return
+    const el = document.getElementById('conversations')
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [loading, threads.length])
+
   useUnsavedChangesGuard(dirty, t('contactsPage.unsavedLeave'))
+
+  const detachIdentity = async (identityId: string) => {
+    if (!token || !contact || saving) return
+    if (!window.confirm(t('contactsPage.detachConfirm'))) return
+    setSaving(true)
+    try {
+      await detachContactIdentity(token, contact.id, identityId)
+      toast.success(t('contactsPage.detached'))
+      await load()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('contactsPage.detachError')))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const save = async () => {
     if (!token || !contact || saving) return
@@ -357,6 +381,35 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 ? t('contactsPage.lastSeen', { time: timeAgo(lastSeenAt, t) })
                 : t('contactsPage.neverSeen')}
             </p>
+            {contact.identities.length > 0 ? (
+              <div data-testid="contact-identities">
+                <span className="text-xs font-semibold text-text-muted">{t('contactsPage.identities')}</span>
+                <ul className="mt-1 space-y-1">
+                  {contact.identities.map((identity) => (
+                    <li key={identity.id} className="flex items-center gap-2 text-sm text-text-secondary">
+                      <ChannelGlyph channel={identity.channel} size={13} className="shrink-0" />
+                      <span className="min-w-0 truncate-fade">
+                        {isPlaceholderContactAddress(identity.address)
+                          ? t('contactsPage.widgetVisitor')
+                          : identity.address}
+                      </span>
+                      <span className="ml-auto shrink-0 text-xs text-text-muted">
+                        {identity.lastSeenAt ? timeAgo(identity.lastSeenAt, t) : ''}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => void detachIdentity(identity.id)}
+                        title={t('contactsPage.detachHint')}
+                        className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
+                      >
+                        {t('contactsPage.detach')}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <AiHandlingPicker
               variant="row"
               scope="contact"
@@ -424,7 +477,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+        <section id="conversations" className="rounded-lg border border-border/60 bg-bg-surface p-4">
           <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
           <p className="text-xs text-text-muted">
             {t('contactsPage.threadCount', { count: threads.length })}

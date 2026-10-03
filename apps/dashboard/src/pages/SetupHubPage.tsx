@@ -208,7 +208,7 @@ export default function SetupHubPage() {
   const later = useMemo<LaterLink[]>(
     () => [
       { label: t('setupGuidePage.later.branding', { defaultValue: 'Branding' }), to: '/settings/branding' },
-      { label: t('setupGuidePage.later.team', { defaultValue: 'Invite the team' }), to: '/settings/members' },
+      { label: t('setupGuidePage.later.team', { defaultValue: 'Invite the team' }), to: '/team' },
       {
         label: t('setupGuidePage.later.modules', { defaultValue: 'Add a field of work' }),
         to: '/connections',

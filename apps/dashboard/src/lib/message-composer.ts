@@ -1,6 +1,6 @@
 import type { InboxThread } from './inbox-api'
 import { humanizeContactName } from './contact-label'
-import { agentChatPath, agentRunsPath, inboxPath } from './messages-paths'
+import { agentChatPath, inboxPath } from './messages-paths'
 
 /** Outbound surface aligned with how Intercom picks reply channel per conversation. */
 export type ComposerChannel = 'email' | 'chat' | 'slack' | 'whatsapp' | 'internal' | 'assistant'
@@ -71,11 +71,6 @@ export function customersFirst<T extends Pick<InboxThread, 'channel' | 'folder'>
   return [...conversations, ...runs]
 }
 
-/** Open queue: conversations (customer + assistant); agent runs stay under Agent-runs. */
-export function customersOnly<T extends Pick<InboxThread, 'channel' | 'folder'>>(threads: T[]): T[] {
-  return threads.filter((thread) => !isAgentRunThread(thread))
-}
-
 /** Open work where the last real line is inbound, or the row is unread. */
 export function threadNeedsReply(
   thread: Pick<InboxThread, 'status' | 'hasUnread' | 'lastMessageDirection'>,
@@ -89,14 +84,11 @@ export function threadNeedsReply(
 export function threadHubPath(
   thread: Pick<InboxThread, 'id' | 'channel' | 'folder' | 'agentId'>,
 ): string {
-  if (isAssistantChatThread(thread)) {
-    if (thread.agentId) {
-      return agentChatPath(thread.agentId, { queue: 'open', threadId: String(thread.id) })
-    }
-    return inboxPath('open', String(thread.id))
+  if (isAssistantChatThread(thread) && thread.agentId) {
+    return agentChatPath(thread.agentId, String(thread.id))
   }
   if (isAgentRunThread(thread)) {
-    return agentRunsPath('all', String(thread.id))
+    return inboxPath('all', String(thread.id))
   }
   return inboxPath('open', String(thread.id))
 }

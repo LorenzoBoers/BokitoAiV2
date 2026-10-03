@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { PanelRightClose } from 'lucide-react'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listAgents } from '../../lib/agents-api'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
@@ -122,23 +122,20 @@ export default function AgentThreadPanel({
     return null
   }, [targetAgent, orchestrator, thread.agentId, thread.agentName, thread.agentKind, thread.organisationId, t])
 
+  const closeAction = (
+    <button
+      type="button"
+      onClick={onClose}
+      className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
+      aria-label={t('threadChrome.hideDetails', { ns: 'communication' })}
+      title={t('threadChrome.hideDetails', { ns: 'communication' })}
+    >
+      <PanelRightClose size={14} />
+    </button>
+  )
+
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-l border-border/60 bg-bg">
-      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border/60 pl-3 pr-1.5">
-        <span className="text-xs font-medium text-text-secondary">
-          {t('sidePanel.who', { ns: 'communication', defaultValue: 'Who' })}
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
-          aria-label={t('directChat.closeContextPanel', { ns: 'communication' })}
-          title={t('directChat.close', { ns: 'communication' })}
-        >
-          <X size={14} />
-        </button>
-      </div>
-
       <ScrollFade>
         {isExternal ? (
           <>
@@ -149,16 +146,25 @@ export default function AgentThreadPanel({
               currentThreadId={thread.id}
               threadSubject={thread.emailSubject}
               threadPreview={thread.lastMessagePreview}
-            />
-            <ConversationWorkSection
-              thread={thread}
-              saving={saving}
-              onPatch={onPatch}
-              onWhatsNext={onWhatsNext}
-            />
+              contactBasis={thread.contactBasis}
+              closeAction={closeAction}
+              threadActivityAt={thread.lastMessageAt}
+            >
+              <ConversationWorkSection
+                thread={thread}
+                saving={saving}
+                onPatch={onPatch}
+                onWhatsNext={onWhatsNext}
+              />
+            </ContactPanel>
           </>
         ) : (
-          <AgentContextPanel thread={thread} agent={contextAgent} onThreadUpdated={onThreadUpdated} />
+          <AgentContextPanel
+            thread={thread}
+            agent={contextAgent}
+            onThreadUpdated={onThreadUpdated}
+            closeAction={closeAction}
+          />
         )}
       </ScrollFade>
     </aside>

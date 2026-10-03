@@ -515,7 +515,50 @@ async def apply_change_to_domain(
         return await apply_canvas_document(session, tenant_id, after)
     if rt == "trigger":
         return await apply_trigger_change(session, tenant_id, ck, after, before)
+    if rt == "agent_rule":
+        return await apply_agent_rule_change(session, tenant_id, after)
+    if rt == "routing_rule":
+        return await apply_routing_rule_change(session, tenant_id, after)
     return {"status": "applied", "resource_type": rt, "payload": after}
+
+
+async def apply_routing_rule_change(
+    session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
+) -> dict[str, Any]:
+    """Questions on ``topic`` go to ``user_id`` from now on."""
+    from app.models.auth import Tenant
+    from app.services.routing_learning import add_routing_rule
+
+    tenant = await session.get(Tenant, tenant_id)
+    topic = str(after.get("topic") or "")
+    user_id = _as_uuid(after.get("user_id"))
+    if tenant is None or not topic or user_id is None:
+        return {"status": "invalid"}
+    rule = add_routing_rule(tenant, topic, str(user_id))
+    session.add(tenant)
+    return {"status": "applied", "rule": rule}
+
+
+async def apply_agent_rule_change(
+    session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
+) -> dict[str, Any]:
+    """Add an accepted exception rule to one agent, or to every agent when ``agent_id`` is empty."""
+    from app.models.agent import Agent
+    from app.models.auth import Tenant
+    from app.services.agent_rules import add_rule
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        return {"status": "tenant_not_found"}
+    agent = None
+    agent_id = _as_uuid(after.get("agent_id"))
+    if agent_id is not None:
+        agent = await session.get(Agent, agent_id)
+        if agent is None or agent.tenant_id != tenant_id:
+            return {"status": "agent_not_found"}
+    rule = add_rule(tenant, agent, dict(after.get("rule") or {}))
+    session.add(agent if agent is not None else tenant)
+    return {"status": "applied", "rule": rule, "agent_id": str(agent.id) if agent else None}
 
 
 async def apply_persona_review_change(

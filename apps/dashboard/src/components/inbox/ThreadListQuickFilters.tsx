@@ -53,9 +53,6 @@ type Props = {
   members?: MemberOption[]
   priorityFilter?: string | null
   onPriorityFilter?: (value: string | null) => void
-  channelFilter?: string | null
-  onChannelFilter?: (value: string | null) => void
-  channelOptions?: string[]
 }
 
 const FILTERS: Array<{
@@ -92,9 +89,6 @@ export default function ThreadListQuickFilters({
   members = [],
   priorityFilter = null,
   onPriorityFilter,
-  channelFilter = null,
-  onChannelFilter,
-  channelOptions = [],
 }: Props) {
   const { t } = useTranslation('communication')
   const inbox = useOptionalInboxCommunication()
@@ -108,16 +102,12 @@ export default function ThreadListQuickFilters({
         ? mailboxSyncLabel(lastMailboxSyncAt, t)
         : t('threadList.lastSyncNever')
 
-  const hasAdvancedFilters = Boolean(onAssigneeFilter || onPriorityFilter || onChannelFilter)
-  const advancedActive =
-    assigneeFilter != null || Boolean(priorityFilter) || Boolean(channelFilter)
+  const hasAdvancedFilters = Boolean(onAssigneeFilter || onPriorityFilter)
+  const advancedActive = assigneeFilter != null || Boolean(priorityFilter)
   const quickActive = value !== 'all'
   const filtersActive = quickActive || advancedActive
   const activeFilterCount =
-    (quickActive ? 1 : 0) +
-    (assigneeFilter != null ? 1 : 0) +
-    (priorityFilter ? 1 : 0) +
-    (channelFilter ? 1 : 0)
+    (quickActive ? 1 : 0) + (assigneeFilter != null ? 1 : 0) + (priorityFilter ? 1 : 0)
 
   const activeSummary = useMemo(() => {
     const parts: string[] = []
@@ -132,19 +122,13 @@ export default function ThreadListQuickFilters({
     if (priorityFilter) {
       parts.push(t(`priority.${priorityFilter}`, { defaultValue: priorityFilter }))
     }
-    if (channelFilter) {
-      parts.push(
-        t(`composer.channel.${channelKind(channelFilter)}`, { defaultValue: channelFilter }),
-      )
-    }
     return parts
-  }, [quickActive, value, assigneeFilter, members, priorityFilter, channelFilter, t])
+  }, [quickActive, value, assigneeFilter, members, priorityFilter, t])
 
   const clearAllFilters = () => {
     onChange('all')
     onAssigneeFilter?.(null)
     onPriorityFilter?.(null)
-    onChannelFilter?.(null)
   }
 
   return (
@@ -276,23 +260,6 @@ export default function ThreadListQuickFilters({
                         <option value="urgent">{t('priority.urgent')}</option>
                         <option value="high">{t('priority.high')}</option>
                         <option value="normal">{t('priority.normal')}</option>
-                      </select>
-                    </label>
-                  ) : null}
-                  {onChannelFilter ? (
-                    <label className="block text-xs text-text-muted">
-                      {t('threadList.filterChannel')}
-                      <select
-                        value={channelFilter ?? ''}
-                        onChange={(event) => onChannelFilter(event.target.value || null)}
-                        className={SELECT_CLASS}
-                      >
-                        <option value="">{t('threadList.filterChannelAll')}</option>
-                        {channelOptions.map((channel) => (
-                          <option key={channel} value={channel}>
-                            {t(`composer.channel.${channelKind(channel)}`, { defaultValue: channel })}
-                          </option>
-                        ))}
                       </select>
                     </label>
                   ) : null}

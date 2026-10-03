@@ -51,9 +51,25 @@ async def _member_num(client: AsyncClient, headers: dict, email: str) -> int:
 
 async def _set_prefs(client: AsyncClient, headers: dict, rows: list[dict]) -> None:
     r = await client.patch(
-        "/api/user/notification-preferences", headers=headers, json={"rows": rows}
+        "/api/user/notification-preferences",
+        headers=headers,
+        json={"tiers": {"1": {"email": True}}, "rows": rows},
     )
     assert r.status_code == 200, r.text
+
+
+async def _kinds(session, email: str) -> set[str]:
+    from sqlalchemy import select
+
+    from app.models.auth import User
+    from app.models.notification import Notification
+
+    session.expire_all()
+    user = (await session.execute(select(User).where(User.email == email))).scalar_one()
+    rows = (
+        await session.execute(select(Notification.kind).where(Notification.user_id == user.id))
+    ).scalars().all()
+    return set(rows)
 
 
 @pytest.fixture()
@@ -70,7 +86,7 @@ def sent_mails(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_assignment_email_sent_when_enabled(client: AsyncClient, sent_mails):
+async def test_assignment_email_sent_when_enabled(client: AsyncClient, sent_mails, session_override):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     teammate = await _add_teammate(client, owner, "mailme@example.com")
     await _set_prefs(
@@ -97,9 +113,8 @@ async def test_assignment_email_sent_when_enabled(client: AsyncClient, sent_mail
     assert "assigned" in sent_mails[0]["subject"]
     assert signal_id in sent_mails[0]["text"]
 
-    # Desktop notification still created alongside the email.
-    rows = (await client.get("/api/notifications", headers=teammate)).json()
-    assert any(n["kind"] == "assignment" for n in rows)
+    # The in-app row (For you) is still created alongside the email.
+    assert "assignment" in await _kinds(session_override, "mailme@example.com")
 
 
 @pytest.mark.asyncio
@@ -117,8 +132,8 @@ async def test_assignment_email_not_sent_by_default(client: AsyncClient, sent_ma
 
 
 @pytest.mark.asyncio
-async def test_email_only_assignment_skips_desktop_row(client: AsyncClient, sent_mails):
-    """Desktop off + email on: mail is sent but no in-app notification is created."""
+async def test_email_only_assignment_skips_desktop_row(client: AsyncClient, sent_mails, session_override):
+    """In-app off + email on: mail is sent but no in-app notification is created."""
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     teammate = await _add_teammate(client, owner, "emailonly@example.com")
     await _set_prefs(
@@ -140,8 +155,7 @@ async def test_email_only_assignment_skips_desktop_row(client: AsyncClient, sent
     )
     assert r.status_code == 200
     assert len(sent_mails) == 1
-    rows = (await client.get("/api/notifications", headers=teammate)).json()
-    assert not any(n["kind"] == "assignment" for n in rows)
+    assert "assignment" not in await _kinds(session_override, "emailonly@example.com")
 
 
 @pytest.mark.asyncio

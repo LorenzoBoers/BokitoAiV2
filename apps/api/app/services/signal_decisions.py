@@ -243,25 +243,42 @@ async def create_decision(
     source_id: str | None = None,
     notification_payload: dict[str, Any] | None = None,
     notification_title: str | None = None,
+    to: dict[str, Any] | None = None,
 ) -> tuple[DecisionRequest, SignalMessage]:
     """The single write path for human decisions.
 
-    Creates the DecisionRequest, projects it into the notification bell
-    (respecting mute preferences), lands the card as a message in a Signal
-    thread, and publishes the gateway events. Callers never write Notification
-    rows for decisions themselves.
+    Creates the DecisionRequest addressed to one person or team
+    (``services/addressee.py``; ``to`` is an explicit target), projects it into
+    the notification bell of the addressee (respecting mute preferences), lands
+    the card as a message in a Signal thread, and publishes the gateway events.
+    Callers never write Notification rows for decisions themselves.
 
     The notification payload always ends up carrying `decision_id`,
     `signal_id` and `message_id`, so the bell and a push both deep-link to the
     exact card instead of the inbox root.
     """
     from app.gateway.publish import publish_notification
+    from app.services.addressee import resolve_addressee
     from app.services.notification_mail import decision_bell_status
 
-    bell_status = await decision_bell_status(session, tenant_id, user_id)
+    existing_signal = (
+        await session.execute(select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id))
+    ).scalar_one_or_none() if signal_id else None
+    addressee = await resolve_addressee(
+        session,
+        tenant_id,
+        agent_id=agent_id,
+        signal=existing_signal,
+        requested_by=user_id,
+        to=to,
+    )
+    bell_user_id = addressee.user_id if addressee.kind == "user" else None
+    bell_status = await decision_bell_status(session, tenant_id, bell_user_id)
     notification = Notification(
         tenant_id=tenant_id,
-        user_id=user_id,
+        user_id=bell_user_id,
+        signal_id=signal_id,
+        tier=1,
         kind="decision_request",
         title=notification_title or title,
         body=(summary or title)[:500],
@@ -276,6 +293,7 @@ async def create_decision(
             notification_id=notification.id,
             kind=notification.kind,
             title=notification.title,
+            tier=1,
         )
     decision = DecisionRequest(
         tenant_id=tenant_id,
@@ -292,6 +310,7 @@ async def create_decision(
         source_type=source_type,
         source_id=source_id,
     )
+    addressee.apply(decision)
     session.add(decision)
     await session.flush()
     message = await append_decision_to_signal(
@@ -314,6 +333,7 @@ async def create_decision(
         },
         default=str,
     )
+    notification.signal_id = decision.signal_id
     session.add(notification)
     await session.flush()
     return decision, message

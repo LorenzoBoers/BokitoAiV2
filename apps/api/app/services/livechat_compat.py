@@ -207,62 +207,47 @@ def livechat_theme_from_tenant(
     return theme
 
 
-DEFAULT_OFFICE_HOURS: dict[str, Any] = {
-    "enabled": False,
-    "timezone": "Europe/Amsterdam",
-    # Days the team is available: 0 = Monday .. 6 = Sunday.
-    "days": [0, 1, 2, 3, 4],
-    "start": "09:00",
-    "end": "17:00",
-}
-
-
 def widget_settings_from_tenant(tenant: Tenant) -> dict[str, Any]:
     """Widget behaviour settings stored under tenant `livechat_settings`."""
     settings_data = tenant_settings(tenant)
     livechat = settings_data.get("livechat_settings")
     if not isinstance(livechat, dict):
         livechat = {}
-    office_hours = livechat.get("office_hours")
-    if not isinstance(office_hours, dict):
-        office_hours = {}
-    merged_hours = {**DEFAULT_OFFICE_HOURS, **office_hours}
     return {
         "pre_chat_form": bool(livechat.get("pre_chat_form", False)),
-        "office_hours": merged_hours,
         "offline_message": str(livechat.get("offline_message") or "").strip(),
     }
 
 
-def team_is_reachable(tenant: Tenant, *, surface: str = SURFACE_SITE) -> bool:
-    """Whether a live human handoff is available on this surface."""
+async def widget_handler_ids(session: AsyncSession, tenant_id: UUID) -> list[UUID] | None:
+    """People who may take a live handoff on the widget; None means every member."""
+    from app.models.auth import Membership
+    from app.services.ai_handling import widget_account
+    from app.services.channel_access import handler_user_ids
+
+    account = await widget_account(session, tenant_id)
+    if account is None:
+        return None
+    handlers = await handler_user_ids(session, account)
+    if handlers is None:
+        return None
+    admins = await session.execute(
+        select(Membership.user_id).where(
+            Membership.tenant_id == tenant_id, Membership.role.in_(("owner", "admin"))
+        )
+    )
+    return list(handlers | {row[0] for row in admins.all()})
+
+
+async def team_is_reachable(
+    session: AsyncSession, tenant: Tenant, *, surface: str = SURFACE_SITE
+) -> bool:
+    """Whether a live handoff is possible now: someone with Handle access on the widget is available."""
     if normalize_surface(surface) == SURFACE_IN_APP:
         return True
-    return office_hours_open(widget_settings_from_tenant(tenant)["office_hours"])
+    from app.services.presence import anyone_available
 
-
-def office_hours_open(office_hours: dict[str, Any], *, now: datetime | None = None) -> bool:
-    """True when the widget should present the team as available.
-
-    Hours disabled means always open. Invalid config fails open so a
-    misconfiguration never silences the widget.
-    """
-    if not office_hours.get("enabled"):
-        return True
-    try:
-        from zoneinfo import ZoneInfo
-
-        tz = ZoneInfo(str(office_hours.get("timezone") or "Europe/Amsterdam"))
-        local = (now or datetime.now(tz)).astimezone(tz)
-        days = office_hours.get("days")
-        if not isinstance(days, list) or local.weekday() not in [int(d) for d in days]:
-            return False
-        start_h, start_m = str(office_hours.get("start") or "09:00").split(":")
-        end_h, end_m = str(office_hours.get("end") or "17:00").split(":")
-        minutes = local.hour * 60 + local.minute
-        return int(start_h) * 60 + int(start_m) <= minutes < int(end_h) * 60 + int(end_m)
-    except Exception:
-        return True
+    return await anyone_available(session, tenant.id, await widget_handler_ids(session, tenant.id))
 
 
 def create_widget_session_token(
@@ -361,6 +346,7 @@ def session_start_payload(
     assistant_name: str = "",
     agent_avatar: dict[str, Any] | None = None,
     surface: str = SURFACE_SITE,
+    team_available: bool = True,
 ) -> dict[str, Any]:
     surface = normalize_surface(surface)
     theme = livechat_theme_from_tenant(
@@ -376,7 +362,6 @@ def session_start_payload(
     if isinstance(livechat_settings, dict):
         login_url = str(livechat_settings.get("login_url") or "")
     widget_cfg = widget_settings_from_tenant(tenant)
-    is_open = office_hours_open(widget_cfg["office_hours"])
     agent_config = {
         "auth_mode": auth_mode,
         "theme": theme,
@@ -384,13 +369,12 @@ def session_start_payload(
         "tool_display_names": {},
         "mcp_servers": [],
         "pre_chat_form": widget_cfg["pre_chat_form"],
-        "office_open": is_open,
+        "team_available": team_available,
     }
     if surface == SURFACE_IN_APP:
-        # The helper is always available to a signed-in teammate: no pre-chat
-        # form, no office hours.
+        # The helper is always available to a signed-in teammate: no pre-chat form.
         agent_config["pre_chat_form"] = False
-        agent_config["office_open"] = True
+        agent_config["team_available"] = True
     if login_url:
         agent_config["login_url"] = login_url
     out: dict[str, Any] = {

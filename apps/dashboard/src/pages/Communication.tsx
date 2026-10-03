@@ -4,22 +4,21 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  agentRunsPath,
-  decisionsPath,
+  forYouPath,
   inboxPath,
   newConversationPath,
   leafFromPath,
   leafKey,
   leafPath,
   type HubLeaf,
-  type RunsQueue,
   type SubQueue,
 } from '../lib/messages-paths'
 import {
   configForLeaf,
   mergeHubThreadFilters,
-  threadFitsChannelLeaf,
+  threadFitsChannelChip,
 } from '../lib/hub-list-filters'
+import HubScopeChips from '../components/inbox/HubScopeChips'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
@@ -46,7 +45,6 @@ import {
 } from '../lib/inbox-queue'
 import {
   customersFirst,
-  customersOnly,
   isAgentRunThread,
   isInternalThread,
   pickPreferredInboxThread,
@@ -81,19 +79,12 @@ import {
   type ThreadId,
 } from '../lib/inbox-api'
 import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
-import { listAgents } from '../lib/agents-api'
 import { listProjects } from '../lib/projects-api'
 import { listCases } from '../lib/cases-api'
 import type { AiHandlingMode } from '../lib/ai-handling'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
-
-const ACTIVITY_CHIPS: ReadonlyArray<{ queue: RunsQueue; labelKey: string }> = [
-  { queue: 'all', labelKey: 'runsChips.all' },
-  { queue: 'updates', labelKey: 'runsChips.updates' },
-  { queue: 'results', labelKey: 'runsChips.results' },
-]
 
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
   switch (quickFilter) {
@@ -108,8 +99,8 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
 
 /**
  * Thread-list surface of the Communication hub: renders whichever leaf is
- * active in the sidebar (inbox queue, agent runs, channel, or view)
- * as thread list + conversation + context panel.
+ * active in the sidebar (All communication or a pinned team, narrowed by the
+ * channel and agent chips) as thread list + conversation + context panel.
  */
 export default function Communication() {
   const { t } = useTranslation('communication')
@@ -131,6 +122,7 @@ export default function Communication() {
 
   const projectId = searchParams.get('project_id')?.trim() || undefined
   const agentIdFilter = searchParams.get('agent')?.trim() || undefined
+  const channelChip = searchParams.get('channel')?.trim() || null
   const caseTypeId = searchParams.get('case_type_id')?.trim() || undefined
   const [caseSignalIds, setCaseSignalIds] = useState<ReadonlySet<string> | null>(null)
   const [scopeName, setScopeName] = useState<string | null>(null)
@@ -160,17 +152,12 @@ export default function Communication() {
 
   useEffect(() => {
     let cancelled = false
-    if (!agentIdFilter && !projectId) {
+    if (!projectId) {
       setScopeName(null)
       return
     }
     void (async () => {
       try {
-        if (agentIdFilter) {
-          const rows = await listAgents()
-          if (!cancelled) setScopeName(rows.find((row) => row.id === agentIdFilter)?.name ?? null)
-          return
-        }
         const rows = await listProjects()
         if (!cancelled) setScopeName(rows.find((row) => row.id === projectId)?.name ?? null)
       } catch {
@@ -180,23 +167,31 @@ export default function Communication() {
     return () => {
       cancelled = true
     }
-  }, [agentIdFilter, projectId])
+  }, [projectId])
 
-  const scopeLabel = agentIdFilter
-    ? t('threadList.scopeAgent', { name: scopeName || t('threadList.scopeAgentFallback') })
-    : projectId
-      ? t('threadList.scopeProject', { name: scopeName || t('threadList.scopeProjectFallback') })
-      : null
+  const scopeLabel = projectId
+    ? t('threadList.scopeProject', { name: scopeName || t('threadList.scopeProjectFallback') })
+    : null
 
   const clearScope = useCallback(() => {
     const next = new URLSearchParams(searchParams)
-    next.delete('agent')
     next.delete('project_id')
     const query = next.toString()
     navigate(`${leafPath(leaf, threadIdParam ?? undefined)}${query ? `?${query}` : ''}`, {
       replace: true,
     })
   }, [leaf, navigate, searchParams, threadIdParam])
+
+  /** Chips live in the query string so links and reloads keep the scope. */
+  const setScopeParam = useCallback(
+    (key: 'channel' | 'agent', value: string | null) => {
+      const next = new URLSearchParams(searchParams)
+      if (value) next.set(key, value)
+      else next.delete(key)
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   useEffect(() => {
     void refreshNavBadges()
@@ -211,12 +206,13 @@ export default function Communication() {
     const params = new URLSearchParams()
     if (projectId) params.set('project_id', projectId)
     if (agentIdFilter) params.set('agent', agentIdFilter)
+    if (channelChip) params.set('channel', channelChip)
     if (caseTypeId) params.set('case_type_id', caseTypeId)
     // The quick filter belongs to the folder on screen; it is not carried
     // into other folders or thread links.
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [projectId, agentIdFilter, caseTypeId])
+  }, [projectId, agentIdFilter, channelChip, caseTypeId])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
   // current browser session (sessionStorage), so it returns on the next visit.
@@ -265,7 +261,6 @@ export default function Communication() {
 
   const [assigneeFilter, setAssigneeFilter] = useState<number | null>(null)
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
-  const [channelFilter, setChannelFilter] = useState<string | null>(null)
   const [customSnoozeOpen, setCustomSnoozeOpen] = useState(false)
   const [customSnoozeValue, setCustomSnoozeValue] = useState(toLocalDateTimeValue)
   const lastBulkAnchorId = useRef<string | null>(null)
@@ -279,15 +274,15 @@ export default function Communication() {
 
   // `?filter=` is a deep-link input (Cmd+K, old bookmarks), consumed once:
   // unread / pinned apply to this folder; the legacy needs-reply and
-  // needs-decision values open the "You" leaf instead.
+  // needs-decision values open For you instead.
   const urlFilter = searchParams.get('filter')
   useEffect(() => {
     const fromUrl = parseQuickFilterParam(urlFilter)
     if (!fromUrl) return
     const next = new URLSearchParams(searchParams)
     next.delete('filter')
-    if (fromUrl === 'yourTurn') {
-      navigate(decisionsPath(threadIdParam ?? undefined, next), { replace: true })
+    if (fromUrl === 'forYou') {
+      navigate(forYouPath(threadIdParam ?? undefined, next), { replace: true })
       return
     }
     setQuickFilter(fromUrl)
@@ -307,25 +302,19 @@ export default function Communication() {
     setThreadReadState,
     removeThread,
   } = useThreads(
-    mergeHubThreadFilters(leaf, leafFilters, {
+    mergeHubThreadFilters(leafFilters, {
       search: listSearch,
       projectId,
       agentId: agentIdFilter,
       unread: mode === 'customer' && quickFilter === 'unread',
       pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
-      channelFilter,
+      channel: channelChip,
     }),
     pinnedIds,
   )
 
-  // Inbox channel chip is leaf-local; clear when leaving inbox so it cannot
-  // leak into a later merge if leaf typing regresses.
-  useEffect(() => {
-    if (leaf.type !== 'inbox') setChannelFilter(null)
-  }, [leaf.type])
-
-  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}:${caseTypeId ?? ''}`
+  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}:${channelChip ?? ''}:${caseTypeId ?? ''}`
 
   // The quick filter is per folder: every folder opens on "all", unless the
   // URL that opened it carries a deep-linked filter (consumed above).
@@ -357,8 +346,8 @@ export default function Communication() {
     let next = mode === 'customer' ? applyQuickFilter(threads, quickFilter) : threads
     if (priorityFilter) next = next.filter((thread) => thread.priority === priorityFilter)
     if (caseSignalIds) next = next.filter((thread) => caseSignalIds.has(String(thread.id)))
-    if (leaf.type !== 'inbox') return next
-    if (leaf.queue === 'open') return customersOnly(next)
+    // For you keeps the server order: your own turn first.
+    if (leaf.type !== 'inbox' || leaf.queue === 'for_you') return next
     return customersFirst(next)
   }, [threads, quickFilter, priorityFilter, caseSignalIds, leaf, mode])
 
@@ -462,7 +451,7 @@ export default function Communication() {
     selectedThreadId != null &&
     filteredThreads.some((thread) => String(thread.id) === String(selectedThreadId))
 
-  // Auto-select the first match. On Decisions, also replace orphan detail
+  // Auto-select the first match. On For you, also replace orphan detail
   // (thread left open from another folder) or clear the pane when empty.
   useEffect(() => {
     if (composeOpen || !threadsReady) return
@@ -472,7 +461,7 @@ export default function Communication() {
       handleSelectThread(firstThreadId, true, { markRead: false })
       return
     }
-    if (leaf.type !== 'decisions' || selectedInFilteredList) return
+    if (leaf.queue !== 'for_you' || selectedInFilteredList) return
     if (firstThreadId != null) {
       setSkipMarkRead(true)
       handleSelectThread(firstThreadId, true, { markRead: false })
@@ -754,13 +743,17 @@ export default function Communication() {
 
     redirectCheckedForThreadRef.current = fitKey
 
+    // A deep link outside the channel chip drops the chip instead of hopping folders.
+    if (channelChip && !threadFitsChannelChip(detail.thread, channelChip)) {
+      setScopeParam('channel', null)
+      return
+    }
+
     if (leaf.type === 'inbox') {
-      // Agent-run threads do not belong under Open; assistant chats do.
-      if (leaf.queue === 'open' && isAgentRunThread(detail.thread)) {
-        navigate(`${agentRunsPath('all', String(detail.thread.id))}${inboxQuery}`, { replace: true })
-        return
-      }
       const inboxQueue = leaf.queue ?? 'all'
+      // For you keeps the open conversation on screen after you answer; it
+      // drops out of the list on the next refresh.
+      if (inboxQueue === 'for_you' && detail.thread.status === 'open') return
       if (threadFitsInboxQueue(detail.thread, inboxQueue, currentUserId)) return
       if (resolvedStatusLeavesInboxQueue(detail.thread.status, inboxQueue)) {
         const dedicated = dedicatedInboxQueueForStatus(detail.thread.status)
@@ -782,12 +775,6 @@ export default function Communication() {
       return
     }
 
-    // Channel leaves: wrong-scope deep links hop to the thread's hub home.
-    if (leaf.type === 'channel' && !threadFitsChannelLeaf(detail.thread, leaf)) {
-      navigate(`${threadHubPath(detail.thread)}${inboxQuery}`, { replace: true })
-      return
-    }
-
     if (
       (detail.thread.status === 'closed' || detail.thread.status === 'spam') &&
       !filteredThreads.some((thread) => String(thread.id) === String(selectedThreadId))
@@ -806,6 +793,8 @@ export default function Communication() {
     currentUserId,
     navigate,
     inboxQuery,
+    channelChip,
+    setScopeParam,
     filteredThreads,
     leaveResolvedThread,
   ])
@@ -985,9 +974,9 @@ export default function Communication() {
       )
     },
     onDigitFilter: (digit) => {
-      // 1 all · 2 unread · 3 pinned · 4 "You" (open decisions + replies due).
+      // 1 all · 2 unread · 3 pinned · 4 For you.
       if (digit === 4 || digit === 5) {
-        navigate(decisionsPath())
+        navigate(forYouPath())
         return
       }
       applyQuickFilterChange(digit === 1 ? 'all' : digit === 2 ? 'unread' : 'pinned')
@@ -1264,7 +1253,9 @@ export default function Communication() {
     (leaf.queue === 'snoozed' || leaf.queue === 'spam' || leaf.queue === 'closed')
 
   const isInboxEmpty =
-    (leaf.type === 'inbox' || (leaf.type === 'channel' && leaf.channelKey === 'email')) &&
+    leaf.type === 'inbox' &&
+    !channelChip &&
+    !agentIdFilter &&
     !isSecondaryInboxQueue &&
     threadsReady &&
     threads.length === 0 &&
@@ -1352,37 +1343,14 @@ export default function Communication() {
     )
   }
 
-  const runsQueue: RunsQueue = leaf.type === 'runs' ? leaf.queue : 'all'
-  const showActivityChips = leaf.type === 'runs' || (leaf.type === 'channel' && leaf.channelKey === 'agent')
-
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-      {showActivityChips ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-2">
-          <span className="mr-1 text-xs font-medium text-text-muted">
-            {t('runsChips.heading')}
-          </span>
-          <span className="mr-2 hidden text-xs font-normal normal-case tracking-normal text-text-muted sm:inline">
-            {t('runsChips.subtitle')}
-          </span>
-          {ACTIVITY_CHIPS.map((chip) => {
-            const active = runsQueue === chip.queue
-            return (
-              <Link
-                key={chip.queue}
-                to={agentRunsPath(chip.queue)}
-                className={
-                  active
-                    ? 'rounded-md bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-heading'
-                    : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-xs text-text-secondary hover:text-text-primary'
-                }
-              >
-                {t(chip.labelKey)}
-              </Link>
-            )
-          })}
-        </div>
-      ) : null}
+      <HubScopeChips
+        channel={channelChip}
+        agentId={agentIdFilter ?? null}
+        onChannel={(value) => setScopeParam('channel', value)}
+        onAgent={(value) => setScopeParam('agent', value)}
+      />
       <SplitRow
         storageKey="bokito.split.inbox"
         minFlex={360}
@@ -1437,10 +1405,8 @@ export default function Communication() {
             onAssigneeFilter={setAssigneeFilter}
             priorityFilter={priorityFilter}
             onPriorityFilter={setPriorityFilter}
-            channelFilter={leaf.type === 'inbox' ? channelFilter : undefined}
-            onChannelFilter={leaf.type === 'inbox' ? setChannelFilter : undefined}
             scopeLabel={scopeLabel}
-            onClearScope={agentIdFilter || projectId ? clearScope : undefined}
+            onClearScope={projectId ? clearScope : undefined}
             total={threadsTotal}
             hasMore={threadsHaveMore}
             loadingMore={threadsLoadingMore}
@@ -1449,12 +1415,10 @@ export default function Communication() {
             emptyLabel={
               search.trim()
                 ? t('threadList.emptySearch', { query: search.trim() })
-                : agentIdFilter || projectId
+                : agentIdFilter || projectId || channelChip
                 ? t('threadList.emptyScoped')
-                : leaf.type === 'decisions'
-                  ? t('threadList.emptyDecisions')
-                  : leaf.type === 'runs'
-                  ? t('threadList.emptyRuns')
+                : leaf.queue === 'for_you'
+                  ? t('threadList.emptyForYou')
                   : leaf.type === 'inbox' && leaf.queue === 'snoozed'
                     ? t('threadList.emptySnoozed')
                     : leaf.type === 'inbox' && leaf.queue === 'spam'
@@ -1472,7 +1436,7 @@ export default function Communication() {
                 >
                   {t('inboxSearchClear')}
                 </button>
-              ) : agentIdFilter || projectId ? (
+              ) : projectId ? (
                 <button
                   type="button"
                   onClick={clearScope}
@@ -1510,41 +1474,14 @@ export default function Communication() {
                     {t('threadList.openInbox')}
                   </Link>
                 </div>
-              ) : leaf.type === 'decisions' ? (
+              ) : leaf.queue === 'for_you' ? (
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  <p className="w-full text-xs text-text-muted">{t('threadList.emptyDecisionsHint')}</p>
+                  <p className="w-full text-xs text-text-muted">{t('threadList.emptyForYouHint')}</p>
                   <Link
                     to={inboxPath('open')}
                     className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
-                  </Link>
-                  <Link
-                    to="/agents"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                  >
-                    {t('threadList.openAgents')}
-                  </Link>
-                </div>
-              ) : leaf.type === 'runs' ? (
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  <Link
-                    to="/agents"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                  >
-                    {t('threadList.openAgents')}
-                  </Link>
-                  <Link
-                    to="/agenda"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                  >
-                    {t('threadList.openAgenda')}
-                  </Link>
-                  <Link
-                    to="/communication/new"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                  >
-                    {t('onboarding.startChat')}
                   </Link>
                 </div>
               ) : mode === 'customer' && threads.length === 0 && !threadsLoading ? (

@@ -27,6 +27,12 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   moneybird: { logoUrl: '/brands/logo-moneybird.png' },
   exact: { logoUrl: '/brands/logo-exact.png' },
   snelstart: { logoUrl: '/brands/logo-snelstart.png' },
+  cursor: { logoUrl: '/brands/logo-cursor.svg', logoDarkUrl: '/brands/logo-cursor-dark.svg' },
+  claude: { logoUrl: '/brands/logo-claude.svg' },
+  openai: { logoUrl: '/brands/logo-openai.svg' },
+  vscode: { logoUrl: '/brands/logo-vscode.svg' },
+  windsurf: { logoUrl: '/brands/logo-windsurf.svg', logoDarkUrl: '/brands/logo-windsurf-dark.svg' },
+  copilot: { logoUrl: '/brands/logo-copilot.svg', logoDarkUrl: '/brands/logo-copilot-dark.svg' },
 }
 
 export function brandAssetUrl(relativePath: string): string {

@@ -16,7 +16,7 @@ import {
 import { formatWorkLogSubject } from '../../lib/work-log-labels'
 import { humanizeModelId } from '../../lib/model-label'
 import { workLogStatusLabel } from '../../lib/status-labels'
-import { agentRunsPath } from '../../lib/messages-paths'
+import { activityTerminalPath } from '../../lib/messages-paths'
 
 /** Keep the live buffer bounded — long runs otherwise grow forever in RAM. */
 const MAX_EVENTS = 500
@@ -180,7 +180,7 @@ export function LiveWorkLog({ workLogId }: Props) {
           </div>
         ) : null}
         <div className="mt-3 flex flex-wrap gap-3">
-          <Link to={agentRunsPath('all')} className="text-sm font-medium text-accent hover:underline">
+          <Link to={activityTerminalPath()} className="text-sm font-medium text-accent hover:underline">
             {t('workforce.runLog.openConversation')}
           </Link>
           <Link to="/agenda" className="text-sm font-medium text-accent hover:underline">

@@ -144,6 +144,27 @@ async def _authorize_topics(
     return allowed, denied
 
 
+async def _touch_presence(session: AsyncSession, connection: GatewayConnection, *, force: bool = False) -> None:
+    from app.services.presence import touch
+
+    try:
+        await touch(session, UUID(connection.user_id), force=force)
+    except Exception:
+        logger.debug("presence touch failed", exc_info=True)
+        await session.rollback()
+
+
+async def _presence_status(session: AsyncSession, connection: GatewayConnection) -> str | None:
+    from app.models.auth import User
+    from app.services.presence import user_status
+
+    try:
+        user = await session.get(User, UUID(connection.user_id))
+    except Exception:
+        return None
+    return user_status(user) if user else None
+
+
 @router.websocket("/ws")
 async def gateway_websocket(
     websocket: WebSocket,
@@ -201,12 +222,15 @@ async def gateway_websocket(
             },
         }
     )
-    if connection.kind == "user" and connection.user_id:
+    is_operator = connection.kind == "user" and bool(connection.user_id)
+    if is_operator:
+        await _touch_presence(session, connection, force=True)
         await publish_presence(
             connection.tenant_id,
             user_id=UUID(connection.user_id),
             device=device or "dashboard",
             online=True,
+            status=await _presence_status(session, connection),
         )
 
     try:
@@ -217,6 +241,8 @@ async def gateway_websocket(
             frame_type = frame.get("type")
             if frame_type == "ping":
                 await websocket.send_json({"type": "pong"})
+                if is_operator:
+                    await _touch_presence(session, connection)
             elif frame_type == "sub":
                 topics = frame.get("topics") or []
                 allowed, denied = await _authorize_topics(session, connection, topics)
@@ -240,13 +266,22 @@ async def gateway_websocket(
         logger.debug("gateway connection error", exc_info=True)
     finally:
         manager.unregister(connection)
-        if connection.kind == "user" and connection.user_id:
+        if is_operator:
+            still_connected = any(
+                other.kind == "user" and other.user_id == connection.user_id
+                for other in manager.connections
+            )
             try:
+                if not still_connected:
+                    from app.services.presence import mark_offline
+
+                    await mark_offline(session, UUID(connection.user_id))
                 await publish_presence(
                     connection.tenant_id,
                     user_id=UUID(connection.user_id),
                     device=device or "dashboard",
-                    online=False,
+                    online=still_connected,
+                    status=await _presence_status(session, connection),
                 )
             except Exception:
                 pass

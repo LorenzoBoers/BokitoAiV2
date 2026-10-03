@@ -57,6 +57,7 @@ type Props = {
   selectionActive?: boolean
   /** Display name of the assigned member (resolved by the parent list). */
   assigneeName?: string | null
+  assigneePresence?: 'available' | 'away' | 'offline'
   compact?: boolean
   /** Stagger index for list-row enter animation (cap in parent). */
   enterIndex?: number
@@ -120,6 +121,7 @@ function ThreadListItem({
   onToggleChecked,
   selectionActive = false,
   assigneeName = null,
+  assigneePresence,
   compact = false,
   enterIndex,
 }: Props) {
@@ -412,8 +414,21 @@ function ThreadListItem({
 
           {thread.assignedToUserId && !isDirect ? (
             <div className="mt-1 flex items-center gap-1">
-              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-bg-hover text-[8px] font-semibold text-text-secondary">
+              <span className="relative inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-bg-hover text-[8px] font-semibold text-text-secondary">
                 {(assigneeName ?? '?').slice(0, 1)}
+                {assigneePresence ? (
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute -bottom-px -right-px h-1.5 w-1.5 rounded-full ring-1 ring-bg-surface',
+                      assigneePresence === 'available'
+                        ? 'bg-status-success'
+                        : assigneePresence === 'away'
+                          ? 'bg-status-warning'
+                          : 'bg-text-muted/60',
+                    )}
+                  />
+                ) : null}
               </span>
               <span className="truncate-fade text-xs text-text-muted">
                 {assigneeName ?? t('listItem.assigned')}

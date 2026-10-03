@@ -17,7 +17,16 @@ import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-pref
 import { lastInboxPath } from './lib/inbox-prefs'
 import { legacyModulesPath } from './lib/integration-kind-url'
 import { CockpitPanelsSkeleton, Skeleton } from './components/ui/skeleton'
-import { activityTerminalPath, agentChatPath, agentRunsPath, channelPath, decisionsPath, inboxPath, newConversationPath } from './lib/messages-paths'
+import {
+  activityTerminalPath,
+  agentChatPath,
+  channelPath,
+  forYouPath,
+  inboxPath,
+  legacyHubRedirect,
+  newConversationPath,
+  type InboxQueue,
+} from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
 // Public pages
@@ -65,7 +74,7 @@ const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
 const WorkspaceSettings = lazy(() => import('./pages/WorkspaceSettings'))
 const TrustPrivacyPage = lazy(() => import('./pages/TrustPrivacyPage'))
 const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
-const MemberManagement = lazy(() => import('./pages/MemberManagement'))
+const TeamPage = lazy(() => import('./pages/TeamPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
@@ -179,7 +188,7 @@ function LegacyDirectMyRedirect() {
   return <Navigate to={`${newConversationPath()}${location.search}`} state={location.state} replace />
 }
 
-/** `/communication/direct/agent/:agentId[...]` → `/communication/agent/:agentId[...]`. */
+/** `/communication/direct/agent/:agentId[...]` → All communication with the agent chip. */
 function LegacyDirectAgentRedirect() {
   const { agentId, threadId } = useParams<{ agentId: string; threadId?: string }>()
   const location = useLocation()
@@ -192,10 +201,11 @@ function LegacyDirectAgentRedirect() {
   )
 }
 
-/** `/communication/agent/:agentId/activity[...]` → activity timeline filtered to that agent. */
-function LegacyAgentActivityRedirect() {
-  const { agentId } = useParams<{ agentId: string }>()
-  return <Navigate to={activityTerminalPath(agentId ?? null)} replace />
+/** Old agent, decisions, runs and channel folders → All communication with chips. */
+function LegacyHubRedirect() {
+  const location = useLocation()
+  const target = legacyHubRedirect(location.pathname, location.search) ?? inboxPath('open')
+  return <Navigate to={target} state={location.state} replace />
 }
 
 /** `/communication/activity` → `/activity` (preserve agent/q filters). */
@@ -204,9 +214,9 @@ function LegacyCommunicationActivityRedirect() {
   return <Navigate to={`/activity${location.search}`} replace />
 }
 
-const LEGACY_CUSTOMER_QUEUE_MAP: Record<string, string> = {
-  my: 'mine',
-  mine: 'mine',
+const LEGACY_CUSTOMER_QUEUE_MAP: Record<string, InboxQueue> = {
+  my: 'for_you',
+  mine: 'for_you',
   all: 'open',
   open: 'open',
   unassigned: 'unassigned',
@@ -220,16 +230,16 @@ function LegacyCustomersRedirect() {
   if (channelId) {
     return (
       <Navigate
-        to={`${channelPath('email', { connectionId: channelId, threadId })}${location.search}`}
+        to={channelPath(`email:${channelId}`, { threadId })}
         replace
       />
     )
   }
   if (queue === 'awaiting-decision') {
-    return <Navigate to={decisionsPath(threadId, location.search)} replace />
+    return <Navigate to={forYouPath(threadId, location.search)} replace />
   }
   const target = LEGACY_CUSTOMER_QUEUE_MAP[queue ?? ''] ?? 'all'
-  return <Navigate to={`${inboxPath(target as Parameters<typeof inboxPath>[0], threadId)}${location.search}`} replace />
+  return <Navigate to={`${inboxPath(target, threadId)}${location.search}`} replace />
 }
 
 const LEGACY_RUNS_QUEUE_MAP: Record<string, 'all' | 'updates' | 'results' | 'awaiting-decision'> = {
@@ -245,16 +255,9 @@ function LegacyAgentsRedirect() {
   const location = useLocation()
   const mapped = LEGACY_RUNS_QUEUE_MAP[queue ?? ''] ?? 'all'
   if (mapped === 'awaiting-decision') {
-    return <Navigate to={decisionsPath(threadId, location.search)} replace />
+    return <Navigate to={forYouPath(threadId, location.search)} replace />
   }
-  return <Navigate to={`${agentRunsPath(mapped, threadId)}${location.search}`} replace />
-}
-
-/** Legacy agent-runs decision segment → the Decisions hub leaf. */
-function LegacyAwaitingDecisionRedirect() {
-  const { threadId } = useParams<{ threadId?: string }>()
-  const location = useLocation()
-  return <Navigate to={decisionsPath(threadId, location.search)} replace />
+  return <Navigate to={`${inboxPath('all', threadId)}${location.search}`} replace />
 }
 
 /** `/messages/...` → the new inbox/runs routes. */
@@ -330,42 +333,19 @@ export default function App() {
             <Route path="/communication/assistant/*" element={<Navigate to={newConversationPath()} replace />} />
             <Route path="/communication/assistant" element={<Navigate to={newConversationPath()} replace />} />
 
-            {/* Company agent chats — same Communication shell as Alle communicatie */}
-            <Route path="/communication/agent/:agentId" element={<Communication />} />
-            <Route path="/communication/agent/:agentId/t/:threadId" element={<Communication />} />
-            {/* Per-agent activity → global activity timeline filtered to that agent */}
-            <Route path="/communication/agent/:agentId/activity" element={<LegacyAgentActivityRedirect />} />
-            <Route path="/communication/agent/:agentId/activity/t/:threadId" element={<LegacyAgentActivityRedirect />} />
-            <Route path="/communication/agent/:agentId/:queue" element={<Communication />} />
-            <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<Communication />} />
+            {/* Pinned teams: same sub-folders as All communication */}
+            <Route path="/communication/team/:teamId" element={<Communication />} />
+            <Route path="/communication/team/:teamId/t/:threadId" element={<Communication />} />
+            <Route path="/communication/team/:teamId/:queue" element={<Communication />} />
+            <Route path="/communication/team/:teamId/:queue/t/:threadId" element={<Communication />} />
 
-            {/* Decisions queue: open DecisionRequests across customer + internal */}
-            <Route path="/communication/decisions" element={<Communication />} />
-            <Route path="/communication/decisions/t/:threadId" element={<Communication />} />
-
-            {/* Agent runs */}
-            <Route path="/communication/runs" element={<Navigate to={agentRunsPath('all')} replace />} />
-            <Route
-              path="/communication/runs/awaiting-decision"
-              element={<LegacyAwaitingDecisionRedirect />}
-            />
-            <Route
-              path="/communication/runs/awaiting-decision/t/:threadId"
-              element={<LegacyAwaitingDecisionRedirect />}
-            />
-            <Route path="/communication/runs/:queue" element={<Communication />} />
-            <Route path="/communication/runs/:queue/t/:threadId" element={<Communication />} />
-
-            {/* Channels (optionally nested sub-queue: /mine, /open, ...) */}
-            <Route path="/communication/channel/email/:connectionId" element={<Communication />} />
-            <Route path="/communication/channel/email/:connectionId/t/:threadId" element={<Communication />} />
-            <Route path="/communication/channel/email/:connectionId/:queue" element={<Communication />} />
-            <Route path="/communication/channel/email/:connectionId/:queue/t/:threadId" element={<Communication />} />
-            <Route path="/communication/channel/:channelKey" element={<Communication />} />
-            <Route path="/communication/channel/:channelKey/t/:threadId" element={<Communication />} />
-            <Route path="/communication/channel/:channelKey/:queue" element={<Communication />} />
-            <Route path="/communication/channel/:channelKey/:queue/t/:threadId" element={<Communication />} />
-
+            {/* Old agent, decisions, runs and channel folders: now chips on All communication */}
+            <Route path="/communication/agent/*" element={<LegacyHubRedirect />} />
+            <Route path="/communication/decisions/*" element={<LegacyHubRedirect />} />
+            <Route path="/communication/decisions" element={<LegacyHubRedirect />} />
+            <Route path="/communication/runs/*" element={<LegacyHubRedirect />} />
+            <Route path="/communication/runs" element={<LegacyHubRedirect />} />
+            <Route path="/communication/channel/*" element={<LegacyHubRedirect />} />
             {/* Legacy hub routes */}
             <Route path="/communication/chat" element={<LegacyConversationRedirect />} />
             <Route path="/communication/chat/:conversationId" element={<LegacyConversationRedirect />} />
@@ -379,7 +359,7 @@ export default function App() {
             <Route path="/communication/customers/:queue/t/:threadId" element={<LegacyCustomersRedirect />} />
             <Route path="/communication/customers/ch/:channelId/:queue" element={<LegacyCustomersRedirect />} />
             <Route path="/communication/customers/ch/:channelId/:queue/t/:threadId" element={<LegacyCustomersRedirect />} />
-            <Route path="/communication/agents" element={<Navigate to={agentRunsPath('all')} replace />} />
+            <Route path="/communication/agents" element={<Navigate to={activityTerminalPath()} replace />} />
             <Route path="/communication/agents/:queue" element={<LegacyAgentsRedirect />} />
             <Route path="/communication/agents/:queue/t/:threadId" element={<LegacyAgentsRedirect />} />
           </Route>
@@ -395,6 +375,7 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/team" element={<TeamPage />} />
           {/* Cases hub retired: a typed signal lives on its conversation. The
               type catalog moved to Settings. */}
           <Route path="/cases" element={<Navigate to="/settings/signals" replace />} />
@@ -439,8 +420,8 @@ export default function App() {
             <Route path="/settings/access-security" element={<Navigate to="/settings/profile" replace />} />
             <Route path="/settings/general" element={<WorkspaceSettings />} />
             <Route path="/settings/branding" element={<CompanyConfig />} />
-            <Route path="/settings/members" element={<MemberManagement />} />
-            <Route path="/settings/teams" element={<Navigate to="/settings/members" replace />} />
+            <Route path="/settings/members" element={<Navigate to="/team" replace />} />
+            <Route path="/settings/teams" element={<Navigate to="/team?tab=teams" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
             <Route path="/settings/signals" element={<SignalTypesSettings />} />

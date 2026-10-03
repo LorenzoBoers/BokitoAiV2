@@ -108,12 +108,9 @@ async def resolve_decision_message(
         raise HTTPException(status_code=404, detail="Decision not found")
 
     options = json.loads(decision.options_json or "[]")
-    always_auto = False
     if option_id:
         resolved_option_id = option_id
-        chosen = next((o for o in options if o.get("id") == option_id), None)
-        always_auto = option_id == "always_auto" or bool(chosen and chosen.get("always_auto"))
-        if action in ("approved", "approve") or always_auto:
+        if action in ("approved", "approve"):
             resolved_action = "approved"
         elif action in ("rejected", "reject"):
             resolved_action = "rejected"
@@ -121,11 +118,10 @@ async def resolve_decision_message(
             resolved_action = "deferred"
     elif action in ("approved", "approve"):
         resolved_option_id = next(
-            (o.get("id") for o in options if o.get("id") in ("approve", "send", "connect", "always_auto")),
+            (o.get("id") for o in options if o.get("id") in ("approve", "send", "connect")),
             options[0].get("id") if options else "approve",
         )
         resolved_action = "approved"
-        always_auto = resolved_option_id == "always_auto"
     elif action in ("rejected", "reject"):
         resolved_option_id = next(
             (o.get("id") for o in options if o.get("id") in ("reject", "escalate")),
@@ -146,6 +142,5 @@ async def resolve_decision_message(
         resolved_option_id,
         resolved_action,
         user_id=user_id,
-        always_auto=always_auto,
         payload_override=payload_override,
     )

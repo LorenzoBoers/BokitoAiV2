@@ -1,0 +1,299 @@
+"""One path for notifications: who, which tier, which channel.
+
+Tiers:
+
+1. Interrupt now: you became owner or picked up, a question or decision for
+   you, a direct mention, a customer waiting for a person, a critical system
+   notice. Push when you are not in the app.
+2. Later: system notices (run failed, Govern proposals, invitations, results
+   of work you gave). In the app and the bell, no push.
+3. Digest: team activity and finished runs. Daily email when enabled; folded
+   in the bell.
+
+Conversation items (``signal_id`` set) are For you work: they get one
+Notification row per person for a shared read state (opening the
+conversation reads them) and never a second badge in the bell.
+
+Availability steers delivery: while you are in the app you get the in-app
+notice and no push; while you are away only critical tier 1 notices reach you
+outside the app.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timedelta
+from typing import Any, Iterable
+from uuid import UUID
+
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.auth import User
+from app.models.notification import Notification, UserNotificationPreference
+
+TIER_NOW, TIER_LATER, TIER_DIGEST = 1, 2, 3
+TIERS = (TIER_NOW, TIER_LATER, TIER_DIGEST)
+CHANNELS = ("inapp", "push", "email")
+
+DEFAULT_TIER_CHANNELS: dict[int, dict[str, bool]] = {
+    TIER_NOW: {"inapp": True, "push": True, "email": False},
+    TIER_LATER: {"inapp": True, "push": False, "email": False},
+    # Tier 3 email is the daily digest (opt-in).
+    TIER_DIGEST: {"inapp": True, "push": False, "email": False},
+}
+# Channels a tier can use at all; tier 2 and 3 never push.
+TIER_ALLOWED: dict[int, tuple[str, ...]] = {
+    TIER_NOW: ("inapp", "push", "email"),
+    TIER_LATER: ("inapp", "email"),
+    TIER_DIGEST: ("inapp", "email"),
+}
+
+# Finer per-event switches, one click deeper in Notification settings.
+CATEGORY_DEFAULTS: dict[str, dict[str, bool]] = {
+    "assigned-to-me": {"inapp": True, "push": True, "email": False},
+    "mentions": {"inapp": True, "push": True, "email": False},
+    "decisions": {"inapp": True, "push": True, "email": False},
+    "handoff": {"inapp": True, "push": True, "email": False},
+    "digest-weekly": {"inapp": False, "push": False, "email": False},
+}
+
+
+def _bool_map(raw: Any, fallback: dict[str, bool]) -> dict[str, bool]:
+    raw = raw if isinstance(raw, dict) else {}
+    out = dict(fallback)
+    for channel in CHANNELS:
+        # Older rows call the in-app channel "desktop".
+        value = raw.get(channel, raw.get("desktop") if channel == "inapp" else None)
+        if isinstance(value, bool):
+            out[channel] = value
+    return out
+
+
+def parse_prefs(prefs_json: str | None) -> dict[str, Any]:
+    """``{"tiers": {1: {...}, 2: {...}, 3: {...}}, "categories": {id: {...}}}``."""
+    try:
+        raw = json.loads(prefs_json or "")
+    except (json.JSONDecodeError, TypeError):
+        raw = None
+    tiers_raw: dict[str, Any] = {}
+    rows: list[Any] = []
+    if isinstance(raw, dict):
+        tiers_raw = raw.get("tiers") if isinstance(raw.get("tiers"), dict) else {}
+        rows = raw.get("rows") if isinstance(raw.get("rows"), list) else []
+    elif isinstance(raw, list):
+        rows = raw
+    tiers = {
+        tier: _bool_map(tiers_raw.get(str(tier)), DEFAULT_TIER_CHANNELS[tier]) for tier in TIERS
+    }
+    categories = {key: dict(value) for key, value in CATEGORY_DEFAULTS.items()}
+    for row in rows:
+        if isinstance(row, dict) and row.get("id") in CATEGORY_DEFAULTS:
+            categories[row["id"]] = _bool_map(row.get("channels"), CATEGORY_DEFAULTS[row["id"]])
+    # The old "digest-daily" row is the tier 3 email switch now.
+    for row in rows:
+        if isinstance(row, dict) and row.get("id") == "digest-daily" and "3" not in tiers_raw:
+            tiers[TIER_DIGEST]["email"] = bool((row.get("channels") or {}).get("email"))
+    return {"tiers": tiers, "categories": categories}
+
+
+def serialize_prefs(prefs: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "tiers": {str(tier): prefs["tiers"][tier] for tier in TIERS},
+        "rows": [
+            {"id": key, "channels": value} for key, value in prefs["categories"].items()
+        ],
+    }
+
+
+async def load_prefs(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> dict[str, Any]:
+    row = (
+        await session.execute(
+            select(UserNotificationPreference).where(
+                UserNotificationPreference.tenant_id == tenant_id,
+                UserNotificationPreference.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    return parse_prefs(row.prefs_json if row else None)
+
+
+async def save_prefs(
+    session: AsyncSession, tenant_id: UUID, user_id: UUID, patch: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge ``{"tiers": {...}, "rows": [...]}`` into the stored preferences."""
+    row = (
+        await session.execute(
+            select(UserNotificationPreference).where(
+                UserNotificationPreference.tenant_id == tenant_id,
+                UserNotificationPreference.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none() or UserNotificationPreference(tenant_id=tenant_id, user_id=user_id)
+    current = parse_prefs(row.prefs_json)
+    tiers_patch = patch.get("tiers") if isinstance(patch.get("tiers"), dict) else {}
+    for key, value in tiers_patch.items():
+        try:
+            tier = int(key)
+        except (TypeError, ValueError):
+            continue
+        if tier in TIERS:
+            current["tiers"][tier] = _bool_map(value, current["tiers"][tier])
+    for entry in patch.get("rows") if isinstance(patch.get("rows"), list) else []:
+        if isinstance(entry, dict) and entry.get("id") in CATEGORY_DEFAULTS:
+            key = entry["id"]
+            current["categories"][key] = _bool_map(entry.get("channels"), current["categories"][key])
+    row.prefs_json = json.dumps(serialize_prefs(current))
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    await session.commit()
+    return current
+
+
+def channels_for(
+    prefs: dict[str, Any], *, tier: int, category: str | None, status: str, critical: bool = False
+) -> set[str]:
+    """Channels for one notice: tier switch, then category switch, then availability.
+
+    ``inapp`` means an unread row exists (For you, shared read state); push and
+    email interrupt. In the app there is no push; away lets only critical
+    tier 1 notices interrupt.
+    """
+    from app.services.presence import AVAILABLE, AWAY
+
+    tier = tier if tier in TIERS else TIER_LATER
+    enabled = {
+        channel
+        for channel in TIER_ALLOWED[tier]
+        if prefs["tiers"][tier].get(channel)
+    }
+    if category and category in prefs["categories"]:
+        enabled &= {c for c, on in prefs["categories"][category].items() if on}
+    if critical:
+        enabled.add("inapp")
+    if tier == TIER_DIGEST:
+        # Digest email goes out in the daily mail, not per event.
+        enabled.discard("email")
+    if status == AVAILABLE:
+        enabled.discard("push")
+    elif status == AWAY and not (critical and tier == TIER_NOW):
+        enabled -= {"push", "email"}
+    return enabled
+
+
+async def _users(session: AsyncSession, ids: Iterable[UUID]) -> list[User]:
+    unique = list(dict.fromkeys(uid for uid in ids if uid))
+    if not unique:
+        return []
+    rows = (await session.execute(select(User).where(User.id.in_(unique)))).scalars().all()
+    by_id = {row.id: row for row in rows}
+    return [by_id[uid] for uid in unique if uid in by_id and by_id[uid].is_active]
+
+
+async def notify(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    kind: str,
+    recipients: Iterable[UUID],
+    title: str,
+    body: str = "",
+    tier: int = TIER_LATER,
+    category: str | None = None,
+    signal_id: UUID | None = None,
+    payload: dict[str, Any] | None = None,
+    critical: bool = False,
+    exclude: UUID | None = None,
+    cooldown_minutes: int = 0,
+) -> list[Notification]:
+    """Record and deliver one event to its recipients. Commits.
+
+    Returns the rows created (one per person with the in-app channel on).
+    ``cooldown_minutes`` drops a repeat of the same title within the window.
+    """
+    from app.gateway.publish import publish_notification
+    from app.services.notification_mail import send_notification_mail, thread_link
+    from app.services.presence import user_status
+
+    if cooldown_minutes > 0:
+        since = datetime.utcnow() - timedelta(minutes=cooldown_minutes)
+        recent = await session.execute(
+            select(Notification.id)
+            .where(
+                Notification.tenant_id == tenant_id,
+                Notification.kind == kind,
+                Notification.title == title[:200],
+                Notification.created_at >= since,
+            )
+            .limit(1)
+        )
+        if recent.first():
+            return []
+
+    data = {**(payload or {})}
+    if signal_id:
+        data.setdefault("signal_id", str(signal_id))
+    if category:
+        data.setdefault("category", category)
+    now = datetime.utcnow()
+    created: list[Notification] = []
+    push_targets: list[UUID] = []
+    mail_targets: list[UUID] = []
+    for user in await _users(session, recipients):
+        if exclude is not None and user.id == exclude:
+            continue
+        prefs = await load_prefs(session, tenant_id, user.id)
+        channels = channels_for(
+            prefs, tier=tier, category=category, status=user_status(user, now=now), critical=critical
+        )
+        if "inapp" in channels:
+            row = Notification(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                kind=kind,
+                title=title[:200],
+                body=body[:500],
+                tier=tier,
+                signal_id=signal_id,
+                payload_json=json.dumps(data, default=str),
+            )
+            session.add(row)
+            created.append(row)
+        if "push" in channels:
+            push_targets.append(user.id)
+        if "email" in channels:
+            mail_targets.append(user.id)
+    if created:
+        await session.commit()
+        for row in created:
+            await publish_notification(
+                tenant_id, notification_id=row.id, kind=row.kind, title=row.title, tier=row.tier
+            )
+    if push_targets:
+        from app.services.push import send_push_to_user
+
+        for user_id in push_targets:
+            await send_push_to_user(session, tenant_id, user_id, title[:200], body[:200], {"kind": kind, **data})
+    for user_id in mail_targets:
+        text = f"{title}\n\n{body}".strip()
+        if signal_id:
+            text += f"\n\nOpen the conversation:\n{thread_link(signal_id)}"
+        await send_notification_mail(session, user_id, subject=title[:200], text=text, tenant_id=tenant_id)
+    return created
+
+
+async def mark_conversation_read(
+    session: AsyncSession, tenant_id: UUID, user_id: UUID, signal_id: UUID
+) -> int:
+    """Opening a conversation reads its notifications for that person on every device."""
+    result = await session.execute(
+        update(Notification)
+        .where(
+            Notification.tenant_id == tenant_id,
+            Notification.user_id == user_id,
+            Notification.signal_id == signal_id,
+            Notification.status == "unread",
+        )
+        .values(status="read")
+    )
+    return int(result.rowcount or 0)

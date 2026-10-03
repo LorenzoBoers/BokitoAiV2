@@ -8,7 +8,7 @@ import {
   appScopedGet,
   buildAuthHeaders,
 } from './api'
-import { normalizeMyFeedback } from './inbox-api'
+import { normalizeMyFeedback, normalizeOwner, normalizeTurn } from './inbox-api'
 import { normalizeAiHandling } from './ai-handling'
 import type {
   InboxEvent,
@@ -113,6 +113,7 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),
+    contactBasis: asString(raw.contact_basis),
     status,
     snoozedUntil: asNullableTimestampString(raw.snoozed_until),
     followUpAt: asNullableTimestampString(raw.follow_up_at),
@@ -122,6 +123,8 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0
         ? null
         : asNumber(raw.assigned_to_user_id),
+    owner: normalizeOwner(raw.owner),
+    turn: normalizeTurn(raw.turn),
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
@@ -238,6 +241,7 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.folder) params.set('folder', filters.folder)
   if (filters.channel) params.set('channel', filters.channel)
   if (filters.agentId) params.set('agent_id', filters.agentId)
+  if (filters.teamId) params.set('team_id', filters.teamId)
   if (filters.projectId) params.set('project_id', filters.projectId)
   if (filters.tag) params.set('tag', filters.tag)
   if (filters.assigneeId) params.set('assignee_id', String(filters.assigneeId))
@@ -449,6 +453,13 @@ export async function patchSignalThread(
   const body: Record<string, unknown> = {}
   if (patch.status !== undefined) body.status = patch.status
   if (patch.assignedToUserId !== undefined) body.assigned_to_user_id = patch.assignedToUserId
+  if (patch.assignee !== undefined) {
+    body.assignee = {
+      kind: patch.assignee.kind,
+      id: patch.assignee.id ?? null,
+      ...(patch.assignee.message ? { message: patch.assignee.message } : {}),
+    }
+  }
   if (patch.tags !== undefined) body.tags = patch.tags
   if (patch.priority !== undefined) body.priority = patch.priority
   if (patch.projectId !== undefined) body.project_id = patch.projectId
@@ -847,17 +858,66 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
         email: asString(raw.email),
         avatarUrl: typeof raw.avatar_url === 'string' && raw.avatar_url ? raw.avatar_url : null,
         role: asString(raw.role) || null,
+        presence: raw.presence === 'available' || raw.presence === 'away' ? raw.presence : 'offline',
       }
     })
     .filter((m): m is InboxMember => m !== null)
 }
 
+/** Why someone cannot take this conversation; empty when they can. */
+export type AssigneeBlockReason = '' | 'no_channel_access'
+
+export type AssigneeCandidates = {
+  people: Array<InboxMember & { canHandle: boolean; reason: AssigneeBlockReason }>
+  agents: Array<{ id: string; name: string; canHandle: boolean; reason: AssigneeBlockReason }>
+  teams: Array<{ id: string; name: string; kind: 'people' | 'agents' | 'custom'; canHandle: boolean }>
+}
+
+/** People, agents and teams this conversation can go to (assign picker and @mentions). */
+export async function listSignalAssignees(token: string, threadId: string): Promise<AssigneeCandidates> {
+  const payload = await apiGet<Record<string, unknown>>(appRoutes.signals.threadAssignees(threadId), token)
+  const rows = (value: unknown) =>
+    (Array.isArray(value) ? value : []).filter(
+      (row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object',
+    )
+  const reason = (value: unknown): AssigneeBlockReason => (value === 'no_channel_access' ? value : '')
+  return {
+    people: rows(payload.people).map((raw) => {
+      const id = asNumber(raw.id, 0)
+      return {
+        id,
+        uuid: asString(raw.uuid),
+        name: asString(raw.name, `User ${id}`),
+        email: asString(raw.email),
+        avatarUrl: typeof raw.avatar_url === 'string' && raw.avatar_url ? raw.avatar_url : null,
+        role: null,
+        presence: raw.presence === 'available' || raw.presence === 'away' ? raw.presence : 'offline',
+        canHandle: raw.can_handle !== false,
+        reason: reason(raw.reason),
+      }
+    }),
+    agents: rows(payload.agents).map((raw) => ({
+      id: asString(raw.id),
+      name: asString(raw.name),
+      canHandle: raw.can_handle !== false,
+      reason: reason(raw.reason),
+    })),
+    teams: rows(payload.teams).map((raw) => ({
+      id: asString(raw.id),
+      name: asString(raw.name),
+      kind: raw.kind === 'people' || raw.kind === 'agents' ? raw.kind : 'custom',
+      canHandle: raw.can_handle !== false,
+    })),
+  }
+}
+
 export type SignalBadgeCounts = {
   inbox_unread: number
-  inbox_by_queue: { my: number; unassigned: number; all: number }
+  inbox_by_queue: { for_you: number; for_you_unread: number; unassigned: number; all: number }
+  /** Pinned team id → open work waiting on that team. */
+  by_team: Record<string, number>
   agents_attention: number
   no_reply_suggestions: number
-  your_turn: number
 }
 
 export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadgeCounts> {
@@ -865,21 +925,19 @@ export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadge
     appRoutes.signals.badgeCounts,
     token,
   )
-  const queue = (raw.inbox_by_queue as SignalBadgeCounts['inbox_by_queue'] | undefined) ?? {
-    my: 0,
-    unassigned: 0,
-    all: 0,
-  }
+  const queue = (raw.inbox_by_queue as Partial<SignalBadgeCounts['inbox_by_queue']> | undefined) ?? {}
+  const byTeamRaw = raw.by_team && typeof raw.by_team === 'object' ? (raw.by_team as Record<string, unknown>) : {}
   return {
     inbox_unread: Number(raw.inbox_unread ?? 0),
     inbox_by_queue: {
-      my: Number(queue.my ?? 0),
+      for_you: Number(queue.for_you ?? 0),
+      for_you_unread: Number(queue.for_you_unread ?? 0),
       unassigned: Number(queue.unassigned ?? 0),
       all: Number(queue.all ?? 0),
     },
+    by_team: Object.fromEntries(Object.entries(byTeamRaw).map(([k, v]) => [k, Number(v ?? 0)])),
     agents_attention: Number(raw.agents_attention ?? 0),
     no_reply_suggestions: Number(raw.no_reply_suggestions ?? 0),
-    your_turn: Number(raw.your_turn ?? 0),
   }
 }
 

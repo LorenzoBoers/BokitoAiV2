@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decisionSourcePath, parseDecisionSource } from './decision-source'
+import { decisionSourcePath, parseDecisionAddressee, parseDecisionSource } from './decision-source'
 
 describe('parseDecisionSource', () => {
   it('reads a queue item with its project', () => {
@@ -12,6 +12,24 @@ describe('parseDecisionSource', () => {
     expect(parseDecisionSource(null)).toBeNull()
     expect(parseDecisionSource({ type: 'mystery', id: 'x' })).toBeNull()
     expect(parseDecisionSource({ type: 'project' })).toBeNull()
+  })
+})
+
+describe('parseDecisionAddressee', () => {
+  it('reads a person or a team', () => {
+    expect(
+      parseDecisionAddressee({ kind: 'user', user_id: 'u-1', team_id: null, routed_by: 'auto' }),
+    ).toEqual({ kind: 'user', id: 'u-1', routedBy: 'auto' })
+    expect(parseDecisionAddressee({ kind: 'team', team_id: 't-1', routed_by: 'fixed' })).toEqual({
+      kind: 'team',
+      id: 't-1',
+      routedBy: 'fixed',
+    })
+  })
+
+  it('ignores legacy decisions without an addressee', () => {
+    expect(parseDecisionAddressee({ kind: '', user_id: null, team_id: null })).toBeNull()
+    expect(parseDecisionAddressee(undefined)).toBeNull()
   })
 })
 
