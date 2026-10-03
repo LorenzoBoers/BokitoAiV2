@@ -1,26 +1,29 @@
-import { Building2, Check, ChevronsUpDown, CircleHelp, LaptopMinimal, LogOut, Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { AlertCircle, Building2, Check, ChevronsUpDown, CircleHelp, LaptopMinimal, LogOut, Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme, type ThemeMode } from '../../context/ThemeContext'
 import { APP_VERSION } from '../../lib/app-version'
+import { getTeamOverview, setMyAway, type PresenceStatus } from '../../lib/teams-api'
 import { UserAvatar } from '../ui/UserAvatar'
+import { PresenceDot } from '../ui/PresenceDot'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { useGatewayStatus } from './ConnectionStatus'
 import { useGoToWorkspacesHub } from './SidebarWorkspaceSwitcher'
 
-const STATUS_DOT = {
-  connected: 'bg-status-success',
-  connecting: 'bg-status-warning',
-  disconnected: 'bg-status-error',
-} as const
+const PRESENCE_OPTIONS: Array<'available' | 'away'> = ['available', 'away']
 
 const THEME_MODES: { value: ThemeMode; icon: typeof Moon }[] = [
   { value: 'dark', icon: Moon },
@@ -39,33 +42,80 @@ type SidebarUserMenuProps = {
  */
 export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMenuProps) {
   const { t } = useTranslation('nav')
+  const { t: tCommon } = useTranslation('common')
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { token, user, logout } = useAuth()
   const { mode, setMode } = useTheme()
   const status = useGatewayStatus()
   const goToWorkspacesHub = useGoToWorkspacesHub()
   const name = user?.name?.trim() || 'Account'
   const email = user?.email ?? ''
   const statusLabel = t(`gateway.${status}`)
+  const [presence, setPresence] = useState<'available' | 'away'>('available')
+  const [presenceBusy, setPresenceBusy] = useState(false)
+
+  const loadPresence = useCallback(async () => {
+    if (!token || !email) return
+    try {
+      const overview = await getTeamOverview(token)
+      const me = overview.people.find((p) => p.email === email)
+      const next = me?.presence.status
+      if (next === 'available' || next === 'away') setPresence(next)
+    } catch {
+      // Keep last known value; menu still usable.
+    }
+  }, [token, email])
+
+  useEffect(() => {
+    void loadPresence()
+  }, [loadPresence])
+
+  const changePresence = async (next: 'available' | 'away') => {
+    if (!token || presenceBusy || next === presence) return
+    const previous = presence
+    setPresence(next)
+    setPresenceBusy(true)
+    try {
+      const result = await setMyAway(token, next === 'away')
+      const nextStatus = result.status as PresenceStatus
+      if (nextStatus === 'available' || nextStatus === 'away') setPresence(nextStatus)
+    } catch (err) {
+      setPresence(previous)
+      toast.error(err instanceof Error ? err.message : t('topbar.presenceError'))
+    } finally {
+      setPresenceBusy(false)
+    }
+  }
 
   const go = (path: string) => {
     navigate(path)
     onNavigate?.()
   }
 
+  const gatewayOk = status === 'connected'
+  const gatewayTitle =
+    status === 'disconnected'
+      ? t('gateway.reconnectHint')
+      : t('gateway.title', { status: statusLabel })
+
   const avatar = (
     <span className="relative shrink-0">
-      <UserAvatar name={name} email={email} avatarUrl={user?.avatarUrl} size={collapsed ? 24 : 24} />
-      <span
-        className={`absolute -bottom-px -right-px h-2 w-2 rounded-full ring-2 ring-bg ${STATUS_DOT[status]}`}
-        title={statusLabel}
-        aria-hidden
+      <UserAvatar
+        name={name}
+        email={email}
+        avatarUrl={user?.avatarUrl}
+        size={collapsed ? 24 : 24}
+        presence={presence}
       />
     </span>
   )
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) void loadPresence()
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -143,16 +193,64 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
           )
         })}
         <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger disabled={presenceBusy || !token}>
+            <span className="mr-2 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+              <PresenceDot status={presence} />
+            </span>
+            {tCommon(`presence.${presence}`)}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-36">
+            {PRESENCE_OPTIONS.map((value) => {
+              const selected = presence === value
+              return (
+                <DropdownMenuItem
+                  key={value}
+                  disabled={presenceBusy}
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    void changePresence(value)
+                  }}
+                  className={selected ? 'bg-bg-hover' : undefined}
+                >
+                  <PresenceDot status={value} className="mr-2" />
+                  {tCommon(`presence.${value}`)}
+                  {selected ? (
+                    <Check size={14} className="ml-auto shrink-0 text-text-heading" aria-hidden />
+                  ) : null}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuItem onClick={logout}>
           <LogOut size={14} className="mr-2 shrink-0 text-text-muted" aria-hidden />
           {t('topbar.signOut')}
         </DropdownMenuItem>
-        <div className="flex items-center justify-between px-2 pb-1 pt-1.5 text-2xs text-text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} aria-hidden />
-            {statusLabel}
+        <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1.5 text-2xs">
+          {gatewayOk ? (
+            <span className="inline-flex items-center gap-1 text-text-muted" title={gatewayTitle}>
+              <Check size={11} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden />
+              {statusLabel}
+            </span>
+          ) : (
+            <button
+              type="button"
+              title={gatewayTitle}
+              onClick={() => window.location.reload()}
+              className={
+                status === 'disconnected'
+                  ? 'inline-flex min-w-0 items-center gap-1 font-medium text-status-error hover:text-status-error/90'
+                  : 'inline-flex min-w-0 items-center gap-1 font-medium text-status-warning hover:text-status-warning/90'
+              }
+            >
+              <AlertCircle size={11} strokeWidth={2.5} className="shrink-0" aria-hidden />
+              <span className="truncate-fade">{statusLabel}</span>
+            </button>
+          )}
+          <span className="shrink-0 text-text-muted" title={`build ${APP_VERSION}`}>
+            v{APP_VERSION}
           </span>
-          <span title={`build ${APP_VERSION}`}>v{APP_VERSION}</span>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

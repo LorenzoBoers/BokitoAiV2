@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { useTour } from '../components/tour/TourContext'
-import { talkToAssistantPath } from '../lib/talk-to-assistant'
+import { openAssistant } from '../lib/personal-assistant-widget'
 
 const SUPPORT_EMAIL = 'support@bokito.ai'
 
@@ -62,7 +62,7 @@ export default function HelpHubPage() {
     {
       key: 'assistant',
       icon: MessageSquare,
-      to: talkToAssistantPath(t('helpHub.assistantPrefill')),
+      onClick: () => openAssistant(),
     },
   ]
 

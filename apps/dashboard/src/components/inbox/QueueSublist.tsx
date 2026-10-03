@@ -27,15 +27,18 @@ type QueueSublistProps = {
   activeLeaf: HubLeaf | null
   /** Badge per sub-queue. */
   counts?: Partial<Record<SubQueue, number>>
+  /** Rows above the standard For you / Open / Unassigned / Closed list. */
+  leading?: ReactNode
   /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
   children?: ReactNode
 }
 
 /** The uniform For you / Open / Unassigned / Closed rows under a folder. */
-export function QueueSublist({ baseLeaf, activeLeaf, counts, children }: QueueSublistProps) {
+export function QueueSublist({ baseLeaf, activeLeaf, counts, leading, children }: QueueSublistProps) {
   const { t } = useTranslation('nav')
   return (
     <div className="ml-[15px] space-y-px border-l border-border/70 pl-2">
+      {leading}
       {SUB_QUEUES.map((queue) => {
         const leaf = { ...baseLeaf, queue } as HubLeaf
         const isActive = activeLeaf != null && leafKey(activeLeaf) === leafKey(leaf)
@@ -67,6 +70,8 @@ type SidebarFolderProps = {
   badgeCount?: number
   queueCounts?: Partial<Record<SubQueue, number>>
   title?: string
+  /** Rows above the standard For you / Open / Unassigned / Closed list. */
+  leading?: ReactNode
   /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
   extra?: ReactNode
   /** Optional trailing control on the folder header (e.g. compose +). */
@@ -90,6 +95,7 @@ export function SidebarFolder({
   badgeCount = 0,
   queueCounts,
   title,
+  leading,
   extra,
   headerAction,
 }: SidebarFolderProps) {
@@ -144,7 +150,12 @@ export function SidebarFolder({
       </button>
       <div className="nav-fold" data-open={expanded ? 'true' : undefined} aria-hidden={!expanded}>
         <div className="nav-fold-inner">
-          <QueueSublist baseLeaf={baseLeaf} activeLeaf={activeLeaf} counts={queueCounts}>
+          <QueueSublist
+            baseLeaf={baseLeaf}
+            activeLeaf={activeLeaf}
+            counts={queueCounts}
+            leading={leading}
+          >
             {extra}
           </QueueSublist>
         </div>

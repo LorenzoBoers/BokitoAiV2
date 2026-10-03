@@ -2348,6 +2348,8 @@
     "languageEn": "English",
     "emailMessages": "E-mail en kanalen",
     "inboxAi": "AI-antwoorden",
+    "presence": "Status",
+    "presenceError": "Kon je status niet bijwerken.",
     "signOut": "Uitloggen"
   },
   "theme": {
@@ -2658,7 +2660,9 @@
     "mailboxes": "Kanalen",
     "teams": {
       "settingsAria": "Teams beheren",
-      "pinHint": "Zet een team vast om het hier te tonen"
+      "pinHint": "Zet een team vast om het hier te tonen",
+      "groupChat": "Groepschat",
+      "groupChatHint": "Teamgroepschat — binnenkort"
     }
   },
   "users": {
@@ -4689,7 +4693,7 @@
       },
       "assistant": {
         "title": "Praat met de assistent",
-        "description": "Stel een vraag in Communicatie; de workspace-assistent helpt verder."
+        "description": "Opent de Bokito-assistent in de hoek van je workspace."
       }
     }
   },

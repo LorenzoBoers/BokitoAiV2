@@ -2348,6 +2348,8 @@
     "languageEn": "English",
     "emailMessages": "Email & messages",
     "inboxAi": "AI replies",
+    "presence": "Status",
+    "presenceError": "Could not update your status.",
     "signOut": "Sign out"
   },
   "theme": {
@@ -2658,7 +2660,9 @@
     },
     "teams": {
       "settingsAria": "Manage teams",
-      "pinHint": "Pin a team to show it here"
+      "pinHint": "Pin a team to show it here",
+      "groupChat": "Group chat",
+      "groupChatHint": "Team group chat — coming soon"
     }
   },
   "users": {
@@ -4689,7 +4693,7 @@
       },
       "assistant": {
         "title": "Talk to the assistant",
-        "description": "Ask in Communication; the workspace assistant helps from there."
+        "description": "Opens the Bokito assistant in the corner of your workspace."
       }
     }
   },

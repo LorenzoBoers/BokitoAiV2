@@ -14,7 +14,6 @@ import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
-import { PresenceDot } from '../components/ui/PresenceDot'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import {
@@ -33,23 +32,99 @@ import {
   getTeamOverview,
   patchTeam,
   PICKUP_MODES,
-  setMyAway,
   setTeamMembers,
+  type PresenceStatus,
   type Team,
   type TeamMemberRef,
   type TeamOverview,
   type TeamPickup,
 } from '../lib/teams-api'
+import { cn } from '../lib/utils'
 
 type TabId = 'people' | 'agents' | 'teams'
+
+const AVATAR_STACK_MAX = 5
 
 function memberKey(ref: TeamMemberRef): string {
   return `${ref.kind}:${ref.id}`
 }
 
+type StackMember =
+  | { key: string; kind: 'user'; name: string; email: string; avatarUrl: string | null; presence?: PresenceStatus }
+  | { key: string; kind: 'agent'; name: string; id: string }
+
+function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
+  const peopleById = new Map(overview.people.map((p) => [p.uuid, p]))
+  const agentsById = new Map(overview.agents.map((a) => [a.id, a]))
+  const out: StackMember[] = []
+  for (const ref of team.members) {
+    if (ref.kind === 'user') {
+      const person = peopleById.get(ref.id)
+      if (!person) continue
+      out.push({
+        key: memberKey(ref),
+        kind: 'user',
+        name: person.name,
+        email: person.email,
+        avatarUrl: person.avatar_url,
+        presence: person.presence.status,
+      })
+    } else {
+      const agent = agentsById.get(ref.id)
+      if (!agent) continue
+      out.push({ key: memberKey(ref), kind: 'agent', name: agent.name, id: agent.id })
+    }
+  }
+  return out
+}
+
+/** Overlapping facepile for team members (people + agents). */
+function TeamMemberStack({ members, className }: { members: StackMember[]; className?: string }) {
+  if (members.length === 0) return null
+  const shown = members.slice(0, AVATAR_STACK_MAX)
+  const overflow = members.length - shown.length
+  const size = 28
+  return (
+    <span className={cn('flex items-center', className)} aria-hidden>
+      {shown.map((member, index) => (
+        <span
+          key={member.key}
+          className={cn(
+            'relative inline-flex rounded-full ring-2 ring-bg-surface',
+            index > 0 && '-ml-2',
+          )}
+          style={{ zIndex: shown.length - index }}
+          title={member.name}
+        >
+          {member.kind === 'user' ? (
+            <UserAvatar
+              name={member.name}
+              email={member.email}
+              avatarUrl={member.avatarUrl}
+              size={size}
+              presence={member.presence}
+              decorative
+            />
+          ) : (
+            <AiAvatar name={member.name} seed={member.id} size={size} />
+          )}
+        </span>
+      ))}
+      {overflow > 0 ? (
+        <span
+          className="-ml-2 flex items-center justify-center rounded-full bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted ring-2 ring-bg-surface"
+          style={{ width: size, height: size, zIndex: 0 }}
+        >
+          +{overflow}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
 export default function TeamPage() {
   const { t } = useTranslation('nav')
-  const { token, user, hasPermission } = useAuth()
+  const { token, hasPermission } = useAuth()
   const canManage = hasPermission('invite_members')
   const [params, setParams] = useSearchParams()
   const tab = (['people', 'agents', 'teams'].includes(params.get('tab') ?? '') ? params.get('tab') : 'people') as TabId
@@ -89,32 +164,12 @@ export default function TeamPage() {
     return map
   }, [overview, teamNames])
 
-  const me = overview?.people.find((p) => p.email === user?.email)
-  const toggleAway = async (away: boolean) => {
-    if (!token) return
-    try {
-      await setMyAway(token, away)
-      await reload()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('teamPage.saveError'))
-    }
-  }
-
   return (
     <PageContent width="xl" className="space-y-4">
       <ContentHeader
         guide="team"
         title={t('tabs.team.title')}
         subtitle={t('tabs.team.subtitle')}
-        meta={
-          me ? (
-            <label className="flex items-center gap-2 text-sm text-text-secondary">
-              <PresenceDot status={me.presence.status} withLabel />
-              <Switch checked={me.presence.status === 'away'} onCheckedChange={(v) => void toggleAway(v)} />
-              {t('teamPage.away')}
-            </label>
-          ) : null
-        }
       />
       <Tabs value={tab} onValueChange={(value) => setParams({ tab: value }, { replace: true })}>
         <TabsList>
@@ -206,40 +261,55 @@ export default function TeamPage() {
               </Button>
             </div>
           ) : null}
-          <div className="grid gap-3 md:grid-cols-2">
-            {(overview?.teams ?? []).map((team) => (
-              <Card key={team.id} className="space-y-2 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
-                      <UsersRound size={14} className="text-text-muted" />
-                      {teamNames[team.id]}
-                      {team.system ? <Badge variant="secondary">{t('teamPage.systemBadge')}</Badge> : null}
-                    </p>
-                    <p className="mt-0.5 text-xs text-text-muted">
-                      {team.system ? t(`teamPage.systemHint.${team.kind}`) : team.description || t('teamPage.noDescription')}
-                    </p>
+          <div className="flex flex-col gap-2">
+            {(overview?.teams ?? []).map((team) => {
+              const stack = overview ? resolveTeamMembers(team, overview) : []
+              return (
+                <Card key={team.id} className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                      <UsersRound size={16} className="mt-0.5 shrink-0 text-text-muted" />
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-text-heading">
+                          <span className="truncate-fade">{teamNames[team.id]}</span>
+                          {team.system ? <Badge variant="secondary">{t('teamPage.systemBadge')}</Badge> : null}
+                          {team.pinned ? <Badge variant="neutral">{t('teamPage.pinnedBadge')}</Badge> : null}
+                        </p>
+                        <p className="truncate-fade text-xs text-text-muted">
+                          {team.system
+                            ? t(`teamPage.systemHint.${team.kind}`)
+                            : team.description || t('teamPage.noDescription')}
+                        </p>
+                        <p className="text-xs text-text-secondary">
+                          {t(`teamPage.pickup.${team.pickup}`)}
+                          <span className="text-text-muted">
+                            {' · '}
+                            <span data-testid="team-metrics">
+                              {t('teamPage.metrics', {
+                                questions: team.metrics.questions,
+                                answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
+                                pickedUp: team.metrics.picked_up,
+                              })}
+                            </span>
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <TeamMemberStack members={stack} className="shrink-0" />
+                    {stack.length === 0 ? (
+                      <span className="shrink-0 text-xs text-text-muted">
+                        {t('teamPage.memberCount', { count: team.member_count })}
+                      </span>
+                    ) : null}
+                    {canManage ? (
+                      <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
+                        {t('teamPage.edit')}
+                      </Button>
+                    ) : null}
                   </div>
-                  {canManage ? (
-                    <Button size="sm" variant="outline" onClick={() => setEditing(team)}>
-                      {t('teamPage.edit')}
-                    </Button>
-                  ) : null}
-                </div>
-                <p className="text-xs text-text-secondary">
-                  {t('teamPage.memberCount', { count: team.member_count })} ·{' '}
-                  {t(`teamPage.pickup.${team.pickup}`)}
-                  {team.pinned ? ` · ${t('teamPage.pinnedBadge')}` : ''}
-                </p>
-                <p className="text-xs text-text-muted" data-testid="team-metrics">
-                  {t('teamPage.metrics', {
-                    questions: team.metrics.questions,
-                    answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
-                    pickedUp: team.metrics.picked_up,
-                  })}
-                </p>
-              </Card>
-            ))}
+                </Card>
+              )
+            })}
           </div>
         </TabsContent>
       </Tabs>
@@ -383,10 +453,15 @@ function TeamDialog({
                 return (
                   <label key={p.uuid} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover/60">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
-                    
-
+                    <UserAvatar
+                      name={p.name}
+                      email={p.email}
+                      avatarUrl={p.avatar_url}
+                      size={20}
+                      presence={p.presence.status}
+                      decorative
+                    />
                     <span className="text-sm">{p.name}</span>
-                    <PresenceDot status={p.presence.status} />
                   </label>
                 )
               })}

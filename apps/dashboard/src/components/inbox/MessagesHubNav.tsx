@@ -469,6 +469,16 @@ export default function MessagesHubNav() {
               activeLeaf={activeLeaf}
               defaultQueue={defaultQueueFor(leaf)}
               badgeCount={countForTeam(counts, team.id)}
+              leading={
+                <button
+                  type="button"
+                  title={t('support.teams.groupChatHint')}
+                  className="nav-row nav-sub-row h-[26px] text-xs font-medium text-accent"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <span className="min-w-0 flex-1 truncate-fade text-left">{t('support.teams.groupChat')}</span>
+                </button>
+              }
             />
           )
         })}
