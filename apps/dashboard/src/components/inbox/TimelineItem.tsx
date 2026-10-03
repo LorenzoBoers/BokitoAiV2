@@ -7,6 +7,7 @@ import { cancelScheduledMessage, submitMessageFeedback } from '../../lib/signals
 import { useCorrectionChat } from '../../lib/correction-chat'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
+import { Tip } from '../ui/Tip'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
@@ -836,24 +837,26 @@ function ActivityPill({
   label,
   ai = false,
   icon = null,
-  title,
+  tip,
 }: {
   label: string
   ai?: boolean
   icon?: ReactNode
-  title?: string
+  /** Optional human-readable hover hint — never raw JSON / dumps. */
+  tip?: string
 }) {
   return (
-    <span
-      title={title}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
-        ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
-      )}
-    >
-      {icon}
-      {label}
-    </span>
+    <Tip label={tip}>
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
+          ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
+        )}
+      >
+        {icon}
+        {label}
+      </span>
+    </Tip>
   )
 }
 
@@ -868,24 +871,39 @@ function EventPill({
 }) {
   const { t } = useTranslation('communication')
   const { ai, icon } = eventPresentation(event.eventType, event.payload ?? {})
-  const payloadTitle =
-    event.payload && Object.keys(event.payload).length > 0
-      ? JSON.stringify(event.payload)
-      : undefined
   return (
     <ActivityPill
       label={eventLabel(event, t, memberName, memberNameFor)}
       ai={ai}
       icon={icon}
-      title={payloadTitle}
     />
   )
 }
 
+/** Parse a system_event body that accidentally stored a patch JSON blob. */
+function parseSystemEventPayload(raw: string): Record<string, unknown> | null {
+  const text = raw.trim()
+  if (!text.startsWith('{')) return null
+  try {
+    const parsed = JSON.parse(text) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    return parsed as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 /** System messages (contact link, escalate, …) — not teammate notes. */
 function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
-  const label =
-    (message.bodyText || message.bodyPreview || '').trim() || message.kind || 'system_event'
+  const { t } = useTranslation('communication')
+  const raw = (message.bodyText || message.bodyPreview || '').trim()
+  const fromPayload =
+    message.payload && Object.keys(message.payload).length > 0 ? message.payload : null
+  const fromBody = raw ? parseSystemEventPayload(raw) : null
+  const patch = fromPayload ?? fromBody
+  const label = patch
+    ? EVENT_LABELS.thread_updated(t, patch)
+    : raw || t('timeline.events.threadUpdated')
   return (
     <div className="flex justify-center py-0.5 px-2">
       <ActivityPill label={label} />

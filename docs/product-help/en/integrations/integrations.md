@@ -33,7 +33,7 @@ WhatsApp itself is configured under **Channels**, not only here. The marketplace
 ![Modules hub](/api/docs/assets/integrations/modules-hub.png)
 *Connections hub — installed modules as cards, then partner logins.*
 
-1. Open **Connections** in the rail (Connections group). Installed module cards sit at the top; open a card, or use **Marketplace** and its **Modules** row to install a new preset.
+1. Open **Connections** in the rail under **Organization**. Installed module cards sit at the top; open a card, or use **Marketplace** and its **Modules** row to install a new preset.
 2. Open **Accounting** (or another live module), then choose **Install**. Status becomes **Needs setup**.
 3. Assign **at least one AI agent**. Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
 4. Review **What agents can do**: each module action shows a short description, the universal path (`accounting_list_companies`, …), and whether it is **Read** or **Needs approval**. When partners are attached, **Tools from connected MCP servers** lists the exact MCP tool names discovered from those servers.

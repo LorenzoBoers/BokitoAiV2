@@ -9,6 +9,7 @@ import { ValidationProvider } from './context/ValidationContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
 import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
+import { NativeTitleTooltipBridge } from './components/ui/NativeTitleTooltipBridge'
 import { TooltipProvider } from './components/ui/tooltip'
 import App from './App'
 import i18n from './i18n'
@@ -107,6 +108,7 @@ const router = createBrowserRouter([
                 <NotificationProvider>
                   <ValidationProvider>
                     <App />
+                    <NativeTitleTooltipBridge />
                     <Toaster
                       richColors
                       closeButton

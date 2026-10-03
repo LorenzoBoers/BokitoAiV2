@@ -12,8 +12,10 @@ type TipProps = {
 }
 
 /**
- * Styled tooltip over a single child. Prefer this over the native `title`
- * attribute so hover hints match the rest of the dashboard.
+ * Styled tooltip over a single child (side/align control).
+ *
+ * Native `title="…"` is also fine: `NativeTitleTooltipBridge` upgrades those
+ * app-wide. Use Tip when you need placement control or ReactNode content.
  */
 export function Tip({
   label,

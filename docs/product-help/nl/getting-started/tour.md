@@ -16,29 +16,28 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 ## Besturing: de dagelijkse loop
 
 ![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
-*Overview, Communicatie, Agenda en Projecten.*
+*Overview, Communicatie en Agenda.*
 
 - **Overview** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Overview](/docs/getting-started/cockpit). Onder Profiel kun je Overview als startpagina zetten; Communicatie is de standaard.
 - **Communicatie** — de gesprekken, en de contacten erachter. Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
 - **Agenda** — wanneer agents wakker worden. Zie [Agenda](/docs/ai/agenda).
-- **Team** — de mensen, de agents en de teams die ze vormen, met wie nu beschikbaar is. Zie [Team](/docs/getting-started/team).
+
+## Werk en AI
+
 - **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/projects).
-
-## AI: de workforce
-
-- **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
 - **Draaiboeken** — herhaalbare stappenprocessen die agents uitvoeren. Zie [Draaiboeken](/docs/ai/workstreams).
+- **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
 - **Kennis** — documenten, skills en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
 
-## Koppelingen: modules en tools
+## Organisatie: mensen, tools en config
 
-Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) staan onder **Connections** in de rail — ze krijgen geen eigen rail-tab. Open **Connections** voor marketplace-installaties, partnerlogins en tools. Zie [Integraties](/docs/integrations/integrations).
+Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
-## Instellingen
-
+- **Team** — de mensen, de agents en de teams die ze vormen, met wie nu beschikbaar is. Zie [Team](/docs/getting-started/team).
+- **Koppelingen** — marketplace-installaties, partnerlogins en tools. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Integraties](/docs/integrations/integrations).
 - **Instellingen** — **Kanalen**, **AI-antwoorden**, **Chatwidget**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).
 
-Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat boven Besturing in de rail — zie [Overview](/docs/getting-started/cockpit).
+Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Team. Zie de [setupgids](/docs/getting-started/setup-guide). **Overview** staat boven Besturing in de rail — zie [Overview](/docs/getting-started/cockpit).
 
 Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel is **Startpagina** **Communicatie** (standaard) of **Overview**; **Weergave** is **Licht**, **Donker** of **Systeem**; **E-mailhandtekening** wordt meegestuurd wanneer jij als jezelf verstuurt of goedkeurt. Ze veranderen niet hoe het team klanten beantwoordt.
 

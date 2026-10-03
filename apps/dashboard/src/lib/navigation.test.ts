@@ -23,7 +23,7 @@ describe('navigation', () => {
 
   it('keeps Control to conversation-first destinations (Govern stays in Settings)', () => {
     const control = TAB_GROUPS.find((g) => g.label === 'Control')
-    expect(control?.tabs).toEqual(['communication', 'agenda', 'team'])
+    expect(control?.tabs).toEqual(['communication', 'agenda'])
     expect(TAB_PATHS).not.toHaveProperty('cases')
     expect(TAB_PATHS).not.toHaveProperty('activity')
     expect(TAB_PATHS).not.toHaveProperty('govern')
@@ -42,10 +42,10 @@ describe('navigation', () => {
     expect(tabFromPath('/projects')).toBe('projects')
   })
 
-  it('splits Connections from Settings in the rail', () => {
-    const connections = TAB_GROUPS.find((g) => g.label === 'Connections')
-    const settings = TAB_GROUPS.find((g) => g.label === 'Settings')
-    expect(connections?.tabs).toEqual(['modules'])
-    expect(settings?.tabs).toEqual(['settings'])
+  it('groups Team, Connections and Settings under Organization', () => {
+    const organization = TAB_GROUPS.find((g) => g.label === 'Organization')
+    expect(organization?.tabs).toEqual(['team', 'modules', 'settings'])
+    expect(TAB_GROUPS.find((g) => g.label === 'Connections')).toBeUndefined()
+    expect(TAB_GROUPS.find((g) => g.label === 'Settings')).toBeUndefined()
   })
 })
