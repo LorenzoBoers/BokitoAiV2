@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
-import { Bell, BellRing, ChevronDown, ChevronRight } from 'lucide-react'
+import { Bell, BellRing, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
@@ -28,6 +27,7 @@ import {
   isWebPushServerConfigured,
   isWebPushSupported,
 } from '../lib/web-push'
+import { cn } from '../lib/utils'
 
 const GRID = 'grid-cols-[1fr_72px_72px_72px]'
 
@@ -35,17 +35,24 @@ function Cell({
   allowed,
   checked,
   label,
+  disabled,
   onChange,
 }: {
   allowed: boolean
   checked: boolean
   label: string
+  disabled?: boolean
   onChange: (value: boolean) => void
 }) {
   return (
-    <div className="flex justify-center">
+    <div className={cn('flex justify-center', disabled && 'opacity-40')}>
       {allowed ? (
-        <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
+        <Switch
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={onChange}
+          aria-label={label}
+        />
       ) : (
         <span className="text-xs text-text-muted/50">-</span>
       )}
@@ -139,11 +146,29 @@ export default function NotificationSettings() {
   const channelLabel = (channel: NotificationChannel) =>
     t(`notificationsPage.${channel === 'inapp' ? 'inApp' : channel}`)
 
-  const header = (first: string) => (
+  const pushColumnOff = !pushEnabled
+
+  const header = (first: string, withRestore = false) => (
     <div className={`grid ${GRID} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}>
-      <span>{first}</span>
+      <span className="flex items-center gap-1.5">
+        {first}
+        {withRestore ? (
+          <button
+            type="button"
+            onClick={() => void save(defaultNotificationPrefs())}
+            title={t('notificationsPage.restoreDefaults')}
+            aria-label={t('notificationsPage.restoreDefaults')}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+          >
+            <RotateCcw size={13} aria-hidden />
+          </button>
+        ) : null}
+      </span>
       {NOTIFICATION_CHANNELS.map((channel) => (
-        <span key={channel} className="text-center">
+        <span
+          key={channel}
+          className={cn('text-center', channel === 'push' && pushColumnOff && 'opacity-40')}
+        >
           {channelLabel(channel)}
         </span>
       ))}
@@ -153,27 +178,34 @@ export default function NotificationSettings() {
   return (
     <PageContent width="lg" className="space-y-5 py-1">
       <p className="text-sm text-text-secondary">{t('notificationsPage.intro')}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void save(defaultNotificationPrefs())}
-          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
-        >
-          {t('notificationsPage.restoreDefaults')}
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            toast.message(t('notificationsPage.previewTitle'), { description: t('notificationsPage.previewBody') })
-          }
-          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
-        >
-          {t('notificationsPage.preview')}
-        </button>
-      </div>
+
+      <Card className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
+              <BellRing size={14} className="text-text-muted" />
+              {t('notificationsPage.pushTitle')}
+            </p>
+            <p className="text-xs text-text-secondary">
+              {!pushSupported
+                ? t('notificationsPage.pushUnsupported')
+                : pushServerConfigured === false
+                  ? t('notificationsPage.pushNotConfigured')
+                  : t('notificationsPage.pushBody')}
+            </p>
+            {pushError ? <p className="text-xs text-status-error">{pushError}</p> : null}
+          </div>
+          <Switch
+            checked={pushEnabled}
+            disabled={!pushSupported || pushBusy || !token || pushServerConfigured !== true}
+            onCheckedChange={(checked) => void togglePush(checked)}
+            aria-label={t('notificationsPage.pushAria')}
+          />
+        </div>
+      </Card>
 
       <Card className="overflow-hidden" data-testid="notification-tiers">
-        {header(t('notificationsPage.tierColumn'))}
+        {header(t('notificationsPage.tierColumn'), true)}
         {NOTIFICATION_TIERS.map((tier) => (
           <div key={tier} className={`grid ${GRID} items-center border-b border-border/60 px-5 py-3 last:border-b-0`}>
             <div className="pr-3">
@@ -185,6 +217,7 @@ export default function NotificationSettings() {
                 key={channel}
                 allowed={TIER_ALLOWED[tier].includes(channel)}
                 checked={prefs.tiers[tier][channel]}
+                disabled={channel === 'push' && pushColumnOff}
                 label={`${t(`notificationsPage.tiers.${tier}.title`)} ${channelLabel(channel)}`}
                 onChange={(value) => void save(setTierChannel(prefs, tier, channel, value))}
               />
@@ -214,6 +247,7 @@ export default function NotificationSettings() {
                     key={channel}
                     allowed={(CATEGORY_ALLOWED[row.id] ?? []).includes(channel)}
                     checked={row.channels[channel]}
+                    disabled={channel === 'push' && pushColumnOff}
                     label={`${t(`notificationsPage.rows.${row.id}`)} ${channelLabel(channel)}`}
                     onChange={(value) => void save(setCategoryChannel(prefs, row.id, channel, value))}
                   />
@@ -223,31 +257,6 @@ export default function NotificationSettings() {
           </Card>
         ) : null}
       </div>
-
-      <Card className="p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
-              <BellRing size={14} className="text-text-muted" />
-              {t('notificationsPage.pushTitle')}
-            </p>
-            <p className="text-xs text-text-secondary">
-              {!pushSupported
-                ? t('notificationsPage.pushUnsupported')
-                : pushServerConfigured === false
-                  ? t('notificationsPage.pushNotConfigured')
-                  : t('notificationsPage.pushBody')}
-            </p>
-            {pushError ? <p className="text-xs text-status-error">{pushError}</p> : null}
-          </div>
-          <Switch
-            checked={pushEnabled}
-            disabled={!pushSupported || pushBusy || !token || pushServerConfigured !== true}
-            onCheckedChange={(checked) => void togglePush(checked)}
-            aria-label={t('notificationsPage.pushAria')}
-          />
-        </div>
-      </Card>
 
       <Card className="p-4">
         <div className="space-y-1">
