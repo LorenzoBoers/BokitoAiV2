@@ -107,21 +107,18 @@ export type LlmKeyStatus = {
   updated_at: string | null
 }
 
-/** Bokito AI: the platform-managed default provider (models picked by Bokito). */
+/** Bokito AI: abstract platform-managed default (no third-party backing names). */
 export type ManagedAiModel = {
   slug: string
   display_name: string
   provider: string
   key_source: 'tenant' | 'platform' | 'mock'
   ready: boolean
-  /** Region the call is processed in right now. */
+  /** Soft region hint for the managed default (usually eu). */
   region: DataRegion
-  /** Region Bokito aims for (EU); differs from `region` only on fallback. */
   intended_region: DataRegion
-  /** True while the managed model runs on a non-EU fallback provider. */
+  /** True while the managed default runs on a temporary backup path. */
   fallback_active: boolean
-  backing_provider: string
-  backing_display_name: string
 }
 
 export type ManagedAiStatus = {

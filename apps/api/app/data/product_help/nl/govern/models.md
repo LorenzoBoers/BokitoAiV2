@@ -1,48 +1,36 @@
 ---
 title: Modellen
-intro: Bokito AI draait je workspace standaard op een EU-gehost model. Eigen modellen zijn een optionele uitzondering.
-description: Gebruik beheerde Bokito AI (standaard EU), bepaal of US-gehoste platformmodellen mogen draaien, of koppel eigen providersleutels wanneer je workspace dat mag.
-keywords: modellen, llm, providers, byok, api-keys, bokito ai, verbruik, dataregio, eu, mistral, avg
+intro: Bokito AI is de standaard voor je workspace. Voeg eigen modellen toe wanneer je plan dat toelaat.
+description: Gebruik beheerde Bokito AI als vaste standaard, of koppel eigen providersleutels wanneer je workspace dat mag.
+keywords: modellen, llm, providers, byok, api-keys, bokito ai, verbruik
 sort: 30
 related: govern,agents,integrations
 ---
 
 # Modellen
 
-Modellen staan onder **Instellingen** en daarna **Modellen**. Bokito AI verwerkt gesprekken op een EU-gehost model tenzij jij anders beslist; verbruik en het EU-aandeel staan op Cockpit **Verbruik**.
+Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont een banner **Bokito AI** en een lijst met modellen die je kunt toevoegen of verwijderen. Verbruik staat op Cockpit **Verbruik**.
 
 ## Gebruik Bokito AI
 
 ![Modelinstellingen](/api/docs/assets/models/catalog.png)
-*Bokito AI is de standaard beheerde intelligentie voor de workspace.*
+*Bokito AI is de standaard voor de workspace.*
 
-1. Open **Instellingen** en daarna **Modellen**. De kaart **Bokito AI** toont **Actief** wanneer de platformsleutel live is.
-2. Lees de regels **Chatmodel** en **Embeddingmodel**: elk toont het onderliggende model, de provider en een regiobadge (**EU** of **VS**).
-3. Laat agents op Bokito AI staan tenzij je eigen sleutels nodig hebt. Verbruik wordt gemeten voor deze workspace en telt mee voor het budget.
-4. Open een [agent](/docs/ai/agents) om het model te bevestigen. De kiezer toont alleen Bokito AI totdat eigen modellen zijn toegestaan en aangezet, en elke optie draagt zijn regio.
+1. Open **Instellingen** en daarna **Modellen**. De banner **Bokito AI** toont **Actief** wanneer het platform live is.
+2. Laat agents op Bokito AI staan tenzij je eigen sleutels nodig hebt. Bokito AI is de standaard zolang je geen ander model hebt ingesteld.
+3. Open een [agent](/docs/ai/agents) om het model te bevestigen. De kiezer toont alleen Bokito AI totdat eigen modellen zijn toegestaan en aangezet.
 
-## Controleer waar data wordt verwerkt
-
-![Dataregio](/api/docs/assets/models/data-region.png)
-*De kaart Dataregio toont het EU-aandeel van de laatste 30 dagen en of US-gehoste platformmodellen mogen draaien.*
-
-1. Open **Instellingen**, daarna **Modellen**, en scrol naar **Dataregio**.
-2. Het percentage toont hoeveel live tokens van de laatste 30 dagen op EU-gehoste modellen draaiden. Kennis-embeddings draaien nog op een US-gehost model; een EU-alternatief volgt met een herindexeringsstap.
-3. Toont de kaart Bokito AI een oranje melding, dan is het EU-gehoste model tijdelijk niet beschikbaar en draait Bokito AI op een fallback in de VS. Bokito schakelt automatisch terug; niets wordt verborgen.
-4. Voor de tokenverdeling per regio open je de [Cockpit](/docs/getting-started/cockpit)-pagina **Verbruik** en lees je **Per dataregio**.
-
-## Sta US-gehoste platformmodellen toe
-
-1. Open **Instellingen**, daarna **Modellen**, daarna **Dataregio**. De schakelaar **US-gehoste platformmodellen toestaan** staat standaard uit.
-2. Zolang hij uit staat, draait een agent die naar een US-gehost platformmodel (Anthropic, OpenAI) wijst in plaats daarvan op Bokito AI. De kaart toont die modellen onder **US-gehoste modellen gekozen door actieve agents**.
-3. Zet de schakelaar alleen aan als je verwerkersovereenkomst doorgifte naar de VS dekt. Eigenaren en beheerders kunnen hem wijzigen; de wijziging wordt vastgelegd.
-4. Je eigen providersleutels worden nooit omgeleid: een BYOK-model draait waar zijn provider draait en toont die regio.
-
-## Voeg een eigen model toe (wanneer gerechtigd)
+## Voeg een model toe (wanneer gerechtigd)
 
 1. Eigen modellen verschijnen alleen wanneer zowel de platformfeature als je workspace-entitlement aan staan. Anders zie je een korte notitie **Eigen sleutels op aanvraag**.
-2. Zet **Gebruik eigen modellen** aan en kies **Model toevoegen**. Kies een provider (**Mistral (EU)**, **Anthropic (US)**, **OpenAI (US)** of **OpenAI-compatibel**), plak een **API-sleutel**, en kies **Opslaan en testen**.
-3. Kies een voorgesteld model of vul een eigen model-id in, en sla op. Je modellen verschijnen in agent-kiezers met hun regiobadge en worden door de provider gefactureerd. Bokito AI blijft de fallback wanneer je eigen modellen uitzet of verwijdert.
+2. Zet **Gebruik eigen modellen** aan en kies **Model toevoegen**. Kies een provider (of **Aangepast (OpenAI-compatibel)** met een basis-URL), plak een **API-sleutel**, en kies **Opslaan en testen**.
+3. Kies een voorgesteld model of vul een eigen model-id in, en sla op. Je modellen verschijnen in de lijst en in agent-kiezers. Ze worden door de provider gefactureerd. Bokito AI blijft de fallback wanneer je eigen modellen uitzet of verwijdert.
+
+## Gegevensverwerking
+
+1. Open **Instellingen**, daarna **Modellen**, en vouw **Gegevensverwerking** onder de lijst open.
+2. De schakelaar **Niet-EU platformmodellen toestaan** staat standaard uit. Zolang hij uit staat, draait een agent die naar een niet-EU platformmodel wijst in plaats daarvan op Bokito AI.
+3. Zet de schakelaar alleen aan als je verwerkersovereenkomst die doorgifte dekt. Eigenaren en beheerders kunnen hem wijzigen; je eigen providersleutels worden nooit omgeleid.
 
 ## Als AI zonder live sleutel draait
 
@@ -56,4 +44,4 @@ Tokenbudgetten zitten op Cockpit **Verbruik** (dagelijks tokenplafond en maandel
 
 ## Wat nu
 
-Bevestig dat Bokito AI Actief en EU is, en kijk daarna naar **Verbruik** op de [Cockpit](/docs/getting-started/cockpit).
+Bevestig dat Bokito AI Actief is, en kijk daarna naar **Verbruik** op de [Cockpit](/docs/getting-started/cockpit).

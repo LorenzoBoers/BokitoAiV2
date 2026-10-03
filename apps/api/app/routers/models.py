@@ -186,25 +186,16 @@ async def _managed_ai_status(
             session, tenant_id, kind=kind, model_slug=None
         )
         catalog_row = await catalog_svc.get_model(session, resolved.slug)
-        backing_row = (
-            await catalog_svc.get_model(session, resolved.model_id)
-            if resolved.model_id and resolved.model_id != resolved.slug
-            else None
-        )
+        # Operator-facing payload stays abstract: no third-party backing names.
         return {
             "slug": resolved.slug,
             "display_name": catalog_row.display_name if catalog_row else resolved.slug,
             "provider": resolved.provider,
             "key_source": resolved.key_source,
             "ready": resolved.live,
-            # Where this call is processed, and what actually runs it.
             "region": resolved.region,
             "intended_region": resolved.intended_region or resolved.region,
             "fallback_active": resolved.fallback_active,
-            "backing_provider": resolved.provider_type,
-            "backing_display_name": (
-                backing_row.display_name if backing_row else resolved.model_id
-            ),
         }
 
     chat = await _model_info("chat")

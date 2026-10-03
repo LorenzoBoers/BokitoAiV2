@@ -121,7 +121,7 @@ export default function SettingsLayout() {
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5 lg:flex">
-        <p className="flex h-7 items-center pl-2 pb-1 text-sm font-medium leading-none text-text-heading">
+        <p className="flex h-7 shrink-0 items-center pl-2 pb-1 text-sm font-medium leading-none text-text-heading">
           {t('tabs.settings.title')}
         </p>
         <ScrollFade className="pb-1">
@@ -129,6 +129,9 @@ export default function SettingsLayout() {
             <SettingsNav pathname={pathname} />
           </nav>
         </ScrollFade>
+        <TooltipProvider delayDuration={250}>
+          <SettingsHelpLink pathname={pathname} className="mt-auto shrink-0 border-t border-border/60 pt-2" />
+        </TooltipProvider>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -147,41 +150,65 @@ export default function SettingsLayout() {
   )
 }
 
+function SettingsHelpLink({
+  pathname,
+  compact = false,
+  className,
+}: {
+  pathname: string
+  compact?: boolean
+  className?: string
+}) {
+  const { t } = useTranslation('nav')
+  const helpGroup = SETTINGS_GROUPS.find((group) => group.accent)
+  const link = helpGroup?.links[0]
+  if (!link) return null
+  const active = linkIsActive(pathname, link)
+  const hint = link.hintKey ? t(link.hintKey) : ''
+  const item = (
+    <NavLink to={link.to} className="nav-row" data-active={active ? 'true' : undefined}>
+      <Info aria-hidden />
+      {t(link.labelKey)}
+    </NavLink>
+  )
+  return (
+    <div className={cn(compact ? 'min-w-[140px]' : 'w-full', className)}>
+      {hint ? (
+        <Tooltip>
+          <TooltipTrigger asChild>{item}</TooltipTrigger>
+          <TooltipContent
+            side={compact ? 'top' : 'right'}
+            align="start"
+            sideOffset={8}
+            className="max-w-56 font-normal"
+          >
+            {hint}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        item
+      )}
+    </div>
+  )
+}
+
 function SettingsNav({ pathname, compact = false }: { pathname: string; compact?: boolean }) {
   const { t } = useTranslation('nav')
+  const groups = compact
+    ? SETTINGS_GROUPS
+    : SETTINGS_GROUPS.filter((group) => !group.accent)
   return (
     <TooltipProvider delayDuration={250}>
       <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex min-h-0 flex-col gap-y-3'}>
-        {SETTINGS_GROUPS.map((group) => {
+        {groups.map((group) => {
           if (group.accent) {
-            const link = group.links[0]
-            if (!link) return null
-            const active = linkIsActive(pathname, link)
-            const hint = link.hintKey ? t(link.hintKey) : ''
-            const item = (
-              <NavLink to={link.to} className="nav-row" data-active={active ? 'true' : undefined}>
-                <Info aria-hidden />
-                {t(link.labelKey)}
-              </NavLink>
-            )
             return (
-              <div key={group.labelKey} className={compact ? 'min-w-[140px]' : 'mt-2 w-full border-t border-border/60 pt-2'}>
-                {hint ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>{item}</TooltipTrigger>
-                    <TooltipContent
-                      side={compact ? 'top' : 'right'}
-                      align="start"
-                      sideOffset={8}
-                      className="max-w-56 font-normal"
-                    >
-                      {hint}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  item
-                )}
-              </div>
+              <SettingsHelpLink
+                key={group.labelKey}
+                pathname={pathname}
+                compact={compact}
+                className={compact ? undefined : 'mt-2 border-t border-border/60 pt-2'}
+              />
             )
           }
           return (

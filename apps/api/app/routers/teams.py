@@ -91,7 +91,8 @@ class OverviewAgent(BaseModel):
     id: str
     name: str
     role: str
-    autonomy_level: str
+    # Older rows can still have NULL; treat that as assisted for the overview.
+    autonomy_level: str = "assisted"
     team_ids: list[str]
     open_owned: int
     metrics: OverviewMetrics = Field(default_factory=OverviewMetrics)
@@ -350,8 +351,8 @@ async def team_overview(
             {
                 "id": str(agent.id),
                 "name": agent.name,
-                "role": agent.role,
-                "autonomy_level": agent.autonomy_level,
+                "role": agent.role or "",
+                "autonomy_level": agent.autonomy_level or "assisted",
                 "team_ids": membership.get(f"agent:{agent.id}", []),
                 "open_owned": int(open_owned_agent.get(agent.id, 0)),
                 "metrics": metrics["agents"].get(str(agent.id), empty_metrics()),

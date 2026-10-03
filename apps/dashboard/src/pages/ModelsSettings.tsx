@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Eye, EyeOff, Globe, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Eye, EyeOff, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
-import { RegionBadge } from '../components/models/RegionBadge'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { humanizeModelId, providerTypeLabel, regionLabel } from '../lib/model-label'
+import { providerTypeLabel } from '../lib/model-label'
 import {
   createProvider,
   createTenantModel,
@@ -25,11 +24,11 @@ import {
   type TenantModelsPayload,
 } from '../lib/models-api'
 
-const PROVIDER_TYPE_OPTIONS: { value: ProviderType; label: string }[] = [
-  { value: 'mistral', label: 'Mistral (EU)' },
-  { value: 'anthropic', label: 'Anthropic (US)' },
-  { value: 'openai', label: 'OpenAI (US)' },
-  { value: 'openai_compatible', label: 'OpenAI-compatible' },
+const PROVIDER_TYPE_OPTIONS: { value: ProviderType; labelKey: string }[] = [
+  { value: 'mistral', labelKey: 'modelsPage.providers.mistral' },
+  { value: 'anthropic', labelKey: 'modelsPage.providers.anthropic' },
+  { value: 'openai', labelKey: 'modelsPage.providers.openai' },
+  { value: 'openai_compatible', labelKey: 'modelsPage.providers.openaiCompatible' },
 ]
 
 export default function ModelsSettings() {
@@ -80,10 +79,16 @@ export default function ModelsSettings() {
   const custom = data?.custom_models
   const managed = data?.managed
   const presets = custom?.presets ?? data?.presets
+  const needsBaseUrl = providerType === 'openai_compatible'
   const presetModels = useMemo(() => {
     if (!presets) return []
-    return presets[providerType]?.models ?? []
+    return (presets[providerType]?.models ?? []).filter((m) => (m.kind || 'chat') !== 'embedding')
   }, [presets, providerType])
+
+  const chatModels = useMemo(
+    () => (custom?.models ?? []).filter((row) => (row.kind || 'chat') !== 'embedding'),
+    [custom?.models],
+  )
 
   const resetWizard = () => {
     setWizardOpen(false)
@@ -128,6 +133,10 @@ export default function ModelsSettings() {
 
   const handleCreateProvider = async () => {
     if (!token || busy || !apiKey.trim()) return
+    if (needsBaseUrl && !baseUrl.trim()) {
+      toast.error(t('modelsPage.baseUrlRequired'))
+      return
+    }
     setBusy(true)
     setTestMessage(null)
     try {
@@ -160,11 +169,11 @@ export default function ModelsSettings() {
         connection_id: connectionId,
         model_id: modelId,
         display_name: displayName.trim() || preset?.display_name || modelId,
-        kind: preset?.kind || 'chat',
+        kind: 'chat',
         slug: preset?.slug || undefined,
         enabled: true,
-        is_default_chat: (preset?.kind || 'chat') === 'chat',
-        is_default_embedding: preset?.kind === 'embedding',
+        is_default_chat: true,
+        is_default_embedding: false,
       })
       flashSaved()
       resetWizard()
@@ -236,10 +245,9 @@ export default function ModelsSettings() {
         ? t('modelsPage.managed.standby')
         : t('modelsPage.managed.notConfigured')
 
-  const chat = managed?.chat
-  const embedding = managed?.embedding
   const dataRegion = data?.data_region
   const allowUs = dataRegion?.non_eu_platform_models === 'allowed'
+  const chat = managed?.chat
 
   return (
     <PageContent width="md" className="space-y-6 pb-12">
@@ -259,16 +267,21 @@ export default function ModelsSettings() {
       />
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
-      {/* Bokito AI hero */}
-      <section className="rounded-lg border border-border/70 bg-bg-surface p-5">
+      {/* Bokito AI banner */}
+      <section className="rounded-lg border border-border/70 bg-bg-surface px-4 py-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-ai/10 text-ai-ink">
-              <Sparkles size={18} />
+            <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-ai/10 text-ai-ink">
+              <Sparkles size={16} />
             </span>
-            <div className="min-w-0 space-y-1">
-              <h2 className="text-base font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
-              <p className="text-sm text-text-muted">{t('modelsPage.managed.bodyLearn')}</p>
+            <div className="min-w-0 space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                  {t('modelsPage.managed.euHint')}
+                </span>
+              </div>
+              <p className="text-sm text-text-muted">{t('modelsPage.managed.bodyDefault')}</p>
             </div>
           </div>
           <span
@@ -284,117 +297,17 @@ export default function ModelsSettings() {
           </span>
         </div>
         {managed?.status === 'standby' ? (
-          <p className="mt-3 text-sm text-text-muted">{t('modelsPage.managed.standbyHintNew')}</p>
+          <p className="mt-2 text-sm text-text-muted">{t('modelsPage.managed.standbyHintNew')}</p>
         ) : null}
         {managed?.status === 'unconfigured' ? (
-          <p className="mt-3 text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort')}</p>
+          <p className="mt-2 text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort')}</p>
         ) : null}
-
-        {chat ? (
-          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2">
-              <dt className="text-xs font-medium text-text-muted">
-                {t('modelsPage.managed.chatBacking')}
-              </dt>
-              <dd className="mt-1 flex flex-wrap items-center gap-2 text-text-primary">
-                <span className="font-medium">
-                  {chat.backing_display_name || humanizeModelId(chat.slug)}
-                </span>
-                {chat.backing_provider ? (
-                  <span className="text-text-muted">{providerTypeLabel(chat.backing_provider)}</span>
-                ) : null}
-                <RegionBadge region={chat.region} />
-              </dd>
-            </div>
-            {embedding ? (
-              <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2">
-                <dt className="text-xs font-medium text-text-muted">
-                  {t('modelsPage.managed.embeddingBacking')}
-                </dt>
-                <dd className="mt-1 flex flex-wrap items-center gap-2 text-text-primary">
-                  <span className="font-medium">
-                    {embedding.backing_display_name || humanizeModelId(embedding.slug)}
-                  </span>
-                  {embedding.backing_provider ? (
-                    <span className="text-text-muted">{providerTypeLabel(embedding.backing_provider)}</span>
-                  ) : null}
-                  <RegionBadge region={embedding.region} />
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        ) : null}
-
         {chat?.fallback_active ? (
-          <p className="mt-3 rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
-            {t('modelsPage.managed.fallbackNotice', {
-              intended: regionLabel(chat.intended_region, t),
-              actual: regionLabel(chat.region, t),
-            })}
-          </p>
+          <p className="mt-2 text-sm text-status-warning">{t('modelsPage.managed.fallbackNoticeSoft')}</p>
         ) : null}
       </section>
 
-      {/* Data region */}
-      <section className="space-y-4 rounded-lg border border-border/70 bg-bg-surface p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-bg-hover text-text-secondary">
-              <Globe size={18} />
-            </span>
-            <div className="min-w-0 space-y-1">
-              <h2 className="text-base font-semibold text-text-heading">{t('modelsPage.region.title')}</h2>
-              <p className="text-sm text-text-muted">{t('modelsPage.region.body')}</p>
-            </div>
-          </div>
-          {dataRegion && dataRegion.eu_share_pct_30d !== null ? (
-            <div className="text-right">
-              <p className="text-2xl font-semibold tabular-nums text-text-heading">
-                {dataRegion.eu_share_pct_30d}%
-              </p>
-              <p className="text-xs text-text-muted">{t('modelsPage.region.euShare30d')}</p>
-            </div>
-          ) : null}
-        </div>
-
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-3 text-sm text-text-primary">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-border"
-            checked={allowUs}
-            disabled={busy || !isOwnerOrAdmin}
-            onChange={(e) => void handleRegionPolicy(e.target.checked)}
-          />
-          <span className="space-y-0.5">
-            <span className="block font-medium">{t('modelsPage.region.allowUs')}</span>
-            <span className="block text-sm text-text-muted">{t('modelsPage.region.allowUsHint')}</span>
-          </span>
-        </label>
-
-        {dataRegion && dataRegion.non_eu_models_in_use.length > 0 ? (
-          <div className="space-y-1.5">
-            <p className="text-sm font-medium text-text-primary">{t('modelsPage.region.inUseTitle')}</p>
-            <ul className="flex flex-wrap gap-2">
-              {dataRegion.non_eu_models_in_use.map((slug) => (
-                <li
-                  key={slug}
-                  className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-1.5 text-sm text-text-primary"
-                >
-                  {humanizeModelId(slug)}
-                  <RegionBadge region="us" />
-                </li>
-              ))}
-            </ul>
-            {!allowUs ? (
-              <p className="text-xs text-text-muted">{t('modelsPage.region.inUseBlockedHint')}</p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <p className="text-xs text-text-muted">{t('modelsPage.region.embeddingNote')}</p>
-      </section>
-
-      {/* Custom models gate */}
+      {/* Models list */}
       {!custom?.allowed ? (
         <section className="rounded-lg border border-dashed border-border/70 bg-bg-elevated/40 px-5 py-4">
           <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.custom.lockedTitle')}</h2>
@@ -421,22 +334,22 @@ export default function ModelsSettings() {
 
           {custom.enabled ? (
             <div className="space-y-4 border-t border-border/50 pt-4">
-              {(custom.models?.length ?? 0) === 0 && !wizardOpen ? (
+              {chatModels.length === 0 && !wizardOpen ? (
                 <p className="text-sm text-text-muted">{t('modelsPage.custom.empty')}</p>
               ) : null}
 
-              {(custom.models ?? []).map((row) => (
+              {chatModels.map((row) => (
                 <div
                   key={row.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 bg-bg-elevated/50 px-3 py-2.5"
                 >
                   <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-text-heading">
-                      <span className="truncate-fade">{row.display_name}</span>
-                      {row.region ? <RegionBadge region={row.region} /> : null}
-                    </p>
+                    <p className="truncate-fade text-sm font-medium text-text-heading">{row.display_name}</p>
                     <p className="truncate-fade font-mono text-xs text-text-muted">
-                      {row.provider_type || row.connection_label || ''} · {row.model_id}
+                      {row.connection_label ||
+                        (row.provider_type ? providerTypeLabel(row.provider_type) : '') ||
+                        ''}
+                      {row.model_id ? ` · ${row.model_id}` : ''}
                     </p>
                   </div>
                   <Button
@@ -459,7 +372,7 @@ export default function ModelsSettings() {
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/40 px-3 py-2 text-xs text-text-muted"
                 >
                   <span>
-                    {conn.label || conn.provider_type}
+                    {conn.label || providerTypeLabel(conn.provider_type)}
                     {conn.is_set ? ` · ${t('modelsPage.keySet', { last4: conn.last4 })}` : ''}
                   </span>
                   <div className="flex gap-2">
@@ -515,13 +428,15 @@ export default function ModelsSettings() {
                         >
                           {PROVIDER_TYPE_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
-                              {opt.label}
+                              {t(opt.labelKey)}
                             </option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <Label>{t('modelsPage.labelOptional')}</Label>
+                        <Label>
+                          {needsBaseUrl ? t('modelsPage.labelOptionalCustom') : t('modelsPage.labelOptional')}
+                        </Label>
                         <Input
                           value={label}
                           onChange={(e) => setLabel(e.target.value)}
@@ -529,7 +444,7 @@ export default function ModelsSettings() {
                           className="mt-1"
                         />
                       </div>
-                      {providerType === 'openai_compatible' ? (
+                      {needsBaseUrl ? (
                         <div>
                           <Label>{t('modelsPage.baseUrl')}</Label>
                           <Input
@@ -540,7 +455,12 @@ export default function ModelsSettings() {
                           />
                         </div>
                       ) : null}
-                      <Button type="button" size="sm" onClick={() => setStep(2)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={needsBaseUrl && !baseUrl.trim()}
+                        onClick={() => setStep(2)}
+                      >
                         {t('modelsPage.custom.next')}
                       </Button>
                     </div>
@@ -643,6 +563,48 @@ export default function ModelsSettings() {
           ) : null}
         </section>
       )}
+
+      {/* Data processing — secondary */}
+      <details className="group rounded-lg border border-border/50 bg-bg-elevated/30">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
+          <span>{t('modelsPage.region.title')}</span>
+          <ChevronDown size={16} className="shrink-0 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-3 border-t border-border/40 px-4 py-3">
+          <p className="text-sm text-text-muted">{t('modelsPage.region.body')}</p>
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-3 text-sm text-text-primary">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-border"
+              checked={allowUs}
+              disabled={busy || !isOwnerOrAdmin}
+              onChange={(e) => void handleRegionPolicy(e.target.checked)}
+            />
+            <span className="space-y-0.5">
+              <span className="block font-medium">{t('modelsPage.region.allowUs')}</span>
+              <span className="block text-sm text-text-muted">{t('modelsPage.region.allowUsHint')}</span>
+            </span>
+          </label>
+          {dataRegion && dataRegion.non_eu_models_in_use.length > 0 ? (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-text-primary">{t('modelsPage.region.inUseTitle')}</p>
+              <ul className="flex flex-wrap gap-2">
+                {dataRegion.non_eu_models_in_use.map((slug) => (
+                  <li
+                    key={slug}
+                    className="rounded-md border border-border/60 px-3 py-1.5 text-sm text-text-primary"
+                  >
+                    {slug}
+                  </li>
+                ))}
+              </ul>
+              {!allowUs ? (
+                <p className="text-xs text-text-muted">{t('modelsPage.region.inUseBlockedHint')}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </details>
     </PageContent>
   )
 }

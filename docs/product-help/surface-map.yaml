@@ -376,7 +376,6 @@ models:
     - apps/api/app/routers/models.py
   screenshots:
     - catalog
-    - data-region
 
 integrations:
   section: integrations

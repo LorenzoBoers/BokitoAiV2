@@ -79,12 +79,28 @@ async def test_system_team_is_protected(client: AsyncClient, session_override):
 
 async def test_overview_lists_people_agents_and_presence(client: AsyncClient, session_override):
     headers = await _headers(client)
+    # NULL autonomy_level on an older agent must not 500 the overview.
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    agent = Agent(
+        tenant_id=tenant.id,
+        name="Null autonomy",
+        slug="null-autonomy",
+        kind="company",
+        role="support",
+        autonomy_level=None,
+        is_active=True,
+    )
+    session_override.add(agent)
+    await session_override.commit()
+
     r = await client.get("/api/teams/overview", headers=headers)
     assert r.status_code == 200
     body = r.json()
     me = next(p for p in body["people"] if p["email"] == TEST_EMAIL)
     assert me["presence"]["status"] in ("available", "away", "offline")
     assert len(body["teams"]) >= 2
+    null_agent = next(a for a in body["agents"] if a["id"] == str(agent.id))
+    assert null_agent["autonomy_level"] == "assisted"
 
     r = await client.put("/api/teams/me/away", headers=headers, json={"away": True})
     assert r.json()["status"] == "away"
