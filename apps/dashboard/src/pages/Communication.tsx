@@ -16,9 +16,8 @@ import {
 import {
   configForLeaf,
   mergeHubThreadFilters,
-  threadFitsChannelChip,
+  threadFitsChannelLeaf,
 } from '../lib/hub-list-filters'
-import HubScopeChips from '../components/inbox/HubScopeChips'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
@@ -121,8 +120,6 @@ export default function Communication() {
   const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(leaf), [leaf])
 
   const projectId = searchParams.get('project_id')?.trim() || undefined
-  const agentIdFilter = searchParams.get('agent')?.trim() || undefined
-  const channelChip = searchParams.get('channel')?.trim() || null
   const caseTypeId = searchParams.get('case_type_id')?.trim() || undefined
   const [caseSignalIds, setCaseSignalIds] = useState<ReadonlySet<string> | null>(null)
   const [scopeName, setScopeName] = useState<string | null>(null)
@@ -182,17 +179,6 @@ export default function Communication() {
     })
   }, [leaf, navigate, searchParams, threadIdParam])
 
-  /** Chips live in the query string so links and reloads keep the scope. */
-  const setScopeParam = useCallback(
-    (key: 'channel' | 'agent', value: string | null) => {
-      const next = new URLSearchParams(searchParams)
-      if (value) next.set(key, value)
-      else next.delete(key)
-      setSearchParams(next, { replace: true })
-    },
-    [searchParams, setSearchParams],
-  )
-
   useEffect(() => {
     void refreshNavBadges()
   }, [refreshNavBadges])
@@ -205,14 +191,12 @@ export default function Communication() {
   const inboxQuery = useMemo(() => {
     const params = new URLSearchParams()
     if (projectId) params.set('project_id', projectId)
-    if (agentIdFilter) params.set('agent', agentIdFilter)
-    if (channelChip) params.set('channel', channelChip)
     if (caseTypeId) params.set('case_type_id', caseTypeId)
     // The quick filter belongs to the folder on screen; it is not carried
     // into other folders or thread links.
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [projectId, agentIdFilter, channelChip, caseTypeId])
+  }, [projectId, caseTypeId])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
   // current browser session (sessionStorage), so it returns on the next visit.
@@ -305,16 +289,14 @@ export default function Communication() {
     mergeHubThreadFilters(leafFilters, {
       search: listSearch,
       projectId,
-      agentId: agentIdFilter,
       unread: mode === 'customer' && quickFilter === 'unread',
       pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
-      channel: channelChip,
     }),
     pinnedIds,
   )
 
-  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}:${channelChip ?? ''}:${caseTypeId ?? ''}`
+  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${caseTypeId ?? ''}`
 
   // The quick filter is per folder: every folder opens on "all", unless the
   // URL that opened it carries a deep-linked filter (consumed above).
@@ -743,9 +725,9 @@ export default function Communication() {
 
     redirectCheckedForThreadRef.current = fitKey
 
-    // A deep link outside the channel chip drops the chip instead of hopping folders.
-    if (channelChip && !threadFitsChannelChip(detail.thread, channelChip)) {
-      setScopeParam('channel', null)
+    // Deep link into the wrong channel folder → jump to All communication.
+    if (leaf.type === 'channel' && !threadFitsChannelLeaf(detail.thread, leaf)) {
+      navigate(`${inboxPath('open', String(detail.thread.id))}${inboxQuery}`, { replace: true })
       return
     }
 
@@ -793,8 +775,6 @@ export default function Communication() {
     currentUserId,
     navigate,
     inboxQuery,
-    channelChip,
-    setScopeParam,
     filteredThreads,
     leaveResolvedThread,
   ])
@@ -1254,8 +1234,6 @@ export default function Communication() {
 
   const isInboxEmpty =
     leaf.type === 'inbox' &&
-    !channelChip &&
-    !agentIdFilter &&
     !isSecondaryInboxQueue &&
     threadsReady &&
     threads.length === 0 &&
@@ -1345,12 +1323,6 @@ export default function Communication() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-      <HubScopeChips
-        channel={channelChip}
-        agentId={agentIdFilter ?? null}
-        onChannel={(value) => setScopeParam('channel', value)}
-        onAgent={(value) => setScopeParam('agent', value)}
-      />
       <SplitRow
         storageKey="bokito.split.inbox"
         minFlex={360}
@@ -1415,17 +1387,17 @@ export default function Communication() {
             emptyLabel={
               search.trim()
                 ? t('threadList.emptySearch', { query: search.trim() })
-                : agentIdFilter || projectId || channelChip
-                ? t('threadList.emptyScoped')
-                : leaf.queue === 'for_you'
-                  ? t('threadList.emptyForYou')
-                  : leaf.type === 'inbox' && leaf.queue === 'snoozed'
-                    ? t('threadList.emptySnoozed')
-                    : leaf.type === 'inbox' && leaf.queue === 'spam'
-                      ? t('threadList.emptySpam')
-                      : leaf.type === 'inbox' && leaf.queue === 'closed'
-                        ? t('threadList.emptyClosed')
-                        : undefined
+                : projectId || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
+                  ? t('threadList.emptyScoped')
+                  : leaf.type === 'inbox' && leaf.queue === 'for_you'
+                    ? t('threadList.emptyForYou')
+                    : leaf.type === 'inbox' && leaf.queue === 'snoozed'
+                      ? t('threadList.emptySnoozed')
+                      : leaf.type === 'inbox' && leaf.queue === 'spam'
+                        ? t('threadList.emptySpam')
+                        : leaf.type === 'inbox' && leaf.queue === 'closed'
+                          ? t('threadList.emptyClosed')
+                          : undefined
             }
             emptyHint={
               search.trim() ? (

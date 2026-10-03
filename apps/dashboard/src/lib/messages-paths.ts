@@ -1,23 +1,25 @@
 /**
  * Path helpers for the Communication hub (`/communication`).
  *
- * The sidebar has two kinds of folders:
- *
- * - `inbox` — All communication, with the sub-folders For you, Open,
- *   Unassigned and Closed (plus Snoozed and Spam)
- * - `team`  — a team pinned to the sidebar, with the same sub-folders
- *
- * Channels and agents are not folders: they are chips above the list, carried
- * in the query string (`?channel=email:12`, `?agent=<id>`), so they also
- * narrow For you.
+ * Sidebar folders:
+ * - `inbox`   — All communication (For you / Open / Unassigned / Closed + Snoozed / Spam)
+ * - `team`    — a pinned team, same sub-folders
+ * - `channel` — one connected channel (mailbox, website chat, WhatsApp, …)
+ * - `agent`   — chats with one company agent (same sub-folders + Activity)
  */
 
 export const INBOX_QUEUES = ['all', 'for_you', 'open', 'unassigned', 'snoozed', 'closed', 'spam'] as const
 export type InboxQueue = (typeof INBOX_QUEUES)[number]
 
-/** Sub-folders under All communication and every pinned team. */
+export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'slack', 'whatsapp'] as const
+export type ChannelKey = (typeof CHANNEL_KEYS)[number]
+
+/** Sub-folders under All communication, teams, channels and agents. */
 export const SUB_QUEUES = ['for_you', 'open', 'unassigned', 'closed'] as const
 export type SubQueue = (typeof SUB_QUEUES)[number]
+
+/** Agent folders also expose Activity (work log → `/activity?agent=`). */
+export type AgentQueue = SubQueue | 'activity'
 
 /** Sub-queue → list `view` filter. */
 export const SUB_QUEUE_TO_VIEW = {
@@ -30,8 +32,10 @@ export const SUB_QUEUE_TO_VIEW = {
 export type HubLeaf =
   | { type: 'inbox'; queue?: InboxQueue }
   | { type: 'team'; teamId: string; queue?: SubQueue }
+  | { type: 'channel'; channelKey: ChannelKey; connectionId?: string; queue?: SubQueue }
+  | { type: 'agent'; agentId: string; queue?: AgentQueue }
 
-/** Channel chip value: `email:<connectionId>`, `email`, `widget`, `whatsapp`, `slack`. */
+/** @deprecated Kept for callers that still pass chip-shaped values; prefer channel leaves. */
 export type ChannelChip = string
 
 export type HubScope = {
@@ -43,21 +47,9 @@ function withThread(base: string, threadId?: string | null): string {
   return threadId ? `${base}/t/${encodeURIComponent(String(threadId))}` : base
 }
 
-function withScope(path: string, scope?: HubScope | null, extra?: URLSearchParams): string {
-  const params = extra ?? new URLSearchParams()
-  if (scope?.channel) params.set('channel', scope.channel)
-  if (scope?.agentId) params.set('agent', scope.agentId)
-  const qs = params.toString()
-  return qs ? `${path}?${qs}` : path
-}
-
-export function inboxPath(
-  queue?: InboxQueue | null,
-  threadId?: string | null,
-  scope?: HubScope | null,
-): string {
+export function inboxPath(queue?: InboxQueue | null, threadId?: string | null): string {
   const base = queue ? `/communication/inbox/${queue}` : '/communication/inbox'
-  return withScope(withThread(base, threadId), scope)
+  return withThread(base, threadId)
 }
 
 export function teamPath(teamId: string, queue?: SubQueue | null, threadId?: string | null): string {
@@ -79,7 +71,9 @@ export function forYouPath(threadId?: string | null, extraSearch?: SearchInput):
     typeof extraSearch === 'string' ? extraSearch.replace(/^\?/, '') : (extraSearch ?? undefined),
   )
   params.delete('filter')
-  return withScope(withThread('/communication/inbox/for_you', threadId), null, params)
+  const qs = params.toString()
+  const base = withThread('/communication/inbox/for_you', threadId)
+  return qs ? `${base}?${qs}` : base
 }
 
 /** Open a waiting decision in its conversation. */
@@ -87,25 +81,52 @@ export function attentionThreadPath(thread: { id: string | number }): string {
   return forYouPath(String(thread.id))
 }
 
-/** Conversations with one agent: All communication narrowed by the agent chip. */
-export function agentChatPath(agentId: string, threadId?: string | null): string {
-  return inboxPath('all', threadId, { agentId })
-}
+type AgentPathOpts = { queue?: AgentQueue; threadId?: string | null }
 
-/** Conversations on one channel: All communication narrowed by the channel chip. */
-export function channelPath(
-  chip: ChannelChip,
-  options: { queue?: InboxQueue; threadId?: string | null } = {},
+/** Company-agent chats. Second arg is a thread id string or `{ queue, threadId }`. */
+export function agentChatPath(
+  agentId: string,
+  threadIdOrOpts?: string | null | AgentPathOpts,
 ): string {
-  return inboxPath(options.queue ?? 'open', options.threadId, { channel: chip })
+  let base = `/communication/agent/${encodeURIComponent(agentId)}`
+  if (threadIdOrOpts && typeof threadIdOrOpts === 'object') {
+    if (threadIdOrOpts.queue) base += `/${threadIdOrOpts.queue}`
+    return withThread(base, threadIdOrOpts.threadId)
+  }
+  return withThread(base, threadIdOrOpts)
 }
 
 /**
  * Terminal-style live activity history (all agents, filterable per agent).
- * The log of agent runs; the runs themselves surface in conversations.
+ * Agent folder Activity sub-rows deep-link here.
  */
 export function activityTerminalPath(agentId?: string | null): string {
   return agentId ? `/activity?agent=${encodeURIComponent(agentId)}` : '/activity'
+}
+
+export function channelPath(
+  channelKey: ChannelKey | ChannelChip,
+  options: {
+    connectionId?: string | number
+    queue?: SubQueue
+    threadId?: string | null
+  } = {},
+): string {
+  // Chip-shaped values (`email:12`, `widget`) still resolve to a folder URL.
+  if (typeof channelKey === 'string' && channelKey.startsWith('email:')) {
+    const id = channelKey.slice('email:'.length)
+    return channelPath('email', { ...options, connectionId: id })
+  }
+  if (channelKey === 'widget') {
+    return channelPath('webchat', options)
+  }
+  const key = channelKey as ChannelKey
+  let base =
+    key === 'email' && options.connectionId != null
+      ? `/communication/channel/email/${encodeURIComponent(String(options.connectionId))}`
+      : `/communication/channel/${key}`
+  if (options.queue) base += `/${options.queue}`
+  return withThread(base, options.threadId)
 }
 
 /** URL of the composer-first "New conversation" draft surface. */
@@ -145,6 +166,14 @@ export function leafPath(leaf: HubLeaf, threadId?: string | null): string {
       return inboxPath(leaf.queue, threadId)
     case 'team':
       return teamPath(leaf.teamId, leaf.queue, threadId)
+    case 'channel':
+      return channelPath(leaf.channelKey, {
+        connectionId: leaf.connectionId,
+        queue: leaf.queue,
+        threadId,
+      })
+    case 'agent':
+      return agentChatPath(leaf.agentId, { queue: leaf.queue, threadId })
   }
 }
 
@@ -152,8 +181,19 @@ function isInboxQueue(value: string): value is InboxQueue {
   return (INBOX_QUEUES as readonly string[]).includes(value)
 }
 
+function isChannelKey(value: string): value is ChannelKey {
+  return (CHANNEL_KEYS as readonly string[]).includes(value)
+}
+
 export function isSubQueue(value: string): value is SubQueue {
   return (SUB_QUEUES as readonly string[]).includes(value)
+}
+
+/** Accept legacy `mine` as For you when reading folder URLs. */
+function parseSubQueue(value: string | undefined): SubQueue | undefined {
+  if (!value) return undefined
+  if (value === 'mine') return 'for_you'
+  return isSubQueue(value) ? value : undefined
 }
 
 function splitPath(pathname: string): { head: string; parts: string[]; threadId: string | null } | null {
@@ -176,6 +216,7 @@ export function leafFromPath(pathname: string): HubLeaf | null {
   const { head, parts } = split
   if (head === 'inbox') {
     const raw = parts[0] ? decodeURIComponent(parts[0]) : undefined
+    if (raw === 'mine') return { type: 'inbox', queue: 'for_you' }
     return { type: 'inbox', queue: raw && isInboxQueue(raw) ? raw : undefined }
   }
   if (head === 'team' && parts[0]) {
@@ -183,23 +224,45 @@ export function leafFromPath(pathname: string): HubLeaf | null {
     return {
       type: 'team',
       teamId: decodeURIComponent(parts[0]),
-      queue: raw && isSubQueue(raw) ? raw : undefined,
+      queue: parseSubQueue(raw),
+    }
+  }
+  if (head === 'agent' && parts[0]) {
+    const second = parts[1] ? decodeURIComponent(parts[1]) : undefined
+    let queue: AgentQueue | undefined
+    if (second === 'activity') queue = 'activity'
+    else queue = parseSubQueue(second)
+    return {
+      type: 'agent',
+      agentId: decodeURIComponent(parts[0]),
+      queue,
+    }
+  }
+  if (head === 'channel') {
+    const key = decodeURIComponent(parts[0] ?? '')
+    if (!isChannelKey(key)) return null
+    const second = parts[1] ? decodeURIComponent(parts[1]) : undefined
+    const third = parts[2] ? decodeURIComponent(parts[2]) : undefined
+    if (key === 'email' && second && !isSubQueue(second) && second !== 'mine') {
+      return {
+        type: 'channel',
+        channelKey: 'email',
+        connectionId: second,
+        queue: parseSubQueue(third),
+      }
+    }
+    return {
+      type: 'channel',
+      channelKey: key,
+      queue: parseSubQueue(second),
     }
   }
   return null
 }
 
-const LEGACY_CHANNEL_CHIPS: Record<string, ChannelChip> = {
-  webchat: 'widget',
-  whatsapp: 'whatsapp',
-  slack: 'slack',
-  email: 'email',
-}
-
 /**
- * Old folder URLs (`/communication/decisions`, `/runs/...`, `/agent/:id`,
- * `/channel/...`, `/inbox/mine`) mapped onto the folder + chip model.
- * Returns null when the path is already current.
+ * Retired folder URLs (`/communication/decisions`, `/runs/...`) map onto For you
+ * or Activity. Agent and channel paths are current again — return null.
  */
 export function legacyHubRedirect(pathname: string, search = ''): string | null {
   const split = splitPath(pathname)
@@ -211,25 +274,10 @@ export function legacyHubRedirect(pathname: string, search = ''): string | null 
       return forYouPath(threadId, params)
     case 'runs':
       return threadId ? inboxPath('all', threadId) : activityTerminalPath()
-    case 'agent': {
-      if (!parts[0]) return inboxPath('open')
-      if (parts[1] === 'activity') return activityTerminalPath(decodeURIComponent(parts[0]))
-      return inboxPath('all', threadId, { agentId: decodeURIComponent(parts[0]) })
-    }
-    case 'channel': {
-      const key = decodeURIComponent(parts[0] ?? '')
-      if (key === 'internal' || key === 'agent') return inboxPath('all', threadId)
-      const second = parts[1] ? decodeURIComponent(parts[1]) : undefined
-      let chip = LEGACY_CHANNEL_CHIPS[key] ?? null
-      let queueSegment = second
-      if (key === 'email' && second && !isSubQueue(second) && second !== 'mine') {
-        chip = `email:${second}`
-        queueSegment = parts[2] ? decodeURIComponent(parts[2]) : undefined
-      }
-      const queue: InboxQueue =
-        queueSegment === 'mine' ? 'for_you' : queueSegment && isInboxQueue(queueSegment) ? queueSegment : 'open'
-      return inboxPath(queue, threadId, { channel: chip })
-    }
+    case 'agent':
+    case 'channel':
+      // Restored as first-class folders; do not chip-redirect.
+      return null
     case 'inbox':
       if (parts[0] === 'mine') return inboxPath('for_you', threadId)
       return null
@@ -243,6 +291,10 @@ export function sameLeafScope(a: HubLeaf | null, b: HubLeaf): boolean {
   if (!a) return false
   if (a.type === 'inbox' && b.type === 'inbox') return true
   if (a.type === 'team' && b.type === 'team') return a.teamId === b.teamId
+  if (a.type === 'channel' && b.type === 'channel') {
+    return a.channelKey === b.channelKey && (a.connectionId ?? '') === (b.connectionId ?? '')
+  }
+  if (a.type === 'agent' && b.type === 'agent') return a.agentId === b.agentId
   return false
 }
 
@@ -253,6 +305,10 @@ export function leafKey(leaf: HubLeaf): string {
       return leaf.queue ? `inbox:${leaf.queue}` : 'inbox'
     case 'team':
       return `team:${leaf.teamId}${leaf.queue ? `:${leaf.queue}` : ''}`
+    case 'channel':
+      return `channel:${leaf.channelKey}:${leaf.connectionId ?? ''}${leaf.queue ? `:${leaf.queue}` : ''}`
+    case 'agent':
+      return `agent:${leaf.agentId}${leaf.queue ? `:${leaf.queue}` : ''}`
   }
 }
 
@@ -266,5 +322,6 @@ export function filtersForChannelChip(chip: ChannelChip | null | undefined): {
     const id = Number(chip.slice('email:'.length))
     return Number.isFinite(id) && id > 0 ? { channel: 'email', connectionId: id } : { channel: 'email' }
   }
+  if (chip === 'webchat') return { channel: 'widget' }
   return { channel: chip }
 }

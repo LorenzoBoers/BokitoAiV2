@@ -2558,7 +2558,7 @@
       "all": "Alles",
       "allHint": "Elk klantgesprek, inclusief gesloten",
       "allCommunication": "Alle communicatie",
-      "allCommunicationHint": "Elk gesprek over alle kanalen, te verfijnen met de kanaal- en agentchips",
+      "allCommunicationHint": "Elk gesprek over alle kanalen — of open hieronder een kanaal- of agentmap",
       "open": "Open",
       "openHint": "Wachten nog tot iemand ze afrondt",
       "unassigned": "Niet toegewezen",
@@ -2574,8 +2574,17 @@
     },
     "section": {
       "inbox": "Wachtrijen",
+      "channels": "Kanalen",
+      "agents": "Chat met agents",
       "settings": "Instellingen",
       "teams": "Teams"
+    },
+    "composeFromChannel": "Nieuw bericht vanaf dit kanaal",
+    "composeToAgent": "Bericht naar deze agent",
+    "agents": {
+      "empty": "Geen agents beschikbaar om mee te chatten.",
+      "activity": "Activiteit",
+      "settingsAria": "Agents beheren"
     },
     "settings": {
       "channels": "Kanalen",
@@ -2599,7 +2608,9 @@
       "internalHint": "Notities en chats met teamleden — klanten zien dit nooit",
       "agent": "Agentberichten",
       "whatsapp": "WhatsApp",
-      "slack": "Slack"
+      "slack": "Slack",
+      "connectChannel": "Kanaal toevoegen",
+      "settingsAria": "Kanalen en koppelingen beheren"
     },
     "folder": {
       "expand": "Submappen tonen",

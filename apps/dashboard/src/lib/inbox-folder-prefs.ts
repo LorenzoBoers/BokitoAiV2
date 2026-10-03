@@ -38,6 +38,10 @@ export function folderScopeKey(leaf: HubLeaf): string {
       return 'inbox'
     case 'team':
       return `team:${leaf.teamId}`
+    case 'channel':
+      return `channel:${leaf.channelKey}:${leaf.connectionId ?? ''}`
+    case 'agent':
+      return `agent:${leaf.agentId}`
   }
 }
 

@@ -1,25 +1,36 @@
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { ChevronDown, Inbox, Plus, Settings, Users, UsersRound } from 'lucide-react'
+import { Activity, ChevronDown, Inbox, Plus, Settings, Users, UsersRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { AiAvatar } from '../ui/AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { NavSectionSkeleton } from '../ui/skeleton'
+import { useAuth } from '../../context/AuthContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
 import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
+import { useMailboxConnections } from '../../hooks/useMailboxConnections'
+import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
+import { isChannelParked } from '../../lib/channel-surface'
+import { bokitoListChatTargets, type ChatTarget } from '../../lib/signals-api'
+import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue, countForTeam } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
+  activityTerminalPath,
   inboxPath,
   leafFromPath,
   leafKey,
   newConversationPath,
   type HubLeaf,
   type InboxQueue,
+  type SubQueue,
 } from '../../lib/messages-paths'
 import type { Team } from '../../lib/teams-api'
 import { useTeams } from '../../hooks/useTeams'
 import { SidebarFolder } from './QueueSublist'
 import NavCountBadge from '../layout/NavCountBadge'
+import { ChannelGlyph } from '../ui/ChannelGlyph'
 import ScrollFade from '../ui/ScrollFade'
 
 const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
@@ -28,6 +39,8 @@ const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> 
 ]
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
+  channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
+  agents: { labelKey: 'support.section.agents', defaultLabel: 'Chat with agents' },
   teams: { labelKey: 'support.section.teams', defaultLabel: 'Teams' },
   settings: { labelKey: 'support.section.settings', defaultLabel: 'Settings' },
 }
@@ -39,6 +52,7 @@ function isLeafActive(activeLeaf: HubLeaf | null, leaf: HubLeaf): boolean {
 type CollapsibleSectionProps = {
   section: SidebarSection
   title: string
+  count?: number | null
   headerAction?: ReactNode
   children: ReactNode
 }
@@ -58,24 +72,64 @@ function SectionGearLink({ to, label }: { to: string; label: string }) {
   )
 }
 
+const SECTION_GEAR: Partial<
+  Record<SidebarSection, { to: string; labelKey: string; defaultLabel: string }>
+> = {
+  channels: {
+    to: '/settings/channels',
+    labelKey: 'support.channels.settingsAria',
+    defaultLabel: 'Manage channels',
+  },
+  agents: {
+    to: '/agents',
+    labelKey: 'support.agents.settingsAria',
+    defaultLabel: 'Manage agents',
+  },
+  teams: {
+    to: '/team',
+    labelKey: 'support.teams.settingsAria',
+    defaultLabel: 'Manage teams',
+  },
+}
+
 /** Section header with persisted collapse state from sidebar prefs. */
-function CollapsibleSection({ section, title, headerAction, children }: CollapsibleSectionProps) {
+function CollapsibleSection({ section, title, count, headerAction, children }: CollapsibleSectionProps) {
   const { prefs, setSectionCollapsed } = useSidebarPrefs()
   const collapsed = prefs.collapsed.includes(section)
   const open = !collapsed
+  const [mounted, setMounted] = useState(open)
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      return
+    }
+    const reduce =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) {
+      setMounted(false)
+      return
+    }
+    const timer = window.setTimeout(() => setMounted(false), 200)
+    return () => window.clearTimeout(timer)
+  }, [open])
 
   return (
     <section data-section={section} className="group/section space-y-px">
       <div className="flex items-center gap-0.5">
         <button
           type="button"
-          onClick={() => setSectionCollapsed(section, !collapsed)}
+          onClick={() => {
+            if (collapsed) setMounted(true)
+            setSectionCollapsed(section, !collapsed)
+          }}
           className="nav-folder min-w-0 flex-1"
           aria-expanded={open}
           data-open={open ? 'true' : 'false'}
         >
           <ChevronDown aria-hidden />
           <span className="min-w-0 shrink truncate-fade text-left">{title}</span>
+          {count != null ? <span className="shrink-0 tabular-nums text-text-muted/70">{count}</span> : null}
           <span className="min-w-0 flex-1" aria-hidden />
         </button>
         {headerAction ? (
@@ -84,10 +138,234 @@ function CollapsibleSection({ section, title, headerAction, children }: Collapsi
           </span>
         ) : null}
       </div>
-      <div className="nav-fold" data-open={open ? 'true' : undefined} aria-hidden={!open}>
-        <div className="nav-fold-inner space-y-0.5">{children}</div>
+      <div className="nav-fold" data-open={open && mounted ? 'true' : undefined} aria-hidden={!open}>
+        <div className="nav-fold-inner space-y-0.5">{mounted ? children : null}</div>
       </div>
     </section>
+  )
+}
+
+type TFn = (key: string, opts?: { defaultValue?: string }) => string
+
+function ComposePlusLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link
+      to={to}
+      title={label}
+      aria-label={label}
+      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
+    >
+      <Plus size={13} />
+    </Link>
+  )
+}
+
+type ChannelFolder = {
+  leaf: HubLeaf
+  label: string
+  icon: ReactNode
+  title?: string
+}
+
+/** Connected channel folders under Channels (email mailboxes + enabled accounts). */
+function useConnectedChannelFolders(t: TFn): { folders: ChannelFolder[]; loading: boolean } {
+  const { token } = useAuth()
+  const { activeConnections: connections, loading: connectionsLoading } = useMailboxConnections()
+  const [accounts, setAccounts] = useState<ChannelAccountRow[]>([])
+  const [accountsLoading, setAccountsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!token) {
+        setAccounts([])
+        setAccountsLoading(false)
+        return
+      }
+      setAccountsLoading(true)
+      try {
+        const rows = await listChannelAccounts(token)
+        if (!cancelled) setAccounts(rows)
+      } catch {
+        if (!cancelled) setAccounts([])
+      } finally {
+        if (!cancelled) setAccountsLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  const loading = connectionsLoading || accountsLoading
+  const folders = useMemo(() => {
+    const enabledAccounts = accounts.filter((a) => a.isEnabled)
+    const hasWidget = enabledAccounts.some((a) => a.channel === 'widget')
+    const hasSlack = !isChannelParked('slack') && enabledAccounts.some((a) => a.channel === 'slack')
+    const hasWhatsApp = enabledAccounts.some((a) => a.channel === 'whatsapp')
+
+    const next: ChannelFolder[] = [
+      ...connections.map((conn) => ({
+        leaf: { type: 'channel' as const, channelKey: 'email' as const, connectionId: String(conn.id) },
+        label: mailboxDisplayLabel(conn.displayName, conn.mailboxEmail),
+        icon: <ChannelGlyph channel="email" size={14} />,
+      })),
+      ...(hasWidget
+        ? [
+            {
+              leaf: { type: 'channel' as const, channelKey: 'webchat' as const },
+              label: t('support.channels.webchat'),
+              icon: <ChannelGlyph channel="widget" size={14} />,
+            },
+          ]
+        : []),
+      ...(hasWhatsApp
+        ? [
+            {
+              leaf: { type: 'channel' as const, channelKey: 'whatsapp' as const },
+              label: t('support.channels.whatsapp'),
+              icon: <ChannelGlyph channel="whatsapp" size={14} />,
+            },
+          ]
+        : []),
+      ...(hasSlack
+        ? [
+            {
+              leaf: { type: 'channel' as const, channelKey: 'slack' as const },
+              label: t('support.channels.slack'),
+              icon: <ChannelGlyph channel="slack" size={14} />,
+            },
+          ]
+        : []),
+    ]
+    return next
+  }, [accounts, connections, t])
+
+  return { folders, loading }
+}
+
+function ChannelsSection({
+  folders,
+  loading,
+  activeLeaf,
+  defaultQueueFor,
+  t,
+}: {
+  folders: ChannelFolder[]
+  loading: boolean
+  activeLeaf: HubLeaf | null
+  defaultQueueFor: (leaf: HubLeaf) => SubQueue
+  t: TFn
+}) {
+  return (
+    <div className="space-y-0.5">
+      {loading ? <NavSectionSkeleton rows={3} /> : null}
+      {!loading && folders.length === 0 ? (
+        <Link
+          to="/settings/channels"
+          title={t('support.channels.connectChannel')}
+          className="nav-row border border-dashed border-border/80 text-xs"
+        >
+          <Plus aria-hidden />
+          <span className="min-w-0 flex-1 truncate-fade">{t('support.channels.connectChannel')}</span>
+        </Link>
+      ) : null}
+      {folders.map((folder) => (
+        <SidebarFolder
+          key={leafKey(folder.leaf)}
+          baseLeaf={folder.leaf}
+          label={folder.label}
+          icon={folder.icon}
+          title={folder.title}
+          activeLeaf={activeLeaf}
+          defaultQueue={defaultQueueFor(folder.leaf)}
+          headerAction={
+            folder.leaf.type === 'channel' &&
+            folder.leaf.channelKey === 'email' &&
+            folder.leaf.connectionId ? (
+              <ComposePlusLink
+                to={newConversationPath({ intent: 'contact', connectionId: folder.leaf.connectionId })}
+                label={t('support.composeFromChannel')}
+              />
+            ) : folder.leaf.type === 'channel' ? (
+              <ComposePlusLink
+                to={newConversationPath({ intent: 'contact' })}
+                label={t('support.composeFromChannel')}
+              />
+            ) : null
+          }
+        />
+      ))}
+    </div>
+  )
+}
+
+function AgentsSection({
+  agents,
+  loading,
+  activeLeaf,
+  defaultQueueFor,
+  t,
+}: {
+  agents: ChatTarget[]
+  loading: boolean
+  activeLeaf: HubLeaf | null
+  defaultQueueFor: (leaf: HubLeaf) => SubQueue
+  t: TFn
+}) {
+  return (
+    <div className="space-y-0.5">
+      {loading ? <NavSectionSkeleton rows={2} /> : null}
+      {!loading && agents.length === 0 ? (
+        <div className="space-y-1 px-2 py-1">
+          <p className="text-xs text-text-muted">{t('support.agents.empty')}</p>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+            <Link to="/agents" className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline">
+              {t('tabs.agents.title')}
+            </Link>
+            <Link
+              to="/settings/setup"
+              className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline"
+            >
+              {t('settings.links.setupGuide')}
+            </Link>
+          </div>
+        </div>
+      ) : null}
+      {agents.map((agent) => {
+        const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
+        const activityActive =
+          activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id && activeLeaf.queue === 'activity'
+        return (
+          <SidebarFolder
+            key={agent.id}
+            baseLeaf={baseLeaf}
+            label={agent.name}
+            icon={<AiAvatar {...toAiAvatarProps(agent)} size={14} decorative />}
+            activeLeaf={activeLeaf}
+            defaultQueue={defaultQueueFor(baseLeaf)}
+            headerAction={
+              <ComposePlusLink
+                to={newConversationPath({ intent: 'agent', agentId: agent.id })}
+                label={t('support.composeToAgent')}
+              />
+            }
+            extra={
+              <NavLink
+                to={activityTerminalPath(agent.id)}
+                title={t('support.agents.activity')}
+                data-active={activityActive ? 'true' : undefined}
+                className="nav-row nav-sub-row h-[26px] text-xs"
+              >
+                <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
+                <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
+              </NavLink>
+            }
+          />
+        )
+      })}
+    </div>
   )
 }
 
@@ -99,26 +377,103 @@ function usePinnedTeams(): { teams: Team[]; loading: boolean } {
 /**
  * Communication hub inner rail.
  *
- * Fixed top: New chat + All communication (For you, Open, Unassigned, Closed,
- * Snoozed, Spam). Middle: pinned teams with the same sub-folders. Anchored
- * bottom: Contacts + Settings.
- *
- * Channels and agents narrow the list as chips above it, so they are not
- * folders here. Agent runs surface in the conversation that needs a person.
+ * Fixed top: New chat + All communication.
+ * Middle: Channels, Agents, Teams (user order) — each folder has For you /
+ * Open / Unassigned / Closed.
+ * Bottom: Contacts + Settings.
  */
 export default function MessagesHubNav() {
   const { t } = useTranslation('nav')
+  const { token } = useAuth()
   const { counts } = useNavBadges()
   const { visibleSections, settingsVisible } = useSidebarPrefs()
   const { defaultQueueFor } = useInboxFolderPrefs()
   const location = useLocation()
   const activeLeaf = leafFromPath(location.pathname)
   const { teams, loading: teamsLoading } = usePinnedTeams()
+  const { folders: channelFolders, loading: channelsLoading } = useConnectedChannelFolders(t)
 
+  const [targets, setTargets] = useState<ChatTarget[]>([])
+  const [targetsLoading, setTargetsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!token) return
+      setTargetsLoading(true)
+      try {
+        const data = await bokitoListChatTargets(token)
+        if (!cancelled) setTargets(data.items)
+      } catch {
+        if (!cancelled) setTargets([])
+      } finally {
+        if (!cancelled) setTargetsLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  const companyAgents = targets.filter((target) => target.kind === 'company')
   const inboxBaseLeaf: HubLeaf = { type: 'inbox' }
   const inboxQueueCounts = {
     for_you: counts.inboxByQueue.forYou,
     unassigned: counts.inboxByQueue.unassigned,
+  }
+
+  const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
+    channels: channelsLoading ? null : channelFolders.length > 0 ? channelFolders.length : null,
+    agents: targetsLoading ? null : companyAgents.length > 0 ? companyAgents.length : null,
+    teams: teamsLoading ? null : teams.length > 0 ? teams.length : null,
+  }
+
+  const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
+    channels: (
+      <ChannelsSection
+        folders={channelFolders}
+        loading={channelsLoading}
+        activeLeaf={activeLeaf}
+        defaultQueueFor={defaultQueueFor}
+        t={t}
+      />
+    ),
+    agents: (
+      <AgentsSection
+        agents={companyAgents}
+        loading={targetsLoading}
+        activeLeaf={activeLeaf}
+        defaultQueueFor={defaultQueueFor}
+        t={t}
+      />
+    ),
+    teams: (
+      <>
+        {teamsLoading ? <NavSectionSkeleton rows={2} /> : null}
+        {!teamsLoading && teams.length === 0 ? (
+          <Link to="/team" className="nav-row border border-dashed border-border/80 text-xs">
+            <Plus aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{t('support.teams.pinHint')}</span>
+          </Link>
+        ) : null}
+        {teams.map((team) => {
+          const leaf: HubLeaf = { type: 'team', teamId: team.id }
+          return (
+            <SidebarFolder
+              key={team.id}
+              baseLeaf={leaf}
+              label={team.name}
+              title={team.description || team.name}
+              icon={<UsersRound size={14} className="shrink-0 text-text-muted" />}
+              activeLeaf={activeLeaf}
+              defaultQueue={defaultQueueFor(leaf)}
+              badgeCount={countForTeam(counts, team.id)}
+            />
+          )
+        })}
+      </>
+    ),
   }
 
   return (
@@ -166,36 +521,27 @@ export default function MessagesHubNav() {
           />
         </section>
 
-        {visibleSections.includes('teams') ? (
-          <CollapsibleSection
-            section="teams"
-            title={t(SECTION_LABELS.teams.labelKey)}
-            headerAction={<SectionGearLink to="/team" label={t('support.teams.settingsAria')} />}
-          >
-            {teamsLoading ? <NavSectionSkeleton rows={2} /> : null}
-            {!teamsLoading && teams.length === 0 ? (
-              <Link to="/team" className="nav-row border border-dashed border-border/80 text-xs">
-                <Plus aria-hidden />
-                <span className="min-w-0 flex-1 truncate-fade">{t('support.teams.pinHint')}</span>
-              </Link>
-            ) : null}
-            {teams.map((team) => {
-              const leaf: HubLeaf = { type: 'team', teamId: team.id }
-              return (
-                <SidebarFolder
-                  key={team.id}
-                  baseLeaf={leaf}
-                  label={team.name}
-                  title={team.description || team.name}
-                  icon={<UsersRound size={14} className="shrink-0 text-text-muted" />}
-                  activeLeaf={activeLeaf}
-                  defaultQueue={defaultQueueFor(leaf)}
-                  badgeCount={countForTeam(counts, team.id)}
-                />
-              )
-            })}
-          </CollapsibleSection>
-        ) : null}
+        {visibleSections.map((section) => {
+          const gear = SECTION_GEAR[section]
+          return (
+            <CollapsibleSection
+              key={section}
+              section={section}
+              title={t(SECTION_LABELS[section].labelKey)}
+              count={sectionCounts[section]}
+              headerAction={
+                gear ? (
+                  <SectionGearLink
+                    to={gear.to}
+                    label={t(gear.labelKey, { defaultValue: gear.defaultLabel })}
+                  />
+                ) : undefined
+              }
+            >
+              {sectionContent[section as Exclude<SidebarSection, 'settings'>]}
+            </CollapsibleSection>
+          )
+        })}
       </ScrollFade>
 
       <div className="mt-1 shrink-0 space-y-px border-t border-border/60 pt-1.5">

@@ -2,22 +2,23 @@
  * Persisted customization for the Communication hub's inner rail.
  *
  * Fixed at the top (never customizable): New chat + All communication.
- * Pinned at the bottom: Activity, Contacts, and a single Settings link
+ * Pinned at the bottom: Contacts and a single Settings link
  * (the 'settings' section flag only controls the link's visibility).
- * Middle section: pinned teams (can be hidden or collapsed). Channels and
- * agents are chips above the list, not sidebar sections.
+ * Middle sections (channels, agents, teams) can be reordered, hidden, collapsed.
  *
- * Note: the former 'agents' and 'channels' sections became chips. The former
- * 'bokito' section (personal helper thread list) was removed — history lives
- * only in the in-app widget. The former 'tags' section was superseded by
- * Cases (`/cases`) as the single intent catalog. Stored prefs that still
- * list those ids are repaired by normalizeSidebarPrefs.
+ * Note: the former chip model (channels/agents above the list) is gone — those
+ * are folders again. Stored prefs that list unknown ids are repaired by
+ * normalizeSidebarPrefs.
  */
 
-export type SidebarSection = 'teams' | 'settings'
+export type SidebarSection = 'channels' | 'agents' | 'teams' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
-export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = ['teams']
+export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
+  'channels',
+  'agents',
+  'teams',
+]
 
 export const ALL_SECTIONS: readonly SidebarSection[] = [...MOVABLE_SECTIONS, 'settings']
 
@@ -41,14 +42,14 @@ export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   expandedLeaves: [],
 }
 
-// v3: channel and agent sections replaced by pinned teams.
-const STORAGE_KEY = 'communication-sidebar-prefs-v3'
+// v4: channels + agents folders restored alongside pinned teams.
+const STORAGE_KEY = 'communication-sidebar-prefs-v4'
 
 function isSection(value: unknown): value is SidebarSection {
   return typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)
 }
 
-/** Keep Settings anchored last; drop unknowns (e.g. legacy 'assistant' / 'bokito'). */
+/** Keep Settings anchored last; drop unknowns. */
 function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
   const middle = order.filter((s) => s !== 'settings')
   for (const section of MOVABLE_SECTIONS) {
@@ -62,7 +63,7 @@ function freshDefaults(): SidebarPrefs {
   return { ...DEFAULT_SIDEBAR_PREFS, order: [...DEFAULT_SECTION_ORDER], expandedLeaves: [] }
 }
 
-/** Repair stored prefs: drop unknown sections (e.g. legacy 'assistant'), append newly added ones. */
+/** Repair stored prefs: drop unknown sections, append newly added ones. */
 export function normalizeSidebarPrefs(raw: unknown): SidebarPrefs {
   if (!raw || typeof raw !== 'object') return freshDefaults()
   const data = raw as Partial<Record<keyof SidebarPrefs, unknown>>

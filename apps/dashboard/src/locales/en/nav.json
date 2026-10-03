@@ -2558,7 +2558,7 @@
       "all": "All",
       "allHint": "Every customer conversation, including closed ones",
       "allCommunication": "All communication",
-      "allCommunicationHint": "Every conversation across channels, narrowed by the channel and agent chips",
+      "allCommunicationHint": "Every conversation across channels — or open a channel or agent folder below",
       "open": "Open",
       "openHint": "Still waiting for someone to finish them",
       "unassigned": "Unassigned",
@@ -2574,8 +2574,17 @@
     },
     "section": {
       "inbox": "Queues",
+      "channels": "Channels",
+      "agents": "Chat with agents",
       "settings": "Settings",
       "teams": "Teams"
+    },
+    "composeFromChannel": "New message from this channel",
+    "composeToAgent": "Message this agent",
+    "agents": {
+      "empty": "No agents available for chat.",
+      "activity": "Activity",
+      "settingsAria": "Manage agents"
     },
     "settings": {
       "channels": "Channels",
@@ -2599,7 +2608,9 @@
       "internalHint": "Notes and chats with teammates — customers never see this",
       "agent": "Agent messages",
       "whatsapp": "WhatsApp",
-      "slack": "Slack"
+      "slack": "Slack",
+      "connectChannel": "Add a channel",
+      "settingsAria": "Manage channels and connections"
     },
     "folder": {
       "expand": "Show sub-views",

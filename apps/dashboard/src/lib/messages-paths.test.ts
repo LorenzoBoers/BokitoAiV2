@@ -21,10 +21,13 @@ describe('leaf path round-trips', () => {
     { type: 'inbox', queue: 'spam' },
     { type: 'team', teamId: 'tm-1' },
     { type: 'team', teamId: 'tm-1', queue: 'unassigned' },
+    { type: 'channel', channelKey: 'webchat', queue: 'open' },
+    { type: 'channel', channelKey: 'email', connectionId: '12', queue: 'for_you' },
+    { type: 'agent', agentId: 'a1', queue: 'open' },
   ]
 
   it.each(leaves.map((leaf) => [leafKey(leaf), leaf] as const))('round-trips %s', (_key, leaf) => {
-    expect(leafFromPath(leafPath(leaf))).toEqual(leaf.type === 'inbox' ? leaf : { queue: undefined, ...leaf })
+    expect(leafFromPath(leafPath(leaf))).toEqual(leaf)
   })
 
   it('round-trips with a thread id suffix', () => {
@@ -33,11 +36,19 @@ describe('leaf path round-trips', () => {
     expect(leafPath(leaf, 'abc-123')).toBe('/communication/team/tm-7/for_you/t/abc-123')
   })
 
+  it('maps legacy mine to for_you on channel folders', () => {
+    expect(leafFromPath('/communication/channel/email/12/mine')).toEqual({
+      type: 'channel',
+      channelKey: 'email',
+      connectionId: '12',
+      queue: 'for_you',
+    })
+  })
+
   it('drops an unknown queue segment instead of failing', () => {
     expect(leafFromPath('/communication/team/tm-1/bogus')).toEqual({
       type: 'team',
       teamId: 'tm-1',
-      queue: undefined,
     })
   })
 
@@ -63,15 +74,33 @@ describe('sameLeafScope', () => {
     expect(sameLeafScope({ type: 'team', teamId: '1' }, { type: 'team', teamId: '2' })).toBe(false)
     expect(sameLeafScope({ type: 'team', teamId: '1' }, { type: 'inbox' })).toBe(false)
   })
+
+  it('matches channel and agent scopes', () => {
+    expect(
+      sameLeafScope(
+        { type: 'channel', channelKey: 'email', connectionId: '12', queue: 'open' },
+        { type: 'channel', channelKey: 'email', connectionId: '12' },
+      ),
+    ).toBe(true)
+    expect(
+      sameLeafScope(
+        { type: 'agent', agentId: 'a1', queue: 'closed' },
+        { type: 'agent', agentId: 'a1' },
+      ),
+    ).toBe(true)
+  })
 })
 
-describe('chips and For you', () => {
-  it('carries channel and agent chips in the query string', () => {
-    expect(channelPath('email:12')).toBe('/communication/inbox/open?channel=email%3A12')
-    expect(agentChatPath('a1', 't9')).toBe('/communication/inbox/all/t/t9?agent=a1')
-    expect(inboxPath('for_you', null, { channel: 'widget', agentId: 'a1' })).toBe(
-      '/communication/inbox/for_you?channel=widget&agent=a1',
+describe('folder paths', () => {
+  it('builds channel and agent folder URLs', () => {
+    expect(channelPath('email', { connectionId: 12, queue: 'open' })).toBe(
+      '/communication/channel/email/12/open',
     )
+    expect(channelPath('webchat', { queue: 'closed' })).toBe('/communication/channel/webchat/closed')
+    expect(agentChatPath('a1', { queue: 'open', threadId: 't9' })).toBe(
+      '/communication/agent/a1/open/t/t9',
+    )
+    expect(agentChatPath('a1', 't9')).toBe('/communication/agent/a1/t/t9')
   })
 
   it('keeps extra params on For you and drops the legacy filter', () => {
@@ -82,25 +111,20 @@ describe('chips and For you', () => {
   it('maps chips to list filters', () => {
     expect(filtersForChannelChip('email:12')).toEqual({ channel: 'email', connectionId: 12 })
     expect(filtersForChannelChip('whatsapp')).toEqual({ channel: 'whatsapp' })
+    expect(filtersForChannelChip('webchat')).toEqual({ channel: 'widget' })
     expect(filtersForChannelChip(null)).toEqual({})
   })
 })
 
 describe('legacyHubRedirect', () => {
-  it('maps old folders onto All communication with chips', () => {
+  it('maps retired folders; leaves channel and agent alone', () => {
     expect(legacyHubRedirect('/communication/decisions/t/s1', '?message=m1')).toBe(
       '/communication/inbox/for_you/t/s1?message=m1',
     )
     expect(legacyHubRedirect('/communication/runs/results/t/r1')).toBe('/communication/inbox/all/t/r1')
     expect(legacyHubRedirect('/communication/runs/all')).toBe('/activity')
-    expect(legacyHubRedirect('/communication/agent/a1/open/t/t1')).toBe('/communication/inbox/all/t/t1?agent=a1')
-    expect(legacyHubRedirect('/communication/agent/a1/activity')).toBe('/activity?agent=a1')
-    expect(legacyHubRedirect('/communication/channel/email/12/mine')).toBe(
-      '/communication/inbox/for_you?channel=email%3A12',
-    )
-    expect(legacyHubRedirect('/communication/channel/webchat/closed/t/w1')).toBe(
-      '/communication/inbox/closed/t/w1?channel=widget',
-    )
+    expect(legacyHubRedirect('/communication/agent/a1/open/t/t1')).toBeNull()
+    expect(legacyHubRedirect('/communication/channel/email/12/mine')).toBeNull()
     expect(legacyHubRedirect('/communication/inbox/mine')).toBe('/communication/inbox/for_you')
     expect(legacyHubRedirect('/communication/inbox/open')).toBeNull()
   })
@@ -126,5 +150,9 @@ describe('default queue resolution', () => {
   it('scope keys ignore the sub-queue', () => {
     expect(folderScopeKey({ type: 'team', teamId: 'tm-1', queue: 'closed' })).toBe('team:tm-1')
     expect(folderScopeKey({ type: 'inbox', queue: 'for_you' })).toBe('inbox')
+    expect(folderScopeKey({ type: 'channel', channelKey: 'email', connectionId: '12', queue: 'open' })).toBe(
+      'channel:email:12',
+    )
+    expect(folderScopeKey({ type: 'agent', agentId: 'a1', queue: 'open' })).toBe('agent:a1')
   })
 })

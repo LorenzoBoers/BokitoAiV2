@@ -107,6 +107,7 @@ async def test_link_merges_visitor_and_unlink_restores(client: AsyncClient, sess
         )
     ).scalars().all()
     assert len(note) == 1
+    assert note[0].body_text.startswith("Linked to ") or note[0].body_text.startswith("Gekoppeld aan ")
 
     assert await identity.unlink(session_override, signal, actor_type="user") is True
     await session_override.commit()
@@ -186,6 +187,16 @@ async def test_tool_autonomous_creates_when_no_match(client: AsyncClient, sessio
     assert created.display_name == "Fresh"
     await session_override.refresh(visitor)
     assert visitor.merged_into_id == created.id
+    note = (
+        await session_override.execute(
+            select(SignalMessage).where(
+                SignalMessage.signal_id == signal.id, SignalMessage.kind == "system_event"
+            )
+        )
+    ).scalar_one()
+    assert note.body_text.startswith("Contact created:") or note.body_text.startswith(
+        "Contact aangemaakt:"
+    )
 
 
 @pytest.mark.asyncio

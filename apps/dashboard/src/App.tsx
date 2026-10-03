@@ -188,7 +188,7 @@ function LegacyDirectMyRedirect() {
   return <Navigate to={`${newConversationPath()}${location.search}`} state={location.state} replace />
 }
 
-/** `/communication/direct/agent/:agentId[...]` → All communication with the agent chip. */
+/** `/communication/direct/agent/:agentId[...]` → agent folder. */
 function LegacyDirectAgentRedirect() {
   const { agentId, threadId } = useParams<{ agentId: string; threadId?: string }>()
   const location = useLocation()
@@ -339,13 +339,33 @@ export default function App() {
             <Route path="/communication/team/:teamId/:queue" element={<Communication />} />
             <Route path="/communication/team/:teamId/:queue/t/:threadId" element={<Communication />} />
 
-            {/* Old agent, decisions, runs and channel folders: now chips on All communication */}
-            <Route path="/communication/agent/*" element={<LegacyHubRedirect />} />
+            {/* Channel folders — email/mailbox routes first so :connectionId is not eaten as :queue */}
+            <Route path="/communication/channel/email/:connectionId" element={<Communication />} />
+            <Route
+              path="/communication/channel/email/:connectionId/t/:threadId"
+              element={<Communication />}
+            />
+            <Route path="/communication/channel/email/:connectionId/:queue" element={<Communication />} />
+            <Route
+              path="/communication/channel/email/:connectionId/:queue/t/:threadId"
+              element={<Communication />}
+            />
+            <Route path="/communication/channel/:channelKey" element={<Communication />} />
+            <Route path="/communication/channel/:channelKey/t/:threadId" element={<Communication />} />
+            <Route path="/communication/channel/:channelKey/:queue" element={<Communication />} />
+            <Route path="/communication/channel/:channelKey/:queue/t/:threadId" element={<Communication />} />
+
+            {/* Company agent folders */}
+            <Route path="/communication/agent/:agentId" element={<Communication />} />
+            <Route path="/communication/agent/:agentId/t/:threadId" element={<Communication />} />
+            <Route path="/communication/agent/:agentId/:queue" element={<Communication />} />
+            <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<Communication />} />
+
+            {/* Retired Decisions / Runs leaves → For you / Activity */}
             <Route path="/communication/decisions/*" element={<LegacyHubRedirect />} />
             <Route path="/communication/decisions" element={<LegacyHubRedirect />} />
             <Route path="/communication/runs/*" element={<LegacyHubRedirect />} />
             <Route path="/communication/runs" element={<LegacyHubRedirect />} />
-            <Route path="/communication/channel/*" element={<LegacyHubRedirect />} />
             {/* Legacy hub routes */}
             <Route path="/communication/chat" element={<LegacyConversationRedirect />} />
             <Route path="/communication/chat/:conversationId" element={<LegacyConversationRedirect />} />

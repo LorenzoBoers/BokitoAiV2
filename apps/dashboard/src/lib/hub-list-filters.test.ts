@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { configForLeaf, mergeHubThreadFilters, threadFitsChannelChip } from './hub-list-filters'
+import {
+  configForLeaf,
+  mergeHubThreadFilters,
+  threadFitsChannelChip,
+  threadFitsChannelLeaf,
+} from './hub-list-filters'
 
 describe('configForLeaf', () => {
   it('maps All communication sub-folders to list views', () => {
@@ -17,21 +22,67 @@ describe('configForLeaf', () => {
     })
     expect(configForLeaf({ type: 'team', teamId: 'tm-1' }).filters.view).toBe('all_open')
   })
+
+  it('scopes channel and agent folders', () => {
+    expect(
+      configForLeaf({ type: 'channel', channelKey: 'email', connectionId: '12', queue: 'open' }).filters,
+    ).toEqual({
+      folder: 'external',
+      channel: 'email',
+      view: 'all_open',
+      connectionId: 12,
+    })
+    expect(configForLeaf({ type: 'channel', channelKey: 'webchat', queue: 'for_you' }).filters).toEqual({
+      view: 'for_you',
+      channel: 'widget',
+    })
+    expect(configForLeaf({ type: 'agent', agentId: 'a1', queue: 'open' }).filters).toEqual({
+      folder: 'assistant',
+      view: 'all_open',
+      agentId: 'a1',
+    })
+  })
 })
 
 describe('mergeHubThreadFilters', () => {
-  it('maps a mailbox chip to channel plus connection id', () => {
-    const merged = mergeHubThreadFilters({ folder: 'inbox', view: 'for_you' }, { channel: 'email:12' })
+  it('keeps leaf channel when no chip is set', () => {
+    const merged = mergeHubThreadFilters(
+      { folder: 'external', channel: 'email', view: 'all_open', connectionId: 12 },
+      { channel: null },
+    )
     expect(merged.channel).toBe('email')
     expect(merged.connectionId).toBe(12)
-    expect(merged.view).toBe('for_you')
   })
 
-  it('keeps the list unscoped without a chip', () => {
-    const merged = mergeHubThreadFilters({ folder: 'inbox', view: 'all_open' }, { channel: null, agentId: 'a-1' })
-    expect(merged.channel).toBeUndefined()
-    expect(merged.connectionId).toBeUndefined()
+  it('keeps agent id from the leaf', () => {
+    const merged = mergeHubThreadFilters(
+      { folder: 'assistant', view: 'all_open', agentId: 'a-1' },
+      {},
+    )
     expect(merged.agentId).toBe('a-1')
+  })
+})
+
+describe('threadFitsChannelLeaf', () => {
+  it('matches widget aliases and mailbox ids', () => {
+    expect(
+      threadFitsChannelLeaf(
+        { channel: 'chat', emailConnectionId: null },
+        { type: 'channel', channelKey: 'webchat' },
+      ),
+    ).toBe(true)
+    expect(
+      threadFitsChannelLeaf(
+        { channel: 'email', emailConnectionId: 12 },
+        { type: 'channel', channelKey: 'email', connectionId: '12' },
+      ),
+    ).toBe(true)
+    expect(
+      threadFitsChannelLeaf(
+        { channel: 'email', emailConnectionId: 3 },
+        { type: 'channel', channelKey: 'email', connectionId: '12' },
+      ),
+    ).toBe(false)
   })
 })
 

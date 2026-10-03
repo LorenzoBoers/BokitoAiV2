@@ -351,12 +351,32 @@ async def apply_link(
         )
     )
     locale = await _locale(session, tenant_id)
-    if locale == "nl":
-        text = f"Gekoppeld aan {_label(person)} ({_BASIS_NL.get(proposal.basis, proposal.basis)})."
+    basis_label = (
+        _BASIS_NL.get(proposal.basis, proposal.basis)
+        if locale == "nl"
+        else _BASIS_EN.get(proposal.basis, proposal.basis)
+    )
+    # New person vs attach to an existing one — aliases in created_ids do not count as "created".
+    created_person = proposal.outcome == "create" or str(person.id) in created_ids
+    if created_person:
+        text = (
+            f"Contact aangemaakt: {_label(person)} ({basis_label})."
+            if locale == "nl"
+            else f"Contact created: {_label(person)} ({basis_label})."
+        )
+        event_name = "contact_created"
     else:
-        text = f"Linked to {_label(person)} ({_BASIS_EN.get(proposal.basis, proposal.basis)})."
+        text = (
+            f"Gekoppeld aan {_label(person)} ({basis_label})."
+            if locale == "nl"
+            else f"Linked to {_label(person)} ({basis_label})."
+        )
+        event_name = "contact_linked"
     message = await _system_message(
-        session, signal, text, {"event": "contact_linked", "person_id": str(person.id)}
+        session,
+        signal,
+        text,
+        {"event": event_name, "person_id": str(person.id), "created": created_person},
     )
     await session.flush()
     from app.services.companies import link_contact_company
