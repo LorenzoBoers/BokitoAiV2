@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,7 +36,6 @@ async def _publish_one(
     event: NormalizedEvent,
 ) -> None:
     label = PROVIDER_LABELS.get(job.provider, job.provider)
-    now = datetime.utcnow()
 
     if event.kind == "progress":
         text = event.summary or f"Working in {label}…"

@@ -424,7 +424,7 @@ async def test_anonymous_widget_visitor_is_not_a_contact(client: AsyncClient, se
         display_name="Website visitor",
         status="pending",
     )
-    person = await _person(session_override, tenant, "real@example.com")
+    await _person(session_override, tenant, "real@example.com")
     session_override.add(visitor)
     await session_override.commit()
 
