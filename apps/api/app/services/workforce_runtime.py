@@ -251,9 +251,9 @@ async def mark_agent_activity(
         status = "standby"
     agent.runtime_status = status
     if status == "standby":
-        agent.current_activity_summary = None
+        agent.current_activity_summary = ""
     elif summary is not None:
-        agent.current_activity_summary = (summary or "")[:200] or None
+        agent.current_activity_summary = (summary or "")[:200]
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()
