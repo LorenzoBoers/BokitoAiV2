@@ -1,59 +1,58 @@
-import { getInitials } from '../../lib/avatar'
-import { resolveAgentAvatarIcon, type AgentAvatarKind } from '../../lib/agent-avatar'
-import type { AgentPresenceStatus } from '../../lib/teams-api'
+import { getInitials, getAvatarColor } from '../../lib/avatar'
+import { resolveTeamAvatarIcon, type TeamAvatarKind } from '../../lib/team-avatar'
+import type { PresenceStatus } from '../../lib/teams-api'
 import { cn } from '../../lib/utils'
 import { PresenceCorner } from './PresenceCorner'
 
-interface AiAvatarProps {
+interface TeamAvatarProps {
   name?: string | null
   seed?: string
   size?: number
   className?: string
-  kind?: AgentAvatarKind | string | null
+  kind?: TeamAvatarKind | string | null
   icon?: string | null
-  /** Ignored — agents always use the platform AI violet. Kept for call-site compat. */
   color?: string | null
   imageUrl?: string | null
-  /** Hide the name from assistive tech when a parent already labels the control. */
   decorative?: boolean
-  /** Corner: static purple standby, pulsing purple working, red error. */
-  activity?: AgentPresenceStatus | null
+  presence?: PresenceStatus
 }
 
 function resolveKind(
   kind: string | null | undefined,
   icon: string | null | undefined,
   imageUrl: string | null | undefined,
-): AgentAvatarKind {
+): TeamAvatarKind {
   const normalized = (kind ?? '').trim().toLowerCase()
   if (normalized === 'image' && imageUrl) return 'image'
-  if (normalized === 'icon' && icon && resolveAgentAvatarIcon(icon)) return 'icon'
+  if (normalized === 'icon' && icon && resolveTeamAvatarIcon(icon)) return 'icon'
   if (normalized === 'initials') return 'initials'
   if (imageUrl) return 'image'
-  if (icon && resolveAgentAvatarIcon(icon)) return 'icon'
+  if (icon && resolveTeamAvatarIcon(icon)) return 'icon'
   return 'initials'
 }
 
 /**
- * Agent mark: image, Lucide icon, or initials — always platform AI violet.
- * Optional activity corner for standby / working / error.
+ * Team mark: image, Lucide icon, or initials (default) with seeded color.
+ * Optional presence corner — people green/amber/gray or agent purple standby/working.
  */
-export function AiAvatar({
+export function TeamAvatar({
   name,
-  seed: _seed,
+  seed,
   size = 32,
   className = '',
   kind,
   icon,
-  color: _color,
+  color,
   imageUrl,
   decorative = false,
-  activity,
-}: AiAvatarProps) {
-  const displayName = name?.trim() || 'Agent'
+  presence,
+}: TeamAvatarProps) {
+  const displayName = name?.trim() || 'Team'
   const initials = getInitials(displayName)
   const resolved = resolveKind(kind, icon, imageUrl)
-  const Icon = resolved === 'icon' ? resolveAgentAvatarIcon(icon) : null
+  const Icon = resolved === 'icon' ? resolveTeamAvatarIcon(icon) : null
+  const palette = getAvatarColor(seed || displayName)
+  const bg = color?.trim() || palette.bg
   const fontSize = Math.round(size * 0.36)
   const iconSize = Math.round(size * 0.48)
   const borderRadius = Math.round(size * 0.5)
@@ -65,20 +64,24 @@ export function AiAvatar({
     resolved === 'image' && imageUrl ? (
       <span
         style={{ width: size, height: size, borderRadius }}
-        className={cn(
-          'inline-flex shrink-0 overflow-hidden border border-ai/35',
-          activity ? '' : className,
-        )}
+        className={cn('inline-flex shrink-0 overflow-hidden border border-border/50', presence ? '' : className)}
         {...a11yProps}
       >
         <img src={imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />
       </span>
     ) : (
       <span
-        style={{ width: size, height: size, borderRadius, fontSize }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius,
+          fontSize,
+          background: bg,
+          color: '#ffffff',
+        }}
         className={cn(
-          'inline-flex shrink-0 select-none items-center justify-center border border-ai/35 bg-ai/10 font-semibold text-ai-ink',
-          activity ? '' : className,
+          'inline-flex shrink-0 select-none items-center justify-center font-semibold leading-none',
+          presence ? '' : className,
         )}
         {...a11yProps}
       >
@@ -86,11 +89,11 @@ export function AiAvatar({
       </span>
     )
 
-  if (!activity) return face
+  if (!presence) return face
   return (
     <span className={cn('relative inline-flex shrink-0', className)}>
       {face}
-      <PresenceCorner status={activity} size={size} />
+      <PresenceCorner status={presence} size={size} />
     </span>
   )
 }

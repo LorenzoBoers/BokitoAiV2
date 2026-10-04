@@ -2422,6 +2422,7 @@ async def _generate_agent_reply(
     )
 
     signal_id = signal.id
+    agent = None
     try:
         # Auto-reply only when the thread explicitly involves an agent (pinned,
         # in the message history, or via its project) — the lead-agent fallback
@@ -2431,6 +2432,14 @@ async def _generate_agent_reply(
         )
         if not agent or not agent.is_active:
             return
+        from app.services.workforce_runtime import mark_agent_activity
+
+        await mark_agent_activity(
+            session,
+            agent,
+            status="active",
+            summary=(signal.subject or "Replying")[:200],
+        )
         history = await signal_chat_history(session, signal_id)
         loop = AgentLoop(
             session,
@@ -2465,6 +2474,14 @@ async def _generate_agent_reply(
     except Exception:  # noqa: BLE001 - never break the user's reply
         await session.rollback()
         logger.exception("Failed to generate agent reply for signal %s", signal_id)
+    finally:
+        if agent is not None:
+            try:
+                from app.services.workforce_runtime import mark_agent_activity
+
+                await mark_agent_activity(session, agent, status="standby")
+            except Exception:  # noqa: BLE001
+                logger.exception("Failed to reset agent runtime after reply %s", signal_id)
 
 
 async def list_pins(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> dict[str, list[str]]:

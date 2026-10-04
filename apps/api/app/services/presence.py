@@ -1,14 +1,19 @@
-"""Availability of people: available, away or offline.
+"""Availability of people, agents and teams.
 
-The gateway stamps ``User.last_seen_at`` while a dashboard tab is connected.
-``away`` is set by the person (optionally until a moment); it wins over a
-live connection.
+People: ``available`` | ``away`` | ``offline`` — gateway stamps
+``User.last_seen_at`` while a dashboard tab is connected; ``away`` is set by
+the person and wins over a live connection.
+
+Agents (avatar corner): ``working`` | ``standby`` | ``error``.
+
+Teams roll up with hierarchy:
+available person > working agent > away person > standby agent > offline.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Iterable
+from typing import Any, Iterable
 from uuid import UUID
 
 from sqlalchemy import select
@@ -22,6 +27,12 @@ TOUCH_INTERVAL = timedelta(seconds=60)
 AVAILABLE = "available"
 AWAY = "away"
 OFFLINE = "offline"
+WORKING = "working"
+STANDBY = "standby"
+ERROR = "error"
+
+TEAM_STATUSES = frozenset({AVAILABLE, AWAY, WORKING, STANDBY, OFFLINE})
+AGENT_CORNER_STATUSES = frozenset({WORKING, STANDBY, ERROR})
 
 
 def user_status(user: User, *, now: datetime | None = None) -> str:
@@ -111,3 +122,68 @@ async def anyone_available(
         users = (await session.execute(select(User).where(User.id.in_(ids)))).scalars().all()
     now = datetime.utcnow()
     return any(user_status(u, now=now) == AVAILABLE for u in users)
+
+
+def agent_corner_status(
+    agent: Any,
+    *,
+    has_running_run: bool = False,
+) -> str | None:
+    """Corner status for a company agent, or ``None`` when not counted on a team.
+
+    Skips archived / personal assistants. Maps runtime ``active`` (or an open
+    AgentRun) to ``working``.
+    """
+    if agent is None:
+        return None
+    if not bool(getattr(agent, "is_active", False)):
+        return None
+    if str(getattr(agent, "kind", "") or "") != "company":
+        return None
+    if bool(getattr(agent, "acts_for_user", False)):
+        return None
+    runtime = str(getattr(agent, "runtime_status", None) or STANDBY).strip().lower()
+    if runtime in ("sleeping", "paused", "inactive", "running"):
+        # legacy: "running" treated as working below via has_running_run / active
+        if runtime == "running":
+            runtime = "active"
+        else:
+            runtime = STANDBY
+    if runtime == ERROR:
+        return ERROR
+    if runtime == "active" or has_running_run:
+        return WORKING
+    return STANDBY
+
+
+def team_status(
+    people_statuses: Iterable[str],
+    *,
+    agent_statuses: Iterable[str] | None = None,
+    active_agents: int = 0,
+) -> str:
+    """Aggregate team presence.
+
+    Hierarchy: available > working > away > standby > offline.
+
+    ``active_agents`` is deprecated; prefer ``agent_statuses``. When only
+    ``active_agents`` is passed (legacy), each count maps to standby.
+    """
+    people = [str(s or "").strip().lower() for s in people_statuses]
+    agents = [str(s or "").strip().lower() for s in (agent_statuses or [])]
+    if not agents and active_agents > 0:
+        agents = [STANDBY] * int(active_agents)
+    if any(s == AVAILABLE for s in people):
+        return AVAILABLE
+    if any(s == WORKING for s in agents):
+        return WORKING
+    if any(s == AWAY for s in people):
+        return AWAY
+    if any(s == STANDBY for s in agents):
+        return STANDBY
+    return OFFLINE
+
+
+def serialize_team_presence(status: str) -> dict:
+    normalized = str(status or "").strip().lower()
+    return {"status": normalized if normalized in TEAM_STATUSES else OFFLINE}

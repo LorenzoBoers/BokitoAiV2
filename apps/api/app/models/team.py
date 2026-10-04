@@ -27,6 +27,8 @@ class Team(SQLModel, table=True):
     pinned: bool = Field(default=False)
     # Round-robin cursor: the member key that was picked last.
     last_pick: str = ""
+    # Avatar and other light prefs (mirrors Agent.settings_json).
+    settings_json: str = Field(default="{}")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

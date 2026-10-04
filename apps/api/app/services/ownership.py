@@ -534,20 +534,63 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
             Agent.acts_for_user.is_(False),
         )
     )
-    for agent in agent_rows.scalars().all():
+    from app.models.agent import AgentRun
+    from app.services.agent_avatar import avatar_payload as agent_avatar_payload
+    from app.services.presence import ERROR, STANDBY, WORKING, agent_corner_status
+    from app.services.teams import serialize_team
+
+    agent_list = list(agent_rows.scalars().all())
+    running_ids: set[UUID] = set()
+    if agent_list:
+        running_ids = set(
+            (
+                await session.execute(
+                    select(AgentRun.agent_id).where(
+                        AgentRun.tenant_id == tenant_id,
+                        AgentRun.agent_id.in_([a.id for a in agent_list]),
+                        AgentRun.status == "running",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    for agent in agent_list:
         ok = await agent_can_handle(session, account, agent.id)
+        avatar = agent_avatar_payload(agent)
+        corner = agent_corner_status(agent, has_running_run=agent.id in running_ids) or STANDBY
+        if corner not in (WORKING, STANDBY, ERROR):
+            corner = STANDBY
         agents.append(
             {
                 "id": str(agent.id),
                 "name": agent.name,
                 "can_handle": ok,
                 "reason": "" if ok else "no_channel_access",
+                "status": corner,
+                "avatar_kind": avatar["avatar_kind"],
+                "avatar_icon": avatar["avatar_icon"],
+                "avatar_color": avatar["avatar_color"],
+                "avatar_image_url": avatar["avatar_image_url"],
             }
         )
-    teams = [
-        {"id": str(team.id), "name": team.name, "kind": team.kind, "can_handle": True, "reason": ""}
-        for team in await list_teams(session, tenant_id)
-    ]
+    teams = []
+    for team in await list_teams(session, tenant_id):
+        payload = await serialize_team(session, team)
+        teams.append(
+            {
+                "id": payload["id"],
+                "name": payload["name"],
+                "kind": payload["kind"],
+                "can_handle": True,
+                "reason": "",
+                "presence": payload["presence"],
+                "avatar_kind": payload["avatar_kind"],
+                "avatar_icon": payload["avatar_icon"],
+                "avatar_color": payload["avatar_color"],
+                "avatar_image_url": payload["avatar_image_url"],
+            }
+        )
     people.sort(key=lambda p: (not p["can_handle"], p["name"].lower()))
     agents.sort(key=lambda a: (not a["can_handle"], a["name"].lower()))
     return {"people": people, "agents": agents, "teams": teams}

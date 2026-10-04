@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2, UsersRound } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
@@ -12,7 +12,14 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
 import { AiAvatar } from '../components/ui/AiAvatar'
+import { TeamAvatar } from '../components/ui/TeamAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
+import {
+  TEAM_AVATAR_ICON_KEYS,
+  resolveTeamAvatarIcon,
+  toTeamAvatarProps,
+} from '../lib/team-avatar'
+import type { TeamAvatarKind } from '../lib/teams-api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import {
   Dialog,
@@ -47,7 +54,7 @@ function memberKey(ref: TeamMemberRef): string {
 
 type StackMember =
   | { key: string; kind: 'user'; name: string; email: string; avatarUrl: string | null; presence?: PresenceStatus }
-  | { key: string; kind: 'agent'; name: string; id: string }
+  | { key: string; kind: 'agent'; name: string; id: string; activity?: 'standby' | 'working' | 'error' }
 
 function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
   const peopleById = new Map(overview.people.map((p) => [p.uuid, p]))
@@ -68,7 +75,14 @@ function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
     } else {
       const agent = agentsById.get(ref.id)
       if (!agent) continue
-      out.push({ key: memberKey(ref), kind: 'agent', name: agent.name, id: agent.id })
+      const status = String(agent.status || 'standby').toLowerCase()
+      const activity =
+        status === 'working' || status === 'active'
+          ? ('working' as const)
+          : status === 'error'
+            ? ('error' as const)
+            : ('standby' as const)
+      out.push({ key: memberKey(ref), kind: 'agent', name: agent.name, id: agent.id, activity })
     }
   }
   return out
@@ -102,7 +116,12 @@ function TeamMemberStack({ members, className }: { members: StackMember[]; class
               decorative
             />
           ) : (
-            <AiAvatar name={member.name} seed={member.id} size={size} />
+            <AiAvatar
+              name={member.name}
+              seed={member.id}
+              size={size}
+              activity={member.activity ?? 'standby'}
+            />
           )}
         </span>
       ))}
@@ -228,7 +247,13 @@ export default function TeamPage() {
               <Card key={team.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                    <UsersRound size={16} className="mt-0.5 shrink-0 text-text-muted" />
+                    <TeamAvatar
+                      {...toTeamAvatarProps(team)}
+                      size={28}
+                      decorative
+                      presence={team.presence?.status}
+                      className="mt-0.5"
+                    />
                     <div className="min-w-0 space-y-0.5">
                       <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-text-heading">
                         <span className="truncate-fade">{teamNames[team.id]}</span>
@@ -241,30 +266,32 @@ export default function TeamPage() {
                           : team.description || t('teamPage.noDescription')}
                       </p>
                       <p className="text-xs text-text-secondary">
-                        {t(`teamPage.pickup.${team.pickup}`)}
-                        <span className="text-text-muted">
-                          {' · '}
-                          <span data-testid="team-metrics">
-                            {t('teamPage.metrics', {
-                              questions: team.metrics.questions,
-                              answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
-                              pickedUp: team.metrics.picked_up,
-                            })}
-                          </span>
+                        {team.system ? null : (
+                          <>
+                            {t(`teamPage.pickup.${team.pickup}`)}
+                            <span className="text-text-muted">{' · '}</span>
+                          </>
+                        )}
+                        <span className="text-text-muted" data-testid="team-metrics">
+                          {t('teamPage.metrics', {
+                            questions: team.metrics.questions,
+                            answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
+                            pickedUp: team.metrics.picked_up,
+                          })}
                         </span>
                       </p>
                     </div>
                   </div>
+                  {canManage && !team.system ? (
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
+                      {t('teamPage.edit')}
+                    </Button>
+                  ) : null}
                   <TeamMemberStack members={stack} className="shrink-0" />
                   {stack.length === 0 ? (
                     <span className="shrink-0 text-xs text-text-muted">
                       {t('teamPage.memberCount', { count: team.member_count })}
                     </span>
-                  ) : null}
-                  {canManage ? (
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
-                      {t('teamPage.edit')}
-                    </Button>
                   ) : null}
                 </div>
               </Card>
@@ -309,11 +336,23 @@ function TeamDialog({
   const [description, setDescription] = useState(team?.description ?? '')
   const [pickup, setPickup] = useState<TeamPickup>(team?.pickup ?? 'people')
   const [pinned, setPinned] = useState(team?.pinned ?? false)
+  const [avatarKind, setAvatarKind] = useState<TeamAvatarKind>(
+    () => (team?.avatar_kind === 'icon' || team?.avatar_kind === 'image' ? team.avatar_kind : 'initials'),
+  )
+  const [avatarIcon, setAvatarIcon] = useState(team?.avatar_icon ?? 'users')
+  const [avatarColor] = useState(team?.avatar_color ?? null)
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set((team?.members ?? []).map(memberKey)),
   )
   const [busy, setBusy] = useState(false)
   const isSystem = team?.system ?? false
+  const previewName = name.trim() || team?.name || t('teamPage.namePlaceholder')
+  const avatarPayload = {
+    avatar_kind: avatarKind === 'image' ? 'initials' : avatarKind,
+    avatar_icon: avatarKind === 'icon' ? avatarIcon : null,
+    avatar_color: avatarColor,
+    avatar_image_url: null as string | null,
+  }
 
   const toggle = (ref: TeamMemberRef) =>
     setSelected((prev) => {
@@ -335,11 +374,25 @@ function TeamDialog({
     setBusy(true)
     try {
       if (!team) {
-        await createTeam(token, { name, description, pickup, pinned, members: members() })
-      } else if (isSystem) {
-        await patchTeam(token, team.id, { pickup, pinned })
+        await createTeam(token, {
+          name,
+          description,
+          pickup,
+          pinned,
+          members: members(),
+          ...avatarPayload,
+          avatar_kind: avatarPayload.avatar_kind as TeamAvatarKind,
+        })
       } else {
-        await patchTeam(token, team.id, { name, description, pickup, pinned })
+        if (isSystem) return
+        await patchTeam(token, team.id, {
+          name,
+          description,
+          pickup,
+          pinned,
+          ...avatarPayload,
+          avatar_kind: avatarPayload.avatar_kind as TeamAvatarKind,
+        })
         await setTeamMembers(token, team.id, members())
       }
       onSaved()
@@ -405,6 +458,62 @@ function TeamDialog({
             </span>
             <Switch checked={pinned} onCheckedChange={setPinned} />
           </label>
+          <div className="space-y-2 rounded-lg border border-border/60 px-3 py-2">
+            <div className="flex items-center gap-3">
+              <TeamAvatar
+                {...toTeamAvatarProps({
+                  id: team?.id,
+                  name: previewName,
+                  avatar_kind: avatarPayload.avatar_kind,
+                  avatar_icon: avatarPayload.avatar_icon,
+                  avatar_color: avatarPayload.avatar_color,
+                })}
+                size={36}
+                decorative
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-text-heading">{t('teamPage.avatarLabel')}</p>
+                <p className="text-xs text-text-muted">{t('teamPage.avatarHint')}</p>
+              </div>
+              <Select
+                value={avatarKind === 'icon' ? 'icon' : 'initials'}
+                onValueChange={(v) => setAvatarKind(v === 'icon' ? 'icon' : 'initials')}
+              >
+                <SelectTrigger className="h-8 w-[120px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="initials">{t('teamPage.avatarInitials')}</SelectItem>
+                  <SelectItem value="icon">{t('teamPage.avatarIcon')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {avatarKind === 'icon' ? (
+              <div className="flex flex-wrap gap-1.5">
+                {TEAM_AVATAR_ICON_KEYS.slice(0, 12).map((key) => {
+                  const Icon = resolveTeamAvatarIcon(key)
+                  if (!Icon) return null
+                  const active = avatarIcon === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setAvatarIcon(key)}
+                      className={cn(
+                        'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
+                        active
+                          ? 'border-accent bg-accent/10 text-accent'
+                          : 'border-border/60 text-text-muted hover:bg-bg-hover',
+                      )}
+                      title={key}
+                    >
+                      <Icon size={14} />
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
           {!isSystem ? (
             <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
               {overview.people.map((p) => {
@@ -429,7 +538,19 @@ function TeamDialog({
                 return (
                   <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover/60">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
-                    <AiAvatar name={a.name} seed={a.id} size={20} />
+                    <AiAvatar
+                      name={a.name}
+                      seed={a.id}
+                      size={20}
+                      activity={
+                        String(a.status || '').toLowerCase() === 'working' ||
+                        String(a.status || '').toLowerCase() === 'active'
+                          ? 'working'
+                          : String(a.status || '').toLowerCase() === 'error'
+                            ? 'error'
+                            : 'standby'
+                      }
+                    />
                     <span className="text-sm">{a.name}</span>
                   </label>
                 )

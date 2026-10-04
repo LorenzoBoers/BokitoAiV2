@@ -22,9 +22,9 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 
 ## Nodig het team uit
 
-1. Open **Team** in de zijbalk onder **Organisatie**.
+1. Open **Workforce** in de zijbalk onder **Organisatie**.
 2. Nodig de mensen uit die klanten beantwoorden. Deel ze in teams in op het tabblad **Teams** wanneer meer dan een groep antwoordt.
-3. Zie [Zo werkt Team](/docs/getting-started/team).
+3. Zie [Zo werkt Workforce](/docs/getting-started/team).
 
 ## Koppel kanalen en stel AI-afhandeling in
 

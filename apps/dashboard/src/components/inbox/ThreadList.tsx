@@ -8,6 +8,7 @@ import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
 import { cn } from '../../lib/utils'
 import { useMembers } from '../../hooks/useMembers'
+import { useTeams } from '../../hooks/useTeams'
 import { channelKind } from '../ui/ChannelGlyph'
 import { InboxListSkeleton } from '../ui/skeleton'
 import BulkActionsBar from './BulkActionsBar'
@@ -113,6 +114,7 @@ export default function ThreadList({
   lastMailboxSyncAt,
 }: Props) {
   const { t } = useTranslation('communication')
+  const { t: tn } = useTranslation('nav')
   const [density, setDensity] = useState(readInboxDensity)
   const counts = buildFilterCounts(allThreads)
   const selectionActive = (bulkSelectedIds?.size ?? 0) > 0
@@ -122,6 +124,7 @@ export default function ThreadList({
     writeInboxDensity(next)
   }
   const { members } = useMembers()
+  const { teams } = useTeams()
   const memberNames = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of members) map.set(String(m.id), m.name || m.email)
@@ -132,6 +135,10 @@ export default function ThreadList({
     for (const m of members) map.set(String(m.id), m.presence)
     return map
   }, [members])
+  const teamsById = useMemo(() => {
+    const map = new Map(teams.map((team) => [team.id, team]))
+    return map
+  }, [teams])
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const scrollTopRef = useRef(0)
   const restoredRef = useRef(false)
@@ -158,7 +165,45 @@ export default function ThreadList({
   }, [scrollKey])
 
   const renderItem = useCallback(
-    (index: number, thread: InboxThread) => (
+    (index: number, thread: InboxThread) => {
+      const owner = thread.owner
+      let assigneeName: string | null = null
+      let assigneePresence: InboxMember['presence'] | import('../../lib/teams-api').PresenceStatus | undefined
+      let assigneeKind: 'user' | 'agent' | 'team' | null = null
+      let assigneeSeed: string | null = null
+      let assigneeEmail: string | null = null
+      let assigneeAvatarUrl: string | null = null
+      let assigneeAvatarKind: string | null = null
+      let assigneeAvatarIcon: string | null = null
+      let assigneeAvatarColor: string | null = null
+      let assigneeAvatarImageUrl: string | null = null
+
+      if (thread.assignedToUserId != null) {
+        const member = members.find((m) => m.id === thread.assignedToUserId)
+        assigneeKind = 'user'
+        assigneeName = member?.name ?? memberNames.get(String(thread.assignedToUserId)) ?? null
+        assigneePresence = memberPresence.get(String(thread.assignedToUserId))
+        assigneeEmail = member?.email ?? null
+        assigneeAvatarUrl = member?.avatarUrl ?? null
+      } else if (owner?.kind === 'team' && owner.teamId) {
+        const team = teamsById.get(owner.teamId)
+        if (team) {
+          assigneeKind = 'team'
+          assigneeName = team.system ? tn(`teamPage.system.${team.kind}`) : team.name
+          assigneePresence = team.presence?.status
+          assigneeSeed = team.id
+          assigneeAvatarKind = team.avatar_kind ?? null
+          assigneeAvatarIcon = team.avatar_icon ?? null
+          assigneeAvatarColor = team.avatar_color ?? null
+          assigneeAvatarImageUrl = team.avatar_image_url ?? null
+        }
+      } else if (owner?.kind === 'agent' && (thread.agentName || owner.agentId)) {
+        assigneeKind = 'agent'
+        assigneeName = thread.agentName ?? null
+        assigneeSeed = owner.agentId
+      }
+
+      return (
       <div className={cn(density === 'compact' ? 'pb-0' : 'pb-0.5')}>
         <ThreadListItem
           thread={thread}
@@ -175,19 +220,22 @@ export default function ThreadList({
           checked={bulkSelectedIds?.has(String(thread.id))}
           onToggleChecked={onToggleBulkSelect}
           selectionActive={selectionActive}
-          assigneeName={
-            thread.assignedToUserId != null
-              ? memberNames.get(String(thread.assignedToUserId)) ?? null
-              : null
-          }
-          assigneePresence={
-            thread.assignedToUserId != null ? memberPresence.get(String(thread.assignedToUserId)) : undefined
-          }
+          assigneeName={assigneeName}
+          assigneePresence={assigneePresence}
+          assigneeKind={assigneeKind}
+          assigneeSeed={assigneeSeed}
+          assigneeEmail={assigneeEmail}
+          assigneeAvatarUrl={assigneeAvatarUrl}
+          assigneeAvatarKind={assigneeAvatarKind}
+          assigneeAvatarIcon={assigneeAvatarIcon}
+          assigneeAvatarColor={assigneeAvatarColor}
+          assigneeAvatarImageUrl={assigneeAvatarImageUrl}
           compact={density === 'compact'}
           enterIndex={index}
         />
       </div>
-    ),
+      )
+    },
     [
       density,
       selectedId,
@@ -203,8 +251,11 @@ export default function ThreadList({
       bulkSelectedIds,
       onToggleBulkSelect,
       selectionActive,
+      members,
       memberNames,
       memberPresence,
+      teamsById,
+      tn,
     ],
   )
 

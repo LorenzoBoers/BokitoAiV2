@@ -119,7 +119,7 @@ export function toAiAvatarProps(
   fallbackName = 'Agent',
 ): AgentAvatarProps {
   if (!source) {
-    return { name: fallbackName, kind: 'icon', icon: 'sparkles' }
+    return { name: fallbackName, kind: 'initials' }
   }
   return {
     name: source.name || source.agentName || fallbackName,

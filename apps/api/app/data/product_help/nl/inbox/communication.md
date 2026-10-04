@@ -32,7 +32,7 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 Elk gesprek heeft één eigenaar: een persoon, een agent of een team. Zonder eigenaar hoort het bij het eigenaarsteam van het kanaal, anders bij Alle mensen.
 
 1. Kies **Oppakken** op een gesprek van een team om het van jou te maken. Antwoorden of een notitie toevoegen doet hetzelfde. Het verdwijnt uit **Niet toegewezen** en uit **Voor jou** van de rest van het team.
-2. Kies **Toewijzen** voor de keuzelijst met **Mensen**, **Agents** en **Teams**. Bij elke persoon zie je of die beschikbaar is. Wie geen Afhandelen-toegang op het kanaal heeft, toont **Geen toegang tot dit kanaal** en is niet te kiezen.
+2. Kies **Toewijzen** voor de keuzelijst met **Mensen**, **Agents** en **Teams**. Elke persoon, agent en team toont een hoekstatus: groen/oranje/grijs voor mensen, paars stand-by of pulsend paars als een agent bezig is; teams rollen dat op van hun leden (beschikbare persoon wint; anders een werkende agent, dan afwezig, dan agent stand-by). Wie geen Afhandelen-toegang op het kanaal heeft, toont **Geen toegang tot dit kanaal** en is niet te kiezen. In de lijst en de header zie je dezelfde markering voor de huidige eigenaar.
 3. Kies je een agent of een team, dan kun je een bericht meegeven. Een agent begint direct en antwoordt als interne notitie. Een team pakt het gesprek op zoals het team is ingesteld (zie [Team](/docs/getting-started/team)).
 4. Typ in een notitie `@` om een persoon, agent of team te vermelden. Een agent vermelden laat hem op het gesprek werken; een team vermelden waarschuwt de mensen in het team, of laat de agent eerst antwoorden als het team op **Agent eerst** staat.
 

@@ -300,3 +300,21 @@ async def publish_presence(
             "status": status or ("available" if online else "offline"),
         },
     )
+
+
+async def publish_agent_status(
+    tenant_id: Any,
+    *,
+    agent_id: UUID,
+    status: str,
+) -> None:
+    """Broadcast agent corner status: standby | working | error."""
+    await _safe_publish(
+        tenant_id,
+        ["presence", "agents"],
+        "agent.status",
+        {
+            "agent_id": str(agent_id),
+            "status": status,
+        },
+    )

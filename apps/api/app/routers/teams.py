@@ -29,6 +29,10 @@ class TeamMemberRef(BaseModel):
     id: str
 
 
+class TeamPresenceOut(BaseModel):
+    status: Literal["available", "away", "offline", "standby", "working"]
+
+
 class TeamOut(BaseModel):
     id: str
     name: str
@@ -39,6 +43,11 @@ class TeamOut(BaseModel):
     pinned: bool = False
     members: list[TeamMemberRef]
     member_count: int
+    presence: TeamPresenceOut = Field(default_factory=lambda: TeamPresenceOut(status="offline"))
+    avatar_kind: str = "initials"
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_image_url: str | None = None
 
 
 class TeamCreateBody(BaseModel):
@@ -47,6 +56,10 @@ class TeamCreateBody(BaseModel):
     pickup: Literal["people", "agent_first", "round_robin", "least_open"] = "people"
     pinned: bool = False
     members: list[TeamMemberRef] = Field(default_factory=list)
+    avatar_kind: Literal["initials", "icon", "image"] | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_image_url: str | None = None
 
 
 class TeamPatchBody(BaseModel):
@@ -54,6 +67,10 @@ class TeamPatchBody(BaseModel):
     description: str | None = None
     pickup: Literal["people", "agent_first", "round_robin", "least_open"] | None = None
     pinned: bool | None = None
+    avatar_kind: Literal["initials", "icon", "image"] | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_image_url: str | None = None
 
 
 class TeamMembersBody(BaseModel):
@@ -95,6 +112,7 @@ class OverviewAgent(BaseModel):
     autonomy_level: str = "assisted"
     team_ids: list[str]
     open_owned: int
+    status: Literal["standby", "working", "error"] = "standby"
     metrics: OverviewMetrics = Field(default_factory=OverviewMetrics)
 
 
@@ -144,6 +162,8 @@ async def create_team(
 ):
     """Create a custom team of people and agents (owner or admin)."""
     auth.require_role("owner", "admin")
+    from app.services.team_avatar import apply_avatar_settings, dump_settings, _settings
+
     team = await teams_svc.create_team(
         session,
         auth.tenant.id,
@@ -153,6 +173,24 @@ async def create_team(
         pinned=body.pinned,
         members=[m.model_dump() for m in body.members],
     )
+    if any(
+        v is not None
+        for v in (body.avatar_kind, body.avatar_icon, body.avatar_color, body.avatar_image_url)
+    ):
+        try:
+            team.settings_json = dump_settings(
+                apply_avatar_settings(
+                    _settings(team.settings_json),
+                    team_id=team.id,
+                    avatar_kind=body.avatar_kind,
+                    avatar_icon=body.avatar_icon,
+                    avatar_color=body.avatar_color,
+                    avatar_image_url=body.avatar_image_url,
+                )
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        session.add(team)
     await record_audit(
         session,
         auth.tenant.id,
@@ -177,12 +215,12 @@ async def patch_team(
 ):
     """Rename a team, change its description, pickup, or sidebar pin.
 
-    System teams accept a pickup change only.
+    System teams (All people / All agents) are not editable.
     """
     auth.require_role("owner", "admin")
     team = await _team_or_404(session, auth.tenant.id, team_id)
-    if team.kind in teams_svc.SYSTEM_TEAM_KINDS and (body.name is not None or body.description is not None):
-        raise HTTPException(status_code=400, detail="System teams cannot be renamed")
+    if team.kind in teams_svc.SYSTEM_TEAM_KINDS:
+        raise HTTPException(status_code=400, detail="System teams cannot be edited")
     if body.name is not None:
         team.name = body.name.strip()
     if body.description is not None:
@@ -191,6 +229,25 @@ async def patch_team(
         team.pickup = body.pickup
     if body.pinned is not None:
         team.pinned = body.pinned
+    if any(
+        v is not None
+        for v in (body.avatar_kind, body.avatar_icon, body.avatar_color, body.avatar_image_url)
+    ):
+        from app.services.team_avatar import apply_avatar_settings, dump_settings, _settings
+
+        try:
+            team.settings_json = dump_settings(
+                apply_avatar_settings(
+                    _settings(team.settings_json),
+                    team_id=team.id,
+                    avatar_kind=body.avatar_kind,
+                    avatar_icon=body.avatar_icon,
+                    avatar_color=body.avatar_color,
+                    avatar_image_url=body.avatar_image_url,
+                )
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     team.updated_at = datetime.utcnow()
     session.add(team)
     await session.commit()
@@ -335,18 +392,42 @@ async def team_overview(
     ]
     people.sort(key=lambda p: p["name"].lower())
 
-    agent_rows = (
-        await session.execute(
-            select(Agent).where(
-                Agent.tenant_id == tenant_id,
-                Agent.is_active.is_(True),
-                Agent.kind == "company",
-                Agent.acts_for_user.is_(False),
+    from app.models.agent import AgentRun
+
+    agent_rows = list(
+        (
+            await session.execute(
+                select(Agent).where(
+                    Agent.tenant_id == tenant_id,
+                    Agent.is_active.is_(True),
+                    Agent.kind == "company",
+                    Agent.acts_for_user.is_(False),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
+    running_ids: set[UUID] = set()
+    if agent_rows:
+        running_ids = set(
+            (
+                await session.execute(
+                    select(AgentRun.agent_id).where(
+                        AgentRun.tenant_id == tenant_id,
+                        AgentRun.agent_id.in_([a.id for a in agent_rows]),
+                        AgentRun.status == "running",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
     agents = []
     for agent in agent_rows:
+        corner = presence.agent_corner_status(agent, has_running_run=agent.id in running_ids) or "standby"
+        if corner not in ("standby", "working", "error"):
+            corner = "standby"
         agents.append(
             {
                 "id": str(agent.id),
@@ -355,6 +436,7 @@ async def team_overview(
                 "autonomy_level": agent.autonomy_level or "assisted",
                 "team_ids": membership.get(f"agent:{agent.id}", []),
                 "open_owned": int(open_owned_agent.get(agent.id, 0)),
+                "status": corner,
                 "metrics": metrics["agents"].get(str(agent.id), empty_metrics()),
             }
         )

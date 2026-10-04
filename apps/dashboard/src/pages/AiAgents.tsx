@@ -109,6 +109,13 @@ function AgentLibraryCard({
             icon={agent.avatar_icon}
             imageUrl={agent.avatar_image_url}
             decorative
+            activity={
+              agentWorkState(agent) === 'working'
+                ? 'working'
+                : agentWorkState(agent) === 'error'
+                  ? 'error'
+                  : 'standby'
+            }
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">

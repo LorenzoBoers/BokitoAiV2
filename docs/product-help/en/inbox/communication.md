@@ -32,7 +32,7 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 Every conversation has one owner: a person, an agent or a team. Without one it belongs to the channel's owner team, else to All people.
 
 1. Choose **Pick up** on a team-owned conversation to make it yours. Replying or adding a note does the same. It leaves **Unassigned** and the **For you** of the rest of the team.
-2. Choose **Assign** to open the picker with **People**, **Agents** and **Teams**. Each person shows whether they are available. Someone without Handle access on the channel shows **No access to this channel** and cannot be picked.
+2. Choose **Assign** to open the picker with **People**, **Agents** and **Teams**. Each person, agent and team shows a corner status: green/amber/gray for people, purple standby or pulsing purple when an agent is working; teams roll that up from their members (a person available wins; otherwise a working agent, then away, then agent standby). Someone without Handle access on the channel shows **No access to this channel** and cannot be picked. The list and header use the same mark for the current owner.
 3. Picking an agent or a team asks for an optional message. An agent starts right away and answers as an internal note. A team picks the conversation up the way it is set to (see [Team](/docs/getting-started/team)).
 4. In a note, type `@` to mention a person, an agent or a team. Mentioning an agent runs it on the conversation; mentioning a team notifies its people, or lets its agent answer first when the team is set to **Agent first**.
 

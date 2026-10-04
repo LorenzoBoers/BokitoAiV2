@@ -13,19 +13,19 @@ After you create a workspace, owners finish a short **first-run wizard** (`/onbo
 
 Bokito has one sidebar with seven areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
 
-## Control: the daily loop
+## Daily loop at the top
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*Overview, Communication and Agenda.*
+*Overview and Communication sit above the grouped sections.*
 
 - **Overview** — the morning scan of open work, decisions and usage. See [Overview](/docs/getting-started/cockpit). You can set Overview as your start page under Profile; Communication is the default.
-- **Communication** — the conversations, and the contacts behind them. See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
-- **Agenda** — when agents wake. See [Agenda](/docs/ai/agenda).
+- **Communication** — the conversations, and the contacts behind them. Standalone in the rail (not under a section). See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
 
 ## Work and AI
 
 - **Projects** — work that spans days. See [Projects](/docs/ai/projects).
 - **Playbooks** — repeatable step-by-step processes agents execute. See [Playbooks](/docs/ai/workstreams).
+- **Agenda** — when agents wake; lives under **Work**. See [Agenda](/docs/ai/agenda).
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).
 - **Knowledge** — docs, skills and memory; equal sibling next to Agents. See [Knowledge](/docs/ai/knowledge).
 
@@ -33,11 +33,11 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 
 At the bottom of the rail, **Organization** groups the workspace itself:
 
-- **Team** — the people, the agents and the teams they form, with who is available now. See [Team](/docs/getting-started/team).
+- **Workforce** — the people, the agents and the teams they form, with who is available now. See [Workforce](/docs/getting-started/team).
 - **Connections** — marketplace installs, partner logins and tools. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Integrations](/docs/integrations/integrations).
 - **Settings** — **Channels**, **AI replies**, chat widget, **Providers & models** and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).
 
-Owners and admins use Organization most; members mainly open Team. See the [setup guide](/docs/getting-started/setup-guide). **Overview** sits above Control in the rail — see [Overview](/docs/getting-started/cockpit).
+Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
 Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, **Start page** is **Messages** (default) or **Overview**; **Appearance** is **Light**, **Dark** or **System**; **Email signature** is appended when you send or approve as yourself. They do not change how the team answers customers.
 

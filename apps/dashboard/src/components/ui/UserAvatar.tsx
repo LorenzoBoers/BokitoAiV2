@@ -1,15 +1,8 @@
-import { useTranslation } from 'react-i18next'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { cn } from '../../lib/utils'
-import { Tip } from './Tip'
+import { PresenceCorner } from './PresenceCorner'
 
 type Presence = 'available' | 'away' | 'offline'
-
-const PRESENCE_DOT: Record<Presence, string> = {
-  available: 'bg-status-success',
-  away: 'bg-status-warning',
-  offline: 'bg-text-muted/60',
-}
 
 interface UserAvatarProps {
   name: string
@@ -21,22 +14,6 @@ interface UserAvatarProps {
   decorative?: boolean
   /** Availability dot in the corner. */
   presence?: Presence
-}
-
-function PresenceCorner({ presence, size }: { presence: Presence; size: number }) {
-  const { t } = useTranslation('common')
-  const label = t(`presence.${presence}`)
-  const dot = Math.max(6, Math.round(size * 0.32))
-  return (
-    <Tip label={label}>
-      <span
-        style={{ width: dot, height: dot }}
-        className={cn('absolute -bottom-px -right-px rounded-full ring-2 ring-bg-surface', PRESENCE_DOT[presence])}
-      >
-        <span className="sr-only">{label}</span>
-      </span>
-    </Tip>
-  )
 }
 
 export function UserAvatar({
@@ -74,7 +51,7 @@ export function UserAvatar({
   return (
     <span className={cn('relative inline-flex shrink-0', className)}>
       {face}
-      <PresenceCorner presence={presence} size={size} />
+      <PresenceCorner status={presence} size={size} />
     </span>
   )
 }

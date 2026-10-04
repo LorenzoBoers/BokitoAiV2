@@ -1,22 +1,22 @@
 ---
-title: How Team works
+title: How Workforce works
 intro: People, agents and teams on one page, with who is available.
 description: Invite people, see people and agents in one directory, group them into teams, set how a team picks up conversations, mark yourself away and read team numbers.
-keywords: team, members, invite, roles, teams, availability, away, round robin, least open, pickup
+keywords: workforce, team, members, invite, roles, teams, availability, away, round robin, least open, pickup
 sort: 60
 related: setup-guide,communication,agents,channels
 ---
 
-# How Team works
+# How Workforce works
 
-Team shows everyone who works conversations: the people in the workspace, the company agents, and the teams you group them into. Open **Team** in the rail under **Organization** to invite someone, scan the directory, or build a team.
+Workforce shows everyone who works conversations: the people in the workspace, the company agents, and the teams you group them into. Open **Workforce** in the rail under **Organization** to invite someone, scan the directory, or build a team.
 
 ## Invite someone
 
-![Invite strip on Team](/api/docs/assets/team/invite.png)
-*Owners and admins invite people at the top of Team.*
+![Invite strip on Workforce](/api/docs/assets/team/invite.png)
+*Owners and admins invite people at the top of Workforce.*
 
-1. Open **Team**. Under **Invite a teammate**, enter a full email and set **Role**: **Admin** or **Member**. Open **What each role can do** if you need the permission matrix.
+1. Open **Workforce**. Under **Invite a teammate**, enter a full email and set **Role**: **Admin** or **Member**. Open **What each role can do** if you need the permission matrix.
 2. Choose **Invite**. When this server cannot send mail, use **Copy invite link** and share it yourself.
 3. Pending invites appear in the directory under **Pending**. Use **Resend invite email** or **Revoke invite**. On an active person, change the role or choose **Remove member**. Only the **Owner** can promote, demote or remove an owner.
 
@@ -24,21 +24,22 @@ Members answer conversations. Owners and admins also connect channels, change au
 
 ## Mark yourself away
 
-1. Open your account menu (bottom of the rail) and set presence to **Away**. Your dot turns gray everywhere: in the list, in the thread, in the assign picker and on Team.
+1. Open your account menu (bottom of the rail) and set presence to **Away**. Your dot turns gray everywhere: in the list, in the thread, in the assign picker and on Workforce.
 2. While you are away, agents skip you when they pick who to ask, teams do not hand you new conversations, and the website chat does not count you as available for a live handoff.
 3. Set presence back to available when you are back. Someone counts as available while Bokito is open on one of their devices.
 
-Agents are always available unless they are paused.
+Agents show a purple corner mark: static when on standby, pulsing when they are working on a conversation or run.
 
 ## Read the directory
 
-1. On **Team**, the directory lists people, pending invites and company agents together. Filter with **All**, **People**, **Agents** or **Pending**, or search by name.
+1. On **Workforce**, the directory lists people, pending invites and company agents together. Filter with **All**, **People**, **Agents** or **Pending**, or search by name.
 2. Each person shows role, teams and open work. Each agent shows its ceiling, open conversations and a short 30-day line (questions and answer time). Open an agent for full metrics and rules (see [Agents](/docs/ai/agents)).
+3. People, agents and teams use the same kind of mark: two-letter initials (or an icon/image when set). Corner dots follow a shared hierarchy: green when a person is available, purple pulse when an agent on the team is working, amber when someone is away, static purple when only agents are on standby, gray when everyone is offline.
 
 ## Build a team
 
-1. Scroll to **Teams** and choose **New team**. **All people** and **All agents** always exist; their members follow the workspace.
-2. Give the team a name, an optional description, and tick the people and agents in it. A team can mix both.
+1. Scroll to **Teams** and choose **New team**. **All people** and **All agents** always exist; their members follow the workspace. You cannot edit, pin or change pickup on those system teams, and they never appear as folders in Communication.
+2. Give a custom team a name, an optional description, and choose a **Team mark** (initials or icon). Tick the people and agents in it. A team can mix both.
 3. Under **Pick up conversations**, choose how new conversations owned by the team are handled:
    - **People pick up**: the conversation stays with the team; the first person who reacts takes it.
    - **Agent first**: an agent in the team answers first; people step in when it asks.

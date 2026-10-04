@@ -7,6 +7,7 @@ the bus fans them out locally and across workers via Redis pub/sub when availabl
 
 from app.gateway.bus import event_bus
 from app.gateway.publish import (
+    publish_agent_status,
     publish_decision,
     publish_notification,
     publish_presence,
@@ -17,6 +18,7 @@ from app.gateway.publish import (
 
 __all__ = [
     "event_bus",
+    "publish_agent_status",
     "publish_decision",
     "publish_notification",
     "publish_presence",

@@ -236,6 +236,35 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
     ]
 
 
+async def mark_agent_activity(
+    session: AsyncSession,
+    agent: Agent,
+    *,
+    status: str,
+    summary: str | None = None,
+) -> None:
+    """Set runtime status for inbox/orchestration loops and broadcast corner status.
+
+    ``status`` uses DB values: ``active`` (working), ``standby``, ``error``.
+    """
+    if status not in ("standby", "active", "error"):
+        status = "standby"
+    agent.runtime_status = status
+    if status == "standby":
+        agent.current_activity_summary = None
+    elif summary is not None:
+        agent.current_activity_summary = (summary or "")[:200] or None
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+    from app.gateway.publish import publish_agent_status
+    from app.services.presence import ERROR, STANDBY, WORKING
+
+    corner = WORKING if status == "active" else (ERROR if status == "error" else STANDBY)
+    await publish_agent_status(agent.tenant_id, agent_id=agent.id, status=corner)
+
+
 async def update_agent_runtime_status(
     session: AsyncSession, tenant_id: UUID, agent_id: UUID, status: str
 ) -> dict[str, Any]:
@@ -251,12 +280,7 @@ async def update_agent_runtime_status(
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    agent.runtime_status = status
-    # is_active is owned by archive (and legacy personal retire), not by runtime.
-    agent.updated_at = datetime.utcnow()
-    session.add(agent)
-    await session.commit()
-    await session.refresh(agent)
+    await mark_agent_activity(session, agent, status=status)
     return {"ok": True, "agent": serialize_runtime_agent(agent)}
 
 

@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -821,6 +821,15 @@ class AssigneeAgent(BaseModel):
     name: str
     can_handle: bool
     reason: str = ""
+    status: Literal["standby", "working", "error"] = "standby"
+    avatar_kind: str | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_image_url: str | None = None
+
+
+class AssigneeTeamPresence(BaseModel):
+    status: Literal["available", "away", "offline", "standby", "working"]
 
 
 class AssigneeTeam(BaseModel):
@@ -829,6 +838,11 @@ class AssigneeTeam(BaseModel):
     kind: str
     can_handle: bool = True
     reason: str = ""
+    presence: AssigneeTeamPresence | None = None
+    avatar_kind: str | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_image_url: str | None = None
 
 
 class AssigneeCandidates(BaseModel):

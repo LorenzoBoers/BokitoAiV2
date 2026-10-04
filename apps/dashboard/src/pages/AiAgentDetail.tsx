@@ -253,6 +253,13 @@ export default function AiAgentDetail() {
                   kind={agent.avatar_kind}
                   icon={agent.avatar_icon}
                   imageUrl={agent.avatar_image_url}
+                  activity={
+                    agentWorkState(agent) === 'working'
+                      ? 'working'
+                      : agentWorkState(agent) === 'error'
+                        ? 'error'
+                        : 'standby'
+                  }
                 />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">

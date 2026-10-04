@@ -91,6 +91,9 @@
   "presence": {
     "available": "Available",
     "away": "Away",
-    "offline": "Offline"
+    "offline": "Offline",
+    "standby": "Standby",
+    "working": "Working",
+    "error": "Error"
   }
 }

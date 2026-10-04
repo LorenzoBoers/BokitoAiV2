@@ -21,10 +21,19 @@ def _agent(**settings) -> Agent:
     )
 
 
-def test_avatar_payload_defaults_to_role_icon():
+def test_avatar_payload_defaults_to_initials():
+    """List marks are initials-first; role Lucide icons apply only in icon mode."""
     assert avatar_payload(None)["avatar_icon"] == "sparkles"
     assert avatar_payload(None)["avatar_color"] == PLATFORM_AVATAR_COLOR
     payload = avatar_payload(_agent())
+    assert payload["avatar_kind"] == "initials"
+    assert payload["avatar_icon"] is None
+    assert payload["avatar_color"] == PLATFORM_AVATAR_COLOR
+
+
+def test_avatar_payload_icon_mode_uses_role_default_when_missing():
+    agent = _agent(avatar_kind="icon")
+    payload = avatar_payload(agent)
     assert payload["avatar_kind"] == "icon"
     assert payload["avatar_icon"] == "headset"
     assert payload["avatar_color"] == PLATFORM_AVATAR_COLOR

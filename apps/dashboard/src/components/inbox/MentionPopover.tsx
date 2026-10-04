@@ -1,6 +1,9 @@
-import { Bot, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { AiAvatar } from '../ui/AiAvatar'
+import { TeamAvatar } from '../ui/TeamAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { cn } from '../../lib/utils'
 import type { MentionItem } from '../../lib/mentions'
 
@@ -41,13 +44,32 @@ export default function MentionPopover({ items, activeIndex, onSelect, onHover }
               )}
             >
               {item.type === 'agent' ? (
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-                  <Bot size={13} />
-                </span>
+                <AiAvatar
+                  {...toAiAvatarProps({
+                    id: item.id,
+                    name: item.name,
+                    avatar_kind: item.avatarKind,
+                    avatar_icon: item.avatarIcon,
+                    avatar_image_url: item.avatarImageUrl,
+                  })}
+                  size={24}
+                  decorative
+                  activity={item.activity ?? 'standby'}
+                />
               ) : item.type === 'team' ? (
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bg-hover text-text-secondary">
-                  <Users size={13} />
-                </span>
+                <TeamAvatar
+                  {...toTeamAvatarProps({
+                    id: item.id,
+                    name: item.name,
+                    avatar_kind: item.avatarKind,
+                    avatar_icon: item.avatarIcon,
+                    avatar_color: item.avatarColor,
+                    avatar_image_url: item.avatarImageUrl,
+                  })}
+                  size={24}
+                  decorative
+                  presence={item.presence}
+                />
               ) : (
                 <UserAvatar
                   name={item.name}

@@ -13,7 +13,12 @@ import {
 } from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
 import { PersonAvatar } from '../ui/PersonAvatar'
+import { TeamAvatar } from '../ui/TeamAvatar'
+import { UserAvatar } from '../ui/UserAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { toTeamAvatarProps } from '../../lib/team-avatar'
+import { agentPresenceOf } from '../../hooks/useAgentPresence'
+import type { PresenceStatus } from '../../lib/teams-api'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import {
@@ -55,9 +60,17 @@ type Props = {
   onToggleChecked?: (id: ThreadId, shiftKey?: boolean) => void
   /** True while any thread is selected: keeps all checkboxes visible. */
   selectionActive?: boolean
-  /** Display name of the assigned member (resolved by the parent list). */
+  /** Display name of the assigned member or team (resolved by the parent list). */
   assigneeName?: string | null
-  assigneePresence?: 'available' | 'away' | 'offline'
+  assigneePresence?: PresenceStatus
+  assigneeKind?: 'user' | 'agent' | 'team' | null
+  assigneeSeed?: string | null
+  assigneeEmail?: string | null
+  assigneeAvatarUrl?: string | null
+  assigneeAvatarKind?: string | null
+  assigneeAvatarIcon?: string | null
+  assigneeAvatarColor?: string | null
+  assigneeAvatarImageUrl?: string | null
   compact?: boolean
   /** Stagger index for list-row enter animation (cap in parent). */
   enterIndex?: number
@@ -122,6 +135,14 @@ function ThreadListItem({
   selectionActive = false,
   assigneeName = null,
   assigneePresence,
+  assigneeKind = null,
+  assigneeSeed = null,
+  assigneeEmail = null,
+  assigneeAvatarUrl = null,
+  assigneeAvatarKind = null,
+  assigneeAvatarIcon = null,
+  assigneeAvatarColor = null,
+  assigneeAvatarImageUrl = null,
   compact = false,
   enterIndex,
 }: Props) {
@@ -412,24 +433,51 @@ function ThreadListItem({
             ) : null}
           </div>
 
-          {thread.assignedToUserId && !isDirect ? (
+          {assigneeName && !isDirect ? (
             <div className="mt-1 flex items-center gap-1">
-              <span className="relative inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-bg-hover text-[8px] font-semibold text-text-secondary">
-                {(assigneeName ?? '?').slice(0, 1)}
-                {assigneePresence ? (
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'absolute -bottom-px -right-px h-1.5 w-1.5 rounded-full ring-1 ring-bg-surface',
-                      assigneePresence === 'available'
-                        ? 'bg-status-success'
-                        : assigneePresence === 'away'
-                          ? 'bg-status-warning'
-                          : 'bg-text-muted/60',
-                    )}
-                  />
-                ) : null}
-              </span>
+              {assigneeKind === 'team' ? (
+                <TeamAvatar
+                  {...toTeamAvatarProps({
+                    id: assigneeSeed,
+                    name: assigneeName,
+                    avatar_kind: assigneeAvatarKind,
+                    avatar_icon: assigneeAvatarIcon,
+                    avatar_color: assigneeAvatarColor,
+                    avatar_image_url: assigneeAvatarImageUrl,
+                  })}
+                  size={14}
+                  decorative
+                  presence={assigneePresence}
+                />
+              ) : assigneeKind === 'agent' ? (
+                <AiAvatar
+                  {...toAiAvatarProps({
+                    id: assigneeSeed,
+                    name: assigneeName,
+                    avatar_kind: assigneeAvatarKind,
+                    avatar_icon: assigneeAvatarIcon,
+                    avatar_image_url: assigneeAvatarImageUrl,
+                  })}
+                  size={14}
+                  decorative
+                  activity={assigneeSeed ? agentPresenceOf(assigneeSeed) : 'standby'}
+                />
+              ) : (
+                <UserAvatar
+                  name={assigneeName ?? '?'}
+                  email={assigneeEmail ?? assigneeName ?? ''}
+                  avatarUrl={assigneeAvatarUrl}
+                  size={14}
+                  decorative
+                  presence={
+                    assigneePresence === 'available' ||
+                    assigneePresence === 'away' ||
+                    assigneePresence === 'offline'
+                      ? assigneePresence
+                      : undefined
+                  }
+                />
+              )}
               <span className="truncate-fade text-xs text-text-muted">
                 {assigneeName ?? t('listItem.assigned')}
               </span>

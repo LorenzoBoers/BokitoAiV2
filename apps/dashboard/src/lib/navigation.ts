@@ -1,7 +1,7 @@
 /**
  * Navigation model for the control shell.
  *
- * Rail: Overview; Control (Communication, Agenda); Work (Projects, Playbooks);
+ * Rail: Overview + Communication (pinned); Work (Projects, Playbooks, Agenda);
  * AI (Agents, Knowledge); Organization (Team, Connections, Settings).
  * Govern lives under Settings (not a primary rail item).
  * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
@@ -33,11 +33,10 @@ export type Tab =
   | 'modules'
   | 'settings'
 
-export const PINNED_TABS: readonly Tab[] = ['overview']
+export const PINNED_TABS: readonly Tab[] = ['overview', 'communication']
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Control', tabs: ['communication', 'agenda'] },
-  { label: 'Work', tabs: ['projects', 'workstreams'] },
+  { label: 'Work', tabs: ['projects', 'workstreams', 'agenda'] },
   { label: 'AI', tabs: ['agents', 'knowledge'] },
   { label: 'Organization', tabs: ['team', 'modules', 'settings'] },
 ]
@@ -81,7 +80,7 @@ const TAB_TITLES: Record<Tab, string> = {
   overview: 'Overview',
   communication: 'Communication',
   agenda: 'Agenda',
-  team: 'Team',
+  team: 'Workforce',
   agents: 'Agents',
   workstreams: 'Playbooks',
   knowledge: 'Knowledge',

@@ -67,7 +67,7 @@
       "subtitle": "Workspace-configuratie"
     },
     "team": {
-      "title": "Team",
+      "title": "Workforce",
       "subtitle": "Mensen, agents en teams van het bedrijf"
     }
   },
@@ -5775,6 +5775,10 @@
       "teams": "Teams",
       "teamsHint": "Groepeer mensen en agents; stel in hoe ze gesprekken oppakken."
     },
+    "avatarLabel": "Teammarkering",
+    "avatarHint": "Standaard initialen, of kies een icoon.",
+    "avatarInitials": "Initialen",
+    "avatarIcon": "Icoon",
     "tabs": {
       "people": "Mensen",
       "agents": "Agents",

@@ -160,11 +160,18 @@ def avatar_payload(agent: Agent | None) -> dict[str, Any]:
     if kind == AVATAR_KIND_IMAGE and not image:
         kind = AVATAR_KIND_ICON if icon else AVATAR_KIND_INITIALS
     if kind == AVATAR_KIND_ICON and not icon:
-        kind = AVATAR_KIND_INITIALS
-    if kind == AVATAR_KIND_INITIALS and not icon and not image:
+        # Explicit icon mode without a stored icon falls back to the role mark.
         return _role_default_mark(agent)
+    # Initials-first list mark: only use Lucide when kind is icon (or image).
+    if kind == AVATAR_KIND_INITIALS:
+        return {
+            "avatar_kind": AVATAR_KIND_INITIALS,
+            "avatar_icon": None,
+            "avatar_color": PLATFORM_AVATAR_COLOR,
+            "avatar_image_url": None,
+        }
     # Orchestrators that accidentally share the Front desk headset get the
-    # role mark so they stay visually distinct in the rail and Agents library.
+    # role mark so they stay visually distinct when using icon mode.
     if (
         icon == "headset"
         and (agent.role or "").strip().lower() in ("orchestrator", "po")

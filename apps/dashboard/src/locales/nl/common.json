@@ -91,6 +91,9 @@
   "presence": {
     "available": "Beschikbaar",
     "away": "Afwezig",
-    "offline": "Offline"
+    "offline": "Offline",
+    "standby": "Stand-by",
+    "working": "Bezig",
+    "error": "Fout"
   }
 }

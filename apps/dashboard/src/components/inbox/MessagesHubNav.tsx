@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Activity, ChevronDown, Inbox, Plus, Settings, Users, UsersRound } from 'lucide-react'
+import { Activity, ChevronDown, Inbox, Plus, Settings, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
+import { TeamAvatar } from '../ui/TeamAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { toTeamAvatarProps } from '../../lib/team-avatar'
+import { parseAgentPresenceStatus } from '../../lib/teams-api'
+import { useAgentPresence, seedAgentPresence } from '../../hooks/useAgentPresence'
 import { NavSectionSkeleton } from '../ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
@@ -302,6 +306,57 @@ function ChannelsSection({
   )
 }
 
+function AgentFolderRow({
+  agent,
+  activeLeaf,
+  defaultQueueFor,
+  t,
+}: {
+  agent: ChatTarget
+  activeLeaf: HubLeaf | null
+  defaultQueueFor: (leaf: HubLeaf) => SubQueue
+  t: TFn
+}) {
+  const activity = useAgentPresence(agent.id)
+  const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
+  const activityActive =
+    activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id && activeLeaf.queue === 'activity'
+  return (
+    <SidebarFolder
+      baseLeaf={baseLeaf}
+      label={agent.name}
+      icon={
+        <AiAvatar
+          {...toAiAvatarProps(agent)}
+          size={14}
+          decorative
+          activity={activity}
+        />
+      }
+      activeLeaf={activeLeaf}
+      defaultQueue={defaultQueueFor(baseLeaf)}
+      headerAction={
+        <ComposePlusLink
+          to={newConversationPath({ intent: 'agent', agentId: agent.id })}
+          label={t('support.composeToAgent')}
+        />
+      }
+      extra={
+        <Tip label={t('support.agents.activity')} side="right">
+          <NavLink
+            to={activityTerminalPath(agent.id)}
+            data-active={activityActive ? 'true' : undefined}
+            className="nav-row nav-sub-row h-[26px] text-xs"
+          >
+            <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
+          </NavLink>
+        </Tip>
+      }
+    />
+  )
+}
+
 function AgentsSection({
   agents,
   loading,
@@ -315,6 +370,16 @@ function AgentsSection({
   defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }) {
+  useEffect(() => {
+    if (agents.length === 0) return
+    seedAgentPresence(
+      agents.map((agent) => ({
+        id: agent.id,
+        status: parseAgentPresenceStatus(agent.runtime_status),
+      })),
+    )
+  }, [agents])
+
   return (
     <div className="space-y-0.5">
       {loading ? <NavSectionSkeleton rows={2} /> : null}
@@ -334,46 +399,22 @@ function AgentsSection({
           </div>
         </div>
       ) : null}
-      {agents.map((agent) => {
-        const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
-        const activityActive =
-          activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id && activeLeaf.queue === 'activity'
-        return (
-          <SidebarFolder
-            key={agent.id}
-            baseLeaf={baseLeaf}
-            label={agent.name}
-            icon={<AiAvatar {...toAiAvatarProps(agent)} size={14} decorative />}
-            activeLeaf={activeLeaf}
-            defaultQueue={defaultQueueFor(baseLeaf)}
-            headerAction={
-              <ComposePlusLink
-                to={newConversationPath({ intent: 'agent', agentId: agent.id })}
-                label={t('support.composeToAgent')}
-              />
-            }
-            extra={
-              <Tip label={t('support.agents.activity')} side="right">
-                <NavLink
-                  to={activityTerminalPath(agent.id)}
-                  data-active={activityActive ? 'true' : undefined}
-                  className="nav-row nav-sub-row h-[26px] text-xs"
-                >
-                  <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
-                </NavLink>
-              </Tip>
-            }
-          />
-        )
-      })}
+      {agents.map((agent) => (
+        <AgentFolderRow
+          key={agent.id}
+          agent={agent}
+          activeLeaf={activeLeaf}
+          defaultQueueFor={defaultQueueFor}
+          t={t}
+        />
+      ))}
     </div>
   )
 }
 
 function usePinnedTeams(): { teams: Team[]; loading: boolean } {
   const { teams, loading } = useTeams()
-  return { teams: teams.filter((team) => team.pinned), loading }
+  return { teams: teams.filter((team) => team.pinned && !team.system), loading }
 }
 
 /**
@@ -467,7 +508,14 @@ export default function MessagesHubNav() {
               baseLeaf={leaf}
               label={team.name}
               title={team.description || team.name}
-              icon={<UsersRound size={14} className="shrink-0 text-text-muted" />}
+              icon={
+                <TeamAvatar
+                  {...toTeamAvatarProps(team)}
+                  size={14}
+                  decorative
+                  presence={team.presence?.status}
+                />
+              }
               activeLeaf={activeLeaf}
               defaultQueue={defaultQueueFor(leaf)}
               badgeCount={countForTeam(counts, team.id)}

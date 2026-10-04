@@ -3,11 +3,15 @@
 Docs: https://platform.claude.com/docs/en/managed-agents/
 Beta header: managed-agents-2026-04-01
 Auth: x-api-key (tenant Anthropic key)
+
+MCP auth uses vaults (`static_bearer` + `vault_ids`), not inline tokens on
+`mcp_servers`. Budget amounts are US cents as a string with `type: "limit"`.
 """
 
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 
 from app.services.workbench import (
     AdapterCapabilities,
@@ -21,13 +25,6 @@ from app.services.workbench.http_util import WorkbenchHttpError, build_prompt, r
 BASE = "https://api.anthropic.com/v1"
 BETA = "managed-agents-2026-04-01"
 ANTHROPIC_VERSION = "2023-06-01"
-
-_STATUS = {
-    "idle": "needs_input",  # refined in poll from events
-    "running": "running",
-    "rescheduling": "running",
-    "terminated": "failed",
-}
 
 
 class ClaudeManagedWorkbenchAdapter:
@@ -65,6 +62,20 @@ class ClaudeManagedWorkbenchAdapter:
             "content-type": "application/json",
         }
 
+    def _mcp_server(self, url: str) -> dict[str, str]:
+        return {"type": "url", "name": "bokito", "url": url}
+
+    def _mcp_tools(self) -> list[dict[str, Any]]:
+        return [
+            {"type": "agent_toolset_20260401"},
+            {
+                "type": "mcp_toolset",
+                "mcp_server_name": "bokito",
+                # Job tools report into Bokito; skip per-call confirmations.
+                "default_config": {"permission_policy": "always_allow"},
+            },
+        ]
+
     async def _ensure_agent(self, creds: dict[str, Any], spec: JobSpec) -> str:
         """Reuse an agent id from connection metadata, or create one."""
         meta_agent = str(creds.get("agent_id") or "").strip()
@@ -77,14 +88,8 @@ class ClaudeManagedWorkbenchAdapter:
             "tools": [{"type": "agent_toolset_20260401"}],
         }
         if spec.mcp:
-            body["mcp_servers"] = [
-                {
-                    "type": "url",
-                    "url": spec.mcp.url,
-                    "name": "bokito",
-                    "authorization_token": spec.mcp.token,
-                }
-            ]
+            body["mcp_servers"] = [self._mcp_server(spec.mcp.url)]
+            body["tools"] = self._mcp_tools()
         data = await request_json(
             "POST",
             f"{BASE}/agents",
@@ -101,21 +106,31 @@ class ClaudeManagedWorkbenchAdapter:
         env_id = str(creds.get("environment_id") or "").strip()
         if env_id:
             return env_id
-        # Anthropic-hosted cloud sandbox with limited networking (code hosts).
+        networking: dict[str, Any] = {"type": "limited"}
+        if spec.mcp:
+            # Limited sandboxes block MCP unless hosts are allowed.
+            networking["allow_mcp_servers"] = True
+            host = urlparse(spec.mcp.url).hostname
+            if host:
+                networking["allowed_hosts"] = [host]
         body: dict[str, Any] = {
             "name": "Bokito cloud",
             "config": {
                 "type": "cloud",
-                "networking": {"type": "limited"},
+                "networking": networking,
             },
         }
-        # Pass git credentials into the sandbox when the tenant provided them.
         git_token = str(creds.get("git_token") or creds.get("github_token") or "").strip()
         if git_token:
             body["config"]["env"] = {
                 "GITHUB_TOKEN": git_token,
                 "GH_TOKEN": git_token,
             }
+            hosts = list(networking.get("allowed_hosts") or [])
+            for git_host in ("github.com", "api.github.com"):
+                if git_host not in hosts:
+                    hosts.append(git_host)
+            networking["allowed_hosts"] = hosts
         data = await request_json(
             "POST",
             f"{BASE}/environments",
@@ -127,6 +142,37 @@ class ClaudeManagedWorkbenchAdapter:
         if not environment_id:
             raise WorkbenchHttpError("Claude environments.create returned no id", body=data)
         return environment_id
+
+    async def _mint_job_vault(self, creds: dict[str, Any], spec: JobSpec) -> str:
+        """Create a per-job vault with a static_bearer credential for Bokito MCP."""
+        assert spec.mcp is not None
+        vault = await request_json(
+            "POST",
+            f"{BASE}/vaults",
+            headers=self._headers(creds),
+            json_body={
+                "display_name": "Bokito workbench job",
+                "metadata": {"source": "bokito_workbench"},
+            },
+        )
+        assert isinstance(vault, dict)
+        vault_id = str(vault.get("id") or "")
+        if not vault_id:
+            raise WorkbenchHttpError("Claude vaults.create returned no id", body=vault)
+        await request_json(
+            "POST",
+            f"{BASE}/vaults/{vault_id}/credentials",
+            headers=self._headers(creds),
+            json_body={
+                "display_name": "Bokito MCP job token",
+                "auth": {
+                    "type": "static_bearer",
+                    "mcp_server_url": spec.mcp.url,
+                    "token": spec.mcp.token,
+                },
+            },
+        )
+        return vault_id
 
     async def start(self, spec: JobSpec, creds: dict[str, Any]) -> JobHandle:
         agent_id = await self._ensure_agent(creds, spec)
@@ -143,19 +189,16 @@ class ClaudeManagedWorkbenchAdapter:
                 prompt += "\ncreate_pr: true"
 
         agent_payload: Any = agent_id
+        vault_ids: list[str] = []
         if spec.mcp:
-            # Per-session override so the job token is not stored on the durable agent.
+            vault_id = await self._mint_job_vault(creds, spec)
+            vault_ids = [vault_id]
+            # Per-session MCP declaration; auth comes from vault_ids, not inline token.
             agent_payload = {
-                "type": "agent",
+                "type": "agent_with_overrides",
                 "id": agent_id,
-                "mcp_servers": [
-                    {
-                        "type": "url",
-                        "url": spec.mcp.url,
-                        "name": "bokito",
-                        "authorization_token": spec.mcp.token,
-                    }
-                ],
+                "mcp_servers": [self._mcp_server(spec.mcp.url)],
+                "tools": self._mcp_tools(),
             }
 
         body: dict[str, Any] = {
@@ -168,10 +211,17 @@ class ClaudeManagedWorkbenchAdapter:
                 }
             ],
         }
+        if vault_ids:
+            body["vault_ids"] = vault_ids
         if spec.budget and spec.budget.max_cost_cents:
-            # Anthropic budgets use list-price dollars as a decimal string.
-            dollars = f"{spec.budget.max_cost_cents / 100:.2f}"
-            body["budget"] = {"max_list_cost": {"amount": dollars, "currency": "USD"}}
+            # Official schema: type limit + amount in US cents as a string.
+            body["budget"] = {
+                "type": "limit",
+                "max_list_cost": {
+                    "amount": str(int(spec.budget.max_cost_cents)),
+                    "currency": "USD",
+                },
+            }
 
         data = await request_json(
             "POST",
@@ -184,16 +234,19 @@ class ClaudeManagedWorkbenchAdapter:
         if not session_id:
             raise WorkbenchHttpError("Claude sessions.create returned no id", body=data)
         status = str(data.get("status") or "running")
+        external_ids: dict[str, Any] = {
+            "session_id": session_id,
+            "agent_id": agent_id,
+            "environment_id": environment_id,
+            "status": status,
+            "url": str(data.get("url") or ""),
+        }
+        if vault_ids:
+            external_ids["vault_id"] = vault_ids[0]
         return JobHandle(
             provider=self.provider,
             external_id=session_id,
-            external_ids={
-                "session_id": session_id,
-                "agent_id": agent_id,
-                "environment_id": environment_id,
-                "status": status,
-                "url": str(data.get("url") or ""),
-            },
+            external_ids=external_ids,
         )
 
     async def follow_up(
@@ -227,7 +280,6 @@ class ClaudeManagedWorkbenchAdapter:
             )
         except WorkbenchHttpError:
             pass
-        # Archive when idle so the sandbox is released.
         try:
             await request_json(
                 "POST",
@@ -251,15 +303,12 @@ class ClaudeManagedWorkbenchAdapter:
         handle.external_ids["status"] = status
 
         kind = "progress"
-        if status == "running" or status == "rescheduling":
+        if status in ("running", "rescheduling"):
             kind = "progress"
         elif status == "terminated":
-            kind = "failed"
-            if data.get("stop_reason") in ("end_turn", "completed"):
-                kind = "finished"
+            stop = self._stop_reason_type(data)
+            kind = "finished" if stop in ("end_turn", "completed") else "failed"
         elif status == "idle":
-            # Idle after work often means finished; idle with a question is needs_input.
-            # Probe recent events for a clear signal.
             kind = await self._idle_kind(session_id, creds, data)
 
         events = [
@@ -277,12 +326,22 @@ class ClaudeManagedWorkbenchAdapter:
         ]
         return events
 
+    def _stop_reason_type(self, data: dict[str, Any]) -> str:
+        stop = data.get("stop_reason")
+        if isinstance(stop, dict):
+            return str(stop.get("type") or "").lower()
+        return str(stop or "").lower()
+
     async def _idle_kind(
         self, session_id: str, creds: dict[str, Any], data: dict[str, Any]
     ) -> str:
-        stop = str(data.get("stop_reason") or "").lower()
+        stop = self._stop_reason_type(data)
+        if stop == "requires_action":
+            return "needs_input"
         if stop in ("end_turn", "completed", "stop_sequence"):
             return "finished"
+        if stop == "budget_reached":
+            return "failed"
         try:
             events = await request_json(
                 "GET",
@@ -301,11 +360,15 @@ class ClaudeManagedWorkbenchAdapter:
             if not isinstance(item, dict):
                 continue
             et = str(item.get("type") or "")
-            if "question" in et or et.endswith("tool_use") and "AskUser" in str(item):
+            payload = item.get("stop_reason") if isinstance(item.get("stop_reason"), dict) else {}
+            if et in ("session.status_idle", "status_idle") and str(
+                (payload or {}).get("type") or ""
+            ) == "requires_action":
+                return "needs_input"
+            if "question" in et or (et.endswith("tool_use") and "AskUser" in str(item)):
                 return "needs_input"
             if et in ("agent.message", "assistant.message") and item.get("stop_reason") == "end_turn":
                 return "finished"
-        # Default idle to needs_input so the operator can answer or stop.
         return "needs_input"
 
     def verify_webhook(self, headers: dict[str, str], raw_body: bytes, secret: str) -> bool:

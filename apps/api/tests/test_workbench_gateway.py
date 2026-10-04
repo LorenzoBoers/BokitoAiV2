@@ -191,6 +191,10 @@ async def test_claude_managed_start_body(client: AsyncClient, session_override):
             return {"id": "agent_1"}
         if url.endswith("/environments"):
             return {"id": "env_1"}
+        if url.endswith("/vaults"):
+            return {"id": "vlt_1"}
+        if "/vaults/" in url and url.endswith("/credentials"):
+            return {"id": "cred_1"}
         if url.endswith("/sessions"):
             return {"id": "session_1", "status": "running"}
         return {}
@@ -212,11 +216,22 @@ async def test_claude_managed_start_body(client: AsyncClient, session_override):
         )
 
     assert job.external_id == "session_1"
+    assert any(c[1].endswith("/vaults") for c in calls)
+    assert any("/vaults/vlt_1/credentials" in c[1] for c in calls)
+    cred_call = next(c for c in calls if "/vaults/vlt_1/credentials" in c[1])
+    assert cred_call[2]["auth"]["type"] == "static_bearer"
+    assert "token" in cred_call[2]["auth"]
     session_call = next(c for c in calls if c[1].endswith("/sessions"))
     body = session_call[2]
     assert body["environment_id"] == "env_1"
-    assert body["budget"]["max_list_cost"]["amount"] == "25.00"
+    assert body["vault_ids"] == ["vlt_1"]
+    assert body["budget"]["type"] == "limit"
+    assert body["budget"]["max_list_cost"]["amount"] == "2500"
+    assert body["agent"]["type"] == "agent_with_overrides"
     assert body["agent"]["mcp_servers"][0]["name"] == "bokito"
+    assert "authorization_token" not in body["agent"]["mcp_servers"][0]
+    env_call = next(c for c in calls if c[1].endswith("/environments"))
+    assert env_call[2]["config"]["networking"]["allow_mcp_servers"] is True
 
 
 async def test_job_token_allowlist(client: AsyncClient, session_override):

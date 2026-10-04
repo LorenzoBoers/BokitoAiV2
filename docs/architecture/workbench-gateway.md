@@ -339,7 +339,7 @@ Any other tool needs the project owner to widen the allowlist on the project, an
 | Provider | How the token reaches the tool |
 |---|---|
 | Cursor | `mcpServers` on the run: `{name: "bokito", type: "http", url, headers: {Authorization: "Bearer <job token>"}}` |
-| Claude Managed Agents | `mcp_servers` on the session (agent override), credentials through a vault; replaced or removed mid-session, so the token can be dropped the moment the job ends |
+| Claude Managed Agents | `mcp_servers` on the session (`agent_with_overrides`, no inline token); per-job vault with `static_bearer` + `vault_ids`; token lifetime ends with the vault/job |
 | Claude Code / Codex (runner or CI) | `--mcp-config` / `.codex/config.toml` written into the sandbox, token in an env var |
 | Devin | Per-org MCP only. Fallback: one long-lived connector token with the same allowlist; `ask_question` and `report_progress` then take a `job_ref` the gateway gives in the prompt, validated against tenant and running state |
 | Copilot | Per-repo MCP with a `COPILOT_MCP_BOKITO_TOKEN` secret; same `job_ref` fallback as Devin |

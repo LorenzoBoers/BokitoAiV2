@@ -5,9 +5,39 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
 export type TeamKind = 'people' | 'agents' | 'custom'
 export type TeamPickup = 'people' | 'agent_first' | 'round_robin' | 'least_open'
-export type PresenceStatus = 'available' | 'away' | 'offline'
+/** People: available|away|offline. Agents/teams may also use standby|working. */
+export type PresenceStatus = 'available' | 'away' | 'offline' | 'standby' | 'working'
+
+export type AgentPresenceStatus = 'standby' | 'working' | 'error'
+
+export function parsePresenceStatus(value: unknown): PresenceStatus | undefined {
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase()
+  if (
+    raw === 'available' ||
+    raw === 'away' ||
+    raw === 'offline' ||
+    raw === 'standby' ||
+    raw === 'working'
+  ) {
+    return raw
+  }
+  return undefined
+}
+
+export function parseAgentPresenceStatus(value: unknown): AgentPresenceStatus {
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase()
+  if (raw === 'working' || raw === 'active') return 'working'
+  if (raw === 'error') return 'error'
+  return 'standby'
+}
 
 export type TeamMemberRef = { kind: 'user' | 'agent'; id: string }
+
+export type TeamAvatarKind = 'initials' | 'icon' | 'image'
 
 export type Team = {
   id: string
@@ -20,6 +50,11 @@ export type Team = {
   pinned: boolean
   members: TeamMemberRef[]
   member_count: number
+  presence?: { status: PresenceStatus }
+  avatar_kind?: TeamAvatarKind | string
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
 }
 
 export type Presence = {
@@ -57,6 +92,7 @@ export type OverviewAgent = {
   autonomy_level: string
   team_ids: string[]
   open_owned: number
+  status?: AgentPresenceStatus | string
   metrics: OverviewMetrics
 }
 
@@ -95,9 +131,22 @@ export function getTeamOverview(token: string): Promise<TeamOverview> {
   return apiGet<TeamOverview>(appRoutes.teams.overview, token)
 }
 
+export type TeamAvatarInput = {
+  avatar_kind?: TeamAvatarKind
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
+}
+
 export function createTeam(
   token: string,
-  body: { name: string; description?: string; pickup?: TeamPickup; pinned?: boolean; members?: TeamMemberRef[] },
+  body: {
+    name: string
+    description?: string
+    pickup?: TeamPickup
+    pinned?: boolean
+    members?: TeamMemberRef[]
+  } & TeamAvatarInput,
 ): Promise<Team> {
   return announce(apiPost<Team>(appRoutes.teams.list, body, token))
 }
@@ -105,7 +154,12 @@ export function createTeam(
 export function patchTeam(
   token: string,
   id: string,
-  body: { name?: string; description?: string; pickup?: TeamPickup; pinned?: boolean },
+  body: {
+    name?: string
+    description?: string
+    pickup?: TeamPickup
+    pinned?: boolean
+  } & TeamAvatarInput,
 ): Promise<Team> {
   return announce(apiPatch<Team>(appRoutes.teams.byId(id), body, token))
 }

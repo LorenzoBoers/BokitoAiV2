@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { onGatewayEvent } from '../lib/gateway'
 import { listTeams, TEAMS_CHANGED_EVENT, type Team } from '../lib/teams-api'
 
 // Shared across the sidebar and every decision card; dropped when a team changes.
@@ -48,9 +49,13 @@ export function useTeams(): { teams: Team[]; loading: boolean } {
     const onChanged = () => load(true)
     load(false)
     window.addEventListener(TEAMS_CHANGED_EVENT, onChanged)
+    const offAgent = onGatewayEvent('presence', (event) => {
+      if (event.event === 'agent.status') load(true)
+    })
     return () => {
       cancelled = true
       window.removeEventListener(TEAMS_CHANGED_EVENT, onChanged)
+      offAgent()
     }
   }, [token])
 

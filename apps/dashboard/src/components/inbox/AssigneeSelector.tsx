@@ -1,13 +1,19 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bot, UserRound, Users } from 'lucide-react'
+import { UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../hooks/useMembers'
+import { useTeams } from '../../hooks/useTeams'
+import { agentPresenceOf, seedAgentPresence, useAgentPresence } from '../../hooks/useAgentPresence'
+import { AiAvatar } from '../ui/AiAvatar'
+import { TeamAvatar } from '../ui/TeamAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { cn } from '../../lib/utils'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { toTeamAvatarProps } from '../../lib/team-avatar'
 import type { AssigneeInput, ThreadOwner } from '../../lib/inbox-api'
 import { listSignalAssignees, type AssigneeCandidates } from '../../lib/signals-api'
 import {
@@ -37,6 +43,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
   const { t: tn } = useTranslation('nav')
   const { token, user } = useAuth()
   const { members } = useMembers()
+  const { teams } = useTeams()
   const [candidates, setCandidates] = useState<AssigneeCandidates | null>(null)
   const [handover, setHandover] = useState<Handover | null>(null)
   const [message, setMessage] = useState('')
@@ -51,6 +58,10 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
     () => members.find((m) => m.id === currentAssigneeId) ?? null,
     [members, currentAssigneeId],
   )
+  const currentTeam = useMemo(() => {
+    if (owner?.kind !== 'team' || !owner.teamId) return null
+    return teams.find((team) => team.id === owner.teamId) ?? null
+  }, [owner, teams])
 
   const teamLabel = useCallback(
     (team: AssigneeCandidates['teams'][number]) =>
@@ -62,11 +73,16 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
     (open: boolean) => {
       if (!open || !token) return
       listSignalAssignees(token, threadId)
-        .then(setCandidates)
+        .then((rows) => {
+          setCandidates(rows)
+          seedAgentPresence(rows.agents.map((a) => ({ id: a.id, status: a.status })))
+        })
         .catch(() => toast.error(t('threadChrome.assigneesLoadError')))
     },
     [token, threadId, t],
   )
+
+  const currentAgentActivity = useAgentPresence(owner?.kind === 'agent' ? owner.agentId : null)
 
   const confirmHandover = async () => {
     if (!handover) return
@@ -82,9 +98,52 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
 
   const tooltip = currentMember
     ? t('threadChrome.assignedTo', { name: currentMember.name })
-    : t('threadChrome.assign')
-  const owned = Boolean(currentMember) || owner?.kind === 'agent'
+    : owner?.kind === 'team' && currentTeam
+      ? t('threadChrome.assignedTo', {
+          name: currentTeam.system ? tn(`teamPage.system.${currentTeam.kind}`) : currentTeam.name,
+        })
+      : owner?.kind === 'agent'
+        ? t('threadChrome.assign')
+        : t('threadChrome.assign')
+  const owned = Boolean(currentMember) || owner?.kind === 'agent' || owner?.kind === 'team'
   const blocked = t('threadChrome.noChannelAccess')
+  const currentAgent =
+    owner?.kind === 'agent' && owner.agentId
+      ? candidates?.agents.find((a) => a.id === owner.agentId) ?? null
+      : null
+
+  const triggerMark = currentMember ? (
+    <UserAvatar
+      name={currentMember.name}
+      email={currentMember.email}
+      avatarUrl={currentMember.avatarUrl}
+      size={18}
+      presence={currentMember.presence}
+      decorative
+    />
+  ) : owner?.kind === 'team' && currentTeam ? (
+    <TeamAvatar
+      {...toTeamAvatarProps(currentTeam)}
+      size={18}
+      decorative
+      presence={currentTeam.presence?.status}
+    />
+  ) : owner?.kind === 'agent' && owner.agentId ? (
+    <AiAvatar
+      {...toAiAvatarProps({
+        id: owner.agentId,
+        name: currentAgent?.name ?? owner.agentId,
+        avatar_kind: currentAgent?.avatarKind,
+        avatar_icon: currentAgent?.avatarIcon,
+        avatar_image_url: currentAgent?.avatarImageUrl,
+      })}
+      size={18}
+      decorative
+      activity={currentAgentActivity}
+    />
+  ) : (
+    <UserRound size={14} strokeWidth={owned ? 2.25 : 1.75} />
+  )
 
   return (
     <>
@@ -106,7 +165,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   owned && 'text-accent',
                 )}
               >
-                <UserRound size={14} strokeWidth={owned ? 2.25 : 1.75} />
+                {triggerMark}
               </button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
@@ -153,9 +212,18 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   onSelect={() => setHandover({ kind: 'agent', id: a.id, name: a.name })}
                   className={cn('gap-2 text-xs', owner?.kind === 'agent' && owner.agentId === a.id && 'bg-bg-hover/80')}
                 >
-                  <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-                    <Bot size={11} />
-                  </span>
+                  <AiAvatar
+                    {...toAiAvatarProps({
+                      id: a.id,
+                      name: a.name,
+                      avatar_kind: a.avatarKind,
+                      avatar_icon: a.avatarIcon,
+                      avatar_image_url: a.avatarImageUrl,
+                    })}
+                    size={18}
+                    decorative
+                    activity={agentPresenceOf(a.id)}
+                  />
                   <span className="min-w-0 flex-1 truncate">{a.name}</span>
                   {!a.canHandle ? <span className="shrink-0 text-2xs text-text-muted">{blocked}</span> : null}
                 </DropdownMenuItem>
@@ -167,9 +235,19 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   onSelect={() => setHandover({ kind: 'team', id: team.id, name: teamLabel(team) })}
                   className={cn('gap-2 text-xs', owner?.kind === 'team' && owner.teamId === team.id && 'bg-bg-hover/80')}
                 >
-                  <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-bg-hover text-text-secondary">
-                    <Users size={11} />
-                  </span>
+                  <TeamAvatar
+                    {...toTeamAvatarProps({
+                      id: team.id,
+                      name: teamLabel(team),
+                      avatar_kind: team.avatarKind,
+                      avatar_icon: team.avatarIcon,
+                      avatar_color: team.avatarColor,
+                      avatar_image_url: team.avatarImageUrl,
+                    })}
+                    size={18}
+                    decorative
+                    presence={team.presence}
+                  />
                   <span className="min-w-0 flex-1 truncate">{teamLabel(team)}</span>
                 </DropdownMenuItem>
               ))}

@@ -22,9 +22,9 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 
 ## Invite the team
 
-1. Open **Team** in the rail under **Organization**.
+1. Open **Workforce** in the rail under **Organization**.
 2. Invite the people who will answer customers. Group them into teams on the **Teams** tab when more than one group answers.
-3. See [How Team works](/docs/getting-started/team).
+3. See [How Workforce works](/docs/getting-started/team).
 
 ## Connect channels and set AI handling
 

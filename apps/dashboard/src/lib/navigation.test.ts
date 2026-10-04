@@ -9,21 +9,18 @@ import {
 } from './navigation'
 
 describe('navigation', () => {
-  it('pins Overview above Control', () => {
-    expect(PINNED_TABS).toEqual(['overview'])
-    const control = TAB_GROUPS.find((g) => g.label === 'Control')
-    expect(control?.tabs).not.toContain('overview')
+  it('pins Overview and Communication above grouped sections', () => {
+    expect(PINNED_TABS).toEqual(['overview', 'communication'])
+    expect(TAB_GROUPS.find((g) => g.label === 'Control')).toBeUndefined()
   })
 
-  it('has a Work group with projects and playbooks', () => {
+  it('has a Work group with projects, playbooks and agenda', () => {
     const work = TAB_GROUPS.find((g) => g.label === 'Work')
-    expect(work?.tabs).toEqual(['projects', 'workstreams'])
+    expect(work?.tabs).toEqual(['projects', 'workstreams', 'agenda'])
     expect(titleForTab('workstreams')).toBe('Playbooks')
   })
 
-  it('keeps Control to conversation-first destinations (Govern stays in Settings)', () => {
-    const control = TAB_GROUPS.find((g) => g.label === 'Control')
-    expect(control?.tabs).toEqual(['communication', 'agenda'])
+  it('keeps Govern out of the primary rail', () => {
     expect(TAB_PATHS).not.toHaveProperty('cases')
     expect(TAB_PATHS).not.toHaveProperty('activity')
     expect(TAB_PATHS).not.toHaveProperty('govern')

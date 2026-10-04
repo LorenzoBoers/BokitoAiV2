@@ -51,14 +51,19 @@ async def ensure_system_teams(session: AsyncSession, tenant_id: UUID) -> dict[st
         )
     ).scalars().all()
     by_kind = {row.kind: row for row in rows}
-    created = False
+    dirty = False
     for kind in SYSTEM_TEAM_KINDS:
         if kind not in by_kind:
-            team = Team(tenant_id=tenant_id, name=SYSTEM_TEAM_NAMES[kind], kind=kind)
+            team = Team(tenant_id=tenant_id, name=SYSTEM_TEAM_NAMES[kind], kind=kind, pinned=False)
             session.add(team)
             by_kind[kind] = team
-            created = True
-    if created:
+            dirty = True
+        elif by_kind[kind].pinned:
+            # System teams must never appear as Communication folders.
+            by_kind[kind].pinned = False
+            session.add(by_kind[kind])
+            dirty = True
+    if dirty:
         await session.flush()
     return by_kind
 
@@ -251,8 +256,61 @@ async def delete_team(session: AsyncSession, team: Team) -> None:
     await session.delete(team)
 
 
+async def _team_presence_payload(session: AsyncSession, team: Team, members: list[MemberRef]) -> dict[str, Any]:
+    from app.models.agent import AgentRun
+    from app.services.presence import (
+        agent_corner_status,
+        serialize_team_presence,
+        statuses_for,
+        team_status,
+    )
+
+    user_ids = [ref.id for ref in members if ref.kind == "user"]
+    agent_ids = [ref.id for ref in members if ref.kind == "agent"]
+    person_statuses = list((await statuses_for(session, user_ids)).values()) if user_ids else []
+    agent_statuses: list[str] = []
+    if agent_ids:
+        agents = list(
+            (
+                await session.execute(
+                    select(Agent).where(
+                        Agent.id.in_(agent_ids),
+                        Agent.is_active.is_(True),
+                        Agent.kind == "company",
+                        Agent.acts_for_user.is_(False),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        running_ids: set[UUID] = set()
+        if agents:
+            running_ids = set(
+                (
+                    await session.execute(
+                        select(AgentRun.agent_id).where(
+                            AgentRun.tenant_id == team.tenant_id,
+                            AgentRun.agent_id.in_([a.id for a in agents]),
+                            AgentRun.status == "running",
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        for agent in agents:
+            corner = agent_corner_status(agent, has_running_run=agent.id in running_ids)
+            if corner is not None:
+                agent_statuses.append(corner)
+    return serialize_team_presence(team_status(person_statuses, agent_statuses=agent_statuses))
+
+
 async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
+    from app.services.team_avatar import avatar_payload
+
     members = await team_members(session, team)
+    avatar = avatar_payload(team)
     return {
         "id": str(team.id),
         "name": team.name,
@@ -260,9 +318,15 @@ async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
         "kind": team.kind,
         "system": team.kind in SYSTEM_TEAM_KINDS,
         "pickup": team.pickup,
-        "pinned": bool(team.pinned),
+        # System teams are never Communication sidebar folders.
+        "pinned": False if team.kind in SYSTEM_TEAM_KINDS else bool(team.pinned),
         "members": [{"kind": ref.kind, "id": str(ref.id)} for ref in members],
         "member_count": len(members),
+        "presence": await _team_presence_payload(session, team, members),
+        "avatar_kind": avatar["avatar_kind"],
+        "avatar_icon": avatar["avatar_icon"],
+        "avatar_color": avatar["avatar_color"],
+        "avatar_image_url": avatar["avatar_image_url"],
     }
 
 

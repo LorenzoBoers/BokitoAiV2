@@ -21,6 +21,7 @@ import type {
   ThreadDetail,
   ThreadFilters,
 } from './inbox-api'
+import { parsePresenceStatus, type PresenceStatus } from './teams-api'
 
 // Signal is the only thread model (Phase 1 of the Bokito OS restructure);
 // the legacy inbox path is gone.
@@ -867,10 +868,33 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
 /** Why someone cannot take this conversation; empty when they can. */
 export type AssigneeBlockReason = '' | 'no_channel_access'
 
+export type AssigneeAvatarFields = {
+  avatarKind?: string | null
+  avatarIcon?: string | null
+  avatarColor?: string | null
+  avatarImageUrl?: string | null
+}
+
 export type AssigneeCandidates = {
   people: Array<InboxMember & { canHandle: boolean; reason: AssigneeBlockReason }>
-  agents: Array<{ id: string; name: string; canHandle: boolean; reason: AssigneeBlockReason }>
-  teams: Array<{ id: string; name: string; kind: 'people' | 'agents' | 'custom'; canHandle: boolean }>
+  agents: Array<
+    {
+      id: string
+      name: string
+      canHandle: boolean
+      reason: AssigneeBlockReason
+      status: 'standby' | 'working' | 'error'
+    } & AssigneeAvatarFields
+  >
+  teams: Array<
+    {
+      id: string
+      name: string
+      kind: 'people' | 'agents' | 'custom'
+      canHandle: boolean
+      presence?: PresenceStatus
+    } & AssigneeAvatarFields
+  >
 }
 
 /** People, agents and teams this conversation can go to (assign picker and @mentions). */
@@ -896,18 +920,44 @@ export async function listSignalAssignees(token: string, threadId: string): Prom
         reason: reason(raw.reason),
       }
     }),
-    agents: rows(payload.agents).map((raw) => ({
-      id: asString(raw.id),
-      name: asString(raw.name),
-      canHandle: raw.can_handle !== false,
-      reason: reason(raw.reason),
-    })),
-    teams: rows(payload.teams).map((raw) => ({
-      id: asString(raw.id),
-      name: asString(raw.name),
-      kind: raw.kind === 'people' || raw.kind === 'agents' ? raw.kind : 'custom',
-      canHandle: raw.can_handle !== false,
-    })),
+    agents: rows(payload.agents).map((raw) => {
+      const statusRaw = String(raw.status || '')
+        .trim()
+        .toLowerCase()
+      const status =
+        statusRaw === 'working' || statusRaw === 'active'
+          ? ('working' as const)
+          : statusRaw === 'error'
+            ? ('error' as const)
+            : ('standby' as const)
+      return {
+        id: asString(raw.id),
+        name: asString(raw.name),
+        canHandle: raw.can_handle !== false,
+        reason: reason(raw.reason),
+        status,
+        avatarKind: typeof raw.avatar_kind === 'string' ? raw.avatar_kind : null,
+        avatarIcon: typeof raw.avatar_icon === 'string' ? raw.avatar_icon : null,
+        avatarColor: typeof raw.avatar_color === 'string' ? raw.avatar_color : null,
+        avatarImageUrl: typeof raw.avatar_image_url === 'string' ? raw.avatar_image_url : null,
+      }
+    }),
+    teams: rows(payload.teams).map((raw) => {
+      const presenceRaw = raw.presence && typeof raw.presence === 'object'
+        ? (raw.presence as Record<string, unknown>).status
+        : raw.presence
+      return {
+        id: asString(raw.id),
+        name: asString(raw.name),
+        kind: raw.kind === 'people' || raw.kind === 'agents' ? raw.kind : 'custom',
+        canHandle: raw.can_handle !== false,
+        presence: parsePresenceStatus(presenceRaw),
+        avatarKind: typeof raw.avatar_kind === 'string' ? raw.avatar_kind : null,
+        avatarIcon: typeof raw.avatar_icon === 'string' ? raw.avatar_icon : null,
+        avatarColor: typeof raw.avatar_color === 'string' ? raw.avatar_color : null,
+        avatarImageUrl: typeof raw.avatar_image_url === 'string' ? raw.avatar_image_url : null,
+      }
+    }),
   }
 }
 

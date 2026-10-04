@@ -9,7 +9,13 @@ export type MentionItem = {
   name: string
   email?: string
   avatarUrl?: string | null
-  presence?: 'available' | 'away' | 'offline'
+  presence?: 'available' | 'away' | 'offline' | 'standby' | 'working'
+  /** Agent corner status when type is agent. */
+  activity?: 'standby' | 'working' | 'error'
+  avatarKind?: string | null
+  avatarIcon?: string | null
+  avatarColor?: string | null
+  avatarImageUrl?: string | null
   /** Listed but not selectable (for example: no access to this channel). */
   disabled?: boolean
   disabledReason?: string

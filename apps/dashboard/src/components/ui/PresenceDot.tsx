@@ -7,9 +7,11 @@ const DOT_CLASS: Record<PresenceStatus, string> = {
   available: 'bg-status-success',
   away: 'bg-status-warning',
   offline: 'bg-text-muted/50',
+  standby: 'bg-ai',
+  working: 'presence-working-dot',
 }
 
-/** Availability of a person: available, away or offline. */
+/** Availability of a person, agent or team. */
 export function PresenceDot({
   status,
   withLabel = false,
@@ -23,7 +25,10 @@ export function PresenceDot({
   const label = t(`presence.${status}`)
   const body = (
     <span className={cn('inline-flex items-center gap-1.5', className)}>
-      <span className={cn('inline-block h-2 w-2 shrink-0 rounded-full', DOT_CLASS[status])} aria-hidden />
+      <span
+        className={cn('inline-block h-2 w-2 shrink-0 rounded-full', DOT_CLASS[status])}
+        aria-hidden
+      />
       {withLabel ? <span className="text-xs text-text-secondary">{label}</span> : <span className="sr-only">{label}</span>}
     </span>
   )

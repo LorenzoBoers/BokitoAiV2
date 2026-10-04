@@ -67,7 +67,7 @@
       "subtitle": "Workspace configuration"
     },
     "team": {
-      "title": "Team",
+      "title": "Workforce",
       "subtitle": "People, agents and teams of the company"
     }
   },
@@ -5775,6 +5775,10 @@
       "teams": "Teams",
       "teamsHint": "Group people and agents; set how they pick up conversations."
     },
+    "avatarLabel": "Team mark",
+    "avatarHint": "Initials by default, or pick an icon.",
+    "avatarInitials": "Initials",
+    "avatarIcon": "Icon",
     "tabs": {
       "people": "People",
       "agents": "Agents",

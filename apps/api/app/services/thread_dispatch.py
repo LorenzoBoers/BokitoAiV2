@@ -76,55 +76,69 @@ async def run_agent_note(
     from app.services.agent.loop import AgentLoop
     from app.services.assistant_threads import signal_chat_history
 
+    from app.services.workforce_runtime import mark_agent_activity
+
     history = await signal_chat_history(session, signal.id)
     instruction = base_instruction
     operator = (operator_text or "").strip()
     if operator:
         instruction += f"\nTeammate's request: {operator}"
-    loop = AgentLoop(session, tenant_id, user_id, agent=agent, signal_id=signal.id, user_role=user_role)
-    reply_text, tokens = await loop.run_chat([*history, {"role": "user", "content": instruction}])
-    text = (reply_text or "").strip() or "No output produced."
-    now = datetime.utcnow()
-    message = SignalMessage(
-        signal_id=signal.id,
-        tenant_id=tenant_id,
-        kind="internal_note",
-        direction="internal",
-        role="assistant",
-        author_agent_id=agent.id,
-        from_address="",
-        to_addresses="",
-        subject=signal.subject,
-        body_text=text,
-        body_preview=text[:200],
-        body_html=f"<p>{text}</p>",
-        metadata_json=json.dumps(
-            {
-                "usage": tokens,
-                "steps": list(loop.trace_steps),
-                "invoked_by_user_id": str(user_id),
-                "agent_name": agent.name,
-            }
-        ),
-        received_at=now,
+    await mark_agent_activity(
+        session,
+        agent,
+        status="active",
+        summary=(signal.subject or "Helping")[:200],
     )
-    session.add(message)
-    signal.updated_at = now
-    session.add(signal)
-    session.add(
-        SignalEvent(
+    try:
+        loop = AgentLoop(session, tenant_id, user_id, agent=agent, signal_id=signal.id, user_role=user_role)
+        reply_text, tokens = await loop.run_chat([*history, {"role": "user", "content": instruction}])
+        text = (reply_text or "").strip() or "No output produced."
+        now = datetime.utcnow()
+        message = SignalMessage(
             signal_id=signal.id,
             tenant_id=tenant_id,
-            event_type="agent_invoked",
-            actor_type="user",
-            actor_id=str(user_id),
-            payload_json=json.dumps({"agent_id": str(agent.id), "agent_name": agent.name}),
+            kind="internal_note",
+            direction="internal",
+            role="assistant",
+            author_agent_id=agent.id,
+            from_address="",
+            to_addresses="",
+            subject=signal.subject,
+            body_text=text,
+            body_preview=text[:200],
+            body_html=f"<p>{text}</p>",
+            metadata_json=json.dumps(
+                {
+                    "usage": tokens,
+                    "steps": list(loop.trace_steps),
+                    "invoked_by_user_id": str(user_id),
+                    "agent_name": agent.name,
+                }
+            ),
+            received_at=now,
         )
-    )
-    await session.commit()
-    await session.refresh(message)
-    await publish_signal_message(signal, message)
-    return message
+        session.add(message)
+        signal.updated_at = now
+        session.add(signal)
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=tenant_id,
+                event_type="agent_invoked",
+                actor_type="user",
+                actor_id=str(user_id),
+                payload_json=json.dumps({"agent_id": str(agent.id), "agent_name": agent.name}),
+            )
+        )
+        await session.commit()
+        await session.refresh(message)
+        await publish_signal_message(signal, message)
+        return message
+    finally:
+        try:
+            await mark_agent_activity(session, agent, status="standby")
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to reset agent runtime after note on %s", signal.id)
 
 
 def _schedule_agent_note(
