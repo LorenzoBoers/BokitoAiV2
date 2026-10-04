@@ -69,7 +69,7 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/customers/my')
     await expect(page).toHaveURL(/\/communication\/inbox\/for_you/, { timeout: 20000 })
     await page.goto('/communication/agents/awaiting-decision')
-    await expect(page).toHaveURL(/\/communication\/decisions/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/inbox\/for_you/, { timeout: 20000 })
   })
 
   test('legacy routes redirect to new nav', async ({ page }) => {
