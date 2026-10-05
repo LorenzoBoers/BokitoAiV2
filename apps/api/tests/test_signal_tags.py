@@ -73,7 +73,6 @@ async def test_triage_intent_creates_case_not_tag(client: AsyncClient, session_o
 
     from app.models.auth import Tenant
     from app.models.case import Case
-    from app.models.signal import Signal
     from app.services.cases import create_case_type
     from app.services.interpretation import _create_cases_from_triage
 
