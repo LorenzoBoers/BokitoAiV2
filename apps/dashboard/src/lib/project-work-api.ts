@@ -34,26 +34,38 @@ export interface QueueItemLink {
   created_at: string | null
 }
 
-export interface QueueItemRow {
+/** One `AgentTask` row as `serialize_work_item` returns it: an agent job or a queue item. */
+export interface WorkItem {
   id: string
-  project_id: string
-  kind: QueueItemKind
+  kind: string
   title: string
   body: string
+  status: string
+  priority: string
+  origin_type: string
+  project_id: string | null
+  signal_id: string | null
+  message_id: string | null
+  assignee_kind: string
+  assigned_agent_id: string | null
+  assignee_user_id: string | null
+  created_at: string | null
+  updated_at: string | null
+  completed_at: string | null
+}
+
+/** The queue view of a work item on a project board. */
+export interface QueueItemRow extends WorkItem {
+  project_id: string
+  kind: QueueItemKind
   priority: QueueItemPriority
   status: QueueItemStatus
   duplicate_of_id: string | null
-  origin_type: string
-  signal_id: string | null
-  message_id: string | null
   created_by_type: string
   created_by_id: string
   impact_summary: string
   analyzed_at: string | null
-  assigned_agent_id: string | null
   links: QueueItemLink[]
-  created_at: string | null
-  updated_at: string | null
 }
 
 export interface DocSectionItemRef {

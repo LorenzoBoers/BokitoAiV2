@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Activity, ChevronDown, Inbox, Plus, Settings, Users } from 'lucide-react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Activity, ChevronDown, Folder, FolderKanban, Inbox, Plus, Settings, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
 import { TeamAvatar } from '../ui/TeamAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { toTeamAvatarProps } from '../../lib/team-avatar'
-import { parseAgentPresenceStatus } from '../../lib/teams-api'
-import { useAgentPresence, seedAgentPresence } from '../../hooks/useAgentPresence'
+import { openTeamRoom } from '../../lib/teams-api'
+import { asAgentStatus } from '../../lib/presence'
+import { useAgentLive, seedAgentPresence } from '../../hooks/useAgentPresence'
 import { NavSectionSkeleton } from '../ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
@@ -16,7 +17,15 @@ import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
 import { isChannelParked } from '../../lib/channel-surface'
-import { bokitoListChatTargets, type ChatTarget } from '../../lib/signals-api'
+import {
+  bokitoListChatTargets,
+  folderFilterFromParams,
+  folderFilterQuery,
+  sameFolderFilter,
+  type ChatTarget,
+  type InboxFolder,
+} from '../../lib/signals-api'
+import { useInboxFolders } from '../../hooks/useInboxFolders'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue, countForTeam } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
@@ -26,10 +35,12 @@ import {
   leafFromPath,
   leafKey,
   newConversationPath,
+  teamPath,
   type HubLeaf,
   type InboxQueue,
   type SubQueue,
 } from '../../lib/messages-paths'
+import { openEntityPath } from '../../lib/open-entity'
 import type { Team } from '../../lib/teams-api'
 import { useTeams } from '../../hooks/useTeams'
 import { SidebarFolder } from './QueueSublist'
@@ -44,6 +55,7 @@ const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> 
 ]
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
+  folders: { labelKey: 'support.section.folders', defaultLabel: 'Folders' },
   channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   agents: { labelKey: 'support.section.agents', defaultLabel: 'Chat with agents' },
   teams: { labelKey: 'support.section.teams', defaultLabel: 'Teams' },
@@ -81,6 +93,11 @@ function SectionGearLink({ to, label }: { to: string; label: string }) {
 const SECTION_GEAR: Partial<
   Record<SidebarSection, { to: string; labelKey: string; defaultLabel: string }>
 > = {
+  folders: {
+    to: '/settings/channels#folders',
+    labelKey: 'support.folders.settingsAria',
+    defaultLabel: 'Manage folders',
+  },
   channels: {
     to: '/settings/channels',
     labelKey: 'support.channels.settingsAria',
@@ -317,7 +334,10 @@ function AgentFolderRow({
   defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }) {
-  const activity = useAgentPresence(agent.id)
+  const live = useAgentLive(agent.id)
+  const activity = live?.status ?? asAgentStatus(agent.status)
+  const workHref =
+    activity === 'working' ? openEntityPath({ type: 'agent', id: agent.id, live }) : null
   const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
   const activityActive =
     activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id && activeLeaf.queue === 'activity'
@@ -342,18 +362,59 @@ function AgentFolderRow({
         />
       }
       extra={
-        <Tip label={t('support.agents.activity')} side="right">
-          <NavLink
-            to={activityTerminalPath(agent.id)}
-            data-active={activityActive ? 'true' : undefined}
-            className="nav-row nav-sub-row h-[26px] text-xs"
-          >
-            <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
-            <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
-          </NavLink>
-        </Tip>
+        <>
+          {workHref ? (
+            <Tip label={t('support.agents.currentWork')} side="right">
+              <NavLink to={workHref} className="nav-row nav-sub-row h-[26px] text-xs">
+                <Activity size={12} className="shrink-0 text-ai-ink" aria-hidden />
+                <span className="min-w-0 flex-1 truncate-fade">
+                  {live?.summary || t('support.agents.currentWork')}
+                </span>
+              </NavLink>
+            </Tip>
+          ) : null}
+          <Tip label={t('support.agents.activity')} side="right">
+            <NavLink
+              to={activityTerminalPath(agent.id)}
+              data-active={activityActive ? 'true' : undefined}
+              className="nav-row nav-sub-row h-[26px] text-xs"
+            >
+              <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
+              <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
+            </NavLink>
+          </Tip>
+        </>
       }
     />
+  )
+}
+
+function TeamGroupChatRow({ teamId, t }: { teamId: string; t: TFn }) {
+  const { token } = useAuth()
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  return (
+    <Tip label={t('support.teams.groupChatHint')} side="right">
+      <button
+        type="button"
+        disabled={busy || !token}
+        className="nav-row nav-sub-row h-[26px] text-xs font-medium text-accent"
+        onClick={async (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          if (!token || busy) return
+          setBusy(true)
+          try {
+            const room = await openTeamRoom(token, teamId)
+            navigate(teamPath(teamId, 'open', room.id))
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        <span className="min-w-0 flex-1 truncate-fade text-left">{t('support.teams.groupChat')}</span>
+      </button>
+    </Tip>
   )
 }
 
@@ -375,7 +436,10 @@ function AgentsSection({
     seedAgentPresence(
       agents.map((agent) => ({
         id: agent.id,
-        status: parseAgentPresenceStatus(agent.runtime_status),
+        status: agent.status,
+        current_activity_summary: agent.current_activity_summary,
+        current_thread_id: agent.current_thread_id,
+        last_active_at: agent.last_active_at,
       })),
     )
   }, [agents])
@@ -412,6 +476,49 @@ function AgentsSection({
   )
 }
 
+function FoldersSection({
+  folders,
+  loading,
+  t,
+}: {
+  folders: InboxFolder[]
+  loading: boolean
+  t: TFn
+}) {
+  const location = useLocation()
+  const onInbox = location.pathname.startsWith(inboxPath())
+  const activeFilter = folderFilterFromParams(new URLSearchParams(location.search))
+  return (
+    <div className="space-y-0.5">
+      {loading ? <NavSectionSkeleton rows={2} /> : null}
+      {!loading && folders.length === 0 ? (
+        <Link to="/settings/channels#folders" className="nav-row border border-dashed border-border/80 text-xs">
+          <Plus aria-hidden />
+          <span className="min-w-0 flex-1 truncate-fade">{t('support.folders.empty')}</span>
+        </Link>
+      ) : null}
+      {folders.map((folder) => {
+        const active = onInbox && sameFolderFilter(activeFilter, folder.filter)
+        const Icon = folder.kind === 'project' ? FolderKanban : Folder
+        return (
+          <Link
+            key={folder.id}
+            to={`${inboxPath('open')}${folderFilterQuery(folder.filter)}`}
+            data-active={active ? 'true' : undefined}
+            aria-current={active ? 'page' : undefined}
+            className="nav-row"
+            title={folder.name}
+          >
+            <Icon size={14} className="shrink-0 text-text-muted" aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{folder.name}</span>
+            <NavCountBadge count={folder.count} placement="inline" />
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
 function usePinnedTeams(): { teams: Team[]; loading: boolean } {
   const { teams, loading } = useTeams()
   return { teams: teams.filter((team) => team.pinned && !team.system), loading }
@@ -421,7 +528,7 @@ function usePinnedTeams(): { teams: Team[]; loading: boolean } {
  * Communication hub inner rail.
  *
  * Fixed top: New chat + All communication.
- * Middle: Channels, Agents, Teams (user order) — each folder has For you /
+ * Middle: Folders, Channels, Agents, Teams (user order) — each folder has For you /
  * Open / Unassigned / Closed.
  * Bottom: Contacts + Settings.
  */
@@ -435,6 +542,9 @@ export default function MessagesHubNav() {
   const activeLeaf = leafFromPath(location.pathname)
   const { teams, loading: teamsLoading } = usePinnedTeams()
   const { folders: channelFolders, loading: channelsLoading } = useConnectedChannelFolders(t)
+  const { folders: inboxFolders, loaded: inboxFoldersLoaded } = useInboxFolders(
+    visibleSections.includes('folders'),
+  )
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
@@ -467,12 +577,14 @@ export default function MessagesHubNav() {
   }
 
   const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
+    folders: inboxFolders.length > 0 ? inboxFolders.length : null,
     channels: channelsLoading ? null : channelFolders.length > 0 ? channelFolders.length : null,
     agents: targetsLoading ? null : companyAgents.length > 0 ? companyAgents.length : null,
     teams: teamsLoading ? null : teams.length > 0 ? teams.length : null,
   }
 
   const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
+    folders: <FoldersSection folders={inboxFolders} loading={!inboxFoldersLoaded} t={t} />,
     channels: (
       <ChannelsSection
         folders={channelFolders}
@@ -519,17 +631,7 @@ export default function MessagesHubNav() {
               activeLeaf={activeLeaf}
               defaultQueue={defaultQueueFor(leaf)}
               badgeCount={countForTeam(counts, team.id)}
-              leading={
-                <Tip label={t('support.teams.groupChatHint')} side="right">
-                  <button
-                    type="button"
-                    className="nav-row nav-sub-row h-[26px] text-xs font-medium text-accent"
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    <span className="min-w-0 flex-1 truncate-fade text-left">{t('support.teams.groupChat')}</span>
-                  </button>
-                </Tip>
-              }
+              leading={<TeamGroupChatRow teamId={team.id} t={t} />}
             />
           )
         })}

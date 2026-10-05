@@ -1,4 +1,10 @@
-"""AI OS workspace canvas graph: overlay nodes/edges, auto-seed, CRUD."""
+"""AI OS workspace canvas graph: overlay nodes/edges, auto-seed, CRUD.
+
+The overlay is retired. HTTP `/os/graph` and related routes return 410.
+Domain entities live on Agent, Playbook, Connection, and project canvas.
+These helpers remain so leftover overlay rows can still be inspected; they
+are not a product surface.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +12,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,12 +28,18 @@ from app.models.os_graph import (
 from app.models.orchestra import Workstream
 from app.models.project import Project
 from app.services.projects import serialize_po_agent
+from app.services.presence import agent_status
 from app.services.workforce_runtime import role_slug
 
-NODE_W = 200.0
-NODE_H = 88.0
-COL_GAP = 80.0
-ROW_GAP = 120.0
+OS_GRAPH_RETIRED_HINT = (
+    "The OS graph overlay is gone. Create or change an Agent, Playbook, "
+    "or Connection; open Agents or a project canvas. Overlay nodes are not used."
+)
+OS_GRAPH_RETIRED = {"status": "retired", "hint": OS_GRAPH_RETIRED_HINT}
+
+
+def os_graph_retired_response() -> JSONResponse:
+    return JSONResponse(status_code=410, content=OS_GRAPH_RETIRED)
 
 
 def _validate_edge_relation(source_type: str, target_type: str, relation: str) -> None:
@@ -54,141 +67,8 @@ async def _node_key_exists(
 
 
 async def ensure_canvas_seeded(session: AsyncSession, tenant_id: UUID) -> None:
-    """Idempotent seed from projects, workstreams, repos, orchestrators."""
-    existing = await session.execute(
-        select(func.count()).select_from(OsCanvasNode).where(OsCanvasNode.tenant_id == tenant_id)
-    )
-    if int(existing.scalar_one() or 0) > 0:
-        return
-
-    projects_result = await session.execute(
-        select(Project).where(Project.tenant_id == tenant_id).order_by(Project.updated_at.desc())
-    )
-    projects = list(projects_result.scalars().all())
-
-    orchestrator_nodes: dict[UUID, OsCanvasNode] = {}
-    repo_nodes: dict[UUID, OsCanvasNode] = {}
-
-    # Per project column: orchestrator, workstreams, repo
-    col = 0
-    for project in projects:
-        base_x = 80.0 + col * (NODE_W + COL_GAP * 2)
-        orch_y = 180.0
-
-        po_agent: Agent | None = None
-        if project.po_agent_id:
-            po_result = await session.execute(
-                select(Agent).where(Agent.id == project.po_agent_id, Agent.tenant_id == tenant_id)
-            )
-            po_agent = po_result.scalar_one_or_none()
-
-        if po_agent and po_agent.id not in orchestrator_nodes:
-            orch_node = OsCanvasNode(
-                tenant_id=tenant_id,
-                node_type="orchestrator",
-                ref_id=po_agent.id,
-                x=base_x,
-                y=orch_y,
-                label=po_agent.name,
-            )
-            session.add(orch_node)
-            await session.flush()
-            orchestrator_nodes[po_agent.id] = orch_node
-
-        ws_result = await session.execute(
-            select(Workstream)
-            .where(
-                Workstream.project_id == project.id,
-                Workstream.tenant_id == tenant_id,
-            )
-            .order_by(Workstream.name)
-        )
-        workstreams = list(ws_result.scalars().all())
-        ws_nodes: list[OsCanvasNode] = []
-        for wi, ws in enumerate(workstreams):
-            ws_node = OsCanvasNode(
-                tenant_id=tenant_id,
-                node_type="workstream",
-                ref_id=ws.id,
-                x=base_x + (wi % 2) * (NODE_W + 20),
-                y=orch_y + ROW_GAP + (wi // 2) * (NODE_H + 24),
-                label=ws.name,
-            )
-            session.add(ws_node)
-            await session.flush()
-            ws_nodes.append(ws_node)
-            if po_agent and po_agent.id in orchestrator_nodes:
-                session.add(
-                    OsCanvasEdge(
-                        tenant_id=tenant_id,
-                        source_node_id=ws_node.id,
-                        target_node_id=orchestrator_nodes[po_agent.id].id,
-                        relation="routed_by",
-                    )
-                )
-
-        from app.services.projects import get_repo_resource
-
-        repo_resource = await get_repo_resource(session, tenant_id, project.id)
-        if repo_resource and repo_resource.external_ref:
-            if project.id not in repo_nodes:
-                repo_node = OsCanvasNode(
-                    tenant_id=tenant_id,
-                    node_type="repo",
-                    ref_id=project.id,
-                    x=base_x,
-                    y=orch_y + ROW_GAP * 2 + len(workstreams) * 30,
-                    label=repo_resource.external_ref or project.name,
-                )
-                session.add(repo_node)
-                await session.flush()
-                repo_nodes[project.id] = repo_node
-                for ws_node in ws_nodes:
-                    session.add(
-                        OsCanvasEdge(
-                            tenant_id=tenant_id,
-                            source_node_id=ws_node.id,
-                            target_node_id=repo_node.id,
-                            relation="uses_repo",
-                        )
-                    )
-
-        col += 1
-
-    # Seed integration connections as tool nodes
-    tools_result = await session.execute(
-        select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id)
-    )
-    tools = list(tools_result.scalars().all())
-    mcp_result = await session.execute(select(McpServer).where(McpServer.tenant_id == tenant_id))
-    mcps = list(mcp_result.scalars().all())
-
-    tool_y = 520.0
-    for ti, conn in enumerate(tools):
-        tool_node = OsCanvasNode(
-            tenant_id=tenant_id,
-            node_type="tool",
-            ref_id=conn.id,
-            x=80.0 + ti * (NODE_W + COL_GAP),
-            y=tool_y,
-            label=conn.display_name or conn.provider,
-        )
-        session.add(tool_node)
-        await session.flush()
-
-    for mi, mcp in enumerate(mcps):
-        tool_node = OsCanvasNode(
-            tenant_id=tenant_id,
-            node_type="tool",
-            ref_id=mcp.id,
-            x=80.0 + (len(tools) + mi) * (NODE_W + COL_GAP),
-            y=tool_y + ROW_GAP,
-            label=mcp.name,
-        )
-        session.add(tool_node)
-        await session.flush()
-
-    await session.commit()
+    """Retired overlay: do not insert OsCanvas rows. Project canvas is the graph."""
+    del session, tenant_id
 
 
 async def _resolve_node_summary(
@@ -210,7 +90,7 @@ async def _resolve_node_summary(
         agent = result.scalar_one_or_none()
         base["title"] = agent.name if agent else node.label or "Orchestrator"
         base["subtitle"] = role_slug(agent) if agent else "orchestrator"
-        base["status"] = (agent.runtime_status if agent else "unknown") or "standby"
+        base["status"] = agent_status(agent.runtime_status) if agent else "unknown"
         base["href"] = f"/agents/{node.ref_id}" if agent else None
         return base
 

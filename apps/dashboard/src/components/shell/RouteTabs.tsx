@@ -19,7 +19,7 @@ interface RouteTabsProps {
  */
 export default function RouteTabs({ tabs, ariaLabel, className }: RouteTabsProps) {
   return (
-    <nav className={cn('mb-4 flex items-end gap-1 border-b border-border/60', className)} aria-label={ariaLabel}>
+    <nav className={cn('mb-6 flex items-end gap-1 border-b border-border/60 pb-0', className)} aria-label={ariaLabel}>
       {tabs.map((tab) => (
         <NavLink
           key={tab.to}

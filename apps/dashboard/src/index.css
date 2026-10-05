@@ -254,6 +254,41 @@
     }
   }
 
+  /*
+   * Multi-line overflow that fades out at the bottom instead of an ellipsis.
+   * Set a max-height (e.g. max-h-[calc(1.625em*6)]) on the same element.
+   */
+  .truncate-fade-y {
+    overflow: hidden;
+  }
+  @supports (animation-timeline: scroll()) {
+    .truncate-fade-y {
+      animation: truncate-fade-y-mask linear both;
+      animation-timeline: scroll(self block);
+    }
+    @keyframes truncate-fade-y-mask {
+      from,
+      to {
+        -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.75em), transparent);
+        mask-image: linear-gradient(to bottom, #000 calc(100% - 1.75em), transparent);
+      }
+    }
+  }
+  /* Longer bottom fade for tall previews (instructions, etc.). */
+  @supports (animation-timeline: scroll()) {
+    .truncate-fade-y-long {
+      animation: truncate-fade-y-long-mask linear both;
+      animation-timeline: scroll(self block);
+    }
+    @keyframes truncate-fade-y-long-mask {
+      from,
+      to {
+        -webkit-mask-image: linear-gradient(to bottom, #000 38%, rgb(0 0 0 / 0.45) 72%, transparent);
+        mask-image: linear-gradient(to bottom, #000 38%, rgb(0 0 0 / 0.45) 72%, transparent);
+      }
+    }
+  }
+
   /* Trailing count in a nav row. Accent only when it signals unread. */
   .nav-count {
     @apply ml-auto text-2xs tabular-nums text-text-muted;
@@ -698,7 +733,9 @@
     .thinking-shimmer-text,
     .thinking-wave-bar,
     .dictation-wave-bar,
-    .agent-live-dot {
+    .activity-live-icon,
+    .activity-live-label,
+    .typing-dots > span {
       animation: none;
     }
     .stagger-in,
@@ -900,29 +937,58 @@
   animation: thinking-wave 1.6s ease-in-out infinite;
 }
 
-.agent-live-status {
-  min-width: 0;
-}
-
-.agent-live-line {
-  min-width: 0;
-}
-
-.agent-live-line.is-current {
-  filter: drop-shadow(0 0 6px rgb(var(--color-ai) / 0.22));
-}
-
-.agent-live-ink {
+/** Live activity line: the icon of the current kind breathes. */
+.activity-live-icon {
   color: rgb(var(--color-ai-ink));
+  filter: drop-shadow(0 0 6px rgb(var(--color-ai) / 0.35));
+  animation: agent-live-dot 1.35s ease-in-out infinite;
 }
 
-.agent-live-dot {
-  width: 6px;
-  height: 6px;
+/** A new action replaces the live label: slide the new one in. */
+.activity-live-label {
+  animation: activity-label-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes activity-label-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** Writing: three dots inside the forming bubble. */
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.typing-dots > span {
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
-  background: rgb(var(--color-ai));
-  box-shadow: 0 0 8px 1px rgb(var(--color-ai) / 0.55);
-  animation: agent-live-dot 1.35s ease-in-out infinite;
+  background: rgb(var(--color-text-muted));
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+.typing-dots > span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots > span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 
 /** Avatar corner pulse — sized by inline width/height. */

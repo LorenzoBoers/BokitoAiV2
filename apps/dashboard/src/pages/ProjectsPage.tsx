@@ -23,6 +23,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
+import { AgentOptionRow } from '../components/ui/AgentOptionRow'
 import {
   Dialog,
   DialogContent,
@@ -169,11 +170,23 @@ function ProjectCard({
 
       <div className="mt-auto space-y-2 border-t border-border/50 pt-3">
         <div className="flex items-center gap-2 text-xs text-text-secondary">
-          <Bot size={13} className="shrink-0 text-text-muted" />
           {project.po_agent ? (
-            <span className="truncate-fade">{project.po_agent.name}</span>
+            <AgentOptionRow
+              agent={{
+                id: project.po_agent.id,
+                name: project.po_agent.name,
+                avatar_kind: project.po_agent.avatar_kind,
+                avatar_icon: project.po_agent.avatar_icon,
+                avatar_color: project.po_agent.avatar_color,
+                avatar_image_url: project.po_agent.avatar_image_url,
+              }}
+              size={18}
+            />
           ) : (
-            <span className="text-text-muted">{t('projects.page.noLead')}</span>
+            <>
+              <Bot size={13} className="shrink-0 text-text-muted" />
+              <span className="text-text-muted">{t('projects.page.noLead')}</span>
+            </>
           )}
         </div>
         {project.agents && project.agents.length > 0 ? (
@@ -194,11 +207,11 @@ function ProjectCard({
             ) : null}
           </div>
         ) : null}
-        {(project.queue_open_count ?? 0) > 0 || (project.doc_sections_total ?? 0) > 0 ? (
+        {(project.open_signals_count ?? 0) > 0 || (project.doc_sections_total ?? 0) > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-text-secondary">
-            {(project.queue_open_count ?? 0) > 0 ? (
+            {(project.open_signals_count ?? 0) > 0 ? (
               <Badge variant="info" className="px-1.5 py-0 text-2xs">
-                {t('projects.page.queueOpen', { count: project.queue_open_count })}
+                {t('projects.page.openSignals', { count: project.open_signals_count })}
               </Badge>
             ) : null}
             {(project.doc_sections_total ?? 0) > 0 ? (

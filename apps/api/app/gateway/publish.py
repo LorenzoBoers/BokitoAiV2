@@ -9,13 +9,20 @@ from uuid import UUID
 from app.gateway.bus import event_bus
 
 if TYPE_CHECKING:
-    from app.models.notification import DecisionRequest
+    from app.models.notification import DecisionRequest, Notification
     from app.models.signal import Signal, SignalMessage
 
 logger = logging.getLogger(__name__)
 
 # Message kinds that must never reach widget (visitor) connections.
 _OPERATOR_ONLY_KINDS = frozenset({"internal_note", "system_event"})
+
+
+def _is_personal_helper_thread(signal: "Signal") -> bool:
+    """In-app Bokito helper chats must not land on the Communication firehose."""
+    from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
+
+    return (getattr(signal, "source", None) or "") == PERSONAL_THREAD_SOURCE
 
 
 async def _safe_publish(tenant_id: Any, topics: list[str], event: str, data: dict[str, Any]) -> None:
@@ -25,18 +32,39 @@ async def _safe_publish(tenant_id: Any, topics: list[str], event: str, data: dic
         logger.exception("gateway publish failed: %s", event)
 
 
-def _thread_row(signal: "Signal", ai_handling: dict[str, Any] | None = None) -> dict[str, Any]:
+def _thread_row(
+    signal: "Signal",
+    ai_handling: dict[str, Any] | None = None,
+    extras: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Canonical thread row — the same shape the REST list endpoint returns,
     so clients can upsert it directly without a follow-up fetch.
 
     `is_pinned` is per-user state and stays False here; the dashboard joins
     pins client-side. Agent enrichment is skipped (would need a DB read);
-    clients keep the previous row's agent and ai_handling fields on upsert
-    when absent.
+    clients keep the previous row's agent, ai_handling, tags and category
+    fields on upsert when absent.
     """
     from app.services.signal_threads import serialize_thread
 
-    return serialize_thread(signal, ai_handling=ai_handling)
+    return serialize_thread(signal, ai_handling=ai_handling, **(extras or {}))
+
+
+async def _row_extras(signal: "Signal") -> dict[str, Any]:
+    """Tags and category for the live row, read in a short session."""
+    try:
+        from app.db.session import async_session_factory
+        from app.services.signal_tags import signal_tag_names
+        from app.services.ticket_stages import category_by_signal
+
+        async with async_session_factory() as session:
+            categories = await category_by_signal(session, signal.tenant_id, [signal.id])
+            return {
+                "tags": await signal_tag_names(session, signal.id),
+                "category_case": categories.get(signal.id),
+            }
+    except Exception:  # noqa: BLE001 ? publishing never breaks business logic
+        return {}
 
 
 async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
@@ -57,69 +85,26 @@ async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
         return None
 
 
-async def publish_message_delta(
+TURN_EVENTS = frozenset({"agent.turn", "agent.activity", "agent.thinking", "message.delta"})
+
+
+async def publish_turn_event(
     tenant_id: Any,
     signal_id: Any,
-    *,
-    delta: str,
-    stream_id: str | None = None,
+    event: str,
+    data: dict[str, Any],
 ) -> None:
-    """Streaming token delta for an in-progress agent reply."""
+    """Live agent turn: turn start/end, activity items, thinking and speech deltas.
+
+    Shapes are documented in ``services/agent/turn.py``.
+    """
+    if event not in TURN_EVENTS:
+        raise ValueError(f"Unknown turn event: {event}")
     await _safe_publish(
         tenant_id,
         [f"signal:{signal_id}"],
-        "message.delta",
-        {
-            "signal_id": str(signal_id),
-            "delta": delta,
-            "stream_id": stream_id,
-        },
-    )
-
-
-async def publish_agent_step(
-    tenant_id: Any,
-    signal_id: Any,
-    *,
-    step_type: str,
-    name: str = "",
-    payload: dict[str, Any] | None = None,
-    stream_id: str | None = None,
-) -> None:
-    """Agent tool call, tool result, or thinking step during a reply."""
-    await _safe_publish(
-        tenant_id,
-        [f"signal:{signal_id}"],
-        "agent.step",
-        {
-            "signal_id": str(signal_id),
-            "step_type": step_type,
-            "name": name,
-            "payload": payload or {},
-            "stream_id": stream_id,
-        },
-    )
-
-
-async def publish_agent_thinking(
-    tenant_id: Any,
-    signal_id: Any,
-    *,
-    delta: str,
-    stream_id: str | None = None,
-) -> None:
-    """Streaming reasoning/thinking delta for an in-progress agent reply."""
-    if not delta:
-        return
-    await _safe_publish(
-        tenant_id,
-        [f"signal:{signal_id}"],
-        "agent.thinking",
-        {
-            "signal_id": str(signal_id),
-            "delta": delta,
-            "stream_id": stream_id,
-        },
+        event,
+        {"signal_id": str(signal_id), **data},
     )
 
 
@@ -151,12 +136,13 @@ async def publish_signal_message(
         "decision_id": str(message.decision_id) if message.decision_id else None,
         "created_at": message.created_at.isoformat(),
     }
-    await _safe_publish(
-        signal.tenant_id,
-        ["threads"],
-        "message",
-        {"audience": "operator", "thread": thread_row, "message": preview},
-    )
+    if not _is_personal_helper_thread(signal):
+        await _safe_publish(
+            signal.tenant_id,
+            ["threads"],
+            "message",
+            {"audience": "operator", "thread": thread_row, "message": preview},
+        )
     await _safe_publish(
         signal.tenant_id,
         [f"signal:{signal.id}"],
@@ -170,7 +156,10 @@ async def publish_signal_message(
 
 
 async def publish_thread_update(
-    signal: "Signal", *, ai_handling: dict[str, Any] | None = None
+    signal: "Signal",
+    *,
+    ai_handling: dict[str, Any] | None = None,
+    tags: list[str] | None = None,
 ) -> None:
     """Thread metadata changed (status, assignment, triage, read state).
 
@@ -179,14 +168,26 @@ async def publish_thread_update(
     AI handling) that visitors must not receive. Widget conversations get a
     separate minimal ``conversation`` event (status only) so the visitor UI
     can react to close/reopen, e.g. by showing the CSAT prompt.
+
+    Callers that publish before committing pass ``tags`` so the row does not
+    carry the committed (old) tags.
     """
     if ai_handling is None:
         ai_handling = await _handling_payload(signal)
+    extras = await _row_extras(signal)
+    if tags is not None:
+        extras["tags"] = tags
+    topics = [f"signal:{signal.id}"]
+    if not _is_personal_helper_thread(signal):
+        topics.insert(0, "threads")
     await _safe_publish(
         signal.tenant_id,
-        ["threads", f"signal:{signal.id}"],
+        topics,
         "thread",
-        {"audience": "operator", "thread": _thread_row(signal, ai_handling)},
+        {
+            "audience": "operator",
+            "thread": _thread_row(signal, ai_handling, extras),
+        },
     )
     if signal.channel == "widget":
         from app.services.ai_handling import is_held
@@ -269,15 +270,25 @@ async def publish_decision(
             schedule_notify_decision_slack(decision_id, signal_id=signal_id)
 
 
-async def publish_notification(
-    tenant_id: Any, *, notification_id: Any, kind: str, title: str, tier: int = 2
-) -> None:
-    """A notification row was created; push and email go through ``services/notify.py``."""
+async def publish_notification(notification: "Notification") -> None:
+    """A notification row was created; push and email go through ``services/notify.py``.
+
+    Carries the full bell row plus ``user_id`` so each client prepends only
+    its own notices (``user_id`` null = everyone) without a refetch.
+    """
+    from app.services.notify import serialize_notification
+
     await _safe_publish(
-        tenant_id,
+        notification.tenant_id,
         ["notifications"],
         "notification",
-        {"notification_id": str(notification_id), "kind": kind, "title": title, "tier": tier},
+        {
+            "notification_id": str(notification.id),
+            "kind": notification.kind,
+            "title": notification.title,
+            "tier": notification.tier or 2,
+            "row": serialize_notification(notification),
+        },
     )
 
 
@@ -307,8 +318,12 @@ async def publish_agent_status(
     *,
     agent_id: UUID,
     status: str,
+    summary: str | None = None,
+    thread_id: str | None = None,
+    activity_id: str | None = None,
+    last_active_at: int | None = None,
 ) -> None:
-    """Broadcast agent corner status: standby | working | error."""
+    """Broadcast live agent work: corner status plus what and where."""
     await _safe_publish(
         tenant_id,
         ["presence", "agents"],
@@ -316,5 +331,38 @@ async def publish_agent_status(
         {
             "agent_id": str(agent_id),
             "status": status,
+            "summary": (summary or "").strip() or None,
+            "thread_id": thread_id,
+            "activity_id": activity_id,
+            "last_active_at": last_active_at,
         },
+    )
+
+
+ENTITY_KINDS = frozenset(
+    {"trigger", "case", "project", "agent", "module_source", "calendar", "trash", "workstream_run", "team"}
+)
+ENTITY_OPS = frozenset({"created", "updated", "deleted"})
+
+
+async def publish_entity(
+    tenant_id: Any,
+    *,
+    entity: str,
+    id: Any,
+    op: str = "updated",
+    row: dict[str, Any] | None = None,
+) -> None:
+    """A domain row changed. One event for every entity without its own
+    stream, so the dashboard live store can patch or refetch instead of
+    polling. ``row`` is the REST shape when cheap to build, else omitted."""
+    if entity not in ENTITY_KINDS:
+        raise ValueError(f"Unknown entity: {entity}")
+    if op not in ENTITY_OPS:
+        raise ValueError(f"Unknown entity op: {op}")
+    await _safe_publish(
+        tenant_id,
+        ["entities"],
+        "entity.changed",
+        {"entity": entity, "id": str(id) if id is not None else None, "op": op, "row": row},
     )

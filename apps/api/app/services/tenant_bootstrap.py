@@ -88,7 +88,7 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
 async def ensure_front_desk(
     session: AsyncSession, tenant_id: UUID, *, commit: bool = False
 ) -> Agent:
-    """Ensure the workspace has its customer-facing default agent."""
+    """Ensure the workspace has its Front desk default agent."""
     from sqlalchemy import select
 
     existing = (
@@ -98,9 +98,8 @@ async def ensure_front_desk(
                 Agent.tenant_id == tenant_id,
                 Agent.kind == "company",
                 Agent.acts_for_user.is_(False),
-                Agent.audience == "customers",
+                Agent.slug == "front-desk",
             )
-            .order_by(Agent.created_at)
             .limit(1)
         )
     ).scalars().first()
@@ -152,7 +151,6 @@ async def ensure_front_desk(
         name="Front desk",
         role="assistant",
         slug="front-desk",
-        audience="customers",
         chat_access="everyone",
         system_prompt=ONBOARDING_SYSTEM_PROMPT,
         is_active=True,
@@ -177,7 +175,7 @@ async def ensure_front_desk(
 async def ensure_widget_default_agent(
     session: AsyncSession, tenant_id: UUID, front_desk: Agent, *, commit: bool = False
 ) -> ChannelAccount:
-    """Bind the website chat to Front desk when unset or pointing at a non-customer agent."""
+    """Bind the website chat to Front desk when unset or pointing at Bokito / inactive."""
     from sqlalchemy import select
 
     widget = await ensure_widget_channel(session, tenant_id, commit=False)
@@ -191,11 +189,7 @@ async def ensure_widget_default_agent(
                 )
             )
         ).scalar_one_or_none()
-    needs_front_desk = current is None or (
-        current.audience != "customers"
-        or current.acts_for_user
-        or not current.is_active
-    )
+    needs_front_desk = current is None or current.acts_for_user or not current.is_active
     if needs_front_desk and widget.default_agent_id != front_desk.id:
         widget.default_agent_id = front_desk.id
         session.add(widget)

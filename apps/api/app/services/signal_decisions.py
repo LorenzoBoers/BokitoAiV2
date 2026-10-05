@@ -288,13 +288,7 @@ async def create_decision(
     session.add(notification)
     await session.flush()
     if bell_status == "unread":
-        await publish_notification(
-            tenant_id,
-            notification_id=notification.id,
-            kind=notification.kind,
-            title=notification.title,
-            tier=1,
-        )
+        await publish_notification(notification)
     decision = DecisionRequest(
         tenant_id=tenant_id,
         notification_id=notification.id,

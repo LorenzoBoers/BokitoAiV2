@@ -13,12 +13,15 @@ function buildFilterKey(filters: ThreadFilters): string {
     filters.channel ?? '',
     filters.projectId ?? '',
     filters.tag ?? '',
+    filters.categoryId ?? '',
+    filters.stage ?? '',
     String(filters.assigneeId ?? ''),
     filters.search ?? '',
     String(filters.page ?? ''),
     String(filters.perPage ?? ''),
     String(filters.connectionId ?? ''),
     filters.agentId ?? '',
+    filters.teamId ?? '',
     filters.unread ? '1' : '',
     filters.needsReply ? '1' : '',
     filters.needsDecision ? '1' : '',
@@ -29,8 +32,6 @@ function buildFilterKey(filters: ThreadFilters): string {
 export function useThreads(
   filters: ThreadFilters = {},
   pinnedIds: ThreadId[] = [],
-  // Slow fallback poll; live updates arrive over the gateway WS.
-  pollMs = 90000,
 ) {
   const { token, user } = useAuth()
   const filterKey = useMemo(() => buildFilterKey(filters), [
@@ -39,12 +40,15 @@ export function useThreads(
     filters.channel,
     filters.projectId,
     filters.tag,
+    filters.categoryId,
+    filters.stage,
     filters.assigneeId,
     filters.search,
     filters.page,
     filters.perPage,
     filters.connectionId,
     filters.agentId,
+    filters.teamId,
     filters.unread,
     filters.needsReply,
     filters.needsDecision,
@@ -127,6 +131,7 @@ export function useThreads(
     filters.perPage,
     filters.connectionId,
     filters.agentId,
+    filters.teamId,
     filters.unread,
     filters.needsReply,
     filters.needsDecision,
@@ -168,24 +173,19 @@ export function useThreads(
     filters.search,
     filters.connectionId,
     filters.agentId,
+    filters.teamId,
   ])
 
   useEffect(() => {
     if (!token) return
-    const tick = () => {
-      if (document.visibilityState !== 'visible') return
-      void fetchThreads({ quiet: true })
-    }
-    const timer = window.setInterval(tick, pollMs)
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void fetchThreads({ quiet: true })
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
-      window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [token, pollMs, fetchThreads])
+  }, [token, fetchThreads])
 
   // Mirror the latest list and filters into refs so the (stable) gateway
   // handler can read current state without resubscribing on every render.

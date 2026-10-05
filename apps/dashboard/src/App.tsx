@@ -51,6 +51,7 @@ const Communication = lazy(() => import('./pages/MessagesHub').then((m) => ({ de
 const ActivityTerminalPage = lazy(() => import('./pages/ActivityTerminalPage'))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
+const CockpitCanvasPage = lazy(() => import('./pages/CockpitCanvasPage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
 const OnboardingWizardPage = lazy(() => import('./pages/OnboardingWizardPage'))
 
@@ -73,6 +74,7 @@ const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
 const WorkspaceSettings = lazy(() => import('./pages/WorkspaceSettings'))
 const TrustPrivacyPage = lazy(() => import('./pages/TrustPrivacyPage'))
+const BinPage = lazy(() => import('./pages/BinPage'))
 const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const TeamPage = lazy(() => import('./pages/TeamPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
@@ -387,6 +389,7 @@ export default function App() {
           {/* Control */}
           <Route path="/ops" element={<OpsPage />} />
           <Route path="/cockpit" element={<CockpitPage />} />
+          <Route path="/cockpit/canvas" element={<CockpitCanvasPage />} />
           <Route path="/cockpit/activity" element={<Navigate to="/activity" replace />} />
           <Route path="/cockpit/usage" element={<UsagePage />} />
           <Route path="/activity" element={<ActivityTerminalPage />} />
@@ -420,6 +423,8 @@ export default function App() {
           {/* Modules hub (first-class product surface; one Connections story) */}
           <Route path="/connections" element={<ConnectionsHub />} />
           <Route path="/connections/marketplace" element={<ConnectionsMarketplace />} />
+          <Route path="/connections/connected" element={<RedirectModulesLegacy />} />
+          <Route path="/connections/tools" element={<RedirectModulesLegacy />} />
           <Route path="/connections/:slug" element={<ModuleSetupPage />} />
           {/* Former hub URL; every `/modules*` path lands on its `/connections` twin. */}
           <Route path="/modules" element={<RedirectModulesLegacy />} />
@@ -457,6 +462,7 @@ export default function App() {
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />
             <Route path="/settings/trust" element={<TrustPrivacyPage />} />
+            <Route path="/settings/bin" element={<BinPage />} />
             <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/mcp-catalog" element={<StaffIntegrationCatalog />} />

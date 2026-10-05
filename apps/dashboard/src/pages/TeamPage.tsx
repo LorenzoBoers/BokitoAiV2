@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { asAgentStatus } from '../lib/presence'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
@@ -14,6 +15,7 @@ import { Switch } from '../components/ui/switch'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { TeamAvatar } from '../components/ui/TeamAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
+import { toAiAvatarProps } from '../lib/agent-avatar'
 import {
   TEAM_AVATAR_ICON_KEYS,
   resolveTeamAvatarIcon,
@@ -44,6 +46,7 @@ import {
   type TeamOverview,
   type TeamPickup,
 } from '../lib/teams-api'
+import { useAgentLive, agentPresenceOf } from '../hooks/useAgentPresence'
 import { cn } from '../lib/utils'
 
 const AVATAR_STACK_MAX = 5
@@ -54,7 +57,16 @@ function memberKey(ref: TeamMemberRef): string {
 
 type StackMember =
   | { key: string; kind: 'user'; name: string; email: string; avatarUrl: string | null; presence?: PresenceStatus }
-  | { key: string; kind: 'agent'; name: string; id: string; activity?: 'standby' | 'working' | 'error' }
+  | {
+      key: string
+      kind: 'agent'
+      name: string
+      id: string
+      activity?: 'standby' | 'working' | 'error'
+      avatar_kind?: string | null
+      avatar_icon?: string | null
+      avatar_image_url?: string | null
+    }
 
 function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
   const peopleById = new Map(overview.people.map((p) => [p.uuid, p]))
@@ -63,7 +75,7 @@ function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
   for (const ref of team.members) {
     if (ref.kind === 'user') {
       const person = peopleById.get(ref.id)
-      if (!person) continue
+      if (!person || person.deactivated) continue
       out.push({
         key: memberKey(ref),
         kind: 'user',
@@ -74,15 +86,19 @@ function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
       })
     } else {
       const agent = agentsById.get(ref.id)
-      if (!agent) continue
-      const status = String(agent.status || 'standby').toLowerCase()
-      const activity =
-        status === 'working' || status === 'active'
-          ? ('working' as const)
-          : status === 'error'
-            ? ('error' as const)
-            : ('standby' as const)
-      out.push({ key: memberKey(ref), kind: 'agent', name: agent.name, id: agent.id, activity })
+      if (!agent || agent.deactivated) continue
+      out.push({
+        key: memberKey(ref),
+        kind: 'agent',
+        name: agent.name,
+        id: agent.id,
+        activity: agentPresenceOf(agent.id) !== 'standby'
+          ? agentPresenceOf(agent.id)
+          : asAgentStatus(agent.status),
+        avatar_kind: agent.avatar_kind,
+        avatar_icon: agent.avatar_icon,
+        avatar_image_url: agent.avatar_image_url,
+      })
     }
   }
   return out
@@ -100,7 +116,7 @@ function TeamMemberStack({ members, className }: { members: StackMember[]; class
         <span
           key={member.key}
           className={cn(
-            'relative inline-flex rounded-full ring-2 ring-bg-surface',
+            'relative inline-flex overflow-hidden rounded-full bg-bg-surface ring-2 ring-bg-surface',
             index > 0 && '-ml-2',
           )}
           style={{ zIndex: shown.length - index }}
@@ -112,15 +128,13 @@ function TeamMemberStack({ members, className }: { members: StackMember[]; class
               email={member.email}
               avatarUrl={member.avatarUrl}
               size={size}
-              presence={member.presence}
               decorative
             />
           ) : (
             <AiAvatar
-              name={member.name}
-              seed={member.id}
+              {...toAiAvatarProps(member)}
               size={size}
-              activity={member.activity ?? 'standby'}
+              decorative
             />
           )}
         </span>
@@ -145,6 +159,7 @@ function scrollToId(id: string) {
 
 export default function TeamPage() {
   const { t } = useTranslation('nav')
+  useAgentLive()
   const { token, hasPermission } = useAuth()
   const canManage = hasPermission('invite_members')
   const [params, setParams] = useSearchParams()
@@ -225,6 +240,7 @@ export default function TeamPage() {
         metaByUuid={metaByUuid}
         agents={overview?.agents ?? []}
         teamNames={directoryTeamNames}
+        onChanged={() => void reload()}
       />
 
       <section id="teams" className="space-y-3 scroll-mt-24">
@@ -516,7 +532,7 @@ function TeamDialog({
           </div>
           {!isSystem ? (
             <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
-              {overview.people.map((p) => {
+              {overview.people.filter((p) => !p.deactivated).map((p) => {
                 const ref: TeamMemberRef = { kind: 'user', id: p.uuid }
                 return (
                   <label key={p.uuid} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover/60">
@@ -533,22 +549,18 @@ function TeamDialog({
                   </label>
                 )
               })}
-              {overview.agents.map((a) => {
+              {overview.agents.filter((a) => !a.deactivated).map((a) => {
                 const ref: TeamMemberRef = { kind: 'agent', id: a.id }
                 return (
                   <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover/60">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
                     <AiAvatar
-                      name={a.name}
-                      seed={a.id}
+                      {...toAiAvatarProps(a)}
                       size={20}
                       activity={
-                        String(a.status || '').toLowerCase() === 'working' ||
-                        String(a.status || '').toLowerCase() === 'active'
-                          ? 'working'
-                          : String(a.status || '').toLowerCase() === 'error'
-                            ? 'error'
-                            : 'standby'
+                        agentPresenceOf(a.id) !== 'standby'
+                          ? agentPresenceOf(a.id)
+                          : asAgentStatus(a.status)
                       }
                     />
                     <span className="text-sm">{a.name}</span>

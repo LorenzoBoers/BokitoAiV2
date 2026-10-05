@@ -35,17 +35,30 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
     "invites": {
         "invited_by_user_id": "VARCHAR",
     },
+    "memberships": {
+        "is_active": "BOOLEAN DEFAULT 1",
+        "deactivated_at": "DATETIME",
+    },
+    "project_canvases": {
+        "source": "TEXT DEFAULT ''",
+        "tree_json": "TEXT DEFAULT '{}'",
+        "owner_kind": "VARCHAR DEFAULT 'project'",
+        "owner_id": "VARCHAR",
+        "managing_agent_id": "VARCHAR",
+        "refresh_trigger_id": "VARCHAR",
+    },
     "agents": {
         "slug": "VARCHAR DEFAULT ''",
         "runtime_status": "VARCHAR DEFAULT 'standby'",
         "parent_agent_id": "VARCHAR",
         "current_activity_summary": "VARCHAR DEFAULT ''",
+        "current_signal_id": "VARCHAR",
+        "last_active_at": "DATETIME",
         "updated_at": "DATETIME",
         "kind": "VARCHAR DEFAULT 'company'",
         "owner_user_id": "VARCHAR",
         "chat_access": "VARCHAR DEFAULT 'nobody'",
         "acts_for_user": "BOOLEAN DEFAULT 0",
-        "audience": "VARCHAR DEFAULT 'internal'",
         "default_channels_json": "VARCHAR DEFAULT '[]'",
         "default_signal_types_json": "VARCHAR DEFAULT '[]'",
         "managed_origin": "VARCHAR DEFAULT ''",
@@ -57,7 +70,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
     },
     "case_types": {
         "fields_schema_json": "VARCHAR DEFAULT '[]'",
-        "show_as_folder": "BOOLEAN DEFAULT 0",
         "default_project_id": "VARCHAR",
     },
     "cases": {
@@ -261,11 +273,11 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                 text(
                     "INSERT INTO signals "
                     "(id, tenant_id, channel, source, external_id, owner_user_id, subject,"
-                    " contact_name, contact_email, contact_phone, status, priority, tags_json,"
+                    " contact_name, contact_email, contact_phone, status, priority,"
                     " has_unread, ai_handling, assigned_user_id, summary,"
                     " last_message_at, created_at, updated_at) "
                     "VALUES (:id, :tenant_id, :channel, 'chat', '', :owner_user_id, :subject,"
-                    " '', '', '', 'open', 'normal', '[]',"
+                    " '', '', '', 'open', 'normal',"
                     " 0, :ai_handling, :assigned_user_id, '',"
                     " :last_message_at, :created_at, :updated_at)"
                 ),
@@ -338,10 +350,10 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                 text(
                     "INSERT INTO signals "
                     "(id, tenant_id, channel, source, external_id, channel_account_id, subject,"
-                    " contact_name, contact_email, contact_phone, status, priority, tags_json,"
+                    " contact_name, contact_email, contact_phone, status, priority,"
                     " has_unread, summary, last_message_at, created_at, updated_at) "
                     "VALUES (:id, :tenant_id, 'email', 'email', :external_id, :account_id, :subject,"
-                    " '', '', '', 'open', 'normal', '[]',"
+                    " '', '', '', 'open', 'normal',"
                     " :has_unread, '', :updated_at, :created_at, :updated_at)"
                 ),
                 {
@@ -392,11 +404,11 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                 text(
                     "INSERT INTO signals "
                     "(id, tenant_id, channel, source, external_id, subject, contact_name,"
-                    " contact_email, contact_phone, status, priority, tags_json, has_unread,"
+                    " contact_email, contact_phone, status, priority, has_unread,"
                     " summary, last_message_at, created_at, updated_at) "
                     "VALUES (:id, :tenant_id, :channel, 'inbox', :external_id, :subject,"
                     " :contact_name, :contact_email, :contact_phone, :status, :priority,"
-                    " :tags_json, :has_unread, '', :last_message_at, :created_at, :created_at)"
+                    " :has_unread, '', :last_message_at, :created_at, :created_at)"
                 ),
                 {
                     "id": new_id,
@@ -409,7 +421,6 @@ def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
                     "contact_phone": row["contact_phone"] or "",
                     "status": row["status"] or "open",
                     "priority": row["priority"] or "normal",
-                    "tags_json": row["tags_json"] or "[]",
                     "has_unread": row["has_unread"],
                     "last_message_at": row["last_message_at"],
                     "created_at": row["created_at"],
@@ -853,6 +864,47 @@ def _close_stale_agent_runs(connection: Connection) -> None:
     )
 
 
+def _normalize_agent_runtime_status(connection: Connection) -> None:
+    """Agent runtime vocabulary is ``standby | working | error`` (migration 069)."""
+    inspector = inspect(connection)
+    if not inspector.has_table("agents"):
+        return
+    connection.execute(
+        text("UPDATE agents SET runtime_status='working' WHERE runtime_status IN ('active', 'running')")
+    )
+    connection.execute(
+        text(
+            "UPDATE agents SET runtime_status='standby' "
+            "WHERE runtime_status IS NULL OR runtime_status NOT IN ('standby', 'working', 'error')"
+        )
+    )
+
+
+def _ensure_trash_partial_uniques(connection: Connection) -> None:
+    """Unique slugs/paths only among live (not binned) rows."""
+    inspector = inspect(connection)
+    dialect = connection.dialect.name
+    if inspector.has_table("project_canvases"):
+        if dialect == "sqlite":
+            connection.execute(text("DROP INDEX IF EXISTS uq_canvas_owner_slug"))
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_canvas_owner_slug_alive "
+                "ON project_canvases (tenant_id, owner_kind, owner_id, slug) "
+                "WHERE deleted_at IS NULL"
+            )
+        )
+    if inspector.has_table("case_types"):
+        if dialect == "sqlite":
+            connection.execute(text("DROP INDEX IF EXISTS uq_case_types_tenant_slug"))
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_case_types_tenant_slug_alive "
+                "ON case_types (tenant_id, slug) WHERE deleted_at IS NULL"
+            )
+        )
+
+
 def _ensure_search_indexes(connection: Connection) -> None:
     """Postgres-only full-text GIN index over message subject + body.
 
@@ -882,6 +934,7 @@ def apply_data_repairs(connection: Connection) -> None:
     _fix_postgres_uuid_columns(connection)
     _ensure_search_indexes(connection)
     _close_stale_agent_runs(connection)
+    _normalize_agent_runtime_status(connection)
     _relax_oauth_states_tenant(connection)
     _migrate_legacy_threads_to_signals(connection)
     _drop_legacy_policy_tables(connection)
@@ -891,6 +944,7 @@ def apply_data_repairs(connection: Connection) -> None:
     _migrate_schedules_to_triggers(connection)
     _backfill_contacts_from_signals(connection)
     _normalize_agent_chat_columns(connection)
+    _ensure_trash_partial_uniques(connection)
     inspector = inspect(connection)
     if not inspector.has_table("agents"):
         return

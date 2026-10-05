@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowRight, CircleDollarSign, GitPullRequest, Play } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, CircleDollarSign, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { CockpitPanelsSkeleton } from '../ui/skeleton'
 import { listCases, listCaseTypes, type CaseRow, type CaseTypeRow } from '../../lib/cases-api'
 import { listGovernChanges, type PlatformChangeRow } from '../../lib/govern-api'
 import { listThreads, type InboxThread } from '../../lib/inbox-api'
-import { attentionThreadPath, forYouPath } from '../../lib/messages-paths'
+import { attentionThreadPath, forYouPath, inboxPath } from '../../lib/messages-paths'
+import { folderFilterQuery } from '../../lib/signals-api'
 import { listWorkLogs, type WorkLogRow } from '../../lib/work-logs-api'
 import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/workstreams-api'
 import { workstreamRunPath } from '../../lib/workstream-ui'
-import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
+import { openEntityPath } from '../../lib/open-entity'
 import { bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
 import { formatAppUsdCents } from '../../lib/app-number'
 import AiHandlingMetricsBlock from './AiHandlingMetricsBlock'
+import ThreadListItem from '../inbox/ThreadListItem'
 
 type SignalTypeSummary = {
   type: CaseTypeRow
@@ -75,7 +77,7 @@ function Block({
 }) {
   return (
     <section
-      className="stagger-in rounded-lg border border-border/60 bg-bg-surface p-4"
+      className="stagger-in min-w-0 rounded-lg border border-border/60 bg-bg-surface p-4"
       style={{ '--stagger': index } as CSSProperties}
     >
       <div>
@@ -112,10 +114,10 @@ function Metric({
       className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium text-text-primary">{label}</span>
+        <span className="block truncate-fade text-sm font-medium text-text-primary">{label}</span>
         <span className="block truncate-fade text-xs text-text-muted">{detail}</span>
       </span>
-      <span key={value} className="count-pop tabular-nums text-base font-semibold text-text-heading">
+      <span key={value} className="count-pop shrink-0 tabular-nums text-base font-semibold text-text-heading">
         {value}
       </span>
       <ArrowRight
@@ -129,6 +131,7 @@ function Metric({
 export default function OverviewFourBlocks() {
   const { token } = useAuth()
   const { i18n } = useTranslation()
+  const navigate = useNavigate()
   const nl = i18n.language.toLowerCase().startsWith('nl')
   const copy = nl
     ? {
@@ -196,7 +199,7 @@ export default function OverviewFourBlocks() {
         listThreads(token, { view: 'awaiting_decision', perPage: 10 }),
         listThreads(token, { view: 'for_you', perPage: 10 }),
       ]),
-      listCases({ includeLabels: false, limit: 500 }),
+      listCases({ ticketsOnly: true, limit: 500 }),
       listCaseTypes(),
       listWorkstreamRuns({ limit: 100 }),
       listWorkLogs({ status: 'running', limit: 100 }),
@@ -258,7 +261,7 @@ export default function OverviewFourBlocks() {
         id: `job-${job.id}`,
         label: job.task_subject || copy.workbench,
         detail: copy.workbench,
-        to: job.agent_id ? agentWorkforceRunUrl(job.agent_id, job.id) : '/activity',
+        to: openEntityPath({ type: 'run', id: job.id, agentId: job.agent_id }),
         at: typeof job.started_at === 'string' ? job.started_at : '',
       }))
     return [...playbooks, ...jobs].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 5)
@@ -299,28 +302,17 @@ export default function OverviewFourBlocks() {
     <div className="space-y-4">
       {error ? <p className="text-right text-xs text-status-warning">{copy.loadError}</p> : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <Block title={copy.needs} hint={copy.needsHint} index={0}>
           {data.needsYou.length === 0 ? <EmptyRow>{copy.emptyNeeds}</EmptyRow> : data.needsYou.map((thread) => (
-            <Link
+            <ThreadListItem
               key={String(thread.id)}
-              to={attentionThreadPath(thread)}
-              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
-            >
-              {thread.hasOpenDecision ? (
-                <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
-              ) : (
-                <GitPullRequest size={13} className="shrink-0 text-text-muted" />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate-fade text-sm font-medium text-text-primary">{thread.emailSubject || thread.contactName}</span>
-                <span className="block truncate-fade text-xs text-text-muted">{thread.hasOpenDecision ? copy.decisions : copy.assigned}</span>
-              </span>
-              <ArrowRight
-                size={12}
-                className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
-              />
-            </Link>
+              thread={thread}
+              isSelected={false}
+              compact
+              showActions={false}
+              onSelect={() => navigate(attentionThreadPath(thread))}
+            />
           ))}
           <Link to={forYouPath()} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
             {nl ? 'Alles openen' : 'Open all'}
@@ -334,7 +326,7 @@ export default function OverviewFourBlocks() {
               label={row.type.name}
               value={String(row.open + row.waiting)}
               detail={`${copy.open} ${row.open} · ${copy.waiting} ${row.waiting}`}
-              to={`/communication/inbox/open?case_type_id=${encodeURIComponent(row.type.id)}`}
+              to={`${inboxPath('open')}${folderFilterQuery({ category_id: row.type.id })}`}
             />
           ))}
         </Block>

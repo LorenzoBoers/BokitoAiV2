@@ -99,6 +99,11 @@ export function threadCounterpartyName(
   labels?: { agent?: string; unknownSender?: string },
 ): string {
   if (isInternalThread(thread)) {
+    // Team rooms keep an assigned agent for tools; the room itself is the team.
+    if (thread.owner?.kind === 'team') {
+      const teamName = thread.contactName?.trim()
+      if (teamName) return teamName
+    }
     if (thread.agentName?.trim()) return thread.agentName.trim()
     const name = thread.contactName?.trim()
     if (name && name.toLowerCase() !== 'agent') return name
@@ -170,11 +175,12 @@ export function resolveComposerSurface(
     // Open decisions: prefer a neutral note so Approve/Reject stays primary
     // (do not push the operator into "Message Platform PO").
     const awaitingDecision = Boolean(thread.hasOpenDecision)
+    const teamRoom = thread.owner?.kind === 'team' || thread.turn?.kind === 'team'
     return {
       channel,
       // No customer sits on the other side: every line is either for the AI
-      // or for the team.
-      defaultMode: awaitingDecision ? 'note' : 'ask',
+      // or for the team. Team rooms start on a note so members talk to each other.
+      defaultMode: awaitingDecision || teamRoom ? 'note' : 'ask',
       modes: ['ask', 'note'],
       replyLabel: channel === 'assistant' ? 'Chat' : 'Message',
       replyTargetName: name,
@@ -182,7 +188,7 @@ export function resolveComposerSurface(
       replyPlaceholderKey: 'composer.placeholders.messageAgent',
       replyPlaceholderParams: { name },
       includeSignature: false,
-      showRecipient: !awaitingDecision,
+      showRecipient: !awaitingDecision && !teamRoom,
       recipientLabel: channel === 'assistant' ? 'Assistant' : 'Agent',
       recipientValue: name,
     }

@@ -152,6 +152,15 @@ export default function WorkspaceDocs() {
     () => [...agents].sort((a, b) => a.name.localeCompare(b.name, i18n.language)),
     [agents, i18n.language],
   )
+  const duplicateAgentNames = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const agent of sortedAgents) {
+      counts.set(agent.name, (counts.get(agent.name) ?? 0) + 1)
+    }
+    return new Set(
+      [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name),
+    )
+  }, [sortedAgents])
 
   const entityChipClass = (selected: boolean) =>
     cn(
@@ -556,7 +565,19 @@ export default function WorkspaceDocs() {
                   <span className="text-2xs font-normal opacity-70">{scopeTypeLabel('project')}</span>
                 </button>
               ))}
-              {sortedAgents.map((agent) => (
+              {sortedAgents.map((agent) => {
+                const sameName = duplicateAgentNames.has(agent.name)
+                const sameRoleCount = sortedAgents.filter(
+                  (other) =>
+                    other.name === agent.name &&
+                    (other.role_name || '') === (agent.role_name || ''),
+                ).length
+                const chipHint = !sameName
+                  ? scopeTypeLabel('agent')
+                  : sameRoleCount > 1
+                    ? agent.slug || agent.id.slice(0, 8)
+                    : agent.role_name || agent.slug
+                return (
                 <button
                   key={agent.id}
                   type="button"
@@ -566,12 +587,13 @@ export default function WorkspaceDocs() {
                     setScopeProjectId('')
                   }}
                   className={entityChipClass(scope === 'agent' && scopeAgentId === agent.id)}
-                  title={`${agent.name} · ${scopeTypeLabel('agent')}`}
+                  title={`${agent.name} · ${chipHint}`}
                 >
                   <span className="max-w-full truncate-fade text-xs font-medium">{agent.name}</span>
-                  <span className="text-2xs font-normal opacity-70">{scopeTypeLabel('agent')}</span>
+                  <span className="text-2xs font-normal opacity-70">{chipHint}</span>
                 </button>
-              ))}
+                )
+              })}
             </div>
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">

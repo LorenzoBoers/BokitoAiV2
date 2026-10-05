@@ -48,7 +48,7 @@ export function LiveWorkLog({ workLogId }: Props) {
   useEffect(() => {
     let cancelled = false
     let unsubscribe: (() => void) | null = null
-    let pollTimer: ReturnType<typeof setInterval> | null = null
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
     const applyOrchestrationEvent = (ev: { type: string; message?: string; payload?: Record<string, unknown> }) => {
       if (ev.type === 'context_usage' && typeof ev.payload?.context_pct === 'number') {
@@ -138,9 +138,20 @@ export function LiveWorkLog({ workLogId }: Props) {
           startGatewayStream(lastSeq)
         }
       } catch {
-        // Not an orchestration run; fall back to the workforce work-log poller.
-        void pollWorkforce()
-        pollTimer = setInterval(() => void pollWorkforce(), 2000)
+        // Not an orchestration run: load the work log once, then refresh on
+        // its live `run:{id}` events instead of polling.
+        await pollWorkforce()
+        if (cancelled) return
+        unsubscribe = onGatewayEvent(`run:${workLogId}`, (event) => {
+          if (cancelled || event.event !== 'agent.run') return
+          if (refreshTimer) clearTimeout(refreshTimer)
+          refreshTimer = setTimeout(() => void pollWorkforce(), 250)
+          const status = (event.data as { status?: string }).status
+          if (status && ['completed', 'failed', 'cancelled'].includes(status)) {
+            unsubscribe?.()
+            unsubscribe = null
+          }
+        })
       }
     }
 
@@ -148,7 +159,7 @@ export function LiveWorkLog({ workLogId }: Props) {
     return () => {
       cancelled = true
       unsubscribe?.()
-      if (pollTimer) clearInterval(pollTimer)
+      if (refreshTimer) clearTimeout(refreshTimer)
     }
   }, [workLogId, t])
 

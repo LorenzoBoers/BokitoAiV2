@@ -1,5 +1,6 @@
 import { workstreamsRoutes } from '../api/routes'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
+import type { TicketStage } from './cases-api'
 
 export type WorkstreamStepKind =
   | 'send_message'
@@ -27,6 +28,7 @@ export type WorkstreamRow = {
   description: string
   enabled: boolean
   is_default: boolean
+  stages: TicketStage[]
   steps_count?: number
   created_at?: string | null
   updated_at?: string | null
@@ -45,6 +47,7 @@ export type WorkstreamStepRow = {
   deadline_hours: number
   on_deadline: WorkstreamOnDeadline
   knowledge_section_ids: string[]
+  stage_key: string
   config: Record<string, unknown>
 }
 
@@ -60,6 +63,7 @@ export type WorkstreamStepInput = {
   deadline_hours?: number
   on_deadline?: WorkstreamOnDeadline
   knowledge_section_ids?: string[]
+  stage_key?: string
   config?: Record<string, unknown>
 }
 
@@ -145,7 +149,9 @@ export async function getWorkstream(workstreamId: string): Promise<WorkstreamDet
 
 export async function patchWorkstream(
   workstreamId: string,
-  patch: Partial<Pick<WorkstreamRow, 'name' | 'description' | 'enabled' | 'is_default' | 'project_id'>>,
+  patch: Partial<
+    Pick<WorkstreamRow, 'name' | 'description' | 'enabled' | 'is_default' | 'project_id' | 'stages'>
+  >,
 ): Promise<WorkstreamRow> {
   return apiPatch<WorkstreamRow>(workstreamsRoutes.byId(workstreamId), patch)
 }

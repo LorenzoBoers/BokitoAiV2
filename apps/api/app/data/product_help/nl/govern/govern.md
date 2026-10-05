@@ -30,7 +30,7 @@ Govern heeft twee onderdelen: **Ledger** legt workspace-wijzigingen en auditgebe
 3. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Overschrijf één tool wanneer de categorie te breed is.
 4. Categorieën zijn onder meer Berichten, Workspace, Agents, Kanalen, Triggers, Integraties, Govern en Overdracht. Externe bezoekerssessies muteren nooit automatisch.
 5. Als learning veel geëscaleerde tool-gates of afgewezen toolbeslissingen ziet op een categorie die **Toestaan** stond, kan Bokito die slider automatisch aanscherpen naar **Eerst vragen**. Onder de sliders verschijnt een korte notitie. Losser maken blijft hier een handmatige edit.
-6. Zet onder **Autonomie per type en draaiboek** elk actief Signaaltype en draaiboek op **Handmatig**, **Eerst vragen** of **Automatisch**.
+6. Zet onder **Autonomie per type en draaiboek** elk actief Signaaltype en draaiboek op **Handmatig**, **Ondersteund** of **Autonoom**.
 
 Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 

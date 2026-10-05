@@ -8,6 +8,7 @@ import {
   Check,
   Loader2,
   Mail,
+  OctagonAlert,
   Phone,
   Plus,
   ShieldCheck,
@@ -36,10 +37,11 @@ import {
   isGenericVisitorName,
   isPlaceholderContactAddress,
 } from '../../lib/contact-label'
-import type { InboxMember, InboxThread, ThreadId } from '../../lib/inbox-api'
+import type { InboxMember, InboxThread, PatchThreadInput, ThreadId, ThreadStatus } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
-import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
-import { IdentitySeenLine, timeAgo } from './IdentitySeenLine'
+import { canComposeToAddress, composeEmailPath } from '../../lib/compose-intent'
+import { IdentitySeenLine } from './IdentitySeenLine'
+import { timeAgo } from '../../lib/time-ago'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { useAiHandling } from '../../hooks/useAiHandling'
@@ -69,6 +71,8 @@ type Props = {
   currentThreadId?: ThreadId | null
   threadSubject?: string | null
   threadPreview?: string | null
+  threadStatus?: ThreadStatus
+  onPatch?: (input: PatchThreadInput) => Promise<void>
   /** How the current thread is linked: verified | claimed | manual; '' = inbound address. */
   contactBasis?: string
   /** Rendered above previous conversations (This conversation). */
@@ -96,6 +100,8 @@ export default function ContactPanel({
   currentThreadId,
   threadSubject,
   threadPreview,
+  threadStatus,
+  onPatch,
   contactBasis,
   children,
   closeAction,
@@ -409,28 +415,21 @@ export default function ContactPanel({
           {linkForm}
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             {!captureOpen ? linkButton : null}
-            {readableEmail ? (
-              <Link
-                to={newContactPath(readableEmail)}
-                className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover"
+            {onPatch ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() =>
+                  void onPatch({ status: threadStatus === 'spam' ? 'open' : 'spam' })
+                }
+                className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 disabled:opacity-50"
               >
-                {t('contactPanel.addContact')}
-              </Link>
+                <OctagonAlert size={12} />
+                {threadStatus === 'spam'
+                  ? t('threadChrome.notSpam')
+                  : t('threadChrome.markSpam')}
+              </button>
             ) : null}
-            {readableEmail && canSendEmail && canComposeToAddress('email', readableEmail) ? (
-              <Link
-                to={composeEmailPath({ to: readableEmail })}
-                className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
-              >
-                {t('contactPanel.writeEmail')}
-              </Link>
-            ) : null}
-            <Link
-              to="/contacts"
-              className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
-            >
-              {t('contactPanel.openContacts')}
-            </Link>
           </div>
         </div>
       </div>

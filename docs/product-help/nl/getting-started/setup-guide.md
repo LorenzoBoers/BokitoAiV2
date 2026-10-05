@@ -36,7 +36,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 ## Laad kennis en agents
 
 1. Voeg dagelijkse documenten toe in [Kennis](/docs/ai/knowledge). Begin met Stem en Geheugen.
-2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). Archiveer agents die je niet wilt houden; beperk chattoegang als ze niet in Communicatie mogen staan.
+2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). Deactiveer agents die je niet op het rooster wilt; beperk chattoegang als ze niet in Communicatie mogen staan.
 3. Zet de houding onder [Autonomie](/docs/govern/autonomy). Begin voorzichtig.
 4. Optioneel: open **Projecten** wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/projects).
 5. Optioneel: open **Connections** in de zijbalk en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
@@ -55,6 +55,6 @@ Bij de eerste login ronden owners de **eerste-setupwizard** af, daarna de produc
 4. **Los je eerste beslissing op** — de checklistkaart (en **Probeer de demo** waar die staat) start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
 5. **Zet check-in aan** — de uurlijkse check-in start gepauzeerd; zet hem aan wanneer je wilt dat de assistent waakt.
 
-**Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Connections](/docs/integrations/integrations), projecten, [Govern](/docs/govern/govern), **Cijfers op Overview** (eigen KPI's), en [Vertrouwen en privacy](/docs/govern/privacy-security) (bewaartermijn en verzoeken van betrokkenen).
+**Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Connections](/docs/integrations/integrations), projecten, [Govern](/docs/govern/govern), **Cijfers op Overview** (eigen KPI's), en [Data en privacy](/docs/govern/privacy-security) (bewaartermijn, dataregio en verzoeken van betrokkenen).
 
 **Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, één beslissing duidelijk is, en de assistent waakt.

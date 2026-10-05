@@ -153,3 +153,50 @@ async def test_connected_summary_lists_unattached_moneybird(session_override: As
     assert row["provider"] == "moneybird"
     assert row["eligible_module"] == "accounting"
     assert row["attached_modules"] == []
+
+
+@pytest.mark.asyncio
+async def test_connected_summary_canonicalizes_catalog_uuid_provider(session_override: AsyncSession):
+    from app.services.integrations_catalog import provider_id
+    from app.services.integrations_platform import list_connected_summary
+
+    tenant = await _tenant(session_override)
+    conn = IntegrationConnection(
+        tenant_id=tenant.id,
+        provider=provider_id("google_calendar"),
+        display_name="Google Calendar",
+        status="active",
+        credentials_json="{}",
+        metadata_json="{}",
+    )
+    session_override.add(conn)
+    await session_override.commit()
+    await session_override.refresh(conn)
+
+    data = await list_connected_summary(session_override, tenant.id)
+    row = next(item for item in data["connections"] if item["id"] == str(conn.id))
+    assert row["provider"] == "google_calendar"
+    assert row["kind"] == "calendar"
+
+
+@pytest.mark.asyncio
+async def test_connected_summary_marks_google_host_row_as_calendar(session_override: AsyncSession):
+    from app.services.integrations_platform import list_connected_summary
+
+    tenant = await _tenant(session_override)
+    conn = IntegrationConnection(
+        tenant_id=tenant.id,
+        provider="google",
+        display_name="Google Calendar",
+        status="active",
+        credentials_json="{}",
+        metadata_json="{}",
+    )
+    session_override.add(conn)
+    await session_override.commit()
+    await session_override.refresh(conn)
+
+    data = await list_connected_summary(session_override, tenant.id)
+    row = next(item for item in data["connections"] if item["id"] == str(conn.id))
+    assert row["provider"] == "google_calendar"
+    assert row["kind"] == "calendar"

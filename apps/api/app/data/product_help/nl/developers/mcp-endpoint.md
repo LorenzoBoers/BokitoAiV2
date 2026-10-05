@@ -145,7 +145,7 @@ Elke tool komt terug met een naam, een beschrijving met categorieprefix, en een 
 - `triggers` - `list_triggers` voor de Agenda, plus nieuwe wakes plannen
 - `cases` - getypeerde intake: `list_case_types`, `list_cases`, `create_case`
 - `govern` - `get_tenant_overview`, `get_usage_summary` en `resolve_decision` voor een openstaande beslissingskaart
-- `workspace` - kennis: `search_index`, `list_docs`, `read_doc`, `write_doc`
+- `workspace` - kennis: `search_index`, `list_docs`, `read_doc`, `write_doc`; Prullenbak: `list_trash`, `restore_trash_item` (herstellen vraagt altijd; agents purgen niet)
 
 ## Voorbeeld: een tool aanroepen
 

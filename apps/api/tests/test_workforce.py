@@ -19,7 +19,7 @@ def _auth(token: str) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_list_agents_and_timeline(client: AsyncClient):
+async def test_list_agents(client: AsyncClient):
     token = await _login(client)
     headers = _auth(token)
     agents = await client.get(f"{API}/agents", headers=headers)
@@ -28,10 +28,6 @@ async def test_list_agents_and_timeline(client: AsyncClient):
     assert len(items) >= 1
     assert "role_slug" in items[0]
     assert "organisation_id" in items[0]
-
-    timeline = await client.get(f"{API}/timeline", headers=headers)
-    assert timeline.status_code == 200
-    assert "items" in timeline.json()
 
 
 @pytest.mark.asyncio

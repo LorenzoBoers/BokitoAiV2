@@ -26,7 +26,6 @@ export const workforceRoutes = {
   },
   workforce: {
     config: '/workforce/config',
-    statusQuery: (params: URLSearchParams) => withQuery('/workforce/status', params),
     forceWake: '/workforce/force-wake',
     forceRescan: '/workforce/force-rescan',
     triggerAgent: '/workforce/trigger-agent',
@@ -36,22 +35,14 @@ export const workforceRoutes = {
   agents: {
     list: '/agents',
     detail: (agentId: string) => `/agents/${encodeURIComponent(agentId)}`,
-    timeline: '/timeline',
     status: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/status`,
     lead: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/lead`,
+    restore: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/restore`,
     chatAccess: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/chat-access`,
     scopes: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/scopes`,
     scopeKind: (agentId: string, kind: string) =>
       `/agents/${encodeURIComponent(agentId)}/scopes/${encodeURIComponent(kind)}`,
     rules: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules`,
     rulesTest: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules/test`,
-  },
-  os: {
-    graph: '/os/graph',
-    projectGraph: (projectId: string) => `/os/graph/${encodeURIComponent(projectId)}`,
-    nodes: '/os/nodes',
-    node: (nodeId: string) => `/os/nodes/${encodeURIComponent(nodeId)}`,
-    edges: '/os/edges',
-    edge: (edgeId: string) => `/os/edges/${encodeURIComponent(edgeId)}`,
   },
 } as const

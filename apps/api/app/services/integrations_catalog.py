@@ -45,6 +45,15 @@ _CORE_HOSTS: list[dict[str, Any]] = [
     {"id": host_id("gocardless"), "slug": "gocardless", "name": "GoCardless", "brand_color": "#f1f252", "initials": "GC"},
     {"id": host_id("exact"), "slug": "exact", "name": "Exact Online", "brand_color": "#e2001a", "initials": "EX"},
     {"id": host_id("snelstart"), "slug": "snelstart", "name": "SnelStart", "brand_color": "#f39200", "initials": "SS"},
+    {"id": host_id("tink"), "slug": "tink", "name": "Tink", "brand_color": "#161616", "initials": "TI"},
+    {"id": host_id("yapily"), "slug": "yapily", "name": "Yapily", "brand_color": "#1b1f3b", "initials": "YA"},
+    {"id": host_id("knab"), "slug": "knab", "name": "Knab", "brand_color": "#ffcd00", "initials": "KN"},
+    {"id": host_id("twelve_data"), "slug": "twelve_data", "name": "Twelve Data", "brand_color": "#1a73e8", "initials": "TD"},
+    {"id": host_id("bitvavo"), "slug": "bitvavo", "name": "Bitvavo", "brand_color": "#0051ff", "initials": "BV"},
+    {"id": host_id("tradingview"), "slug": "tradingview", "name": "TradingView", "brand_color": "#131722", "initials": "TV"},
+    {"id": host_id("google_drive"), "slug": "google_drive", "name": "Google Drive", "brand_color": "#1ea362", "initials": "GD"},
+    {"id": host_id("onedrive"), "slug": "onedrive", "name": "OneDrive / SharePoint", "brand_color": "#0078d4", "initials": "OD"},
+    {"id": host_id("dropbox"), "slug": "dropbox", "name": "Dropbox", "brand_color": "#0061ff", "initials": "DB"},
 ]
 
 
@@ -259,6 +268,114 @@ _CORE_PROVIDERS: list[dict[str, Any]] = [
         module="accounting",
     ),
     _provider(
+        "tink",
+        "Tink",
+        "Open-banking accounts, balances and transactions (planned for Banking).",
+        "Bankieren",
+        "oauth2",
+        host_slug="tink",
+        capabilities={"banking": True},
+        status="coming_soon",
+        sort_order=15,
+        module="banking",
+    ),
+    _provider(
+        "yapily",
+        "Yapily",
+        "PSD2 account data across European banks (planned for Banking).",
+        "Bankieren",
+        "oauth2",
+        host_slug="yapily",
+        capabilities={"banking": True},
+        status="coming_soon",
+        sort_order=16,
+        module="banking",
+    ),
+    _provider(
+        "knab",
+        "Knab",
+        "Knab business accounts for Dutch SMBs (planned for Banking).",
+        "Bankieren",
+        "oauth2",
+        host_slug="knab",
+        capabilities={"banking": True},
+        status="coming_soon",
+        sort_order=17,
+        module="banking",
+    ),
+    _provider(
+        "twelve_data",
+        "Twelve Data",
+        "Market quotes and time series for watchlists (planned for Investing).",
+        "Beleggen",
+        "api_key",
+        host_slug="twelve_data",
+        capabilities={"investing": True},
+        status="coming_soon",
+        sort_order=18,
+        module="investing",
+    ),
+    _provider(
+        "bitvavo",
+        "Bitvavo",
+        "Dutch crypto exchange balances and orders (planned for Investing).",
+        "Beleggen",
+        "api_key",
+        host_slug="bitvavo",
+        capabilities={"investing": True},
+        status="coming_soon",
+        sort_order=19,
+        module="investing",
+    ),
+    _provider(
+        "tradingview_alerts",
+        "TradingView",
+        "Webhook alerts land as Signals (planned for Investing).",
+        "Beleggen",
+        "api_key",
+        host_slug="tradingview",
+        capabilities={"investing": True},
+        status="coming_soon",
+        sort_order=20,
+        module="investing",
+    ),
+    _provider(
+        "google_drive",
+        "Google Drive",
+        "Search and read Drive files into Knowledge (planned for Documents).",
+        "Documenten",
+        "oauth2",
+        host_slug="google_drive",
+        capabilities={"documents": True},
+        status="coming_soon",
+        sort_order=21,
+        module="documents",
+    ),
+    _provider(
+        "microsoft_graph_files",
+        "OneDrive / SharePoint",
+        "Search and read Microsoft 365 files into Knowledge (planned for Documents).",
+        "Documenten",
+        "oauth2",
+        host_slug="onedrive",
+        capabilities={"documents": True},
+        status="coming_soon",
+        sort_order=22,
+        module="documents",
+    ),
+    _provider(
+        "dropbox",
+        "Dropbox",
+        "Search and read Dropbox files into Knowledge (planned for Documents).",
+        "Documenten",
+        "oauth2",
+        host_slug="dropbox",
+        capabilities={"documents": True},
+        status="coming_soon",
+        sort_order=23,
+        module="documents",
+    ),
+    _provider(
         "custom_mcp",
         "Custom MCP",
         "Eigen MCP-server met API-key of bearer token.",
@@ -301,6 +418,10 @@ def remote_row_to_provider(
         caps["accounting"] = True
     if module == "banking":
         caps["banking"] = True
+    if module == "investing":
+        caps["investing"] = True
+    if module == "documents":
+        caps["documents"] = True
     status = str(row.get("status") or "coming_soon")
     if auth == "mcp_remote_oauth" and not url:
         status = "coming_soon"
@@ -385,3 +506,13 @@ rebuild_provider_index(_remote_mcp_providers_from_json())
 def slug_for_provider_id(pid: str) -> str | None:
     row = PROVIDER_BY_ID.get(pid)
     return row["slug"] if row else None
+
+
+def canonical_provider_slug(raw: str | None) -> str:
+    """Map a stored provider column (slug or catalog UUID) to the catalog slug."""
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    if value in PROVIDER_BY_SLUG:
+        return value
+    return slug_for_provider_id(value) or value

@@ -94,7 +94,7 @@
       "replyEmail": "Antwoord aan {{email}}...",
       "slack": "Typ een Slack-bericht...",
       "whatsapp": "Antwoord via WhatsApp aan {{name}}...",
-      "chat": "Antwoord in de chat aan {{name}}...",
+      "chat": "Antwoord aan {{name}}...",
       "chatVisitor": "Antwoord in de chat..."
     },
     "addNoteTitle": "Intern bericht",
@@ -201,11 +201,13 @@
     "scopeProject": "Gesprekken in {{name}}",
     "scopeAgentFallback": "deze agent",
     "scopeProjectFallback": "dit project",
+    "scopeFolder": "Map: {{name}}",
+    "scopeFiltered": "Gefilterde gesprekken",
     "clearScope": "Alle gesprekken tonen",
     "emptyScoped": "Geen gesprekken in dit filter.",
     "selectThread": "Gesprek selecteren",
     "closeThread": "Gesprek sluiten",
-    "deleteThread": "Gesprek verwijderen",
+    "deleteThread": "Naar prullenbak",
     "channelSettings": "Kanaalinstellingen",
     "lastSyncNow": "Mail zojuist",
     "lastSyncMinutes": "Mail {{count}}m geleden",
@@ -238,6 +240,8 @@
     "titleDecision": "Beslissing",
     "resolved": "Afgehandeld",
     "earlierDraft": "Eerder concept — terzijde gelegd",
+    "draftSent": "Concept goedgekeurd en verstuurd",
+    "draftRejected": "Concept afgewezen",
     "automatedExplainer": "Dit lijkt een automatisch bericht, dus er is geen antwoord opgesteld.",
     "decisionNeeded": "Beslissing nodig",
     "source": {
@@ -286,6 +290,8 @@
     "titleQueueProposal": "Queue-voorstel",
     "openAgenda": "Agenda openen",
     "toastSent": "Antwoord verzonden",
+    "bubbleLabel": "Bericht {{index}}",
+    "removeBubble": "Bericht verwijderen",
     "copyId": "Beslissings-ID kopiëren",
     "idCopied": "Beslissings-ID gekopieerd",
     "copyIdFailed": "Beslissings-ID kopiëren mislukt",
@@ -347,10 +353,12 @@
       "demoMakesSense": "Is deze demo duidelijk?",
       "assistPrefix": "Hulp: {{subject}}",
       "approvalPrefix": "Goedkeuring: {{subject}}",
-      "inboxRoutingRule": "Inbox-doorstuurregel"
+      "inboxRoutingRule": "Inbox-doorstuurregel",
+      "deepLinkCheck": "Open deze beslissing vanuit de bel"
     },
     "knownSummaries": {
-      "draftForReview": "Conceptantwoord klaar ter beoordeling."
+      "draftForReview": "Conceptantwoord klaar ter beoordeling.",
+      "deepLinkCheck": "Aangemaakt om te controleren dat de bel deze kaart opent."
     },
     "askedTo": "Gevraagd aan {{name}}",
     "learn": {
@@ -368,31 +376,21 @@
       }
     }
   },
-  "agentSteps": {
-    "toolCall": "Aan het opzoeken",
-    "toolResult": "Opzoeken klaar",
+  "activity": {
     "thinking": "Nadenken",
-    "thinkingActive": "Aan het nadenken...",
-    "writing": "Aan het schrijven...",
-    "thought": "Gedacht",
-    "thoughtFor": "{{duration}} nagedacht",
-    "runningTool": "{{name}} uitvoeren",
-    "finishedTool": "{{name}} afgerond",
-    "toolFallback": "tool",
-    "updatingKnowledge": "Kennis bijwerken...",
-    "updatedKnowledge": "Kennis bijgewerkt",
-    "consultingKnowledge": "Kennis raadplegen...",
-    "consultedKnowledge": "Kennis geraadpleegd",
-    "usedTool": "{{name}} gebruikt",
-    "toolCalls": "{{count}} tool-aanroepen",
-    "toolCallsNamed": "{{count}} tool-aanroepen ({{names}})",
-    "thinkingStep": "1 denkstap",
-    "thinkingSteps": "{{count}} denkstappen",
-    "steps": "{{count}} stappen",
-    "tokens": "+{{count}} tokens",
-    "copyTrace": "Trace kopiëren",
-    "traceCopied": "Trace gekopieerd",
-    "copyFailed": "Trace kopiëren mislukt"
+    "thoughtFor": "Nagedacht voor {{duration}}",
+    "thoughtBriefly": "Kort nagedacht",
+    "actionCount_one": "{{count}} actie",
+    "actionCount_other": "{{count}} acties",
+    "working": "Bezig",
+    "workedFor_one": "Gewerkt voor {{duration}} · {{count}} actie",
+    "workedFor_other": "Gewerkt voor {{duration}} · {{count}} acties",
+    "otherCount_one": "{{count}} notitie",
+    "otherCount_other": "{{count}} notities",
+    "writing": "Typt...",
+    "note": "Notitie",
+    "action": "Actie",
+    "failed": "Mislukt"
   },
   "mockAgent": {
     "replyBody": "Tijdelijk antwoord over {{topic}}."
@@ -434,11 +432,13 @@
       "calendar": "Kalender",
       "awaiting_human": "Voor jou",
       "overdue": "Achterstallig",
-      "planned": "Gepland"
+      "planned": "Gepland",
+      "due": "Verlopen"
     },
     "agendaKind": {
       "wake": "Agent-wake",
       "task": "Kijkmoment",
+      "follow_up": "Kijkmoment",
       "event": "Event",
       "webhook": "Webhook",
       "once": "Eenmalig",
@@ -449,7 +449,7 @@
     },
     "agentRuntime": {
       "active": "Actief",
-      "standby": "Pauze",
+      "standby": "Standby",
       "sleeping": "Slapend",
       "inactive": "Inactief"
     },
@@ -527,8 +527,7 @@
     "actionsCount": "{{count}} acties",
     "switchedAgent": "Metagesprek gewisseld naar {{name}}",
     "busyError": "De agent is nog bezig. Wacht of druk op Stop.",
-    "sendError": "Kon niet naar de agent sturen.",
-    "thinking": "Denkt na…"
+    "sendError": "Kon niet naar de agent sturen."
   },
   "onboarding": {
     "title": "Maak je workspace klaar",
@@ -739,6 +738,9 @@
     "assign": "Toewijzen",
     "assignedTo": "Toegewezen aan {{name}}",
     "unassigned": "Niet toegewezen",
+    "unassignedDone": "Toewijzing verwijderd",
+    "assignError": "Kon dit gesprek niet toewijzen.",
+    "patchError": "Kon dit gesprek niet bijwerken.",
     "forwardAsEmail": "Doorsturen als nieuwe e-mail",
     "setPriority": "Prioriteit instellen",
     "customerRating": "Klantbeoordeling",
@@ -781,8 +783,6 @@
     "copyExternalId": "Extern gespreks-ID kopiëren",
     "externalIdCopied": "Extern gespreks-ID gekopieerd",
     "newMessages": "{{count}} nieuw",
-    "pickUp": "Oppakken",
-    "pickUpHint": "Maak dit gesprek van jou. Het verdwijnt uit Niet toegewezen en uit Voor jou van de rest van het team.",
     "assignPeople": "Mensen",
     "assignAgents": "Agents",
     "assignTeams": "Teams",
@@ -857,10 +857,8 @@
     "kindContact": "Contact",
     "unknown": "Onbekend contact",
     "lastSeen": "Laatst gezien {{time}}",
-    "now": "nu",
-    "minutesAgo": "{{count}}m geleden",
-    "hoursAgo": "{{count}}u geleden",
-    "daysAgo": "{{count}}d geleden",
+    "activeNow": "Nu actief",
+    "lastActive": "Laatst actief {{time}}",
     "block": "Blokkeren",
     "blockConfirm": "{{name}} blokkeren? Nieuwe berichten van hen worden gedropt en bereiken Communicatie niet.",
     "thisContact": "dit contact",
@@ -941,6 +939,7 @@
     "configure": "Configureren",
     "activeTask": "Bezig",
     "openRun": "Run openen",
+    "openCurrentWork": "Zie waar hij mee bezig is",
     "recentConversations": "Recente gesprekken",
     "showMore": "Toon meer",
     "noOtherConversations": "Geen andere gesprekken met deze agent.",
@@ -952,6 +951,15 @@
     "toolsAndIntegrations": "Tools en koppelingen",
     "integrations": "Koppelingen",
     "tools": "Tools",
+    "modules": "Modules",
+    "moduleCount": "{{formatted}} modules",
+    "moduleCount_one": "{{formatted}} module",
+    "connectionCount": "{{formatted}} koppelingen",
+    "connectionCount_one": "{{formatted}} koppeling",
+    "toolCount": "{{formatted}} tools",
+    "toolCount_one": "{{formatted}} tool",
+    "noModulesOrConnections": "Nog geen modules of koppelingen.",
+    "viewToolsOnAgent": "Tools bekijken op de agent",
     "unrestricted": "Onbeperkt",
     "openIntegrations": "Koppelingen openen",
     "modelManaged": "{{model}} (Bokito)"
@@ -1008,6 +1016,7 @@
     "internal": "Intern",
     "snoozed": "Wacht",
     "you": "Jij",
+    "ai": "AI",
     "needsReply": "Jij aan zet",
     "theirTurn": "Wacht op antwoord",
     "needsDecision": "Wacht op beslissing",
@@ -1090,7 +1099,6 @@
       "stopped": "Job gestopt",
       "stopError": "Job stoppen lukte niet"
     },
-    "showActivity": "Toon activiteit",
     "idCopied": "Bericht-ID gekopieerd",
     "bodyCopied": "Bericht gekopieerd",
     "copyFailed": "Kopiëren mislukt",
@@ -1122,12 +1130,25 @@
       "snoozeExpired": "Uitstel verlopen",
       "widgetSeen": "Gezien door de klant",
       "agentReviewed": "AI heeft dit bericht beoordeeld",
+      "agentBlocked": {
+        "spend_cap": "AI heeft dit bericht overgeslagen: het AI-budget is op",
+        "provider_credits": "AI heeft dit bericht overgeslagen: het tegoed bij de AI-provider is op",
+        "provider_auth": "AI heeft dit bericht overgeslagen: de sleutel van de AI-provider is geweigerd",
+        "other": "AI heeft dit bericht overgeslagen"
+      },
       "noReplyNoted": "Geen antwoord nodig — automatisch bericht",
       "agentInvoked": "Agent aangeroepen",
       "agentReplied": "AI heeft geantwoord",
       "suggestionCreated": "AI heeft een suggestie opgesteld",
       "decisionCreated": "AI vroeg om een beslissing",
       "triaged": "AI heeft dit gesprek getriageerd",
+      "splitIn": "Afgesplitst van een eerder gesprek",
+      "splitOut": "Nieuwe vraag verplaatst naar een eigen gesprek",
+      "splitOutCategory": "Nieuwe vraag verplaatst naar een eigen gesprek: {{category}}",
+      "categorySet": "Categorie ingesteld op {{category}}",
+      "categoryProposed": "Categorie voorgesteld: {{category}}",
+      "categoryChanged": "Categorie gewijzigd van {{previous}} naar {{category}}",
+      "ticketStageChanged": "Ticket verplaatst naar {{stage}}",
       "escalated": "Doorgestuurd naar het team",
       "aiPaused": "AI gepauzeerd op dit gesprek",
       "aiResumed": "AI hervat op dit gesprek",
@@ -1154,6 +1175,7 @@
       "autoClosedByRule": "Automatisch gesloten door regel{{target}}",
       "taskCreatedByRule": "Kijkmoment gepland door regel{{target}}",
       "aiSkippedByRule": "AI overgeslagen door regel{{target}}",
+      "taggedByRule": "Getagd met {{tags}} door regel{{target}}",
       "handledByRule": "Afgehandeld door regel{{target}}",
       "emailContent": "E-mailinhoud",
       "editNote": "Notitie bewerken",
@@ -1236,6 +1258,17 @@
     "cancel": "Annuleren",
     "save": "Opslaan"
   },
+  "splitConversation": {
+    "action": "Hier splitsen",
+    "title": "Splitsen naar een nieuw gesprek",
+    "hint": "Dit bericht en alles erna gaan naar een nieuw gesprek met hetzelfde contact. Antwoorden op deze thread komen daar binnen.",
+    "category": "Categorie voor het nieuwe gesprek",
+    "noCategory": "Later bepalen",
+    "cancel": "Annuleren",
+    "confirm": "Splitsen",
+    "done": "Gesprek gesplitst",
+    "failed": "Gesprek splitsen mislukt"
+  },
   "split": {
     "list": "Gesprekkenlijst verslepen",
     "context": "Zijpaneel verslepen",
@@ -1253,5 +1286,12 @@
     "title": "Noemen",
     "agent": "Agent",
     "team": "Team"
+  },
+  "tags": {
+    "title": "Tags",
+    "add": "Tag toevoegen",
+    "placeholder": "Naam van de tag",
+    "remove": "Tag {{tag}} verwijderen",
+    "categoryLocked": "Categorie. Wijzig die onder Categorie."
   }
 }

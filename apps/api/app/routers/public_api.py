@@ -22,6 +22,7 @@ from app.middleware.rate_limit import rate_limit
 from app.models.api_token import ApiToken
 from app.models.signal import Signal, SignalMessage
 from app.routers.mcp import get_api_token
+from app.services.signal_tags import add_signal_tags, signal_tag_names, tags_by_signal
 
 router = APIRouter(prefix="/public/v1", tags=["public-api"])
 
@@ -89,7 +90,7 @@ class SignalDetail(SignalSummary):
     messages: list[SignalMessageOut]
 
 
-def _serialize_signal(signal: Signal) -> dict:
+def _serialize_signal(signal: Signal, tags: list[str]) -> dict:
     return {
         "id": str(signal.id),
         "channel": signal.channel,
@@ -99,7 +100,7 @@ def _serialize_signal(signal: Signal) -> dict:
         "priority": signal.priority,
         "contact_name": signal.contact_name or "",
         "contact_email": signal.contact_email or "",
-        "tags": json.loads(signal.tags_json or "[]"),
+        "tags": tags,
         "created_at": signal.created_at.isoformat() if signal.created_at else None,
         "last_message_at": (
             signal.last_message_at.isoformat() if signal.last_message_at else None
@@ -156,8 +157,10 @@ async def list_signals(
     result = await session.execute(
         query.order_by(Signal.last_message_at.desc().nullslast()).limit(limit).offset(offset)
     )
+    rows = list(result.scalars().all())
+    tags = await tags_by_signal(session, [s.id for s in rows])
     return {
-        "items": [_serialize_signal(s) for s in result.scalars().all()],
+        "items": [_serialize_signal(s, tags.get(s.id, [])) for s in rows],
         "total": int(total),
         "limit": limit,
         "offset": offset,
@@ -194,7 +197,7 @@ async def get_signal(
         .limit(200)
     )
     return {
-        **_serialize_signal(signal),
+        **_serialize_signal(signal, await signal_tag_names(session, signal.id)),
         "messages": [_serialize_message(m) for m in messages.scalars().all()],
     }
 
@@ -209,7 +212,10 @@ class SignalCreate(BaseModel):
     priority: str = Field(
         default="normal", description="One of `low`, `normal`, `high`, `urgent`."
     )
-    tags: list[str] = Field(default=[], description="Up to 10 labels, max 50 characters each.")
+    tags: list[str] = Field(
+        default=[],
+        description="Up to 10 tags, stored lower case (max 40 characters). New names join the tag list.",
+    )
 
 
 @router.post(
@@ -248,12 +254,12 @@ async def create_signal(
         contact_email=body.contact_email.strip().lower()[:254],
         status="open",
         priority=body.priority,
-        tags_json=json.dumps([t.strip()[:50] for t in body.tags if t.strip()][:10]),
         has_unread=True,
         last_message_at=now,
     )
     session.add(signal)
     await session.flush()
+    tags, _ = await add_signal_tags(session, token.tenant_id, signal.id, body.tags[:10])
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=token.tenant_id,
@@ -281,4 +287,4 @@ async def create_signal(
     await emit_webhook_event(
         session, token.tenant_id, "signal.created", signal_event_data(signal)
     )
-    return _serialize_signal(signal)
+    return _serialize_signal(signal, tags)

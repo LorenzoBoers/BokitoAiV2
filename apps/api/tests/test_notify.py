@@ -144,3 +144,13 @@ async def test_preferences_roundtrip_per_tier(client: AsyncClient, session_overr
     assert body["tiers"]["1"]["inapp"] is True
     mentions = next(row for row in body["rows"] if row["id"] == "mentions")
     assert mentions["channels"]["email"] is True
+
+
+@pytest.mark.asyncio
+async def test_bell_for_you_and_cockpit_match_the_nav_badges(client: AsyncClient):
+    headers = await _login(client)
+    badges = (await client.get("/api/signals/badge-counts", headers=headers)).json()
+    summary = (await client.get("/api/notifications/summary", headers=headers)).json()
+    cockpit = (await client.get("/api/cockpit/summary", headers=headers)).json()
+    assert summary["for_you"] == badges["inbox_by_queue"]["for_you"]
+    assert cockpit["open_decisions"] == badges["agents_attention"]

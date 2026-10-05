@@ -15,6 +15,7 @@ import {
   buildWindsurfMcpConfig,
   MCP_TOKEN_PLACEHOLDER,
 } from './api-token-mcp'
+import { BRAND_ASSET_PATHS } from './brand-assets'
 
 export type AiToolAuthMode = 'oauth' | 'token'
 
@@ -196,3 +197,18 @@ export const WORKBENCH_PROVIDERS: WorkbenchProvider[] = [
   { id: 'copilot', brand: 'copilot', phase: 2 },
   { id: 'claudeCodeCi', brand: 'claude', phase: 2 },
 ]
+
+const HUB_BANNER_SKIP_BRANDS = new Set(['custom'])
+
+/** Unique brand slugs for the Connections hub AI (coding) tools banner. */
+export function aiCodingToolBrandSlugs(): string[] {
+  const seen = new Set<string>()
+  const slugs: string[] = []
+  for (const row of [...AI_TOOL_PROVIDERS, ...WORKBENCH_PROVIDERS]) {
+    if (HUB_BANNER_SKIP_BRANDS.has(row.brand) || seen.has(row.brand)) continue
+    if (!BRAND_ASSET_PATHS[row.brand]) continue
+    seen.add(row.brand)
+    slugs.push(row.brand)
+  }
+  return slugs
+}

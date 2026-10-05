@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bot, CalendarDays, Inbox, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react'
@@ -11,14 +12,16 @@ import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
+import { AgentActivityTimeline } from '../components/workforce/AgentActivityTimeline'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { formatAgentModelLine } from '../lib/model-label'
 import { activityTerminalPath, agentChatPath, forYouPath } from '../lib/messages-paths'
+import { openEntityPath } from '../lib/open-entity'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { filterLibraryAgents, sortAgentsForLibrary } from '../lib/workforce-nav-agents'
-import { agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
+import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
 import { cn } from '../lib/utils'
 
 function AgentQuickLinks({
@@ -78,12 +81,6 @@ function AgentQuickLinks({
   )
 }
 
-const STATUS_CLASS: Record<ReturnType<typeof agentWorkState>, string> = {
-  working: 'text-status-success',
-  ready: 'text-text-muted',
-  error: 'text-status-error',
-}
-
 function AgentLibraryCard({
   agent,
   projectName,
@@ -93,11 +90,16 @@ function AgentLibraryCard({
 }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
-  const openCount = agent.open_conversations ?? 0
-  const decisionCount = agent.awaiting_decision ?? 0
+  const live = useAgentLive(agent.id)
+  const view = withAgentLive(agent)
+  const work = agentStatusOf(view)
+  const href = work === 'working' ? openEntityPath({ type: 'agent', id: agent.id, live }) : `/agents/${agent.id}`
+  const openCount = view.open_conversations ?? 0
+  const decisionCount = view.awaiting_decision ?? 0
+  const summary = view.current_activity_summary
 
   return (
-    <Link to={`/agents/${agent.id}`} className="block h-full">
+    <Link to={href} className="block h-full">
       <Card interactive className="flex h-full flex-col gap-3 p-4">
         <div className="flex items-start gap-3">
           <AiAvatar
@@ -110,11 +112,7 @@ function AgentLibraryCard({
             imageUrl={agent.avatar_image_url}
             decorative
             activity={
-              agentWorkState(agent) === 'working'
-                ? 'working'
-                : agentWorkState(agent) === 'error'
-                  ? 'error'
-                  : 'standby'
+              work === 'working' ? 'working' : work === 'error' ? 'error' : 'standby'
             }
           />
           <div className="min-w-0 flex-1">
@@ -134,16 +132,9 @@ function AgentLibraryCard({
               ) : null}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className={cn('text-xs font-medium', STATUS_CLASS[agentWorkState(agent)])}>
-                {t(agentStatusI18nKey(agentWorkState(agent)))}
+              <span className={cn('text-xs font-medium', presenceTextClass(work))}>
+                {presenceLabel(work, t)}
               </span>
-              {agent.audience ? (
-                <span className="text-xs text-text-muted">
-                  {t(`workforce.agents.audiences.${agent.audience}`, {
-                    defaultValue: agent.audience,
-                  })}
-                </span>
-              ) : null}
             </div>
             {openCount > 0 || decisionCount > 0 ? (
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -166,7 +157,7 @@ function AgentLibraryCard({
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      navigate(forYouPath(null, { agent: agent.id }))
+                      navigate(forYouPath(null, { agent: agent.id, needs_decision: '1' }))
                     }}
                     className="text-xs font-medium text-text-heading hover:underline"
                   >
@@ -177,8 +168,8 @@ function AgentLibraryCard({
             ) : null}
           </div>
         </div>
-        {agent.current_activity_summary ? (
-          <p className="line-clamp-2 text-sm text-text-secondary">{agent.current_activity_summary}</p>
+        {summary ? (
+          <p className="line-clamp-2 text-sm text-text-secondary">{summary}</p>
         ) : null}
         {projectName ? (
           <p className="text-xs text-text-muted">{t('workforce.agents.projectLink', { name: projectName })}</p>
@@ -216,25 +207,29 @@ export default function AiAgents() {
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'working'>('all')
+  const statusTick = useAgentLive()
   const visibleAgents = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return agents.filter((agent) => {
-      if (statusFilter === 'working' && agentWorkState(agent) !== 'working') return false
+      const view = withAgentLive(agent)
+      if (statusFilter === 'working' && agentStatusOf(view) !== 'working') return false
       if (!needle) return true
-      const hay = [agent.name, agent.audience, agent.purpose, agent.current_activity_summary]
+      const hay = [view.name, view.purpose, view.current_activity_summary]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
       return hay.includes(needle)
     })
-  }, [agents, query, statusFilter])
+  }, [agents, query, statusFilter, statusTick])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const [rows, projectRows] = await Promise.all([listAgents(), listProjects()])
-      setAgents(sortAgentsForLibrary(filterLibraryAgents(rows)))
+      const library = sortAgentsForLibrary(filterLibraryAgents(rows))
+      seedAgentPresence(library)
+      setAgents(library)
       setProjects(projectRows)
     } catch (e) {
       setAgents([])
@@ -299,6 +294,12 @@ export default function AiAgents() {
           </>
         }
       />
+
+      {agents.length > 0 ? (
+        <AgentActivityTimeline
+          agents={agents.map((agent) => ({ id: agent.id, name: agent.name }))}
+        />
+      ) : null}
 
       {agents.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">

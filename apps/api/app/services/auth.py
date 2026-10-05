@@ -117,7 +117,7 @@ async def authenticate_user(session: AsyncSession, email: str, password: str) ->
 async def get_user_membership(
     session: AsyncSession, user_id: UUID, tenant_id: UUID | None = None
 ) -> Membership | None:
-    query = select(Membership).where(Membership.user_id == user_id)
+    query = select(Membership).where(Membership.user_id == user_id, Membership.is_active.is_(True))
     if tenant_id:
         query = query.where(Membership.tenant_id == tenant_id)
     result = await session.execute(query)
@@ -139,7 +139,11 @@ async def get_tenant_for_user(
         result = await session.execute(
             select(Tenant, Membership)
             .join(Membership, Membership.tenant_id == Tenant.id)
-            .where(Membership.user_id == user_id, Tenant.id == preferred_tenant_id)
+            .where(
+                Membership.user_id == user_id,
+                Tenant.id == preferred_tenant_id,
+                Membership.is_active.is_(True),
+            )
         )
         row = result.first()
         if row:
@@ -147,7 +151,7 @@ async def get_tenant_for_user(
     result = await session.execute(
         select(Tenant, Membership)
         .join(Membership, Membership.tenant_id == Tenant.id)
-        .where(Membership.user_id == user_id)
+        .where(Membership.user_id == user_id, Membership.is_active.is_(True))
         .order_by(Membership.created_at)
     )
     row = result.first()
@@ -158,12 +162,15 @@ async def get_tenant_for_user(
 
 async def ensure_single_owner(session: AsyncSession, tenant_id: UUID, exclude_membership_id: UUID | None = None) -> None:
     query = select(func.count()).select_from(Membership).where(
-        Membership.tenant_id == tenant_id, Membership.role == "owner"
+        Membership.tenant_id == tenant_id,
+        Membership.role == "owner",
+        Membership.is_active.is_(True),
     )
     if exclude_membership_id:
         query = select(func.count()).select_from(Membership).where(
             Membership.tenant_id == tenant_id,
             Membership.role == "owner",
+            Membership.is_active.is_(True),
             Membership.id != exclude_membership_id,
         )
     result = await session.execute(query)

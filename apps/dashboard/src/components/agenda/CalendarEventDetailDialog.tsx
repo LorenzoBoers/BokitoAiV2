@@ -9,7 +9,7 @@ import {
 } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { deleteCalendarEvent } from '../../lib/calendars-api'
-import type { AgendaItem } from '../../lib/orchestration-api'
+import type { TimeItem } from '../../lib/time-items'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import type { CalendarEventEditSeed } from './CalendarEventDialog'
@@ -17,12 +17,12 @@ import type { CalendarEventEditSeed } from './CalendarEventDialog'
 type CalendarEventDetailDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  item: AgendaItem | null
+  item: TimeItem | null
   onDeleted: () => void
   onEdit: (seed: CalendarEventEditSeed) => void
 }
 
-function calendarEventId(item: AgendaItem): string | null {
+function calendarEventId(item: TimeItem): string | null {
   const raw = item.id.startsWith('cal:') ? item.id.slice(4) : item.id
   return raw || null
 }
@@ -44,8 +44,8 @@ export default function CalendarEventDetailDialog({
 
   if (!item) return null
 
-  const start = parseAt(item.at)
-  const end = item.end_at ? parseAt(item.end_at) : null
+  const start = parseAt(item.start)
+  const end = item.end ? parseAt(item.end) : null
   const provider = item.provider_label || item.provider || ''
 
   const remove = async () => {
@@ -71,7 +71,7 @@ export default function CalendarEventDetailDialog({
     onOpenChange(false)
     onEdit({
       id,
-      title: item.name || '',
+      title: item.title || '',
       startAt: start,
       endAt: end,
       location: item.location || '',
@@ -84,7 +84,7 @@ export default function CalendarEventDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{item.name}</DialogTitle>
+          <DialogTitle>{item.title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2 text-sm">
           <p className="text-text-muted">

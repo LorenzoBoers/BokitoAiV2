@@ -18,7 +18,7 @@ Hosts from `apps/api/app/data/mcp_remote_catalog.json` that are not listed below
 | `logo-whatsapp.svg` | WhatsApp glyph via [Simple Icons](https://simpleicons.org/) (brand color `#25D366`) |
 | `logo-stripe.svg` | Stripe wordmark ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Stripe_Logo,_revised_2016.svg)) |
 | `logo-microsoft.svg` | Microsoft four-square ([worldvectorlogo.com](https://worldvectorlogo.com/logo/microsoft-5)) |
-| `logo-gmail.svg` | Gmail product mark (Google colors, existing repo asset) |
+| `logo-gmail.svg` | Gmail product mark (Google colors, existing repo asset). Also the static fallback for Google Calendar (`google_calendar` / `google-calendar`). |
 | `logo-outlook.svg` | Outlook product icon (existing repo asset; optional dark variant for Microsoft host) |
 | `logo-bjorn-lunden.svg` | Official SVG from [bjornlunden.com](https://bjornlunden.com/wp-content/uploads/Bjorn-Lunden-logo.svg). Also used as the KING Accountancy host fallback (same vendor). |
 | `logo-custom.svg` | [Model Context Protocol](https://modelcontextprotocol.io/) mark via `cdn.simpleicons.org` (neutral host for custom MCP URLs) |

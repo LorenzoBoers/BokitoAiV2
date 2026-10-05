@@ -34,6 +34,7 @@ class CasePatchBody(BaseModel):
     title: str | None = None
     summary: str | None = None
     status: str | None = None
+    stage_key: str | None = None
     project_id: UUID | None = None
     payload: dict[str, Any] | None = None
 
@@ -50,8 +51,7 @@ class CaseTypeCreateBody(BaseModel):
     description: str = ""
     create_mode: str = "ask_customer"
     send_mode: str = "draft"
-    autonomy_level: str = "approval"
-    follow_up_mode: str = "track"
+    autonomy_level: str = "assisted"
     ask_threshold: int = 6
     auto_threshold: int = 9
     requires_verification: bool = False
@@ -68,7 +68,6 @@ class CaseTypePatchBody(BaseModel):
     create_mode: str | None = None
     send_mode: str | None = None
     autonomy_level: str | None = None
-    follow_up_mode: str | None = None
     ask_threshold: int | None = None
     auto_threshold: int | None = None
     requires_verification: bool | None = None
@@ -89,7 +88,6 @@ class SignalPolicyBody(BaseModel):
 class BacklogPromoteBody(BaseModel):
     name: str | None = None
     description: str | None = None
-    follow_up_mode: str = "track"
 
 
 class BindingCreateBody(BaseModel):
@@ -129,7 +127,6 @@ async def create_type(
         create_mode=body.create_mode,
         send_mode=body.send_mode,
         autonomy_level=body.autonomy_level,
-        follow_up_mode=body.follow_up_mode,
         ask_threshold=body.ask_threshold,
         auto_threshold=body.auto_threshold,
         requires_verification=body.requires_verification,
@@ -277,7 +274,6 @@ async def promote_signal_backlog(
         key,
         name=body.name,
         description=body.description,
-        follow_up_mode=body.follow_up_mode,
     )
     return svc.serialize_case_type(row)
 
@@ -302,8 +298,9 @@ async def list_cases(
     signal_id: UUID | None = None,
     status: str | None = None,
     case_type_id: UUID | None = None,
+    project_id: UUID | None = None,
     q: str | None = None,
-    include_labels: bool = True,
+    tickets_only: bool = False,
     limit: int | None = None,
     offset: int | None = None,
 ):
@@ -314,8 +311,9 @@ async def list_cases(
         signal_id=signal_id,
         status=status,
         case_type_id=case_type_id,
+        project_id=project_id,
         q=q,
-        include_labels=include_labels,
+        tickets_only=tickets_only,
         limit=limit,
         offset=offset,
     )
@@ -386,8 +384,15 @@ async def patch_case(
                 detail="Only owners and admins may accept signals in this workspace.",
             )
     case = await svc.update_case(
-        session, auth.tenant.id, case_id, body.model_dump(exclude_unset=True)
+        session,
+        auth.tenant.id,
+        case_id,
+        body.model_dump(exclude_unset=True),
+        actor_type="user",
+        actor_id=str(auth.user.id),
     )
+    if case is None:
+        return {"id": str(case_id), "removed": True}
     case, case_type = await svc.get_case(session, auth.tenant.id, case.id)
     return await svc.enrich_case_run(
         session, auth.tenant.id, case, svc.serialize_case(case, case_type)

@@ -600,7 +600,7 @@ async def propose_scoped_autonomy_growth(
                 select(CaseType).where(
                     CaseType.tenant_id == tenant_id,
                     CaseType.enabled.is_(True),
-                    CaseType.autonomy_level == "approval",
+                    CaseType.autonomy_level.in_(("assisted", "approval")),
                 )
             )
         ).scalars().all()
@@ -612,7 +612,7 @@ async def propose_scoped_autonomy_growth(
                 select(Workstream).where(
                     Workstream.tenant_id == tenant_id,
                     Workstream.enabled.is_(True),
-                    Workstream.autonomy_level == "approval",
+                    Workstream.autonomy_level.in_(("assisted", "approval")),
                 )
             )
         ).scalars().all()
@@ -642,8 +642,8 @@ async def propose_scoped_autonomy_growth(
                     f"Propose auto autonomy for {row.name}: "
                     f"{latest.value:.0f}% autonomy over {latest.sample_size} actions"
                 ),
-                before_json=json.dumps({"autonomy_level": "approval"}),
-                after_json=json.dumps({key: str(row.id), "autonomy_level": "auto"}),
+                before_json=json.dumps({"autonomy_level": "assisted"}),
+                after_json=json.dumps({key: str(row.id), "autonomy_level": "autonomous"}),
                 proposed_by_type="system",
             )
         )

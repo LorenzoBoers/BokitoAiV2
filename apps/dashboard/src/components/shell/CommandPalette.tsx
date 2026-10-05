@@ -29,7 +29,7 @@ import { useChatSessions } from '../../context/ChatSessionsContext'
 import { PINNED_TABS, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
 import { activityTerminalPath, agentChatPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
-import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
+import { openEntityPath } from '../../lib/open-entity'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import { threadHubPath } from '../../lib/message-composer'
 import { composeEmailPath, newAgentPath, newContactPath } from '../../lib/compose-intent'
@@ -121,7 +121,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .catch(() => {
           if (!cancelled) setDocResults([])
         })
-      void listCases({ q, includeLabels: true, limit: 8 })
+      void listCases({ q, limit: 8 })
         .then((rows) => {
           if (!cancelled) setCaseResults(rows)
         })
@@ -470,7 +470,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         hint: q,
         group: t('palette.groupThreads'),
         icon: Bot,
-        run: () => navigate(agentWorkforceRunUrl(runPair[1]!, runPair[2]!)),
+        run: () => navigate(openEntityPath({ type: 'run', id: runPair[2]!, agentId: runPair[1]! })),
       })
     }
     const threads: PaletteItem[] = threadResults.map((thread) => ({

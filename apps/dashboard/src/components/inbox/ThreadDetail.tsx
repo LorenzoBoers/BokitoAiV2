@@ -1,7 +1,7 @@
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   createInboxRule,
@@ -18,7 +18,7 @@ import {
   humanizeContactName,
   isPlaceholderContactAddress,
 } from '../../lib/contact-label'
-import { listCasesForSignal, listCaseTypes, createCase, type CaseRow } from '../../lib/cases-api'
+import { listCaseTypes, createCase, type CaseRow } from '../../lib/cases-api'
 import {
   loadOpenSignalCases,
   resolveOpenSignalCases,
@@ -50,7 +50,8 @@ import {
   type ComposerMode,
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
-import ThinkingTrace from './ThinkingTrace'
+import AgentTurnLive from './AgentTurnLive'
+import { textOnlyTurn, turnHasContent, turnSaved } from '../../lib/agentActivity'
 import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
   bokitoListMessages,
@@ -63,6 +64,8 @@ import { useAiChatStream } from '../../lib/use-agent-session-chat'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { toast } from 'sonner'
+
+const autoSentThreads = new Set<string>()
 
 type Props = {
   detail: ThreadDetailType | null
@@ -135,11 +138,14 @@ type Props = {
 export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const { connections } = useMailboxConnections()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
   const timelineRef = useRef<ThreadTimelineHandle>(null)
   const previousMessageCountRef = useRef<number>(0)
-  const visitedThreadsRef = useRef<Set<string>>(new Set())
+  const landedThreadRef = useRef<string | null>(null)
+  const landTimersRef = useRef<number[]>([])
   // Anchor-to-bottom: the timeline stays pinned to the newest row until the
   // user scrolls up. Virtuoso reports that through `onAtBottomChange`.
   const anchorToBottomRef = useRef<boolean>(true)
@@ -160,6 +166,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // Composer surface the operator is on. Sticky on `ask` while an AI turn
   // runs, so the next keystroke goes to the AI, not the customer.
   const [composerMode, setComposerMode] = useState<ComposerMode>('reply')
+  // Agent chosen with @ or Ask, before the first send creates the meta conversation.
+  const [askAgentId, setAskAgentId] = useState<string | null>(null)
   // Close-the-loop prompt when typed Signals are still Open (F-49).
   const [closeSignalsPrompt, setCloseSignalsPrompt] = useState<{
     cases: CaseRow[]
@@ -362,7 +370,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return () => window.clearTimeout(clear)
   }, [searchParams, setSearchParams, loading, rows.length, threadId, loadedThreadId])
 
-  // Scroll to bottom whenever a thread finishes loading (first visit).
+  // Land once per open. Retry timers live on a ref so a later rows.length
+  // update cannot cancel them (that left the list underscrolled).
+  useLayoutEffect(() => {
+    for (const id of landTimersRef.current) window.clearTimeout(id)
+    landTimersRef.current = []
+    landedThreadRef.current = null
+  }, [threadId])
+
   useLayoutEffect(() => {
     if (loading || threadId == null || String(loadedThreadId) !== String(threadId) || rows.length === 0) {
       if (loadedThreadId == null) anchorToBottomRef.current = false
@@ -370,32 +385,26 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
 
     const key = String(threadId)
-    const firstVisit = !visitedThreadsRef.current.has(key)
-    visitedThreadsRef.current.add(key)
-    if (visitedThreadsRef.current.size > 50) {
-      const oldest = visitedThreadsRef.current.values().next().value
-      if (oldest != null) visitedThreadsRef.current.delete(oldest)
-    }
+    if (landedThreadRef.current === key) return
+    landedThreadRef.current = key
     previousMessageCountRef.current = messageCount
     setUnseenNew(0)
-    if (!firstVisit) return
 
-    pinToBottom('auto')
-    const raf = window.requestAnimationFrame(() => pinToBottom('auto'))
-    const t1 = window.setTimeout(() => pinToBottom('auto'), 80)
-    const t2 = window.setTimeout(() => pinToBottom('auto'), 350)
-    return () => {
-      window.cancelAnimationFrame(raf)
-      window.clearTimeout(t1)
-      window.clearTimeout(t2)
+    const apply = () => {
+      const landing = timelineRef.current?.land('auto')
+      if (landing) anchorToBottomRef.current = landing.pinToBottom
     }
-  }, [loading, threadId, loadedThreadId, rows.length, pinToBottom, messageCount])
+    apply()
+    const raf = window.requestAnimationFrame(apply)
+    landTimersRef.current = [80, 350, 800, 1600].map((ms) => window.setTimeout(apply, ms))
+    return () => window.cancelAnimationFrame(raf)
+  }, [loading, threadId, loadedThreadId, rows.length, messageLayout, messageCount])
 
   // Re-pin when timeline content changes while anchored.
   useLayoutEffect(() => {
     if (!anchorToBottomRef.current || loadedThreadId == null || rows.length === 0) return
     pinToBottom('auto')
-  }, [rows, loadedThreadId, pinToBottom])
+  }, [rows, loadedThreadId, pinToBottom, gatewayStream.turn, agentStreaming])
 
   // Scroll on message-count growth when already near the bottom.
   useEffect(() => {
@@ -488,38 +497,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
   const [blockingContact, setBlockingContact] = useState(false)
-  // Open Signals on this conversation: feeds the count on the panel toggle
-  // while the right panel is closed. Internal threads carry no Signals.
-  const [openSignalCount, setOpenSignalCount] = useState(0)
-  const countThreadId = detail ? String(detail.thread.id) : null
-  const countsSignals = Boolean(detail && !isInternalThread(detail.thread))
-  const countVersion = `${detail?.thread.lastMessageAt ?? ''}|${detail?.thread.status ?? ''}|${detail?.thread.followUpAt ?? ''}`
-
-  useEffect(() => {
-    if (!countThreadId || !countsSignals) {
-      setOpenSignalCount(0)
-      return
-    }
-    let cancelled = false
-    void listCasesForSignal(countThreadId)
-      .then((rows) => {
-        if (cancelled) return
-        setOpenSignalCount(
-          rows.filter(
-            (row) =>
-              (row.case_type?.follow_up_mode ?? 'track') !== 'label' &&
-              ['proposed', 'open', 'waiting'].includes(row.status),
-          ).length,
-        )
-      })
-      .catch(() => {
-        if (!cancelled) setOpenSignalCount(0)
-      })
-    return () => {
-      cancelled = true
-    }
-    // countVersion re-counts after a reply, status change or planned look-again.
-  }, [countThreadId, countsSignals, countVersion])
+  // An open ticket or a category waiting for a confirm: feeds the count on the
+  // panel toggle while the right panel is closed. Internal threads carry none.
+  const categoryCase = detail && !isInternalThread(detail.thread) ? detail.thread.categoryCase : null
+  const openSignalCount =
+    categoryCase &&
+    (categoryCase.status === 'proposed' || (categoryCase.isTicket && categoryCase.status !== 'done'))
+      ? 1
+      : 0
 
   useEffect(() => {
     if (!token || !detail?.thread.contactId) {
@@ -594,9 +579,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [detail?.sessions],
   )
   const activeSessionId = activeSession?.id ?? null
+  const sessionLive = useSignalStream(activeSessionId)
 
-  // Land on the surface default. Manual handling forces reply so the operator answers first.
+  // Land on the surface default when opening a thread. Manual handling forces
+  // reply. An active meta conversation keeps Ask. Switching to Ask or @-mentioning
+  // an agent must not snap back to Reply just because the thread refreshed.
   const handlingEffective = detail?.thread?.aiHandling?.effective ?? null
+  const prevThreadIdRef = useRef<typeof threadId | null>(null)
+  useEffect(() => {
+    setAskAgentId(null)
+  }, [threadId])
   useEffect(() => {
     const thread = detail?.thread
     if (!thread) {
@@ -611,15 +603,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setComposerMode('ask')
       return
     }
-    setComposerMode(resolveComposerSurface(thread).defaultMode)
-  }, [
-    threadId,
-    activeSessionId,
-    handlingEffective,
-    detail?.thread?.hasOpenDecision,
-    detail?.thread?.channel,
-    detail?.thread,
-  ])
+    const threadChanged = prevThreadIdRef.current !== threadId
+    prevThreadIdRef.current = threadId
+    if (threadChanged) {
+      setComposerMode(resolveComposerSurface(thread).defaultMode)
+    }
+  }, [threadId, activeSessionId, handlingEffective, detail?.thread])
 
   const loadSessionMessages = useCallback(
     async (sessionId: string | null) => {
@@ -706,52 +695,21 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [token, threadIdString, membersById, user?.email, t, onChangeAiHandling],
   )
 
-  const startSessionWith = useCallback(
-    async (agentId: string | null) => {
-      if (!token || !threadIdString) return
-      try {
-        await startAgentSession(token, threadIdString, agentId)
-        setComposerMode('ask')
-        onRefresh()
-        window.setTimeout(() => pinToBottom('smooth'), 400)
-      } catch {
-        toast.error(t('agentSession.startError'))
-      }
-    },
-    [token, threadIdString, onRefresh, pinToBottom, t],
-  )
+  const askAgentName = useMemo(() => {
+    if (!askAgentId) return null
+    const hit = mentionExtras.find((item) => item.type === 'agent' && item.id === askAgentId)
+    return hit?.name ?? null
+  }, [askAgentId, mentionExtras])
 
-  // An @agent mention promotes the composer into that agent's meta session.
-  // Mentioning a different agent hands the meta conversation over: the running
-  // one is closed (or discarded when it has no turns yet) first.
-  const handleMentionInserted = useCallback(
-    async (item: MentionItem) => {
-      if (item.type === 'user' || item.type === 'team') {
-        setComposerMode((prev) => (prev === 'reply' ? 'note' : prev))
-        return
-      }
-      if (item.type !== 'agent' || !token || !threadIdString) return
-      if (activeSession && activeSession.agentId && activeSession.agentId === item.id) {
-        setComposerMode('ask')
-        return
-      }
-      if (activeSession) {
-        try {
-          if (activeSession.messageCount > 0) {
-            await closeAgentSession(token, threadIdString, activeSession.id)
-          } else {
-            await discardAgentSession(token, threadIdString, activeSession.id)
-          }
-          toast.info(t('agentSession.switchedAgent', { name: item.name }))
-        } catch {
-          toast.error(t('agentSession.closeError'))
-          return
-        }
-      }
-      await startSessionWith(item.id)
-    },
-    [token, threadIdString, activeSession, startSessionWith, t],
-  )
+  const handleMentionInserted = useCallback((item: MentionItem) => {
+    if (item.type === 'user' || item.type === 'team') {
+      setComposerMode((prev) => (prev === 'reply' ? 'note' : prev))
+      return
+    }
+    if (item.type !== 'agent') return
+    setAskAgentId(item.id)
+    setComposerMode('ask')
+  }, [])
 
   const handleAgentMessage = useCallback(
     async (bodyText: string) => {
@@ -760,20 +718,34 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (!text) return
       const isAssistant = (detail?.thread.channel ?? '') === 'assistant'
       let sessionId = isAssistant ? threadIdString : activeSessionId
-      if (!sessionId) {
-        const started = await startAgentSession(token, threadIdString, detail?.thread.agentId ?? null)
-        sessionId = started?.id ?? null
+      const wantedAgentId = askAgentId ?? detail?.thread.agentId ?? null
+      const needsNewSession =
+        !isAssistant &&
+        (!sessionId || Boolean(askAgentId && activeSession?.agentId && activeSession.agentId !== askAgentId))
+      if (needsNewSession) {
+        try {
+          const started = await startAgentSession(token, threadIdString, wantedAgentId)
+          sessionId = started?.id ?? null
+        } catch {
+          toast.error(t('agentSession.startError'))
+          return
+        }
         if (!sessionId) return
         onRefresh()
       }
+      if (!sessionId) return
       try {
-        await sendAgentSessionMessage(sessionId, text, {
+        const sendPromise = sendAgentSessionMessage(sessionId, text, {
           onFinished: async () => {
             if (!isAssistant) await loadSessionMessages(sessionId)
             onRefresh()
             window.setTimeout(() => pinToBottom('smooth'), 120)
           },
         })
+        if (isAssistant) {
+          window.setTimeout(() => onRefresh(), 280)
+        }
+        await sendPromise
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''
         if (msg === 'agent_busy') {
@@ -788,7 +760,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       token,
       threadIdString,
       activeSessionId,
+      activeSession?.agentId,
+      askAgentId,
       detail?.thread.agentId,
+      detail?.thread.channel,
       sendAgentSessionMessage,
       loadSessionMessages,
       onRefresh,
@@ -797,44 +772,53 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     ],
   )
 
+  useEffect(() => {
+    const draft =
+      typeof (location.state as { autoSend?: unknown } | null)?.autoSend === 'string'
+        ? (location.state as { autoSend: string }).autoSend.trim()
+        : ''
+    if (!draft || !detail || !threadIdString) return
+    if (String(detail.thread.id) !== String(threadIdString)) return
+    if ((detail.thread.channel ?? '') !== 'assistant') return
+    if (autoSentThreads.has(threadIdString)) return
+    autoSentThreads.add(threadIdString)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
+    void handleAgentMessage(draft)
+  }, [
+    detail,
+    threadIdString,
+    location.state,
+    location.pathname,
+    location.search,
+    navigate,
+    handleAgentMessage,
+  ])
+
   const handleStopAgent = useCallback(() => {
     void stopAgentSessionStream()
   }, [stopAgentSessionStream])
 
-  const agentIdsAtStreamStartRef = useRef<Set<string>>(new Set())
-  const wasStreamingRef = useRef(false)
+  const handleComposerModeChange = useCallback((mode: ComposerMode) => {
+    setComposerMode(mode)
+    if (mode !== 'ask') setAskAgentId(null)
+  }, [])
 
+  // Hand the live turn off to its saved bubbles: once they are in the list
+  // (matched by turn id), drop the live view so nothing shows twice.
+  const liveTurn = gatewayStream.turn
+  const resetLiveTurn = gatewayStream.reset
+  const liveTurnSaved = turnSaved(liveTurn, detail?.messages ?? [])
   useEffect(() => {
-    if (gatewayStream.streaming && !wasStreamingRef.current) {
-      agentIdsAtStreamStartRef.current = new Set(
-        (detail?.messages ?? [])
-          .filter(
-            (m) =>
-              m.kind === 'agent_message' ||
-              Boolean(m.payload?.agent_id) ||
-              Boolean(m.agentTrace) ||
-              Boolean(m.hasAgentTrace),
-          )
-          .map((m) => String(m.id)),
-      )
-    }
-    wasStreamingRef.current = gatewayStream.streaming
-  }, [gatewayStream.streaming, detail?.messages])
+    if (liveTurn.ended && liveTurnSaved) resetLiveTurn()
+  }, [liveTurn.ended, liveTurnSaved, resetLiveTurn])
 
-  // Safety net: once a NEW persisted agent reply lands, force-clear the live
-  // ThinkingTrace (covers missed/late gateway stream events).
-  useEffect(() => {
-    if (!gatewayStream.streaming || !detail?.messages.length) return
-    const last = detail.messages[detail.messages.length - 1]
-    const isAgent =
-      last.kind === 'agent_message' ||
-      Boolean(last.payload?.agent_id) ||
-      Boolean(last.agentTrace) ||
-      Boolean(last.hasAgentTrace)
-    if (!isAgent) return
-    if (agentIdsAtStreamStartRef.current.has(String(last.id))) return
-    gatewayStream.reset()
-  }, [detail?.messages, gatewayStream.streaming, gatewayStream.reset])
+  const isAssistantThread = (detail?.thread.channel ?? '') === 'assistant'
+  const threadLiveTurn = useMemo(() => {
+    if (!liveTurnSaved && turnHasContent(liveTurn)) return liveTurn
+    // Assistant replies stream over HTTP too; show that text if the gateway is quiet.
+    if (isAssistantThread && agentStreaming) return textOnlyTurn(sessionStream.text)
+    return null
+  }, [liveTurn, liveTurnSaved, isAssistantThread, agentStreaming, sessionStream.text])
 
   const requestCloseThread = useCallback(
     async (afterClose?: () => Promise<void>) => {
@@ -1072,6 +1056,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           ref={timelineRef}
           rows={rows}
           threadId={thread.id}
+          channel={thread.channel}
           latestMessageRowId={latestMessageRowId}
           language={i18n.language}
           messageLayout={messageLayout}
@@ -1099,6 +1084,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           sessionMessages={sessionMessages}
           sessionStream={sessionStream}
           agentStreaming={agentStreaming}
+          sessionTurn={sessionLive.turn}
           onRefresh={onRefresh}
           onUseSessionAsReply={(body) => {
             applyComposerDraft({ body, key: `session-${Date.now()}` })
@@ -1120,16 +1106,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onAtBottomChange={(atBottom) => {
             anchorToBottomRef.current = atBottom
           }}
-          liveTrace={
-            gatewayStream.streaming || agentStreaming ? (
-              <ThinkingTrace
-                steps={gatewayStream.steps}
-                active
-                streamText={gatewayStream.streamText || sessionStream.text}
-                thinkingText={gatewayStream.thinkingText || sessionStream.thinking}
-              />
-            ) : null
-          }
+          liveTrace={threadLiveTurn ? <AgentTurnLive turn={threadLiveTurn} /> : null}
           emptyState={
             <div className="flex h-full flex-col items-center justify-center text-center text-xs text-text-muted">
               <p>{t('threadChrome.emptyTitle')}</p>
@@ -1158,10 +1135,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onStopAgent={handleStopAgent}
           agentStreaming={agentStreaming}
           mode={composerMode}
-          onModeChange={setComposerMode}
+          onModeChange={handleComposerModeChange}
           onVerb={handleComposerVerb}
-          agentModeName={activeSession?.agentName ?? thread.agentName ?? null}
-          onMentionInserted={(item) => void handleMentionInserted(item)}
+          agentModeName={activeSession?.agentName ?? askAgentName ?? thread.agentName ?? null}
+          onMentionInserted={handleMentionInserted}
           saving={saving || agentStreaming}
           lastInboundText={lastInboundText}
           channelAccountId={thread.channelAccountId ?? null}

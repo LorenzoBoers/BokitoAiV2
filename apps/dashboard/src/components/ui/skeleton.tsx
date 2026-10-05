@@ -223,31 +223,6 @@ function TableRowsSkeleton({ rows = 6, className }: { rows?: number; className?:
   )
 }
 
-/** Overview snapshot strip — mirrors Cockpit StatCard density. */
-function CockpitSnapshotSkeleton({ cards = 7 }: { cards?: number }) {
-  return (
-    <div
-      className="skel-stagger grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7"
-      role="status"
-      aria-busy="true"
-    >
-      {Array.from({ length: cards }).map((_, i) => (
-        <div
-          key={i}
-          className="flex h-full flex-col rounded-lg border border-border/60 bg-bg-surface px-4 py-3.5"
-        >
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-2.5 w-16" />
-            <Skeleton className="h-3 w-3 rounded" />
-          </div>
-          <Skeleton className="mt-3 h-6 w-14" />
-          <Skeleton className="mt-2 h-2.5 w-20" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /** Freeform project canvas board placeholder. */
 function ProjectCanvasSkeleton() {
   return (
@@ -348,7 +323,6 @@ export {
   ChatTranscriptSkeleton,
   CardGridSkeleton,
   TableRowsSkeleton,
-  CockpitSnapshotSkeleton,
   CockpitPanelsSkeleton,
   ProjectCanvasSkeleton,
   NavSectionSkeleton,

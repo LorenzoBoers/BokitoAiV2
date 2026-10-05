@@ -794,6 +794,10 @@ async def accept_invite(
                 role=canonical_workspace_role(invite.role),
             )
         )
+    else:
+        existing_membership.is_active = True
+        existing_membership.deactivated_at = None
+        existing_membership.role = canonical_workspace_role(invite.role)
     user.last_tenant_id = invite.tenant_id
     # Reaching the tokenized link proves control of the invited mailbox.
     user.email_verified = True
@@ -899,6 +903,10 @@ async def workspace_setup_accept_invite(
                 role=canonical_workspace_role(invite.role),
             )
         )
+    else:
+        existing_membership.is_active = True
+        existing_membership.deactivated_at = None
+        existing_membership.role = canonical_workspace_role(invite.role)
     user.last_tenant_id = invite.tenant_id
     invite.accepted_at = datetime.utcnow()
     from app.services.audit import record_audit
@@ -1004,7 +1012,7 @@ async def _build_memberships(session: AsyncSession, user: User) -> list[dict]:
     result = await session.execute(
         select(Membership, Tenant)
         .join(Tenant, Tenant.id == Membership.tenant_id)
-        .where(Membership.user_id == user.id)
+        .where(Membership.user_id == user.id, Membership.is_active.is_(True))
     )
     for membership, tenant in result.all():
         memberships.append(
@@ -1054,6 +1062,7 @@ def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
         # Channel kinds parked platform-wide; the dashboard hides their connect
         # and filter surfaces instead of shipping its own copy of the list.
         "parked_channels": sorted(get_settings().parked_channel_set()),
+        "environment": get_settings().environment,
         "user": _user_dict(auth.user, auth.tenant, auth.role, is_staff=auth.is_staff),
     }
 
@@ -1076,6 +1085,7 @@ async def me(
                     select(Membership).where(
                         Membership.user_id == auth.user.id,
                         Membership.tenant_id == resolved.id,
+                        Membership.is_active.is_(True),
                     )
                 )
                 if membership_result.scalar_one_or_none():

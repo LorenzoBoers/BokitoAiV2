@@ -27,7 +27,7 @@ MCP_DISCOVERY_TOOLS = frozenset(
 # Builtin tools that are safe to describe with a short verb phrase.
 _TOOL_VERBS: dict[str, str] = {
     "call_mcp_tool": "Run integration tool",
-    "create_task": "Create a task",
+    "create_task": "Look at this conversation",
     "send_email": "Send an email",
     "create_decision_request": "Ask for a decision",
     "connect_integration": "Connect an integration",

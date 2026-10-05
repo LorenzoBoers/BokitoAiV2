@@ -106,6 +106,9 @@ describe('folder paths', () => {
   it('keeps extra params on For you and drops the legacy filter', () => {
     expect(forYouPath('sig-2', { message: 'msg-9' })).toBe('/communication/inbox/for_you/t/sig-2?message=msg-9')
     expect(forYouPath(null, 'filter=needsDecision&agent=a1')).toBe('/communication/inbox/for_you?agent=a1')
+    expect(forYouPath(null, { agent: 'a1', needs_decision: '1' })).toBe(
+      '/communication/inbox/for_you?agent=a1&needs_decision=1',
+    )
   })
 
   it('maps chips to list filters', () => {

@@ -26,12 +26,6 @@ Models live under **Settings**, then **Models**. The page shows a **Bokito AI** 
 2. Turn on **Use my own models**, then choose **Add model**. Pick a provider (or **Custom (OpenAI-compatible)** with a base URL), paste an **API key**, and **Save and test**.
 3. Choose a preset model or enter a custom model id, then save. Your models appear in the list and in agent pickers. They are billed by the provider. Bokito AI stays as fallback when you turn custom models off or remove them.
 
-## Data processing
-
-1. Open **Settings**, then **Models**, and expand **Data processing** under the list.
-2. The switch **Allow non-EU platform models** is off by default. While it is off, an agent that points at a non-EU platform model runs on Bokito AI instead.
-3. Turn the switch on only when your data processing agreement covers that transfer. Owners and admins can change it; your own provider keys are never redirected.
-
 ## When AI runs without a live key
 
 1. Open **Settings**, then **Models**. If Bokito AI shows **Not configured**, calls run in mock mode.

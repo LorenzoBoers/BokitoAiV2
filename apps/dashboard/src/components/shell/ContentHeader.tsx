@@ -22,8 +22,8 @@ export default function ContentHeader({ title, subtitle, meta, guide, className 
         {subtitle ? <p className="mt-0.5 text-sm text-text-muted">{subtitle}</p> : null}
       </div>
       {meta || guide ? (
-        <div className="flex items-center gap-2">
-          {guide ? <PageGuideLink page={guide} /> : null}
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          {guide ? <PageGuideLink page={guide} compact={Boolean(meta)} /> : null}
           {meta}
         </div>
       ) : null}

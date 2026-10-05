@@ -437,7 +437,7 @@ async def test_apply_rule_auto_close(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
-async def test_apply_rule_auto_task_creates_task(client: AsyncClient, session_override):
+async def test_apply_rule_auto_task_sets_look_at(client: AsyncClient, session_override):
     tenant = await _tenant(session_override)
     rule = InboxRule(
         tenant_id=tenant.id,
@@ -466,19 +466,14 @@ async def test_apply_rule_auto_task_creates_task(client: AsyncClient, session_ov
     result = await inbox_rules.apply_rule_to_signal(
         session_override, tenant.id, signal, message, rule
     )
-    assert result["delivery"] == "task_created"
-    assert result.get("task_id")
+    assert result["delivery"] == "look_at_set"
+    assert result.get("task_id") == str(signal.id)
 
-    from app.models.orchestration import AgentTask
-    from uuid import UUID
-
-    task = await session_override.get(AgentTask, UUID(result["task_id"]))
-    assert task is not None
-    assert task.trigger_type == "inbox_rule"
-    assert task.signal_id == signal.id
-
-    # Thread stays open (parity with the manual "Create task" choice).
     await session_override.refresh(signal)
+    assert signal.follow_up_at is not None
+    assert "Follow up" in (signal.follow_up_title or "")
+
+    # Thread stays open (parity with the manual "What next" choice).
     assert signal.status == "open"
 
 

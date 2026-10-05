@@ -756,6 +756,7 @@ async def _contact_or_404(
                 cast(Contact.id, String) == hyphenated,
                 cast(Contact.id, String) == compact,
             ),
+            Contact.deleted_at.is_(None),
         )
     )
     contact = result.scalar_one_or_none()
@@ -776,7 +777,9 @@ async def list_contacts(
     """Contacts, optionally filtered by status, channel, search text or AI
     handling (``manual|assisted|autonomous`` own override, ``custom`` any)."""
     stmt = select(Contact).where(
-        Contact.tenant_id == auth.tenant.id, Contact.merged_into_id.is_(None)
+        Contact.tenant_id == auth.tenant.id,
+        Contact.merged_into_id.is_(None),
+        Contact.deleted_at.is_(None),
     )
     if status:
         stmt = stmt.where(Contact.status == status)
@@ -836,6 +839,7 @@ async def create_contact(
             Contact.tenant_id == auth.tenant.id,
             Contact.channel == body.channel,
             Contact.address == address,
+            Contact.deleted_at.is_(None),
         )
     )
     if existing.scalar_one_or_none():
@@ -883,19 +887,20 @@ async def delete_contact(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Remove a contact; existing threads are kept but unlinked."""
+    """Move a contact to the Bin; existing threads keep contact_id for restore."""
     auth.require_role("owner", "admin")
     contact = await _contact_or_404(session, auth.tenant.id, contact_id)
-    linked = await session.execute(
-        select(Signal).where(
-            Signal.tenant_id == auth.tenant.id, Signal.contact_id == contact_id
-        )
+    from app.services.trash import move_to_bin
+
+    await move_to_bin(
+        session,
+        auth.tenant,
+        resource_type="contact",
+        row=contact,
+        user_id=auth.user.id if auth.user else None,
+        title=contact.display_name or contact.address,
+        commit=True,
     )
-    for signal in linked.scalars().all():
-        signal.contact_id = None
-        session.add(signal)
-    await session.delete(contact)
-    await session.commit()
     return {"ok": True}
 
 
@@ -1188,7 +1193,11 @@ class CompanyUpdateBody(BaseModel):
 
 async def _company_or_404(session: AsyncSession, tenant_id: UUID, company_id: UUID) -> Company:
     result = await session.execute(
-        select(Company).where(Company.id == company_id, Company.tenant_id == tenant_id)
+        select(Company).where(
+            Company.id == company_id,
+            Company.tenant_id == tenant_id,
+            Company.deleted_at.is_(None),
+        )
     )
     company = result.scalar_one_or_none()
     if not company:
@@ -1204,7 +1213,7 @@ async def list_companies(
 ):
     from app.services.companies import company_contact_counts, serialize_company
 
-    stmt = select(Company).where(Company.tenant_id == auth.tenant.id)
+    stmt = select(Company).where(Company.tenant_id == auth.tenant.id, Company.deleted_at.is_(None))
     if search:
         like = f"%{search}%"
         stmt = stmt.where(or_(Company.name.ilike(like), Company.domain.ilike(like)))
@@ -1290,19 +1299,19 @@ async def delete_company(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Remove a company; its contacts are kept and unlinked."""
+    """Move a company to the Bin; contacts keep company_id for restore."""
     auth.require_role("owner", "admin")
     company = await _company_or_404(session, auth.tenant.id, company_id)
-    contacts = await session.execute(
-        select(Contact).where(
-            Contact.tenant_id == auth.tenant.id, Contact.company_id == company.id
-        )
+    from app.services.trash import move_to_bin
+
+    await move_to_bin(
+        session,
+        auth.tenant,
+        resource_type="company",
+        row=company,
+        user_id=auth.user.id if auth.user else None,
+        commit=True,
     )
-    for contact in contacts.scalars().all():
-        contact.company_id = None
-        session.add(contact)
-    await session.delete(company)
-    await session.commit()
     return {"ok": True}
 
 

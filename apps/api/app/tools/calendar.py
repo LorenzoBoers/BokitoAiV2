@@ -14,7 +14,7 @@ def _event_id_from_agenda(item: dict[str, Any]) -> str:
 
 
 async def _calendar_list_events(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.calendar_sync import events_as_agenda_items, list_calendar_connections
+    from app.services.calendar_sync import calendar_events_in_window, list_calendar_connections
 
     connections = await list_calendar_connections(ctx.session, ctx.tenant_id)
     if not connections:
@@ -30,16 +30,16 @@ async def _calendar_list_events(ctx: ToolContext, tool_input: dict[str, Any]) ->
     days = max(1, min(days, 60))
     start = datetime.utcnow() - timedelta(hours=1)
     end = datetime.utcnow() + timedelta(days=days)
-    items = await events_as_agenda_items(ctx.session, ctx.tenant_id, start=start, end=end)
+    items = await calendar_events_in_window(ctx.session, ctx.tenant_id, start=start, end=end)
     return {
         "ok": True,
         "connections": connections,
         "events": [
             {
                 "id": _event_id_from_agenda(i),
-                "title": i.get("name"),
-                "at": i.get("at"),
-                "end_at": i.get("end_at"),
+                "title": i.get("title"),
+                "at": i.get("start"),
+                "end_at": i.get("end"),
                 "provider": i.get("provider_label") or i.get("provider"),
                 "location": i.get("location") or "",
                 "link": i.get("html_link") or "",

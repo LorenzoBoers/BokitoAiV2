@@ -112,7 +112,7 @@ async def anyone_available(
         rows = await session.execute(
             select(User)
             .join(Membership, Membership.user_id == User.id)
-            .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
+            .where(Membership.tenant_id == tenant_id, User.is_active.is_(True), Membership.is_active.is_(True))
         )
         users = rows.scalars().all()
     else:
@@ -124,6 +124,12 @@ async def anyone_available(
     return any(user_status(u, now=now) == AVAILABLE for u in users)
 
 
+def agent_status(raw: Any) -> str:
+    """The one agent vocabulary: ``working`` | ``standby`` | ``error``."""
+    value = str(raw or "").strip().lower()
+    return value if value in AGENT_CORNER_STATUSES else STANDBY
+
+
 def agent_corner_status(
     agent: Any,
     *,
@@ -131,8 +137,7 @@ def agent_corner_status(
 ) -> str | None:
     """Corner status for a company agent, or ``None`` when not counted on a team.
 
-    Skips archived / personal assistants. Maps runtime ``active`` (or an open
-    AgentRun) to ``working``.
+    Skips archived / personal assistants. An open AgentRun counts as working.
     """
     if agent is None:
         return None
@@ -142,18 +147,10 @@ def agent_corner_status(
         return None
     if bool(getattr(agent, "acts_for_user", False)):
         return None
-    runtime = str(getattr(agent, "runtime_status", None) or STANDBY).strip().lower()
-    if runtime in ("sleeping", "paused", "inactive", "running"):
-        # legacy: "running" treated as working below via has_running_run / active
-        if runtime == "running":
-            runtime = "active"
-        else:
-            runtime = STANDBY
-    if runtime == ERROR:
-        return ERROR
-    if runtime == "active" or has_running_run:
+    status = agent_status(getattr(agent, "runtime_status", None))
+    if status == STANDBY and has_running_run:
         return WORKING
-    return STANDBY
+    return status
 
 
 def team_status(

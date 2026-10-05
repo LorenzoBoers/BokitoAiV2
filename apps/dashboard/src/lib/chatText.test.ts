@@ -1,0 +1,68 @@
+import { describe, expect, it } from 'vitest'
+import { parseChatInline, parseChatText, plainChatText, type ChatInline } from './chatText'
+
+function kinds(nodes: ChatInline[]): string[] {
+  return nodes.map((n) => n.type)
+}
+
+describe('plainChatText', () => {
+  it('drops markers but keeps the words', () => {
+    expect(plainChatText('Between *8:00 and 12:00*, see [the plan](https://x.io) and **bold** `id`')).toBe(
+      'Between 8:00 and 12:00, see the plan and bold id',
+    )
+  })
+
+  it('leaves unmatched markers and plain math alone', () => {
+    expect(plainChatText('2 * 3 = 6 and snake_case')).toBe('2 * 3 = 6 and snake_case')
+  })
+})
+
+describe('parseChatInline', () => {
+  it('reads WhatsApp-style bold, italic and strike', () => {
+    expect(kinds(parseChatInline('a *b* _c_ ~d~ e'))).toEqual([
+      'text',
+      'bold',
+      'text',
+      'italic',
+      'text',
+      'strike',
+      'text',
+    ])
+    expect(kinds(parseChatInline('**bold** and ~~gone~~'))).toEqual(['bold', 'text', 'strike'])
+  })
+
+  it('keeps unmatched markers and in-word underscores literal', () => {
+    expect(parseChatInline('2 * 3 = 6')).toEqual([{ type: 'text', text: '2 * 3 = 6' }])
+    expect(parseChatInline('snake_case_name')).toEqual([{ type: 'text', text: 'snake_case_name' }])
+  })
+
+  it('turns links, bare URLs and mentions into nodes', () => {
+    const nodes = parseChatInline('See [docs](/docs/x), https://bokito.ai. Hi @[Ann](user:7)')
+    expect(nodes.find((n) => n.type === 'link' && n.href === '/docs/x')).toBeTruthy()
+    expect(nodes.find((n) => n.type === 'link' && n.href === 'https://bokito.ai')).toBeTruthy()
+    expect(nodes.find((n) => n.type === 'mention' && n.name === 'Ann')).toBeTruthy()
+  })
+
+  it('styles an open marker at the tail only while streaming', () => {
+    expect(kinds(parseChatInline('Hi **bol', { streaming: true }))).toEqual(['text', 'bold'])
+    expect(parseChatInline('Hi **bol')).toEqual([{ type: 'text', text: 'Hi **bol' }])
+  })
+})
+
+describe('parseChatText', () => {
+  it('flattens report markup to chat lines', () => {
+    const blocks = parseChatText('# Title\n\n---\n| a | b |\n|---|---|\n| 1 | 2 |\n- item')
+    const lines = blocks.filter((b) => b.type === 'line')
+    expect(lines[0]).toMatchObject({ bold: true })
+    const text = lines.map((b) =>
+      b.type === 'line' ? b.inline.map((n) => (n.type === 'text' ? n.text : '')).join('') : '',
+    )
+    expect(text).toEqual(['Title', 'a · b', '1 · 2', '• item'])
+  })
+
+  it('keeps fenced code whole and collapses blank lines to one gap', () => {
+    const blocks = parseChatText('one\n\n\n```\nx = 1\n\ny = 2\n```')
+    expect(blocks.map((b) => b.type)).toEqual(['line', 'gap', 'code'])
+    expect(blocks[2]).toEqual({ type: 'code', text: 'x = 1\n\ny = 2' })
+  })
+})

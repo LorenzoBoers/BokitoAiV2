@@ -77,9 +77,15 @@ import {
   type PatchThreadInput,
   type ThreadId,
 } from '../lib/inbox-api'
-import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
-import { listProjects } from '../lib/projects-api'
-import { listCases } from '../lib/cases-api'
+import {
+  bulkUpdateSignalThreads,
+  cancelScheduledMessage,
+  FOLDER_FILTER_KEYS,
+  folderFilterFromParams,
+  folderFilterQuery,
+  sameFolderFilter,
+} from '../lib/signals-api'
+import { useInboxFolders } from '../hooks/useInboxFolders'
 import type { AiHandlingMode } from '../lib/ai-handling'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
@@ -119,60 +125,34 @@ export default function Communication() {
 
   const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(leaf), [leaf])
 
-  const projectId = searchParams.get('project_id')?.trim() || undefined
-  const caseTypeId = searchParams.get('case_type_id')?.trim() || undefined
-  const [caseSignalIds, setCaseSignalIds] = useState<ReadonlySet<string> | null>(null)
-  const [scopeName, setScopeName] = useState<string | null>(null)
+  const searchKey = searchParams.toString()
+  const folderFilter = useMemo(
+    () => folderFilterFromParams(new URLSearchParams(searchKey)),
+    [searchKey],
+  )
+  const projectId = folderFilter.project_id
+  const categoryId = folderFilter.category_id
+  const tagParam = folderFilter.tag
+  const stageParam = folderFilter.stage
+  const hasFolderFilter = Boolean(projectId || categoryId || tagParam || stageParam)
+  const agentParam = searchParams.get('agent')?.trim() || undefined
+  const needsDecisionParam = searchParams.get('needs_decision') === '1'
+  const { folders: inboxFolders } = useInboxFolders(hasFolderFilter)
 
-  useEffect(() => {
-    if (!caseTypeId) {
-      setCaseSignalIds(null)
-      return
+  const scopeLabel = useMemo(() => {
+    if (!hasFolderFilter) return null
+    const folder = inboxFolders.find((row) => sameFolderFilter(row.filter, folderFilter))
+    if (folder?.kind === 'project') return t('threadList.scopeProject', { name: folder.name })
+    if (folder) return t('threadList.scopeFolder', { name: folder.name })
+    if (projectId && !categoryId && !tagParam && !stageParam) {
+      return t('threadList.scopeProject', { name: t('threadList.scopeProjectFallback') })
     }
-    let cancelled = false
-    void listCases({ caseTypeId, includeLabels: false, limit: 500 })
-      .then((rows) => {
-        if (cancelled) return
-        setCaseSignalIds(new Set(
-          rows
-            .filter((row) => row.status !== 'done')
-            .map((row) => row.signal_id),
-        ))
-      })
-      .catch(() => {
-        if (!cancelled) setCaseSignalIds(new Set())
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [caseTypeId])
-
-  useEffect(() => {
-    let cancelled = false
-    if (!projectId) {
-      setScopeName(null)
-      return
-    }
-    void (async () => {
-      try {
-        const rows = await listProjects()
-        if (!cancelled) setScopeName(rows.find((row) => row.id === projectId)?.name ?? null)
-      } catch {
-        if (!cancelled) setScopeName(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [projectId])
-
-  const scopeLabel = projectId
-    ? t('threadList.scopeProject', { name: scopeName || t('threadList.scopeProjectFallback') })
-    : null
+    return t('threadList.scopeFiltered')
+  }, [hasFolderFilter, inboxFolders, folderFilter, projectId, categoryId, tagParam, stageParam, t])
 
   const clearScope = useCallback(() => {
     const next = new URLSearchParams(searchParams)
-    next.delete('project_id')
+    for (const key of FOLDER_FILTER_KEYS) next.delete(key)
     const query = next.toString()
     navigate(`${leafPath(leaf, threadIdParam ?? undefined)}${query ? `?${query}` : ''}`, {
       replace: true,
@@ -189,14 +169,12 @@ export default function Communication() {
   const { search, setSearch, listSearch, quickFilter, setQuickFilter, resetQuickFilter } =
     useInboxCommunication()
   const inboxQuery = useMemo(() => {
-    const params = new URLSearchParams()
-    if (projectId) params.set('project_id', projectId)
-    if (caseTypeId) params.set('case_type_id', caseTypeId)
-    // The quick filter belongs to the folder on screen; it is not carried
-    // into other folders or thread links.
+    const params = new URLSearchParams(folderFilterQuery(folderFilter))
+    if (agentParam) params.set('agent', agentParam)
+    if (needsDecisionParam) params.set('needs_decision', '1')
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [projectId, caseTypeId])
+  }, [folderFilter, agentParam, needsDecisionParam])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
   // current browser session (sessionStorage), so it returns on the next visit.
@@ -289,14 +267,19 @@ export default function Communication() {
     mergeHubThreadFilters(leafFilters, {
       search: listSearch,
       projectId,
+      categoryId,
+      tag: tagParam,
+      stage: stageParam,
       unread: mode === 'customer' && quickFilter === 'unread',
       pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
+      agentId: agentParam,
+      needsDecision: needsDecisionParam,
     }),
     pinnedIds,
   )
 
-  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${caseTypeId ?? ''}`
+  const listContextKey = `${leafKey(leaf)}:${folderFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}`
 
   // The quick filter is per folder: every folder opens on "all", unless the
   // URL that opened it carries a deep-linked filter (consumed above).
@@ -327,11 +310,10 @@ export default function Communication() {
   const filteredThreads = useMemo(() => {
     let next = mode === 'customer' ? applyQuickFilter(threads, quickFilter) : threads
     if (priorityFilter) next = next.filter((thread) => thread.priority === priorityFilter)
-    if (caseSignalIds) next = next.filter((thread) => caseSignalIds.has(String(thread.id)))
     // For you keeps the server order: your own turn first.
     if (leaf.type !== 'inbox' || leaf.queue === 'for_you') return next
     return customersFirst(next)
-  }, [threads, quickFilter, priorityFilter, caseSignalIds, leaf, mode])
+  }, [threads, quickFilter, priorityFilter, leaf, mode])
 
   const handleToggleBulkSelect = useCallback(
     (id: ThreadId, shiftKey = false) => {
@@ -789,6 +771,12 @@ export default function Communication() {
         await patch(input)
         void refreshThreads()
         void refreshNavBadges()
+        if (
+          input.assignedToUserId === 0 ||
+          (input.assignee?.kind === 'team' && (input.assignee.id == null || input.assignee.id === ''))
+        ) {
+          toast.success(t('threadChrome.unassignedDone'))
+        }
         if (resolving && fromId != null) {
           const undoReopen = () => {
             if (!token) return
@@ -813,6 +801,12 @@ export default function Communication() {
           }
           leaveResolvedThread(fromId, input.status)
         }
+      } catch (err) {
+        const fallback =
+          input.assignee !== undefined || input.assignedToUserId !== undefined
+            ? t('threadChrome.assignError')
+            : t('threadChrome.patchError')
+        toast.error(formatApiErrorMessage(err, fallback))
       } finally {
         advancingRef.current = false
       }
@@ -1234,13 +1228,17 @@ export default function Communication() {
 
   const isInboxEmpty =
     leaf.type === 'inbox' &&
+    (leaf.queue === 'all' || leaf.queue === 'open' || leaf.queue == null) &&
     !isSecondaryInboxQueue &&
     threadsReady &&
     threads.length === 0 &&
-    // An active search, a list chip, or an open thread is not a first-run empty.
+    // An active search, a list chip, a scoped query, or an open thread is not a first-run empty.
     // Needs reply / Unread can empty the list and must not swap in the setup checklist.
     search.trim().length === 0 &&
     quickFilter === 'all' &&
+    !hasFolderFilter &&
+    !searchParams.get('agent') &&
+    searchParams.get('needs_decision') !== '1' &&
     selectedThreadId == null
 
   if (isInboxEmpty) {
@@ -1378,7 +1376,7 @@ export default function Communication() {
             priorityFilter={priorityFilter}
             onPriorityFilter={setPriorityFilter}
             scopeLabel={scopeLabel}
-            onClearScope={projectId ? clearScope : undefined}
+            onClearScope={hasFolderFilter ? clearScope : undefined}
             total={threadsTotal}
             hasMore={threadsHaveMore}
             loadingMore={threadsLoadingMore}
@@ -1387,7 +1385,7 @@ export default function Communication() {
             emptyLabel={
               search.trim()
                 ? t('threadList.emptySearch', { query: search.trim() })
-                : projectId || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
+                : hasFolderFilter || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
                   ? t('threadList.emptyScoped')
                   : leaf.type === 'inbox' && leaf.queue === 'for_you'
                     ? t('threadList.emptyForYou')
@@ -1408,7 +1406,7 @@ export default function Communication() {
                 >
                   {t('inboxSearchClear')}
                 </button>
-              ) : projectId ? (
+              ) : hasFolderFilter ? (
                 <button
                   type="button"
                   onClick={clearScope}

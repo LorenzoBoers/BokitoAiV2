@@ -15,6 +15,13 @@ import { marketplacePathWithKind } from '../../lib/integration-kind-url'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { cn } from '../../lib/utils'
 
+function calendarBrandSlug(provider: string): string {
+  const slug = provider.trim().toLowerCase()
+  if (slug.includes('outlook') || slug.includes('microsoft')) return 'outlook-calendar'
+  if (slug.includes('google')) return 'google-calendar'
+  return slug
+}
+
 type CalendarConnectBarProps = {
   connections: CalendarConnection[]
   loading?: boolean
@@ -106,19 +113,26 @@ export function CalendarConnectBar({
     )
   }
 
-  const labels = connections.map((c) => c.display_name).join(', ')
+  const eventCount = connections.reduce((n: number, c) => n + (c.event_count ?? 0), 0)
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 bg-bg-surface px-3 py-2 text-xs">
-      <p className="text-text-muted">
+      <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-text-muted">
         <span className="font-medium text-text-heading">{t('agendaPage.calendar.connectedLabel')}</span>
-        {' '}
-        {labels}
-        {connections.some((c) => (c.event_count ?? 0) > 0)
-          ? ` · ${t('agendaPage.calendar.eventCount', {
-              count: connections.reduce((n: number, c) => n + (c.event_count ?? 0), 0),
-            })}`
-          : null}
+        {connections.map((connection, index) => (
+          <span key={connection.id} className="inline-flex items-center gap-1.5">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-bg-elevated ring-1 ring-border/60">
+              <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
+            </span>
+            <span>
+              {connection.display_name}
+              {index < connections.length - 1 ? ',' : ''}
+            </span>
+          </span>
+        ))}
+        {eventCount > 0 ? (
+          <span>· {t('agendaPage.calendar.eventCount', { count: eventCount })}</span>
+        ) : null}
       </p>
       <div className="flex items-center gap-2">
         {error ? <span className="text-status-error">{error}</span> : null}

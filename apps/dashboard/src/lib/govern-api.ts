@@ -1,4 +1,5 @@
 import { requireAccessToken } from './api'
+import type { AgentPassport } from './workforce-api'
 import { APP_API_BASE } from './api.config'
 import { governRoutes } from '../api/routes'
 
@@ -92,7 +93,18 @@ export type GovernToolRow = {
 
 export type AllowancesResponse = AllowanceState & { tools: GovernToolRow[] }
 
-export type AutonomyScopeLevel = 'manual' | 'approval' | 'auto'
+export type AutonomyScopeLevel = 'manual' | 'assisted' | 'autonomous'
+
+const LEGACY_SCOPE: Record<string, AutonomyScopeLevel> = {
+  approval: 'assisted',
+  auto: 'autonomous',
+}
+
+export function normalizeAutonomyScopeLevel(value: string | null | undefined): AutonomyScopeLevel {
+  const raw = String(value || '').trim().toLowerCase()
+  if (raw === 'manual' || raw === 'assisted' || raw === 'autonomous') return raw
+  return LEGACY_SCOPE[raw] ?? 'assisted'
+}
 
 export type AutonomyScopeRow = {
   id: string
@@ -163,14 +175,14 @@ export async function listGovernAudit(limit = 50) {
 }
 
 export async function listAgentPassports() {
-  return governFetch<{ items: Array<Record<string, unknown>> }>(governRoutes.passports)
+  return governFetch<{ items: AgentPassport[] }>(governRoutes.passports)
 }
 
 export async function updateAgentPassport(
   agentId: string,
-  patch: { autonomy_level?: string; allowed_tools?: string[]; permission_scopes?: string[] },
+  patch: { autonomy_level?: string; tools?: string[]; permission_scopes?: string[] },
 ) {
-  return governFetch<{ ok: boolean; passport: Record<string, unknown> }>(
+  return governFetch<{ ok: boolean; passport: AgentPassport }>(
     governRoutes.passport(agentId),
     { method: 'PATCH', body: JSON.stringify(patch) },
   )
@@ -207,10 +219,6 @@ export async function setToolOverride(toolName: string, mode: AllowanceMode | nu
     method: 'PUT',
     body: JSON.stringify({ tool_name: toolName, mode }),
   })
-}
-
-export async function getPosture() {
-  return governFetch<AllowanceState>(governRoutes.posture)
 }
 
 export async function setPosture(posture: AutonomyPostureId) {

@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     # "dev" | "prod" — prod enables fail-fast config checks and Secure cookies.
     environment: str = "dev"
 
+    # Days a deleted item stays in the workspace Bin before hard purge.
+    # Tenant settings_json.trash.retention_days may override (1–365).
+    bokito_trash_retention_days: int = 60
+
     database_url: str = "postgresql+asyncpg://bokito:bokito@localhost:5432/bokito"
     redis_url: str = "redis://localhost:6379/0"
 

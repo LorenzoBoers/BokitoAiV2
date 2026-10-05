@@ -278,7 +278,15 @@ def for_you_predicate(
     custom = {t for t in team_ids if t != people_team_id}
     if custom:
         clauses.append(and_(Signal.turn_kind == "team", Signal.turn_team_id.in_(custom)))
-        clauses.append(and_(Signal.assignee_kind == "team", Signal.assignee_team_id.in_(custom)))
+        # Team-owned customer work belongs here. Standing group rooms do not —
+        # they only appear when it is actually the team's turn.
+        clauses.append(
+            and_(
+                Signal.assignee_kind == "team",
+                Signal.assignee_team_id.in_(custom),
+                Signal.source != "team",
+            )
+        )
     if people_team_id is not None:
         clauses.append(
             and_(
@@ -507,7 +515,11 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
     rows = await session.execute(
         select(User, Membership)
         .join(Membership, Membership.user_id == User.id)
-        .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
+        .where(
+            Membership.tenant_id == tenant_id,
+            User.is_active.is_(True),
+            Membership.is_active.is_(True),
+        )
     )
     for user, membership in rows.all():
         ok = account is None or await can_handle_account(
@@ -535,9 +547,8 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
         )
     )
     from app.models.agent import AgentRun
-    from app.services.agent_avatar import avatar_payload as agent_avatar_payload
-    from app.services.presence import ERROR, STANDBY, WORKING, agent_corner_status
     from app.services.teams import serialize_team
+    from app.services.workforce_runtime import serialize_agent
 
     agent_list = list(agent_rows.scalars().all())
     running_ids: set[UUID] = set()
@@ -557,21 +568,11 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
         )
     for agent in agent_list:
         ok = await agent_can_handle(session, account, agent.id)
-        avatar = agent_avatar_payload(agent)
-        corner = agent_corner_status(agent, has_running_run=agent.id in running_ids) or STANDBY
-        if corner not in (WORKING, STANDBY, ERROR):
-            corner = STANDBY
         agents.append(
             {
-                "id": str(agent.id),
-                "name": agent.name,
+                **serialize_agent(agent, view="picker", running=agent.id in running_ids),
                 "can_handle": ok,
                 "reason": "" if ok else "no_channel_access",
-                "status": corner,
-                "avatar_kind": avatar["avatar_kind"],
-                "avatar_icon": avatar["avatar_icon"],
-                "avatar_color": avatar["avatar_color"],
-                "avatar_image_url": avatar["avatar_image_url"],
             }
         )
     teams = []

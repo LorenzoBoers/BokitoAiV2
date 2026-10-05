@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
 import { IntegrationHostLogo, type IntegrationHostLogoSize } from './IntegrationHostLogo'
 import { cn } from '../../lib/utils'
@@ -5,8 +6,9 @@ import { cn } from '../../lib/utils'
 /**
  * Inline brand logo for a connectable system (WhatsApp, Slack, Gmail, ...).
  * Resolves via the integration brand system (API host branding with static
- * fallbacks from `lib/brand-assets.ts`). Use `BrandMark` for small inline
- * spots (buttons, rows) and `BrandTile` for card headers.
+ * fallbacks from `lib/brand-assets.ts`). Every slug renders a mark: the
+ * vendor logo when we have one, otherwise host initials. Use `BrandTile`
+ * for card headers.
  */
 
 type MarkProps = {
@@ -18,16 +20,43 @@ type MarkProps = {
 
 export function BrandMark({ slug, size = 14, className }: MarkProps) {
   const brand = useIntegrationBrand(slug)
-  if (!brand.logoUrl) return null
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    setFailed(false)
+  }, [brand.logoUrl, slug])
+
+  if (brand.logoUrl && !failed) {
+    return (
+      <img
+        src={brand.logoUrl}
+        alt=""
+        title={brand.name}
+        style={{ width: size, height: size }}
+        className={cn('shrink-0 object-contain', className)}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+
   return (
-    <img
-      src={brand.logoUrl}
-      alt=""
+    <span
+      aria-hidden
       title={brand.name}
-      style={{ width: size, height: size }}
-      className={cn('shrink-0 object-contain', className)}
-      loading="lazy"
-    />
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-[3px] font-semibold leading-none text-white',
+        className,
+      )}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: brand.color,
+        fontSize: Math.max(7, Math.round(size * 0.42)),
+      }}
+    >
+      {(brand.initials || '?').slice(0, 2)}
+    </span>
   )
 }
 

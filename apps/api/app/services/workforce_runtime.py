@@ -2,8 +2,8 @@
 
 import json
 import re
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.notification import DecisionRequest
 from app.models.project import Project
-from app.models.signal import Signal, SignalMessage
+from app.models.signal import Signal
 
 ROLE_SLUG_MAP = {
     "po": "orchestrator",
@@ -51,6 +51,15 @@ def _ms(value: datetime | None) -> int:
     return int(value.timestamp() * 1000)
 
 
+def _utc_ms(value: datetime | None) -> int | None:
+    """Naive DB datetimes are UTC; read them as such regardless of server tz."""
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return int(value.timestamp() * 1000)
+
+
 def _parse_json(raw: str | None) -> dict[str, Any]:
     try:
         data = json.loads(raw or "{}")
@@ -65,85 +74,112 @@ def role_slug(agent: Agent) -> str:
     return ROLE_SLUG_MAP.get(agent.role, agent.role)
 
 
-def serialize_runtime_agent(
+AgentView = Literal["summary", "picker", "passport", "runtime"]
+
+
+def serialize_agent(
     agent: Agent,
     *,
+    view: AgentView = "summary",
+    running: bool = False,
     latest_run: AgentRun | None = None,
     open_conversations: int = 0,
     awaiting_decision: int = 0,
 ) -> dict[str, Any]:
-    org_id = str(tenant_numeric_id(agent.tenant_id))
-    slug = agent.slug or _slugify(agent.name)
-    rslug = role_slug(agent)
-    # Runtime only: standby (idle), active (working), error. Operator "pause"
-    # is gone — inactive company agents are a data bug until archive/migrate.
-    status = agent.runtime_status or "standby"
-    if status in ("sleeping", "paused", "inactive"):
-        status = "standby"
-    if status not in ("standby", "active", "error"):
-        status = "standby"
-    summary = agent.current_activity_summary or ""
-    session_id = None
-    activity_id = None
-    if latest_run:
-        session_id = str(latest_run.id)
-        if latest_run.status == "running":
-            activity_id = str(latest_run.id)
-            if not summary:
-                summary = latest_run.subject or "Running"
-    payload = {
-        "id": str(agent.id),
-        "organisation_id": org_id,
-        "name": agent.name,
-        "slug": slug,
-        "role_id": rslug,
-        "role_name": ROLE_NAME_MAP.get(agent.role, agent.name),
-        "role_slug": rslug,
-        "parent_agent_id": str(agent.parent_agent_id) if agent.parent_agent_id else None,
-        "status": status,
-        "model": agent.model,
-        "provider": agent.provider,
-        "purpose": agent.system_prompt or "",
-        "system_prompt": agent.system_prompt or "",
-        "audience": agent.audience,
-        "owner_user_id": str(agent.owner_user_id) if agent.owner_user_id else None,
-        "tools": json.loads(agent.tools_json or "[]"),
-        "default_channels": json.loads(agent.default_channels_json or "[]"),
-        "default_signal_types": json.loads(agent.default_signal_types_json or "[]"),
-        "acts_for_user": bool(agent.acts_for_user),
-        "chat_access": agent.chat_access,
-        "kind": agent.kind,
-        "is_lead": bool(agent.is_lead),
-        "is_active": bool(agent.is_active),
-        "email_signature_html": "",
-        "email_signature_text": "",
-        "reply_send_as": "agent",
-        "current_session_id": session_id,
-        "current_activity_id": activity_id,
-        "current_activity_summary": summary or None,
-        "open_conversations": int(open_conversations),
-        "awaiting_decision": int(awaiting_decision),
-        "updated_at": _ms(agent.updated_at or agent.created_at),
-    }
+    """The one agent DTO. Views only add fields on top of ``summary``.
+
+    - ``summary``: identity, avatar and live status (rows, chips, project orchestrator)
+    - ``picker``: summary for chat targets and assignee pickers (callers add their flags)
+    - ``passport``: summary + model, autonomy, tools and scopes (Govern, agent tools)
+    - ``runtime``: everything the Agents page and agent detail render
+
+    ``status`` is ``standby | working | error``; an open AgentRun (``running``
+    or a running ``latest_run``) reads as working.
+    """
     from app.services.agent_avatar import avatar_payload
+    from app.services.presence import STANDBY, WORKING, agent_status
+
+    status = agent_status(agent.runtime_status)
+    live_run = latest_run if latest_run is not None and latest_run.status == "running" else None
+    if status == STANDBY and (running or live_run is not None):
+        status = WORKING
+    summary = agent.current_activity_summary or ""
+    if live_run is not None and not summary:
+        summary = live_run.subject or "Running"
+    payload: dict[str, Any] = {
+        "id": str(agent.id),
+        "name": agent.name,
+        "slug": agent.slug or _slugify(agent.name),
+        "role": agent.role,
+        "kind": agent.kind,
+        "is_active": bool(agent.is_active),
+        "status": status,
+        "current_activity_summary": summary or None,
+        "current_thread_id": str(agent.current_signal_id) if agent.current_signal_id else None,
+        # Last run, reply or tool step (ms, UTC); null before the first run.
+        "last_active_at": _utc_ms(agent.last_active_at),
+    }
+    payload.update(avatar_payload(agent))
+    if view in ("passport", "runtime"):
+        from app.services.agent_rules import normalize_autonomy
+
+        payload.update(
+            {
+                "model": agent.model,
+                "provider": agent.provider,
+                "is_lead": bool(agent.is_lead),
+                "acts_for_user": bool(agent.acts_for_user),
+                "autonomy_level": normalize_autonomy(agent.autonomy_level),
+                "tools": _parse_json_list(agent.tools_json),
+                "permission_scopes": _parse_json_list(agent.permission_scopes_json),
+            }
+        )
+    if view != "runtime":
+        return payload
+
+    from app.services.addressee import agent_ask_target
+    from app.services.managed_resources import management_payload
     from app.services.signatures import (
         agent_reply_send_as,
         agent_signature_html,
         agent_signature_text,
     )
 
-    payload["email_signature_text"] = agent_signature_text(agent)
-    # Keep HTML field for older clients / preview: derived from plain text or legacy.
-    payload["email_signature_html"] = agent_signature_html(agent)
-    payload["reply_send_as"] = agent_reply_send_as(agent)
-    from app.services.addressee import agent_ask_target
-
-    payload["ask_target"] = agent_ask_target(agent)
-    payload.update(avatar_payload(agent))
-    from app.services.managed_resources import management_payload
-
+    rslug = role_slug(agent)
+    payload.update(
+        {
+            "organisation_id": str(tenant_numeric_id(agent.tenant_id)),
+            "role_id": rslug,
+            "role_name": ROLE_NAME_MAP.get(agent.role, agent.name),
+            "role_slug": rslug,
+            "parent_agent_id": str(agent.parent_agent_id) if agent.parent_agent_id else None,
+            "purpose": agent.system_prompt or "",
+            "system_prompt": agent.system_prompt or "",
+            "owner_user_id": str(agent.owner_user_id) if agent.owner_user_id else None,
+            "default_channels": _parse_json_list(agent.default_channels_json),
+            "default_signal_types": _parse_json_list(agent.default_signal_types_json),
+            "chat_access": agent.chat_access,
+            "email_signature_text": agent_signature_text(agent),
+            "email_signature_html": agent_signature_html(agent),
+            "reply_send_as": agent_reply_send_as(agent),
+            "current_session_id": str(latest_run.id) if latest_run else None,
+            "current_activity_id": str(live_run.id) if live_run else None,
+            "open_conversations": int(open_conversations),
+            "awaiting_decision": int(awaiting_decision),
+            "updated_at": _ms(agent.updated_at or agent.created_at),
+            "ask_target": agent_ask_target(agent),
+        }
+    )
     payload.update(management_payload(agent))
     return payload
+
+
+def _parse_json_list(raw: str | None) -> list[Any]:
+    try:
+        value = json.loads(raw or "[]")
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return value if isinstance(value, list) else []
 
 
 async def _conversation_counts_by_agent(
@@ -152,8 +188,6 @@ async def _conversation_counts_by_agent(
     """Open customer threads and real awaiting-decision counts per agent."""
     if not agent_ids:
         return {}, {}
-    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
-
     open_rows = (
         await session.execute(
             select(Signal.agent_id, func.count())
@@ -168,25 +202,10 @@ async def _conversation_counts_by_agent(
     ).all()
     open_by = {agent_id: int(count) for agent_id, count in open_rows if agent_id}
 
-    decision_rows = (
-        await session.execute(
-            select(Signal.agent_id, func.count(func.distinct(Signal.id)))
-            .select_from(Signal)
-            .join(SignalMessage, SignalMessage.signal_id == Signal.id)
-            .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
-            .where(
-                Signal.tenant_id == tenant_id,
-                Signal.agent_id.in_(agent_ids),
-                Signal.status.notin_(("closed", "spam")),
-                Signal.channel != "assistant",
-                SignalMessage.kind == "decision_request",
-                DecisionRequest.status == "awaiting_human",
-                DecisionRequest.title != NO_REPLY_DECISION_TITLE,
-            )
-            .group_by(Signal.agent_id)
-        )
-    ).all()
-    decision_by = {agent_id: int(count) for agent_id, count in decision_rows if agent_id}
+    from app.services.signal_threads import attention_counts
+
+    attention = await attention_counts(session, tenant_id, by_agent=True)
+    decision_by = attention["decisions_by_agent"]
     return open_by, decision_by
 
 
@@ -200,9 +219,8 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
         select(Agent)
         .where(
             Agent.tenant_id == tenant_id,
-            Agent.kind == "company",
             Agent.acts_for_user.is_(False),
-            Agent.is_active.is_(True),
+            Agent.kind.in_(("company", "archived")),
         )
         .order_by(Agent.updated_at.desc())
     )
@@ -226,8 +244,9 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
         session, tenant_id, [a.id for a in agents]
     )
     return [
-        serialize_runtime_agent(
+        serialize_agent(
             agent,
+            view="runtime",
             latest_run=latest_by_agent.get(agent.id),
             open_conversations=open_by.get(agent.id, 0),
             awaiting_decision=decision_by.get(agent.id, 0),
@@ -236,33 +255,72 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
     ]
 
 
+def apply_agent_runtime(
+    agent: Agent,
+    *,
+    status: str,
+    summary: str | None = None,
+    signal_id: UUID | None = None,
+    activity_id: UUID | str | None = None,
+) -> str | None:
+    """Mutate live work fields. Returns activity id string for the WS payload."""
+    from app.services.presence import agent_status
+
+    status = agent_status(status)
+    agent.runtime_status = status
+    now = datetime.utcnow()
+    agent.updated_at = now
+    agent.last_active_at = now
+    live_activity: str | None = str(activity_id) if activity_id else None
+    if status == "standby":
+        agent.current_activity_summary = ""
+        agent.current_signal_id = None
+        live_activity = None
+    else:
+        if summary is not None:
+            agent.current_activity_summary = (summary or "")[:200]
+        if signal_id is not None:
+            agent.current_signal_id = signal_id
+    return live_activity
+
+
+async def broadcast_agent_live(agent: Agent, *, activity_id: str | None = None) -> None:
+    from app.gateway.publish import publish_agent_status
+    from app.services.presence import agent_status
+
+    corner = agent_status(agent.runtime_status)
+    thread_id = str(agent.current_signal_id) if agent.current_signal_id else None
+    await publish_agent_status(
+        agent.tenant_id,
+        agent_id=agent.id,
+        status=corner,
+        summary=agent.current_activity_summary or None,
+        thread_id=thread_id,
+        activity_id=activity_id,
+        last_active_at=_utc_ms(agent.last_active_at),
+    )
+
+
 async def mark_agent_activity(
     session: AsyncSession,
     agent: Agent,
     *,
     status: str,
     summary: str | None = None,
+    signal_id: UUID | None = None,
+    activity_id: UUID | str | None = None,
 ) -> None:
-    """Set runtime status for inbox/orchestration loops and broadcast corner status.
+    """Set runtime status for inbox/orchestration loops and broadcast live work.
 
-    ``status`` uses DB values: ``active`` (working), ``standby``, ``error``.
+    ``status`` is ``working``, ``standby`` or ``error``.
     """
-    if status not in ("standby", "active", "error"):
-        status = "standby"
-    agent.runtime_status = status
-    if status == "standby":
-        agent.current_activity_summary = ""
-    elif summary is not None:
-        agent.current_activity_summary = (summary or "")[:200]
-    agent.updated_at = datetime.utcnow()
+    live_activity = apply_agent_runtime(
+        agent, status=status, summary=summary, signal_id=signal_id, activity_id=activity_id
+    )
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
-    from app.gateway.publish import publish_agent_status
-    from app.services.presence import ERROR, STANDBY, WORKING
-
-    corner = WORKING if status == "active" else (ERROR if status == "error" else STANDBY)
-    await publish_agent_status(agent.tenant_id, agent_id=agent.id, status=corner)
+    await broadcast_agent_live(agent, activity_id=live_activity)
 
 
 async def update_agent_runtime_status(
@@ -272,7 +330,7 @@ async def update_agent_runtime_status(
 
     Operators no longer pause or wake agents. Hide an agent with archive.
     """
-    if status not in ("standby", "active", "error"):
+    if status not in ("standby", "working", "error"):
         raise HTTPException(status_code=400, detail="Invalid status")
     result = await session.execute(
         select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
@@ -281,11 +339,11 @@ async def update_agent_runtime_status(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     await mark_agent_activity(session, agent, status=status)
-    return {"ok": True, "agent": serialize_runtime_agent(agent)}
+    return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
 
 
 async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> dict[str, Any]:
-    """Archive a company agent: hidden from the workforce list, history preserved.
+    """Deactivate a company agent: hidden from the working roster, history preserved.
 
     Channel defaults are cleared; existing conversation history stays pinned.
     """
@@ -300,7 +358,7 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     if agent.acts_for_user:
         raise HTTPException(
             status_code=409,
-            detail="The Bokito system agent cannot be archived.",
+            detail="The Bokito system agent cannot be deactivated.",
         )
     from sqlalchemy import update
 
@@ -322,6 +380,30 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     session.add(agent)
     await session.commit()
     return {"ok": True, "id": str(agent_id)}
+
+
+async def restore_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> dict[str, Any]:
+    """Reactivate a deactivated company agent. History was never deleted."""
+    result = await session.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.acts_for_user:
+        raise HTTPException(
+            status_code=409,
+            detail="The Bokito system agent cannot be deactivated.",
+        )
+    if agent.kind not in ("company", "archived"):
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent.kind = "company"
+    agent.is_active = True
+    agent.runtime_status = "standby"
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    await session.commit()
+    return {"ok": True, "id": str(agent_id), "agent": serialize_agent(agent, view="runtime")}
 
 
 async def update_agent_model(
@@ -365,7 +447,7 @@ async def update_agent_model(
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
-    return {"ok": True, "agent": serialize_runtime_agent(agent)}
+    return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
 
 
 async def create_agent(
@@ -375,7 +457,6 @@ async def create_agent(
     name: str,
     role: str = "assistant",
     system_prompt: str = "",
-    audience: str = "internal",
     tools: list[str] | None = None,
     owner_user_id: UUID | None = None,
     default_channels: list[str] | None = None,
@@ -394,8 +475,6 @@ async def create_agent(
     norm_role = role if role in CREATABLE_AGENT_ROLES else "assistant"
     if chat_access not in ("everyone", "selected", "nobody"):
         chat_access = "nobody"
-    if audience not in ("customers", "partners", "internal"):
-        raise HTTPException(status_code=400, detail="Invalid audience")
 
     slug = ""
     provider_type = ""
@@ -440,7 +519,6 @@ async def create_agent(
         role=norm_role,
         kind="company",
         chat_access=chat_access,
-        audience=audience,
         owner_user_id=owner_user_id,
         system_prompt=(system_prompt or "").strip(),
         tools_json=json.dumps(tools or []),
@@ -456,7 +534,7 @@ async def create_agent(
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
-    return {"ok": True, "agent": serialize_runtime_agent(agent)}
+    return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
 
 
 async def update_agent(
@@ -466,7 +544,6 @@ async def update_agent(
     *,
     name: str | None = None,
     system_prompt: str | None = None,
-    audience: str | None = None,
     tools: list[str] | None = None,
     owner_user_id: UUID | None = None,
     default_channels: list[str] | None = None,
@@ -494,10 +571,6 @@ async def update_agent(
         agent.name = clean
     if system_prompt is not None:
         agent.system_prompt = system_prompt.strip()
-    if audience is not None:
-        if audience not in ("customers", "partners", "internal"):
-            raise HTTPException(status_code=400, detail="Invalid audience")
-        agent.audience = audience
     if tools is not None:
         agent.tools_json = json.dumps(tools)
     if owner_user_id is not None:
@@ -580,7 +653,7 @@ async def update_agent(
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
-    return {"ok": True, "agent": serialize_runtime_agent(agent)}
+    return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
 
 
 def serialize_work_log(run: AgentRun) -> dict[str, Any]:
@@ -846,88 +919,6 @@ async def update_workforce_config(
     return await get_workforce_config(session, tenant_id)
 
 
-async def get_workforce_status(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    config = await get_workforce_config(session, tenant_id)
-    agents = await list_runtime_agents(session, tenant_id)
-    timeline = await list_timeline(session, tenant_id)
-    recent_tasks = [
-        {
-            "id": i + 1,
-            "organisation_id": config["organisation_id"],
-            "pipeline_id": 1,
-            "feature_id": i + 1,
-            "task_type": "agent_run",
-            "status": a.get("status", "standby"),
-            "attempt": 1,
-            "payload": None,
-            "planned_for": a.get("updated_at", 0),
-            "completed_at": 0,
-            "result_summary": a.get("current_activity_summary") or "",
-            "created_at": a.get("updated_at", 0),
-            "updated_at": a.get("updated_at", 0),
-        }
-        for i, a in enumerate(agents[:5])
-    ]
-    recent_logs = [
-        {
-            "id": i + 1,
-            "organisation_id": config["organisation_id"],
-            "pipeline_id": 1,
-            "feature_id": 0,
-            "task_id": 0,
-            "level": "info",
-            "action_type": "status",
-            "message": t.get("title") or "Activity",
-            "metadata": t.get("result"),
-            "created_at": t.get("updated_at") or t.get("created_at") or 0,
-        }
-        for i, t in enumerate(timeline[:10])
-    ]
-    return {
-        "config": config,
-        "pipelines": [{"id": 1, "name": "Default", "status": "active"}],
-        "recent_tasks": recent_tasks,
-        "recent_logs": recent_logs,
-    }
-
-
-async def list_timeline(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
-    result = await session.execute(
-        select(AgentRun, Agent)
-        .join(Agent, Agent.id == AgentRun.agent_id)
-        .where(AgentRun.tenant_id == tenant_id)
-        .order_by(AgentRun.started_at.desc())
-        .limit(40)
-    )
-    org = str(tenant_numeric_id(tenant_id))
-    items: list[dict[str, Any]] = []
-    for run, agent in result.all():
-        ended = run.completed_at is not None
-        atype = "completed" if run.status == "completed" else "failed" if run.status == "failed" else "executing"
-        if ended and run.status == "completed":
-            atype = "completed"
-        items.append(
-            {
-                "id": str(run.id),
-                "organisation_id": org,
-                "agent_id": str(agent.id),
-                "session_id": str(run.id),
-                "task_id": str(run.project_id) if run.project_id else None,
-                "title": run.subject or f"{agent.name} run",
-                "description": run.subject,
-                "type": atype,
-                "status_detail": run.status,
-                "planned_for": None,
-                "started_at": _ms(run.started_at),
-                "ended_at": _ms(run.completed_at) if ended else None,
-                "result": _parse_json(run.result_json) or None,
-                "created_at": _ms(run.started_at),
-                "updated_at": _ms(run.completed_at or run.started_at),
-            }
-        )
-    return items
-
-
 async def trigger_agent(
     session: AsyncSession,
     tenant_id: UUID,
@@ -963,11 +954,14 @@ async def trigger_agent(
         trigger_type="manual",
         auto_start=False,
     )
-    agent.runtime_status = "active"
-    agent.current_activity_summary = instruction[:200] if instruction else "Running"
-    agent.updated_at = datetime.utcnow()
+    apply_agent_runtime(
+        agent,
+        status="working",
+        summary=instruction[:200] if instruction else "Running",
+    )
     session.add(agent)
     await session.commit()
+    await broadcast_agent_live(agent)
 
     if not await enqueue_agent_task_segment(str(tenant_id), str(task.id)):
         await run_agent_task_segment(session, tenant_id, task.id)
@@ -1004,21 +998,21 @@ async def complete_activity(
     )
     agent = agent_result.scalar_one_or_none()
     if agent:
-        agent.runtime_status = "standby"
-        agent.current_activity_summary = summary or ""
-        agent.updated_at = datetime.utcnow()
+        apply_agent_runtime(agent, status="standby", summary=summary)
         session.add(agent)
     await ensure_run_events(session, run)
     await session.commit()
+    if agent:
+        await broadcast_agent_live(agent)
     return {"ok": True, "outcome": outcome}
 
 
 async def clear_stale_runtime(
     session: AsyncSession, tenant_id: UUID, *, max_stale_minutes: int = 15
 ) -> dict[str, int]:
-    """Reset agents/runs stuck in an active state past the staleness window.
+    """Reset agents/runs stuck in a working state past the staleness window.
 
-    DB-only maintenance: an agent whose `runtime_status` is active/running but
+    DB-only maintenance: an agent whose `runtime_status` is working but
     has not been updated within `max_stale_minutes` is returned to standby, and
     any long-running `AgentRun` is marked failed.
     """
@@ -1029,13 +1023,14 @@ async def clear_stale_runtime(
     agent_result = await session.execute(
         select(Agent).where(
             Agent.tenant_id == tenant_id,
-            Agent.runtime_status.in_(["active", "running"]),
+            Agent.runtime_status == "working",
             Agent.updated_at < cutoff,
         )
     )
     for agent in agent_result.scalars().all():
         agent.runtime_status = "standby"
         agent.current_activity_summary = ""
+        agent.current_signal_id = None
         agent.updated_at = now
         session.add(agent)
         agents_cleared += 1

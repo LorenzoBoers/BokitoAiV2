@@ -30,7 +30,7 @@ async def resolve_agent_for_channel(
     channel_account_id: UUID | None = None,
     contact_id: UUID | None = None,
 ) -> Agent | None:
-    """Pick the channel account's default, then the customer-facing front desk."""
+    """Pick the channel account's default, then lead / Front desk / any company agent."""
     del contact_id  # contact-level routing was retired with legacy bindings
     account: ChannelAccount | None = None
     if channel_account_id:
@@ -68,7 +68,6 @@ async def resolve_agent_for_channel(
             Agent.kind == "company",
             Agent.is_active.is_(True),
             Agent.acts_for_user.is_(False),
-            Agent.audience == "customers",
         )
         .order_by(Agent.is_lead.desc(), Agent.created_at)
     )

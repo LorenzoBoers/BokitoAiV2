@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, AtSign, Bell, CalendarClock, ChevronDown, ChevronRight, Hand, Inbox, ListTodo, MessageSquare, Settings, ShieldCheck, UserCheck } from 'lucide-react';
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
+import { useOptionalNavBadges } from '../../context/NavBadgeContext';
 import { Button } from '../ui/button';
 import { Dropdown } from '../ui/dropdown';
-import { translateDecisionText } from '../../lib/activity-labels';
+import { translateNotificationCopy } from '../../lib/activity-labels';
 import { collapseNotifications, type GroupedNotification } from '../../lib/notification-groups';
 import { activityDayBucket } from '../../lib/activity-day';
-import { pathForNotification } from '../../lib/notification-path';
+import { openEntityPath } from '../../lib/open-entity';
+import { timeAgo } from '../../lib/time-ago';
 import { forYouPath, inboxPath } from '../../lib/messages-paths';
 
 const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -22,24 +24,15 @@ const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: 
   ops_alert: AlertTriangle,
 };
 
-function formatTimeAgo(timestamp: string, t: (key: string, opts?: { count: number }) => string): string {
-  const now = new Date();
-  const time = new Date(timestamp);
-  const diffMs = now.getTime() - time.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMins < 1) return t('notificationsUi.now');
-  if (diffMins < 60) return t('notificationsUi.minutesAgo', { count: diffMins });
-  if (diffHours < 24) return t('notificationsUi.hoursAgo', { count: diffHours });
-  if (diffDays >= 7) return t('notificationsUi.staleDays', { count: diffDays });
-  return t('notificationsUi.daysAgo', { count: diffDays });
+function formatTimeAgo(timestamp: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  const days = Math.floor((Date.now() - new Date(timestamp).getTime()) / 86_400_000);
+  return days >= 7 ? t('notificationsUi.staleDays', { count: days }) : timeAgo(timestamp, t);
 }
 
 export default function NotificationDropdown() {
   const { t } = useTranslation(['nav', 'communication']);
-  const { notifications, unreadCount, forYouCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const forYouCount = useOptionalNavBadges().counts.inboxByQueue.forYou;
   const navigate = useNavigate();
   const [showDigest, setShowDigest] = useState(false);
 
@@ -51,7 +44,7 @@ export default function NotificationDropdown() {
       const row = notifications.find((item) => item.id === id);
       if (row?.status === 'unread') markAsRead(id);
     }
-    const target = pathForNotification({ kind: notification.kind, payload: notification.payload });
+    const target = openEntityPath({ type: 'notification', kind: notification.kind, payload: notification.payload });
     if (target) navigate(target);
   };
 
@@ -76,10 +69,10 @@ export default function NotificationDropdown() {
           </div>
           <div className="flex-1 min-w-0">
             <p className={`text-sm ${unread ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
-              {translateDecisionText(notification.title, t)}
+              {translateNotificationCopy(notification.title, t)}
             </p>
             <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
-              {translateDecisionText(notification.body, t)}
+              {translateNotificationCopy(notification.body, t)}
             </p>
             <p className="text-xs text-text-muted mt-1">
               {formatTimeAgo(notification.createdAt, t)}

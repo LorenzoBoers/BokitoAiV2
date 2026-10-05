@@ -48,4 +48,4 @@ Connect your own provider key under Settings → Developers. Bokito never runs t
 3. If the tool asks a question, answer the Decision card; Bokito sends your answer as a follow-up.
 4. When a pull request appears, open it from the status line on the project canvas (**Workbench jobs** tile and **Resources**) or in the thread.
 
-You can also open **Connections** and choose **Connect coding tools** to land on the same Developers section.
+You can also open **Connections** and choose **Set up** on the **AI (coding) tools** banner to land on the same Developers section.

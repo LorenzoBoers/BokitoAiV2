@@ -1,8 +1,9 @@
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { cn } from '../../lib/utils'
 import { PresenceCorner } from './PresenceCorner'
+import type { PresenceStatus } from '../../lib/teams-api'
 
-type Presence = 'available' | 'away' | 'offline'
+type Presence = PresenceStatus
 
 interface UserAvatarProps {
   name: string

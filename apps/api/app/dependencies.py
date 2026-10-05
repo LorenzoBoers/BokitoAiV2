@@ -74,8 +74,10 @@ async def get_current_auth(
         select(Membership).where(Membership.user_id == user_id, Membership.tenant_id == tenant_id)
     )
     membership = membership_result.scalar_one_or_none()
+    if membership is not None and not membership.is_active:
+        membership = None
     # Staff may enter a tenant without a membership (platform support).
-    # Non-staff always need a membership in the JWT tenant.
+    # Non-staff always need an active membership in the JWT tenant.
     if not is_staff and not membership:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
 

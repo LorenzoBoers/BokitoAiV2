@@ -78,15 +78,16 @@ def serialize_chat_message(
     }
     if decision is not None:
         out["decision"] = serialize_decision_for_chat(decision)
+    from app.services.agent.turn_persist import message_activity
+
     usage = meta.get("usage")
-    steps = meta.get("steps")
-    thinking = meta.get("thinking")
     if isinstance(usage, dict) and usage:
         out["usage"] = usage
-    if isinstance(steps, list) and steps:
-        out["steps"] = steps
-    if isinstance(thinking, dict) and thinking:
-        out["thinking"] = thinking
+    for key, items in message_activity(meta, detail=True).items():
+        if items:
+            out[key] = items
+    if meta.get("turn_id"):
+        out["turn_id"] = meta["turn_id"]
     return out
 
 

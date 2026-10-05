@@ -16,7 +16,7 @@ def _agent(**settings) -> Agent:
         tenant_id=uuid4(),
         name="Support",
         kind="company",
-        audience="customers",
+        slug="front-desk",
         settings_json=json.dumps(settings),
     )
 

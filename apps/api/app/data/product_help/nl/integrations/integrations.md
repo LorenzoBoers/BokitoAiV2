@@ -9,21 +9,21 @@ related: mcp,models,channels,govern,cases
 
 # Integraties koppelen
 
-Integraties zijn partnerlogins. Een **module** is één pakket met Signaaltypen, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. De **Koppelingen**-hub in de zijbalk op `/connections` toont geïnstalleerde modulekaarten, partnerlogins en custom MCP-servers. **Marketplace** is de ontdek-tab, gesplitst in **Modules** en **Integraties**. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
+Integraties zijn partnerlogins. Een **module** is één pakket met Signaaltypen, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. De **Koppelingen**-hub in de zijbalk op `/connections` is de geïnstalleerde inventaris: modules die aan staan, partnerlogins en custom MCP-servers. **Marketplace** is de volledige catalogus — elke module en integratie, zonder filter Verbonden/Beschikbaar. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
 
 ## Zie wat gekoppeld is
 
-1. Open **Koppelingen**. Bovenin staan **Geïnstalleerde modules**; elke kaart toont de logo's van de programma's die de module kan gebruiken en hoeveel koppelingen eraan hangen. Ontbrekende eerste stappen kunnen daaronder staan (**Koppel e-mail of chat**, **Koppel Agenda**, **Installeer een module**). Daarna **Koppelingen**: partnerlogins per type (**Communicatie**, **Agenda**, **Apps**, daarna **Code**) en per programma. **Custom MCP-servers** is een aparte lijst.
-2. Kies **Nieuwe koppeling** op een programma voor een tweede login. Kies **Gebruik in Boekhouding** als die partner op de module staat en nog niet attached is. Een programma dat Boekhouding niet toestaat heeft die actie niet; GitHub staat bijvoorbeeld onder **Code**.
-3. Kies **Ontkoppelen** wanneer een login moet stoppen (bevestig **Deze koppeling verwijderen?**). Mailboxen openen **Kanalen**. Agenda-apps openen [Agenda](/docs/ai/agenda).
+1. Open **Koppelingen**. De banner **AI (coding) tools** staat boven de tabs **Koppelingen** / **Marketplace**: logo's van Cursor, Claude, OpenAI, VS Code, Windsurf en Copilot, en **Koppelen** opent Developers. **Geïnstalleerde modules** gebruiken dezelfde kaarten als de Marketplace: status (inclusief **Installatie incompleet** zonder pakket), partnerlogo's, **Beheren** en **Deïnstalleren**. Ontbrekende eerste stappen kunnen daaronder staan (**Koppel e-mail of chat**, **Koppel Agenda**, **Installeer een module**). Daarna **Koppelingen**: elke gekoppelde integratie als dezelfde kaart als op Marketplace — één kaart per product (Microsoft 365, Outlook Calendar en Microsoft Graph staan los). Soort-chips en zoeken blijven. Mailboxen openen **Kanalen** vanuit de kaart; Agenda-apps openen [Agenda](/docs/ai/agenda). **Custom MCP-servers** blijft een aparte lijst voor logins die niet in de catalogus staan.
+2. Kies **Nieuwe koppeling** op een kaart voor een tweede login. Hang een partner aan Boekhouding vanaf de modulepagina (**Deze koppeling gebruiken**), niet vanaf een gegroepeerde programmarij. GitHub blijft een **Code**-kaart.
+3. Kies **Ontkoppelen** op een custom MCP-rij wanneer die login moet stoppen (bevestig **Deze koppeling verwijderen?**). Mailboxen en agenda's beheer je onder Kanalen en Agenda.
 
 ## Installeer vanuit de marketplace
 
 ![Integraties-marketplace](/api/docs/assets/integrations/marketplace.png)
 *Marketplace: modules bovenaan, daaronder elke integratie in één platte lijst.*
 
-1. Open **Marketplace**. **Modules** staat bovenaan, **Integraties** eronder als één platte lijst — nooit genest in een module. Filter integraties op soort (**Communicatie**, **Agenda**, **Apps**, **Tools**, **Code**) of zoek. **Koppelen** is de eerste login; staat er al een, dan **Nieuwe koppeling** plus het aantal.
-2. Kies een app om de kaart te openen. **Werkt met modules** noemt de presets die deze login kunnen gebruiken, zodat je weet wat agents ermee doen. Rond OAuth of de providersetup af; je keert terug op Koppelingen. Een login blijft daar tot je hem aan een module hangt.
+1. Open **Marketplace**. Je landt op **Koppelingen** voor wat al geïnstalleerd is; Marketplace toont **alles**. **Modules** staat bovenaan, **Integraties** eronder als één platte lijst — nooit genest in een module, en nooit gegroepeerd onder een vendor. Microsoft 365, Outlook Calendar en Microsoft Graph hebben elk een eigen kaart. Filter integraties op soort (**Communicatie**, **Agenda**, **Apps**, **Tools**, **Code**) of zoek — er is geen statusfilter Verbonden/Beschikbaar. **Koppelen** is de eerste login; staat er al een, dan **Nieuwe koppeling** plus het aantal. Een module die niet geïnstalleerd is toont alleen **Installeren**. Een geïnstalleerde module toont **Beheren** (grijs) en **Deïnstalleren** (rood). **Beleggen**, **Documenten** en andere coming-soon modules staan faded. Hun geplande programma's (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) verschijnen als faded integratiekaarten tot ze live gaan.
+2. Kies een kaart om de setup van dat product te openen. **Werkt met modules** noemt de presets die deze login kunnen gebruiken, zodat je weet wat agents ermee doen. Rond OAuth of de providersetup af; je keert terug op Koppelingen. Een login blijft daar tot je hem aan een module hangt.
 3. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [project](/docs/ai/projects). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Custom MCP-servers** of **Tools**. Zie [MCP](/docs/integrations/mcp).
 
 WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De marketplacekaart wijst je daarheen.
@@ -33,25 +33,25 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De marketplace
 ![Modules-hub](/api/docs/assets/integrations/modules-hub.png)
 *Koppelingen-hub — geïnstalleerde modules als kaarten, daarna partnerlogins.*
 
-1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modulekaarten staan bovenaan; open een kaart, of gebruik **Marketplace** en de rij **Modules** om een nieuwe preset te installeren.
+1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modulekaarten staan bovenaan met **Beheren** en **Deïnstalleren**. Gebruik **Marketplace** en de rij **Modules** om een nieuwe preset te installeren.
 2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Status wordt **Nog inrichten**.
 3. Wijs **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
 4. Bekijk **Wat agents kunnen doen**: elke module-actie toont een korte beschrijving, het universele pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is. Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de exacte MCP-toolnamen van die servers.
-5. Onder **Koppelingen** kies je **Nieuwe registratie** om in één stap te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** voor een login die al op Koppelingen staat. Geplande pakketten (Exact Online, SnelStart) blijven grijs.
-6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Inrichten afronden**. Status wordt **Geïnstalleerd · geen pakketten** tot er een partnerlogin hangt, daarna **Gekoppeld**. Signaaltypen en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
+5. Bovenaan de modulepagina, onder **Koppelingen**, kies je **Nieuwe registratie** om in één stap te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** voor een login die al op Koppelingen staat. Geplande pakketten (Exact Online, SnelStart) blijven grijs. De overige tabs zijn **Overzicht**, **Bronnen** en **Setup**.
+6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Inrichten afronden**. Status wordt **Installatie incompleet** tot er een partnerlogin hangt, daarna **Gekoppeld**. Signaaltypen en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
 
 ## Koppel een optionele boekhoudintegratie
 
 ![Module-home](/api/docs/assets/integrations/module-home.png)
-*Modulepagina toont registraties, bronnen en AI-setup op één oppervlak.*
+*Modulepagina toont registraties bovenaan, daarna Overzicht, Bronnen en Setup.*
 
-1. Open **Boekhouding** via de kaart op **Koppelingen**. De lijst toont alleen attached registraties, niet elke Moneybird-login in de workspace.
+1. Open **Boekhouding** via de kaart op **Koppelingen**. Registraties staan bovenaan de modulepagina (niet op een aparte tab). De lijst toont alleen attached registraties, niet elke Moneybird-login in de workspace.
 2. Kies **Nieuwe registratie** om vanuit de module te koppelen (die login wordt automatisch attached), of **Deze koppeling gebruiken** voor een login die al op Koppelingen staat.
 3. Rond setup af met echte credentials (OAuth voor Moneybird, partner key plus administraties voor KING, client id/secret voor Bjorn Lunden, Trading API-key plus secret voor Alpaca). Alleen een willekeurige naam maakt geen werkende koppeling.
 4. Elke rij toont status (**Geverifieerd**, **Credentials nodig**, **Niet geverifieerd** of **Fout**), optionele provider-identiteit, en acties: **Verifiëren**, **Uit module halen** (de login blijft op Koppelingen), **Ontkoppelen**, **Hernoemen** en **Als standaard** (alleen als geverifieerd).
 5. Alleen agents die aan de module zijn toegewezen mogen de gedeelde boekhoud-toolset gebruiken. Propose-tools landen als een [beslissing](/docs/ai/decisions) die jij goedkeurt.
 
-**Bankieren** is installeerbaar met een read-only GoCardless Bank Account Data-koppeling (saldi en transacties; betalingen verschijnen alleen als voorstel). **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar; hun geplande packages verschijnen als uitgeschakelde rijen in de Registratie toevoegen-picker.
+**Bankieren** is installeerbaar met een read-only GoCardless Bank Account Data-koppeling (saldi en transacties; betalingen verschijnen alleen als voorstel). **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar; zij en hun geplande packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded op Marketplace.
 
 ## Stuur boekhoudschrijfacties en agent-toegang
 
@@ -72,9 +72,9 @@ Modules leveren één cataloguspakket met Signaaltypen, voorgebouwde draaiboeken
 
 ## Indexeer modulebronnen
 
-1. Open op de module-home de tab **Bronnen**.
-2. Platformseeds (voor Boekhouding: RJNet, NBA HRA, Belastingdienst) verschijnen als de module in setup of geïnstalleerd is. Je kunt ze herindexeren of uitschakelen; platformseeds verwijderen kan niet.
-3. Kies **URL toevoegen** voor eigen regs of kantoorpagina's. Agents zoeken hierin via modulebron-tools.
+1. Open op de module-home de tab **Bronnen**. Platformpacks verschijnen als de module in setup of geïnstalleerd is (Boekhouding: Belastingdienst, NBA HRA, RJNet, KvK jaarrekening, BW2 Titel 9). Indexeren start vanzelf.
+2. Elk pack haalt curated startpagina's op en volgt daarna beperkt same-origin links (`robots.txt` wordt gerespecteerd, geen inlogmuren). Status gaat **Wacht** → **Indexeren** → **Klaar** (of **Fout** als de site geen leesbare publieke tekst heeft, zoals een paywall). Je kunt een platformpack **Opnieuw indexeren** of **Uitschakelen**; verwijderen kan niet.
+3. Kies **URL toevoegen** voor kantoorpagina's. Die volgen dezelfde beperkte crawl met een lager paginalimiet. Agents zoeken in klaar-bronnen via modulebron-tools.
 
 ## Rond setup af met de toegewezen agent
 

@@ -3,7 +3,7 @@ type AgendaTrigger = { id: string; agent_id: string | null; agent_role?: string 
 type AgendaOccurrence = {
   agent_id: string | null
   agent_name: string | null
-  trigger_id: string | null
+  trigger_id?: string | null
   agent_role?: string
 }
 
@@ -40,9 +40,9 @@ export function humanizeAgendaActorName(name: string | null | undefined): string
 
 /** Resolve which agent a planned agenda card belongs to. */
 export function resolveAgendaAgentId(
-  item: { agent_id: string | null; trigger_id: string | null; agent_role?: string },
+  item: { agent_id: string | null; trigger_id?: string | null; agent_role?: string },
   triggers: AgendaTrigger[] = [],
-  siblings: Array<{ trigger_id: string | null; agent_id: string | null }> = [],
+  siblings: Array<{ trigger_id?: string | null; agent_id: string | null }> = [],
   agents: AgendaAgent[] = [],
 ): string | null {
   if (item.agent_id) return item.agent_id
@@ -62,7 +62,7 @@ export function resolveAgendaAgentName(
   item: AgendaOccurrence,
   agents: AgendaAgent[],
   triggers: AgendaTrigger[] = [],
-  siblings: Array<{ trigger_id: string | null; agent_id: string | null; agent_name: string | null }> = [],
+  siblings: Array<{ trigger_id?: string | null; agent_id: string | null; agent_name: string | null }> = [],
 ): string {
   const explicit = item.agent_name?.trim() || ''
   if (explicit && !isAgendaRoleSlug(explicit)) return explicit

@@ -13,5 +13,6 @@ export function formatAppUsdCents(cents: number, language?: string | null): stri
   return new Intl.NumberFormat(appDateLocale(language), {
     style: 'currency',
     currency: 'USD',
+    currencyDisplay: 'narrowSymbol',
   }).format(cents / 100)
 }

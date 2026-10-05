@@ -163,8 +163,8 @@
     "saveError": "Kon dit autonomieniveau niet bijwerken.",
     "levels": {
       "manual": "Handmatig",
-      "approval": "Eerst vragen",
-      "auto": "Automatisch"
+      "assisted": "Ondersteund",
+      "autonomous": "Autonoom"
     }
   },
   "toolCategories": {

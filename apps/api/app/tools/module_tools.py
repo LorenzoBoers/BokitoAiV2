@@ -204,6 +204,7 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
             ToolSpec(
                 name=name,
                 description=card.description,
+                display_name=card.label,
                 category="integrations",
                 input_schema={
                     "type": "object",
@@ -223,6 +224,7 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
             ToolSpec(
                 name=name,
                 description=card.description,
+                display_name=card.label,
                 category="integrations",
                 input_schema={
                     "type": "object",
@@ -241,6 +243,7 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
             ToolSpec(
                 name=name,
                 description=card.description,
+                display_name=card.label,
                 category="integrations",
                 input_schema={
                     "type": "object",
@@ -257,6 +260,7 @@ def _register_card(slug: str, card: ModuleToolCard) -> None:
             ToolSpec(
                 name=name,
                 description=card.description,
+                display_name=card.label,
                 category="integrations",
                 input_schema={
                     "type": "object",

@@ -30,7 +30,8 @@ class ProjectPatchBody(BaseModel):
     name: str | None = None
     description: str | None = None
     autonomous_scope: str | None = None
-    autonomous_mode: bool | None = None
+    token_budget_daily: int | None = None
+    token_budget_hourly: int | None = None
 
 
 class ProjectDeleteBody(BaseModel):
@@ -103,6 +104,7 @@ async def patch_project(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    extras = body.model_dump(exclude_unset=True)
     return await svc.patch_project(
         session,
         auth.tenant.id,
@@ -110,7 +112,8 @@ async def patch_project(
         name=body.name,
         description=body.description,
         autonomous_scope=body.autonomous_scope,
-        autonomous_mode=body.autonomous_mode,
+        token_budget_daily=extras["token_budget_daily"] if "token_budget_daily" in extras else ...,
+        token_budget_hourly=extras["token_budget_hourly"] if "token_budget_hourly" in extras else ...,
     )
 
 
@@ -121,7 +124,13 @@ async def delete_project(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    return await svc.delete_project(session, auth.tenant.id, project_id, body.confirm_name)
+    return await svc.delete_project(
+        session,
+        auth.tenant.id,
+        project_id,
+        body.confirm_name,
+        user_id=auth.user.id if auth.user else None,
+    )
 
 
 @router.patch("/{project_id}/repo")
@@ -667,23 +676,25 @@ async def delete_project_resource(
     return {"ok": True}
 
 
-# ── project canvas (AI-maintained dashboard / board) ─────────────
+# ── project canvases (snapshot nodes; source writes go through agents/Govern)
 
 
-class CanvasPutBody(BaseModel):
+class CanvasCreateBody(BaseModel):
+    title: str
+    slug: str | None = None
+    managing_agent_id: UUID | None = None
+    refresh_minutes: int | None = None
+    refresh_cadence: str | None = None
+    notes: str | None = None
+
+
+class CanvasMetaBody(BaseModel):
     title: str | None = None
-    layout: dict[str, Any] | None = None
-    widgets: list[dict[str, Any]] | None = None
+    slug: str | None = None
+    managing_agent_id: UUID | None = None
+    refresh_minutes: int | None = None
+    refresh_cadence: str | None = None
     notes: str | None = None
-    expected_revision: int | None = None
-    reset_to_default: bool = False
-
-
-class CanvasPatchBody(BaseModel):
-    upsert: list[dict[str, Any]] | None = None
-    remove_ids: list[str] | None = None
-    notes: str | None = None
-    expected_revision: int | None = None
 
 
 @router.get("/{project_id}/canvases")
@@ -694,7 +705,35 @@ async def list_project_canvases(
 ):
     from app.services import project_canvas as canvas_svc
 
-    return {"items": await canvas_svc.list_canvases(session, auth.tenant.id, project_id)}
+    return {
+        "items": await canvas_svc.list_project_canvases(session, auth.tenant.id, project_id)
+    }
+
+
+@router.post("/{project_id}/canvases")
+async def create_project_canvas(
+    project_id: UUID,
+    body: CanvasCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.project_canvas import OWNER_PROJECT, create_canvas
+
+    auth.require_role("owner", "admin")
+    return await create_canvas(
+        session,
+        auth.tenant.id,
+        owner_kind=OWNER_PROJECT,
+        owner_id=project_id,
+        title=body.title,
+        slug=body.slug,
+        managing_agent_id=body.managing_agent_id,
+        refresh_minutes=body.refresh_minutes,
+        refresh_cadence=body.refresh_cadence,
+        notes=body.notes,
+        updated_by_type="user",
+        updated_by_id=str(auth.user.id),
+    )
 
 
 @router.get("/{project_id}/canvases/{slug}")
@@ -703,60 +742,54 @@ async def get_project_canvas(
     slug: str,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    hydrate: bool = Query(default=True),
 ):
     from app.services import project_canvas as canvas_svc
 
     return await canvas_svc.get_canvas(
-        session, auth.tenant.id, project_id, slug=slug, hydrate=hydrate
-    )
-
-
-@router.put("/{project_id}/canvases/{slug}")
-async def put_project_canvas(
-    project_id: UUID,
-    slug: str,
-    body: CanvasPutBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import project_canvas as canvas_svc
-
-    return await canvas_svc.put_canvas(
-        session,
-        auth.tenant.id,
-        project_id,
-        slug=slug,
-        title=body.title,
-        layout=body.layout,
-        widgets=body.widgets,
-        notes=body.notes,
-        expected_revision=body.expected_revision,
-        reset_to_default=body.reset_to_default,
-        updated_by_type="user",
-        updated_by_id=str(auth.user.id),
+        session, auth.tenant.id, project_id=project_id, slug=slug
     )
 
 
 @router.patch("/{project_id}/canvases/{slug}")
-async def patch_project_canvas(
+async def patch_project_canvas_meta(
     project_id: UUID,
     slug: str,
-    body: CanvasPatchBody,
+    body: CanvasMetaBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     from app.services import project_canvas as canvas_svc
 
-    return await canvas_svc.patch_widgets(
+    auth.require_role("owner", "admin")
+    current = await canvas_svc.get_canvas(
+        session, auth.tenant.id, project_id=project_id, slug=slug
+    )
+    return await canvas_svc.patch_canvas_meta(
         session,
         auth.tenant.id,
-        project_id,
-        slug=slug,
-        upsert=body.upsert,
-        remove_ids=body.remove_ids,
+        UUID(current["id"]),
+        title=body.title,
+        slug=body.slug,
+        managing_agent_id=body.managing_agent_id,
+        refresh_minutes=body.refresh_minutes,
+        refresh_cadence=body.refresh_cadence,
         notes=body.notes,
-        expected_revision=body.expected_revision,
-        updated_by_type="user",
-        updated_by_id=str(auth.user.id),
+    )
+
+
+@router.delete("/{project_id}/canvases/{slug}")
+async def delete_project_canvas(
+    project_id: UUID,
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import project_canvas as canvas_svc
+
+    auth.require_role("owner", "admin")
+    current = await canvas_svc.get_canvas(
+        session, auth.tenant.id, project_id=project_id, slug=slug
+    )
+    return await canvas_svc.delete_canvas(
+        session, auth.tenant.id, UUID(current["id"]), user_id=auth.user.id if auth.user else None
     )

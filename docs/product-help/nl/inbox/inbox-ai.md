@@ -43,6 +43,8 @@ Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op k
 
 De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de reden wanneer een waarborg ingrijpt.
 
+Antwoorden volgen het kanaal. E-mail krijgt één gestructureerd bericht. Op WhatsApp en websitechat schrijft de AI zoals een mens in een chat: maximaal vijf korte berichten, op volgorde verstuurd met een korte typpauze, en de AI-vermelding alleen bij het eerste. Mislukt één bericht, dan wachten de rest. Bij **Geassisteerd** bevat de conceptkaart dezelfde berichten, zodat je ze kunt verwijderen of aanpassen voordat je **Versturen** kiest (zie [Beslissingen](/docs/ai/decisions)).
+
 ## Antwoord- en teamtaal instellen
 
 1. Open **Taal** op dezelfde pagina.
@@ -65,4 +67,4 @@ Dezelfde modus bepaalt wie een onbekende chatter is. Geeft een bezoeker een e-ma
 
 ## Wat nu
 
-Vul [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Gebruik **Wie antwoordt** op dezelfde pagina alleen wanneer een kanaal de standaardagent moet overslaan — dat is routering, geen AI-afhandeling.
+Vul [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Zet **Wie antwoordt** op [Kanalen](/docs/inbox/channels) wanneer een kanaal de workspace-standaardagent moet overslaan — dat is routering, geen AI-afhandeling.

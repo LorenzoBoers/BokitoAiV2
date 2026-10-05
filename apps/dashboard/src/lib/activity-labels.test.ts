@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest'
 import {
   activityEventMessage,
   activityEventTypeLabel,
-  collapseCockpitEvents,
   isCockpitHeadlineEvent,
   isMockAgentBody,
   stripAiScaffolding,
   translateDecisionText,
   translateMockAgentBody,
+  translateNotificationCopy,
 } from './activity-labels'
 import type { TFunction } from 'i18next'
 
-const tImpl = (key: string, opts?: { subject?: string; action?: string; topic?: string; defaultValue?: string }) => {
+const tImpl = (key: string, opts?: { subject?: string; action?: string; topic?: string; who?: string; defaultValue?: string }) => {
   const map: Record<string, string> = {
     'decisionCard.knownSubjects.replyToCustomer': 'Antwoord op klantbericht',
     'decisionCard.knownSubjects.dailyPlatformScan': 'Dagelijkse platformscan',
@@ -22,9 +22,13 @@ const tImpl = (key: string, opts?: { subject?: string; action?: string; topic?: 
     'mockAgent.replyBody': `Tijdelijk antwoord over ${opts?.topic ?? ''}.`,
     'decisionCard.knownSubjects.tryFirstDecision': 'Probeer je eerste beslissing',
     'decisionCard.knownSubjects.demoMakesSense': 'Is deze demo duidelijk?',
+    'listItem.untitled': 'Naamloze chat',
+    'notificationsUi.handoffTitle': `Medewerker gevraagd: ${opts?.topic ?? ''}`,
+    'notificationsUi.handoffBody': `${opts?.who ?? ''} vroeg om een medewerker.`,
     'decisionCard.knownSubjects.assistPrefix': `Hulp: ${opts?.subject ?? ''}`,
     'decisionCard.knownSubjects.approvalPrefix': `Goedkeuring: ${opts?.subject ?? ''}`,
     'decisionCard.knownSubjects.inboxRoutingRule': 'Inbox-doorstuurregel',
+    'decisionCard.knownSubjects.deepLinkCheck': 'Open deze beslissing vanuit de bel',
     'activityPage.executedApprovedAction': `Goedgekeurde actie uitgevoerd: ${opts?.action ?? ''}`,
     'activityPage.approvedActions.approve': 'goedkeuren',
     'activityPage.eventTypes.runStarted': 'Run gestart',
@@ -45,9 +49,25 @@ describe('activity labels', () => {
     expect(translateDecisionText('Heartbeat', t)).toBe('Check-in')
     expect(translateDecisionText('Try your first decision', t)).toBe('Probeer je eerste beslissing')
     expect(translateDecisionText('Does this demo make sense?', t)).toBe('Is deze demo duidelijk?')
+    expect(translateDecisionText('New conversation', t)).toBe('Naamloze chat')
+    expect(translateDecisionText('Deep-link check: approve this?', t)).toBe(
+      'Open deze beslissing vanuit de bel',
+    )
     expect(translateDecisionText('PO wake: review platform backlog', t)).toBe(
       'Lead: platformbacklog bekijken',
     )
+  })
+
+  it('translates stored English handoff notifications', () => {
+    expect(translateNotificationCopy('Human takeover requested: Erik Tester', t)).toBe(
+      'Medewerker gevraagd: Erik Tester',
+    )
+    expect(
+      translateNotificationCopy(
+        'Erik Tester asked for a human. AI replies are paused until someone takes over the thread.',
+        t,
+      ),
+    ).toBe('Erik Tester vroeg om een medewerker.')
   })
 
   it('strips the Assist prefix and translates the inner subject', () => {
@@ -146,16 +166,5 @@ describe('activity labels', () => {
       isCockpitHeadlineEvent({ event_type: 'agent_passport.update', message: 'Agent passport update' }),
     ).toBe(true)
     expect(isCockpitHeadlineEvent({ event_type: 'failed', message: 'Run failed' })).toBe(true)
-  })
-
-  it('collapses consecutive identical Cockpit events', () => {
-    const collapsed = collapseCockpitEvents([
-      { signal_id: 's1', event_type: 'thread.updated', message: 'Hello, quick test', actor_name: 'Bokito Admin' },
-      { signal_id: 's1', event_type: 'thread.updated', message: 'Hello, quick test', actor_name: 'Bokito Admin' },
-      { signal_id: 's2', event_type: 'settings.updated', message: 'Workspace settings updated', actor_name: 'Bokito Staff' },
-    ])
-    expect(collapsed).toHaveLength(2)
-    expect(collapsed[0]?.repeatCount).toBe(2)
-    expect(collapsed[1]?.repeatCount).toBe(1)
   })
 })

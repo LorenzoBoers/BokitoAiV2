@@ -79,7 +79,7 @@ export function activityEventMessage(message: string | null | undefined, t: TFun
   }
   const decision = translateDecisionText(trimmed, t)
   if (decision && decision !== trimmed) return decision
-  if (/^loop \d+$/i.test(trimmed)) return t('agentSteps.thinkingActive', { ns: 'communication' })
+  if (/^loop \d+$/i.test(trimmed)) return t('activity.thinking', { ns: 'communication' })
   const knownKey = KNOWN_MESSAGES[trimmed]
   if (knownKey) {
     const known = t(knownKey, { ns: 'communication', defaultValue: '' })
@@ -108,10 +108,14 @@ const KNOWN_SUBJECTS: Record<string, string> = {
   'Does this demo make sense?': 'decisionCard.knownSubjects.demoMakesSense',
   'inbox routing rule': 'decisionCard.knownSubjects.inboxRoutingRule',
   'Inbox routing rule': 'decisionCard.knownSubjects.inboxRoutingRule',
+  'New conversation': 'listItem.untitled',
+  'Deep-link check: approve this?': 'decisionCard.knownSubjects.deepLinkCheck',
 }
 
 const KNOWN_SUMMARIES: Record<string, string> = {
   'Draft reply prepared for review.': 'decisionCard.knownSummaries.draftForReview',
+  'Created by a dev script to verify the bell jumps to this card.':
+    'decisionCard.knownSummaries.deepLinkCheck',
 }
 
 function translateKnownSubject(trimmed: string, t: TFunction): string | null {
@@ -145,6 +149,29 @@ export function translateDecisionText(text: string | null | undefined, t: TFunct
   return mapped ?? trimmed
 }
 
+const HANDOFF_TITLE = /^(?:Human takeover requested|Medewerker gevraagd):\s*(.+)$/i
+const HANDOFF_BODY_EN =
+  /^(.+) asked for a human\. AI replies are paused until someone takes over the thread\.?$/i
+const HANDOFF_BODY_NL =
+  /^(.+) vroeg om een medewerker\. AI-antwoorden staan gepauzeerd tot iemand dit gesprek overneemt\.?$/i
+
+/** Stored notification copy is written in the workspace language; translate for the UI language. */
+export function translateNotificationCopy(text: string | null | undefined, t: TFunction): string {
+  if (!text) return ''
+  const trimmed = text.trim()
+  const title = trimmed.match(HANDOFF_TITLE)
+  if (title) {
+    return t('notificationsUi.handoffTitle', { ns: 'nav', topic: title[1].trim() })
+  }
+  const bodyEn = trimmed.match(HANDOFF_BODY_EN)
+  const bodyNl = trimmed.match(HANDOFF_BODY_NL)
+  if (bodyEn || bodyNl) {
+    const who = (bodyEn?.[1] ?? bodyNl?.[1] ?? '').trim()
+    return t('notificationsUi.handoffBody', { ns: 'nav', who })
+  }
+  return translateDecisionText(trimmed, t)
+}
+
 const COCKPIT_NOISE_TYPES = new Set([
   'think',
   'thinking',
@@ -156,33 +183,6 @@ const COCKPIT_NOISE_TYPES = new Set([
   'search',
   'search_index',
 ])
-
-/** Collapse consecutive identical Cockpit rows (same thread + action + actor). */
-export function collapseCockpitEvents<
-  T extends {
-    signal_id?: string | null
-    event_type?: string | null
-    message?: string | null
-    actor_name?: string | null
-  },
->(events: T[]): Array<T & { repeatCount: number }> {
-  const out: Array<T & { repeatCount: number }> = []
-  for (const event of events) {
-    const last = out[out.length - 1]
-    const key = [event.signal_id ?? '', event.event_type ?? '', event.message ?? '', event.actor_name ?? ''].join(
-      '|',
-    )
-    const lastKey = last
-      ? [last.signal_id ?? '', last.event_type ?? '', last.message ?? '', last.actor_name ?? ''].join('|')
-      : ''
-    if (last && key === lastKey) {
-      last.repeatCount += 1
-      continue
-    }
-    out.push({ ...event, repeatCount: 1 })
-  }
-  return out
-}
 
 /** Cockpit overview should show outcomes, not every thinking step. */
 export function isCockpitHeadlineEvent(event: {

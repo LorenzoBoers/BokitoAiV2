@@ -374,29 +374,3 @@ async def add_task_artifact(
     session.add(artifact)
     await session.flush()
     return artifact
-
-
-def serialize_agent_task(task: AgentTask) -> dict[str, Any]:
-    return {
-        "id": str(task.id),
-        "kind": task.kind,
-        "title": task.title,
-        "description": task.description,
-        "status": task.status,
-        "priority": task.priority,
-        "origin": task.origin,
-        "pause_reason": task.pause_reason,
-        "project_id": str(task.project_id) if task.project_id else None,
-        "signal_id": str(task.signal_id) if task.signal_id else None,
-        "workstream_id": str(task.workstream_id) if task.workstream_id else None,
-        "current_step_id": str(task.current_step_id) if task.current_step_id else None,
-        "assignee_kind": task.assignee_kind,
-        "assignee_agent_id": str(task.assignee_agent_id) if task.assignee_agent_id else None,
-        "assignee_user_id": str(task.assignee_user_id) if task.assignee_user_id else None,
-        "context": _parse_json(task.context_json),
-        "success_criteria": _parse_json(task.success_criteria_json),
-        "trigger_type": task.trigger_type,
-        "scheduled_for": task.scheduled_for.isoformat() if task.scheduled_for else None,
-        "created_at": task.created_at.isoformat() if task.created_at else None,
-        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-    }

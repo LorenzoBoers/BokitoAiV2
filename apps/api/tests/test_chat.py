@@ -25,14 +25,28 @@ async def test_chat_flow(client: AsyncClient):
     assert conv.status_code == 200
     conv_id = conv.json()["id"]
 
+    long_ask = (
+        "Can you walk through the whole onboarding for Acme including the "
+        "token budget, the project agent, and how queue items move?"
+    )
     msg = await client.post(
         f"/api/signals/conversations/{conv_id}/messages",
-        json={"content": "What is Bokito?"},
+        json={"content": long_ask},
         headers=headers,
     )
     assert msg.status_code == 200
     assert msg.json()["message"]["role"] == "assistant"
-    assert "mock" in msg.json()["message"]["content"].lower() or "bokito" in msg.json()["message"]["content"].lower()
+
+    listed = await client.get(f"/api/signals/conversations/{conv_id}/messages", headers=headers)
+    assert listed.status_code == 200
+    bodies = [row.get("content") or "" for row in listed.json()["items"]]
+    assert any(long_ask in body for body in bodies)
+
+    convs = await client.get("/api/signals/conversations", headers=headers)
+    row = next(item for item in convs.json() if item["id"] == conv_id)
+    assert row["title"] != long_ask
+    assert row["title"] != "New conversation"
+    assert len(row["title"]) <= 48
 
 
 @pytest.mark.asyncio

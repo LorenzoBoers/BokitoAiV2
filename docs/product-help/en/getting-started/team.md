@@ -18,7 +18,7 @@ Workforce shows everyone who works conversations: the people in the workspace, t
 
 1. Open **Workforce**. Under **Invite a teammate**, enter a full email and set **Role**: **Admin** or **Member**. Open **What each role can do** if you need the permission matrix.
 2. Choose **Invite**. When this server cannot send mail, use **Copy invite link** and share it yourself.
-3. Pending invites appear in the directory under **Pending**. Use **Resend invite email** or **Revoke invite**. On an active person, change the role or choose **Remove member**. Only the **Owner** can promote, demote or remove an owner.
+3. Pending invites appear in the directory under **Pending**. Use **Resend invite email** or **Revoke invite**. On an active person, change the role or choose **Deactivate**. Only the **Owner** can promote, demote or deactivate an owner.
 
 Members answer conversations. Owners and admins also connect channels, change autonomy and accept Govern proposals. See [Govern](/docs/govern/govern).
 
@@ -32,9 +32,15 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
 
 ## Read the directory
 
-1. On **Workforce**, the directory lists people, pending invites and company agents together. Filter with **All**, **People**, **Agents** or **Pending**, or search by name.
-2. Each person shows role, teams and open work. Each agent shows its ceiling, open conversations and a short 30-day line (questions and answer time). Open an agent for full metrics and rules (see [Agents](/docs/ai/agents)).
-3. People, agents and teams use the same kind of mark: two-letter initials (or an icon/image when set). Corner dots follow a shared hierarchy: green when a person is available, purple pulse when an agent on the team is working, amber when someone is away, static purple when only agents are on standby, gray when everyone is offline.
+1. On **Workforce**, the directory lists people, pending invites and company agents together. Filter with **All**, **People**, **Agents**, **Pending** or **Deactivated**, or search by name. **All**, **People** and **Agents** hide deactivated rows.
+2. Each person shows role, teams, open work and presence (**Available**, **Away**, **Offline**). Each agent uses the same mark as on Agents and in Communication, and Status is **Standby**, **Working** or **Error** — not question counts. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)).
+3. People, agents and teams use the same kind of mark: two-letter initials (or an icon/image when set). Corner dots follow a shared hierarchy: green when a person is available, purple pulse when an agent on the team is working, amber when someone is away, static purple when only agents are available, gray when everyone is offline.
+
+## Deactivate a person or agent
+
+1. On **Workforce**, open the row for a person or a company agent. Choose **Deactivate**. They leave the working roster: pickers, teams, assignment and chat targets skip them. History in conversations and agent runs stays.
+2. Status on that row (and on the agent page) is **Deactivated**. Open the **Deactivated** filter to see everyone who is out of the roster.
+3. Choose **Reactivate** on the row, or **Reactivate** on the agent page, to put them back. Inviting the same email again also brings a deactivated person back when they accept.
 
 ## Build a team
 
@@ -46,6 +52,7 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
    - **Round robin**: each new conversation goes straight to the next available member in turn.
    - **Least open**: each new conversation goes to the available member with the fewest open conversations.
 4. Switch on **Show in the Communication sidebar** to give everyone a folder for this team with **For you**, **Open**, **Unassigned** and **Closed**. Choose **Save**.
+5. In **Communication**, expand that team folder and choose **Group chat**. Bokito opens (or creates) one standing internal conversation owned by the team so members can talk without a customer thread.
 
 Round robin and least open only hand work to people who are available and agents that may handle the channel. When nobody fits, the conversation stays with the team. Each hand-out appears in the timeline and in the audit log. Make a team the owner of a channel under **Settings**, **Channels** (see [Channels](/docs/inbox/channels)).
 

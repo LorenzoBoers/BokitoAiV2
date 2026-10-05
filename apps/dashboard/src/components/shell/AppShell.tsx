@@ -16,6 +16,7 @@ import TwoFactorBanner from './TwoFactorBanner'
 import PersonalAssistantWidget from './PersonalAssistantWidget'
 import { TourProvider } from '../tour/TourContext'
 import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
+import { useShellLiveBus } from '../../hooks/useShellLiveBus'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -74,6 +75,7 @@ function contentEnterKey(pathname: string): string {
 }
 
 export default function AppShell() {
+  useShellLiveBus()
   const { t } = useTranslation('nav')
   const { pathname, search } = useLocation()
   const [navCollapsed, setNavCollapsed] = useState(loadNavCollapsed)

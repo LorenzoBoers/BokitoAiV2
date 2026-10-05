@@ -9,6 +9,7 @@ import {
   setModuleSourceDisabled,
   type ModuleSourceRow,
 } from '../../lib/module-api'
+import { useEntityRefresh } from '../../lib/live-store'
 
 export function ModuleSourcesPanel({ slug }: { slug: string }) {
   const { t } = useTranslation(['nav', 'common'])
@@ -32,6 +33,11 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
     void refresh()
   }, [refresh])
 
+  const ids = new Set(rows.map((row) => row.id))
+  useEntityRefresh(['module_source'], () => void refresh(), {
+    match: (change) => change.op === 'created' || (change.id !== null && ids.has(change.id)),
+  })
+
   const addUrl = async () => {
     if (!url.trim()) return
     setBusy(true)
@@ -47,30 +53,31 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
     }
   }
 
+  const originLabel = (origin: string) =>
+    origin === 'platform'
+      ? t('integrations.modules.sources.originPlatform')
+      : t('integrations.modules.sources.originTenant')
+
+  const statusLabel = (status: string) =>
+    t(`integrations.modules.sources.status.${status}`, { defaultValue: status })
+
   return (
     <section className="space-y-4">
-      <p className="text-sm text-text-secondary">
-        {t('integrations.modules.sources.intro', {
-          defaultValue:
-            'Platform seeds and your own URLs are indexed for agents. Platform sources can be disabled but not deleted.',
-        })}
-      </p>
+      <p className="text-sm text-text-secondary">{t('integrations.modules.sources.intro')}</p>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 p-3">
         <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-text-muted">
-          {t('integrations.modules.sources.titleLabel', { defaultValue: 'Title' })}
+          {t('integrations.modules.sources.titleLabel')}
           <input
             className="rounded-md border border-border/60 bg-bg-surface px-2 py-1.5 text-sm text-text-primary"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={t('integrations.modules.sources.titlePlaceholder', {
-              defaultValue: 'Optional',
-            })}
+            placeholder={t('integrations.modules.sources.titlePlaceholder')}
           />
         </label>
         <label className="flex min-w-[16rem] flex-[2] flex-col gap-1 text-xs text-text-muted">
-          {t('integrations.modules.sources.urlLabel', { defaultValue: 'URL' })}
+          {t('integrations.modules.sources.urlLabel')}
           <input
             className="rounded-md border border-border/60 bg-bg-surface px-2 py-1.5 text-sm text-text-primary"
             value={url}
@@ -79,16 +86,12 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
           />
         </label>
         <Button type="button" size="sm" disabled={busy || !url.trim()} onClick={() => void addUrl()}>
-          {t('integrations.modules.sources.add', { defaultValue: 'Add URL' })}
+          {t('integrations.modules.sources.add')}
         </Button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-text-muted">
-          {t('integrations.modules.sources.empty', {
-            defaultValue: 'No sources yet. Turn the module on to seed platform regs.',
-          })}
-        </p>
+        <p className="text-sm text-text-muted">{t('integrations.modules.sources.empty')}</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((row) => (
@@ -107,9 +110,14 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                   {row.url}
                 </a>
                 <p className="mt-1 text-xs text-text-muted">
-                  {row.origin} · {row.status}
+                  {originLabel(row.origin)} · {statusLabel(row.status)}
+                  {row.pages_fetched
+                    ? ` · ${t('integrations.modules.sources.pages', { count: row.pages_fetched })}`
+                    : ''}
                   {row.last_synced_at
-                    ? ` · ${new Date(row.last_synced_at).toLocaleString()}`
+                    ? ` · ${t('integrations.modules.sources.lastSync', {
+                        time: new Date(row.last_synced_at).toLocaleString(),
+                      })}`
                     : ''}
                   {row.sync_error ? ` · ${row.sync_error}` : ''}
                 </p>
@@ -122,6 +130,11 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                   disabled={busy || row.status === 'disabled'}
                   onClick={() => {
                     setBusy(true)
+                    setRows((current) =>
+                      current.map((item) =>
+                        item.id === row.id ? { ...item, status: 'indexing', sync_error: '' } : item,
+                      ),
+                    )
                     void reindexModuleSource(slug, row.id)
                       .then(() => refresh())
                       .catch((err) =>
@@ -130,7 +143,7 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                       .finally(() => setBusy(false))
                   }}
                 >
-                  {t('integrations.modules.sources.reindex', { defaultValue: 'Reindex' })}
+                  {t('integrations.modules.sources.reindex')}
                 </Button>
                 {row.origin === 'platform' ? (
                   <Button
@@ -149,8 +162,8 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                     }}
                   >
                     {row.status === 'disabled'
-                      ? t('integrations.modules.sources.enable', { defaultValue: 'Enable' })
-                      : t('integrations.modules.sources.disable', { defaultValue: 'Disable' })}
+                      ? t('integrations.modules.sources.enable')
+                      : t('integrations.modules.sources.disable')}
                   </Button>
                 ) : (
                   <Button
@@ -159,13 +172,7 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                     variant="ghost"
                     disabled={busy}
                     onClick={() => {
-                      if (
-                        !window.confirm(
-                          t('integrations.modules.sources.deleteConfirm', {
-                            defaultValue: 'Delete this source?',
-                          }),
-                        )
-                      ) {
+                      if (!window.confirm(t('integrations.modules.sources.deleteConfirm'))) {
                         return
                       }
                       setBusy(true)
@@ -177,7 +184,7 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                         .finally(() => setBusy(false))
                     }}
                   >
-                    {t('common:actions.delete', { defaultValue: 'Delete' })}
+                    {t('common:actions.delete')}
                   </Button>
                 )}
               </div>

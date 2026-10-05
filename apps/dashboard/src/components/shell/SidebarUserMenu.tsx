@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertCircle, Building2, Check, ChevronsUpDown, CircleHelp, LaptopMinimal, LogOut, Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
+import { Building2, Check, ChevronsUpDown, CircleHelp, LaptopMinimal, LogOut, Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme, type ThemeMode } from '../../context/ThemeContext'
-import { APP_VERSION } from '../../lib/app-version'
 import { getTeamOverview, setMyAway, type PresenceStatus } from '../../lib/teams-api'
 import { UserAvatar } from '../ui/UserAvatar'
 import { PresenceDot } from '../ui/PresenceDot'
@@ -21,7 +20,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { useGatewayStatus } from './ConnectionStatus'
+import WorkspaceIdHint from './WorkspaceIdHint'
 import { useGoToWorkspacesHub } from './SidebarWorkspaceSwitcher'
 
 const PRESENCE_OPTIONS: Array<'available' | 'away'> = ['available', 'away']
@@ -39,7 +38,7 @@ type SidebarUserMenuProps = {
 
 /**
  * Account row at the foot of the rail (avatar, name, email) that opens the
- * user menu upwards. Theme choice, version and gateway status live here.
+ * user menu upwards. Theme, presence and the support line live here.
  */
 export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMenuProps) {
   const { t } = useTranslation('nav')
@@ -47,11 +46,9 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
   const navigate = useNavigate()
   const { token, user, logout } = useAuth()
   const { mode, setMode } = useTheme()
-  const status = useGatewayStatus()
   const goToWorkspacesHub = useGoToWorkspacesHub()
   const name = user?.name?.trim() || 'Account'
   const email = user?.email ?? ''
-  const statusLabel = t(`gateway.${status}`)
   const [presence, setPresence] = useState<'available' | 'away'>('available')
   const [presenceBusy, setPresenceBusy] = useState(false)
 
@@ -92,12 +89,6 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
     navigate(path)
     onNavigate?.()
   }
-
-  const gatewayOk = status === 'connected'
-  const gatewayTitle =
-    status === 'disconnected'
-      ? t('gateway.reconnectHint')
-      : t('gateway.title', { status: statusLabel })
 
   const avatar = (
     <span className="relative shrink-0">
@@ -229,33 +220,11 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
           <LogOut size={14} className="mr-2 shrink-0 text-text-muted" aria-hidden />
           {t('topbar.signOut')}
         </DropdownMenuItem>
-        <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1.5 text-2xs">
-          {gatewayOk ? (
-            <Tip label={gatewayTitle}>
-              <span className="inline-flex items-center gap-1 text-text-muted">
-                <Check size={11} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden />
-                {statusLabel}
-              </span>
-            </Tip>
-          ) : (
-            <Tip label={gatewayTitle}>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className={
-                  status === 'disconnected'
-                    ? 'inline-flex min-w-0 items-center gap-1 font-medium text-status-error hover:text-status-error/90'
-                    : 'inline-flex min-w-0 items-center gap-1 font-medium text-status-warning hover:text-status-warning/90'
-                }
-              >
-                <AlertCircle size={11} strokeWidth={2.5} className="shrink-0" aria-hidden />
-                <span className="truncate-fade">{statusLabel}</span>
-              </button>
-            </Tip>
-          )}
-          <Tip label={`build ${APP_VERSION}`}>
-            <span className="shrink-0 text-text-muted">v{APP_VERSION}</span>
-          </Tip>
+        <div
+          className="px-2 pb-1 pt-1.5"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <WorkspaceIdHint liveMarker="check" />
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

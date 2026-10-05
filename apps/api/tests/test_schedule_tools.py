@@ -170,3 +170,21 @@ async def test_schedule_task_for_human(session_override: AsyncSession):
     ).scalar_one()
     assert notif.title == "Check bank export Friday"
     assert notif.user_id == user.id
+
+
+@pytest.mark.asyncio
+async def test_upsert_trigger_aliases_schedule_wake(session_override: AsyncSession):
+    from app.tools.builtin import _upsert_trigger
+
+    tenant, agent = await _tenant_and_agent(session_override)
+    ctx = _ctx(session_override, tenant, agent)
+    at = (datetime.utcnow() + timedelta(hours=3)).isoformat()
+    result = await _upsert_trigger(ctx, {"instructions": "Look at the VAT thread", "at": at})
+    assert result["trigger"]["kind"] == "once"
+    assert result["trigger"]["agent_id"] == str(agent.id)
+    wake = get_tool_spec("schedule_wake")
+    alias = get_tool_spec("upsert_trigger")
+    assert wake is not None and alias is not None
+    assert wake.category == alias.category == "triggers"
+    assert wake.gated is True and alias.gated is True
+

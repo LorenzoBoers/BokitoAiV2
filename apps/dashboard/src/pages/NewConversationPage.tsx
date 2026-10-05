@@ -330,7 +330,7 @@ export default function NewConversationPage() {
     setSending(true)
     setError(null)
     try {
-      const created = await bokitoCreateConversation(token, content.slice(0, 60), selectedAgent.id)
+      const created = await bokitoCreateConversation(token, 'New conversation', selectedAgent.id)
       void refreshSessions()
       navigate(agentChatPath(selectedAgent.id, created.id), { state: { autoSend: content } })
     } catch (err) {
@@ -720,6 +720,7 @@ export default function NewConversationPage() {
               <ComposerCard
                 ref={composerRef}
                 mode={intent === 'agent' ? 'chat' : 'email'}
+                tone={intent === 'agent' ? 'ai' : 'default'}
                 value={mention.display}
                 onChange={(e) =>
                   mention.onChange(

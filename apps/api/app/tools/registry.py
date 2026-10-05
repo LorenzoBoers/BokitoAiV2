@@ -87,6 +87,10 @@ class ToolSpec:
     # Money movement, contracts and similar irreversible effects always ask,
     # regardless of posture, agent passport, or per-tool overrides.
     consequential: bool = False
+    # Activity line label ("List recent activity"); empty = humanized name.
+    display_name: str = ""
+    # Integration provider slug for the activity icon (e.g. "king_accountancy").
+    provider: str = ""
 
     def definition(self) -> dict[str, Any]:
         schema = self.input_schema
@@ -121,6 +125,19 @@ def register_tool(spec: ToolSpec) -> ToolSpec:
 def get_tool_spec(name: str) -> Optional[ToolSpec]:
     _ensure_builtin_loaded()
     return _REGISTRY.get(name)
+
+
+def humanize_tool_name(name: str) -> str:
+    words = (name or "").replace("-", "_").split("_")
+    text = " ".join(w for w in words if w)
+    return text[:1].upper() + text[1:] if text else ""
+
+
+def tool_presentation(name: str) -> dict[str, str]:
+    """Label + provider for an activity line. Runtime providers (MCP) override."""
+    spec = get_tool_spec(name)
+    label = (spec.display_name if spec and spec.display_name else "") or humanize_tool_name(name)
+    return {"label": label, "provider": spec.provider if spec else ""}
 
 
 def iter_tool_specs() -> list[ToolSpec]:

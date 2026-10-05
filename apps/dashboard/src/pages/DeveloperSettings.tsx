@@ -403,7 +403,7 @@ function ApiTokensSection({
                 {t('developersPage.newToken')}
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={() => navigate('/connections/connected')}>
+            <Button size="sm" variant="ghost" onClick={() => navigate('/connections')}>
               {t('developersPage.openIntegrations')}
             </Button>
           </div>

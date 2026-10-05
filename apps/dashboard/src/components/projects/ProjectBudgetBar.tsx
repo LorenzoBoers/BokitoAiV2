@@ -4,9 +4,8 @@ import { formatAppNumber } from '../../lib/app-number'
 import { cn } from '../../lib/utils'
 
 /**
- * Compact daily token indicator: project usage measured against the
- * workspace-wide daily cap (there is no per-project budget). Used on project
- * cards and the project detail page.
+ * Compact daily token indicator against the effective project cap
+ * (project setting, else workspace daily cap).
  */
 export function ProjectBudgetBar({
   budget,

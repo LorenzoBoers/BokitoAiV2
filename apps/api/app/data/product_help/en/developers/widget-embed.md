@@ -55,6 +55,14 @@ Use this when embedding the assistant inside your own product, so conversations 
 
 The widget API is open cross-origin by design (your customers' domains are arbitrary) and authenticates with short-lived session tokens - never cookies, never `bok_` API tokens. Nothing about your workspace is exposed beyond what the assistant is configured to say.
 
+## How replies stream
+
+The widget reads the reply as server-sent events. A custom client on the same stream handles three frames:
+
+- `{"t": "..."}` - a text chunk for the current message.
+- `{"type": "message_break", "id": "..."}` - the current message is done; the next chunks start a new message.
+- `{"type": "done", "messages": [...], "message_ids": [...], "content": "...", "conversation_id": "..."}` - the final messages, in order (at most five). Replace any live text with `messages`. `content` joins them with a blank line; `ai_disclosure` is present only on the first AI reply of a conversation.
+
 ## Checklist before production
 
 1. Install on a staging page and send a test message.

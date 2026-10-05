@@ -16,7 +16,7 @@ Bokito is een operations-platform voor teams die AI echt werk willen laten doen.
 ![Bokito-zijbalk](/api/docs/assets/welcome/rail.png)
 *Eén zijbalk: Overview en Communicatie bovenaan, daarna Werk, AI en Organisatie.*
 
-- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [AI-afhandeling](/docs/inbox/inbox-ai) bepaalt of de AI zelf antwoordt, concepten ter controle maakt of stil blijft. [Signalen](/docs/ai/cases) typen de intake op elk gesprek. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
+- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [AI-afhandeling](/docs/inbox/inbox-ai) bepaalt of de AI zelf antwoordt, concepten ter controle maakt of stil blijft. [Categorieën](/docs/ai/cases) zeggen waar elk gesprek over gaat en maken er een ticket van als een draaiboek het oppakt. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
 - [Agents](/docs/ai/agents) zijn collega's met een doel, doelgroep, kennis en tools. [Draaiboeken](/docs/ai/workstreams) zijn de stappenprocessen die ze uitvoeren.
 - Keuzekaarten verschijnen in het gesprek wanneer een stap oordeel vraagt. Structurele wijzigingen landen als concepten op Govern.
 

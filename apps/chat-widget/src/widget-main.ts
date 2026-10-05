@@ -4226,7 +4226,93 @@ class BokitoChatWidget extends HTMLElement {
 
   /** Mutable bag for incremental SSE (`evt.t`) → one streaming AI bubble. */
   #createSseStreamState() {
-    return { streamEl: null, fullContent: '', msgId: null, hadTokenChunks: false, disclosure: '' };
+    return {
+      streamEl: null,
+      fullContent: '',
+      msgId: null,
+      hadTokenChunks: false,
+      disclosure: '',
+      // Bubbles closed by `message_break` earlier in this turn.
+      sealedEls: [],
+      // Final bubbles from `done.messages` (one saved message each).
+      messages: null,
+      messageIds: null,
+    };
+  }
+
+  /** Read the final bubbles of a turn from a `done` frame. */
+  #sseApplyDone(state, evt) {
+    if (evt.id != null) state.msgId = evt.id;
+    if (evt.content != null) state.fullContent = String(evt.content);
+    if (evt.ai_paused) state.aiPaused = true;
+    if (evt.ai_disclosure) state.disclosure = String(evt.ai_disclosure);
+    if (Array.isArray(evt.messages)) {
+      const bubbles = evt.messages.map((m) => String(m ?? '')).filter((m) => m.trim());
+      if (bubbles.length) state.messages = bubbles;
+    }
+    if (Array.isArray(evt.message_ids)) state.messageIds = evt.message_ids.map(String);
+  }
+
+  /** `message_break`: close the live bubble and show typing until the next one starts. */
+  #sseBreakBubble(state, sendMeta) {
+    if (sendMeta && this.#activeSend !== sendMeta) return;
+    if (this.#ssePaintRaf) {
+      cancelAnimationFrame(this.#ssePaintRaf);
+      this.#ssePaintRaf = null;
+    }
+    this.#ssePaintPending = false;
+    const el = state.streamEl;
+    if (el && state.fullContent.trim()) {
+      const bubble = this.#bubbleBody(el);
+      if (bubble) bubble.innerHTML = MarkdownRenderer.render(state.fullContent);
+      el.classList.remove('bk-msg--streaming');
+      state.sealedEls.push(el);
+    } else if (el?.parentNode) {
+      el.remove();
+    }
+    if (this.#streamingMsgEl === el) {
+      this.#streamingMsgEl = null;
+      this.#streamingMsgId = null;
+    }
+    state.streamEl = null;
+    state.fullContent = '';
+    this.#showThinking();
+    if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('writing');
+    this.#scrollToBottom();
+  }
+
+  /** Several final bubbles: replace this turn's live bubbles with one message each. */
+  #sseFinalizeBubbles(state) {
+    for (const el of state.sealedEls) el.remove();
+    if (state.streamEl?.parentNode) state.streamEl.remove();
+    if (this.#streamingMsgEl === state.streamEl) {
+      this.#streamingMsgEl = null;
+      this.#streamingMsgId = null;
+    }
+    state.sealedEls = [];
+    state.streamEl = null;
+    this.#streamPaintSource = null;
+    this.#thinkingEl.style.display = 'none';
+    this.#thinkingSteps.innerHTML = '';
+    const ids = state.messageIds || [];
+    const now = Date.now();
+    this.#playSound('incoming');
+    state.messages.forEach((content, index) => {
+      const id = ids[index] ?? `stream-${now}-${index}`;
+      if (this.#renderedMsgIds.has(id)) return;
+      this.#appendMessage({
+        id,
+        message_content: content,
+        sender_type: 'ai',
+        created_at: new Date(now + index).toISOString(),
+        // The AI disclosure belongs to the first message of the conversation only.
+        ai_disclosure: index === 0 ? state.disclosure : '',
+      });
+      this.#renderedMsgIds.add(id);
+    });
+    this.#recomputeDaySeparators();
+    this.#recomputeMessageStacks();
+    this.#scrollToBottom();
   }
 
   /** When the server only sends `done` (no `t`), optionally reveal text in small steps so the UI streams offline too. */
@@ -4253,6 +4339,7 @@ class BokitoChatWidget extends HTMLElement {
 
   async #sseMaybeSimulateClientChunks(state, sendMeta) {
     if (this.dataset.clientSimulateStream === 'false') return;
+    if ((state.messages?.length ?? 0) > 1) return;
     const full = state.fullContent ?? '';
     // Do not skip when streamEl is set: pre-read shell or first real chunk may already exist.
     if (!full.trim() || state.hadTokenChunks) return;
@@ -4352,6 +4439,21 @@ class BokitoChatWidget extends HTMLElement {
       this.#ssePaintRaf = null;
     }
     this.#ssePaintPending = false;
+    if (sendMeta && this.#activeSend !== sendMeta) {
+      for (const el of state.sealedEls) el.remove();
+      state.sealedEls = [];
+    } else if ((state.messages?.length ?? 0) > 1 || state.sealedEls.length > 0) {
+      if (!state.messages?.length) {
+        state.messages = [
+          ...state.sealedEls.map((el) => this.#bubbleBody(el)?.textContent || ''),
+          state.fullContent ?? '',
+        ].filter((m) => m.trim());
+      }
+      if (state.messages.length) {
+        this.#sseFinalizeBubbles(state);
+        return true;
+      }
+    }
     const raw = state.fullContent ?? '';
     const trimmed = raw.trim();
     if (!trimmed) {
@@ -4513,11 +4615,10 @@ class BokitoChatWidget extends HTMLElement {
               await this.#continueWithPageContext(sendMeta);
               pageContextHandoff = true;
               break outer;
+            } else if (evt.type === 'message_break') {
+              this.#sseBreakBubble(state, sendMeta);
             } else if (evt.type === 'done') {
-              if (evt.id != null) state.msgId = evt.id;
-              if (evt.content != null) state.fullContent = String(evt.content);
-              if (evt.ai_paused) state.aiPaused = true;
-              if (evt.ai_disclosure) state.disclosure = String(evt.ai_disclosure);
+              this.#sseApplyDone(state, evt);
               break outer;
             }
           }
@@ -4636,11 +4737,10 @@ class BokitoChatWidget extends HTMLElement {
 
             if (evt.t !== undefined) {
               this.#sseApplyTokenChunk(state, evt, sendMeta);
+            } else if (evt.type === 'message_break') {
+              this.#sseBreakBubble(state, sendMeta);
             } else if (evt.type === 'done') {
-              if (evt.id != null) state.msgId = evt.id;
-              if (evt.content != null) state.fullContent = String(evt.content);
-              if (evt.ai_paused) state.aiPaused = true;
-              if (evt.ai_disclosure) state.disclosure = String(evt.ai_disclosure);
+              this.#sseApplyDone(state, evt);
               break outer;
             }
           }

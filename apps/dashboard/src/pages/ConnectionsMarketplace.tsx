@@ -9,9 +9,7 @@ import {
   parseKindFilter,
   kindFilterToParam,
   connectedPathWithKind,
-  parseStatusFilter,
   type IntegrationKindFilter,
-  type MarketplaceStatusFilter,
 } from '../lib/integration-kind-url'
 import {
   parseHubConnectParam,
@@ -23,7 +21,8 @@ import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
 import { applicationsForModule } from '../lib/module-applications'
 import {
-  localizeApplication,
+  filterOfferRows,
+  flattenApplicationOffers,
   resolveApplicationConnectTarget,
   type IntegrationApplication,
   type IntegrationOffer,
@@ -37,7 +36,6 @@ import {
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
@@ -53,7 +51,6 @@ export default function ConnectionsMarketplace() {
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFilter = parseKindFilter(searchParams.get('kind'))
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
-  const statusFilter = parseStatusFilter(searchParams.get('status'))
   const { applications, modules, loadError, refreshCatalog, runModuleAction } =
     useIntegrationCatalog()
 
@@ -69,20 +66,18 @@ export default function ConnectionsMarketplace() {
       const params = new URLSearchParams(searchParams)
       if (param) params.set('kind', param)
       else params.delete('kind')
+      params.delete('status')
       setSearchParams(params, { replace: true })
     },
     [searchParams, setSearchParams],
   )
 
-  const setStatusFilter = useCallback(
-    (next: MarketplaceStatusFilter) => {
-      const params = new URLSearchParams(searchParams)
-      if (next === 'available') params.delete('status')
-      else params.set('status', next)
-      setSearchParams(params, { replace: true })
-    },
-    [searchParams, setSearchParams],
-  )
+  useEffect(() => {
+    if (!searchParams.has('status')) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('status')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const setSearchQuery = useCallback(
     (next: string) => {
@@ -198,72 +193,44 @@ export default function ConnectionsMarketplace() {
     navigate(connectedPathWithKind(kind))
   }
 
-  const filtered = useMemo(() => {
-    let list = [...applications]
-
-    if (kindFilter !== 'all') {
-      list = list.filter((app) => app.kinds.includes(kindFilter))
-    }
-    if (statusFilter === 'connected') {
-      list = list.filter((app) => app.connectionCount > 0)
-    }
-    if (statusFilter === 'available') {
-      list = list.filter((app) => app.connectionCount === 0 && app.status !== 'coming_soon')
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      list = list.filter((app) => {
-        const localized = localizeApplication(app, t)
-        if (localized.name.toLowerCase().includes(q) || localized.description.toLowerCase().includes(q)) {
-          return true
-        }
-        return app.offers.some((offer) => {
-          const kind = offer.kind
-          return (
-            offer.integration.name.toLowerCase().includes(q) ||
-            offer.integration.description.toLowerCase().includes(q) ||
-            t(`integrations.kind.${kind}`).toLowerCase().includes(q)
-          )
-        })
-      })
-    }
-
-    list.sort((a, b) => {
-      const aConn = a.connectionCount > 0 ? 0 : 1
-      const bConn = b.connectionCount > 0 ? 0 : 1
-      if (aConn !== bConn) return aConn - bConn
-      return a.name.localeCompare(b.name)
-    })
-
-    return list
-  }, [applications, kindFilter, statusFilter, search, t])
+  const offerRows = useMemo(
+    () => filterOfferRows(flattenApplicationOffers(applications), kindFilter, search, t),
+    [applications, kindFilter, search, t],
+  )
 
   const connectedTotal = useMemo(
-    () => applications.filter((app) => app.connectionCount > 0).length,
+    () => flattenApplicationOffers(applications).filter((row) => row.offer.connectionCount > 0).length,
     [applications],
   )
 
   /**
-   * Modules are their own zone: a preset is not a login, so the kind and status
-   * filters (which describe connections) hide the strip instead of reshaping it.
+   * Modules stay visible with the catalog. Kind chips only reshape integrations.
    */
   const visibleModules = useMemo(() => {
-    if (kindFilter !== 'all' || statusFilter === 'connected') return []
     const q = search.trim().toLowerCase()
-    if (!q) return modules
-    return modules.filter((module) => {
-      const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
-      const description = t(`integrations.modules.${module.slug}.description`, {
-        defaultValue: module.description,
-      })
-      return `${name} ${description}`.toLowerCase().includes(q)
+    const filtered = !q
+      ? [...modules]
+      : modules.filter((module) => {
+          const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
+          const description = t(`integrations.modules.${module.slug}.description`, {
+            defaultValue: module.description,
+          })
+          return `${name} ${description}`.toLowerCase().includes(q)
+        })
+    return filtered.sort((a, b) => {
+      const aSoon = a.status === 'coming_soon' ? 1 : 0
+      const bSoon = b.status === 'coming_soon' ? 1 : 0
+      if (aSoon !== bSoon) return aSoon - bSoon
+      const aName = t(`integrations.modules.${a.slug}.name`, { defaultValue: a.name })
+      const bName = t(`integrations.modules.${b.slug}.name`, { defaultValue: b.name })
+      return aName.localeCompare(bName)
     })
-  }, [modules, kindFilter, statusFilter, search, t])
+  }, [modules, search, t])
 
   return (
     <PageContent width="xl">
       <IntegrationsTabs />
-      <div className="mb-6">
+      <div className="mb-6 mt-2">
         <p className="max-w-2xl text-sm text-text-secondary">
           {t('integrations.pageMeta.marketplace.description')}
         </p>
@@ -290,19 +257,6 @@ export default function ConnectionsMarketplace() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <IntegrationKindNav value={kindFilter} onChange={setKindFilter} />
           <div className="flex flex-wrap items-center gap-3">
-            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as MarketplaceStatusFilter)}>
-              <TabsList className="h-8">
-                <TabsTrigger value="all" className="text-xs px-2.5">
-                  {t('integrations.filters.statusAll', { defaultValue: 'All statuses' })}
-                </TabsTrigger>
-                <TabsTrigger value="connected" className="text-xs px-2.5">
-                  {t('integrations.filters.connected')}
-                </TabsTrigger>
-                <TabsTrigger value="available" className="text-xs px-2.5">
-                  {t('integrations.filters.available')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
             <div className="relative w-full sm:w-72">
               <Search
                 size={14}
@@ -319,11 +273,11 @@ export default function ConnectionsMarketplace() {
         </div>
       </div>
 
-      {filtered.length === 0 && visibleModules.length === 0 ? (
+      {offerRows.length === 0 && visibleModules.length === 0 ? (
         <EmptyState
           icon={Search}
           title={
-            search.trim() || kindFilter !== 'all' || statusFilter !== 'all'
+            search.trim() || kindFilter !== 'all'
               ? t('integrations.marketplace.emptyFiltered')
               : kindFilter === 'all'
                 ? t('integrations.marketplace.empty')
@@ -331,14 +285,13 @@ export default function ConnectionsMarketplace() {
           }
           action={
             <div className="flex flex-col items-center gap-2">
-              {search.trim() || kindFilter !== 'all' || statusFilter !== 'all' ? (
+              {search.trim() || kindFilter !== 'all' ? (
                 <Button
                   type="button"
                   size="sm"
                   onClick={() => {
                     setSearchQuery('')
                     setKindFilter('all')
-                    setStatusFilter('all')
                   }}
                 >
                   {t('integrations.marketplace.clearFilters')}
@@ -379,7 +332,7 @@ export default function ConnectionsMarketplace() {
             </section>
           ) : null}
 
-          {filtered.length > 0 ? (
+          {offerRows.length > 0 ? (
             <section>
               <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-sm font-semibold text-text-primary">
@@ -394,11 +347,12 @@ export default function ConnectionsMarketplace() {
                 </p>
               </div>
               <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((application) => (
+                {offerRows.map(({ application, offer }) => (
                   <ApplicationCard
-                    key={application.hostSlug}
+                    key={`${application.hostSlug}:${offer.integration.id}`}
                     application={application}
-                    onOpenDetail={() => openApplicationHub(application, 'app')}
+                    offer={offer}
+                    onOpenDetail={() => openApplicationHub(application, 'offer-detail', offer)}
                   />
                 ))}
               </div>

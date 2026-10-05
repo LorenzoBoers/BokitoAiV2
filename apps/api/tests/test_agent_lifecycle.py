@@ -150,9 +150,16 @@ async def test_archive_agent_hides_it_from_the_list(client: AsyncClient):
     assert r.status_code == 200, r.text
     assert r.json()["ok"] is True
 
-    assert not any(a["id"] == agent_id for a in await _list_agents(client, owner))
+    assert not any(a["id"] == agent_id and a.get("is_active") is not False for a in await _list_agents(client, owner))
 
-    # Archiving twice returns 404 (no longer a company agent).
+    r = await client.post(f"/api/workforce/agents/{agent_id}/restore", headers=owner)
+    assert r.status_code == 200, r.text
+    assert any(a["id"] == agent_id and a.get("is_active") is not False for a in await _list_agents(client, owner))
+
+    r = await client.delete(f"/api/workforce/agents/{agent_id}", headers=owner)
+    assert r.status_code == 200
+
+    # Deactivating twice returns 404 (no longer a company agent).
     r = await client.delete(f"/api/workforce/agents/{agent_id}", headers=owner)
     assert r.status_code == 404
 
@@ -177,10 +184,10 @@ async def test_agent_status_toggle(client: AsyncClient):
     agent_id = await _create_agent(client, owner, "Toggle Agent")
 
     r = await client.patch(
-        f"/api/workforce/agents/{agent_id}/status", headers=owner, json={"status": "active"}
+        f"/api/workforce/agents/{agent_id}/status", headers=owner, json={"status": "working"}
     )
     assert r.status_code == 200, r.text
-    assert r.json()["agent"]["status"] == "active"
+    assert r.json()["agent"]["status"] == "working"
 
     r = await client.patch(
         f"/api/workforce/agents/{agent_id}/status", headers=owner, json={"status": "standby"}
@@ -236,11 +243,11 @@ async def test_passport_tools_and_scopes_patch(client: AsyncClient):
         f"/api/govern/passports/{agent_id}",
         headers=owner,
         json={
-            "allowed_tools": ["send_email", "search_web"],
+            "tools": ["send_email", "search_web"],
             "permission_scopes": ["platform:doc:write"],
         },
     )
     assert r.status_code == 200, r.text
     passport = r.json()["passport"]
-    assert passport["allowed_tools"] == ["send_email", "search_web"]
+    assert passport["tools"] == ["send_email", "search_web"]
     assert passport["permission_scopes"] == ["platform:doc:write"]

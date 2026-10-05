@@ -7,8 +7,10 @@ automatically, otherwise the operator confirms it inline ("Always do this")
 or from the Automation rules section in Inbox Settings.
 
 Active rules short-circuit ``process_inbound_signal``: matching threads are
-closed, converted to a task, or left for humans without AI involvement —
+closed, given a next look-at, or left for humans without AI involvement —
 always with a SignalEvent + AuditEvent trail so the timeline explains itself.
+``tag`` rules only add their tags and leave the normal flow running; tags on
+the other actions are added too.
 """
 
 from __future__ import annotations
@@ -28,16 +30,19 @@ from app.services.audit import record_audit
 # Consistent operator choices required before a suggested rule may activate.
 PROMOTION_THRESHOLD = 3
 
-RULE_ACTIONS = ("auto_close", "auto_task", "mute_ai", "route")
+RULE_ACTIONS = ("auto_close", "auto_task", "mute_ai", "tag", "route")
+# Actions that never short-circuit the inbound flow.
+_PASS_THROUGH_ACTIONS = ("tag", "route")
 
 # Decision-card option id -> learned rule action. "keep_open" is deliberately
 # absent: keeping a thread open is the default behavior, not an automation.
-OPTION_ACTION_MAP = {"close": "auto_close", "create_task": "auto_task"}
+OPTION_ACTION_MAP = {"close": "auto_close", "create_task": "auto_task", "look_at": "auto_task"}
 
 ACTION_LABELS = {
     "auto_close": "Auto-close",
-    "auto_task": "Create task",
+    "auto_task": "Plan look-at",
     "mute_ai": "Skip AI",
+    "tag": "Add tags",
     "route": "Assign / tag",
 }
 
@@ -79,11 +84,24 @@ def sender_keys(from_address: str, headers: dict | None = None) -> list[tuple[st
     return keys
 
 
-def serialize_rule(rule: InboxRule) -> dict[str, Any]:
+def rule_tags(rule: InboxRule) -> list[str]:
     try:
         labels = json.loads(rule.labels_json or "[]")
     except (json.JSONDecodeError, TypeError):
-        labels = []
+        return []
+    return [label for label in labels if isinstance(label, str)] if isinstance(labels, list) else []
+
+
+async def _set_rule_tags(
+    session: AsyncSession, tenant_id: UUID, rule: InboxRule, tags: list[str], user_id: UUID | None
+) -> None:
+    from app.services.signal_tags import ensure_tags
+
+    rows = await ensure_tags(session, tenant_id, tags, user_id=user_id)
+    rule.labels_json = json.dumps(list(rows))
+
+
+def serialize_rule(rule: InboxRule) -> dict[str, Any]:
     return {
         "id": str(rule.id),
         "match_type": rule.match_type,
@@ -100,7 +118,7 @@ def serialize_rule(rule: InboxRule) -> dict[str, Any]:
         "channel_account_id": str(rule.channel_account_id) if rule.channel_account_id else None,
         "priority": rule.priority,
         "assign_to_user_id": rule.assign_to_user_id,
-        "labels": labels if isinstance(labels, list) else [],
+        "labels": rule_tags(rule),
         "created_at": rule.created_at.isoformat(),
         "updated_at": rule.updated_at.isoformat(),
     }
@@ -114,6 +132,7 @@ async def _rule_by_key(
             InboxRule.tenant_id == tenant_id,
             InboxRule.match_type == match_type,
             InboxRule.match_value == match_value,
+            InboxRule.deleted_at.is_(None),
         )
     )
     return result.scalars().first()
@@ -136,13 +155,40 @@ async def find_matching_rule(
                 InboxRule.match_type == match_type,
                 InboxRule.match_value == match_value,
                 InboxRule.status == "active",
-                InboxRule.action != "route",
+                InboxRule.action.notin_(_PASS_THROUGH_ACTIONS),
+                InboxRule.deleted_at.is_(None),
             )
         )
         rule = result.scalars().first()
         if rule:
             return rule
     return None
+
+
+async def find_tag_rules(
+    session: AsyncSession,
+    tenant_id: UUID,
+    from_address: str,
+    headers: dict | None = None,
+) -> list[InboxRule]:
+    """Active ``tag`` rules matching the message on any key."""
+    keys = sender_keys(from_address, headers)
+    if not keys:
+        return []
+    rules: list[InboxRule] = []
+    for match_type, match_value in keys:
+        result = await session.execute(
+            select(InboxRule).where(
+                InboxRule.tenant_id == tenant_id,
+                InboxRule.match_type == match_type,
+                InboxRule.match_value == match_value,
+                InboxRule.status == "active",
+                InboxRule.action == "tag",
+                InboxRule.deleted_at.is_(None),
+            )
+        )
+        rules.extend(result.scalars().all())
+    return rules
 
 
 async def record_rule_hit(session: AsyncSession, rule: InboxRule) -> None:
@@ -330,7 +376,7 @@ async def activate_rule_row(
 async def list_rules(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
     result = await session.execute(
         select(InboxRule)
-        .where(InboxRule.tenant_id == tenant_id)
+        .where(InboxRule.tenant_id == tenant_id, InboxRule.deleted_at.is_(None))
         .order_by(InboxRule.status, InboxRule.updated_at.desc())
         .limit(500)
     )
@@ -345,6 +391,7 @@ async def create_rule(
     match_value: str,
     action: str,
     label: str = "",
+    tags: list[str] | None = None,
     user_id: UUID | None = None,
 ) -> dict[str, Any]:
     """Manual rule creation (or explicit activation of a learned suggestion)."""
@@ -352,6 +399,8 @@ async def create_rule(
         raise ValueError("Invalid match_type")
     if action not in RULE_ACTIONS:
         raise ValueError("Invalid action")
+    if action == "tag" and not tags:
+        raise ValueError("A tag rule needs at least one tag")
     value = (
         normalize_address(match_value)
         if match_type == "sender"
@@ -378,6 +427,8 @@ async def create_rule(
         rule.action = action
         if label:
             rule.label = label[:120]
+    if tags is not None:
+        await _set_rule_tags(session, tenant_id, rule, tags, user_id)
     await activate_rule_row(session, tenant_id, rule, actor_type="user", user_id=user_id)
     await session.commit()
     await session.refresh(rule)
@@ -392,10 +443,15 @@ async def update_rule(
     action: str | None = None,
     status: str | None = None,
     label: str | None = None,
+    tags: list[str] | None = None,
     user_id: UUID | None = None,
 ) -> dict[str, Any] | None:
     result = await session.execute(
-        select(InboxRule).where(InboxRule.id == rule_id, InboxRule.tenant_id == tenant_id)
+        select(InboxRule).where(
+            InboxRule.id == rule_id,
+            InboxRule.tenant_id == tenant_id,
+            InboxRule.deleted_at.is_(None),
+        )
     )
     rule = result.scalar_one_or_none()
     if not rule:
@@ -406,6 +462,10 @@ async def update_rule(
         rule.action = action
     if label is not None:
         rule.label = label[:120]
+    if tags is not None:
+        await _set_rule_tags(session, tenant_id, rule, tags, user_id)
+    if rule.action == "tag" and not rule_tags(rule):
+        raise ValueError("A tag rule needs at least one tag")
     if status is not None:
         if status not in ("active", "paused"):
             raise ValueError("Invalid status")
@@ -422,13 +482,27 @@ async def update_rule(
 
 async def delete_rule(session: AsyncSession, tenant_id: UUID, rule_id: UUID) -> bool:
     result = await session.execute(
-        select(InboxRule).where(InboxRule.id == rule_id, InboxRule.tenant_id == tenant_id)
+        select(InboxRule).where(
+            InboxRule.id == rule_id,
+            InboxRule.tenant_id == tenant_id,
+            InboxRule.deleted_at.is_(None),
+        )
     )
     rule = result.scalar_one_or_none()
     if not rule:
         return False
-    await session.delete(rule)
-    await session.commit()
+    from app.services.trash import load_tenant, move_to_bin
+
+    tenant = await load_tenant(session, tenant_id)
+    await move_to_bin(
+        session,
+        tenant,
+        resource_type="inbox_rule",
+        row=rule,
+        user_id=None,
+        title=rule.label or rule.match_value,
+        commit=True,
+    )
     return True
 
 
@@ -473,24 +547,18 @@ async def apply_rule_to_signal(
         session.add(signal)
         result["delivery"] = "auto_closed"
     elif rule.action == "auto_task":
-        from app.services.orchestration.dispatcher import create_agent_task
+        from app.services.signal_threads import set_conversation_look_at
 
         subject = signal.subject or "Automated message"
-        preview = (message.body_preview or message.body_text or "").strip()[:500]
-        task = await create_agent_task(
-            session,
-            tenant_id,
-            title=f"Follow up: {subject}"[:120],
-            description=preview,
-            signal_id=signal.id,
-            trigger_type="inbox_rule",
-            trigger_id=str(rule.id),
-            auto_start=False,
-        )
-        result["task_id"] = str(task.id)
-        result["delivery"] = "task_created"
+        set_conversation_look_at(signal, title=f"Follow up: {subject}"[:120])
+        session.add(signal)
+        result["task_id"] = str(signal.id)
+        result["delivery"] = "look_at_set"
     else:  # mute_ai: leave the thread for humans, spend no tokens.
         result["delivery"] = "ai_skipped"
+    added = await _add_rule_tags(session, tenant_id, signal, rule)
+    if added:
+        result["tags_added"] = added
 
     session.add(
         SignalEvent(
@@ -499,7 +567,9 @@ async def apply_rule_to_signal(
             event_type="rule_applied",
             actor_type="system",
             actor_id="",
-            payload_json=json.dumps({**payload, "delivery": result["delivery"]}),
+            payload_json=json.dumps(
+                {**payload, "delivery": result["delivery"], "tags_added": added}
+            ),
         )
     )
     await record_rule_hit(session, rule)
@@ -519,10 +589,55 @@ async def apply_rule_to_signal(
         commit=False,
     )
     await session.commit()
-    if rule.action in ("auto_close", "auto_task"):
+    if rule.action in ("auto_close", "auto_task") or added:
         await publish_thread_update(signal)
     if rule.action == "auto_close":
         from app.services.webhooks import emit_webhook_event, signal_event_data
 
         await emit_webhook_event(session, tenant_id, "signal.closed", signal_event_data(signal))
     return result
+
+
+async def _add_rule_tags(
+    session: AsyncSession, tenant_id: UUID, signal: Any, rule: InboxRule
+) -> list[str]:
+    from app.services.signal_tags import add_signal_tags
+
+    tags = rule_tags(rule)
+    if not tags:
+        return []
+    _, added = await add_signal_tags(session, tenant_id, signal.id, tags, registered_only=True)
+    return added
+
+
+async def apply_tag_rules(
+    session: AsyncSession, tenant_id: UUID, signal: Any, rules: list[InboxRule]
+) -> list[str]:
+    """Add the tags of matching ``tag`` rules; the inbound flow continues as usual."""
+    from app.gateway.publish import publish_thread_update
+    from app.models.signal import SignalEvent
+
+    added_all: list[str] = []
+    for rule in rules:
+        added = await _add_rule_tags(session, tenant_id, signal, rule)
+        await record_rule_hit(session, rule)
+        if not added:
+            continue
+        added_all.extend(added)
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=tenant_id,
+                event_type="rule_applied",
+                actor_type="system",
+                actor_id="",
+                payload_json=json.dumps(
+                    {**rule_event_payload(rule), "delivery": "tagged", "tags_added": added}
+                ),
+            )
+        )
+    if rules:
+        await session.commit()
+    if added_all:
+        await publish_thread_update(signal)
+    return added_all

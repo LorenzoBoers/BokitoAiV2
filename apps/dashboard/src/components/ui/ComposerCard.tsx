@@ -20,6 +20,8 @@ import { Tip } from './Tip'
 
 type Props = {
   mode: ComposerGrowMode
+  /** Outline: Ask is purple, Note is gray, Reply keeps the accent focus ring. */
+  tone?: 'default' | 'ai' | 'note'
   value: string
   className?: string
   textareaClassName?: string
@@ -46,7 +48,7 @@ function assignRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
 }
 
 export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function ComposerCard(
-  { mode, value, className, textareaClassName, overlay, highlighter, children, aiFlashNonce, ...textareaProps },
+  { mode, tone = 'default', value, className, textareaClassName, overlay, highlighter, children, aiFlashNonce, ...textareaProps },
   forwardedRef,
 ) {
   const { t } = useTranslation('communication')
@@ -136,7 +138,12 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
       ref={cardRef}
       className={cn(
         'group/composer relative rounded-xl border bg-bg-elevated/40 px-3 pb-2 pt-3 transition-[border-color,box-shadow] duration-200',
-        'focus-within:border-accent/55 focus-within:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.16)]',
+        tone === 'ai' &&
+          'border-ai/55 bg-bg-surface focus-within:border-ai/80 focus-within:shadow-[0_0_0_3px_rgb(var(--color-ai)/0.22)]',
+        tone === 'note' &&
+          'border-border/80 focus-within:border-border focus-within:shadow-[0_0_0_3px_rgb(var(--color-border)/0.32)]',
+        tone === 'default' &&
+          'border-border/60 focus-within:border-accent/55 focus-within:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.16)]',
         className,
       )}
     >
@@ -173,7 +180,14 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
             }}
             className="flex h-3 w-full cursor-row-resize touch-none items-center justify-center"
           >
-            <span className="h-0.5 w-6 rounded-full bg-border/40 transition-colors group-hover/composer:bg-border/80 group-focus-within/composer:bg-accent/70 hover:bg-accent" />
+            <span
+              className={cn(
+                'h-0.5 w-6 rounded-full bg-border/40 transition-colors group-hover/composer:bg-border/80',
+                tone === 'ai' && 'group-focus-within/composer:bg-ai/80 hover:bg-ai',
+                tone === 'note' && 'group-focus-within/composer:bg-border hover:bg-border',
+                tone === 'default' && 'group-focus-within/composer:bg-accent/70 hover:bg-accent',
+              )}
+            />
           </div>
         </Tip>
         <Tip label={expanded ? t('composer.collapse') : t('composer.expand')}>
@@ -208,7 +222,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
               textareaProps.onScroll?.(event)
             }}
             className={cn(
-              'relative block min-h-0 min-w-0 w-full resize-none bg-transparent text-base leading-[22px] placeholder:text-text-muted focus:outline-none disabled:opacity-50',
+              'relative block min-h-0 min-w-0 w-full resize-none bg-transparent text-base leading-[22px] placeholder:truncate placeholder:text-text-muted focus:outline-none disabled:opacity-50',
               highlighter ? 'text-transparent caret-[rgb(var(--color-text-primary))]' : 'text-text-primary',
               textareaClassName,
             )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Bot,
@@ -11,7 +11,6 @@ import {
   MessageSquare,
   RefreshCw,
   Trash2,
-  Wallet,
   Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -27,12 +26,9 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectAgentsSection } from '../components/projects/ProjectAgentsSection'
-import type { AgentVisualFields } from '../components/ui/AgentOptionRow'
-import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { ProjectDocs } from '../components/projects/ProjectDocs'
-import { ProjectOrchestratorSection } from '../components/projects/ProjectOrchestratorSection'
 import { ProjectCanvasBoard } from '../components/projects/ProjectCanvasBoard'
-import { ProjectQueue } from '../components/projects/ProjectQueue'
+import { ProjectHome } from '../components/projects/ProjectHome'
 import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
 import { ProjectResourcesSection } from '../components/projects/ProjectResourcesSection'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
@@ -40,9 +36,8 @@ import { useIsAdmin } from '../hooks/useIsAdmin'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { useAuth } from '../context/AuthContext'
 import { formatAppTime } from '../lib/app-locale'
-import { formatAppNumber } from '../lib/app-number'
 import { listAgents } from '../lib/agents-api'
-import { workLogRunsPath } from '../lib/agenda-thread'
+import { runThreadPath } from '../lib/open-entity'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { inboxPath } from '../lib/messages-paths'
 import { flowStatusLabel } from '../lib/status-labels'
@@ -55,10 +50,19 @@ import {
   type ProjectRow,
 } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
-import { workLogDetailUrl } from '../lib/workforce-run-urls'
 import { listWorkstreams, type WorkstreamRow } from '../lib/workstreams-api'
 import { workstreamPath } from '../lib/workstream-ui'
+import type { RuntimeAgent } from '../lib/workforce-api'
 import { CaseBindingsCard } from '../components/workstreams/CaseBindingsCard'
+
+const PROJECT_TABS = ['home', 'canvas', 'docs', 'settings'] as const
+type ProjectTab = (typeof PROJECT_TABS)[number]
+
+function parseProjectTab(raw: string | null): ProjectTab {
+  if (raw === 'queue') return 'home'
+  if (raw === 'canvas' || raw === 'docs' || raw === 'settings') return raw
+  return 'home'
+}
 
 async function copyText(value: string, copied: string, copyError: string) {
   try {
@@ -73,6 +77,8 @@ export default function ProjectDetail() {
   const { t, i18n } = useTranslation('nav')
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = parseProjectTab(searchParams.get('tab'))
   const isAdmin = useIsAdmin()
   const { token } = useAuth()
 
@@ -81,7 +87,7 @@ export default function ProjectDetail() {
   const [workstreams, setWorkstreams] = useState<WorkstreamRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
-  const [agents, setAgents] = useState<AgentVisualFields[]>([])
+  const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -94,9 +100,9 @@ export default function ProjectDetail() {
 
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!projectId) return
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const row = await getProject(projectId)
@@ -115,18 +121,7 @@ export default function ProjectDetail() {
       setWorkstreams(streamsResult.status === 'fulfilled' ? streamsResult.value : [])
       setRuns(runsResult.status === 'fulfilled' ? runsResult.value : [])
       setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
-      setAgents(
-        agentsResult.status === 'fulfilled'
-          ? agentsResult.value.map((a) => ({
-              id: a.id,
-              name: a.name,
-              avatar_kind: a.avatar_kind,
-              avatar_icon: a.avatar_icon,
-              avatar_color: a.avatar_color,
-              avatar_image_url: a.avatar_image_url,
-            }))
-          : [],
-      )
+      setAgents(agentsResult.status === 'fulfilled' ? agentsResult.value : [])
       setRefreshedAt(new Date())
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.detail.loadError')))
@@ -260,20 +255,40 @@ export default function ProjectDetail() {
             </p>
           ) : null}
 
-          <Tabs defaultValue="canvas">
+          <Tabs
+            value={tab}
+            onValueChange={(next) => {
+              const parsed = parseProjectTab(next)
+              const params = new URLSearchParams(searchParams)
+              if (parsed === 'home') params.delete('tab')
+              else params.set('tab', parsed)
+              setSearchParams(params, { replace: true })
+            }}
+          >
             <TabsList>
+              <TabsTrigger value="home">{t('projects.detail.tabHome')}</TabsTrigger>
               <TabsTrigger value="canvas">{t('projects.detail.tabCanvas')}</TabsTrigger>
-              <TabsTrigger value="queue">{t('projects.detail.tabQueue')}</TabsTrigger>
               <TabsTrigger value="docs">{t('projects.detail.tabDocs')}</TabsTrigger>
               <TabsTrigger value="settings">{t('projects.detail.tabSettings')}</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="canvas">
-              <ProjectCanvasBoard projectId={project.id} canEdit={isAdmin} />
+            <TabsContent value="home">
+              <ProjectHome
+                project={project}
+                budget={budget}
+                workstreams={workstreams}
+                agents={agents}
+                canEdit={isAdmin}
+                onChanged={() => load({ silent: true })}
+              />
             </TabsContent>
 
-            <TabsContent value="queue">
-              <ProjectQueue projectId={project.id} canEdit={isAdmin} />
+            <TabsContent value="canvas">
+              <ProjectCanvasBoard
+                projectId={project.id}
+                agentId={project.po_agent_id}
+                canEdit={isAdmin}
+              />
             </TabsContent>
 
             <TabsContent value="docs">
@@ -290,7 +305,10 @@ export default function ProjectDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ProjectOrchestratorSection project={project} agents={agents} onChanged={load} canEdit={isAdmin} />
+                <p className="text-sm text-text-muted">{t('projects.detail.agentBudgetOnHome')}</p>
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link to={`/projects/${project.id}`}>{t('projects.detail.openHome')}</Link>
+                </Button>
                 <ProjectAgentsSection projectId={project.id} agents={agents} />
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs text-text-muted">
@@ -346,42 +364,6 @@ export default function ProjectDetail() {
                   <p className="text-xs text-text-muted">{t('projects.detail.resourcesHint')}</p>
                   <ProjectResourcesSection projectId={project.id} canEdit={isAdmin} />
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Wallet size={16} className="text-text-muted" />
-                  {t('projects.detail.budgetTitle')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {budget ? (
-                  <>
-                    <ProjectBudgetBar budget={budget} />
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs text-text-muted" title={t('projects.detail.budgetCapHint')}>
-                          {t('projects.detail.remainingToday')}
-                        </p>
-                        <p className="font-medium text-text-heading" title={t('projects.detail.budgetCapHint')}>
-                          {formatAppNumber(budget.remaining_today, i18n.language)} {t('projects.detail.tokensUnit')}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-text-muted" title={t('projects.detail.budgetCapHint')}>
-                          {t('projects.detail.remainingHour')}
-                        </p>
-                        <p className="font-medium text-text-heading" title={t('projects.detail.budgetCapHint')}>
-                          {formatAppNumber(budget.remaining_hour, i18n.language)} {t('projects.detail.tokensUnit')}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-text-muted">{t('projects.detail.noBudget')}</p>
-                )}
               </CardContent>
             </Card>
 
@@ -470,14 +452,13 @@ export default function ProjectDetail() {
                 runs={runs}
                 projects={[project]}
                 runTo={(run) =>
-                  workLogRunsPath(
+                  runThreadPath(
                     run,
                     internalThreads.map((row) => ({
                       id: String(row.id),
                       emailSubject: row.emailSubject,
                       lastMessageAt: row.lastMessageAt,
                     })),
-                    workLogDetailUrl(run),
                   )
                 }
                 showProjectColumn={false}

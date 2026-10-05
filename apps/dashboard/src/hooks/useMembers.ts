@@ -1,66 +1,44 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { onGatewayEvent } from '../lib/gateway'
+import type { GatewayEvent } from '../lib/gateway'
+import { applyLive, isLiveSeeded, seedLive, useLiveList } from '../lib/live-store'
 import { listSignalMembers } from '../lib/signals-api'
 import type { InboxMember } from '../lib/inbox-api'
 
-// Simple module-level cache: member lists are small and change rarely, and
-// several composers/selectors can mount at once.
-let cache: InboxMember[] | null = null
+const TABLE = 'member'
+
 let inflight: Promise<InboxMember[]> | null = null
-const listeners = new Set<(rows: InboxMember[]) => void>()
 
-export function invalidateMembersCache() {
-  cache = null
-  inflight = null
-}
-
-/** Apply a gateway presence event to the cached members and every mounted hook. */
-export function applyPresence(userId: string, status: InboxMember['presence']) {
-  if (!cache) return
-  cache = cache.map((m) => (m.uuid === userId ? { ...m, presence: status } : m))
-  for (const listener of listeners) listener(cache)
+/** `presence` events for people; fed by the shell live bus. */
+export function ingestMemberPresence(event: GatewayEvent) {
+  if (event.event !== 'presence') return
+  const data = (event.data ?? {}) as { user_id?: string | null; status?: string }
+  if (!data.user_id) return
+  const status: InboxMember['presence'] =
+    data.status === 'available' || data.status === 'away' ? data.status : 'offline'
+  applyLive<InboxMember>(TABLE, data.user_id, (prev) =>
+    prev && prev.presence !== status ? { ...prev, presence: status } : prev,
+  )
 }
 
 /** Workspace members for assignment, mentions and avatars, with live availability. */
 export function useMembers(): { members: InboxMember[]; loading: boolean } {
   const { token } = useAuth()
-  const [members, setMembers] = useState<InboxMember[]>(cache ?? [])
-  const [loading, setLoading] = useState(cache === null)
-
-  useEffect(() => {
-    listeners.add(setMembers)
-    return () => {
-      listeners.delete(setMembers)
-    }
-  }, [])
+  const members = useLiveList<InboxMember>(TABLE)
+  const [loading, setLoading] = useState(!isLiveSeeded(TABLE))
 
   useEffect(() => {
     if (!token) return
-    return onGatewayEvent('presence', (event) => {
-      const data = (event.data ?? {}) as { user_id?: string | null; status?: string }
-      if (!data.user_id) return
-      const status = data.status === 'available' || data.status === 'away' ? data.status : 'offline'
-      applyPresence(data.user_id, status)
-    })
-  }, [token])
-
-  useEffect(() => {
-    if (!token) return
-    if (cache) {
-      setMembers(cache)
+    if (isLiveSeeded(TABLE)) {
       setLoading(false)
       return
     }
     let cancelled = false
     inflight ??= listSignalMembers(token).then((rows) => {
-      cache = rows
+      seedLive(TABLE, rows, (m) => m.uuid)
       return rows
     })
     inflight
-      .then((rows) => {
-        if (!cancelled) setMembers(rows)
-      })
       .catch(() => {
         inflight = null
       })

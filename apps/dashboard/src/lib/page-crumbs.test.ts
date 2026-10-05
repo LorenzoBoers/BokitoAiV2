@@ -4,6 +4,7 @@ import { extraCrumbsForPath } from './page-crumbs'
 describe('extra crumbs', () => {
   it('adds a readable subsection on nested pages', () => {
     expect(extraCrumbsForPath('/cockpit/usage')).toEqual([{ labelKey: 'cockpitTabs.usage' }])
+    expect(extraCrumbsForPath('/cockpit/canvas')).toEqual([{ labelKey: 'cockpitTabs.canvas' }])
     expect(extraCrumbsForPath('/contacts/abc')).toEqual([{ labelKey: 'crumbs.person' }])
     expect(extraCrumbsForPath('/contacts/companies/acme')).toEqual([{ labelKey: 'crumbs.company' }])
     expect(extraCrumbsForPath('/agents/lead-1')).toEqual([{ labelKey: 'crumbs.agent' }])
@@ -21,5 +22,6 @@ describe('extra crumbs', () => {
     expect(extraCrumbsForPath('/settings/assistant')).toEqual([])
     expect(extraCrumbsForPath('/learn/channels')).toEqual([{ labelKey: 'crumbs.learn' }])
     expect(extraCrumbsForPath('/docs/autonomy')).toEqual([{ labelKey: 'crumbs.docs' }])
+    expect(extraCrumbsForPath('/settings/bin')).toEqual([{ labelKey: 'crumbs.bin' }])
   })
 })

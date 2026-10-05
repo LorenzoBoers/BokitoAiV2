@@ -86,7 +86,8 @@ async def test_removed_member_login_returns_workspace_setup(
             select(Membership).where(Membership.user_id == user.id)
         )
     ).scalars().all()
-    assert memberships == []
+    assert memberships
+    assert all(m.is_active is False for m in memberships)
 
 
 @pytest.mark.asyncio
@@ -151,11 +152,16 @@ async def test_setup_create_workspace_makes_owner(client: AsyncClient, session_o
     user = (
         await session_override.execute(select(User).where(User.email == MEMBER_EMAIL))
     ).scalar_one()
-    membership = (
+    memberships = (
         await session_override.execute(
             select(Membership).where(Membership.user_id == user.id)
         )
-    ).scalar_one()
+    ).scalars().all()
+    assert len(memberships) == 2
+    active = [m for m in memberships if m.is_active]
+    inactive = [m for m in memberships if not m.is_active]
+    assert len(active) == 1 and len(inactive) == 1
+    membership = active[0]
     assert membership.role == "owner"
     tenant = (
         await session_override.execute(

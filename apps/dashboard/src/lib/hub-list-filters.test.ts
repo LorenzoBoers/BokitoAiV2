@@ -61,6 +61,16 @@ describe('mergeHubThreadFilters', () => {
     )
     expect(merged.agentId).toBe('a-1')
   })
+
+  it('switches the list to awaiting_decision when that query is set', () => {
+    const merged = mergeHubThreadFilters(
+      { folder: 'inbox', view: 'for_you' },
+      { agentId: 'a-9', needsDecision: true },
+    )
+    expect(merged.view).toBe('awaiting_decision')
+    expect(merged.agentId).toBe('a-9')
+    expect(merged.needsDecision).toBe(true)
+  })
 })
 
 describe('threadFitsChannelLeaf', () => {

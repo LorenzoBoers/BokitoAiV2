@@ -36,7 +36,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 ## Load knowledge and agents
 
 1. Add daily documents in [Knowledge](/docs/ai/knowledge). Start with Voice and Memory.
-2. Review the default assistant under [Agents](/docs/ai/agents). Archive agents you do not want to keep; tighten chat access if they should not appear in Communication.
+2. Review the default assistant under [Agents](/docs/ai/agents). Deactivate agents you do not want on the roster; tighten chat access if they should not appear in Communication.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
 4. Optional: open **Projects** when work should be grouped around a goal. See [Projects](/docs/ai/projects).
 5. Optional: open **Connections** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
@@ -55,6 +55,6 @@ On first login, owners complete the **first-run wizard**, then the product tour.
 4. **Resolve your first decision** — the checklist card (and **Try the demo** where offered) starts a sample thread so you can approve a card.
 5. **Turn on check-in** — the hourly check-in is seeded paused; turn it on when you want watching.
 
-**Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), projects, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Trust & privacy](/docs/govern/privacy-security) (retention and data subject requests).
+**Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), projects, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Data & privacy](/docs/govern/privacy-security) (retention, data region, and data subject requests).
 
 **Hide setup** only hides the card. The checklist on Settings stays until those steps are done. You are ready when mail flows in, one decision is understood, and the assistant is watching.

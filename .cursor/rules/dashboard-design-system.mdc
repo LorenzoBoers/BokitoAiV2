@@ -64,6 +64,8 @@ Use `components/ui/button.tsx` variants only:
 
 No one-off `bg-black`, `bg-text-heading`, or solid dark slabs for CTAs in light mode.
 
+Header actions sit in `CardHeaderActions` as `Button variant="ghost" size="iconSm"`. `CardHeader` is always `h-11`. Do not put `size="sm"` labelled buttons in the header — they stretch the bar and misalign neighbouring cards.
+
 ## Radius nesting
 
 `rounded-2xl` (shell) → `rounded-xl` (card) → `rounded-lg` (input/inner) → `rounded-md` (chip) → `rounded-full` (pill).

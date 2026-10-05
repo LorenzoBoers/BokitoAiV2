@@ -108,11 +108,12 @@ Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI
 2. Maak een titel en tekst, of sla een concept op vanuit de composer in een gesprek.
 3. Iedereen kan een opgeslagen antwoord invoegen tijdens het antwoorden in Communicatie.
 
-## Kies standaard submappen
+## Kies standaard submappen, mappen en tags
 
-1. Scroll naar **Mappen** op dezelfde pagina.
+1. Scroll naar **Mappen en tags** op dezelfde pagina.
 2. Elke kanaal- en agentmap in Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Submappen verschijnen pas als je op de map klikt. Kies de **Standaard submap** waarmee een map opent, en wijk daar per kanaal of assistent van af.
-3. Gesprekken classificeren gaat niet meer met tags op deze pagina: beheer **Signaaltypes** onder **Instellingen** en bekijk signalen onder **Dit gesprek** in Communicatie. Zie [Hoe Signalen werken](/docs/ai/cases).
+3. Bewaar onder **Mappen** een filter op project, categorie, tag en fase als map in de zijbalk van Communicatie. Houd onder **Tags** de taglijst van de workspace bij waaruit agents en regels kiezen. Zie [Communicatie](/docs/inbox/communication).
+4. De categorie van een gesprek is geen tag; beheer categorieën onder **Instellingen** → **Signaaltypes**. Zie [Categorieën en tickets](/docs/ai/cases).
 
 ## Wat nu
 

@@ -9,6 +9,8 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   microsoft: { logoUrl: '/brands/logo-microsoft.svg' },
   outlook: { logoUrl: '/brands/logo-outlook.svg' },
   google: { logoUrl: '/brands/logo-gmail.svg' },
+  google_calendar: { logoUrl: '/brands/logo-gmail.svg' },
+  'google-calendar': { logoUrl: '/brands/logo-gmail.svg' },
   smtp: { logoUrl: '/brands/logo-smtp-imap.svg' },
   bjorn_lunden: { logoUrl: '/brands/logo-bjorn-lunden.svg' },
   king: { logoUrl: '/brands/logo-bjorn-lunden.svg' },

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { chatRunCloses, chatRunLeads, type BubbleStack } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
 
@@ -65,6 +66,77 @@ export function BubbleHeader({
   )
 }
 
+/**
+ * Hover actions next to a bubble. Rendered in a portal so the timeline
+ * scroller cannot clip them against the composer at the bottom.
+ */
+export function BubbleHoverToolbar({
+  open,
+  anchorRef,
+  side,
+  onEnter,
+  onLeave,
+  children,
+}: {
+  open: boolean
+  anchorRef: RefObject<HTMLElement | null>
+  side: 'left' | 'right'
+  onEnter: () => void
+  onLeave: () => void
+  children: ReactNode
+}) {
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  const place = useCallback(() => {
+    const bubble = anchorRef.current
+    const bar = toolbarRef.current
+    if (!bubble || !bar) return
+    const rect = bubble.getBoundingClientRect()
+    const size = bar.getBoundingClientRect()
+    const gap = 6
+    let left = side === 'right' ? rect.left - size.width - gap : rect.right + gap
+    let top = rect.top + 4
+    const maxLeft = window.innerWidth - size.width - 8
+    const maxTop = window.innerHeight - size.height - 8
+    if (left > maxLeft) left = maxLeft
+    if (left < 8) left = 8
+    if (top > maxTop) top = maxTop
+    if (top < 8) top = 8
+    setPos({ top, left })
+  }, [anchorRef, side])
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    place()
+    const raf = window.requestAnimationFrame(place)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open, place])
+
+  if (!open || typeof document === 'undefined') return null
+  return createPortal(
+    <div
+      ref={toolbarRef}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
+      className="fixed z-[60] flex items-center gap-0.5 rounded-lg bg-bg-surface p-0.5 shadow-overlay ring-1 ring-border/50"
+    >
+      {children}
+    </div>,
+    document.body,
+  )
+}
+
 /** Small icon button for the hover toolbar beside a bubble. */
 export function BubbleAction({
   label,
@@ -128,9 +200,25 @@ export function ChatMessageBubble({
 }) {
   const isRight = side === 'right'
   const lead = leadsRun(stack)
+  const bubbleRef = useRef<HTMLDivElement>(null)
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const hideTimer = useRef(0)
+  const showActions = useCallback(() => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current)
+    hideTimer.current = 0
+    setActionsOpen(true)
+  }, [])
+  const hideActions = useCallback(() => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current)
+    hideTimer.current = window.setTimeout(() => setActionsOpen(false), 140)
+  }, [])
+  useEffect(() => () => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current)
+  }, [])
 
   const bubble = (
     <div
+      ref={bubbleRef}
       className={cn(
         'relative min-w-0 max-w-[85%] px-3.5 py-2 text-base leading-relaxed text-text-primary',
         shapeFor(side, stack),
@@ -146,20 +234,12 @@ export function ChatMessageBubble({
           {meta}
         </div>
       ) : null}
-      {actions ? (
-        <div
-          className={cn(
-            'absolute top-1 flex items-center gap-0.5 rounded-lg bg-bg-surface/95 p-0.5 opacity-0 shadow-sm ring-1 ring-border/50 backdrop-blur transition-opacity',
-            'pointer-events-none group-hover/bubble:pointer-events-auto group-hover/bubble:opacity-100',
-            'focus-within:pointer-events-auto focus-within:opacity-100',
-            isRight ? 'right-full mr-1.5' : 'left-full ml-1.5',
-          )}
-        >
-          {actions}
-        </div>
-      ) : null}
     </div>
   )
+
+  const hoverBind = actions
+    ? { onMouseEnter: showActions, onMouseLeave: hideActions }
+    : {}
 
   const row = cn(
     'msg-bubble-enter group/bubble flex items-start gap-2',
@@ -171,18 +251,32 @@ export function ChatMessageBubble({
     <span className="flex w-7 shrink-0 justify-center">{lead ? avatar : null}</span>
   )
 
+  const toolbar = actions ? (
+    <BubbleHoverToolbar
+      open={actionsOpen}
+      anchorRef={bubbleRef}
+      side={side}
+      onEnter={showActions}
+      onLeave={hideActions}
+    >
+      {actions}
+    </BubbleHoverToolbar>
+  ) : null
+
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cn(row, 'w-full')}>
+      <button type="button" onClick={onClick} className={cn(row, 'w-full')} {...hoverBind}>
         {avatarSlot}
         {bubble}
+        {toolbar}
       </button>
     )
   }
   return (
-    <div className={row}>
+    <div className={row} {...hoverBind}>
       {avatarSlot}
       {bubble}
+      {toolbar}
     </div>
   )
 }

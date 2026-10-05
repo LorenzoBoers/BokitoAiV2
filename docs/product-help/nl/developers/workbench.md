@@ -48,4 +48,4 @@ Koppel je eigen providersleutel onder Instellingen → Developers. Bokito draait
 3. Als de tool een vraag stelt, beantwoord de Beslissingskaart; Bokito stuurt je antwoord als vervolg.
 4. Als er een pull request verschijnt, open die via de statusregel op het projectcanvas (tegel **Workbench-jobs** en **Resources**) of in de thread.
 
-Je kunt ook **Koppelingen** openen en **Codingtools koppelen** kiezen om bij dezelfde Developers-sectie te komen.
+Je kunt ook **Koppelingen** openen en **Koppelen** kiezen op de banner **AI (coding) tools** om bij dezelfde Developers-sectie te komen.

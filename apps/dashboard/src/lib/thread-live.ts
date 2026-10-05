@@ -11,7 +11,8 @@
 import type { GatewayEvent } from './gateway'
 import type { InboxMessage, InboxThread, ThreadFilters } from './inbox-api'
 import { threadNeedsReply } from './message-composer'
-import { normalizeSignalMessage, normalizeSignalThread } from './signals-api'
+import { normalizeThreadRow } from './inbox-api'
+import { normalizeSignalMessage } from './signals-api'
 
 /** Mirrors EXTERNAL_CHANNELS in apps/api/app/models/signal.py. */
 const EXTERNAL_CHANNELS = new Set([
@@ -33,7 +34,7 @@ export function extractLiveThreadRow(event: GatewayEvent): InboxThread | null {
   // The pre-rich payload shape used `signal_id`; only rows with the canonical
   // `id` key can be upserted directly.
   if (typeof raw.id !== 'string' || raw.id.length === 0) return null
-  return normalizeSignalThread(thread)
+  return normalizeThreadRow(thread)
 }
 
 /** Extract the full serialized message from a gateway `message` event. */
@@ -63,6 +64,8 @@ export function threadMatchesFilters(
   if (filters.search && filters.search.trim()) return null
 
   const channel = thread.channel ?? ''
+  // Private Bokito helper chats live in the corner widget, not Communication.
+  if (thread.source === 'personal') return false
   if (filters.folder === 'external' && !EXTERNAL_CHANNELS.has(channel)) return false
   if (filters.folder === 'internal' && channel !== 'internal') return false
   // Agent runs join the hub when a person or team must act, or under the agent chip.
@@ -83,9 +86,23 @@ export function threadMatchesFilters(
   if (filters.folder === 'assistant') return null
 
   if (filters.channel && channel !== filters.channel) return false
-  if (filters.projectId && (thread.projectId ?? '') !== filters.projectId) return false
+  // A conversation also joins a project through its ticket, which the row does not carry.
+  if (filters.projectId && (thread.projectId ?? '') !== filters.projectId) return null
+  if (filters.categoryId || filters.stage) {
+    const ticket = thread.categoryCase
+    if (ticket === undefined) return null
+    if (!ticket || ticket.status === 'proposed') return false
+    if (filters.categoryId && ticket.categoryId !== filters.categoryId) return false
+    if (filters.stage) {
+      const byKind = filters.stage === 'open' || filters.stage === 'waiting' || filters.stage === 'done'
+      if (byKind ? ticket.status !== filters.stage : ticket.stage?.key !== filters.stage) return false
+    }
+  }
   if (filters.agentId && (thread.agentId ?? '') !== filters.agentId) return false
-  if (filters.tag && !thread.tags.includes(filters.tag)) return false
+  if (filters.tag) {
+    if (!thread.tags) return null
+    if (!thread.tags.includes(filters.tag)) return false
+  }
   if (filters.assigneeId != null && thread.assignedToUserId !== filters.assigneeId) return false
   if (
     filters.connectionId != null &&
@@ -156,9 +173,9 @@ function applyAndFlags(thread: InboxThread, filters: ThreadFilters, viewMatch: b
 }
 
 /**
- * Merge a live row into the known row. Gateway rows may skip agent enrichment
- * and the resolved AI handling block, so those keep their previous values when
- * the incoming row has none.
+ * Merge a live row into the known row. Gateway rows may skip agent enrichment,
+ * the resolved AI handling block, the tags and the category, so those keep
+ * their previous values when the incoming row has none.
  */
 export function mergeThreadRow(existing: InboxThread, row: InboxThread): InboxThread {
   return {
@@ -168,6 +185,8 @@ export function mergeThreadRow(existing: InboxThread, row: InboxThread): InboxTh
     agentName: row.agentName ?? existing.agentName,
     agentKind: row.agentKind ?? existing.agentKind,
     aiHandling: row.aiHandling ?? existing.aiHandling,
+    categoryCase: row.categoryCase === undefined ? existing.categoryCase : row.categoryCase,
+    tags: row.tags ?? existing.tags,
   }
 }
 

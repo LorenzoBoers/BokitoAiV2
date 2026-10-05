@@ -1,4 +1,8 @@
-"""Apply platform changes to domain models and sync canvas overlay."""
+"""Apply platform changes to domain models.
+
+The OS overlay graph is retired; applying agent/playbook/connection changes
+no longer writes `os_canvas_*` rows.
+"""
 
 from __future__ import annotations
 
@@ -15,9 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.integration import IntegrationConnection, McpServer
 from app.models.orchestra import Workstream
-from app.models.os_graph import ALLOWED_EDGES, OsCanvasNode
 from app.models.platform_change import PlatformChange
-from app.services.os_graph import create_canvas_edge, create_canvas_node
+from app.services.agent_rules import parse_autonomy_level
+from app.services.os_graph import OS_GRAPH_RETIRED
 
 
 def _slugify(name: str) -> str:
@@ -35,18 +39,9 @@ async def sync_entity_to_canvas(
     x: float = 200.0,
     y: float = 200.0,
 ) -> dict[str, Any] | None:
-    try:
-        return await create_canvas_node(
-            session,
-            tenant_id,
-            node_type=node_type,
-            ref_id=ref_id,
-            x=x,
-            y=y,
-            label=label,
-        )
-    except HTTPException:
-        return None
+    """No-op: the OS overlay is gone. Callers may still pass canvas=None."""
+    del session, tenant_id, node_type, ref_id, label, x, y
+    return None
 
 
 async def apply_agent_change(
@@ -63,7 +58,7 @@ async def apply_agent_change(
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
         agent.is_active = False
-        agent.runtime_status = "inactive"
+        agent.runtime_status = "standby"
         agent.updated_at = datetime.utcnow()
         await session.flush()
         return {"agent_id": str(agent.id), "status": "deactivated"}
@@ -84,7 +79,7 @@ async def apply_agent_change(
             # Managed restore (or explicit un-archive): provenance stays intact.
             agent.kind = "company"
             agent.is_active = True
-            agent.runtime_status = str(after.get("runtime_status") or "standby")
+            agent.runtime_status = "standby"
         for field in ("name", "role", "system_prompt", "model", "autonomy_level", "slug"):
             if field in after:
                 setattr(agent, field, after[field])
@@ -161,7 +156,7 @@ async def apply_workstream_change(
         if "enabled" in after:
             ws.enabled = bool(after["enabled"])
         if "autonomy_level" in after:
-            ws.autonomy_level = str(after["autonomy_level"])
+            ws.autonomy_level = parse_autonomy_level(after["autonomy_level"])
         if "steps" in after:
             await replace_steps(session, tenant_id, ws.id, list(after["steps"] or []))
         await session.flush()
@@ -287,63 +282,15 @@ async def apply_integration_change(
 async def apply_canvas_node_change(
     session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
 ) -> dict[str, Any]:
-    node_type = after.get("node_type")
-    ref_id = after.get("ref_id")
-    if not node_type or not ref_id:
-        raise HTTPException(status_code=400, detail="node_type and ref_id required")
-    summary = await create_canvas_node(
-        session,
-        tenant_id,
-        node_type=node_type,
-        ref_id=UUID(str(ref_id)),
-        x=float(after.get("x", 200)),
-        y=float(after.get("y", 200)),
-        label=after.get("label"),
-    )
-    return {"canvas_node_id": summary["id"], "status": "created", "node": summary}
+    del session, tenant_id, after
+    return dict(OS_GRAPH_RETIRED)
 
 
 async def apply_canvas_edge_change(
     session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
 ) -> dict[str, Any]:
-    relation = after.get("relation")
-    source_node_id = after.get("source_node_id")
-    target_node_id = after.get("target_node_id")
-    if not relation or not source_node_id or not target_node_id:
-        raise HTTPException(status_code=400, detail="relation, source_node_id, target_node_id required")
-    if relation not in ALLOWED_EDGES:
-        raise HTTPException(status_code=400, detail=f"Invalid relation: {relation}")
-
-    src = (
-        await session.execute(
-            select(OsCanvasNode).where(
-                OsCanvasNode.id == UUID(str(source_node_id)),
-                OsCanvasNode.tenant_id == tenant_id,
-            )
-        )
-    ).scalar_one_or_none()
-    tgt = (
-        await session.execute(
-            select(OsCanvasNode).where(
-                OsCanvasNode.id == UUID(str(target_node_id)),
-                OsCanvasNode.tenant_id == tenant_id,
-            )
-        )
-    ).scalar_one_or_none()
-    if not src or not tgt:
-        raise HTTPException(status_code=404, detail="Canvas node not found")
-    expected = ALLOWED_EDGES[relation]
-    if src.node_type != expected[0] or tgt.node_type != expected[1]:
-        raise HTTPException(status_code=400, detail=f"Invalid edge types for {relation}")
-
-    edge = await create_canvas_edge(
-        session,
-        tenant_id,
-        source_node_id=UUID(str(source_node_id)),
-        target_node_id=UUID(str(target_node_id)),
-        relation=relation,
-    )
-    return {"canvas_edge_id": edge["id"], "status": "connected"}
+    del session, tenant_id, after
+    return dict(OS_GRAPH_RETIRED)
 
 
 async def _track_run_section_write(
@@ -512,7 +459,7 @@ async def apply_change_to_domain(
     if rt == "project_canvas":
         from app.services.project_canvas import apply_canvas_document
 
-        return await apply_canvas_document(session, tenant_id, after)
+        return await apply_canvas_document(session, tenant_id, after, change_kind=ck)
     if rt == "trigger":
         return await apply_trigger_change(session, tenant_id, ck, after, before)
     if rt == "agent_rule":

@@ -11,9 +11,8 @@ import {
 import { useAuth } from './AuthContext'
 import { fetchSignalBadgeCounts } from '../lib/signals-api'
 import { onGatewayEvent } from '../lib/gateway'
+import { onLiveReconnect } from '../lib/live-store'
 
-// Slow fallback poll; live updates arrive over the gateway WS.
-const POLL_MS = 120_000
 const GATEWAY_DEBOUNCE_MS = 1_500
 
 export type NavBadgeCounts = {
@@ -105,20 +104,14 @@ export function NavBadgeProvider({ children }: { children: ReactNode }) {
     }
 
     document.addEventListener('visibilitychange', onVisibility)
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        void refresh()
-      }
-    }, POLL_MS)
-
+    const offReconnect = onLiveReconnect(() => void refresh())
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
-      window.clearInterval(timer)
+      offReconnect()
     }
   }, [token, refresh])
 
-  // Live updates: any thread/message/decision event refreshes the badges (debounced).
-  // Prefer local patches from thread rows (unread flips) to avoid HTTP storms.
+  // Thread, message and decision events refresh the badges (debounced).
   useEffect(() => {
     if (!token) return
     let debounceTimer: number | null = null
@@ -129,22 +122,7 @@ export function NavBadgeProvider({ children }: { children: ReactNode }) {
         void refresh()
       }, GATEWAY_DEBOUNCE_MS)
     }
-    const unsubThreads = onGatewayEvent('threads', (event) => {
-      if (event.event === 'message' || event.event === 'thread') {
-        const data = event.data as Record<string, unknown>
-        const thread = (data.thread ?? data) as Record<string, unknown>
-        const hasUnread = Boolean(thread.has_unread)
-        const status = String(thread.status ?? '')
-        const assigned = thread.assigned_to_user_id
-        // Conservative local nudge: if we can tell a thread left open+unread,
-        // schedule a full refresh rather than inventing per-queue math.
-        if (status === 'closed' || status === 'spam' || !hasUnread || assigned != null) {
-          scheduleHttpRefresh()
-          return
-        }
-      }
-      scheduleHttpRefresh()
-    })
+    const unsubThreads = onGatewayEvent('threads', scheduleHttpRefresh)
     const unsubDecisions = onGatewayEvent('decisions', scheduleHttpRefresh)
     return () => {
       unsubThreads()

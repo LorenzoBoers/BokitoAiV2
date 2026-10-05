@@ -1,7 +1,6 @@
 import base64
 import json
 import time
-import uuid
 from typing import Any, AsyncGenerator
 from uuid import UUID
 
@@ -11,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.services.agent.llm import get_chat_provider, get_llm_provider
+from app.services.agent.turn import TurnRecorder
 from app.services.agent.tools import (
     execute_tool,
     filter_tools_for_agent,
@@ -80,8 +80,13 @@ class AgentLoop:
         tool_signal_id: UUID | None = None,
         user_role: str | None = None,
         surface: str = "",
+        reply_mode: str | None = None,
     ):
         self.session = session
+        # mail | chat | document; resolved from the thread channel when None.
+        self.reply_mode = reply_mode
+        self.turn: TurnRecorder | None = None
+        self._mcp_providers: dict[str, str] | None = None
         self.tenant_id = tenant_id
         self.user_id = user_id
         self.agent = agent
@@ -200,50 +205,110 @@ class AgentLoop:
             }
         )
 
-    async def _publish_agent_step(
+    def _new_turn(self) -> TurnRecorder:
+        publish = None
+        if self.signal_id:
+            from app.gateway.publish import publish_turn_event
+
+            tenant_id, signal_id = self.tenant_id, self.signal_id
+
+            async def publish(event: str, data: dict[str, Any]) -> None:
+                await publish_turn_event(tenant_id, signal_id, event, data)
+
+        self.turn = TurnRecorder(publish)
+        return self.turn
+
+    async def persist_turn(
         self,
-        step_type: str,
-        name: str = "",
-        payload: dict | None = None,
-        stream_id: str | None = None,
-    ) -> None:
-        self._append_trace_step(step_type, name=name, payload=payload)
-        if not self.signal_id:
-            return
-        from app.gateway.publish import publish_agent_step
+        signal: Any,
+        *,
+        metadata: dict[str, Any] | None = None,
+        first_metadata: dict[str, Any] | None = None,
+        final_metadata: dict[str, Any] | None = None,
+        fallback_text: str = "Done.",
+        append_to_last: str = "",
+    ) -> list[Any]:
+        """Save the last turn on ``signal``: chat bubbles or one mail message."""
+        from app.services.agent.turn_persist import persist_agent_turn
 
-        await publish_agent_step(
-            self.tenant_id,
-            self.signal_id,
-            step_type=step_type,
-            name=name,
-            payload=payload,
-            stream_id=stream_id,
+        turn = self.turn
+        return await persist_agent_turn(
+            self.session,
+            signal,
+            segments=list(turn.segments) if turn else [],
+            reply_mode=await self._resolve_reply_mode(),
+            author_agent_id=self.agent.id if self.agent else None,
+            metadata=metadata,
+            first_metadata=first_metadata,
+            final_metadata=final_metadata,
+            turn_id=turn.stream_id if turn else None,
+            fallback_text=fallback_text,
+            append_to_last=append_to_last,
         )
 
-    async def _publish_agent_thinking(self, delta: str, stream_id: str | None = None) -> None:
-        if not self.signal_id or not delta:
-            return
-        from app.gateway.publish import publish_agent_thinking
+    async def _resolve_reply_mode(self) -> str:
+        if self.reply_mode:
+            return self.reply_mode
+        from app.models.signal import Signal
+        from app.services.agent.reply_mode import reply_mode_for
 
-        await publish_agent_thinking(
-            self.tenant_id,
-            self.signal_id,
-            delta=delta,
-            stream_id=stream_id,
-        )
+        channel = None
+        if self.signal_id:
+            signal = await self.session.get(Signal, self.signal_id)
+            channel = signal.channel if signal else None
+        self.reply_mode = reply_mode_for(channel)
+        return self.reply_mode
 
-    async def _publish_delta(self, delta: str, stream_id: str | None = None) -> None:
-        if not self.signal_id or not delta:
-            return
-        from app.gateway.publish import publish_message_delta
+    async def _tool_presentation(self, name: str, tool_input: Any) -> dict[str, str]:
+        from app.tools.registry import tool_presentation
 
-        await publish_message_delta(
-            self.tenant_id,
-            self.signal_id,
-            delta=delta,
-            stream_id=stream_id,
-        )
+        shown = tool_presentation(name)
+        if name == "call_mcp_tool" and isinstance(tool_input, dict):
+            server = str(tool_input.get("server_name") or "")
+            inner = str(tool_input.get("tool_name") or "")
+            if inner:
+                from app.tools.registry import humanize_tool_name
+
+                shown["label"] = humanize_tool_name(inner)
+            if server:
+                shown["provider"] = (await self._mcp_provider_map()).get(server, "")
+        return shown
+
+    async def _mcp_provider_map(self) -> dict[str, str]:
+        """MCP server name -> integration provider slug, for activity icons."""
+        if self._mcp_providers is not None:
+            return self._mcp_providers
+        providers: dict[str, str] = {}
+        try:
+            from app.models.integration import IntegrationConnection, McpServer
+
+            servers = (
+                await self.session.execute(
+                    select(McpServer.id, McpServer.name).where(McpServer.tenant_id == self.tenant_id)
+                )
+            ).all()
+            conns = (
+                await self.session.execute(
+                    select(IntegrationConnection.provider, IntegrationConnection.metadata_json).where(
+                        IntegrationConnection.tenant_id == self.tenant_id
+                    )
+                )
+            ).all()
+            by_server: dict[str, str] = {}
+            for provider, meta_json in conns:
+                try:
+                    meta = json.loads(meta_json or "{}")
+                except json.JSONDecodeError:
+                    continue
+                sid = str(meta.get("mcp_server_id") or "") if isinstance(meta, dict) else ""
+                if sid:
+                    by_server[sid] = provider or ""
+            for sid, name in servers:
+                providers[name] = by_server.get(str(sid), "")
+        except Exception:  # noqa: BLE001 - icons are cosmetic
+            providers = {}
+        self._mcp_providers = providers
+        return providers
 
     async def _session_user_role(self) -> str | None:
         """Membership role of the chatting user (None for autonomous runs)."""
@@ -411,9 +476,9 @@ class AgentLoop:
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
-        from app.services.agent.style import BOKITO_MODEL_IDENTITY, RESPONSE_STYLE
+        from app.services.agent.style import BOKITO_MODEL_IDENTITY, style_for_reply_mode
 
-        parts.append(RESPONSE_STYLE)
+        parts.append(style_for_reply_mode(await self._resolve_reply_mode()))
         from app.models.auth import Tenant
         from app.services.language import language_rules_for_trust
 
@@ -540,6 +605,10 @@ class AgentLoop:
         self.resolved_call = await resolve_model_call(
             self.session, self.tenant_id, kind="chat", model_slug=model_slug
         )
+        if self.run and self.run.project_id:
+            from app.services.projects import check_project_token_budget
+
+            await check_project_token_budget(self.session, self.tenant_id, self.run.project_id)
         self.llm = get_chat_provider(
             self.resolved_call.provider_type,
             self.resolved_call.api_key,
@@ -723,12 +792,14 @@ class AgentLoop:
                 continue
             await self._maybe_promote_to_task(tool_use["name"])
             await self._log_event("tool_call", tool_use["name"], tool_use.get("input"))
-            await self._publish_agent_step(
-                "tool_call",
-                name=tool_use["name"],
-                payload={"input": tool_use.get("input", {})},
-                stream_id=stream_id,
-            )
+            tool_input = tool_use.get("input", {})
+            self._append_trace_step("tool_call", name=tool_use["name"], payload={"input": tool_input})
+            item = None
+            if self.turn is not None:
+                shown = await self._tool_presentation(tool_use["name"], tool_input)
+                item = await self.turn.tool_start(
+                    tool_use["name"], tool_input, label=shown["label"], provider=shown["provider"]
+                )
             result = await execute_tool(
                 self.session,
                 self.tenant_id,
@@ -743,12 +814,9 @@ class AgentLoop:
                 user_role=await self._session_user_role(),
                 surface=self.surface,
             )
-            await self._publish_agent_step(
-                "tool_result",
-                name=tool_use["name"],
-                payload={"result": result},
-                stream_id=stream_id,
-            )
+            self._append_trace_step("tool_result", name=tool_use["name"], payload={"result": result})
+            if self.turn is not None and item is not None:
+                await self.turn.tool_end(item, result)
             tool_results.append(
                 {
                     "type": "tool_result",
@@ -764,8 +832,9 @@ class AgentLoop:
         extra_context: str = "",
         attachments: list[dict] | None = None,
     ) -> tuple[str, dict[str, int]]:
+        """Non-streaming turn. Returns the last speech; ``self.turn`` has every segment."""
         llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
-        final_text = ""
+        turn = self._new_turn()
         self.thinking_budget = self._resolve_thinking_budget()
         max_tokens = self._resolve_max_tokens()
         started = time.monotonic()
@@ -774,7 +843,6 @@ class AgentLoop:
             if await self._is_cancelled():
                 break
             await self._log_event("think", f"Loop {loop_idx + 1}")
-            await self._publish_agent_step("think", name=f"Loop {loop_idx + 1}")
             response = await self.llm.chat(
                 llm_messages,
                 tools=self.tools,
@@ -788,11 +856,12 @@ class AgentLoop:
             for block in response.get("content") or []:
                 if block.get("type") == "thinking" and block.get("thinking"):
                     self.thinking_text += str(block["thinking"])
+                    await turn.thinking(str(block["thinking"]))
 
             tool_uses = [b for b in response["content"] if b.get("type") == "tool_use"]
             text_blocks = [b["text"] for b in response["content"] if b.get("type") == "text"]
             if text_blocks:
-                final_text = "\n".join(text_blocks)
+                turn.set_speech_text("\n".join(text_blocks))
 
             if not tool_uses or response.get("stop_reason") == "end_turn":
                 break
@@ -804,8 +873,10 @@ class AgentLoop:
             tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
             llm_messages.append({"role": "user", "content": tool_results})
 
+        await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
+        final_text = turn.final_text
         if await self._is_cancelled():
             return final_text or "", tokens
         return final_text or "Done.", tokens
@@ -816,12 +887,19 @@ class AgentLoop:
         extra_context: str = "",
         attachments: list[dict] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
+        """Streaming turn.
+
+        Yields ``thinking`` / ``delta`` (with ``segment_id``) events and one
+        ``done`` with ``segments`` (speech bubbles + their activity), ``text``
+        (last speech, for single-message callers) and ``activity``.
+        """
         llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
-        stream_id = str(uuid.uuid4())
-        final_text = ""
+        turn = self._new_turn()
+        stream_id = turn.stream_id
         self.thinking_budget = self._resolve_thinking_budget()
         max_tokens = self._resolve_max_tokens()
         started = time.monotonic()
+        await turn.start()
 
         cancelled = False
         for loop_idx in range(self.max_loops):
@@ -829,10 +907,10 @@ class AgentLoop:
                 cancelled = True
                 break
             await self._log_event("think", f"Loop {loop_idx + 1}")
-            await self._publish_agent_step("think", name=f"Loop {loop_idx + 1}", stream_id=stream_id)
 
             response_content: list[dict[str, Any]] = []
             stop_reason = "end_turn"
+            streamed_text = False
 
             async for event in self.llm.stream_chat(
                 llm_messages,
@@ -848,14 +926,14 @@ class AgentLoop:
                     delta = event.get("text", "")
                     if delta:
                         self.thinking_text += delta
+                        await turn.thinking(delta)
                         yield {"type": "thinking", "text": delta}
-                        await self._publish_agent_thinking(delta, stream_id=stream_id)
                 elif event["type"] == "delta":
                     delta = event.get("text", "")
                     if delta:
-                        final_text += delta
-                        yield {"type": "delta", "text": delta}
-                        await self._publish_delta(delta, stream_id=stream_id)
+                        streamed_text = True
+                        await turn.speech(delta)
+                        yield {"type": "delta", "text": delta, "segment_id": turn.current_segment_id}
                 elif event["type"] == "done":
                     usage = event.get("usage", {})
                     tokens["input_tokens"] += usage.get("input_tokens", 0)
@@ -872,8 +950,8 @@ class AgentLoop:
 
             tool_uses = [b for b in response_content if b.get("type") == "tool_use"]
             text_blocks = [b["text"] for b in response_content if b.get("type") == "text"]
-            if text_blocks and not final_text:
-                final_text = "\n".join(text_blocks)
+            if text_blocks and not streamed_text:
+                turn.set_speech_text("\n".join(text_blocks))
 
             if not tool_uses or stop_reason == "end_turn":
                 break
@@ -885,26 +963,24 @@ class AgentLoop:
             llm_messages.append({"role": "assistant", "content": response_content})
             tool_results = await self._execute_tool_loop(llm_messages, tool_uses, stream_id=stream_id)
             llm_messages.append({"role": "user", "content": tool_results})
-            final_text = ""
 
+        await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
-        if cancelled or await self._is_cancelled():
-            yield {
-                "type": "done",
-                "text": final_text,
-                "usage": tokens,
-                "steps": list(self.trace_steps),
-                "cancelled": True,
-            }
-            return
-        text = final_text or "Done."
-        yield {
+        base = {
             "type": "done",
-            "text": text,
             "usage": tokens,
             "stream_id": stream_id,
+            "segments": list(turn.segments),
+            "activity": turn.all_activity(),
             "steps": list(self.trace_steps),
+        }
+        if cancelled or await self._is_cancelled():
+            yield {**base, "text": turn.final_text, "cancelled": True}
+            return
+        yield {
+            **base,
+            "text": turn.final_text or "Done.",
             "thinking": self.thinking_text,
             "thinking_ms": self.thinking_ms,
             "thinking_budget": self.thinking_budget,

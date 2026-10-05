@@ -11,7 +11,6 @@ from app.models.agent import RunEvent
 from app.models.audit import AuditEvent
 from app.models.auth import User
 from app.models.learning import EvalScore, Feedback
-from app.models.notification import DecisionRequest
 from app.models.signal import EXTERNAL_CHANNELS, Signal, SignalMessage
 from app.models.usage import UsageLedger
 
@@ -44,25 +43,9 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         )
     ).scalar_one()
 
-    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+    from app.services.signal_threads import attention_counts
 
-    open_decisions = (
-        await session.execute(
-            select(func.count(func.distinct(Signal.id)))
-            .select_from(Signal)
-            .join(SignalMessage, SignalMessage.signal_id == Signal.id)
-            .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
-            .where(
-                Signal.tenant_id == tenant_id,
-                Signal.channel != "assistant",
-                Signal.status.notin_(("closed", "spam")),
-                SignalMessage.kind == "decision_request",
-                DecisionRequest.status == "awaiting_human",
-                # Tip cards on automated mail are not operator blockers.
-                DecisionRequest.title != NO_REPLY_DECISION_TITLE,
-            )
-        )
-    ).scalar_one()
+    open_decisions = (await attention_counts(session, tenant_id))["decisions"]
 
     auto_msgs = (
         await session.execute(

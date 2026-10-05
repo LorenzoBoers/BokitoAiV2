@@ -108,11 +108,12 @@ Contacts and single conversations can still differ from the channel. See [AI han
 2. Create a title and body, or save a draft from the composer in a thread.
 3. Anyone can insert a saved reply while answering in Communication.
 
-## Choose default sub-views
+## Choose default sub-views, folders and tags
 
-1. Scroll to **Folders** on the same page.
+1. Scroll to **Folders and tags** on the same page.
 2. Every channel and agent folder in Communication has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Sub-views appear only after you click the folder. Pick the **Default sub-view** a folder opens on, and override it per channel or assistant below.
-3. Classifying conversations no longer happens with tags here: manage Signal Types under **Settings**, and review the signals under **This conversation** in Communication. See [How Signals work](/docs/ai/cases).
+3. Under **Folders**, save a filter on project, category, tag and stage as a folder in the Communication sidebar. Under **Tags**, keep the workspace tag list that agents and rules pick from. See [Communication](/docs/inbox/communication).
+4. The category of a conversation is not a tag; manage categories under **Settings** → **Signal types**. See [Categories and tickets](/docs/ai/cases).
 
 ## What to do next
 

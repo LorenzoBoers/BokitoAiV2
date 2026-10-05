@@ -122,11 +122,9 @@ async def _source_signal(
     return None
 
 
-async def _set_source_case_status(
-    session: AsyncSession, tenant_id: UUID, run: WorkstreamRun, status: str
-) -> None:
+async def _source_cases(session: AsyncSession, tenant_id: UUID, run: WorkstreamRun) -> list[Case]:
     if run.input_kind != "case":
-        return
+        return []
     rows = list(
         (
             await session.execute(
@@ -137,29 +135,45 @@ async def _set_source_case_status(
             )
         ).scalars()
     )
-    if rows:
-        now = datetime.utcnow()
-        for case in rows:
-            if case.status != status:
-                case.status = status
-                case.updated_at = now
-                session.add(case)
-        return
-    if not run.input_ref:
-        return
+    if rows or not run.input_ref:
+        return rows
     try:
         case_id = UUID(run.input_ref)
     except ValueError:
-        return
+        return []
     case = (
         await session.execute(
             select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id)
         )
     ).scalar_one_or_none()
-    if case and case.status != status:
-        case.status = status
-        case.updated_at = datetime.utcnow()
-        session.add(case)
+    return [case] if case else []
+
+
+async def _set_source_case_status(
+    session: AsyncSession,
+    tenant_id: UUID,
+    run: WorkstreamRun,
+    status: str | None = None,
+    *,
+    stage_key: str | None = None,
+) -> None:
+    """Move the run's tickets to a stage, or to the first stage of a status kind."""
+    from app.services.ticket_stages import move_case_stage
+
+    for case in await _source_cases(session, tenant_id, run):
+        try:
+            await move_case_stage(
+                session,
+                tenant_id,
+                case,
+                status=status,
+                stage_key=stage_key,
+                actor_type="workstream_run",
+                actor_id=str(run.id),
+            )
+        except HTTPException:
+            # A step names a stage the ticket's workstream no longer has.
+            logger.warning("Unknown stage %s on run %s", stage_key, run.id)
 
 
 def _parse_ids(raw: str | None) -> list[str]:
@@ -198,6 +212,8 @@ def _template_fields(run: WorkstreamRun) -> dict[str, Any]:
 
 
 def serialize_workstream(ws: Workstream, *, steps_count: int | None = None) -> dict[str, Any]:
+    from app.services.ticket_stages import workstream_stages
+
     out = {
         "id": str(ws.id),
         "project_id": str(ws.project_id) if ws.project_id else None,
@@ -207,6 +223,7 @@ def serialize_workstream(ws: Workstream, *, steps_count: int | None = None) -> d
         "is_default": ws.is_default,
         "module_slug": ws.module_slug,
         "template_slug": ws.template_slug,
+        "stages": workstream_stages(ws),
         "created_at": _iso(ws.created_at),
         "updated_at": _iso(ws.updated_at),
     }
@@ -230,6 +247,7 @@ def serialize_step(step: WorkstreamStep) -> dict[str, Any]:
         "on_deadline": step.on_deadline,
         "knowledge_section_ids": _parse_ids(step.knowledge_section_ids_json),
         "config": _parse_json(step.config_json),
+        "stage_key": step.stage_key or None,
     }
 
 
@@ -265,10 +283,14 @@ def serialize_run(run: WorkstreamRun, *, workstream_name: str | None = None) -> 
 async def get_workstream(
     session: AsyncSession, tenant_id: UUID, workstream_id: UUID
 ) -> Workstream:
+    from app.services.trash import alive
+
     ws = (
         await session.execute(
             select(Workstream).where(
-                Workstream.id == workstream_id, Workstream.tenant_id == tenant_id
+                Workstream.id == workstream_id,
+                Workstream.tenant_id == tenant_id,
+                alive(Workstream),
             )
         )
     ).scalar_one_or_none()
@@ -282,7 +304,9 @@ async def list_workstreams(
 ) -> list[dict[str, Any]]:
     from sqlalchemy import func
 
-    query = select(Workstream).where(Workstream.tenant_id == tenant_id)
+    from app.services.trash import alive
+
+    query = select(Workstream).where(Workstream.tenant_id == tenant_id, alive(Workstream))
     if project_id is not None:
         query = query.where(Workstream.project_id == project_id)
     rows = list((await session.execute(query.order_by(Workstream.name))).scalars().all())
@@ -366,6 +390,7 @@ async def replace_steps(
             [str(v) for v in (payload.get("knowledge_section_ids") or [])]
         )
         row.config_json = json.dumps(payload.get("config") or {})
+        row.stage_key = str(payload.get("stage_key") or "")
         session.add(row)
         out.append(row)
 
@@ -381,15 +406,41 @@ async def replace_steps(
 
 
 async def delete_workstream(
-    session: AsyncSession, tenant_id: UUID, workstream_id: UUID
+    session: AsyncSession,
+    tenant_id: UUID,
+    workstream_id: UUID,
+    *,
+    permanent: bool = False,
 ) -> None:
-    ws = await get_workstream(session, tenant_id, workstream_id)
-    run_ids = select(WorkstreamRun.id).where(WorkstreamRun.workstream_id == ws.id)
+    if not permanent:
+        from app.services.trash import load_tenant, move_to_bin
+
+        ws = await get_workstream(session, tenant_id, workstream_id)
+        tenant = await load_tenant(session, tenant_id)
+        await move_to_bin(
+            session,
+            tenant,
+            resource_type="playbook",
+            row=ws,
+            user_id=None,
+            commit=True,
+        )
+        return
+    ws = (
+        await session.execute(
+            select(Workstream).where(
+                Workstream.id == workstream_id, Workstream.tenant_id == tenant_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    from sqlalchemy import update as sa_update
+
     await session.execute(
-        sa_delete(AgentRun).where(AgentRun.workstream_run_id.in_(run_ids))
-    )
-    await session.execute(
-        sa_delete(WorkstreamRun).where(WorkstreamRun.workstream_id == ws.id)
+        sa_update(WorkstreamRun)
+        .where(WorkstreamRun.workstream_id == ws.id)
+        .values(workstream_id=None)
     )
     await session.execute(
         sa_delete(WorkstreamStep).where(WorkstreamStep.workstream_id == ws.id)
@@ -412,6 +463,7 @@ async def ensure_default_workstream(
                 select(Workstream).where(
                     Workstream.tenant_id == tenant_id,
                     Workstream.project_id == project_id,
+                    Workstream.deleted_at.is_(None),
                 )
             )
         )
@@ -777,10 +829,17 @@ async def _execute_agent_step(
         runtime_snapshot_json=json.dumps(snapshot),
     )
     session.add(agent_run)
-    agent.runtime_status = "active"
-    agent.current_activity_summary = f"{ws.name}: {step.name}"[:200]
+    from app.services.workforce_runtime import apply_agent_runtime, broadcast_agent_live
+
+    apply_agent_runtime(
+        agent,
+        status="working",
+        summary=f"{ws.name}: {step.name}"[:200],
+        activity_id=agent_run.id,
+    )
     session.add(agent)
     await session.flush()
+    await broadcast_agent_live(agent, activity_id=str(agent_run.id))
 
     knowledge = await _knowledge_context(session, tenant_id, step)
     if run.project_id:
@@ -823,9 +882,12 @@ async def _execute_agent_step(
         text[:500],
         {"tokens_in": tokens_in, "tokens_out": tokens_out},
     )
-    agent.runtime_status = "standby"
+    from app.services.workforce_runtime import apply_agent_runtime, broadcast_agent_live
+
+    apply_agent_runtime(agent, status="standby")
     session.add(agent)
     await session.flush()
+    await broadcast_agent_live(agent)
     signal = await _source_signal(session, tenant_id, run)
     if signal:
         from app.gateway.publish import publish_signal_message
@@ -1230,6 +1292,8 @@ async def advance_run(
             await _complete_run(session, tenant_id, ws, run)
             await session.commit()
             return {"completed": True}
+        if step.stage_key:
+            await _set_source_case_status(session, tenant_id, run, stage_key=step.stage_key)
 
         if step.kind in ("wait_for_reply", "schedule"):
             run.status = "waiting"
@@ -1241,7 +1305,8 @@ async def advance_run(
             run.reminded_at = None
             run.updated_at = datetime.utcnow()
             session.add(run)
-            await _set_source_case_status(session, tenant_id, run, "waiting")
+            if not step.stage_key:
+                await _set_source_case_status(session, tenant_id, run, "waiting")
             await session.commit()
             return {"waiting": True, "wait_kind": "reply" if step.kind == "wait_for_reply" else "time"}
 
@@ -1249,7 +1314,8 @@ async def advance_run(
             run.status = "awaiting_gate"
             run.updated_at = datetime.utcnow()
             session.add(run)
-            await _set_source_case_status(session, tenant_id, run, "waiting")
+            if not step.stage_key:
+                await _set_source_case_status(session, tenant_id, run, "waiting")
             await _raise_gate_decision(session, tenant_id, ws, run, step)
             await session.commit()
             return {"awaiting_gate": True, "step_id": str(step.id)}

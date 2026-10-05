@@ -473,17 +473,24 @@ def _title_from(path: str, meta: dict[str, str], body: str) -> str:
     return stem[:-3].replace("-", " ").replace("_", " ").title() if stem.endswith(".md") else stem
 
 
-async def get_doc(session: AsyncSession, tenant_id: UUID, doc_id: UUID) -> WorkspaceDoc | None:
-    result = await session.execute(
-        select(WorkspaceDoc).where(WorkspaceDoc.id == doc_id, WorkspaceDoc.tenant_id == tenant_id)
-    )
+async def get_doc(session: AsyncSession, tenant_id: UUID, doc_id: UUID, *, include_deleted: bool = False) -> WorkspaceDoc | None:
+    from app.services.trash import alive
+
+    query = select(WorkspaceDoc).where(WorkspaceDoc.id == doc_id, WorkspaceDoc.tenant_id == tenant_id)
+    if not include_deleted:
+        query = query.where(alive(WorkspaceDoc))
+    result = await session.execute(query)
     return result.scalar_one_or_none()
 
 
 async def get_doc_by_path(session: AsyncSession, tenant_id: UUID, path: str) -> WorkspaceDoc | None:
+    from app.services.trash import alive
+
     result = await session.execute(
         select(WorkspaceDoc).where(
-            WorkspaceDoc.tenant_id == tenant_id, WorkspaceDoc.path == _normalize_path(path)
+            WorkspaceDoc.tenant_id == tenant_id,
+            WorkspaceDoc.path == _normalize_path(path),
+            alive(WorkspaceDoc),
         )
     )
     return result.scalar_one_or_none()
@@ -507,6 +514,9 @@ async def list_docs(
     skip the org-only default (still filtered by any explicit ids).
     """
     stmt = select(WorkspaceDoc).where(WorkspaceDoc.tenant_id == tenant_id)
+    from app.services.trash import alive
+
+    stmt = stmt.where(alive(WorkspaceDoc))
     if not include_external:
         stmt = stmt.where(WorkspaceDoc.internal.is_(True))
     if project_id is not None:
@@ -945,15 +955,37 @@ def _infer_kind(path: str) -> str:
     return "doc"
 
 
-async def delete_doc(session: AsyncSession, tenant_id: UUID, doc_id: UUID) -> None:
-    doc = await get_doc(session, tenant_id, doc_id)
+async def delete_doc(
+    session: AsyncSession,
+    tenant_id: UUID,
+    doc_id: UUID,
+    *,
+    permanent: bool = False,
+    commit: bool = True,
+) -> None:
+    doc = await get_doc(session, tenant_id, doc_id, include_deleted=permanent)
     if not doc:
         raise HTTPException(status_code=404, detail="Doc not found")
+    if not permanent:
+        from app.services.trash import load_tenant, move_to_bin
+
+        tenant = await load_tenant(session, tenant_id)
+        await move_to_bin(
+            session,
+            tenant,
+            resource_type="knowledge",
+            row=doc,
+            user_id=None,
+            title=doc.title or doc.path,
+            commit=commit,
+        )
+        return
     sections = await list_sections(session, tenant_id, doc.id)
     await _delete_section_rows(session, [s.id for s in sections])
     await session.execute(delete(DocChunk).where(DocChunk.doc_id == doc.id))
     await session.delete(doc)
-    await session.commit()
+    if commit:
+        await session.commit()
 
 
 # ── agent context assembly ───────────────────────────────────────
@@ -1006,6 +1038,7 @@ async def build_workspace_context(
                     Signal.tenant_id == tenant_id,
                     Signal.is_example.is_(True),
                     Signal.status == "closed",
+                    Signal.deleted_at.is_(None),
                 )
                 .order_by(Signal.updated_at.desc())
                 .limit(3)

@@ -92,6 +92,30 @@ def test_classify_automated_headers():
     ]
 
 
+def test_classify_shipping_notifications():
+    out = classify_automated_email("info@postnl.nl")
+    assert out == {"automated": True, "reason": "shipping_notification"}
+    assert classify_automated_email("track@mail.dhlparcel.nl")["automated"]
+
+    for subject in (
+        "Afgeleverd: je pakket van API GmbH",
+        "Onderweg met je pakket van Uniqlo",
+        "Nieuw pakket van API GmbH",
+        "Your package is out for delivery",
+        "Check je bezorgmoment",
+    ):
+        out = classify_automated_email("service@shop.example", subject=subject)
+        assert out["automated"], subject
+
+    # Replies about a parcel are a conversation, not a notification.
+    assert not classify_automated_email(
+        "klant@bedrijf.nl", subject="Re: je pakket is niet aangekomen"
+    )["automated"]
+    assert not classify_automated_email("klant@bedrijf.nl", subject="Offerte zonnepanelen")[
+        "automated"
+    ]
+
+
 def test_clip_with_ellipsis_cuts_on_a_word():
     raw = (
         "Hallo Lorenzo, Best verkocht Topmerken Help Mijn account Verkoop Zoeken "
@@ -178,7 +202,7 @@ async def test_no_reply_cards_excluded_from_agents_attention(client: AsyncClient
     ).scalar_one()
     from app.models.agent import Agent
     from app.services.inbound_agent import create_action_suggestion
-    from app.services.signal_threads import count_no_reply_suggestions, nav_badge_counts
+    from app.services.signal_threads import attention_counts, nav_badge_counts
 
     agent = (
         (
@@ -207,7 +231,7 @@ async def test_no_reply_cards_excluded_from_agents_attention(client: AsyncClient
         summary="Weekly digest.",
         reason="mailing_list",
     )
-    assert await count_no_reply_suggestions(session_override, tenant.id) >= 1
+    assert (await attention_counts(session_override, tenant.id))["no_reply_suggestions"] >= 1
     from app.models.auth import User
 
     user = (
@@ -287,7 +311,7 @@ async def test_action_suggestion_card_options(client: AsyncClient, session_overr
     by_id = {o["id"]: o for o in options}
     assert by_id["close"]["action_type"] == "close_thread"
     assert by_id["close"]["payload"]["signal_id"] == str(signal.id)
-    assert by_id["create_task"]["action_type"] == "create_task"
+    assert by_id["look_at"]["action_type"] == "look_at"
     assert by_id["keep_open"]["action_type"] == "defer"
 
     # No reply option anywhere on the card.
@@ -513,7 +537,7 @@ async def test_create_task_option_sets_conversation_look_at(client: AsyncClient,
     resolve = await client.post(
         f"/api/signals/{signal.id}/messages/{result['message_id']}/resolve",
         headers=headers,
-        json={"action": "approved", "option_id": "create_task"},
+        json={"action": "approved", "option_id": "look_at"},
     )
     assert resolve.status_code == 200, resolve.text
     assert resolve.json().get("task_id") == str(signal.id)

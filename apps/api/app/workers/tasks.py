@@ -73,7 +73,7 @@ async def _interpret_inbound_message(session, tenant_id: UUID, signal: Signal) -
         msg_meta = {}
     sender = msg.from_address or signal.contact_email or ""
     headers = msg_meta.get("auto_headers") if isinstance(msg_meta, dict) else None
-    if classify_automated_email(sender, headers=headers)["automated"]:
+    if classify_automated_email(sender, headers=headers, subject=signal.subject or "")["automated"]:
         return
     if msg.author_user_id or await find_member_by_email(session, tenant_id, sender):
         return
@@ -105,6 +105,11 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         # and typed signals (Cases) exist before any reply path decides what to
         # do — and still happen when AI is paused or replies are off.
         await _interpret_inbound_message(session, UUID(tenant_id), signal)
+        if signal.superseded_by_id:
+            # Triage split the new request off: answer it where it now lives.
+            newer = await session.get(Signal, signal.superseded_by_id)
+            if newer is not None:
+                signal = newer
 
         if ai_handling.is_held(signal):
             return {"skipped": True, "reason": "ai_handling_manual"}
@@ -174,6 +179,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         # thread directly — no agent run, no decision card.
         from app.services import inbox_rules
 
+        tag_rules = await inbox_rules.find_tag_rules(
+            session, UUID(tenant_id), sender_address, headers=auto_headers
+        )
+        await inbox_rules.apply_tag_rules(session, UUID(tenant_id), signal, tag_rules)
         rule = await inbox_rules.find_matching_rule(
             session, UUID(tenant_id), sender_address, headers=auto_headers
         )
@@ -197,7 +206,9 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         # decision card — tip cards flooded the attention queue on busy mailboxes.
         from app.services.automated_mail import classify_automated_email, clip_with_ellipsis
 
-        classification = classify_automated_email(sender_address, headers=auto_headers)
+        classification = classify_automated_email(
+            sender_address, headers=auto_headers, subject=signal.subject or ""
+        )
         if classification["automated"]:
             from app.services.inbound_agent import acknowledge_automated_mail
 
@@ -246,6 +257,16 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         session.add(run)
         await session.commit()
         await session.refresh(run)
+        from app.services.workforce_runtime import mark_agent_activity
+
+        await mark_agent_activity(
+            session,
+            agent,
+            status="working",
+            summary=(signal.subject or "Replying")[:200],
+            signal_id=signal.id,
+            activity_id=run.id,
+        )
 
         loop = AgentLoop(
             session, UUID(tenant_id), None, agent=agent, run=run, signal_id=signal.id
@@ -351,14 +372,40 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         except Exception as exc:
             # Never leave the run stuck on "running": the agenda, cockpit and
             # workforce views all read this status.
+            from app.services.run_errors import record_run_error, workspace_block
+
             run.status = "failed"
             run.completed_at = datetime.utcnow()
+            record_run_error(run, exc)
             session.add(run)
             await session.commit()
+            from app.services.workforce_runtime import mark_agent_activity
+
+            await mark_agent_activity(session, agent, status="standby")
 
             from app.services.task_ledger import settle_run_task
 
             await settle_run_task(session, run)
+
+            block = workspace_block(exc)
+            if block:
+                # Spend cap / provider credits / bad key: every message fails the
+                # same way until fixed. One alert, a thread note, no retry.
+                from app.services.ops_alerts import alert_workspace_block
+
+                session.add(
+                    SignalEvent(
+                        signal_id=signal.id,
+                        tenant_id=UUID(tenant_id),
+                        event_type="agent_blocked",
+                        actor_type="system",
+                        actor_id="",
+                        payload_json=json.dumps({"block": block, "run_id": str(run.id)}),
+                    )
+                )
+                await session.commit()
+                await alert_workspace_block(session, UUID(tenant_id), block=block, error=exc)
+                return {"skipped": True, "reason": block, "signal_id": signal_id}
 
             from app.services.ops_alerts import alert_run_failure
 
@@ -374,9 +421,8 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         # If the agent already raised its own inline decision card during the
         # run, don't stack an automatic reply-suggestion card on top of it.
-        agent_created_decision = any(
-            step.get("step_type") == "tool_call" and step.get("name") == "create_decision_request"
-            for step in loop.trace_steps
+        agent_created_decision = "create_decision_request" in (
+            loop.turn.tool_names() if loop.turn else []
         )
 
         from app.services.automated_mail import extract_no_reply_summary
@@ -431,8 +477,12 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 tokens=tokens,
                 mode=run_mode,
                 llm_live=llm_live,
+                segments=list(loop.turn.segments) if loop.turn else None,
             )
 
+        from app.services.workforce_runtime import mark_agent_activity
+
+        await mark_agent_activity(session, agent, status="standby")
         run.status = "completed"
         run.completed_at = datetime.utcnow()
         if isinstance(tokens, dict):
@@ -666,18 +716,19 @@ async def sync_calendar_connections_job(ctx):
     from sqlalchemy import select
 
     from app.models.integration import IntegrationConnection
-    from app.services.calendar_sync import CALENDAR_PROVIDERS, sync_connection
+    from app.services.calendar_sync import _calendar_slug, sync_connection
 
     async with async_session_factory() as session:
         result = await session.execute(
             select(IntegrationConnection).where(
-                IntegrationConnection.provider.in_(list(CALENDAR_PROVIDERS)),
                 IntegrationConnection.status == "active",
             )
         )
         synced = 0
         errors = 0
         for conn in result.scalars().all():
+            if _calendar_slug(conn) is None:
+                continue
             try:
                 out = await sync_connection(session, conn)
                 if out.get("status") == "error":
@@ -698,17 +749,19 @@ async def nudge_idle_agent_sessions_job(ctx):
 
 
 async def purge_retention_job(ctx):
-    """Daily: purge SignalMessage / CalendarEvent past tenant retention TTLs."""
+    """Daily: Bin TTL first, then privacy message/calendar retention."""
     from sqlalchemy import select
 
     from app.models.auth import Tenant
     from app.services.privacy import purge_expired_for_tenant
+    from app.services.trash import purge_expired_trash
 
     async with async_session_factory() as session:
         tenants = (await session.execute(select(Tenant))).scalars().all()
-        totals = {"messages_deleted": 0, "calendar_deleted": 0, "tenants": 0}
+        totals = {"messages_deleted": 0, "calendar_deleted": 0, "trash_purged": 0, "tenants": 0}
         for tenant in tenants:
             try:
+                totals["trash_purged"] += await purge_expired_trash(session, tenant)
                 out = await purge_expired_for_tenant(session, tenant)
                 totals["messages_deleted"] += out.get("messages_deleted", 0)
                 totals["calendar_deleted"] += out.get("calendar_deleted", 0)

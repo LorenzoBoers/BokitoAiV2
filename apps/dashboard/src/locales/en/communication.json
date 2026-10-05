@@ -94,7 +94,7 @@
       "replyEmail": "Reply to {{email}}...",
       "slack": "Type a Slack message...",
       "whatsapp": "Reply on WhatsApp to {{name}}...",
-      "chat": "Reply in chat to {{name}}...",
+      "chat": "Reply to {{name}}...",
       "chatVisitor": "Reply in chat..."
     },
     "addNoteTitle": "Internal message",
@@ -201,11 +201,13 @@
     "scopeProject": "Conversations in {{name}}",
     "scopeAgentFallback": "this agent",
     "scopeProjectFallback": "this project",
+    "scopeFolder": "Folder: {{name}}",
+    "scopeFiltered": "Filtered conversations",
     "clearScope": "Show all conversations",
     "emptyScoped": "No conversations in this filter.",
     "selectThread": "Select thread",
     "closeThread": "Close conversation",
-    "deleteThread": "Delete conversation",
+    "deleteThread": "Move to Bin",
     "channelSettings": "Channel settings",
     "lastSyncNow": "Mail just now",
     "lastSyncMinutes": "Mail {{count}}m ago",
@@ -238,6 +240,8 @@
     "titleDecision": "Decision",
     "resolved": "Resolved",
     "earlierDraft": "Earlier draft — dismissed",
+    "draftSent": "Draft approved and sent",
+    "draftRejected": "Draft rejected",
     "automatedExplainer": "This looks like an automated message, so no reply was drafted.",
     "decisionNeeded": "Decision needed",
     "source": {
@@ -286,6 +290,8 @@
     "titleQueueProposal": "Queue proposal",
     "openAgenda": "Open Agenda",
     "toastSent": "Reply sent",
+    "bubbleLabel": "Message {{index}}",
+    "removeBubble": "Remove message",
     "copyId": "Copy decision ID",
     "idCopied": "Decision ID copied",
     "copyIdFailed": "Could not copy decision ID",
@@ -347,10 +353,12 @@
       "demoMakesSense": "Does this demo make sense?",
       "assistPrefix": "Help: {{subject}}",
       "approvalPrefix": "Approval: {{subject}}",
-      "inboxRoutingRule": "Inbox routing rule"
+      "inboxRoutingRule": "Inbox routing rule",
+      "deepLinkCheck": "Open this decision from the bell"
     },
     "knownSummaries": {
-      "draftForReview": "Draft reply prepared for review."
+      "draftForReview": "Draft reply prepared for review.",
+      "deepLinkCheck": "Created to check that the bell opens this card."
     },
     "askedTo": "Asked to {{name}}",
     "learn": {
@@ -368,31 +376,21 @@
       }
     }
   },
-  "agentSteps": {
-    "toolCall": "Looking something up",
-    "toolResult": "Finished looking up",
+  "activity": {
     "thinking": "Thinking",
-    "thinkingActive": "Thinking...",
-    "writing": "Writing...",
-    "thought": "Thought",
     "thoughtFor": "Thought for {{duration}}",
-    "runningTool": "Running {{name}}",
-    "finishedTool": "Finished {{name}}",
-    "toolFallback": "tool",
-    "updatingKnowledge": "Updating knowledge...",
-    "updatedKnowledge": "Updated knowledge",
-    "consultingKnowledge": "Consulting knowledge...",
-    "consultedKnowledge": "Consulted knowledge",
-    "usedTool": "Used {{name}}",
-    "toolCalls": "{{count}} tool calls",
-    "toolCallsNamed": "{{count}} tool calls ({{names}})",
-    "thinkingStep": "1 thinking step",
-    "thinkingSteps": "{{count}} thinking steps",
-    "steps": "{{count}} steps",
-    "tokens": "+{{count}} tokens",
-    "copyTrace": "Copy trace",
-    "traceCopied": "Trace copied",
-    "copyFailed": "Could not copy trace"
+    "thoughtBriefly": "Thought briefly",
+    "actionCount_one": "{{count}} action",
+    "actionCount_other": "{{count}} actions",
+    "working": "Working",
+    "workedFor_one": "Worked for {{duration}} · {{count}} action",
+    "workedFor_other": "Worked for {{duration}} · {{count}} actions",
+    "otherCount_one": "{{count}} note",
+    "otherCount_other": "{{count}} notes",
+    "writing": "Typing...",
+    "note": "Note",
+    "action": "Action",
+    "failed": "Failed"
   },
   "mockAgent": {
     "replyBody": "Placeholder reply about {{topic}}."
@@ -434,11 +432,13 @@
       "calendar": "Calendar",
       "awaiting_human": "For you",
       "overdue": "Overdue",
-      "planned": "Planned"
+      "planned": "Planned",
+      "due": "Due"
     },
     "agendaKind": {
       "wake": "Agent wake",
       "task": "Look-at",
+      "follow_up": "Look-at",
       "event": "Event",
       "webhook": "Webhook",
       "once": "One-off",
@@ -449,7 +449,7 @@
     },
     "agentRuntime": {
       "active": "Active",
-      "standby": "Paused",
+      "standby": "Standby",
       "sleeping": "Sleeping",
       "inactive": "Inactive"
     },
@@ -527,8 +527,7 @@
     "actionsCount": "{{count}} actions",
     "switchedAgent": "Meta conversation switched to {{name}}",
     "busyError": "The agent is still replying. Wait or press Stop.",
-    "sendError": "Could not send to the agent.",
-    "thinking": "Thinking…"
+    "sendError": "Could not send to the agent."
   },
   "onboarding": {
     "title": "Get your workspace ready",
@@ -739,6 +738,9 @@
     "assign": "Assign",
     "assignedTo": "Assigned to {{name}}",
     "unassigned": "Unassigned",
+    "unassignedDone": "Assignment cleared",
+    "assignError": "Could not assign this conversation.",
+    "patchError": "Could not update this conversation.",
     "forwardAsEmail": "Forward as new email",
     "setPriority": "Set priority",
     "customerRating": "Customer rating",
@@ -781,8 +783,6 @@
     "copyExternalId": "Copy external conversation ID",
     "externalIdCopied": "External conversation ID copied",
     "newMessages": "{{count}} new",
-    "pickUp": "Pick up",
-    "pickUpHint": "Make this conversation yours. It leaves Unassigned and For you of the rest of the team.",
     "assignPeople": "People",
     "assignAgents": "Agents",
     "assignTeams": "Teams",
@@ -857,10 +857,8 @@
     "kindContact": "Contact",
     "unknown": "Unknown contact",
     "lastSeen": "Last seen {{time}}",
-    "now": "now",
-    "minutesAgo": "{{count}}m ago",
-    "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago",
+    "activeNow": "Active now",
+    "lastActive": "Last active {{time}}",
     "block": "Block",
     "blockConfirm": "Block {{name}}? New messages from them will be dropped and never reach Communication.",
     "thisContact": "this contact",
@@ -941,6 +939,7 @@
     "configure": "Configure",
     "activeTask": "In progress",
     "openRun": "Open run",
+    "openCurrentWork": "See what they are doing",
     "recentConversations": "Recent conversations",
     "showMore": "Show more",
     "noOtherConversations": "No other conversations with this agent.",
@@ -949,9 +948,18 @@
     "roleDefaults": "Role defaults",
     "allToolsAvailable": "All registered tools are available.",
     "loading": "Loading agent details...",
-    "toolsAndIntegrations": "Tools & connections",
+    "toolsAndIntegrations": "Tools and connections",
     "integrations": "Connections",
     "tools": "Tools",
+    "modules": "Modules",
+    "moduleCount": "{{formatted}} modules",
+    "moduleCount_one": "{{formatted}} module",
+    "connectionCount": "{{formatted}} connections",
+    "connectionCount_one": "{{formatted}} connection",
+    "toolCount": "{{formatted}} tools",
+    "toolCount_one": "{{formatted}} tool",
+    "noModulesOrConnections": "No modules or connections yet.",
+    "viewToolsOnAgent": "See tools on the agent",
     "unrestricted": "Unrestricted",
     "openIntegrations": "Open Connections",
     "modelManaged": "{{model}} (Bokito)"
@@ -1008,6 +1016,7 @@
     "internal": "Internal",
     "snoozed": "Waiting",
     "you": "You",
+    "ai": "AI",
     "needsReply": "Needs reply",
     "theirTurn": "Waiting on them",
     "needsDecision": "Needs decision",
@@ -1091,7 +1100,6 @@
       "stopped": "Job stopped",
       "stopError": "Could not stop the job"
     },
-    "showActivity": "Show activity",
     "idCopied": "Message ID copied",
     "bodyCopied": "Message copied",
     "copyFailed": "Could not copy",
@@ -1122,12 +1130,25 @@
       "snoozeExpired": "Snooze expired",
       "widgetSeen": "Seen by the customer",
       "agentReviewed": "AI reviewed this message",
+      "agentBlocked": {
+        "spend_cap": "AI skipped this message: the LLM spend cap is reached",
+        "provider_credits": "AI skipped this message: AI provider credits are exhausted",
+        "provider_auth": "AI skipped this message: the AI provider key was rejected",
+        "other": "AI skipped this message"
+      },
       "noReplyNoted": "No reply needed — automated message",
       "agentInvoked": "Agent invoked",
       "agentReplied": "AI replied",
       "suggestionCreated": "AI drafted a suggestion",
       "decisionCreated": "AI asked for a decision",
       "triaged": "AI triaged this conversation",
+      "splitIn": "Split from an earlier conversation",
+      "splitOut": "New request moved to its own conversation",
+      "splitOutCategory": "New request moved to its own conversation: {{category}}",
+      "categorySet": "Category set to {{category}}",
+      "categoryProposed": "Category proposed: {{category}}",
+      "categoryChanged": "Category changed from {{previous}} to {{category}}",
+      "ticketStageChanged": "Ticket moved to {{stage}}",
       "escalated": "Escalated to the team",
       "aiPaused": "AI paused on this thread",
       "aiResumed": "AI resumed on this thread",
@@ -1154,6 +1175,7 @@
       "autoClosedByRule": "Auto-closed by rule{{target}}",
       "taskCreatedByRule": "Look-at planned by rule{{target}}",
       "aiSkippedByRule": "AI skipped by rule{{target}}",
+      "taggedByRule": "Tagged {{tags}} by rule{{target}}",
       "handledByRule": "Handled by rule{{target}}",
       "emailContent": "Email content",
       "editNote": "Edit note",
@@ -1236,6 +1258,17 @@
     "cancel": "Cancel",
     "save": "Save"
   },
+  "splitConversation": {
+    "action": "Split from here",
+    "title": "Split into a new conversation",
+    "hint": "This message and everything after it move into a new conversation with the same contact. Replies on this thread land there.",
+    "category": "Category for the new conversation",
+    "noCategory": "Decide later",
+    "cancel": "Cancel",
+    "confirm": "Split",
+    "done": "Conversation split",
+    "failed": "Could not split the conversation"
+  },
   "split": {
     "list": "Resize conversation list",
     "context": "Resize side panel",
@@ -1253,5 +1286,12 @@
     "title": "Mention",
     "agent": "Agent",
     "team": "Team"
+  },
+  "tags": {
+    "title": "Tags",
+    "add": "Add tag",
+    "placeholder": "Tag name",
+    "remove": "Remove tag {{tag}}",
+    "categoryLocked": "Category. Change it under Category."
   }
 }

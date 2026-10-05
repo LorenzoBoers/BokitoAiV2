@@ -39,8 +39,17 @@ const CORE_PROVIDER_TO_HOST_SLUG: Record<string, string> = {
   smtp_imap: 'smtp',
   shopify_mcp: 'shopify',
   shopify: 'shopify',
-  gocardless_bank: 'gocardless',
-  whatsapp: 'whatsapp',
+    gocardless_bank: 'gocardless',
+    whatsapp: 'whatsapp',
+    tink: 'tink',
+    yapily: 'yapily',
+    knab: 'knab',
+    twelve_data: 'twelve_data',
+    bitvavo: 'bitvavo',
+    tradingview_alerts: 'tradingview',
+    google_drive: 'google_drive',
+    microsoft_graph_files: 'onedrive',
+    dropbox: 'dropbox',
 }
 
 export const PROVIDER_TO_HOST_SLUG: Record<string, string> = {
@@ -68,6 +77,15 @@ const CORE_HOST_META: Record<string, { initials: string; color: string; name: st
   smtp: { initials: 'SM', color: '#64748b', name: 'SMTP / IMAP' },
   shopify: { initials: 'SH', color: '#96bf48', name: 'Shopify' },
   whatsapp: { initials: 'WA', color: '#25d366', name: 'WhatsApp' },
+  tink: { initials: 'TI', color: '#161616', name: 'Tink' },
+  yapily: { initials: 'YA', color: '#1b1f3b', name: 'Yapily' },
+  knab: { initials: 'KN', color: '#ffcd00', name: 'Knab' },
+  twelve_data: { initials: 'TD', color: '#1a73e8', name: 'Twelve Data' },
+  bitvavo: { initials: 'BV', color: '#0051ff', name: 'Bitvavo' },
+  tradingview: { initials: 'TV', color: '#131722', name: 'TradingView' },
+  google_drive: { initials: 'GD', color: '#1ea362', name: 'Google Drive' },
+  onedrive: { initials: 'OD', color: '#0078d4', name: 'OneDrive / SharePoint' },
+  dropbox: { initials: 'DB', color: '#0061ff', name: 'Dropbox' },
 }
 
 export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: string; name: string }> = {
@@ -98,7 +116,26 @@ function apiImageUrlOrNull(value: unknown): string | null {
 }
 
 export function hostSlugForProvider(providerOrCatalogId: string): string {
-  return PROVIDER_TO_HOST_SLUG[providerOrCatalogId] ?? providerOrCatalogId
+  const key = providerOrCatalogId.trim()
+  if (!key) return key
+  if (PROVIDER_TO_HOST_SLUG[key]) return PROVIDER_TO_HOST_SLUG[key]
+  const underscored = key.replace(/-/g, '_')
+  if (PROVIDER_TO_HOST_SLUG[underscored]) return PROVIDER_TO_HOST_SLUG[underscored]
+  const dashed = key.replace(/_/g, '-')
+  if (PROVIDER_TO_HOST_SLUG[dashed]) return PROVIDER_TO_HOST_SLUG[dashed]
+  return key
+}
+
+export function indexProviderBrands(
+  providers: IntegrationProviderRow[],
+): Map<string, ResolvedIntegrationBrand> {
+  const map = new Map<string, ResolvedIntegrationBrand>()
+  for (const row of providers) {
+    const brand = resolveProviderRowBrand(row)
+    if (row.slug) map.set(row.slug, brand)
+    if (row.id) map.set(row.id, brand)
+  }
+  return map
 }
 
 export function resolveHostBrand(

@@ -73,6 +73,9 @@ class InboxRule(SQLModel, table=True):
     labels_json: str = Field(default="[]")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
 
 class EvalScore(SQLModel, table=True):

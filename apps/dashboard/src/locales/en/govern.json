@@ -163,8 +163,8 @@
     "saveError": "Could not update this autonomy level.",
     "levels": {
       "manual": "Manual",
-      "approval": "Ask first",
-      "auto": "Automatic"
+      "assisted": "Assisted",
+      "autonomous": "Autonomous"
     }
   },
   "toolCategories": {

@@ -4,6 +4,7 @@ import {
   customersFirst,
   pickPreferredInboxThread,
   resolveComposerSurface,
+  threadCounterpartyName,
   threadHubPath,
   threadNeedsReply,
 } from './message-composer'
@@ -103,7 +104,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
     )
     expect(
       threadHubPath(thread({ id: 'a1', channel: 'assistant', folder: 'assistant', agentId: 'agent-9' })),
-    ).toBe('/communication/inbox/all/t/a1?agent=agent-9')
+    ).toBe('/communication/agent/agent-9/t/a1')
     expect(threadHubPath(thread({ id: 'i1', channel: 'internal', folder: 'internal' }))).toBe(
       '/communication/inbox/all/t/i1',
     )
@@ -166,6 +167,27 @@ describe('resolveComposerSurface (whatsapp)', () => {
     )
     expect(surface.channel).toBe('chat')
     expect(surface.includeSignature).toBe(false)
+  })
+
+  it('defaults a team room to an internal note, not ask-agent', () => {
+    const surface = resolveComposerSurface(
+      thread({
+        channel: 'internal',
+        folder: 'internal',
+        owner: { kind: 'team', userId: null, agentId: null, teamId: 'tm-1' },
+        contactName: 'Sjaakies',
+        agentName: 'Platform PO',
+      }),
+    )
+    expect(surface.defaultMode).toBe('note')
+    expect(surface.showRecipient).toBe(false)
+    expect(threadCounterpartyName(thread({
+      channel: 'internal',
+      folder: 'internal',
+      owner: { kind: 'team', userId: null, agentId: null, teamId: 'tm-1' },
+      contactName: 'Sjaakies',
+      agentName: 'Platform PO',
+    }))).toBe('Sjaakies')
   })
 
   it('treats live-chat aliases as chat', () => {

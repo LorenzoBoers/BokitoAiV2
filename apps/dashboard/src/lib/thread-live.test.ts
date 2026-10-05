@@ -74,6 +74,28 @@ function wireThreadRow(overrides: Record<string, unknown> = {}): Record<string, 
 describe('threadMatchesFilters', () => {
   const me = 7
 
+  it('evaluates folder filters on the category and stage the row carries', () => {
+    const ticket = {
+      caseId: 'c1',
+      categoryId: 'cat-1',
+      name: 'Repair',
+      slug: 'repair',
+      status: 'waiting',
+      isTicket: true,
+      stage: { key: 'parts', name: 'Waiting for parts', kind: 'waiting' as const },
+    }
+    const row = thread({ categoryCase: ticket })
+    expect(threadMatchesFilters(row, { categoryId: 'cat-1' }, me)).toBe(true)
+    expect(threadMatchesFilters(row, { categoryId: 'cat-2' }, me)).toBe(false)
+    expect(threadMatchesFilters(row, { stage: 'waiting' }, me)).toBe(true)
+    expect(threadMatchesFilters(row, { stage: 'parts' }, me)).toBe(true)
+    expect(threadMatchesFilters(row, { stage: 'open' }, me)).toBe(false)
+    expect(threadMatchesFilters(thread({ categoryCase: { ...ticket, status: 'proposed' } }), { categoryId: 'cat-1' }, me)).toBe(false)
+    expect(threadMatchesFilters(thread({ categoryCase: undefined }), { categoryId: 'cat-1' }, me)).toBeNull()
+    expect(threadMatchesFilters(thread({ projectId: 'p1' }), { projectId: 'p1' }, me)).toBe(true)
+    expect(threadMatchesFilters(thread({ projectId: null }), { projectId: 'p1' }, me)).toBeNull()
+  })
+
   it('applies view predicates that mirror the server', () => {
     const open = thread()
     expect(threadMatchesFilters(open, { view: 'all' }, me)).toBe(true)
@@ -111,6 +133,13 @@ describe('threadMatchesFilters', () => {
     expect(threadMatchesFilters(thread({ channel: 'internal' }), { folder: 'external' }, me)).toBe(false)
     expect(threadMatchesFilters(thread({ channel: 'internal' }), { folder: 'internal' }, me)).toBe(true)
     expect(threadMatchesFilters(thread({ channel: 'assistant' }), { folder: 'inbox' }, me)).toBe(true)
+    expect(
+      threadMatchesFilters(
+        thread({ channel: 'assistant', source: 'personal' }),
+        { folder: 'inbox' },
+        me,
+      ),
+    ).toBe(false)
     expect(threadMatchesFilters(thread({ channel: 'internal' }), { folder: 'inbox' }, me)).toBe(false)
     expect(threadMatchesFilters(thread(), { channel: 'widget' }, me)).toBe(false)
     expect(threadMatchesFilters(thread({ tags: ['vip'] }), { tag: 'vip' }, me)).toBe(true)

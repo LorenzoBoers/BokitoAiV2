@@ -35,7 +35,7 @@ At the bottom of the rail, **Organization** groups the workspace itself:
 
 - **Workforce** — the people, the agents and the teams they form, with who is available now. See [Workforce](/docs/getting-started/team).
 - **Connections** — marketplace installs, partner logins and tools. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Integrations](/docs/integrations/integrations).
-- **Settings** — **Channels**, **AI replies**, chat widget, **Providers & models** and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Chat intake types live with [Signals](/docs/ai/cases).
+- **Settings** — **Channels**, **AI replies**, chat widget, **Providers & models** and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Categories for conversations live under **Signal types**; see [Categories and tickets](/docs/ai/cases).
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
@@ -58,7 +58,7 @@ Communication search in the thread list searches conversations. The palette is f
 
 ## Two other shortcuts
 
-The account menu offers **Profile**, **Settings**, **Workspaces** and **Help**. **Help** (`/settings/help`) links to the setup guide, product tour, `/docs`, `/docs/api` and support (email or talk to the assistant). The public site is `/docs` (no login). In-app Learn remains at `/learn` for page banners.
+The account menu offers **Profile**, **Settings**, **Workspaces** and **Help**. The footer repeats the support line `environment · tenant-slug · Live`. **Help** (`/settings/help`) links to the setup guide, product tour, `/docs`, `/docs/api` and support (email or talk to the assistant). The public site is `/docs` (no login). In-app Learn remains at `/learn` for page banners.
 
 ## What to do next
 

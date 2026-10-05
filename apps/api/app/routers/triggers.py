@@ -1,11 +1,12 @@
-"""Triggers API: scheduled wakes (cron/interval/heartbeat/webhook/once/event),
-agenda calendar occurrences, and channel bindings."""
+"""Triggers API: scheduled wakes (cron/interval/heartbeat/webhook/once/event)
+and agenda calendar occurrences."""
 
 from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.middleware.rate_limit import rate_limit
-from app.models.channel import ChannelBinding
 from app.models.trigger import TRIGGER_KINDS, Trigger
 from app.services import triggers as svc
 
@@ -62,8 +62,16 @@ async def agenda(
     from_: datetime | None = Query(None, alias="from"),
     to: datetime | None = Query(None),
     agent_id: UUID | None = Query(None),
+    sources: str | None = Query(
+        None, description="Comma list of session, wake, calendar, follow_up (default all)"
+    ),
+    scheduled_only: bool = Query(
+        False, description="Only sessions fired by a trigger (planning view)"
+    ),
 ):
-    """Calendar occurrences: planned trigger expansions + run history in a window."""
+    """Time items in a window: agent sessions, planned wakes, calendar events
+    and conversation follow-ups, in one shape. Agenda, the agent activity
+    timeline and agent detail all read this endpoint."""
     now = datetime.utcnow()
     start = _naive_utc(from_) or now - timedelta(days=1)
     end = _naive_utc(to) or now + timedelta(days=14)
@@ -71,10 +79,24 @@ async def agenda(
         raise HTTPException(status_code=400, detail="`to` must be after `from`")
     if end - start > timedelta(days=92):
         raise HTTPException(status_code=400, detail="Window too large (max 92 days)")
-    items = await svc.agenda_occurrences(
-        session, auth.tenant.id, start=start, end=end, agent_id=agent_id
+    from app.services.time_items import list_time_items
+
+    wanted = [s.strip() for s in sources.split(",") if s.strip()] if sources else None
+    items = await list_time_items(
+        session,
+        auth.tenant.id,
+        start=start,
+        end=end,
+        agent_id=agent_id,
+        sources=wanted,
+        scheduled_only=scheduled_only,
     )
-    return {"items": items, "from": start.isoformat(), "to": end.isoformat()}
+    return {
+        "items": items,
+        "now": now.replace(microsecond=0).isoformat(),
+        "from": start.replace(microsecond=0).isoformat(),
+        "to": end.replace(microsecond=0).isoformat(),
+    }
 
 
 @router.get("/triggers")
@@ -84,7 +106,7 @@ async def list_triggers(
     kind: str | None = Query(None),
     limit: int = Query(50, ge=1, le=100),
 ):
-    stmt = select(Trigger).where(Trigger.tenant_id == auth.tenant.id)
+    stmt = select(Trigger).where(Trigger.tenant_id == auth.tenant.id, Trigger.deleted_at.is_(None))
     if kind:
         stmt = stmt.where(Trigger.kind == kind)
     stmt = stmt.order_by(Trigger.created_at).limit(limit)
@@ -162,9 +184,17 @@ async def delete_trigger(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    from app.services.trash import load_tenant, move_to_bin
+
     trigger = await svc.get_trigger(session, auth.tenant.id, trigger_id)
-    await session.delete(trigger)
-    await session.commit()
+    await move_to_bin(
+        session,
+        await load_tenant(session, auth.tenant.id),
+        resource_type="trigger",
+        row=trigger,
+        user_id=auth.user.id if auth.user else None,
+        commit=True,
+    )
     return {"ok": True}
 
 
@@ -220,105 +250,38 @@ async def webhook_fire(
     return await svc.fire_trigger(session, trigger, payload=payload)
 
 
-# ── channel bindings ─────────────────────────────────────────────────
+# ── channel bindings (retired: ChannelAccount.default_agent_id is the route) ──
+
+CHANNEL_BINDINGS_RETIRED = {
+    "status": "retired",
+    "hint": (
+        "Channel routing is the default agent on each channel account. "
+        "Set it under Settings → Channels (or the widget handling agent)."
+    ),
+}
 
 
-class BindingCreateBody(BaseModel):
-    channel: str
-    agent_id: UUID
-    channel_account_id: UUID | None = None
-    contact_id: UUID | None = None
-    priority: int = 0
-    enabled: bool = True
-
-
-def _serialize_binding(row: ChannelBinding) -> dict:
-    return {
-        "id": str(row.id),
-        "channel": row.channel,
-        "channel_account_id": str(row.channel_account_id) if row.channel_account_id else None,
-        "contact_id": str(row.contact_id) if row.contact_id else None,
-        "agent_id": str(row.agent_id),
-        "priority": row.priority,
-        "enabled": row.enabled,
-        "created_at": row.created_at.isoformat(),
-    }
+def _channel_bindings_retired() -> JSONResponse:
+    return JSONResponse(status_code=410, content=CHANNEL_BINDINGS_RETIRED)
 
 
 @router.get("/channels/bindings")
-async def list_bindings(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    result = await session.execute(
-        select(ChannelBinding)
-        .where(ChannelBinding.tenant_id == auth.tenant.id)
-        .order_by(ChannelBinding.channel, ChannelBinding.priority.desc())
-    )
-    return {"bindings": [_serialize_binding(b) for b in result.scalars().all()]}
+async def list_bindings_retired() -> JSONResponse:
+    return _channel_bindings_retired()
 
 
 @router.post("/channels/bindings")
-async def create_binding(
-    body: BindingCreateBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    binding = ChannelBinding(tenant_id=auth.tenant.id, **body.model_dump())
-    session.add(binding)
-    await session.commit()
-    await session.refresh(binding)
-    return _serialize_binding(binding)
-
-
-class BindingUpdateBody(BaseModel):
-    enabled: bool | None = None
-    priority: int | None = None
-    agent_id: UUID | None = None
-    channel_account_id: UUID | None = None
+async def create_binding_retired() -> JSONResponse:
+    return _channel_bindings_retired()
 
 
 @router.patch("/channels/bindings/{binding_id}")
-async def update_binding(
-    binding_id: UUID,
-    body: BindingUpdateBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    result = await session.execute(
-        select(ChannelBinding).where(
-            ChannelBinding.id == binding_id, ChannelBinding.tenant_id == auth.tenant.id
-        )
-    )
-    binding = result.scalar_one_or_none()
-    if not binding:
-        raise HTTPException(status_code=404, detail="Binding not found")
-    data = body.model_dump(exclude_unset=True)
-    for key, value in data.items():
-        setattr(binding, key, value)
-    session.add(binding)
-    await session.commit()
-    await session.refresh(binding)
-    return _serialize_binding(binding)
+async def update_binding_retired(binding_id: UUID) -> JSONResponse:
+    del binding_id
+    return _channel_bindings_retired()
 
 
 @router.delete("/channels/bindings/{binding_id}")
-async def delete_binding(
-    binding_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    result = await session.execute(
-        select(ChannelBinding).where(
-            ChannelBinding.id == binding_id, ChannelBinding.tenant_id == auth.tenant.id
-        )
-    )
-    binding = result.scalar_one_or_none()
-    if not binding:
-        raise HTTPException(status_code=404, detail="Binding not found")
-    await session.delete(binding)
-    await session.commit()
-    return {"ok": True}
+async def delete_binding_retired(binding_id: UUID) -> JSONResponse:
+    del binding_id
+    return _channel_bindings_retired()

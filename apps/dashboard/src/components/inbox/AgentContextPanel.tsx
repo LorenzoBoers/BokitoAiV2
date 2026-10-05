@@ -1,35 +1,49 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import type { AgentPassport } from '../../lib/workforce-api'
+import { agentStatusOf } from '../../lib/presence'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
   Activity,
+  Blocks,
   ChevronDown,
   ChevronRight,
   Cpu,
   Loader2,
-  Plug,
-  Settings,
-  Wrench,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { listSignalThreads } from '../../lib/signals-api'
 import { getAllowances, listAgentPassports } from '../../lib/govern-api'
-import { listMcpIntegrationRows, type McpIntegrationRow } from '../../lib/mcp-integrations'
-import { listAgentTasks, type AgentTask } from '../../lib/orchestration-api'
+import { BrandMark } from '../integrations/BrandMark'
+import {
+  listIntegrationConnections,
+  listIntegrationProviders,
+  type IntegrationConnectionRow,
+  type IntegrationModuleRow,
+} from '../../lib/integrations-api'
+import { moduleHomePath, moduleIsOn, moduleNavIcon } from '../../lib/integration-modules'
 import type { GovernToolRow } from '../../lib/govern-api'
 import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
-import { agentRuntimeStatusLabel, threadStatusLabel, workLogStatusLabel } from '../../lib/status-labels'
-import { humanizeLabel } from '../../lib/labels'
+import { threadStatusLabel } from '../../lib/status-labels'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { formatAgentModelLine } from '../../lib/model-label'
-import { agentChatPath, inboxPath } from '../../lib/messages-paths'
+import { agentChatPath } from '../../lib/messages-paths'
+import { openEntityPath } from '../../lib/open-entity'
 import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
-import { permissionScopeLabel } from '../../lib/permission-scope-label'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { ConversationWorkSection } from './ConversationWorkSection'
-import { IdentitySeenLine, timeAgo } from './IdentitySeenLine'
+import { AgentActiveLine } from './IdentitySeenLine'
+import { timeAgo } from '../../lib/time-ago'
+import { useAgentLive, withAgentLive } from '../../hooks/useAgentPresence'
+
+const COUNT_CAP = 999
+
+function formatCappedCount(n: number): string {
+  return n > COUNT_CAP ? `${COUNT_CAP}+` : String(n)
+}
 
 type Props = {
   thread: InboxThread
@@ -38,28 +52,6 @@ type Props = {
   closeAction?: ReactNode
 }
 
-type AgentPassport = {
-  id: string
-  name: string
-  role: string
-  autonomy_level: string | number | null
-  allowed_tools: string[]
-  permission_scopes: string[]
-  is_active: boolean
-  runtime_status: string | null
-}
-
-/** Task statuses worth surfacing inline (still in flight or needs a human). */
-const ACTIVE_TASK_STATUSES = new Set([
-  'running',
-  'queued',
-  'paused',
-  'awaiting_human',
-  'analyzing',
-  'planned',
-  'verifying',
-])
-
 function SectionHeading({ title }: { title: string }) {
   return (
     <h3 className="mb-2 text-xs font-semibold text-text-muted">{title}</h3>
@@ -67,40 +59,29 @@ function SectionHeading({ title }: { title: string }) {
 }
 
 function DisclosureRow({
-  label,
-  count,
-  countLabel,
+  summary,
   children,
 }: {
-  label: string
-  count: number
-  /** Optional text shown instead of the numeric badge (e.g. "Unrestricted"). */
-  countLabel?: string
+  summary: string
   children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
-  const empty = count === 0 && !countLabel
   return (
     <div>
       <button
         type="button"
-        disabled={empty}
         onClick={() => setOpen((v) => !v)}
-        className="flex min-h-7 w-full items-center justify-between gap-3 text-left disabled:cursor-default disabled:opacity-50"
+        className="flex w-full items-center gap-1.5 text-left text-xs text-text-secondary hover:text-text-primary"
       >
-        <span className="shrink-0 text-xs text-text-muted">{label}</span>
-        <span className="flex min-w-0 items-center gap-1 text-xs text-text-heading">
-          <span className="truncate-fade">{countLabel ?? count}</span>
-          {!empty ? (
-            open ? (
-              <ChevronDown size={11} className="shrink-0 text-text-muted" />
-            ) : (
-              <ChevronRight size={11} className="shrink-0 text-text-muted" />
-            )
-          ) : null}
-        </span>
+        <Blocks size={12} className="shrink-0 text-text-muted" />
+        <span className="min-w-0 flex-1 truncate-fade">{summary}</span>
+        {open ? (
+          <ChevronDown size={11} className="shrink-0 text-text-muted" />
+        ) : (
+          <ChevronRight size={11} className="shrink-0 text-text-muted" />
+        )}
       </button>
-      {open && !empty ? <div className="pb-1.5 pt-1">{children}</div> : null}
+      {open ? <div className="pb-1.5 pt-1">{children}</div> : null}
     </div>
   )
 }
@@ -110,9 +91,10 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
   const { token } = useAuth()
   const [passport, setPassport] = useState<AgentPassport | null>(null)
   const [toolCatalog, setToolCatalog] = useState<GovernToolRow[]>([])
-  const [mcpRows, setMcpRows] = useState<McpIntegrationRow[]>([])
+  const [modules, setModules] = useState<IntegrationModuleRow[]>([])
+  const [connections, setConnections] = useState<IntegrationConnectionRow[]>([])
+  const [providerSlugById, setProviderSlugById] = useState<Record<string, string>>({})
   const [recent, setRecent] = useState<InboxThread[]>([])
-  const [task, setTask] = useState<AgentTask | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
 
@@ -127,26 +109,39 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
       failed = true
       return value
     }
-    const [passports, allowances, mcp, threads, tasks] = await Promise.all([
+    const [passports, allowances, catalog, connectionRows, threads] = await Promise.all([
       listAgentPassports()
-        .then((r) => r.items as AgentPassport[])
+        .then((r) => r.items)
         .catch(() => fallback([] as AgentPassport[])),
       getAllowances()
         .then((r) => r.tools)
         .catch(() => fallback([] as GovernToolRow[])),
-      listMcpIntegrationRows().catch(() => fallback([] as McpIntegrationRow[])),
+      listIntegrationProviders().catch(() =>
+        fallback({
+          providers: [],
+          modules: [],
+          connection_counts: { by_provider_id: {}, email_outlook: 0, email_gmail: 0 },
+        }),
+      ),
+      listIntegrationConnections().catch(() => fallback([] as IntegrationConnectionRow[])),
       agentId
         ? listSignalThreads(token ?? '', { agentId, perPage: 8 })
             .then((r) => r.items)
             .catch(() => fallback([] as InboxThread[]))
         : Promise.resolve([] as InboxThread[]),
-      listAgentTasks({ signalId: String(thread.id) }).catch(() => fallback([] as AgentTask[])),
     ])
     setPassport(agentId ? (passports.find((p) => p.id === agentId) ?? null) : null)
     setToolCatalog(allowances)
-    setMcpRows(mcp)
+    setModules(
+      (catalog.modules ?? []).filter((module) => module.status !== 'coming_soon' && moduleIsOn(module)),
+    )
+    setConnections(connectionRows.filter((row) => row.status !== 'revoked'))
+    const slugs: Record<string, string> = {}
+    for (const provider of catalog.providers ?? []) {
+      if (provider.id) slugs[provider.id] = provider.slug
+    }
+    setProviderSlugById(slugs)
     setRecent(threads.filter((t) => String(t.id) !== String(thread.id)))
-    setTask(tasks.find((t) => ACTIVE_TASK_STATUSES.has(t.status)) ?? null)
     setLoadFailed(failed)
     setLoading(false)
   }, [agentId, token, thread.id])
@@ -155,177 +150,138 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
     void load()
   }, [load])
 
-  const allowedTools = passport?.allowed_tools ?? []
+  const allowedTools = passport?.tools ?? []
   const unrestricted = allowedTools.length === 0
   const toolCount = unrestricted ? toolCatalog.length : allowedTools.length
-  const scopes = passport?.permission_scopes ?? []
-
-  const toolDescription = useMemo(() => {
-    const map = new Map<string, GovernToolRow>()
-    for (const t of toolCatalog) map.set(t.name, t)
-    return map
-  }, [toolCatalog])
+  const moduleCount = modules.length
+  const connectionCount = connections.length
+  const stackSummary = [
+    t('agentContext.moduleCount', { count: moduleCount, formatted: formatCappedCount(moduleCount) }),
+    t('agentContext.connectionCount', {
+      count: connectionCount,
+      formatted: formatCappedCount(connectionCount),
+    }),
+    t('agentContext.toolCount', { count: toolCount, formatted: formatCappedCount(toolCount) }),
+  ].join(' | ')
 
   const model = agent?.model ?? null
   const provider = agent?.provider ?? null
-  const status = agent?.status ?? passport?.runtime_status ?? null
+  const live = useAgentLive(agentId)
+  const view = agent ? withAgentLive(agent) : null
+  const workState = view ? agentStatusOf(view) : 'standby'
+  const presence = live?.status ?? (workState === 'working' ? 'working' : workState === 'error' ? 'error' : 'standby')
+  const corner = view ? agentStatusOf(view) : undefined
+  const workHref =
+    agentId && presence === 'working' ? openEntityPath({ type: 'agent', id: agentId, live }) : agentId ? openEntityPath({ type: 'agent', id: agentId }) : null
+  const summary = view?.current_activity_summary || live?.summary || null
 
   return (
     <div className="flex flex-col">
       <div className="border-b border-border/40 px-4 pb-3 pt-3">
         <div className="flex items-start gap-2.5">
-          {agent && agentId ? (
-            <Link to={`/agents/${agentId}`} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50">
+          {view && agentId && workHref ? (
+            <Link to={workHref} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50">
               <AiAvatar
-                name={agent.name}
-                seed={agentId}
+                {...toAiAvatarProps(view, t('agentContext.workspaceAssistant'))}
                 size={36}
-                kind={agent.avatar_kind}
-                icon={agent.avatar_icon}
-                imageUrl={agent.avatar_image_url}
                 decorative
+                activity={corner}
               />
             </Link>
           ) : (
             <AiAvatar
-              name={agent?.name || t('agentContext.workspaceAssistant')}
-              seed={agentId ?? 'assistant'}
+              {...toAiAvatarProps(view ?? agent, t('agentContext.workspaceAssistant'))}
               size={36}
               decorative
             />
           )}
           <div className="min-w-0 flex-1">
-            {agent && agentId ? (
+            {view && agentId && workHref ? (
               <Link
-                to={`/agents/${agentId}`}
+                to={workHref}
                 className="block truncate-fade text-base font-semibold text-text-heading hover:text-accent"
               >
-                {agent.name}
+                {view.name}
               </Link>
             ) : (
               <p className="truncate-fade text-base font-semibold text-text-heading">
-                {agent?.name || t('agentContext.workspaceAssistant')}
+                {view?.name || agent?.name || t('agentContext.workspaceAssistant')}
               </p>
             )}
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="text-2xs font-semibold text-ai-ink">{t('agentContext.kindAiAgent')}</span>
-              {status ? (
-                <span className="text-xs text-text-muted">{agentRuntimeStatusLabel(status, t)}</span>
-              ) : null}
-            </div>
-            <IdentitySeenLine at={agent?.updated_at || thread.lastMessageAt} />
-            {agent?.current_activity_summary ? (
+            <p className="mt-0.5 text-xs text-text-secondary">{t('agentContext.kindAiAgent')}</p>
+            <AgentActiveLine at={view?.last_active_at ?? agent?.last_active_at} working={presence === 'working'} />
+            {summary ? (
+              workHref && presence === 'working' ? (
+                <Link
+                  to={workHref}
+                  className="mt-1.5 flex items-start gap-1.5 text-xs text-text-secondary hover:text-text-heading"
+                >
+                  <Activity size={11} className="mt-0.5 shrink-0 text-text-muted" />
+                  <span className="line-clamp-3">{summary}</span>
+                </Link>
+              ) : (
               <p className="mt-1.5 flex items-start gap-1.5 text-xs text-text-secondary">
                 <Activity size={11} className="mt-0.5 shrink-0 text-text-muted" />
-                <span className="line-clamp-3">{agent.current_activity_summary}</span>
+                <span className="line-clamp-3">{summary}</span>
               </p>
+              )
             ) : null}
           </div>
           {closeAction}
         </div>
         {model ? (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary">
+          <Link
+            to="/settings/models"
+            className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary"
+          >
             <Cpu size={12} className="shrink-0 text-text-muted" />
             <span className="min-w-0 truncate-fade">{formatAgentModelLine(model, provider, t)}</span>
-          </p>
-        ) : null}
-        <div className="mt-2 space-y-0.5">
-          <DisclosureRow
-            label={t('agentContext.toolsAndIntegrations')}
-            count={toolCount + mcpRows.length}
-            countLabel={unrestricted ? t('agentContext.unrestricted') : undefined}
-          >
-            {mcpRows.length > 0 ? (
-              <div className="mb-2">
-                <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
-                  <Plug size={10} />
-                  {t('agentContext.integrations')}
-                </p>
-                <div className="space-y-1">
-                  {mcpRows.map((row) => (
-                    <Link
-                      key={row.id}
-                      to="/connections/connected"
-                      className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-bg-hover/70"
-                    >
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-2xs font-semibold text-white"
-                        style={{ backgroundColor: row.brandColor }}
-                      >
-                        {row.initials}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate-fade text-xs text-text-primary">{row.displayName}</span>
-                        {row.endpoint ? (
-                          <span className="block truncate-fade text-2xs text-text-muted">{row.endpoint}</span>
-                        ) : null}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <div>
-              <p className="mb-1 flex items-center gap-1 text-2xs font-semibold text-text-muted">
-                <Wrench size={10} />
-                {t('agentContext.tools')}
-              </p>
-              {unrestricted ? (
-                <div className="flex flex-wrap gap-1">
-                  {toolCatalog.map((row) => (
-                    <span
-                      key={row.name}
-                      title={row.description}
-                      className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
-                    >
-                      {row.name}
-                    </span>
-                  ))}
-                  {toolCatalog.length === 0 ? (
-                    <span className="text-xs text-text-muted">{t('agentContext.allToolsAvailable')}</span>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {allowedTools.map((name) => (
-                    <span
-                      key={name}
-                      title={toolDescription.get(name)?.description}
-                      className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
-                    >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </DisclosureRow>
-          <DisclosureRow
-            label={t('agentContext.mayDo')}
-            count={scopes.length}
-            countLabel={scopes.length === 0 ? t('agentContext.roleDefaults') : undefined}
-          >
-            <div className="flex flex-wrap gap-1">
-              {scopes.map((scope) => (
-                <span
-                  key={scope}
-                  className="rounded-md bg-bg-elevated px-1.5 py-px text-2xs text-text-secondary"
-                >
-                  {permissionScopeLabel(scope, t)}
-                </span>
-              ))}
-            </div>
-          </DisclosureRow>
-        </div>
-        {agentId ? (
-          <Link
-            to={`/agents/${agentId}`}
-            className="mt-2 inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
-          >
-            <Settings size={11} />
-            {t('agentContext.configure')}
           </Link>
         ) : null}
+        <div className="mt-2">
+          <DisclosureRow summary={stackSummary}>
+            {modules.length > 0 || connections.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-[18px]">
+                {modules.map((module) => {
+                  const Icon = moduleNavIcon(module.slug)
+                  return (
+                    <Link
+                      key={module.slug}
+                      to={moduleHomePath(module)}
+                      className="inline-flex max-w-full items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary"
+                    >
+                      <Icon size={12} className="shrink-0 text-text-muted" aria-hidden />
+                      <span className="min-w-0 truncate-fade">{module.name}</span>
+                    </Link>
+                  )
+                })}
+                {connections.map((row) => (
+                  <Link
+                    key={row.id}
+                    to="/connections"
+                    className="inline-flex max-w-full items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary"
+                  >
+                    <BrandMark
+                      slug={row.provider || providerSlugById[row.provider_id] || row.provider_id}
+                      size={14}
+                    />
+                    <span className="min-w-0 truncate-fade">{row.display_name}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="pl-[18px] text-xs text-text-muted">{t('agentContext.noModulesOrConnections')}</p>
+            )}
+            {agentId ? (
+              <Link
+                to={`/agents/${agentId}`}
+                className="mt-1 inline-flex pl-[18px] text-xs text-text-muted hover:text-text-primary"
+              >
+                {t('agentContext.openAgent')}
+              </Link>
+            ) : null}
+          </DisclosureRow>
+        </div>
       </div>
 
       {loadFailed && !loading ? (
@@ -349,24 +305,6 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
       ) : null}
 
       <ConversationWorkSection thread={thread} />
-
-      {/* Active task (minimal) */}
-      {task ? (
-        <div className="border-b border-border/40 px-4 py-3">
-          <SectionHeading title={t('agentContext.activeTask')} />
-          <Link
-            to={inboxPath('all', task.signal_id || String(thread.id))}
-            className="block rounded-lg border border-border/60 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-border-light"
-          >
-            <p className="truncate-fade text-sm font-medium text-text-primary">{task.title}</p>
-            <p className="mt-0.5 text-xs text-text-muted">
-              {workLogStatusLabel(task.status, t)}
-              {task.pause_reason ? ` (${humanizeLabel(task.pause_reason)})` : ''}
-              {' · '}{t('agentContext.openRun')}
-            </p>
-          </Link>
-        </div>
-      ) : null}
 
       {/* Recent conversations */}
       <div className="px-4 py-3">

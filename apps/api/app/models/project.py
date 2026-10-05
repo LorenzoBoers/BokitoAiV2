@@ -15,9 +15,6 @@ class Project(SQLModel, table=True):
     slug: str = Field(index=True)
     description: str = ""
     autonomous_scope: str = ""
-    # Per-project autonomy override: conversation-born queue items are
-    # auto-accepted and analysis auto-starts when enabled.
-    autonomous_mode: bool = False
     active_domains_json: str = Field(default="[]")
     # Default coding workbench used when dispatch does not name a connection.
     workbench_connection_id: Optional[uuid.UUID] = Field(
@@ -25,8 +22,14 @@ class Project(SQLModel, table=True):
     )
     # External surfaces (repo, drive, notion, vibecode) live in ProjectResource.
     po_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    # None inherits the workspace daily/hourly token cap (Usage).
+    token_budget_daily: Optional[int] = Field(default=None)
+    token_budget_hourly: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
 
 class ProjectAgent(SQLModel, table=True):

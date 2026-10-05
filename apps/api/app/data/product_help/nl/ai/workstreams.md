@@ -30,9 +30,18 @@ Een draaiboek is een gedefinieerd proces voor werk dat terugkomt: cijfers verzam
 3. Koppel kennissecties aan een stap zodat de agent precies het handboekmateriaal leest dat die stap nodig heeft.
 4. Herschik of verwijder stappen wanneer je wilt; lopende runs houden de stappenlijst waarmee ze zijn gestart.
 
+## Geef tickets fases
+
+Een categorie die aan dit draaiboek gekoppeld is, maakt van haar gesprekken tickets. Het draaiboek bepaalt door welke fases die tickets gaan.
+
+1. Open het draaiboek en zoek de kaart **Ticketfases**.
+2. Kies **Fase toevoegen** voor elke stap die een ticket doorloopt (bijvoorbeeld Nieuw, Wacht op onderdelen, Opgelost). Zet elke **Soort fase** op open, wachtend of klaar; houd minstens één klaar-fase.
+3. Kies in een stap een **Fase** zodat het ticket daarheen gaat zodra de stap start, of laat **Fase behouden** staan.
+4. De status van het ticket volgt de soort van zijn fase, en elke verplaatsing staat in de tijdlijn van het gesprek. Zie [Categorieën en tickets](/docs/ai/cases).
+
 ## Start en volg een run
 
-1. **Run starten** blijft uit tot het draaiboek minstens één stap heeft en **Ingeschakeld** is (niet gepauzeerd). Voeg eerst een stap toe, kies daarna **Run starten**, typ de input (het verzoek, de periode of de context waar deze run over gaat) en bevestig. Auto-start komt van het signaaltype (**Start het draaiboek direct** onder [Signalen](/docs/ai/cases)) of van geaccepteerde intake op de Over-kaart — maximaal één run per gevolgd signaal en draaiboek, ook als meerdere herkende signalen in het gesprek ernaar verwijzen.
+1. **Run starten** blijft uit tot het draaiboek minstens één stap heeft en **Ingeschakeld** is (niet gepauzeerd). Voeg eerst een stap toe, kies daarna **Run starten**, typ de input (het verzoek, de periode of de context waar deze run over gaat) en bevestig. Auto-start komt van de categorie (**Start het draaiboek direct** onder [Categorieën en tickets](/docs/ai/cases)) of van geaccepteerde intake op de Over-kaart — maximaal één run per ticket en draaiboek.
 2. Het run-detail toont de status (**Actief**, **Wachtend**, **Wacht op gate**, **Afgerond**, **Mislukt**, **Geannuleerd**), de input en een stap-voor-stap werklog: wat elke agent-stap deed, wanneer de run wachtte en welke beslissingen zijn genomen.
 3. Een wachtende run gaat verder wanneer je **Hervatten** kiest met het verwachte antwoord. Een beslissing wordt inline in het gevolgde gesprek opgelost; de gekozen tak bepaalt de volgende stap.
 4. **Annuleren** stopt een run; het werklog blijft bewaard.
@@ -56,8 +65,8 @@ Modules leveren voorgebouwde draaiboeken mee (bijvoorbeeld btw-aangifte voorbere
 
 1. Vertel een agent welk draaiboek je wilt maken of hoe de geordende stappen moeten veranderen.
 2. De agent stelt `create_workstream` of `update_workstream` voor als PlatformChange met de volledige stappenlijst.
-3. Beoordeel het concept in Govern. Toepassen werkt hetzelfde draaiboek op **Draaiboeken** bij; `/os` blijft de kaartweergave.
+3. Beoordeel het concept in Govern. Toepassen werkt hetzelfde draaiboek op **Draaiboeken** bij. De live kaart van dat draaiboek is de Draaiboeken-pagina, geen aparte OS-overlay.
 
 ## Wat nu
 
-Leid terugkerend queue-werk via draaiboeken op [Projecten](/docs/ai/projects). Accepteer chat-intake op de Over-kaart — zie [Signalen](/docs/ai/cases). Plan een draaiboek met een trigger op de [Agenda](/docs/ai/agenda). Sjablonen komen uit [Integraties](/docs/integrations/integrations).
+Leid terugkerend queue-werk via draaiboeken op [Projecten](/docs/ai/projects). Accepteer chat-intake op de Over-kaart — zie [Categorieën en tickets](/docs/ai/cases). Plan een draaiboek met een trigger op de [Agenda](/docs/ai/agenda). Sjablonen komen uit [Integraties](/docs/integrations/integrations).

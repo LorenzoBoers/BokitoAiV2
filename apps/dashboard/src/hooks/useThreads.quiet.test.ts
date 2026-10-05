@@ -15,13 +15,12 @@ describe('useThreads quiet refresh', () => {
     expect(shouldSetLoading(true)).toBe(false)
   })
 
-  it('poll, visibility and reconnect callers pass quiet:true', () => {
+  it('visibility and reconnect callers pass quiet:true', () => {
     const calls: Array<{ quiet?: boolean }> = []
     const fetchThreads = (opts?: { quiet?: boolean }) => {
       calls.push(opts ?? {})
     }
     // Same call sites as useThreads effects.
-    fetchThreads({ quiet: true }) // poll
     fetchThreads({ quiet: true }) // visibility
     fetchThreads({ quiet: true }) // reconnect
     expect(calls.every((c) => c.quiet === true)).toBe(true)

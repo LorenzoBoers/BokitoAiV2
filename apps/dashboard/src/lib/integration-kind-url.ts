@@ -33,16 +33,12 @@ export function connectedPathWithKind(kind: IntegrationKindFilter): string {
  * leaves; both are folded into `/connections` now, and a module slug keeps its
  * own page. Returns a path without the query string — callers append it. */
 export function legacyModulesPath(pathname: string): string {
+  if (pathname === '/connections/connected' || pathname === '/connections/tools') {
+    return '/connections'
+  }
   const rest = pathname.replace(/^(\/settings)?\/modules/, '')
   if (rest === '/connected' || rest === '/tools' || rest === '') return '/connections'
   return `/connections${rest}`
-}
-
-export type MarketplaceStatusFilter = 'all' | 'connected' | 'available'
-
-export function parseStatusFilter(value: string | null): MarketplaceStatusFilter {
-  if (value === 'all' || value === 'connected') return value
-  return 'available'
 }
 
 const LAST_KIND_KEY = 'bokito.lastIntegrationKind'

@@ -15,7 +15,6 @@ import type { AgentVisualFields } from '../ui/AgentOptionRow'
 
 type AgentOption = AgentVisualFields & {
   isLead: boolean
-  audience: string
   slug: string
 }
 
@@ -58,7 +57,6 @@ export default function AgentBindingPicker({
           id: a.id,
           name: a.name,
           isLead: Boolean(a.is_lead),
-          audience: typeof a.audience === 'string' ? a.audience : 'internal',
           slug: typeof a.slug === 'string' ? a.slug : '',
           avatar_kind: a.avatar_kind,
           avatar_icon: a.avatar_icon,
@@ -85,7 +83,6 @@ export default function AgentBindingPicker({
   const frontDesk = useMemo(
     () =>
       agents.find((a) => a.slug === 'front-desk') ??
-      agents.find((a) => a.audience === 'customers') ??
       null,
     [agents],
   )
@@ -131,7 +128,6 @@ export default function AgentBindingPicker({
         id: selectValue,
         name: t('bindingPicker.unknownAgent'),
         isLead: false,
-        audience: 'internal',
         slug: '',
       },
     ]

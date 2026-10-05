@@ -108,10 +108,14 @@ export function mergeHubThreadFilters(
   extras: {
     search?: string
     projectId?: string
+    categoryId?: string
+    tag?: string
+    stage?: string
     agentId?: string
     unread?: boolean
     pinnedOnly?: boolean
     assigneeId?: number | null
+    needsDecision?: boolean
     /** @deprecated Prefer a channel leaf; still honored when set. */
     channel?: ChannelChip | null
   },
@@ -121,10 +125,15 @@ export function mergeHubThreadFilters(
     ...leafFilters,
     search: extras.search,
     projectId: extras.projectId,
+    categoryId: extras.categoryId,
+    tag: extras.tag ?? leafFilters.tag,
+    stage: extras.stage,
     agentId: extras.agentId ?? leafFilters.agentId,
     unread: extras.unread || undefined,
     pinnedOnly: extras.pinnedOnly || undefined,
     assigneeId: extras.assigneeId ?? undefined,
+    needsDecision: extras.needsDecision || undefined,
+    view: extras.needsDecision ? 'awaiting_decision' : leafFilters.view,
     channel: chip.channel ?? leafFilters.channel,
     connectionId: chip.connectionId ?? leafFilters.connectionId,
   }

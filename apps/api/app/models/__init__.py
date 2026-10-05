@@ -14,6 +14,8 @@ from app.models.signal import (
     SignalEvent,
     SignalMessage,
     SignalTag,
+    SignalTagLink,
+    InboxFolder,
     SignalThreadPin,
 )
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
@@ -56,6 +58,7 @@ from app.models.case import Case, CaseType, CaseTypeBinding, CaseTypeField
 from app.models.workbench import WorkJob
 from app.models.team import Team, TeamMember
 from app.models.outcome import OperationalOutcome
+from app.models.trash import TrashEntry
 
 __all__ = [
     "Tenant",
@@ -113,6 +116,8 @@ __all__ = [
     "SignalMessage",
     "SignalEvent",
     "SignalTag",
+    "SignalTagLink",
+    "InboxFolder",
     "SignalThreadPin",
     "SavedReply",
     "Feedback",
@@ -143,6 +148,7 @@ __all__ = [
     "Team",
     "TeamMember",
     "OperationalOutcome",
+    "TrashEntry",
 ]
 
 # Owner normalization and turn hooks attach to the mappers on import.

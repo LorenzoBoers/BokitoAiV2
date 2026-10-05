@@ -42,11 +42,13 @@ export const projectsRoutes = {
   resourceById: (projectId: string, resourceId: string) =>
     `/projects/${encodeURIComponent(projectId)}/resources/${encodeURIComponent(resourceId)}`,
   canvases: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/canvases`,
-  canvas: (projectId: string, slug = 'main', hydrate = true) => {
-    const search = new URLSearchParams()
-    if (!hydrate) search.set('hydrate', 'false')
-    const qs = search.toString()
-    const base = `/projects/${encodeURIComponent(projectId)}/canvases/${encodeURIComponent(slug)}`
-    return qs ? `${base}?${qs}` : base
-  },
+  canvas: (projectId: string, slug: string) =>
+    `/projects/${encodeURIComponent(projectId)}/canvases/${encodeURIComponent(slug)}`,
+} as const
+
+export const canvasesRoutes = {
+  list: (ownerKind: string, ownerId: string) =>
+    `/canvases?owner_kind=${encodeURIComponent(ownerKind)}&owner_id=${encodeURIComponent(ownerId)}`,
+  create: '/canvases',
+  byId: (canvasId: string) => `/canvases/${encodeURIComponent(canvasId)}`,
 } as const

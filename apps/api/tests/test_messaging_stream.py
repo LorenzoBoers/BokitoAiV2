@@ -67,8 +67,44 @@ async def test_agent_loop_stream_yields_real_deltas():
 
 
 @pytest.mark.asyncio
-async def test_publish_message_delta_and_agent_step():
-    from app.gateway.publish import publish_agent_step, publish_agent_thinking, publish_message_delta
+async def test_turn_recorder_publishes_segments_and_activity():
+    from app.services.agent.turn import TurnRecorder
+
+    published: list[tuple] = []
+
+    async def capture(event, data):
+        published.append((event, data))
+
+    turn = TurnRecorder(capture, stream_id="s1")
+    await turn.thinking("Hmm...")
+    await turn.speech("Ik kijk even.")
+    item = await turn.tool_start("search_index", {"q": "x"}, label="Search index")
+    await turn.tool_end(item, {"hits": []})
+    await turn.speech("Gevonden.")
+    await turn.finish()
+
+    events = [e for e, _ in published]
+    assert events[0] == "agent.turn" and published[0][1]["phase"] == "start"
+    assert events[-1] == "agent.turn" and published[-1][1]["phase"] == "end"
+    assert "agent.thinking" in events and "message.delta" in events
+    activity = [d for e, d in published if e == "agent.activity"]
+    assert [a["phase"] for a in activity] == ["start", "end", "start", "end"]
+    assert activity[2]["item"]["kind"] == "work"
+    assert "input" not in activity[2]["item"]
+
+    # Pre-tool speech is its own segment; activity travels with the next bubble.
+    assert [s["text"] for s in turn.segments] == ["Ik kijk even.", "Gevonden."]
+    assert [a["kind"] for a in turn.segments[0]["activity"]] == ["think"]
+    assert [a["kind"] for a in turn.segments[1]["activity"]] == ["work"]
+    assert turn.segments[1]["activity"][0]["status"] == "ok"
+    assert turn.final_text == "Gevonden."
+    deltas = [d for e, d in published if e == "message.delta"]
+    assert deltas[0]["segment_id"] != deltas[-1]["segment_id"]
+
+
+@pytest.mark.asyncio
+async def test_publish_turn_event_rejects_unknown():
+    from app.gateway.publish import publish_turn_event
 
     published: list[tuple] = []
 
@@ -78,18 +114,12 @@ async def test_publish_message_delta_and_agent_step():
     with patch("app.gateway.publish.event_bus.publish", side_effect=capture):
         tid = __import__("uuid").uuid4()
         sid = __import__("uuid").uuid4()
-        await publish_message_delta(tid, sid, delta="Hi", stream_id="s1")
-        await publish_agent_step(
-            tid, sid, step_type="tool_call", name="search_index", payload={"q": "x"}, stream_id="s1"
-        )
-        await publish_agent_thinking(tid, sid, delta="Hmm...", stream_id="s1")
+        await publish_turn_event(tid, sid, "message.delta", {"delta": "Hi", "stream_id": "s1"})
+        with pytest.raises(ValueError):
+            await publish_turn_event(tid, sid, "agent.step", {})
 
     assert published[0][0] == "message.delta"
-    assert published[0][1]["delta"] == "Hi"
-    assert published[1][0] == "agent.step"
-    assert published[1][1]["step_type"] == "tool_call"
-    assert published[2][0] == "agent.thinking"
-    assert published[2][1]["delta"] == "Hmm..."
+    assert published[0][1]["signal_id"] == str(sid)
 
 
 @pytest.mark.asyncio

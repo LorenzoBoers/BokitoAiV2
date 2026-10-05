@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   filterConnectionItems,
   groupConnectionItems,
+  programHeading,
   type ConnectionListItem,
 } from './connection-list'
 import type { ResolvedIntegrationBrand } from './integration-brand'
@@ -51,5 +52,14 @@ describe('filterConnectionItems', () => {
     ]
     expect(filterConnectionItems(rows, 'money').map((r) => r.id)).toEqual(['a'])
     expect(filterConnectionItems(rows, 'ops').map((r) => r.id)).toEqual(['b'])
+  })
+})
+
+describe('programHeading', () => {
+  it('does not surface a catalog UUID as the program name', () => {
+    expect(programHeading('f5bd27af-c678-49c7-ab6b-9bee62968fa9', 'Google Calendar')).toBe(
+      'Google Calendar',
+    )
+    expect(programHeading('Google', 'Google Calendar')).toBe('Google')
   })
 })

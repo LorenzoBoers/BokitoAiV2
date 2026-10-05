@@ -5,11 +5,17 @@
  * so react-virtuoso can keep long threads cheap without a second code path.
  */
 import {
+  createContext,
   forwardRef,
+  useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
+  type HTMLAttributes,
+  type MutableRefObject,
   type ReactNode,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,11 +29,13 @@ import type {
   ThreadId,
 } from '../../lib/inbox-api'
 import type { ChatMessage } from '../../lib/signals-api'
+import type { LiveTurn } from '../../lib/agentActivity'
 import {
   mergeSessionLiveMessages,
   type SessionStreamState,
 } from '../../lib/use-agent-session-chat'
-import { assignBubbleStacks, CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
+import { assignBubbleStacks, CHAT_COLUMN_CLASS, CHAT_STACK_GAP_MS } from '../../lib/chat-layout'
+import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { cn } from '../../lib/utils'
 import { EventClusterTimelineItem, MessageTimelineItem } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
@@ -36,6 +44,11 @@ import type { NoteActions } from './TimelineItem'
 import type { BubbleStack } from './ChatBubble'
 
 type ThreadSession = ThreadDetailType['sessions'][number]
+
+type VirtuosoRow =
+  | TimelineRow
+  | { kind: 'live'; id: string }
+  | { kind: 'end'; id: string }
 
 type TimelineEntry =
   | { kind: 'message'; time: string; id: string; data: InboxMessage }
@@ -49,8 +62,8 @@ export type TimelineRow =
   | { kind: 'session'; id: string; time: string; session: ThreadSession }
 
 /** Events the timeline never shows: a card or system_event message already says it. */
-function isHiddenEvent(eventType: string): boolean {
-  return (
+function isHiddenEvent(eventType: string, payload?: Record<string, unknown> | null): boolean {
+  if (
     eventType === 'replied' ||
     eventType === 'note_added' ||
     eventType === 'reply_sent' ||
@@ -58,10 +71,12 @@ function isHiddenEvent(eventType: string): boolean {
     eventType === 'agent_session_closed' ||
     eventType === 'decision_created' ||
     eventType === 'suggestion_created' ||
-    // Human-readable copy lives on the paired system_event message.
     eventType === 'contact_linked' ||
     eventType === 'contact_unlinked'
-  )
+  ) {
+    return true
+  }
+  return eventType === 'thread_updated' && !threadPatchHasMeaning(payload)
 }
 
 function makeDayKey(date: Date): string {
@@ -87,9 +102,22 @@ function makeDayLabel(date: Date, t: (key: string) => string, locale?: string): 
 }
 
 /**
- * Flatten a thread into timeline rows. Consecutive events merge into one
- * cluster so system/AI activity reads as a single pill instead of a stack.
+ * Flatten a thread into timeline rows. Consecutive system/AI events that
+ * happen within `CHAT_STACK_GAP_MS` (5 minutes — same window as chat bubbles,
+ * Slack/MUI grouping) share one pill row. A larger gap starts a new cluster
+ * so bursts from different moments stay distinct.
  */
+export function eventsShareCluster(
+  previousIso: string,
+  nextIso: string,
+  gapMs: number = CHAT_STACK_GAP_MS,
+): boolean {
+  const previous = new Date(previousIso).getTime()
+  const next = new Date(nextIso).getTime()
+  if (!Number.isFinite(previous) || !Number.isFinite(next)) return true
+  return Math.abs(next - previous) <= gapMs
+}
+
 export function buildTimelineRows(
   detail: ThreadDetailType | null,
   t: (key: string) => string,
@@ -104,7 +132,7 @@ export function buildTimelineRows(
       data: m,
     })),
     ...detail.events
-      .filter((e) => !isHiddenEvent(e.eventType))
+      .filter((e) => !isHiddenEvent(e.eventType, e.payload))
       .map((e) => ({ kind: 'event' as const, time: e.createdAt, id: `e-${e.id}`, data: e })),
     ...(detail.sessions ?? []).map((s) => ({
       kind: 'session' as const,
@@ -128,8 +156,11 @@ export function buildTimelineRows(
     if (entry.kind === 'event') {
       const last = rows[rows.length - 1]
       if (last && last.kind === 'events') {
-        last.events.push(entry.data)
-        continue
+        const previous = last.events[last.events.length - 1]
+        if (previous && eventsShareCluster(previous.createdAt, entry.time)) {
+          last.events.push(entry.data)
+          continue
+        }
       }
       rows.push({ kind: 'events', id: entry.id, time: entry.time, events: [entry.data] })
       continue
@@ -156,8 +187,7 @@ function messageStackKey(message: InboxMessage): string | null {
   const isAgent =
     message.kind === 'agent_message' ||
     Boolean(message.payload?.agent_id) ||
-    Boolean(message.agentTrace) ||
-    Boolean(message.hasAgentTrace)
+    Boolean(message.hasActivity)
   if (isAgent) {
     const aid =
       typeof message.payload?.agent_id === 'string' && message.payload.agent_id
@@ -184,13 +214,62 @@ function stacksForRows(rows: TimelineRow[]): Map<string, BubbleStack> {
   )
 }
 
+export type TimelineLanding = {
+  index: number
+  align: 'start' | 'center' | 'end'
+  /** Follow new output after landing. False for a new inbound email. */
+  pinToBottom: boolean
+}
+
+function isSkippableLandingMessage(message: InboxMessage): boolean {
+  const kind = message.kind || ''
+  return (
+    kind === 'internal_note' ||
+    kind === 'system_event' ||
+    kind === 'decision_request'
+  )
+}
+
+/** Where the timeline should open: bottom of the thread, or the start of a new inbound email. */
+export function resolveTimelineLanding(
+  rows: TimelineRow[],
+  lastIndex: number,
+  opts: { focusedMessageId: string | null; messageLayout: 'chat' | 'email' },
+): TimelineLanding {
+  if (opts.focusedMessageId) {
+    const focused = rows.findIndex(
+      (row) => row.kind === 'message' && String(row.data.id) === opts.focusedMessageId,
+    )
+    if (focused >= 0) return { index: focused, align: 'center', pinToBottom: false }
+  }
+  const bottom: TimelineLanding = {
+    index: Math.max(0, lastIndex),
+    align: 'end',
+    pinToBottom: true,
+  }
+  if (opts.messageLayout !== 'email') return bottom
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i]
+    if (row.kind !== 'message') continue
+    if (isSkippableLandingMessage(row.data)) continue
+    if (row.data.direction === 'inbound') {
+      return { index: i, align: 'start', pinToBottom: false }
+    }
+    return bottom
+  }
+  return bottom
+}
+
 export type ThreadTimelineHandle = {
   scrollToBottom: (behavior?: 'auto' | 'smooth') => void
+  land: (behavior?: 'auto' | 'smooth') => TimelineLanding
 }
 
 type Props = {
   rows: TimelineRow[]
   threadId: ThreadId
+  /** Thread channel; delivery labels only show on customer channels. */
+  channel?: string | null
   /** Latest message row id; used to pin the initial scroll position. */
   latestMessageRowId: string | null
   language?: string
@@ -216,6 +295,8 @@ type Props = {
   sessionMessages: ChatMessage[] | null
   sessionStream: SessionStreamState
   agentStreaming: boolean
+  /** Live agent turn inside the active session (gateway activity). */
+  sessionTurn?: LiveTurn
   onRefresh: () => void
   onUseSessionAsReply: (text: string) => void
   onDecisionResolved?: (info?: { closed?: boolean }) => void
@@ -233,11 +314,31 @@ type Props = {
   onAtBottomChange?: (atBottom: boolean) => void
 }
 
+const ScrollerNodeContext = createContext<MutableRefObject<HTMLDivElement | null> | null>(null)
+
+const TimelineScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  function TimelineScroller({ className, style, ...props }, ref) {
+    const holder = useContext(ScrollerNodeContext)
+    return (
+      <div
+        {...props}
+        ref={(node) => {
+          if (typeof ref === 'function') ref(node)
+          else if (ref) ref.current = node
+          if (holder) holder.current = node
+        }}
+        className={cn('overflow-x-hidden overflow-y-auto', className)}
+        style={{ ...style, overflowX: 'hidden', overflowY: 'auto' }}
+      />
+    )
+  },
+)
+
 const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTimeline(
   {
     rows,
     threadId,
-    latestMessageRowId,
+    channel,
     language,
     messageLayout,
     membersById,
@@ -260,6 +361,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     sessionMessages,
     sessionStream,
     agentStreaming,
+    sessionTurn,
     onRefresh,
     onUseSessionAsReply,
     onDecisionResolved,
@@ -273,27 +375,112 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
 ) {
   const { t } = useTranslation('communication')
   const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const scrollerNode = useRef<HTMLDivElement | null>(null)
+  const bottomTimersRef = useRef<number[]>([])
+  const ignoreUnpinUntilRef = useRef(0)
+  const flushRafRef = useRef(0)
   const bubbleStacks = useMemo(() => stacksForRows(rows), [rows])
+  const virtuosoData = useMemo<VirtuosoRow[]>(() => {
+    const extra: VirtuosoRow[] = []
+    if (liveTrace) extra.push({ kind: 'live', id: '__live__' })
+    extra.push({ kind: 'end', id: '__end__' })
+    return [...rows, ...extra]
+  }, [rows, liveTrace])
+
+  const landing = useMemo(
+    () =>
+      resolveTimelineLanding(rows, virtuosoData.length - 1, {
+        focusedMessageId,
+        messageLayout,
+      }),
+    [rows, virtuosoData.length, focusedMessageId, messageLayout],
+  )
+
+  const snapScrollerToEnd = useCallback(() => {
+    const el = scrollerNode.current
+    const top = el ? Math.max(0, el.scrollHeight - el.clientHeight) : Number.MAX_SAFE_INTEGER
+    virtuosoRef.current?.scrollTo({ top, behavior: 'auto' })
+    if (el) el.scrollTop = top
+  }, [])
+
+  const scrollToAbsoluteBottom = useCallback(
+    (behavior: 'auto' | 'smooth' = 'auto') => {
+      ignoreUnpinUntilRef.current = Date.now() + 1800
+      const last = Math.max(0, virtuosoData.length - 1)
+      virtuosoRef.current?.scrollToIndex({
+        index: last,
+        align: 'end',
+        behavior,
+      })
+      snapScrollerToEnd()
+      if (flushRafRef.current) window.cancelAnimationFrame(flushRafRef.current)
+      const loop = () => {
+        if (Date.now() > ignoreUnpinUntilRef.current) {
+          flushRafRef.current = 0
+          return
+        }
+        snapScrollerToEnd()
+        flushRafRef.current = window.requestAnimationFrame(loop)
+      }
+      flushRafRef.current = window.requestAnimationFrame(loop)
+      for (const id of bottomTimersRef.current) window.clearTimeout(id)
+      bottomTimersRef.current = [32, 80, 180, 360, 640, 1200].map((ms) =>
+        window.setTimeout(snapScrollerToEnd, ms),
+      )
+    },
+    [snapScrollerToEnd, virtuosoData.length],
+  )
+
+  useEffect(() => {
+    return () => {
+      for (const id of bottomTimersRef.current) window.clearTimeout(id)
+      if (flushRafRef.current) window.cancelAnimationFrame(flushRafRef.current)
+    }
+  }, [threadId])
+
+  const openedThreadSnapRef = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (!landing.pinToBottom || virtuosoData.length === 0) return
+    const key = String(threadId)
+    if (openedThreadSnapRef.current === key) return
+    openedThreadSnapRef.current = key
+    scrollToAbsoluteBottom('auto')
+  }, [threadId, landing.pinToBottom, virtuosoData.length, scrollToAbsoluteBottom])
+
+  useEffect(() => {
+    const el = scrollerNode.current
+    if (!el) return
+    const onResize = () => {
+      if (Date.now() < ignoreUnpinUntilRef.current) snapScrollerToEnd()
+    }
+    const ro = new ResizeObserver(onResize)
+    ro.observe(el)
+    const inner = el.firstElementChild
+    if (inner) ro.observe(inner)
+    return () => ro.disconnect()
+  }, [threadId, virtuosoData.length, snapScrollerToEnd])
 
   useImperativeHandle(
     ref,
     () => ({
       scrollToBottom: (behavior: 'auto' | 'smooth' = 'auto') => {
-        virtuosoRef.current?.scrollToIndex({
-          index: Math.max(0, rows.length - 1),
-          align: 'end',
-          behavior,
-        })
+        scrollToAbsoluteBottom(behavior)
+      },
+      land: (behavior: 'auto' | 'smooth' = 'auto') => {
+        if (landing.pinToBottom) {
+          scrollToAbsoluteBottom(behavior)
+        } else {
+          virtuosoRef.current?.scrollToIndex({
+            index: landing.index,
+            align: landing.align,
+            behavior,
+          })
+        }
+        return landing
       },
     }),
-    [rows.length],
+    [landing, scrollToAbsoluteBottom],
   )
-
-  const initialIndex = useMemo(() => {
-    if (rows.length === 0) return 0
-    const latest = latestMessageRowId ? rows.findIndex((row) => row.id === latestMessageRowId) : -1
-    return latest >= 0 ? latest : rows.length - 1
-  }, [rows, latestMessageRowId])
 
   // Deep link from a notification: land on that card instead of the bottom.
   useEffect(() => {
@@ -319,10 +506,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     // so flex-1 would collapse to 0 and hide the empty state / live trace.
     return (
       <div className="relative h-full min-h-0">
-        <div className="absolute inset-0 overflow-y-auto px-4 py-4">
-          <div className={CHAT_COLUMN_CLASS}>
-            {emptyState}
-            {liveTrace ? <div className="mb-3">{liveTrace}</div> : null}
+        <div className="absolute inset-0 flex min-h-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-4">
+          <div className={cn(CHAT_COLUMN_CLASS, 'flex min-h-0 flex-1 flex-col')}>
+            <div className="flex flex-1 items-center justify-center">{emptyState}</div>
+            {liveTrace ? <div className="mb-3 shrink-0">{liveTrace}</div> : null}
           </div>
         </div>
       </div>
@@ -344,6 +531,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         <div className="mb-3">
           <EventClusterTimelineItem
             events={row.events}
+            time={row.time}
             memberNameFor={(userId) => (userId != null ? membersById[userId]?.name : undefined)}
           />
         </div>
@@ -361,6 +549,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
                 : undefined
             }
             streaming={row.session.id === activeSessionId && agentStreaming}
+            liveTurn={row.session.id === activeSessionId ? sessionTurn : undefined}
             onChanged={onRefresh}
             onUseAsReply={onUseSessionAsReply}
             agentAvatarKind={agentAvatarKind}
@@ -402,6 +591,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
           <MessageTimelineItem
             message={message}
             threadId={threadId}
+            channel={channel}
             layout={messageLayout}
             contactName={contactName}
             contactEmail={contactEmail}
@@ -422,16 +612,26 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   }
 
   return (
+    <ScrollerNodeContext.Provider value={scrollerNode}>
     <div className="relative h-full min-h-0">
       <Virtuoso
+        key={String(threadId)}
         ref={virtuosoRef}
-        data={rows}
-        className="absolute inset-0"
+        data={virtuosoData}
+        className="absolute inset-0 overflow-x-hidden"
         computeItemKey={(_index, row) => row.id}
-        initialTopMostItemIndex={{ index: initialIndex, align: 'end' }}
-        followOutput="auto"
-        atBottomThreshold={120}
-        atBottomStateChange={onAtBottomChange}
+        initialTopMostItemIndex={{ index: landing.index, align: landing.align }}
+        defaultItemHeight={72}
+        alignToBottom
+        followOutput={(atBottom) => {
+          if (atBottom || Date.now() < ignoreUnpinUntilRef.current) return 'auto'
+          return false
+        }}
+        atBottomThreshold={200}
+        atBottomStateChange={(atBottom) => {
+          if (!atBottom && Date.now() < ignoreUnpinUntilRef.current) return
+          onAtBottomChange?.(atBottom)
+        }}
         // Email bodies render in iframes that measure asynchronously; a
         // generous viewport keeps them mounted so heights stay stable.
         increaseViewportBy={{ top: 1200, bottom: 1200 }}
@@ -439,6 +639,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
           if (hasOlder && !loadingOlder && onLoadOlder) void onLoadOlder()
         }}
         components={{
+          Scroller: TimelineScroller,
           Header: () =>
             hasOlder && onLoadOlder ? (
               <div className={cn(CHAT_COLUMN_CLASS, 'px-4 pb-3 pt-4')}>
@@ -456,19 +657,26 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             ) : (
               <div className="pt-4" />
             ),
-          Footer: () => (
-            <div className="px-4 pb-6">
-              <div className={CHAT_COLUMN_CLASS}>
-                {liveTrace ? <div className="mb-3">{liveTrace}</div> : null}
-              </div>
-            </div>
-          ),
         }}
-        itemContent={(_index, row) => (
-          <div className="px-4">
-            <div className={CHAT_COLUMN_CLASS}>{renderRow(row)}</div>
-          </div>
-        )}
+        itemContent={(_index, row) => {
+          if (row.kind === 'live') {
+            return (
+              <div className="px-4">
+                <div className={CHAT_COLUMN_CLASS}>
+                  <div className="mb-3">{liveTrace}</div>
+                </div>
+              </div>
+            )
+          }
+          if (row.kind === 'end') {
+            return <div className="h-5" aria-hidden />
+          }
+          return (
+            <div className="px-4">
+              <div className={CHAT_COLUMN_CLASS}>{renderRow(row)}</div>
+            </div>
+          )
+        }}
       />
       {/* Fade at the top so messages recede under the day pill. */}
       <div
@@ -476,6 +684,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         className="pointer-events-none absolute left-0 right-0 top-0 z-[5] h-10 bg-gradient-to-b from-bg via-bg/85 to-transparent"
       />
     </div>
+    </ScrollerNodeContext.Provider>
   )
 })
 

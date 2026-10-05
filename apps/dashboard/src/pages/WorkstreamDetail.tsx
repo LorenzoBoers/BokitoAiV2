@@ -41,6 +41,7 @@ import {
 } from '../lib/workstreams-api'
 import { runStatusBadgeVariant, workstreamRunPath } from '../lib/workstream-ui'
 import { CaseBindingsCard } from '../components/workstreams/CaseBindingsCard'
+import { WorkstreamStagesCard } from '../components/workstreams/WorkstreamStagesCard'
 
 type AgentOption = { id: string; name: string }
 
@@ -57,6 +58,7 @@ type StepDraft = {
   wait_kind: WorkstreamWaitKind
   deadline_hours: number
   on_deadline: WorkstreamOnDeadline
+  stage_key: string
   config_text: string
 }
 
@@ -78,6 +80,7 @@ function emptyStep(): StepDraft {
     wait_kind: 'input',
     deadline_hours: 0,
     on_deadline: 'continue',
+    stage_key: '',
     config_text: '{}',
   }
 }
@@ -138,6 +141,7 @@ export default function WorkstreamDetail() {
           wait_kind: s.wait_kind,
           deadline_hours: s.deadline_hours,
           on_deadline: s.on_deadline,
+          stage_key: s.stage_key ?? '',
           config_text: JSON.stringify(s.config ?? {}, null, 2),
         })),
       )
@@ -254,6 +258,7 @@ export default function WorkstreamDetail() {
         wait_kind: s.wait_kind,
         deadline_hours: s.deadline_hours,
         on_deadline: s.on_deadline,
+        stage_key: s.stage_key,
         config: configs[index],
       }))
       const savedSteps = await replaceWorkstreamSteps(workstream.id, payload)
@@ -269,6 +274,7 @@ export default function WorkstreamDetail() {
           wait_kind: s.wait_kind,
           deadline_hours: s.deadline_hours,
           on_deadline: s.on_deadline,
+          stage_key: s.stage_key ?? '',
           config_text: JSON.stringify(s.config ?? {}, null, 2),
         })),
       )
@@ -413,6 +419,21 @@ export default function WorkstreamDetail() {
                             <option value="ask_decision">{t('workstreamsPage.kinds.ask_decision')}</option>
                             <option value="call_tool">{t('workstreamsPage.kinds.call_tool')}</option>
                             <option value="schedule">{t('workstreamsPage.kinds.schedule')}</option>
+                          </select>
+                          <select
+                            value={step.stage_key}
+                            disabled={!isAdmin}
+                            onChange={(e) => updateStep(step.key, { stage_key: e.target.value })}
+                            className={selectClass}
+                            aria-label={t('workstreamsPage.stages.stepStage')}
+                            title={t('workstreamsPage.stages.stepStageHint')}
+                          >
+                            <option value="">{t('workstreamsPage.stages.keepStage')}</option>
+                            {workstream.stages.map((stage) => (
+                              <option key={stage.key} value={stage.key}>
+                                {stage.name}
+                              </option>
+                            ))}
                           </select>
                           {isAdmin ? (
                             <span className="flex items-center gap-0.5">
@@ -580,6 +601,12 @@ export default function WorkstreamDetail() {
             </div>
 
             <div className="space-y-4">
+              <WorkstreamStagesCard
+                workstreamId={workstream.id}
+                stages={workstream.stages}
+                canEdit={isAdmin}
+                onSaved={(row) => setWorkstream((prev) => (prev ? { ...prev, ...row } : prev))}
+              />
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">{t('workstreamsPage.startRunTitle')}</CardTitle>

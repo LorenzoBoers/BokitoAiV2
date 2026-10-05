@@ -9,21 +9,21 @@ related: mcp,models,channels,govern,cases
 
 # Connect integrations
 
-Integrations are partner logins. A **module** is one package of Signal types, playbooks, and an optional Project, plus the tools allowed for its listed partners. The **Connections** hub in the rail at `/connections` shows installed module cards, partner logins, and custom MCP servers. **Marketplace** is the discover tab, split into **Modules** and **Integrations**. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
+Integrations are partner logins. A **module** is one package of Signal types, playbooks, and an optional Project, plus the tools allowed for its listed partners. The **Connections** hub in the rail at `/connections` is the installed inventory: modules already on, partner logins, and custom MCP servers. **Marketplace** is the full catalog — every module and integration, with no connected/available status filter. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
 
 ## See what is connected
 
-1. Open **Connections**. At the top, **Installed modules** lists presets that are on, each card showing the logos of the programs it can use and how many connections are attached. Missing first steps may appear next (**Connect email or chat**, **Connect Agenda**, **Install a module**). Below that, **Connections** lists partner logins by type (**Communication**, **Agenda**, **Apps**, then **Code**) and by program. **Custom MCP servers** is a separate list.
-2. Choose **New connection** on a program for a second login. Choose **Use in Accounting** when the partner is allowed on that module and is not attached yet. A program that Accounting does not allow never shows that action; GitHub, for example, stays under **Code**.
-3. Choose **Disconnect** when a login should stop (confirm **Remove this connection?**). Mailboxes open **Channels**. Agenda apps open [Agenda](/docs/ai/agenda).
+1. Open **Connections**. The **AI (coding) tools** banner sits above the **Connections** / **Marketplace** tabs: logos for Cursor, Claude, OpenAI, VS Code, Windsurf and Copilot, and **Set up** opens Developers. **Installed modules** uses the same cards as Marketplace: status (including **Installation incomplete** when no package is attached), partner logos, **Manage**, and **Uninstall**. Missing first steps may appear next (**Connect email or chat**, **Connect Agenda**, **Install a module**). Below that, **Connections** shows each connected integration as the same card as Marketplace — one card per product (Microsoft 365, Outlook Calendar, and Microsoft Graph are separate). Kind chips and search still apply. Mailboxes open **Channels** from the card dialog; Agenda apps open [Agenda](/docs/ai/agenda). **Custom MCP servers** stays a separate list for logins that are not in the catalog.
+2. Choose **New connection** on a card for a second login. Attach a partner to Accounting from the module page (**Use this connection**), not from a grouped program row. GitHub stays a **Code** card.
+3. Choose **Disconnect** on a custom MCP row when that login should stop (confirm **Remove this connection?**). Mailboxes and calendars are managed on Channels and Agenda.
 
 ## Install from the marketplace
 
 ![Integrations marketplace](/api/docs/assets/integrations/marketplace.png)
 *Marketplace: modules on top, then every integration as a flat list.*
 
-1. Open **Marketplace**. **Modules** sits on top, **Integrations** below it as one flat list — never nested inside a module. Filter integrations by kind (**Communication**, **Agenda**, **Apps**, **Tools**, **Code**) or search. **Connect** is the first login; if one exists, **New connection** plus the count.
-2. Pick an app to open its card. **Works with modules** names the presets that can use this login, so you know what agents will do with it. Finish OAuth or the provider setup and you return on Connections. A login stays there until you attach it to a module.
+1. Open **Marketplace**. You land on **Connections** for what is already installed; Marketplace lists **everything**. **Modules** sits on top, **Integrations** below it as one flat list — never nested inside a module, and never grouped under a vendor. Microsoft 365, Outlook Calendar, and Microsoft Graph each have their own card. Filter integrations by kind (**Communication**, **Agenda**, **Apps**, **Tools**, **Code**) or search — there is no connected/available status filter. **Connect** is the first login; if one exists, **New connection** plus the count. A module that is not installed shows only **Install**. An installed module shows **Manage** (grey) and **Uninstall** (red). **Investing**, **Documents**, and other coming-soon modules are faded. Their planned programs (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear as faded integration cards until they ship.
+2. Pick a card to open that product’s setup. **Works with modules** names the presets that can use this login, so you know what agents will do with it. Finish OAuth or the provider setup and you return on Connections. A login stays there until you attach it to a module.
 3. Communication apps add queues (email, WhatsApp). Code apps attach to a [project](/docs/ai/projects). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Custom MCP servers** or **Tools**. See [MCP](/docs/integrations/mcp).
 
 WhatsApp itself is configured under **Channels**, not only here. The marketplace card points you there.
@@ -33,25 +33,25 @@ WhatsApp itself is configured under **Channels**, not only here. The marketplace
 ![Modules hub](/api/docs/assets/integrations/modules-hub.png)
 *Connections hub — installed modules as cards, then partner logins.*
 
-1. Open **Connections** in the rail under **Organization**. Installed module cards sit at the top; open a card, or use **Marketplace** and its **Modules** row to install a new preset.
+1. Open **Connections** in the rail under **Organization**. Installed module cards sit at the top with **Manage** and **Uninstall**. Use **Marketplace** and its **Modules** row to install a new preset.
 2. Open **Accounting** (or another live module), then choose **Install**. Status becomes **Needs setup**.
 3. Assign **at least one AI agent**. Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
 4. Review **What agents can do**: each module action shows a short description, the universal path (`accounting_list_companies`, …), and whether it is **Read** or **Needs approval**. When partners are attached, **Tools from connected MCP servers** lists the exact MCP tool names discovered from those servers.
-5. Under **Connections**, choose **New registration** to connect and attach in one step, or **Use an existing connection** for a login that already lives on Connections. Planned packages (Exact Online, SnelStart) stay greyed out.
-6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installed · no packages** until a partner login is attached, then **Connected**. Its Signal types and playbooks remain available through their existing product surfaces; the module stays in Connections and adds no rail item.
+5. At the top of the module page, under **Connections**, choose **New registration** to connect and attach in one step, or **Use an existing connection** for a login that already lives on Connections. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Overview**, **Sources**, and **Setup**.
+6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installation incomplete** until a partner login is attached, then **Connected**. Its Signal types and playbooks remain available through their existing product surfaces; the module stays in Connections and adds no rail item.
 
 ## Connect an optional accounting integration
 
 ![Module home](/api/docs/assets/integrations/module-home.png)
-*Module page lists registrations, sources and AI setup on one surface.*
+*Module page lists registrations at the top, then Overview, Sources and Setup.*
 
-1. Open **Accounting** from its card on **Connections**. The list shows only attached registrations, not every Moneybird login in the workspace.
+1. Open **Accounting** from its card on **Connections**. Registrations sit at the top of the module page (not on a separate tab). The list shows only attached registrations, not every Moneybird login in the workspace.
 2. Choose **New registration** to connect from the module (that login attaches automatically), or **Use this connection** for a login that already exists on Connections.
 3. Finish setup with real credentials (OAuth for Moneybird, partner key plus administraties for KING, client id/secret for Bjorn Lunden, Trading API key plus secret for Alpaca). Empty or random labels alone do not create a working link.
 4. Each row shows status (**Verified**, **Needs credentials**, **Unverified**, or **Error**), optional provider identity, and actions: **Verify**, **Remove from module** (keeps the login on Connections), **Disconnect**, **Rename**, and **Set default** (only when verified).
 5. Only agents assigned to the module can use the shared accounting toolset. Propose tools land as a [decision](/docs/ai/decisions) you approve first.
 
-**Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; their planned packages appear as disabled rows in the Add registration picker.
+**Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; they and their planned packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear faded on Marketplace.
 
 ## Control accounting writes and agent access
 
@@ -72,9 +72,9 @@ Modules ship one catalog package containing Signal types, pre-built playbooks, a
 
 ## Index module sources
 
-1. Open the module home **Sources** tab.
-2. Platform seeds (for Accounting: RJNet, NBA HRA, Belastingdienst) appear when the module is in setup or installed. Reindex or disable them; you cannot delete platform seeds.
-3. Choose **Add URL** for your own regs or office pages. Agents search these through module source tools.
+1. Open the module home **Sources** tab. Platform packs appear when the module is in setup or installed (Accounting: Belastingdienst, NBA HRA, RJNet, KvK annual accounts, BW2 Title 9). Indexing starts on its own.
+2. Each pack fetches curated start pages, then a limited set of same-origin links (`robots.txt` respected, no login walls). Status moves **Pending** → **Indexing** → **Ready** (or **Error** if the site has no readable public text, such as a paywall). You can **Reindex** or **Disable** a platform pack; you cannot delete it.
+3. Choose **Add URL** for office pages. Those follow the same shallow crawl with a lower page cap. Agents search ready sources through module source tools.
 
 ## Finish setup with the assigned agent
 

@@ -15,6 +15,14 @@ from app.modules.catalog import set_module_enabled
 from app.services.module_sources import ACCOUNTING_PLATFORM_SEEDS, ensure_platform_seeds, list_sources
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
+
+@pytest.fixture
+def skip_source_index(monkeypatch):
+    async def _noop(_source_id: str):
+        return None
+
+    monkeypatch.setattr("app.workers.tasks.enqueue_module_source_index", _noop)
+
 API = "/api"
 
 
@@ -88,7 +96,9 @@ async def test_module_prefs_and_connections(client: AsyncClient, session_overrid
 
 
 @pytest.mark.asyncio
-async def test_platform_seeds_and_tenant_source(client: AsyncClient, session_override: AsyncSession):
+async def test_platform_seeds_and_tenant_source(
+    client: AsyncClient, session_override: AsyncSession, skip_source_index
+):
     token = await _login(client)
     headers = _auth(token)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()

@@ -1,6 +1,7 @@
 /** Teams, the company team overview and availability. */
 
 import { appRoutes } from '../api/routes/app.routes'
+import type { AgentPassport } from './workforce-api'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
 export type TeamKind = 'people' | 'agents' | 'custom'
@@ -24,15 +25,6 @@ export function parsePresenceStatus(value: unknown): PresenceStatus | undefined 
     return raw
   }
   return undefined
-}
-
-export function parseAgentPresenceStatus(value: unknown): AgentPresenceStatus {
-  const raw = String(value ?? '')
-    .trim()
-    .toLowerCase()
-  if (raw === 'working' || raw === 'active') return 'working'
-  if (raw === 'error') return 'error'
-  return 'standby'
 }
 
 export type TeamMemberRef = { kind: 'user' | 'agent'; id: string }
@@ -73,6 +65,7 @@ export type OverviewPerson = {
   team_ids: string[]
   open_owned: number
   open_turn: number
+  deactivated?: boolean
 }
 
 /** Last 30 days. */
@@ -85,14 +78,10 @@ export type OverviewMetrics = {
   picked_up: number
 }
 
-export type OverviewAgent = {
-  id: string
-  name: string
-  role: string
-  autonomy_level: string
+export type OverviewAgent = AgentPassport & {
   team_ids: string[]
   open_owned: number
-  status?: AgentPresenceStatus | string
+  deactivated?: boolean
   metrics: OverviewMetrics
 }
 
@@ -113,15 +102,6 @@ export function formatAnswerMinutes(minutes: number | null): string {
 
 export const PICKUP_MODES: TeamPickup[] = ['people', 'agent_first', 'round_robin', 'least_open']
 
-/** Window event fired after a team is created, changed or removed (sidebar refetches). */
-export const TEAMS_CHANGED_EVENT = 'bokito:teams-changed'
-
-function announce<T>(result: Promise<T>): Promise<T> {
-  return result.then((value) => {
-    window.dispatchEvent(new Event(TEAMS_CHANGED_EVENT))
-    return value
-  })
-}
 
 export function listTeams(token: string): Promise<Team[]> {
   return apiGet<Team[]>(appRoutes.teams.list, token)
@@ -148,7 +128,7 @@ export function createTeam(
     members?: TeamMemberRef[]
   } & TeamAvatarInput,
 ): Promise<Team> {
-  return announce(apiPost<Team>(appRoutes.teams.list, body, token))
+  return apiPost<Team>(appRoutes.teams.list, body, token)
 }
 
 export function patchTeam(
@@ -161,7 +141,7 @@ export function patchTeam(
     pinned?: boolean
   } & TeamAvatarInput,
 ): Promise<Team> {
-  return announce(apiPatch<Team>(appRoutes.teams.byId(id), body, token))
+  return apiPatch<Team>(appRoutes.teams.byId(id), body, token)
 }
 
 export function setTeamMembers(token: string, id: string, members: TeamMemberRef[]): Promise<Team> {
@@ -169,9 +149,13 @@ export function setTeamMembers(token: string, id: string, members: TeamMemberRef
 }
 
 export function deleteTeam(token: string, id: string): Promise<unknown> {
-  return announce(apiDelete(appRoutes.teams.byId(id), token))
+  return apiDelete(appRoutes.teams.byId(id), token)
 }
 
 export function setMyAway(token: string, away: boolean, until?: string | null): Promise<Presence> {
   return apiPut<Presence>(appRoutes.teams.myAway, { away, until: until ?? null }, token)
+}
+
+export function openTeamRoom(token: string, teamId: string): Promise<{ id: string; title: string }> {
+  return apiPost(appRoutes.teams.room(teamId), {}, token)
 }

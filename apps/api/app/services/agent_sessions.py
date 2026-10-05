@@ -22,6 +22,7 @@ from app.models.auth import User
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.signal_threads import _iso
+from app.services.trash import alive
 
 # Tool calls that only read (research) are not "actions" worth surfacing in
 # the checkout summary; everything else mutated state somewhere.
@@ -88,7 +89,9 @@ async def _chat_message_count(session: AsyncSession, conversation_id: UUID) -> i
 
 async def _load_host_thread(session: AsyncSession, tenant_id: UUID, thread_id: UUID) -> Signal:
     result = await session.execute(
-        select(Signal).where(Signal.id == thread_id, Signal.tenant_id == tenant_id)
+        select(Signal).where(
+            Signal.id == thread_id, Signal.tenant_id == tenant_id, alive(Signal)
+        )
     )
     thread = result.scalar_one_or_none()
     if thread is None:
@@ -111,6 +114,7 @@ async def list_sessions(
             Signal.context_signal_id == thread_id,
             Signal.channel == "assistant",
             Signal.session_state.is_not(None),
+            alive(Signal),
         )
         .order_by(Signal.created_at)
     )
@@ -142,11 +146,12 @@ async def start_session(
     thread_id: UUID,
     agent: Agent,
 ) -> dict[str, Any]:
-    """Open a session; reuses the caller's existing active session on the thread.
+    """Open a session; reuses the caller's active session only when it is the same agent.
 
     One meta per thread: any other operator's session still open on this
     conversation checks out first, so the timeline never carries two live
-    sessions competing over the same customer.
+    sessions competing over the same customer. A leftover session for a
+    different agent is discarded (or checked out if it already has turns).
     """
     thread = await _load_host_thread(session, tenant_id, thread_id)
 
@@ -158,17 +163,25 @@ async def start_session(
                     Signal.context_signal_id == thread_id,
                     Signal.channel == "assistant",
                     Signal.session_state == "active",
+                    alive(Signal),
                 )
             )
         ).scalars().all()
     )
     existing = next((s for s in active if s.owner_user_id == user.id), None)
+    if existing is not None and existing.agent_id != agent.id:
+        leftover_id = existing.id
+        # Asking a different agent must not keep talking to the leftover one.
+        await discard_session(session, tenant_id, user.id, thread_id, leftover_id)
+        existing = None
+        active = [s for s in active if s.id != leftover_id]
     for other in active:
         if existing is not None and other.id == existing.id:
             continue
         await close_session(session, tenant_id, user.id, thread_id, other.id)
     if existing is not None:
-        return serialize_session(existing, agent if existing.agent_id == agent.id else None)
+        live = await _chat_message_count(session, existing.id)
+        return serialize_session(existing, agent, message_count=live)
 
     conversation = Signal(
         tenant_id=tenant_id,
@@ -307,7 +320,9 @@ async def discard_session(
     thread keeps a clean timeline. If turns did arrive (the operator sent one
     while cancelling), it checks out normally instead.
     """
-    conversation = await _load_session(session, tenant_id, thread_id, session_id)
+    conversation = await _load_session(
+        session, tenant_id, thread_id, session_id, include_deleted=True
+    )
 
     if conversation.session_state == "active" and await _chat_message_count(
         session, conversation.id
@@ -334,12 +349,18 @@ async def discard_session(
 
     from app.services.signal_threads import delete_thread
 
-    await delete_thread(session, tenant_id, conversation.id, user_id=user_id)
+    # Empty sessions never started; hard-delete so they do not linger in the
+    # host timeline or the Bin after the operator presses Cancel.
+    await delete_thread(
+        session, tenant_id, conversation.id, user_id=user_id, permanent=True
+    )
     return {"discarded": True, "session_id": str(conversation.id)}
 
 
 def _extract_actions(messages: list[SignalMessage]) -> list[dict[str, Any]]:
-    """Consequential tool calls from the agent messages' trace steps."""
+    """Consequential tool calls from the agent messages' activity."""
+    from app.services.agent.turn_persist import message_activity
+
     actions: list[dict[str, Any]] = []
     for msg in messages:
         if msg.kind != "agent_message":
@@ -348,15 +369,13 @@ def _extract_actions(messages: list[SignalMessage]) -> list[dict[str, Any]]:
             meta = json.loads(msg.metadata_json or "{}")
         except json.JSONDecodeError:
             continue
-        for step in meta.get("steps") or []:
-            if step.get("step_type") != "tool_call":
-                continue
-            name = step.get("name") or ""
+        shaped = message_activity(meta, detail=True)
+        for item in [*shaped["activity"], *shaped["activity_after"]]:
+            name = item.get("tool") or ""
             if not name or name in READ_ONLY_TOOLS:
                 continue
-            payload = step.get("payload") or {}
             detail = ""
-            raw_input = payload.get("input")
+            raw_input = item.get("input")
             if isinstance(raw_input, dict):
                 # MCP calls carry the real tool name inside the input.
                 detail = str(raw_input.get("tool") or raw_input.get("name") or "")
@@ -365,18 +384,24 @@ def _extract_actions(messages: list[SignalMessage]) -> list[dict[str, Any]]:
 
 
 async def _load_session(
-    session: AsyncSession, tenant_id: UUID, thread_id: UUID, session_id: UUID
+    session: AsyncSession,
+    tenant_id: UUID,
+    thread_id: UUID,
+    session_id: UUID,
+    *,
+    include_deleted: bool = False,
 ) -> Signal:
+    filters = [
+        Signal.id == session_id,
+        Signal.tenant_id == tenant_id,
+        Signal.channel == "assistant",
+        Signal.context_signal_id == thread_id,
+        Signal.session_state.is_not(None),
+    ]
+    if not include_deleted:
+        filters.append(alive(Signal))
     conversation = (
-        await session.execute(
-            select(Signal).where(
-                Signal.id == session_id,
-                Signal.tenant_id == tenant_id,
-                Signal.channel == "assistant",
-                Signal.context_signal_id == thread_id,
-                Signal.session_state.is_not(None),
-            )
-        )
+        await session.execute(select(Signal).where(*filters))
     ).scalar_one_or_none()
     if conversation is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -400,6 +425,7 @@ async def close_open_sessions_for_thread(
                     Signal.context_signal_id == thread_id,
                     Signal.channel == "assistant",
                     Signal.session_state == "active",
+                    alive(Signal),
                 )
             )
         ).scalars().all()
@@ -522,6 +548,7 @@ async def resolve_active_session(
                     Signal.context_signal_id == signal.id,
                     Signal.channel == "assistant",
                     Signal.session_state == "active",
+                    alive(Signal),
                 )
                 .order_by(Signal.created_at.desc())
             )
@@ -732,6 +759,7 @@ async def apply_checkout_choice(
                 Signal.tenant_id == tenant_id,
                 Signal.channel == "assistant",
                 Signal.session_state.is_not(None),
+                alive(Signal),
             )
         )
     ).scalar_one_or_none()
@@ -812,6 +840,7 @@ async def nudge_idle_sessions(
                     Signal.session_state == "active",
                     Signal.context_signal_id.is_not(None),
                     Signal.updated_at <= cutoff,
+                    alive(Signal),
                 )
                 .order_by(Signal.updated_at)
                 .limit(500)

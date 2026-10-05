@@ -35,7 +35,7 @@ Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 - **Workforce** — de mensen, de agents en de teams die ze vormen, met wie nu beschikbaar is. Zie [Workforce](/docs/getting-started/team).
 - **Koppelingen** — marketplace-installaties, partnerlogins en tools. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Integraties](/docs/integrations/integrations).
-- **Instellingen** — **Kanalen**, **AI-antwoorden**, **Chatwidget**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Intake-types voor chat staan bij [Signalen](/docs/ai/cases).
+- **Instellingen** — **Kanalen**, **AI-antwoorden**, **Chatwidget**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Categorieën voor gesprekken staan onder **Signaaltypes**; zie [Categorieën en tickets](/docs/ai/cases).
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).
 
@@ -58,7 +58,7 @@ Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen
 
 ## Twee andere snelkoppelingen
 
-Het accountmenu biedt **Profiel**, **Instellingen**, **Workspaces** en **Hulp**. **Hulp** (`/settings/help`) linkt naar de setupgids, producttour, `/docs`, `/docs/api` en support (e-mail of praat met de assistent). De openbare site is `/docs` (geen login). In-app Learn blijft op `/learn` voor paginabanners.
+Het accountmenu biedt **Profiel**, **Instellingen**, **Workspaces** en **Hulp**. Onderaan herhaalt het de supportregel `environment · tenant-slug · Live`. **Hulp** (`/settings/help`) linkt naar de setupgids, producttour, `/docs`, `/docs/api` en support (e-mail of praat met de assistent). De openbare site is `/docs` (geen login). In-app Learn blijft op `/learn` voor paginabanners.
 
 ## Wat nu
 

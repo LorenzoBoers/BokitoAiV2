@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useMemo } from 'react';
 import { appRoutes } from '../api/routes/app.routes';
 import { apiGet, apiPost } from '../lib/api';
-import { onGatewayEvent } from '../lib/gateway';
+import type { GatewayEvent } from '../lib/gateway';
+import { applyLive, listLive, seedLive, useLiveList } from '../lib/live-store';
 import { useAuth } from './AuthContext';
+
+const TABLE = 'notification';
 
 export type NotificationKind =
   | 'status_update'
@@ -33,8 +36,6 @@ interface NotificationContextValue {
   notifications: AppNotification[];
   /** Unread tier 1 and 2 notices (the bell badge). */
   unreadCount: number;
-  /** Open conversations in For you. */
-  forYouCount: number;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   refresh: () => Promise<void>;
@@ -51,6 +52,8 @@ type RawNotification = {
   tier?: number;
   payload: Record<string, unknown>;
   created_at: string;
+  user_id?: string | null;
+  signal_id?: string | null;
 };
 
 function normalize(raw: RawNotification): AppNotification {
@@ -67,26 +70,49 @@ function normalize(raw: RawNotification): AppNotification {
   };
 }
 
+/** Same order as the list endpoint: unread first, then tier, then newest. */
+function byBellOrder(a: AppNotification, b: AppNotification): number {
+  const unread = Number(b.status === 'unread') - Number(a.status === 'unread');
+  if (unread) return unread;
+  if (a.tier !== b.tier) return a.tier - b.tier;
+  return b.createdAt.localeCompare(a.createdAt);
+}
+
+/**
+ * `notification` events carry the full bell row; fed by the shell live bus.
+ * Rows for another person and conversation items (For you) are skipped.
+ */
+export function ingestNotification(event: GatewayEvent, userId: string | null | undefined) {
+  if (event.event !== 'notification') return;
+  const raw = event.data?.row as RawNotification | undefined;
+  if (!raw?.id || raw.signal_id) return;
+  if (raw.user_id && raw.user_id !== userId) return;
+  applyLive<AppNotification>(TABLE, raw.id, normalize(raw));
+}
+
+function patchStatus(ids: string[] | 'all', status: AppNotification['status']) {
+  for (const row of listLive<AppNotification>(TABLE)) {
+    if (ids === 'all' ? row.status === 'unread' : ids.includes(row.id)) {
+      applyLive<AppNotification>(TABLE, row.id, { ...row, status });
+    }
+  }
+}
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [forYouCount, setForYouCount] = useState(0);
+  const rows = useLiveList<AppNotification>(TABLE);
+  const notifications = useMemo(() => [...rows].sort(byBellOrder).slice(0, 100), [rows]);
 
   const unreadCount = notifications.filter((n) => n.status === 'unread' && n.tier < 3).length;
 
   const refresh = useCallback(async () => {
     if (!token) {
-      setNotifications([]);
-      setForYouCount(0);
+      seedLive<AppNotification>(TABLE, [], (n) => n.id);
       return;
     }
     try {
-      const [rows, summary] = await Promise.all([
-        apiGet<RawNotification[]>(appRoutes.notifications.list, token),
-        apiGet<{ unread: number; for_you: number }>(appRoutes.notifications.summary, token),
-      ]);
-      setNotifications(Array.isArray(rows) ? rows.map(normalize).slice(0, 100) : []);
-      setForYouCount(typeof summary?.for_you === 'number' ? summary.for_you : 0);
+      const list = await apiGet<RawNotification[]>(appRoutes.notifications.list, token);
+      seedLive(TABLE, Array.isArray(list) ? list.map(normalize) : [], (n) => n.id);
     } catch {
       // Keep the last known list; the bell is non-critical UI.
     }
@@ -96,17 +122,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!token) return;
-    const unsub = onGatewayEvent('notifications', (event) => {
-      if (event.event === 'notification') void refresh();
-    });
-    return unsub;
-  }, [token, refresh]);
-
   const markAsRead = useCallback(
     (id: string) => {
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, status: 'read' } : n)));
+      patchStatus([id], 'read');
       if (token) {
         void apiPost(appRoutes.notifications.markRead(id), {}, token).catch(() => void refresh());
       }
@@ -115,7 +133,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   );
 
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => (n.status === 'unread' ? { ...n, status: 'read' } : n)));
+    patchStatus('all', 'read');
     if (token) {
       void apiPost(appRoutes.notifications.markAllRead, {}, token).catch(() => void refresh());
     }
@@ -126,7 +144,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       value={{
         notifications,
         unreadCount,
-        forYouCount,
         markAsRead,
         markAllAsRead,
         refresh,

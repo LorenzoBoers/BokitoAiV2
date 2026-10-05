@@ -34,7 +34,7 @@ export type RemoteMcpProviderDef = {
   mcpTransport: 'streamable_http' | 'sse'
   authMethod: McpPresetAuth
   defaultStatus: 'available' | 'coming_soon'
-  module?: 'accounting' | 'banking'
+  module?: 'accounting' | 'banking' | 'investing' | 'documents'
 }
 
 type CatalogJson = {
@@ -50,7 +50,7 @@ type CatalogJson = {
     mcp_remote_url?: string
     mcp_transport?: 'streamable_http' | 'sse'
     status?: 'available' | 'coming_soon'
-    module?: 'accounting' | 'banking'
+    module?: 'accounting' | 'banking' | 'investing' | 'documents'
   }>
 }
 
@@ -95,10 +95,27 @@ export function faviconLogoUrl(domain: string): string {
 
 export function logoUrlForHost(hostSlug: string): string | null {
   const host = REMOTE_MCP_HOST_BY_SLUG[hostSlug]
-  if (!host) return null
-  if (host.simpleicons) return simpleIconsLogoUrl(host.simpleicons, host.brand_color)
-  if (host.logo_domain) return faviconLogoUrl(host.logo_domain)
-  return null
+  if (host?.simpleicons) return simpleIconsLogoUrl(host.simpleicons, host.brand_color)
+  if (host?.logo_domain) return faviconLogoUrl(host.logo_domain)
+  const extra = CORE_WEB_LOGOS[hostSlug]
+  if (!extra) return null
+  if (extra.simpleicons) return simpleIconsLogoUrl(extra.simpleicons, extra.color)
+  return faviconLogoUrl(extra.domain)
+}
+
+const CORE_WEB_LOGOS: Record<string, { domain: string; simpleicons?: string; color: string }> = {
+  google: { domain: 'google.com', simpleicons: 'google', color: '#4285f4' },
+  microsoft: { domain: 'microsoft.com', simpleicons: 'microsoft', color: '#0078d4' },
+  outlook: { domain: 'outlook.com', simpleicons: 'microsoftoutlook', color: '#0078d4' },
+  tink: { domain: 'tink.com', color: '#161616' },
+  yapily: { domain: 'yapily.com', color: '#1b1f3b' },
+  knab: { domain: 'knab.nl', color: '#ffcd00' },
+  twelve_data: { domain: 'twelvedata.com', color: '#1a73e8' },
+  bitvavo: { domain: 'bitvavo.com', simpleicons: 'bitvavo', color: '#0051ff' },
+  tradingview: { domain: 'tradingview.com', simpleicons: 'tradingview', color: '#131722' },
+  google_drive: { domain: 'drive.google.com', simpleicons: 'googledrive', color: '#1ea362' },
+  onedrive: { domain: 'onedrive.live.com', simpleicons: 'microsoftonedrive', color: '#0078d4' },
+  dropbox: { domain: 'dropbox.com', simpleicons: 'dropbox', color: '#0061ff' },
 }
 
 export function remoteMcpBySlug(slug: string): RemoteMcpProviderDef | undefined {

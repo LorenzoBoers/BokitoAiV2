@@ -10,15 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.services import workforce_runtime as svc
-from app.services.os_graph import (
-    build_canvas_graph,
-    build_project_graph,
-    create_canvas_edge,
-    create_canvas_node,
-    delete_canvas_edge,
-    delete_canvas_node,
-    patch_canvas_node,
-)
+from app.services.os_graph import os_graph_retired_response
 
 router = APIRouter(prefix="/workforce", tags=["workforce"])
 
@@ -42,7 +34,6 @@ class AgentModelBody(BaseModel):
 class AgentCreateBody(BaseModel):
     name: str
     purpose: str = ""
-    audience: str = "internal"
     system_prompt: str = ""
     model: str = ""
     tools: list[str] = []
@@ -55,7 +46,6 @@ class AgentCreateBody(BaseModel):
 class AgentUpdateBody(BaseModel):
     name: str | None = None
     purpose: str | None = None
-    audience: str | None = None
     system_prompt: str | None = None
     tools: list[str] | None = None
     owner_user_id: UUID | None = None
@@ -103,116 +93,46 @@ class DeferBody(BaseModel):
     days: int = 7
 
 
-class OsNodeCreateBody(BaseModel):
-    node_type: str
-    ref_id: str
-    x: float = 200.0
-    y: float = 200.0
-    label: str | None = None
-
-
-class OsNodePatchBody(BaseModel):
-    x: float | None = None
-    y: float | None = None
-    label: str | None = None
-
-
-class OsEdgeCreateBody(BaseModel):
-    source_node_id: str
-    target_node_id: str
-    relation: str
-
-
-# --- AI OS graph ---
+# --- AI OS graph (retired overlay) ---
 
 
 @router.get("/os/graph")
-async def os_workspace_graph(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await build_canvas_graph(session, auth.tenant.id)
-
-
-@router.post("/os/nodes")
-async def os_create_node(
-    body: OsNodeCreateBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await create_canvas_node(
-        session,
-        auth.tenant.id,
-        node_type=body.node_type,
-        ref_id=_body_uuid(body.ref_id, "ref_id"),
-        x=body.x,
-        y=body.y,
-        label=body.label,
-    )
-
-
-@router.patch("/os/nodes/{node_id}")
-async def os_patch_node(
-    node_id: UUID,
-    body: OsNodePatchBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await patch_canvas_node(
-        session,
-        auth.tenant.id,
-        node_id,
-        x=body.x,
-        y=body.y,
-        label=body.label,
-    )
-
-
-@router.delete("/os/nodes/{node_id}")
-async def os_delete_node(
-    node_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    await delete_canvas_node(session, auth.tenant.id, node_id)
-    return {"ok": True}
-
-
-@router.post("/os/edges")
-async def os_create_edge(
-    body: OsEdgeCreateBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await create_canvas_edge(
-        session,
-        auth.tenant.id,
-        source_node_id=_body_uuid(body.source_node_id, "source_node_id"),
-        target_node_id=_body_uuid(body.target_node_id, "target_node_id"),
-        relation=body.relation,
-    )
-
-
-@router.delete("/os/edges/{edge_id}")
-async def os_delete_edge(
-    edge_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    await delete_canvas_edge(session, auth.tenant.id, edge_id)
-    return {"ok": True}
+async def os_workspace_graph_retired() -> None:
+    return os_graph_retired_response()
 
 
 @router.get("/os/graph/{project_id}")
-async def os_project_graph(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services.projects import get_project_row
+async def os_project_graph_retired(project_id: UUID) -> None:
+    del project_id
+    return os_graph_retired_response()
 
-    await get_project_row(session, auth.tenant.id, project_id)
-    return await build_project_graph(session, auth.tenant.id, project_id)
+
+@router.post("/os/nodes")
+async def os_create_node_retired() -> None:
+    return os_graph_retired_response()
+
+
+@router.patch("/os/nodes/{node_id}")
+async def os_patch_node_retired(node_id: UUID) -> None:
+    del node_id
+    return os_graph_retired_response()
+
+
+@router.delete("/os/nodes/{node_id}")
+async def os_delete_node_retired(node_id: UUID) -> None:
+    del node_id
+    return os_graph_retired_response()
+
+
+@router.post("/os/edges")
+async def os_create_edge_retired() -> None:
+    return os_graph_retired_response()
+
+
+@router.delete("/os/edges/{edge_id}")
+async def os_delete_edge_retired(edge_id: UUID) -> None:
+    del edge_id
+    return os_graph_retired_response()
 
 
 # --- Work logs ---
@@ -236,6 +156,22 @@ async def get_work_logs(
         limit=limit,
     )
     return {"items": items}
+
+
+@router.get("/activity-timeline")
+async def activity_timeline(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    agent_id: UUID | None = Query(default=None),
+    hours: int = Query(default=168, ge=6, le=336),
+):
+    """Now-centered past sessions and upcoming wakes for one agent or the whole library."""
+    return await svc.list_activity_timeline(
+        session,
+        auth.tenant.id,
+        agent_id=agent_id,
+        hours=hours,
+    )
 
 
 @router.get("/work_logs/{work_log_id}/events")
@@ -286,7 +222,6 @@ async def create_agent(
         name=body.name,
         role="assistant",
         system_prompt=body.purpose or body.system_prompt,
-        audience=body.audience,
         tools=body.tools,
         owner_user_id=body.owner_user_id,
         default_channels=body.default_channels,
@@ -324,7 +259,6 @@ async def update_agent(
         agent_id,
         name=body.name,
         system_prompt=body.purpose if body.purpose is not None else body.system_prompt,
-        audience=body.audience,
         tools=body.tools,
         owner_user_id=body.owner_user_id,
         default_channels=body.default_channels,
@@ -351,7 +285,6 @@ async def update_agent(
         after={
             "name": body.name,
             "purpose_changed": body.purpose is not None or body.system_prompt is not None,
-            "audience": body.audience,
             "ask_target": body.ask_target,
         },
     )
@@ -509,13 +442,26 @@ async def archive_agent(
     return result
 
 
-@router.get("/timeline")
-async def timeline(
+@router.post("/agents/{agent_id}/restore")
+async def restore_agent(
+    agent_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    items = await svc.list_timeline(session, auth.tenant.id)
-    return {"items": items}
+    auth.require_role("owner", "admin")
+    result = await svc.restore_agent(session, auth.tenant.id, agent_id)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent:restored",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="agent",
+        resource_id=agent_id,
+    )
+    return result
 
 
 @router.patch("/agents/{agent_id}/status")
@@ -549,7 +495,7 @@ async def patch_agent_lead(
         resource_type="agent",
         resource_id=agent_id,
     )
-    return {"ok": True, "agent": svc.serialize_runtime_agent(agent)}
+    return {"ok": True, "agent": svc.serialize_agent(agent, view="runtime")}
 
 
 @router.patch("/agents/{agent_id}/model")
@@ -601,7 +547,11 @@ async def _chat_access_payload(session: AsyncSession, tenant_id: UUID, agent) ->
     members_result = await session.execute(
         select(User, Membership.role)
         .join(Membership, Membership.user_id == User.id)
-        .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
+        .where(
+            Membership.tenant_id == tenant_id,
+            User.is_active.is_(True),
+            Membership.is_active.is_(True),
+        )
     )
     members = [
         {
@@ -799,16 +749,6 @@ async def patch_workforce_config(
     return await svc.update_workforce_config(
         session, auth.tenant.id, body.model_dump(exclude_unset=True)
     )
-
-
-@router.get("/workforce/status")
-async def workforce_status(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    pipeline_id: int | None = Query(default=None),
-):
-    del pipeline_id
-    return await svc.get_workforce_status(session, auth.tenant.id)
 
 
 @router.post("/workforce/force-wake")

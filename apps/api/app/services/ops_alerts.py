@@ -121,6 +121,35 @@ async def alert_run_failure(
     )
 
 
+_BLOCK_TITLES = {
+    "spend_cap": "AI replies paused: LLM spend cap reached",
+    "provider_credits": "AI replies paused: AI provider credits exhausted",
+    "provider_auth": "AI replies paused: AI provider key rejected",
+}
+
+
+async def alert_workspace_block(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    block: str,
+    error: BaseException | str,
+) -> int:
+    """One alert per block kind per window, instead of one per failed message."""
+    reason = (str(error) or block)[:300]
+    return await notify_tenant_admins(
+        session,
+        tenant_id,
+        category=OPS_RUN_FAILED,
+        title=_BLOCK_TITLES.get(block, "AI replies paused"),
+        body=reason,
+        payload={"block": block},
+        cooldown_minutes=6 * 60,
+        tier=TIER_NOW,
+        critical=True,
+    )
+
+
 async def alert_channel_disconnect(
     session: AsyncSession,
     tenant_id: UUID,

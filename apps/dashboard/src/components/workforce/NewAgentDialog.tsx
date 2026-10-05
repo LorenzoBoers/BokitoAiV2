@@ -27,10 +27,8 @@ type Props = {
   onOpenChange: (open: boolean) => void
   onCreated: (agentId: string) => void
   /** Prefill when duplicating an existing agent. */
-  prefill?: { name?: string; audience?: string; model?: string; purpose?: string } | null
+  prefill?: { name?: string; model?: string; purpose?: string } | null
 }
-
-const AUDIENCES = ['customers', 'partners', 'internal'] as const
 
 const SELECT_CLASS =
   'w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-primary disabled:opacity-50'
@@ -39,7 +37,6 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [name, setName] = useState('')
-  const [audience, setAudience] = useState<(typeof AUDIENCES)[number]>('internal')
   const [model, setModel] = useState('')
   const [purpose, setPurpose] = useState('')
   const [models, setModels] = useState<SelectableChatModel[]>([])
@@ -61,11 +58,6 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
   useEffect(() => {
     if (!open || !token) return
     setName(prefill?.name ?? '')
-    setAudience(
-      prefill?.audience && AUDIENCES.includes(prefill.audience as (typeof AUDIENCES)[number])
-        ? (prefill.audience as (typeof AUDIENCES)[number])
-        : 'internal',
-    )
     setModel(prefill?.model ?? '')
     setPurpose(prefill?.purpose ?? '')
     setError(null)
@@ -85,7 +77,6 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
     try {
       const res = await bokitoCreateAgent(token, {
         name: name.trim(),
-        audience,
         model: model || undefined,
         purpose: purpose.trim() || undefined,
       })
@@ -118,51 +109,30 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-audience">
-                {t('workforce.agents.create.audience', { defaultValue: 'Audience' })}
-              </Label>
-              <select
-                id="agent-audience"
-                value={audience}
-                onChange={(e) => setAudience(e.target.value as (typeof AUDIENCES)[number])}
-                className={SELECT_CLASS}
+          <div className="space-y-1.5">
+            <Label htmlFor="agent-model">{t('workforce.agents.create.model')}</Label>
+            <select
+              id="agent-model"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">{t('workforce.agents.create.workspaceDefault')}</option>
+              {models.map((m) => (
+                <option key={m.slug} value={m.slug}>
+                  {m.display_name}
+                </option>
+              ))}
+            </select>
+            {modelsError ? (
+              <button
+                type="button"
+                onClick={loadModels}
+                className="text-xs font-medium text-accent hover:underline"
               >
-                {AUDIENCES.map((value) => (
-                  <option key={value} value={value}>
-                    {t(`workforce.agents.audiences.${value}`, {
-                      defaultValue: value.charAt(0).toUpperCase() + value.slice(1),
-                    })}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-model">{t('workforce.agents.create.model')}</Label>
-              <select
-                id="agent-model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className={SELECT_CLASS}
-              >
-                <option value="">{t('workforce.agents.create.workspaceDefault')}</option>
-                {models.map((m) => (
-                  <option key={m.slug} value={m.slug}>
-                    {m.display_name}
-                  </option>
-                ))}
-              </select>
-              {modelsError ? (
-                <button
-                  type="button"
-                  onClick={loadModels}
-                  className="text-xs font-medium text-accent hover:underline"
-                >
-                  {t('workforce.agents.create.modelsRetry')}
-                </button>
-              ) : null}
-            </div>
+                {t('workforce.agents.create.modelsRetry')}
+              </button>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">

@@ -101,7 +101,12 @@ async def _available_member(session: AsyncSession, tenant_id: UUID, user_id: UUI
         await session.execute(
             select(User)
             .join(Membership, Membership.user_id == User.id)
-            .where(Membership.tenant_id == tenant_id, User.id == user_id, User.is_active.is_(True))
+            .where(
+                Membership.tenant_id == tenant_id,
+                User.id == user_id,
+                User.is_active.is_(True),
+                Membership.is_active.is_(True),
+            )
         )
     ).scalar_one_or_none()
     return row is not None and user_status(row) != AWAY

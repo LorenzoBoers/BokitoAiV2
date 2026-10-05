@@ -429,5 +429,6 @@ async def test_ingest_inbound_applies_routing_rules(client: AsyncClient, session
         ),
     )
     assert should_process is True
-    tags = json.loads(signal.tags_json or "[]")
-    assert "administratie" in tags
+    from app.services.signal_tags import signal_tag_names
+
+    assert "administratie" in await signal_tag_names(session_override, signal.id)

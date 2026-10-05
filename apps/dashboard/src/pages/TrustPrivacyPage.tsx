@@ -10,6 +10,11 @@ import { Switch } from '../components/ui/switch'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { useAuth } from '../context/AuthContext'
 import {
+  getTenantModels,
+  setDataRegionPolicy,
+  type DataRegionBlock,
+} from '../lib/models-api'
+import {
   erasePrivacySubject,
   exportPrivacySubject,
   getPrivacySettings,
@@ -21,20 +26,28 @@ const LEGAL_BASE = 'https://github.com/bokito-ai/bokito/blob/master/docs/legal'
 
 export default function TrustPrivacyPage() {
   const { t } = useTranslation('nav')
-  const { token } = useAuth()
+  const { token, currentTenantRole } = useAuth()
+  const isOwnerOrAdmin = currentTenantRole === 'owner' || currentTenantRole === 'admin'
   const [settings, setSettings] = useState<PrivacySettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [subjectEmail, setSubjectEmail] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [region, setRegion] = useState<DataRegionBlock | null>(null)
+  const [regionBusy, setRegionBusy] = useState(false)
 
   const load = useCallback(async () => {
     if (!token) return
     setLoading(true)
     setError(null)
     try {
-      setSettings(await getPrivacySettings())
+      const [privacy, models] = await Promise.all([
+        getPrivacySettings(),
+        getTenantModels(token).catch(() => null),
+      ])
+      setSettings(privacy)
+      setRegion(models?.data_region ?? null)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('trustPage.loadError')))
     } finally {
@@ -96,6 +109,22 @@ export default function TrustPrivacyPage() {
       toast.error(formatApiErrorMessage(err, t('trustPage.eraseError')))
     } finally {
       setBusyAction(null)
+    }
+  }
+
+  const allowUs = region?.non_eu_platform_models === 'allowed'
+
+  const handleRegionPolicy = async (nextAllowUs: boolean) => {
+    if (!token || regionBusy || !isOwnerOrAdmin) return
+    setRegionBusy(true)
+    try {
+      const payload = await setDataRegionPolicy(token, nextAllowUs ? 'allowed' : 'blocked')
+      setRegion(payload.data_region ?? null)
+      toast.success(t('trustPage.saved'))
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('trustPage.saveError')))
+    } finally {
+      setRegionBusy(false)
     }
   }
 
@@ -182,6 +211,46 @@ export default function TrustPrivacyPage() {
             </div>
           </>
         )}
+      </section>
+
+      <section className="space-y-4 rounded-lg border border-border/60 bg-bg-surface p-4">
+        <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.region.title')}</h2>
+        <p className="text-xs text-text-muted">{t('trustPage.region.body')}</p>
+        {region?.eu_share_pct_30d != null && region.eu_share_pct_30d > 0 ? (
+          <p className="text-sm text-text-primary">
+            {t('trustPage.region.euShare30d')}: {region.eu_share_pct_30d}%
+          </p>
+        ) : null}
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2">
+          <div>
+            <p className="text-sm font-medium">{t('trustPage.region.allowUs')}</p>
+            <p className="text-xs text-text-muted">{t('trustPage.region.allowUsHint')}</p>
+          </div>
+          <Switch
+            checked={allowUs}
+            disabled={regionBusy || !isOwnerOrAdmin || !region}
+            onCheckedChange={(checked) => void handleRegionPolicy(checked)}
+          />
+        </div>
+        {region && region.non_eu_models_in_use.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-text-primary">{t('trustPage.region.inUseTitle')}</p>
+            <ul className="flex flex-wrap gap-2">
+              {region.non_eu_models_in_use.map((slug) => (
+                <li
+                  key={slug}
+                  className="rounded-md border border-border/60 px-3 py-1.5 text-sm text-text-primary"
+                >
+                  {slug}
+                </li>
+              ))}
+            </ul>
+            {!allowUs ? (
+              <p className="text-xs text-text-muted">{t('trustPage.region.inUseBlockedHint')}</p>
+            ) : null}
+          </div>
+        ) : null}
+        <p className="text-xs text-text-muted">{t('trustPage.region.embeddingNote')}</p>
       </section>
 
       <section className="space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">

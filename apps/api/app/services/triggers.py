@@ -160,10 +160,15 @@ async def test_webhook_trigger(
     }
 
 
-async def get_trigger(session: AsyncSession, tenant_id: UUID, trigger_id: UUID) -> Trigger:
-    result = await session.execute(
-        select(Trigger).where(Trigger.id == trigger_id, Trigger.tenant_id == tenant_id)
-    )
+async def get_trigger(
+    session: AsyncSession, tenant_id: UUID, trigger_id: UUID, *, include_deleted: bool = False
+) -> Trigger:
+    from app.services.trash import alive
+
+    query = select(Trigger).where(Trigger.id == trigger_id, Trigger.tenant_id == tenant_id)
+    if not include_deleted:
+        query = query.where(alive(Trigger))
+    result = await session.execute(query)
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Trigger not found")
@@ -351,12 +356,7 @@ async def _fire_event(session: AsyncSession, trigger: Trigger, now: datetime) ->
     session.add(trigger)
     await session.commit()
     await session.refresh(notification)
-    await publish_notification(
-        trigger.tenant_id,
-        notification_id=notification.id,
-        kind="status_update",
-        title=trigger.name,
-    )
+    await publish_notification(notification)
     return {"status": "done"}
 
 
@@ -492,7 +492,7 @@ async def fire_trigger(
     return {"run_id": str(run.id), "status": trigger.last_status, "suppressed": suppressed}
 
 
-# ── agenda (calendar occurrences) ────────────────────────────────────
+# ── planned moments (read by services.time_items) ────────────────────
 
 MAX_OCCURRENCES_PER_TRIGGER = 100
 
@@ -527,179 +527,11 @@ def _planned_occurrences(trigger: Trigger, start: datetime, end: datetime) -> li
     return []  # webhook: not plannable
 
 
-async def agenda_occurrences(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    start: datetime,
-    end: datetime,
-    agent_id: UUID | None = None,
-) -> list[dict[str, Any]]:
-    """Trigger timeline in [start, end]: planned moments, past runs, and
-    conversation next look-ats.
-
-    Agenda deliberately excludes ``AgentTask`` rows. Those are execution-ledger
-    work. Human follow-ups live on ``Signal.follow_up_at`` and appear here as
-    ``source: follow_up``.
-    """
-    stmt = select(Trigger).where(Trigger.tenant_id == tenant_id)
-    if agent_id:
-        stmt = stmt.where(Trigger.agent_id == agent_id)
-    result = await session.execute(stmt)
-    triggers = list(result.scalars().all())
-
-    agents_result = await session.execute(select(Agent).where(Agent.tenant_id == tenant_id))
-    agent_names = {a.id: a.name for a in agents_result.scalars().all()}
-
-    items: list[dict[str, Any]] = []
-    now = datetime.utcnow()
-
-    for trigger in triggers:
-        agent_name = agent_names.get(trigger.agent_id) if trigger.agent_id else None
-        actor_kind = "person" if trigger.kind == "event" else "agent"
-        actor_name = (
-            agent_name
-            or (trigger.agent_role if actor_kind == "agent" else "Person")
-        )
-        base = {
-            "trigger_id": str(trigger.id),
-            "name": trigger.name,
-            "kind": trigger.kind,
-            # The thread the results land in, so the agenda links there without
-            # guessing a conversation from the trigger name.
-            "signal_id": str(trigger.signal_id) if trigger.signal_id else None,
-            "agent_id": str(trigger.agent_id) if trigger.agent_id else None,
-            "agent_role": trigger.agent_role,
-            "agent_name": agent_name,
-            "actor_kind": actor_kind,
-            "actor_id": str(trigger.agent_id) if trigger.agent_id else None,
-            "actor_name": actor_name,
-            "instructions": trigger.instructions,
-            "enabled": trigger.enabled,
-        }
-        for moment in _planned_occurrences(trigger, max(start, now), end):
-            items.append({**base, "id": f"{trigger.id}:{moment.isoformat()}", "at": _iso(moment), "status": "planned", "run_id": None})
-        # Completed one-shot items keep their place on the calendar via last_run_at.
-        if (
-            trigger.kind in ("once", "event")
-            and trigger.last_run_at
-            and start <= trigger.last_run_at <= end
-        ):
-            items.append(
-                {
-                    **base,
-                    "id": f"{trigger.id}:done",
-                    "at": _iso(trigger.last_run_at),
-                    "status": trigger.last_status or "done",
-                    "run_id": None,
-                }
-            )
-
-    # Run history for recurring triggers (cron/interval/heartbeat/webhook fires).
-    trigger_by_id = {str(t.id): t for t in triggers}
-    runs_result = await session.execute(
-        select(AgentRun).where(
-            AgentRun.tenant_id == tenant_id,
-            AgentRun.trigger_id.is_not(None),
-            AgentRun.started_at >= start,
-            AgentRun.started_at <= end,
-        )
-    )
-    for run in runs_result.scalars().all():
-        trigger = trigger_by_id.get(run.trigger_id or "")
-        if trigger is None:
-            # On-demand work (email suggestions, chat runs, widget replies)
-            # is execution history, not planning: it lives on the activity
-            # timeline, never on the agenda.
-            continue
-        if trigger.kind in ("once", "event"):
-            continue  # already represented by the one-shot done item
-        if agent_id and run.agent_id != agent_id:
-            continue
-        items.append(
-            {
-                "id": f"run:{run.id}",
-                "trigger_id": run.trigger_id,
-                "name": trigger.name,
-                "kind": trigger.kind,
-                "signal_id": str(trigger.signal_id) if trigger.signal_id else None,
-                "agent_id": str(run.agent_id),
-                "agent_role": trigger.agent_role,
-                "agent_name": agent_names.get(run.agent_id),
-                "actor_kind": "agent",
-                "actor_id": str(run.agent_id),
-                "actor_name": agent_names.get(run.agent_id) or trigger.agent_role,
-                "instructions": trigger.instructions,
-                "enabled": trigger.enabled,
-                "at": _iso(run.started_at),
-                "status": run.status,
-                "run_id": str(run.id),
-            }
-        )
-
-    # External calendar events (Google / Outlook) when not filtering to one agent.
-    if agent_id is None:
-        from app.services.calendar_sync import events_as_agenda_items
-
-        calendar_items = await events_as_agenda_items(
-            session, tenant_id, start=start, end=end
-        )
-        for item in calendar_items:
-            item.setdefault("actor_kind", "person")
-            item.setdefault("actor_id", None)
-            item.setdefault(
-                "actor_name",
-                item.get("calendar_name") or item.get("provider_label") or "Person",
-            )
-        items.extend(calendar_items)
-
-    # Conversation next look-ats (person actor). Skip when filtering to one agent.
-    if agent_id is None:
-        from app.models.signal import Signal
-
-        follow_result = await session.execute(
-            select(Signal).where(
-                Signal.tenant_id == tenant_id,
-                Signal.follow_up_at.is_not(None),
-                Signal.follow_up_at >= start,
-                Signal.follow_up_at <= end,
-                Signal.status.notin_(("spam", "archived")),
-            )
-        )
-        for signal in follow_result.scalars().all():
-            title = (signal.follow_up_title or "").strip() or signal.subject or "Follow up"
-            at = signal.follow_up_at
-            assert at is not None
-            items.append(
-                {
-                    "id": f"follow_up:{signal.id}",
-                    "trigger_id": None,
-                    "name": title,
-                    "kind": "follow_up",
-                    "source": "follow_up",
-                    "signal_id": str(signal.id),
-                    "agent_id": None,
-                    "agent_role": "",
-                    "agent_name": None,
-                    "actor_kind": "person",
-                    "actor_id": None,
-                    "actor_name": signal.contact_name or signal.contact_email or "You",
-                    "instructions": "",
-                    "enabled": True,
-                    "at": _iso(at),
-                    "status": "due" if at <= now else "planned",
-                    "run_id": None,
-                }
-            )
-
-    items.sort(key=lambda item: item["at"] or "")
-    return items
-
-
 async def process_due_triggers(session: AsyncSession, tenant_id: UUID | None = None) -> int:
     now = datetime.utcnow()
     conditions = [
         Trigger.enabled.is_(True),
+        Trigger.deleted_at.is_(None),
         Trigger.next_run_at.is_not(None),
         Trigger.next_run_at <= now,
     ]

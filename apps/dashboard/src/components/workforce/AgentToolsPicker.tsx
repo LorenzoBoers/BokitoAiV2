@@ -63,7 +63,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
     setError(null)
     try {
       const list = [...selected].sort()
-      await updateAgentPassport(agentId, { allowed_tools: list })
+      await updateAgentPassport(agentId, { tools: list })
       onSaved(list)
       setEditing(false)
     } catch (e) {
@@ -97,7 +97,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
             {t('workforce.agents.openGovern')}
           </Link>
           <Link
-            to="/connections/connected"
+            to="/connections"
             className="text-xs text-accent hover:underline"
           >
             {t('workforce.agents.openIntegrations')}

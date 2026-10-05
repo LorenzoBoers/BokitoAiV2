@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { AgentPassport } from '../lib/workforce-api'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { Archive, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, ShieldCheck } from 'lucide-react'
+import { Archive, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, RotateCcw, ShieldCheck } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
@@ -16,6 +17,7 @@ import { AgentInstructionsCard } from '../components/workforce/AgentInstructions
 import { AgentSignatureCard } from '../components/workforce/AgentSignatureCard'
 import { AgentAskTargetCard } from '../components/workforce/AgentAskTargetCard'
 import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
+import { AgentActivityTimeline } from '../components/workforce/AgentActivityTimeline'
 import { AgentIdentityDialog } from '../components/workforce/AgentIdentityDialog'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -27,40 +29,22 @@ import { listAgents } from '../lib/agents-api'
 import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
 import { activityTerminalPath, agentChatPath } from '../lib/messages-paths'
-import { agendaOccurrenceHref, workLogRunsPath } from '../lib/agenda-thread'
+import { openEntityPath, runThreadPath } from '../lib/open-entity'
+import { agendaKindOf, listTimeItems, parseTimelineMs, timeItemHref, type TimeItem } from '../lib/time-items'
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
 import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
-import { archiveAgent } from '../lib/workforce-api'
+import { archiveAgent, restoreAgent } from '../lib/workforce-api'
 import { listAgentPassports } from '../lib/govern-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
-import { listAgendaOccurrences, listTriggers, type AgendaItem } from '../lib/orchestration-api'
-import { resolveAgendaAgentId } from '../lib/agenda-label'
-import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import type { RuntimeAgent } from '../lib/workforce-api'
 const AGENTS_DEFAULT_PATH = '/agents'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { cn } from '../lib/utils'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
-import { agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
-
-const STATUS_CLASS: Record<ReturnType<typeof agentWorkState>, string> = {
-  working: 'text-status-success',
-  ready: 'text-text-muted',
-  error: 'text-status-error',
-}
-
-type AgentPassport = {
-  id: string
-  name: string
-  role: string
-  autonomy_level: string | number | null
-  allowed_tools: string[]
-  permission_scopes: string[]
-  is_active: boolean
-  runtime_status: string | null
-}
+import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
+import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
 
 export default function AiAgentDetail() {
   const { t, i18n } = useTranslation(['nav', 'common'])
@@ -75,7 +59,7 @@ export default function AiAgentDetail() {
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
   const [openConversations, setOpenConversations] = useState<InboxThread[]>([])
   const [openConversationsTotal, setOpenConversationsTotal] = useState(0)
-  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
+  const [agendaItems, setAgendaItems] = useState<TimeItem[]>([])
   const [identityOpen, setIdentityOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -89,18 +73,21 @@ export default function AiAgentDetail() {
     setLoading(true)
     setError(null)
     try {
-      const [agentRows, projectRows, passportRows, agendaRows, triggerRows, threadsResult, openThreadsResult] =
+      const [agentRows, projectRows, passportRows, agendaRows, threadsResult, openThreadsResult] =
         await Promise.all([
         listAgents(),
         listProjects(),
         listAgentPassports()
-          .then((r) => r.items as AgentPassport[])
+          .then((r) => r.items)
           .catch(() => [] as AgentPassport[]),
-        listAgendaOccurrences({
-          from: new Date().toISOString(),
+        listTimeItems({
+          from: new Date(Date.now() - 60_000).toISOString(),
           to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        }).catch(() => [] as AgendaItem[]),
-        listTriggers().catch(() => []),
+          agentId,
+          sources: ['wake', 'follow_up'],
+        })
+          .then((window) => window.items)
+          .catch(() => [] as TimeItem[]),
         token
           ? listThreads(token, { folder: 'internal', perPage: 80 }).catch(() => ({ items: [] as InboxThread[] }))
           : Promise.resolve({ items: [] as InboxThread[] }),
@@ -123,7 +110,9 @@ export default function AiAgentDetail() {
         const all = await listWorkLogs({ limit: 100 })
         runRows = all.filter((r) => r.agent_id === agentId)
       }
-      setAgent(agentRows.find((a) => a.id === agentId) ?? null)
+      const found = agentRows.find((a) => a.id === agentId) ?? null
+      setAgent(found)
+      if (found) seedAgentPresence([found])
       setPassport(passportRows.find((p) => p.id === agentId) ?? null)
       setRuns(runRows)
       setProjects(projectRows)
@@ -132,21 +121,7 @@ export default function AiAgentDetail() {
       setOpenConversationsTotal(
         Math.max(openThreadsResult.itemsTotal ?? 0, openThreadsResult.items.length),
       )
-      const soon = Date.now() - 60_000
-      const agentRow = agentRows.find((row) => row.id === agentId)
-      const agentHints = agentRow
-        ? [{ id: agentRow.id, name: agentRow.name, role_slug: agentRow.role_slug, role_name: agentRow.role_name }]
-        : []
-      setAgendaItems(
-        agendaRows
-          .filter((item) => {
-            const ownerId = resolveAgendaAgentId(item, triggerRows, agendaRows, agentHints)
-            if (ownerId !== agentId) return false
-            const at = new Date(item.at.endsWith('Z') || item.at.includes('+') ? item.at : `${item.at}Z`).getTime()
-            return Number.isFinite(at) && at >= soon && item.status !== 'done' && item.status !== 'completed'
-          })
-          .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()),
-      )
+      setAgendaItems(agendaRows.filter((item) => item.status !== 'done' && item.status !== 'completed'))
     } catch (e) {
       setAgent(null)
       setRuns([])
@@ -170,6 +145,10 @@ export default function AiAgentDetail() {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [loading, openConversations.length])
 
+  const live = useAgentLive(agentId)
+  const view = agent ? withAgentLive(agent) : null
+  const work = view ? agentStatusOf(view) : 'standby'
+  const workHref = agentId && work === 'working' ? openEntityPath({ type: 'agent', id: agentId, live }) : null
   const mappedThreads = useMemo(
     () =>
       internalThreads.map((row) => ({
@@ -181,7 +160,7 @@ export default function AiAgentDetail() {
   )
   const runTo = useMemo(
     () => (run: WorkLogRow) =>
-      workLogRunsPath(run, mappedThreads, agentWorkforceRunUrl(agentId ?? '', run.id)),
+      runThreadPath({ ...run, agent_id: run.agent_id ?? agentId }, mappedThreads),
     [agentId, mappedThreads],
   )
   const linkedProject = useMemo(() => {
@@ -195,13 +174,28 @@ export default function AiAgentDetail() {
     setActionError(null)
     try {
       await archiveAgent(undefined, agent.id)
-      navigate(AGENTS_DEFAULT_PATH, { replace: true })
+      setArchiveConfirmOpen(false)
+      await load()
     } catch (e) {
       setActionError(e instanceof Error ? e.message : t('workforce.agents.archiveError'))
+    } finally {
       setArchiveBusy(false)
-      setArchiveConfirmOpen(false)
     }
-  }, [agent, archiveBusy, navigate, t])
+  }, [agent, archiveBusy, load, t])
+
+  const handleRestore = useCallback(async () => {
+    if (!agent || archiveBusy) return
+    setArchiveBusy(true)
+    setActionError(null)
+    try {
+      await restoreAgent(undefined, agent.id)
+      await load()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t('workforce.agents.restoreError'))
+    } finally {
+      setArchiveBusy(false)
+    }
+  }, [agent, archiveBusy, load, t])
 
   if (!agentId) {
     return <Navigate to={AGENTS_DEFAULT_PATH} replace />
@@ -254,11 +248,7 @@ export default function AiAgentDetail() {
                   icon={agent.avatar_icon}
                   imageUrl={agent.avatar_image_url}
                   activity={
-                    agentWorkState(agent) === 'working'
-                      ? 'working'
-                      : agentWorkState(agent) === 'error'
-                        ? 'error'
-                        : 'standby'
+                    work === 'working' ? 'working' : work === 'error' ? 'error' : 'standby'
                   }
                 />
                 <div>
@@ -276,34 +266,65 @@ export default function AiAgentDetail() {
                         {t('workforce.agents.managedBadge')}
                       </span>
                     ) : null}
-                    {isAdmin && agent.kind !== 'personal' ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7"
-                        onClick={() => setIdentityOpen(true)}
-                      >
-                        <Pencil size={14} className="mr-1.5" aria-hidden />
-                        {t('workforce.agents.editIdentity')}
-                      </Button>
-                    ) : null}
                   </div>
-                  <p className="mt-0.5 text-sm capitalize text-text-muted">
-                    {t(`workforce.agents.audiences.${agent.audience ?? 'internal'}`, {
-                      defaultValue: agent.audience ?? 'internal',
-                    })}
+                  <p
+                    className={cn(
+                      'mt-0.5 text-sm font-medium',
+                      agent.is_active === false
+                        ? presenceTextClass('deactivated')
+                        : presenceTextClass(work),
+                    )}
+                  >
+                    {agent.is_active === false
+                      ? presenceLabel('deactivated', t)
+                      : presenceLabel(work, t)}
                   </p>
+                  {work === 'working' && (view?.current_activity_summary || live?.summary) ? (
+                    workHref ? (
+                      <Link to={workHref} className="mt-1 block text-sm text-text-secondary hover:text-text-heading">
+                        {view?.current_activity_summary || live?.summary}
+                      </Link>
+                    ) : (
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {view?.current_activity_summary || live?.summary}
+                      </p>
+                    )
+                  ) : null}
+                  {workHref ? (
+                    <Link to={workHref} className="mt-1 inline-block text-xs font-medium text-accent hover:underline">
+                      {t('workforce.agents.openCurrentWork')}
+                    </Link>
+                  ) : null}
                 </div>
               </div>
-              <span
-                className={cn('text-sm font-medium', STATUS_CLASS[agentWorkState(agent)])}
-              >
-                {t(agentStatusI18nKey(agentWorkState(agent)))}
-              </span>
+              {isAdmin && agent.kind !== 'personal' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7"
+                  onClick={() => setIdentityOpen(true)}
+                >
+                  <Pencil size={14} className="mr-1.5" aria-hidden />
+                  {t('workforce.agents.editIdentity')}
+                </Button>
+              ) : null}
             </div>
-            {agent.current_activity_summary ? (
-              <p className="mt-2 text-sm text-text-secondary">{agent.current_activity_summary}</p>
+            {agent.is_active === false ? (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-bg-elevated px-3 py-2">
+                <p className="text-sm text-text-secondary">{t('workforce.agents.deactivatedBanner')}</p>
+                {isAdmin ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={archiveBusy}
+                    onClick={() => void handleRestore()}
+                  >
+                    <RotateCcw size={14} className="mr-1.5" />
+                    {t('workforce.agents.restore')}
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
             {isOrchestratorAgent(agent) && linkedProject ? (
               <p className="mt-2 text-sm text-text-muted">
@@ -316,7 +337,7 @@ export default function AiAgentDetail() {
               <p className="mt-3 text-xs text-text-muted">{t('workforce.agents.readonlyBanner')}</p>
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {agent.kind !== 'personal' ? (
+              {agent.kind !== 'personal' && agent.is_active !== false ? (
                 <Button type="button" size="sm" variant="outline" asChild>
                   <Link to={agentChatPath(agent.id)}>
                     <MessageSquare size={14} className="mr-1.5" aria-hidden />
@@ -363,19 +384,29 @@ export default function AiAgentDetail() {
                         {t('workforce.agents.duplicate')}
                       </DropdownMenu.Item>
                       <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                      <DropdownMenu.Item
-                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                        onSelect={() => setArchiveConfirmOpen(true)}
-                      >
-                        <Archive size={14} />
-                        {t('workforce.agents.archive')}
-                      </DropdownMenu.Item>
+                      {agent.is_active === false ? (
+                        <DropdownMenu.Item
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                          onSelect={() => void handleRestore()}
+                        >
+                          <RotateCcw size={14} />
+                          {t('workforce.agents.restore')}
+                        </DropdownMenu.Item>
+                      ) : (
+                        <DropdownMenu.Item
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                          onSelect={() => setArchiveConfirmOpen(true)}
+                        >
+                          <Archive size={14} />
+                          {t('workforce.agents.archive')}
+                        </DropdownMenu.Item>
+                      )}
                     </DropdownMenu.Content>
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
               ) : null}
             </div>
-            {archiveConfirmOpen ? (
+            {archiveConfirmOpen && agent.is_active !== false ? (
               <div className="mt-3 rounded-lg border border-status-error/30 bg-status-error/5 px-3 py-2">
                 <p className="text-sm text-text-heading">
                   {agent.managed
@@ -403,13 +434,13 @@ export default function AiAgentDetail() {
             ) : null}
             {actionError ? <p className="mt-2 text-sm text-status-error">{actionError}</p> : null}
           </Card>
+          <AgentActivityTimeline agentId={agent.id} />
           <NewAgentDialog
             open={duplicateOpen}
             onOpenChange={setDuplicateOpen}
             onCreated={(agentId) => navigate(`/agents/${agentId}`)}
             prefill={{
               name: t('workforce.agents.duplicateName', { name: agent.name }),
-              audience: agent.audience ?? undefined,
               model: agent.model ?? undefined,
               purpose: agent.purpose ?? agent.system_prompt ?? undefined,
             }}
@@ -519,8 +550,8 @@ export default function AiAgentDetail() {
                 <div className="mt-3 flex flex-1 flex-col">
                   <div className="space-y-1.5">
                     {agendaItems.slice(0, 5).map((item) => {
-                      const href = agendaOccurrenceHref(item, mappedThreads, agent.id)
-                      const at = new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`)
+                      const href = timeItemHref(item, mappedThreads)
+                      const at = new Date(parseTimelineMs(item.start))
                       return (
                         <Link
                           key={item.id}
@@ -529,9 +560,9 @@ export default function AiAgentDetail() {
                         >
                           <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
                           <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
-                            {translateDecisionText(item.name, t) || item.name}
+                            {translateDecisionText(item.title, t) || item.title}
                           </span>
-                          <span className="shrink-0 text-xs text-text-muted">{agendaKindLabel(item.kind, t)}</span>
+                          <span className="shrink-0 text-xs text-text-muted">{agendaKindLabel(agendaKindOf(item), t)}</span>
                           <span className="shrink-0 text-xs tabular-nums text-text-muted">
                             {formatAppWeekdayDateTime(at, i18n.language)}
                           </span>
@@ -596,7 +627,7 @@ export default function AiAgentDetail() {
             onChanged={() => void load()}
           />
 
-          <Card className="px-4 py-3">
+          <Card id="tools" className="px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-text-heading">
@@ -617,10 +648,10 @@ export default function AiAgentDetail() {
               <div>
                 <AgentToolsPicker
                   agentId={agent.id}
-                  allowedTools={passport?.allowed_tools ?? []}
+                  allowedTools={passport?.tools ?? []}
                   canEdit={isAdmin}
                   onSaved={(tools) =>
-                    setPassport((prev) => (prev ? { ...prev, allowed_tools: tools } : prev))
+                    setPassport((prev) => (prev ? { ...prev, tools } : prev))
                   }
                 />
               </div>

@@ -93,6 +93,7 @@ class OverviewPerson(BaseModel):
     team_ids: list[str]
     open_owned: int
     open_turn: int
+    deactivated: bool = False
 
 
 class OverviewMetrics(BaseModel):
@@ -113,6 +114,11 @@ class OverviewAgent(BaseModel):
     team_ids: list[str]
     open_owned: int
     status: Literal["standby", "working", "error"] = "standby"
+    avatar_kind: str = "icon"
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_image_url: str | None = None
+    deactivated: bool = False
     metrics: OverviewMetrics = Field(default_factory=OverviewMetrics)
 
 
@@ -272,6 +278,30 @@ async def put_team_members(
     return await teams_svc.serialize_team(session, team)
 
 
+class TeamRoomOut(BaseModel):
+    id: str
+    title: str
+
+
+@router.post("/{team_id}/room", response_model=TeamRoomOut)
+async def open_team_room(
+    team_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Get or create the standing group chat for this team.
+
+    One internal conversation owned by the team. The Communication sidebar
+    Groepschat row opens it. Members talk here like any other internal thread.
+    """
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    if team.kind in teams_svc.SYSTEM_TEAM_KINDS:
+        raise HTTPException(status_code=400, detail="System teams have no group chat")
+    signal = await teams_svc.get_or_create_team_room(session, auth.tenant.id, team)
+    await session.commit()
+    return TeamRoomOut(id=str(signal.id), title=signal.subject)
+
+
 @router.delete("/{team_id}", status_code=204)
 async def delete_team(
     team_id: str,
@@ -387,6 +417,7 @@ async def team_overview(
             "team_ids": membership.get(f"user:{user.id}", []),
             "open_owned": int(open_owned_user.get(user.id, 0)),
             "open_turn": int(open_turn_user.get(user.id, 0)),
+            "deactivated": not bool(member.is_active),
         }
         for user, member in people_rows
     ]
@@ -399,9 +430,8 @@ async def team_overview(
             await session.execute(
                 select(Agent).where(
                     Agent.tenant_id == tenant_id,
-                    Agent.is_active.is_(True),
-                    Agent.kind == "company",
                     Agent.acts_for_user.is_(False),
+                    Agent.kind.in_(("company", "archived")),
                 )
             )
         )
@@ -423,23 +453,23 @@ async def team_overview(
             .scalars()
             .all()
         )
+    from app.services.workforce_runtime import serialize_agent
+
     agents = []
     for agent in agent_rows:
-        corner = presence.agent_corner_status(agent, has_running_run=agent.id in running_ids) or "standby"
-        if corner not in ("standby", "working", "error"):
-            corner = "standby"
-        agents.append(
+        deactivated = agent.kind == "archived" or not bool(agent.is_active)
+        row = serialize_agent(agent, view="passport", running=agent.id in running_ids)
+        if deactivated:
+            row["status"] = "standby"
+        row.update(
             {
-                "id": str(agent.id),
-                "name": agent.name,
-                "role": agent.role or "",
-                "autonomy_level": agent.autonomy_level or "assisted",
                 "team_ids": membership.get(f"agent:{agent.id}", []),
                 "open_owned": int(open_owned_agent.get(agent.id, 0)),
-                "status": corner,
+                "deactivated": deactivated,
                 "metrics": metrics["agents"].get(str(agent.id), empty_metrics()),
             }
         )
+        agents.append(row)
     agents.sort(key=lambda a: a["name"].lower())
     await session.commit()
     return {"people": people, "agents": agents, "teams": teams_out}

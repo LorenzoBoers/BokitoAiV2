@@ -94,8 +94,15 @@ export function ApplicationHubDialog({
                 size="sm"
                 className="h-8 w-8 p-0 shrink-0 mt-0.5"
                 onClick={() => {
-                  if (step === 'offer-setup') setStep('offer-detail')
-                  else setStep('app')
+                  if (step === 'offer-setup') {
+                    setStep('offer-detail')
+                    return
+                  }
+                  if (application.offers.length > 1 && !initialOfferId) {
+                    setStep('app')
+                    return
+                  }
+                  onOpenChange(false)
                 }}
                 aria-label={t('integrations.hub.setup.back')}
               >
@@ -166,11 +173,7 @@ export function ApplicationHubDialog({
                           </Badge>
                         </div>
                         <p className="text-xs text-text-muted mt-1 line-clamp-2">
-                          {localizeOfferDescription(
-                            application.hostSlug,
-                            offer.integration.description,
-                            t,
-                          )}
+                          {localizeOfferDescription(offer, offer.integration.description, t)}
                         </p>
                       </div>
                       {offer.connectionCount > 0 ? (

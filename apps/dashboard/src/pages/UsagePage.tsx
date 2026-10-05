@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { OctagonAlert, RefreshCw } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import CockpitTabs from '../components/shell/CockpitTabs'
+import WorkspaceIdHint from '../components/shell/WorkspaceIdHint'
 import { useAuth } from '../context/AuthContext'
 import {
   bokitoGetBudget,
@@ -223,8 +224,8 @@ export default function UsagePage() {
             breakdown && breakdown.eu_share_pct !== null && breakdown.eu_share_pct !== undefined
               ? t('usagePage.euShareHint')
               : t('usagePage.euShareEmptyHint'),
-          hintTo: '/settings/models',
-          hintLink: t('usagePage.openModels'),
+          hintTo: '/settings/trust',
+          hintLink: t('usagePage.openDataPrivacy'),
         },
       ]
     : []
@@ -237,6 +238,7 @@ export default function UsagePage() {
         subtitle={t('pageHeaders.cockpitUsage')}
         meta={
           <div className="flex flex-wrap items-center gap-2">
+            <WorkspaceIdHint />
             <div className="flex rounded-lg border border-border/60 p-0.5">
               {([7, 30, 90] as const).map((value) => (
                 <button
@@ -590,7 +592,7 @@ export default function UsagePage() {
                 (breakdown.by_region ?? []).map((row) => (
                   <Link
                     key={row.region}
-                    to="/settings/models"
+                    to="/settings/trust"
                     className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
                   >
                     <RegionBadge region={row.region} />

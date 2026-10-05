@@ -1,5 +1,6 @@
 import { Check, Copy, Loader2, Mail, MessageSquareWarning, Pencil, Phone, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labels'
 import { cn } from '../../lib/utils'
@@ -30,9 +31,13 @@ import {
   type BubbleVariant,
 } from './ChatBubble'
 import MessageAttachments from './MessageAttachments'
-import MessageMarkdown from './MessageMarkdown'
-import ReasoningDisclosure from './ReasoningDisclosure'
+import ChatText from './ChatText'
+import ActivityTrail from './ActivityTrail'
+import { isCustomerChannel } from '../../lib/chatMessages'
+import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
+import { inboxPath } from '../../lib/messages-paths'
+import { SplitConversationAction } from './SplitConversationAction'
 
 type MessageLayout = 'chat' | 'email'
 
@@ -44,8 +49,10 @@ export type NoteActions = {
 
 type MessageItemProps = {
   message: InboxMessage
-  /** Open thread id — used to lazy-fetch HTML / agent_trace on expand. */
+  /** Open thread id — used to lazy-fetch HTML / activity detail on expand. */
   threadId?: ThreadId | null
+  /** Thread channel; delivery labels only show on customer channels. */
+  channel?: string | null
   layout?: MessageLayout
   contactName?: string
   contactEmail?: string
@@ -724,12 +731,32 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   snooze_expired: (t) => t('timeline.events.snoozeExpired'),
   widget_seen: (t) => t('timeline.events.widgetSeen'),
   agent_processed: (t) => t('timeline.events.agentReviewed'),
+  agent_blocked: (t, p) =>
+    t(`timeline.events.agentBlocked.${typeof p.block === 'string' ? p.block : 'other'}`, {
+      defaultValue: t('timeline.events.agentBlocked.other'),
+    }),
   no_reply_noted: (t) => t('timeline.events.noReplyNoted'),
   agent_invoked: (t) => t('timeline.events.agentInvoked'),
   agent_replied: (t) => t('timeline.events.agentReplied'),
   suggestion_created: (t) => t('timeline.events.suggestionCreated'),
   decision_created: (t) => t('timeline.events.decisionCreated'),
   triaged: (t) => t('timeline.events.triaged'),
+  category_set: (t, p) => {
+    const category = String(p.category ?? '')
+    if (p.proposed) return t('timeline.events.categoryProposed', { category })
+    return typeof p.previous === 'string' && p.previous
+      ? t('timeline.events.categoryChanged', { category, previous: p.previous })
+      : t('timeline.events.categorySet', { category })
+  },
+  split: (t, p) => {
+    const category = typeof p.category === 'string' ? p.category : ''
+    if (p.direction === 'in') return t('timeline.events.splitIn')
+    return category
+      ? t('timeline.events.splitOutCategory', { category })
+      : t('timeline.events.splitOut')
+  },
+  ticket_stage_changed: (t, p) =>
+    t('timeline.events.ticketStageChanged', { stage: String(p.to_stage ?? '') }),
   escalated: (t) => t('timeline.events.escalated'),
   ai_paused: (t) => t('timeline.events.aiPaused'),
   ai_resumed: (t) => t('timeline.events.aiResumed'),
@@ -773,6 +800,9 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     if (p.action === 'auto_close') return t('timeline.events.autoClosedByRule', { target })
     if (p.action === 'auto_task') return t('timeline.events.taskCreatedByRule', { target })
     if (p.action === 'mute_ai') return t('timeline.events.aiSkippedByRule', { target })
+    if (p.action === 'tag' && Array.isArray(p.tags_added)) {
+      return t('timeline.events.taggedByRule', { tags: p.tags_added.join(', '), target })
+    }
     return t('timeline.events.handledByRule', { target })
   },
 }
@@ -781,6 +811,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
 // activity reads as one visual system instead of scattered divider lines.
 const AI_EVENT_TYPES = new Set([
   'agent_processed',
+  'agent_blocked',
   'no_reply_noted',
   'agent_invoked',
   'agent_replied',
@@ -869,15 +900,28 @@ function EventPill({
   memberName?: string
   memberNameFor?: MemberNameResolver
 }) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const { ai, icon } = eventPresentation(event.eventType, event.payload ?? {})
-  return (
+  const when = event.createdAt
+    ? new Date(event.createdAt).toLocaleString(i18n.language)
+    : undefined
+  const pill = (
     <ActivityPill
       label={eventLabel(event, t, memberName, memberNameFor)}
       ai={ai}
       icon={icon}
+      tip={when}
     />
   )
+  const linkedId = event.eventType === 'split' ? event.payload?.other_signal_id : null
+  if (typeof linkedId === 'string' && linkedId) {
+    return (
+      <Link to={inboxPath('all', linkedId)} className="rounded-full hover:ring-1 hover:ring-border">
+        {pill}
+      </Link>
+    )
+  }
+  return pill
 }
 
 /** Parse a system_event body that accidentally stored a patch JSON blob. */
@@ -901,9 +945,12 @@ function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
     message.payload && Object.keys(message.payload).length > 0 ? message.payload : null
   const fromBody = raw ? parseSystemEventPayload(raw) : null
   const patch = fromPayload ?? fromBody
-  const label = patch
-    ? EVENT_LABELS.thread_updated(t, patch)
-    : raw || t('timeline.events.threadUpdated')
+  const label = threadPatchHasMeaning(patch)
+    ? EVENT_LABELS.thread_updated(t, patch!)
+    : fromBody
+      ? null
+      : raw
+  if (!label) return null
   return (
     <div className="flex justify-center py-0.5 px-2">
       <ActivityPill label={label} />
@@ -1074,6 +1121,7 @@ function MessageFeedbackControls({
 export function MessageTimelineItem({
   message: messageProp,
   threadId,
+  channel,
   layout = 'chat',
   contactName,
   contactEmail,
@@ -1092,7 +1140,7 @@ export function MessageTimelineItem({
   const { user, token } = useAuth()
   const [enriched, setEnriched] = useState<Pick<
     InboxMessage,
-    'bodyHtml' | 'agentTrace' | 'hasHtml' | 'hasAgentTrace'
+    'bodyHtml' | 'hasHtml' | 'activity' | 'activityAfter' | 'activityDetail'
   > | null>(null)
   const [enriching, setEnriching] = useState(false)
   const message = enriched ? { ...messageProp, ...enriched } : messageProp
@@ -1101,7 +1149,8 @@ export function MessageTimelineItem({
 
   const ensureFullMessage = useCallback(async () => {
     if (!token || !threadId) return message
-    if (message.agentTrace && (message.bodyHtml || !message.hasHtml)) return message
+    const needsActivity = Boolean(message.hasActivity) && !message.activityDetail
+    if (!needsActivity && (message.bodyHtml || !message.hasHtml)) return message
     if (enriching) return message
     setEnriching(true)
     try {
@@ -1109,9 +1158,10 @@ export function MessageTimelineItem({
       if (!full) return message
       const next = {
         bodyHtml: full.bodyHtml,
-        agentTrace: full.agentTrace,
         hasHtml: full.hasHtml ?? Boolean(full.bodyHtml),
-        hasAgentTrace: full.hasAgentTrace ?? Boolean(full.agentTrace),
+        activity: full.activity,
+        activityAfter: full.activityAfter,
+        activityDetail: true,
       }
       setEnriched(next)
       return { ...message, ...next }
@@ -1201,8 +1251,7 @@ export function MessageTimelineItem({
   const isAgentMessage =
     message.kind === 'agent_message' ||
     Boolean(message.payload?.agent_id) ||
-    Boolean(message.agentTrace) ||
-    Boolean(message.hasAgentTrace)
+    Boolean(message.hasActivity)
 
   const plainBody =
     message.bodyText ||
@@ -1248,7 +1297,7 @@ export function MessageTimelineItem({
     </div>
   ) : usePlainBody ? (
     <div className="space-y-1">
-      <MessageMarkdown text={displayBody} />
+      <ChatText content={displayBody} />
       <MessageAttachments attachments={attachmentItems} />
     </div>
   ) : (
@@ -1358,7 +1407,8 @@ export function MessageTimelineItem({
         isMockAgentBody(message.bodyText) ||
         isMockAgentBody(message.bodyPreview)
       const delivered = !mockOrPlaceholder && message.deliveredToCustomer === true
-      const agentSubtitle = !isOutbound
+      // Assistant and internal threads have no customer: no delivery label.
+      const agentSubtitle = !isOutbound || !isCustomerChannel(channel)
         ? undefined
         : mockOrPlaceholder
           ? t('timeline.mockNotSent')
@@ -1516,12 +1566,17 @@ export function MessageTimelineItem({
         <Copy size={12} />
       </BubbleAction>
     ) : null
+  const splitAction =
+    isInbound && authorKind === 'external' && threadId && typeof message.id === 'string' && isCustomerChannel(channel) ? (
+      <SplitConversationAction threadId={String(threadId)} messageId={message.id} />
+    ) : null
   const actions =
-    copyAction || feedbackRow || noteEditControls ? (
+    copyAction || feedbackRow || noteEditControls || splitAction ? (
       <>
         {feedbackRow}
         {noteEditControls}
         {copyAction}
+        {splitAction}
       </>
     ) : null
 
@@ -1565,7 +1620,9 @@ export function MessageTimelineItem({
     />
   ) : null
 
-  if (!message.agentTrace && !message.hasAgentTrace) {
+  const activityBefore = message.activity ?? []
+  const activityAfter = message.activityAfter ?? []
+  if (activityBefore.length === 0 && activityAfter.length === 0) {
     if (!workbenchCard) return bubble
     return (
       <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
@@ -1576,30 +1633,16 @@ export function MessageTimelineItem({
   }
 
   const traceIndent = isOwn ? 'ml-auto' : 'ml-9'
+  const loadDetail = message.activityDetail ? undefined : () => void ensureFullMessage()
   return (
     <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
-      {message.agentTrace ? (
-        <ReasoningDisclosure
-          thinking={message.agentTrace.thinking}
-          steps={message.agentTrace.steps}
-          usage={message.agentTrace.usage}
-          className={cn(traceIndent, 'max-w-[85%]')}
-        />
-      ) : (
-        <button
-          type="button"
-          disabled={enriching}
-          onClick={() => void ensureFullMessage()}
-          className={cn(
-            traceIndent,
-            'inline-flex max-w-[85%] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-secondary disabled:opacity-60',
-          )}
-        >
-          {enriching ? <Loader2 size={11} className="animate-spin" /> : null}
-          {t('timeline.showActivity')}
-        </button>
-      )}
+      {activityBefore.length > 0 ? (
+        <ActivityTrail items={activityBefore} onExpand={loadDetail} className={traceIndent} />
+      ) : null}
       <div className="w-full">{bubble}</div>
+      {activityAfter.length > 0 ? (
+        <ActivityTrail items={activityAfter} onExpand={loadDetail} className={traceIndent} />
+      ) : null}
       {workbenchCard}
     </div>
   )
@@ -1617,31 +1660,46 @@ export function EventTimelineItem({ event, memberName, memberNameFor }: EventIte
 // of a stack of full-width divider lines.
 export function EventClusterTimelineItem({
   events,
+  time,
   memberNameFor,
 }: {
   events: InboxEvent[]
+  time?: string
   memberNameFor: MemberNameResolver
 }) {
+  const { i18n } = useTranslation('communication')
   if (events.length === 0) return null
-  if (events.length === 1) {
-    return (
+  const clock = time ? formatHourMinute(time, i18n.language) : ''
+  const pills =
+    events.length === 1 ? (
       <EventTimelineItem
         event={events[0]}
         memberName={memberNameFor(events[0].actorUserId)}
         memberNameFor={memberNameFor}
       />
+    ) : (
+      <div className="flex flex-wrap items-center justify-center gap-1 py-0.5 px-2">
+        {events.map((event) => (
+          <EventPill
+            key={event.id}
+            event={event}
+            memberName={memberNameFor(event.actorUserId)}
+            memberNameFor={memberNameFor}
+          />
+        ))}
+      </div>
     )
-  }
+  if (!clock) return pills
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1 py-0.5 px-2">
-      {events.map((event) => (
-        <EventPill
-          key={event.id}
-          event={event}
-          memberName={memberNameFor(event.actorUserId)}
-          memberNameFor={memberNameFor}
-        />
-      ))}
+    <div className="flex flex-col items-center gap-1">
+      <time
+        dateTime={time}
+        className="text-2xs font-medium text-text-muted/80"
+        title={time ? new Date(time).toLocaleString(i18n.language) : undefined}
+      >
+        {clock}
+      </time>
+      {pills}
     </div>
   )
 }

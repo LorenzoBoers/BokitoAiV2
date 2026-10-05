@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import enNav from '../locales/en/nav.json'
 import nlNav from '../locales/nl/nav.json'
-import { AI_TOOL_PROVIDERS, matchingGrantName, WORKBENCH_PROVIDERS } from './ai-tool-providers'
+import { AI_TOOL_PROVIDERS, matchingGrantName, WORKBENCH_PROVIDERS, aiCodingToolBrandSlugs } from './ai-tool-providers'
 import { BRAND_ASSET_PATHS } from './brand-assets'
 import { MCP_TOKEN_PLACEHOLDER } from './api-token-mcp'
 
@@ -59,5 +59,21 @@ describe('ai-tool-providers', () => {
     expect(matchingGrantName(byId('vscode'), grants)).toBe('Visual Studio Code')
     expect(matchingGrantName(byId('cursor'), grants)).toBeNull()
     expect(matchingGrantName(byId('generic'), grants)).toBeNull()
+  })
+
+  it('lists unique brand logos for the hub banner, skipping generic', () => {
+    const slugs = aiCodingToolBrandSlugs()
+    expect(slugs).toContain('cursor')
+    expect(slugs).toContain('claude')
+    expect(slugs).toContain('openai')
+    expect(slugs).toContain('vscode')
+    expect(slugs).toContain('windsurf')
+    expect(slugs).toContain('copilot')
+    expect(slugs).not.toContain('custom')
+    expect(slugs).not.toContain('devin')
+    expect(new Set(slugs).size).toBe(slugs.length)
+    for (const slug of slugs) {
+      expect(BRAND_ASSET_PATHS[slug], slug).toBeDefined()
+    }
   })
 })

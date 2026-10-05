@@ -1,7 +1,7 @@
 import type { IntegrationApplication } from './integration-applications'
 import type { IntegrationModuleRow } from './integrations-api'
 
-type ModuleMatch = Pick<IntegrationModuleRow, 'slug' | 'provider_slugs'>
+type ModuleMatch = Pick<IntegrationModuleRow, 'slug' | 'provider_slugs' | 'planned_provider_slugs'>
 type AppMatch = Pick<IntegrationApplication, 'module' | 'offers'>
 
 /** Provider slugs behind an application, across every offer it exposes. */
@@ -18,7 +18,9 @@ function providerSlugs(app: AppMatch): string[] {
 export function moduleUsesApplication(module: ModuleMatch, app: AppMatch): boolean {
   if (app.module && app.module === module.slug) return true
   const slugs = providerSlugs(app)
-  return module.provider_slugs.some((slug) => slugs.includes(slug))
+  const live = module.provider_slugs ?? []
+  const planned = module.planned_provider_slugs ?? []
+  return live.some((slug) => slugs.includes(slug)) || planned.some((slug) => slugs.includes(slug))
 }
 
 /** Partner applications a module can run on, in catalog order. */

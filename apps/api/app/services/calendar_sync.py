@@ -24,6 +24,38 @@ from app.services import oauth_providers
 logger = logging.getLogger(__name__)
 
 CALENDAR_PROVIDERS = frozenset({"google_calendar", "outlook_calendar"})
+
+
+def calendar_slug_for(
+    provider: str,
+    *,
+    kind: str = "",
+    display_name: str = "",
+) -> str | None:
+    """Resolve a stored provider value to google_calendar / outlook_calendar."""
+    from app.services.integrations_catalog import canonical_provider_slug
+
+    slug = canonical_provider_slug(provider)
+    if slug in CALENDAR_PROVIDERS:
+        return slug
+    name = (display_name or "").strip().lower()
+    if name.startswith("google calendar"):
+        return "google_calendar"
+    if name.startswith("outlook calendar"):
+        return "outlook_calendar"
+    if (kind or "").strip().lower() != "calendar":
+        return None
+    if "outlook" in name or "microsoft" in name:
+        return "outlook_calendar"
+    if "google" in name:
+        return "google_calendar"
+    return None
+
+
+def _calendar_slug(conn: IntegrationConnection) -> str | None:
+    return calendar_slug_for(conn.provider, kind=conn.kind, display_name=conn.display_name)
+
+
 GOOGLE_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/{cal}/events"
 GOOGLE_CALENDARS_URL = "https://www.googleapis.com/calendar/v3/users/me/calendarList"
 GRAPH_EVENTS_URL = "https://graph.microsoft.com/v1.0/me/calendarView"
@@ -381,7 +413,8 @@ async def _sync_outlook(
 async def sync_connection(
     session: AsyncSession, conn: IntegrationConnection
 ) -> dict[str, Any]:
-    if conn.provider not in CALENDAR_PROVIDERS:
+    slug = _calendar_slug(conn)
+    if slug is None:
         return {"connection_id": str(conn.id), "synced": 0, "status": "skipped"}
     if conn.status != "active":
         return {"connection_id": str(conn.id), "synced": 0, "status": "inactive"}
@@ -396,7 +429,7 @@ async def sync_connection(
         return await _seed_mock_events(session, conn)
 
     try:
-        if conn.provider == "google_calendar":
+        if slug == "google_calendar":
             count = await _sync_google(session, conn, token)
         else:
             count = await _sync_outlook(session, conn, token)
@@ -431,12 +464,14 @@ async def list_calendar_connections(
     result = await session.execute(
         select(IntegrationConnection).where(
             IntegrationConnection.tenant_id == tenant_id,
-            IntegrationConnection.provider.in_(list(CALENDAR_PROVIDERS)),
             IntegrationConnection.status == "active",
         )
     )
     rows = []
     for conn in result.scalars().all():
+        slug = _calendar_slug(conn)
+        if slug is None:
+            continue
         meta = _parse_json(conn.metadata_json)
         count_result = await session.execute(
             select(CalendarEvent.id).where(CalendarEvent.connection_id == conn.id)
@@ -445,9 +480,9 @@ async def list_calendar_connections(
         rows.append(
             {
                 "id": str(conn.id),
-                "provider": conn.provider,
+                "provider": slug,
                 "display_name": conn.display_name
-                or ("Google Calendar" if conn.provider == "google_calendar" else "Outlook Calendar"),
+                or ("Google Calendar" if slug == "google_calendar" else "Outlook Calendar"),
                 "status": conn.status,
                 "last_synced_at": meta.get("last_synced_at"),
                 "sync_status": meta.get("sync_status") or "idle",
@@ -458,13 +493,15 @@ async def list_calendar_connections(
     return rows
 
 
-async def events_as_agenda_items(
+async def calendar_events_in_window(
     session: AsyncSession,
     tenant_id: UUID,
     *,
     start: datetime,
     end: datetime,
 ) -> list[dict[str, Any]]:
+    """Calendar events overlapping [start, end] in the time-item vocabulary
+    (``title``, ``start``, ``end``); ``list_time_items`` wraps them."""
     result = await session.execute(
         select(CalendarEvent).where(
             CalendarEvent.tenant_id == tenant_id,
@@ -481,19 +518,10 @@ async def events_as_agenda_items(
         items.append(
             {
                 "id": f"cal:{ev.id}",
-                "trigger_id": None,
-                "name": ev.title or "(No title)",
-                "kind": "calendar",
-                "agent_id": None,
-                "agent_role": "",
-                "agent_name": None,
+                "title": ev.title or "(No title)",
                 "instructions": ev.description or "",
-                "enabled": True,
-                "at": ev.start_at.isoformat(),
-                "end_at": ev.end_at.isoformat(),
-                "status": "calendar",
-                "run_id": None,
-                "source": "calendar",
+                "start": ev.start_at.replace(microsecond=0).isoformat(),
+                "end": ev.end_at.replace(microsecond=0).isoformat(),
                 "provider": ev.provider,
                 "provider_label": provider_label,
                 "calendar_id": ev.calendar_id,
@@ -521,7 +549,8 @@ async def create_external_event(
 ) -> dict[str, Any]:
     """Create an event on the external calendar and cache it locally."""
     conn = await session.get(IntegrationConnection, connection_id)
-    if conn is None or conn.tenant_id != tenant_id or conn.provider not in CALENDAR_PROVIDERS:
+    slug = _calendar_slug(conn) if conn is not None else None
+    if conn is None or conn.tenant_id != tenant_id or slug is None:
         raise ValueError("Calendar connection not found")
     from app.services.crypto import get_connection_credentials
     creds = get_connection_credentials(conn)
@@ -559,7 +588,7 @@ async def create_external_event(
     end_n = _iso_naive(end_at)
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        if conn.provider == "google_calendar":
+        if _calendar_slug(conn) == "google_calendar":
             body = {
                 "summary": title,
                 "description": description,
@@ -653,7 +682,7 @@ async def update_external_event(
             "Content-Type": "application/json",
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
-            if conn.provider == "google_calendar":
+            if _calendar_slug(conn) == "google_calendar":
                 body = {
                     "summary": new_title,
                     "description": new_description,
@@ -729,7 +758,7 @@ async def delete_external_event(
     if token and row.external_id and not row.external_id.startswith(("mock-", "local-")):
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         async with httpx.AsyncClient(timeout=20.0) as client:
-            if conn.provider == "google_calendar":
+            if _calendar_slug(conn) == "google_calendar":
                 url = GOOGLE_EVENTS_URL.format(cal=row.calendar_id or "primary") + f"/{row.external_id}"
                 await client.delete(url, headers=headers)
             else:

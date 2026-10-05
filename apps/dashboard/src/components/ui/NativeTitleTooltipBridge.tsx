@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils'
 
 const STORED = 'data-bokito-tip'
 const LAYER = 'data-bokito-tip-layer'
+const DERIVED_LABEL = 'data-bokito-tip-label'
 
 type TipState = {
   text: string
@@ -33,6 +34,15 @@ function disarmTitle(el: Element): string | null {
     }
     el.setAttribute(STORED, title)
     el.removeAttribute('title')
+    // `title` was the accessible name of icon-only controls; keep one.
+    const derived = el.hasAttribute(DERIVED_LABEL)
+    if (
+      derived ||
+      (!el.hasAttribute('aria-label') && !el.hasAttribute('aria-labelledby') && !el.textContent?.trim())
+    ) {
+      el.setAttribute('aria-label', title)
+      el.setAttribute(DERIVED_LABEL, '')
+    }
     return title
   }
   if (existing && isRawDump(existing)) return null

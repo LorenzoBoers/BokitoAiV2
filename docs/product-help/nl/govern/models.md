@@ -26,12 +26,6 @@ Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont ee
 2. Zet **Gebruik eigen modellen** aan en kies **Model toevoegen**. Kies een provider (of **Aangepast (OpenAI-compatibel)** met een basis-URL), plak een **API-sleutel**, en kies **Opslaan en testen**.
 3. Kies een voorgesteld model of vul een eigen model-id in, en sla op. Je modellen verschijnen in de lijst en in agent-kiezers. Ze worden door de provider gefactureerd. Bokito AI blijft de fallback wanneer je eigen modellen uitzet of verwijdert.
 
-## Gegevensverwerking
-
-1. Open **Instellingen**, daarna **Modellen**, en vouw **Gegevensverwerking** onder de lijst open.
-2. De schakelaar **Niet-EU platformmodellen toestaan** staat standaard uit. Zolang hij uit staat, draait een agent die naar een niet-EU platformmodel wijst in plaats daarvan op Bokito AI.
-3. Zet de schakelaar alleen aan als je verwerkersovereenkomst die doorgifte dekt. Eigenaren en beheerders kunnen hem wijzigen; je eigen providersleutels worden nooit omgeleid.
-
 ## Als AI zonder live sleutel draait
 
 1. Open **Instellingen** en daarna **Modellen**. Toont Bokito AI **Niet geconfigureerd**, dan draaien calls in mock-modus.

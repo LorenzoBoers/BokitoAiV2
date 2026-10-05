@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
 import { humanizeLabel } from './labels'
+import { presenceLabel } from './presence'
 
 function labelFromMap(
   value: string | null | undefined,
@@ -39,8 +40,19 @@ export function agendaKindLabel(kind: string | null | undefined, t: TFunction): 
   return labelFromMap(kind, t, 'status.agendaKind')
 }
 
+/** Filters on Agenda (calendar is a source filter, not a kind chip). */
+export const AGENDA_KIND_FILTERS = [
+  'once',
+  'event',
+  'cron',
+  'interval',
+  'heartbeat',
+  'webhook',
+  'follow_up',
+] as const
+
 export function agentRuntimeStatusLabel(status: string | null | undefined, t: TFunction): string {
-  return labelFromMap(status, t, 'status.agentRuntime')
+  return presenceLabel(status, t)
 }
 
 export function flowStatusLabel(enabled: boolean, t: TFunction): string {

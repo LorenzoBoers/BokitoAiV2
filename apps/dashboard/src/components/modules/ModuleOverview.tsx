@@ -74,7 +74,6 @@ export function ModuleOverview({ module }: Props) {
     }
   }
 
-  const connectedCount = (connections?.connections ?? []).filter((c) => c.ready).length
   const tenantWrites = Boolean(connections?.prefs?.writes_enabled)
   const writesActive = Boolean(connections?.writes_active)
 
@@ -96,45 +95,6 @@ export function ModuleOverview({ module }: Props) {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
-          <p className="text-xs font-medium text-text-muted">
-            {t('integrations.modules.workspace.status', { defaultValue: 'Status' })}
-          </p>
-          <p className="mt-1 text-sm font-medium text-text-heading">
-            {connectedCount > 0
-              ? t('integrations.modules.workspace.readyLive', {
-                  defaultValue: 'Ready with live data',
-                })
-              : t('integrations.modules.workspace.readyNoData', {
-                  defaultValue: 'Installed — link an integration for live data',
-                })}
-          </p>
-        </div>
-        <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
-          <p className="text-xs font-medium text-text-muted">
-            {t('integrations.modules.usesIntegrations', { defaultValue: 'Uses integrations' })}
-          </p>
-          <p className="mt-1 text-sm font-medium text-text-heading">
-            {t('integrations.modules.workspace.integrationCount', {
-              defaultValue: '{{count}} linked',
-              count: connectedCount,
-            })}
-          </p>
-        </div>
-        <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
-          <p className="text-xs font-medium text-text-muted">
-            {t('integrations.modules.toolset', { defaultValue: 'AI toolset' })}
-          </p>
-          <p className="mt-1 text-sm font-medium text-text-heading">
-            {t('integrations.modules.workspace.verbCount', {
-              defaultValue: '{{count}} read actions',
-              count: module.verbs?.length ?? module.verb_labels?.length ?? 0,
-            })}
-          </p>
-        </div>
-      </section>
-
       <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-2.5">

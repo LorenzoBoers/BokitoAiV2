@@ -19,7 +19,7 @@ function TabsList({
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
-      className={cn('inline-flex h-9 items-end gap-1 border-b border-border/60', className)}
+      className={cn('inline-flex min-h-9 flex-wrap items-end gap-1 overflow-visible border-b border-border/60', className)}
       {...props}
     />
   )

@@ -171,7 +171,7 @@ export function useThreadDetail(
   // directly; `thread` events patch the row. Everything else falls back to a
   // debounced quiet refetch so triage bursts do not reload the newest 80
   // messages on every event. Skip high-frequency stream events — those only
-  // drive the live ThinkingTrace.
+  // drive the live agent turn.
   useEffect(() => {
     if (!token || !threadId) return
     let quietTimer: number | null = null
@@ -193,10 +193,20 @@ export function useThreadDetail(
       if (event.event === 'thread') {
         const threadRow = extractLiveThreadRow(event)
         if (threadRow && String(threadRow.id) === String(threadId)) {
+          const before = detailRef.current?.thread.categoryCase
+          const after = threadRow.categoryCase
           setRawDetail((prev) => {
             if (!prev || String(prev.thread.id) !== String(threadId)) return prev
             return { ...prev, thread: mergeThreadRow(prev.thread, threadRow) }
           })
+          // A category or stage change also wrote a timeline event.
+          if (
+            after !== undefined &&
+            `${before?.caseId}|${before?.status}|${before?.stage?.key}` !==
+              `${after?.caseId}|${after?.status}|${after?.stage?.key}`
+          ) {
+            scheduleQuietRefetch()
+          }
           return
         }
       }

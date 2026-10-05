@@ -1,6 +1,7 @@
 import { workforceRoutes } from '../api/routes/workforce.routes'
 import { WORKFORCE_API_BASE } from './api.config'
 import { requireAccessToken } from './api'
+import type { AgentPresenceStatus } from './teams-api'
 
 const AGENT_RUNTIME_API_BASE = WORKFORCE_API_BASE
 
@@ -25,75 +26,56 @@ export interface WorkforceConfig {
   updated_at: number
 }
 
-export interface WorkforceTask {
-  id: number
-  organisation_id: number
-  pipeline_id: number
-  feature_id: number
-  task_type: string
-  status: string
-  attempt: number
-  payload: Record<string, unknown> | null
-  planned_for: number
-  completed_at: number
-  result_summary: string
-  created_at: number
-  updated_at: number
-}
-
-export interface WorkforceLog {
-  id: number
-  organisation_id: number
-  pipeline_id: number
-  feature_id: number
-  task_id: number
-  level: string
-  action_type: string
-  message: string
-  metadata: Record<string, unknown> | null
-  created_at: number
-}
-
-export interface WorkforceStatusPayload {
-  config: WorkforceConfig | null
-  pipelines: Array<Record<string, unknown>>
-  recent_tasks: WorkforceTask[]
-  recent_logs: WorkforceLog[]
-}
-
-export interface WorkforceGraphEvent {
-  version: number
-  event_type: 'agent_updated' | 'activity_updated' | 'task_updated' | 'message_created' | 'timeline_resync'
-  organisation_id: string
-  agent_id?: string
-  activity_id?: string
-  ts: number
-  payload?: Record<string, unknown>
-}
-
 export type AskTarget = { kind: 'auto' | 'user' | 'team'; id: string | null }
 
-export interface RuntimeAgent {
+export type AgentStatus = AgentPresenceStatus
+
+/** `serialize_agent(view="summary")`: rows, chips, pickers and the project orchestrator. */
+export interface AgentSummary {
   id: string
-  organisation_id: string
   name: string
   slug: string
+  role: string
+  kind?: 'company' | 'personal' | 'archived' | string
+  /** False only when the agent is archived (or a retired personal row). */
+  is_active?: boolean
+  status: AgentStatus
+  current_activity_summary: string | null
+  /** Conversation the agent is working right now (live WS + REST). */
+  current_thread_id?: string | null
+  /** Last run, reply or tool step (ms); null before the first run. */
+  last_active_at?: number | null
+  /** Visual identity: initials | icon | image (from settings_json). */
+  avatar_kind?: 'initials' | 'icon' | 'image' | string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
+}
+
+/** `serialize_agent(view="passport")`: Govern, Team and the agent tools tab. */
+export interface AgentPassport extends AgentSummary {
+  model?: string
+  provider?: string
+  /** Exactly one company agent per workspace carries the lead label. */
+  is_lead?: boolean
+  acts_for_user?: boolean
+  autonomy_level?: string
+  /** Tool allowlist; empty means the role defaults. */
+  tools?: string[]
+  permission_scopes?: string[]
+}
+
+/** `serialize_agent(view="runtime")`: the Agents page and agent detail. */
+export interface RuntimeAgent extends AgentPassport {
+  organisation_id: string
   role_id: string | null
   role_name?: string | null
   role_slug?: string | null
   parent_agent_id: string | null
-  status: 'standby' | 'active' | 'error' | 'sleeping'
-  /** False only when the agent is archived (or a retired personal row). */
-  is_active?: boolean
-  model?: string
-  provider?: string
   purpose?: string
-  audience?: 'customers' | 'partners' | 'internal'
   owner_user_id?: string | null
-  tools?: string[]
   default_channels?: string[]
   default_signal_types?: string[]
-  acts_for_user?: boolean
   system_prompt?: string
   /** Signature (HTML, derived) appended to outbound replies sent as this agent. */
   email_signature_html?: string
@@ -104,9 +86,6 @@ export interface RuntimeAgent {
   /** Who the agent asks when it needs a person ("Ask questions to"). */
   ask_target?: AskTarget
   chat_access?: 'everyone' | 'selected' | 'nobody'
-  kind?: 'company' | 'personal'
-  /** Exactly one company agent per workspace carries the lead label. */
-  is_lead?: boolean
   /** Stack/module-owned agent; archive is respected until a restore Decision is accepted. */
   managed?: boolean
   managed_origin?: string | null
@@ -115,40 +94,10 @@ export interface RuntimeAgent {
   origin_label?: string | null
   current_session_id: string | null
   current_activity_id: string | null
-  current_activity_summary: string | null
   /** Open non-assistant threads assigned to this agent. */
   open_conversations?: number
   /** Real awaiting-decision threads for this agent (excludes no-reply tips). */
   awaiting_decision?: number
-  updated_at: number
-  /** Visual identity: initials | icon | image (from settings_json). */
-  avatar_kind?: 'initials' | 'icon' | 'image' | string | null
-  avatar_icon?: string | null
-  avatar_color?: string | null
-  avatar_image_url?: string | null
-}
-
-export interface RuntimeActivity {
-  id: string
-  organisation_id: string
-  agent_id: string
-  session_id: string | null
-  task_id: string | null
-  title: string
-  description: string | null
-  type: 'planned' | 'executing' | 'completed' | 'failed' | 'cancelled'
-  status_detail: string | null
-  planned_for: number | null
-  started_at: number | null
-  ended_at: number | null
-  result: Record<string, unknown> | null
-  planned_start?: number | null
-  planned_end?: number | null
-  actual_start?: number | null
-  actual_end?: number | null
-  session_started_at?: number | null
-  session_ended_at?: number | null
-  created_at: number
   updated_at: number
 }
 
@@ -213,20 +162,6 @@ export async function updateWorkforceConfig(
     body: JSON.stringify(body),
   })
   return readResponse<WorkforceConfig>(res)
-}
-
-export async function getWorkforceStatus(
-  token?: string,
-  pipelineId?: number,
-): Promise<WorkforceStatusPayload> {
-  const params = new URLSearchParams()
-  if (pipelineId) params.set('pipeline_id', String(pipelineId))
-  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.statusQuery(params)}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: buildHeaders(token),
-  })
-  return readResponse<WorkforceStatusPayload>(res)
 }
 
 export async function forceWakeWorkforce(
@@ -303,26 +238,6 @@ export async function runWorkforceMaintenance(
   return readResponse<Record<string, unknown>>(res)
 }
 
-export async function getAgents(token?: string): Promise<RuntimeAgent[]> {
-  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.list}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: buildHeaders(token),
-  })
-  const data = await readResponse<{ items?: RuntimeAgent[] }>(res)
-  return data.items ?? []
-}
-
-export async function getTimeline(token?: string): Promise<RuntimeActivity[]> {
-  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.timeline}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: buildHeaders(token),
-  })
-  const data = await readResponse<{ items?: RuntimeActivity[] }>(res)
-  return data.items ?? []
-}
-
 export async function updateAgentStatus(
   token: string | undefined,
   agentId: string,
@@ -355,6 +270,18 @@ export async function archiveAgent(
 ): Promise<{ ok: boolean; id: string }> {
   const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.detail(agentId)}`, {
     method: 'DELETE',
+    credentials: 'include',
+    headers: buildHeaders(token),
+  })
+  return readResponse<{ ok: boolean; id: string }>(res)
+}
+
+export async function restoreAgent(
+  token: string | undefined,
+  agentId: string,
+): Promise<{ ok: boolean; id: string }> {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.restore(agentId)}`, {
+    method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
   })

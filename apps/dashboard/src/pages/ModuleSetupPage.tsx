@@ -46,7 +46,7 @@ import {
 } from '../lib/integration-applications'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 
-type ModuleTab = 'overview' | 'connections' | 'sources' | 'setup'
+type ModuleTab = 'overview' | 'sources' | 'setup'
 
 function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): ApplicationHubStep {
   if (!offer) return 'app'
@@ -54,7 +54,7 @@ function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): 
 }
 
 function parseTab(raw: string | null): ModuleTab {
-  if (raw === 'connections' || raw === 'sources' || raw === 'setup') return raw
+  if (raw === 'sources' || raw === 'setup') return raw
   return 'overview'
 }
 
@@ -129,6 +129,14 @@ export default function ModuleSetupPage() {
     },
     [searchParams, setSearchParams],
   )
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'connections') {
+      const params = new URLSearchParams(searchParams)
+      params.delete('tab')
+      setSearchParams(params, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const openApplicationHub = useCallback(
     (
@@ -271,10 +279,6 @@ export default function ModuleSetupPage() {
       label: t('integrations.modules.tabs.overview', { defaultValue: 'Overview' }),
     },
     {
-      id: 'connections',
-      label: t('integrations.modules.tabs.connections', { defaultValue: 'Connections' }),
-    },
-    {
       id: 'sources',
       label: t('integrations.modules.tabs.sources', { defaultValue: 'Sources' }),
     },
@@ -293,7 +297,7 @@ export default function ModuleSetupPage() {
             className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
           >
             <ArrowLeft size={12} />
-            {t('integrations.modules.backToModules', { defaultValue: 'Back to Modules' })}
+            {t('integrations.modules.backToModules', { defaultValue: 'Back to Connections' })}
           </Link>
         </div>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
@@ -377,6 +381,17 @@ export default function ModuleSetupPage() {
         )
       ) : (
         <>
+          {!comingSoon ? (
+            <div className="mb-8">
+              <ModuleConnectionsPanel
+                slug={slug}
+                onAddPackage={openAddRegistration}
+                packageHostSlugs={packageHostSlugs}
+                refreshToken={connectionsRefreshToken}
+              />
+            </div>
+          ) : null}
+
           <nav className="mb-6 flex flex-wrap gap-1 border-b border-border/50 pb-px">
             {tabs.map((item) => (
               <button
@@ -401,12 +416,6 @@ export default function ModuleSetupPage() {
               ) : null}
               {on ? <ModuleOverview module={module} applications={applications} /> : null}
               {on ? <ModuleTemplatesPanel slug={slug} /> : null}
-              <ModuleConnectionsPanel
-                slug={slug}
-                onAddPackage={openAddRegistration}
-                packageHostSlugs={packageHostSlugs}
-                refreshToken={connectionsRefreshToken}
-              />
               {!on ? (
                 <>
                   <section>
@@ -444,15 +453,6 @@ export default function ModuleSetupPage() {
                 </section>
               ) : null}
             </div>
-          ) : null}
-
-          {tab === 'connections' ? (
-            <ModuleConnectionsPanel
-              slug={slug}
-              onAddPackage={openAddRegistration}
-              packageHostSlugs={packageHostSlugs}
-              refreshToken={connectionsRefreshToken}
-            />
           ) : null}
 
           {tab === 'sources' ? <ModuleSourcesPanel slug={slug} /> : null}

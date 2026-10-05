@@ -145,7 +145,7 @@ Each tool comes back with a name, a description prefixed with its category, and 
 - `triggers` - `list_triggers` for the Agenda, plus scheduling new wakes
 - `cases` - typed intake: `list_case_types`, `list_cases`, `create_case`
 - `govern` - `get_tenant_overview`, `get_usage_summary` and `resolve_decision` to answer a pending decision card
-- `workspace` - knowledge: `search_index`, `list_docs`, `read_doc`, `write_doc`
+- `workspace` - knowledge: `search_index`, `list_docs`, `read_doc`, `write_doc`; Bin: `list_trash`, `restore_trash_item` (restore always asks; agents never purge)
 
 ## Example: call a tool
 

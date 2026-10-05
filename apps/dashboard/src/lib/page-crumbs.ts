@@ -5,6 +5,7 @@ export type PageCrumb = {
 }
 
 export function extraCrumbsForPath(pathname: string): PageCrumb[] {
+  if (pathname.startsWith('/cockpit/canvas')) return [{ labelKey: 'cockpitTabs.canvas' }]
   if (pathname.startsWith('/cockpit/usage')) return [{ labelKey: 'cockpitTabs.usage' }]
   if (pathname.startsWith('/activity')) return [{ labelKey: 'support.activity.label' }]
   if (pathname.startsWith('/communication/activity')) return [{ labelKey: 'support.activity.label' }]
@@ -33,5 +34,6 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/connections')) return []
   if (pathname.startsWith('/learn')) return [{ labelKey: 'crumbs.learn' }]
   if (pathname.startsWith('/docs')) return [{ labelKey: 'crumbs.docs' }]
+  if (pathname.startsWith('/settings/bin')) return [{ labelKey: 'crumbs.bin' }]
   return []
 }

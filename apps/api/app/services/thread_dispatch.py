@@ -86,13 +86,19 @@ async def run_agent_note(
     await mark_agent_activity(
         session,
         agent,
-        status="active",
+        status="working",
         summary=(signal.subject or "Helping")[:200],
+        signal_id=signal.id,
     )
     try:
-        loop = AgentLoop(session, tenant_id, user_id, agent=agent, signal_id=signal.id, user_role=user_role)
+        # A note is read by the team, never by the customer: chat style, one card.
+        loop = AgentLoop(
+            session, tenant_id, user_id, agent=agent, signal_id=signal.id, user_role=user_role,
+            reply_mode="chat",
+        )
         reply_text, tokens = await loop.run_chat([*history, {"role": "user", "content": instruction}])
-        text = (reply_text or "").strip() or "No output produced."
+        turn = loop.turn
+        text = ((turn.full_text if turn else "") or reply_text or "").strip() or "No output produced."
         now = datetime.utcnow()
         message = SignalMessage(
             signal_id=signal.id,
@@ -110,7 +116,8 @@ async def run_agent_note(
             metadata_json=json.dumps(
                 {
                     "usage": tokens,
-                    "steps": list(loop.trace_steps),
+                    "activity": turn.all_activity() if turn else [],
+                    "turn_id": turn.stream_id if turn else None,
                     "invoked_by_user_id": str(user_id),
                     "agent_name": agent.name,
                 }
@@ -118,6 +125,9 @@ async def run_agent_note(
             received_at=now,
         )
         session.add(message)
+        from app.services.agent.turn_persist import touch_agent_activity
+
+        await touch_agent_activity(session, agent.id)
         signal.updated_at = now
         session.add(signal)
         session.add(

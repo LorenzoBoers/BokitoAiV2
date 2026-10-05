@@ -529,45 +529,6 @@ async def _link_project_artifact(
         status="connected" if job.workbench_connection_id else "linked",
     )
     session.add(resource)
-    await _ensure_work_jobs_widget(session, job.tenant_id, job.project_id)
-
-
-async def _ensure_work_jobs_widget(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> None:
-    """Add a live work_jobs widget when the canvas already exists (no create/commit)."""
-    from app.models.project_canvas import ProjectCanvas
-    from app.services import project_canvas as canvas_svc
-
-    canvas = (
-        await session.execute(
-            select(ProjectCanvas).where(
-                ProjectCanvas.tenant_id == tenant_id,
-                ProjectCanvas.project_id == project_id,
-                ProjectCanvas.slug == "main",
-            )
-        )
-    ).scalar_one_or_none()
-    if canvas is None:
-        return
-    widgets = canvas_svc.normalize_widgets(canvas_svc._parse_json(canvas.widgets_json, []))
-    if any(isinstance(w, dict) and w.get("type") == "work_jobs" for w in widgets):
-        return
-    widgets.append(
-        {
-            "id": "work-jobs",
-            "type": "work_jobs",
-            "title": "Workbench jobs",
-            "x": 0,
-            "y": 12,
-            "w": 12,
-            "h": 3,
-            "config": {},
-        }
-    )
-    canvas.widgets_json = json.dumps(widgets)
-    canvas.updated_at = datetime.utcnow()
-    canvas.updated_by_type = "system"
-    canvas.updated_by_id = "workbench"
-    session.add(canvas)
 
 
 async def poll_active_jobs(session: AsyncSession) -> int:

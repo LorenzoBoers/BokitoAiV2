@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, ExternalLink, Link2, MailPlus, Search, Send, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Search, Send, Trash2, UserMinus } from 'lucide-react'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
+import { toAiAvatarProps } from '../lib/agent-avatar'
 import {
-  formatAnswerMinutes,
   type OverviewAgent,
   type PresenceStatus,
 } from '../lib/teams-api'
@@ -14,6 +14,9 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { appRoutes } from '../api/routes/app.routes'
 import { toast } from 'sonner'
 import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '../lib/api'
+import { archiveAgent, restoreAgent } from '../lib/workforce-api'
+import { agentAutonomyLevelLabel } from '../lib/labels'
+import { presenceBadgeVariant, presenceLabel, asAgentStatus } from '../lib/presence'
 import { formatAppDate } from '../lib/app-locale'
 import { inviteMailFeedback } from '../lib/invite-feedback'
 import { isLikelyEmail } from '../lib/invite-email'
@@ -32,6 +35,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 
 // Canonical roles: backend memberships are owner | admin | member.
 type MemberRole = 'owner' | 'admin' | 'member'
+type FilterTab = 'all' | 'people' | 'agents' | 'pending' | 'deactivated'
+
+function directoryTabCountClass(id: FilterTab, selected: boolean): string {
+  if (!selected) return 'bg-bg-hover text-text-muted'
+  if (id === 'agents') return 'bg-ai/10 text-ai-ink'
+  if (id === 'pending') return 'bg-status-warning/10 text-status-warning'
+  if (id === 'deactivated') return 'bg-status-error/10 text-status-error'
+  return 'bg-accent/15 text-accent'
+}
+
+function directoryTabBorderClass(id: FilterTab, selected: boolean): string {
+  if (!selected) return 'border-transparent text-text-muted hover:text-text-secondary'
+  if (id === 'agents') return 'border-ai text-text-heading'
+  if (id === 'pending') return 'border-status-warning text-text-heading'
+  if (id === 'deactivated') return 'border-status-error text-text-heading'
+  return 'border-accent text-text-heading'
+}
 
 type Member = {
   id: string
@@ -42,6 +62,7 @@ type Member = {
   avatarUrl: string | null
   isCurrentUser: boolean
   joinedAt: string | null
+  isActive: boolean
 }
 
 type Invite = {
@@ -86,6 +107,7 @@ function mapMemberRow(item: unknown, currentUserId: string | undefined): Member 
     avatarUrl: typeof row.avatar_url === 'string' ? row.avatar_url : null,
     isCurrentUser: String(id) === String(currentUserId),
     joinedAt: typeof row.joined_at === 'string' ? row.joined_at : null,
+    isActive: row.is_active !== false,
   }
 }
 
@@ -117,13 +139,16 @@ export default function MemberManagement({
   metaByUuid,
   agents = [],
   teamNames = {},
+  onChanged,
 }: {
   /** Availability, teams and workload per user UUID. */
   metaByUuid?: Record<string, MemberMeta>
   agents?: OverviewAgent[]
   teamNames?: Record<string, string>
+  onChanged?: () => void
 } = {}) {
   const { t, i18n } = useTranslation('nav')
+  const { t: tCommon } = useTranslation('common')
   const { user, token, hasPermission } = useAuth()
   const { currentWorkspace, workspaceLoading } = useWorkspace()
   const canInviteMembers = hasPermission('invite_members')
@@ -183,6 +208,7 @@ export default function MemberManagement({
         avatarUrl: user.avatarUrl ?? null,
         isCurrentUser: true,
         joinedAt: null,
+        isActive: true,
       })
     }
     setMembers(mappedMembers)
@@ -214,6 +240,7 @@ export default function MemberManagement({
                   avatarUrl: user.avatarUrl ?? null,
                   isCurrentUser: true,
                   joinedAt: null,
+                  isActive: true,
                 }]
               : [],
           )
@@ -356,6 +383,7 @@ export default function MemberManagement({
     try {
       await appScopedDelete(appRoutes.workspaces.member(workspaceId, member.uuid ?? member.id), token)
       await reload()
+      onChanged?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('membersPage.removeError'))
     } finally {
@@ -363,7 +391,62 @@ export default function MemberManagement({
     }
   }
 
-  type FilterTab = 'all' | 'people' | 'agents' | 'pending'
+  const reactivateMember = async (member: Member) => {
+    if (!token || !workspaceId) return
+    if (!canEditMemberRow(member) && member.role === 'owner' && !isWorkspaceOwner) {
+      setError(t('membersPage.ownerOnlyError'))
+      return
+    }
+    if (!window.confirm(t('membersPage.reactivateConfirm', { name: member.name }))) return
+    setRowBusyId(member.id)
+    setError(null)
+    try {
+      await appScopedPost(
+        appRoutes.workspaces.memberReactivate(workspaceId, member.uuid ?? member.id),
+        {},
+        token,
+      )
+      await reload()
+      onChanged?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('membersPage.removeError'))
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
+  const deactivateAgent = async (agent: OverviewAgent) => {
+    if (!token || !canManageMembers) return
+    if (!window.confirm(t('workforce.agents.archiveConfirm'))) return
+    setRowBusyId(agent.id)
+    setError(null)
+    try {
+      await archiveAgent(token, agent.id)
+      await reload()
+      onChanged?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('workforce.agents.archiveError'))
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
+  const reactivateAgent = async (agent: OverviewAgent) => {
+    if (!token || !canManageMembers) return
+    if (!window.confirm(t('membersPage.reactivateConfirm', { name: agent.name }))) return
+    setRowBusyId(agent.id)
+    setError(null)
+    try {
+      await restoreAgent(token, agent.id)
+      await reload()
+      onChanged?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('workforce.agents.restoreError'))
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
 
@@ -386,12 +469,24 @@ export default function MemberManagement({
     ...agents.map((a): UnifiedRow => ({ kind: 'agent', data: a })),
   ], [members, invites, agents])
 
+  const activePeople = members.filter((m) => m.isActive)
+  const activeAgents = agents.filter((a) => !a.deactivated)
+  const deactivatedPeople = members.filter((m) => !m.isActive)
+  const deactivatedAgents = agents.filter((a) => Boolean(a.deactivated))
+
   const filteredRows = useMemo(() => {
     const q = search.toLowerCase().trim()
     return allRows.filter((row) => {
-      if (filterTab === 'people' && row.kind !== 'member') return false
-      if (filterTab === 'agents' && row.kind !== 'agent') return false
-      if (filterTab === 'pending' && row.kind !== 'invite') return false
+      const deactivated =
+        (row.kind === 'member' && !row.data.isActive) || (row.kind === 'agent' && Boolean(row.data.deactivated))
+      if (filterTab === 'deactivated') {
+        if (!deactivated) return false
+      } else {
+        if (deactivated) return false
+        if (filterTab === 'people' && row.kind !== 'member') return false
+        if (filterTab === 'agents' && row.kind !== 'agent') return false
+        if (filterTab === 'pending' && row.kind !== 'invite') return false
+      }
       if (!q) return true
       if (row.kind === 'member') return `${row.data.name} ${row.data.email}`.toLowerCase().includes(q)
       if (row.kind === 'invite') return row.data.email.toLowerCase().includes(q)
@@ -400,10 +495,11 @@ export default function MemberManagement({
   }, [allRows, filterTab, search])
 
   const tabs: { id: FilterTab; label: string; count: number }[] = [
-    { id: 'all', label: t('membersPage.tabAll'), count: members.length + invites.length + agents.length },
-    { id: 'people', label: t('membersPage.tabPeople'), count: members.length },
-    { id: 'agents', label: t('membersPage.tabAgents'), count: agents.length },
+    { id: 'all', label: t('membersPage.tabAll'), count: activePeople.length + invites.length + activeAgents.length },
+    { id: 'people', label: t('membersPage.tabPeople'), count: activePeople.length },
+    { id: 'agents', label: t('membersPage.tabAgents'), count: activeAgents.length },
     { id: 'pending', label: t('membersPage.tabPending'), count: invites.length },
+    { id: 'deactivated', label: t('membersPage.tabDeactivated'), count: deactivatedPeople.length + deactivatedAgents.length },
   ]
 
   const colSpan = 7
@@ -502,16 +598,10 @@ export default function MemberManagement({
                 key={tab.id}
                 type="button"
                 onClick={() => setFilterTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 pb-3 text-sm font-medium border-b-2 transition-colors ${
-                  filterTab === tab.id
-                    ? 'border-accent text-text-heading'
-                    : 'border-transparent text-text-muted hover:text-text-secondary'
-                }`}
+                className={`flex items-center gap-1.5 px-3 pb-3 text-sm font-medium border-b-2 transition-colors ${directoryTabBorderClass(tab.id, filterTab === tab.id)}`}
               >
                 {tab.label}
-                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                  filterTab === tab.id ? 'bg-accent/15 text-accent' : 'bg-bg-hover text-text-muted'
-                }`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${directoryTabCountClass(tab.id, filterTab === tab.id)}`}>
                   {tab.count}
                 </span>
               </button>
@@ -620,7 +710,7 @@ export default function MemberManagement({
                         <Badge variant="neutral">{t('membersPage.typePerson')}</Badge>
                       </TableCell>
                       <TableCell>
-                        {canEditMemberRow(m) ? (
+                        {canEditMemberRow(m) && m.isActive ? (
                           <Select
                             value={m.role}
                             onValueChange={(value) => void changeMemberRole(m, asRole(value))}
@@ -655,20 +745,41 @@ export default function MemberManagement({
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="success">{t('membersPage.statusActive')}</Badge>
+                        {m.isActive ? (
+                          <Badge variant={presenceBadgeVariant(meta?.presence ?? 'offline')}>
+                            {presenceLabel(meta?.presence ?? 'offline', tCommon)}
+                          </Badge>
+                        ) : (
+                          <Badge variant={presenceBadgeVariant('deactivated')}>
+                            {presenceLabel('deactivated', tCommon)}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {canEditMemberRow(m) ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => void removeMember(m)}
-                            title={t('membersPage.removeTitle')}
-                            className="text-text-muted hover:text-status-error"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
+                        {canManageMembers && !m.isCurrentUser && (m.role !== 'owner' || isWorkspaceOwner) ? (
+                          m.isActive ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void removeMember(m)}
+                              title={t('membersPage.removeTitle')}
+                              className="text-text-muted hover:text-status-error"
+                            >
+                              <UserMinus size={14} />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void reactivateMember(m)}
+                              title={t('membersPage.reactivateTitle')}
+                              className="text-text-muted hover:text-text-primary"
+                            >
+                              <RotateCcw size={14} />
+                            </Button>
+                          )
                         ) : null}
                       </TableCell>
                     </TableRow>
@@ -747,11 +858,19 @@ export default function MemberManagement({
 
                 const agent = row.data
                 const teams = agentTeamLabels(agent.team_ids)
+                const deactivated = Boolean(agent.deactivated)
+                const agentStatus = asAgentStatus(agent.status)
+                const busy = rowBusyId === agent.id
                 return (
                   <TableRow key={`a-${agent.id}`}>
                     <TableCell>
                       <Link to={`/agents/${agent.id}`} className="flex items-center gap-2 hover:underline">
-                        <AiAvatar name={agent.name} seed={agent.id} size={26} />
+                        <AiAvatar
+                          {...toAiAvatarProps(agent)}
+                          size={26}
+                          activity={deactivated ? undefined : agentStatus}
+                          decorative
+                        />
                         <span className="font-medium text-text-primary">{agent.name}</span>
                       </Link>
                     </TableCell>
@@ -760,7 +879,7 @@ export default function MemberManagement({
                     </TableCell>
                     <TableCell>
                       <Badge variant="neutral">
-                        {t(`teamPage.ceiling.${agent.autonomy_level}`, { defaultValue: agent.autonomy_level })}
+                        {agentAutonomyLevelLabel(agent.autonomy_level, t)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-text-secondary">
@@ -769,18 +888,50 @@ export default function MemberManagement({
                     <TableCell className="text-text-secondary">
                       {t('teamPage.openCount', { count: agent.open_owned })}
                     </TableCell>
-                    <TableCell className="text-xs text-text-secondary">
-                      {t('membersPage.agentExtra', {
-                        questions: agent.metrics.questions,
-                        answerTime: formatAnswerMinutes(agent.metrics.answer_minutes),
-                      })}
+                    <TableCell>
+                      {deactivated ? (
+                        <Badge variant={presenceBadgeVariant('deactivated')}>
+                          {presenceLabel('deactivated', tCommon)}
+                        </Badge>
+                      ) : (
+                        <Badge variant={presenceBadgeVariant(agentStatus)}>
+                          {presenceLabel(agentStatus, tCommon)}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild className="text-text-muted hover:text-text-primary">
-                        <Link to={`/agents/${agent.id}`} title={t('membersPage.openAgent')}>
-                          <ExternalLink size={14} />
-                        </Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" asChild className="text-text-muted hover:text-text-primary">
+                          <Link to={`/agents/${agent.id}`} title={t('membersPage.openAgent')}>
+                            <ExternalLink size={14} />
+                          </Link>
+                        </Button>
+                        {canManageMembers ? (
+                          deactivated ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void reactivateAgent(agent)}
+                              title={t('membersPage.reactivateTitle')}
+                              className="text-text-muted hover:text-text-primary"
+                            >
+                              <RotateCcw size={14} />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void deactivateAgent(agent)}
+                              title={t('workforce.agents.archive')}
+                              className="text-text-muted hover:text-status-error"
+                            >
+                              <UserMinus size={14} />
+                            </Button>
+                          )
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 )

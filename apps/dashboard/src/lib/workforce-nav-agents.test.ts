@@ -6,12 +6,14 @@ function agent(partial: Partial<RuntimeAgent> & Pick<RuntimeAgent, 'id' | 'name'
   return {
     organisation_id: 't1',
     slug: partial.name.toLowerCase(),
+    role: 'assistant',
     role_id: null,
     parent_agent_id: null,
     status: 'standby',
     current_session_id: null,
     current_activity_id: null,
     current_activity_summary: null,
+    current_thread_id: null,
     updated_at: 0,
     kind: 'company',
     ...partial,
@@ -25,6 +27,7 @@ describe('filterLibraryAgents', () => {
       agent({ id: '2', name: 'Lead PO', role_slug: 'orchestrator' }),
       agent({ id: '3', name: 'Mine', kind: 'personal' }),
       agent({ id: '4', name: 'Inbox', role_slug: 'communication' }),
+      agent({ id: '5', name: 'Former', is_active: false }),
     ]
     expect(filterLibraryAgents(rows).map((row) => row.id)).toEqual(['1', '2'])
   })

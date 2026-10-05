@@ -22,6 +22,15 @@ export function formatAppDate(
   return date.toLocaleDateString(appDateLocale(language), options)
 }
 
+/** Compact axis/tooltip day: `wo 7 okt` / `Wed 7 Oct`. */
+export function formatAppWeekdayDayMonth(date: Date, language?: string | null): string {
+  const locale = appDateLocale(language)
+  const weekday = date.toLocaleDateString(locale, { weekday: 'short' }).replace(/\.$/, '')
+  const day = date.toLocaleDateString(locale, { day: 'numeric' })
+  const month = date.toLocaleDateString(locale, { month: 'short' }).replace(/\.$/, '')
+  return `${weekday} ${day} ${month}`
+}
+
 export function formatAppDateTime(date: Date, language?: string | null): string {
   return date.toLocaleString(appDateLocale(language), {
     day: 'numeric',

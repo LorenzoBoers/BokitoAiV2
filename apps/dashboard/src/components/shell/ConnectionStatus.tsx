@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { AlertCircle, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { onGatewayStatus, type GatewayStatus } from '../../lib/gateway'
+import { cn } from '../../lib/utils'
 import { Tip } from '../ui/Tip'
 
 const STATUS_DOT: Record<GatewayStatus, string> = {
@@ -15,7 +17,16 @@ export function useGatewayStatus(): GatewayStatus {
   return status
 }
 
-export default function ConnectionStatus({ showLabel = true }: { showLabel?: boolean }) {
+export default function ConnectionStatus({
+  showLabel = true,
+  className,
+  marker = 'dot',
+}: {
+  showLabel?: boolean
+  className?: string
+  /** `check` avoids a green presence-like dot (account menu). */
+  marker?: 'dot' | 'check'
+}) {
   const { t } = useTranslation('nav')
   const status = useGatewayStatus()
   const label = t(`gateway.${status}`)
@@ -23,13 +34,32 @@ export default function ConnectionStatus({ showLabel = true }: { showLabel?: boo
     status === 'disconnected'
       ? t('gateway.reconnectHint')
       : t('gateway.title', { status: label })
-  const body = (
-    <>
+  const tone = className ?? 'text-xs text-text-muted'
+  const mark =
+    marker === 'check' ? (
+      status === 'connected' ? (
+        <Check size={11} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden />
+      ) : (
+        <AlertCircle
+          size={11}
+          strokeWidth={2.5}
+          className={cn(
+            'shrink-0',
+            status === 'disconnected' ? 'text-status-error' : 'text-status-warning',
+          )}
+          aria-hidden
+        />
+      )
+    ) : (
       <span
         className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]} ${
           status === 'connected' || status === 'connecting' ? 'pulse-dot' : ''
         }`}
       />
+    )
+  const body = (
+    <>
+      {mark}
       {showLabel ? label : null}
     </>
   )
@@ -39,7 +69,7 @@ export default function ConnectionStatus({ showLabel = true }: { showLabel?: boo
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary"
+          className={cn('inline-flex items-center gap-1.5 hover:text-text-primary', tone)}
         >
           {body}
           <span className="underline decoration-border/80 underline-offset-2">{t('gateway.reload')}</span>
@@ -49,7 +79,7 @@ export default function ConnectionStatus({ showLabel = true }: { showLabel?: boo
   }
   return (
     <Tip label={title}>
-      <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">{body}</span>
+      <span className={cn('inline-flex items-center gap-1.5', tone)}>{body}</span>
     </Tip>
   )
 }

@@ -32,11 +32,16 @@ async def _create_cases_from_triage(
     enabled_types: list,
     summary: str,
     certainty: int,
+    certain: bool = False,
 ) -> None:
-    """Open/propose a Case for each catalog hit, skipping duplicates.
+    """File the conversation's category from the first catalog hit.
 
-    The case create path enforces the type's create_mode, thresholds and
-    verification requirement — triage never bypasses those gates.
+    A conversation has one category. Once it has a settled one, a certain read
+    of a different category on the newest message is a new request: it goes to
+    ``split_or_propose`` (the conversation's AI handling decides whether that
+    splits, asks, or does nothing). The case create path enforces the type's
+    create_mode, thresholds and verification requirement — triage never
+    bypasses those gates.
     """
     from sqlalchemy import select
 
@@ -46,20 +51,23 @@ async def _create_cases_from_triage(
     # Stored slugs are always slugified (hyphens); the LLM may echo underscore
     # variants from module catalogs, so normalize both sides before matching.
     by_slug = {slugify(row.slug): row for row in enabled_types}
-    existing_type_ids = set(
-        (
-            await session.execute(
-                select(Case.case_type_id).where(
-                    Case.tenant_id == tenant_id,
-                    Case.signal_id == signal_id,
-                )
-            )
-        ).scalars()
-    )
+    existing = (
+        await session.execute(
+            select(Case).where(Case.tenant_id == tenant_id, Case.signal_id == signal_id)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        if not certain or existing.status == "proposed":
+            return
+        hits = [by_slug[slugify(slug)] for slug in slugs if slugify(slug) in by_slug]
+        if not hits or any(row.id == existing.case_type_id for row in hits):
+            return
+        await _split_new_intent(session, tenant_id, signal_id, hits[0], summary)
+        return
     score = max(0, min(10, round(certainty / 10)))
     for slug in slugs:
         case_type = by_slug.get(slugify(slug))
-        if case_type is None or case_type.id in existing_type_ids:
+        if case_type is None:
             continue
         try:
             await create_case(
@@ -74,11 +82,29 @@ async def _create_cases_from_triage(
                 created_by_type="triage",
                 created_by_id="",
             )
-            existing_type_ids.add(case_type.id)
+            return
         except Exception:
             # Triage must never fail the ingest pipeline over one case.
             logger.warning("triage case create failed for type %s", slug, exc_info=True)
             continue
+
+
+async def _split_new_intent(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID, case_type, summary: str
+) -> None:
+    from app.models.signal import Signal
+    from app.services.conversation_split import split_or_propose
+
+    signal = await session.get(Signal, signal_id)
+    if signal is None:
+        return
+    try:
+        await split_or_propose(
+            session, tenant_id, signal, case_type=case_type, agent_id=signal.agent_id,
+            reason=summary,
+        )
+    except Exception:  # noqa: BLE001 - a split must never fail the ingest pipeline
+        logger.warning("triage split failed for signal %s", signal_id, exc_info=True)
 
 
 async def _record_unknown_signal(
@@ -243,6 +269,7 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
             enabled_types=enabled_types,
             summary=summary,
             certainty=certainty,
+            certain=certainty >= threshold * 10,
         )
     else:
         # Nothing in the catalog fits: count the pattern in the backlog so an

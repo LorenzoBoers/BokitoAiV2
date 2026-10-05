@@ -256,21 +256,30 @@ async def _find_by_subject_sender(
 async def _find_existing_thread(
     session: AsyncSession, tenant_id: UUID, inbound: InboundMessage
 ) -> Signal | None:
+    """The conversation this message continues, after any splits on it."""
+    from app.services.conversation_split import active_conversation
+
     if inbound.thread_external_id:
+        # A split copies the provider thread id; the oldest row heads the chain.
         result = await session.execute(
-            select(Signal).where(
+            select(Signal)
+            .where(
                 Signal.tenant_id == tenant_id,
                 Signal.channel == inbound.channel,
                 Signal.external_id == inbound.thread_external_id,
             )
+            .order_by(Signal.created_at)
+            .limit(1)
         )
         existing = result.scalar_one_or_none()
         if existing:
-            return existing
+            return await active_conversation(session, existing)
     by_rfc = await _find_by_rfc_headers(session, tenant_id, inbound)
     if by_rfc:
-        return by_rfc
-    return await _find_by_subject_sender(session, tenant_id, inbound)
+        return await active_conversation(session, by_rfc)
+    return await active_conversation(
+        session, await _find_by_subject_sender(session, tenant_id, inbound)
+    )
 
 
 async def ingest_inbound(

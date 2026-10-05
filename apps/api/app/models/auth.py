@@ -77,6 +77,9 @@ class Membership(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     role: str = Field(default="member")  # owner | admin | member
+    # False = deactivated in this workspace: history stays, they cannot work here.
+    is_active: bool = True
+    deactivated_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

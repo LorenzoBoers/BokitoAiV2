@@ -177,13 +177,24 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {myId != null && !assignedToMe ? (
-            <DropdownMenuItem onSelect={() => void onAssign({ kind: 'user', id: myId })} className="text-xs font-medium">
+            <DropdownMenuItem
+              data-testid="thread-assign-to-me"
+              onSelect={() => void onAssign({ kind: 'user', id: myId })}
+              className="text-xs font-medium"
+            >
               {t('threadChrome.assignToMe')}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem
+            data-testid="thread-unassign"
             onSelect={() => void onAssign({ kind: 'team', id: null })}
-            className={cn('text-xs', owner?.kind === 'team' && 'bg-bg-hover/80')}
+            className={cn(
+              'text-xs',
+              owner?.kind === 'team' &&
+                currentAssigneeId == null &&
+                (!currentTeam || currentTeam.kind === 'people') &&
+                'bg-bg-hover/80',
+            )}
           >
             {t('threadChrome.unassigned')}
           </DropdownMenuItem>

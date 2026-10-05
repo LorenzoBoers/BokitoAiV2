@@ -181,6 +181,51 @@ async def test_patch_assignee_agent_and_team(client: AsyncClient, session_overri
 
 
 @pytest.mark.asyncio
+async def test_patch_unassign_clears_person(client: AsyncClient, session_override: AsyncSession):
+    from app.models.auth import user_numeric_id
+
+    headers = await _login(client)
+    tenant, user = await _tenant_and_user(session_override)
+    signal = await _email_thread(session_override, tenant)
+    num = user_numeric_id(user.id)
+
+    r = await client.patch(
+        f"/api/signals/{signal.id}",
+        headers=headers,
+        json={"assignee": {"kind": "user", "id": num}},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["owner"]["kind"] == "user"
+    assert r.json()["assigned_to_user_id"] == num
+
+    r = await client.patch(
+        f"/api/signals/{signal.id}",
+        headers=headers,
+        json={"assignee": {"kind": "team", "id": None}},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["owner"]["kind"] == "team"
+    assert body["assigned_to_user_id"] is None
+    assert body["owner"]["user_id"] is None
+
+    r = await client.patch(
+        f"/api/signals/{signal.id}",
+        headers=headers,
+        json={"assignee": {"kind": "user", "id": num}},
+    )
+    assert r.status_code == 200, r.text
+    r = await client.patch(
+        f"/api/signals/{signal.id}",
+        headers=headers,
+        json={"assigned_to_user_id": 0},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["owner"]["kind"] == "team"
+    assert r.json()["assigned_to_user_id"] is None
+
+
+@pytest.mark.asyncio
 async def test_for_you_predicate(client: AsyncClient, session_override: AsyncSession):
     from app.models.signal import Signal
     from app.services.ownership import for_you_predicate, unassigned_predicate

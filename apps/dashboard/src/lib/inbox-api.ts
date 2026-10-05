@@ -10,7 +10,10 @@ import {
   apiGet as apiGetApp,
 } from './api'
 import { isMockAgentBody } from './activity-labels'
+import { normalizeMessageActivity, type ActivityItem } from './agentActivity'
 import { normalizeAiHandling, type AiHandling } from './ai-handling'
+import type { TicketStage } from './cases-api'
+import { plainChatText } from './chatText'
 import type { ResolveDecisionResult, ThreadSession } from './signals-api'
 
 // ---------------------------------------------------------------------------
@@ -22,7 +25,7 @@ export type ThreadPriority = 'normal' | 'high' | 'urgent'
 export type MessageDirection = 'inbound' | 'outbound' | 'internal' | 'system'
 export type SendStatus = 'sending' | 'scheduled' | 'sent' | 'failed'
 
-export type ThreadId = string | number
+export type ThreadId = string
 
 export type MessageFolder = 'external' | 'internal' | 'all'
 
@@ -90,6 +93,8 @@ export type InboxThread = {
   lastMessagePreview?: string
   /** Direction of that preview line (`inbound` = they wrote, `outbound` = you). */
   lastMessageDirection?: MessageDirection | ''
+  /** An agent wrote that line (outbound previews read "AI:", not "You:"). */
+  lastMessageByAgent?: boolean
   contactId: string | null
   contactEmail: string
   contactName: string
@@ -106,7 +111,8 @@ export type InboxThread = {
   assignedToUserId: number | null
   owner?: ThreadOwner
   turn?: ThreadTurn
-  tags: string[]
+  /** Tag names; `undefined` when a live row did not carry them (keep the known value). */
+  tags?: string[]
   lastMessageAt: string | null
   hasUnread: boolean
   isPinned: boolean
@@ -114,15 +120,22 @@ export type InboxThread = {
   hasOpenDecision?: boolean
   /** Resolved AI handling (workspace, channel, contact, conversation; Govern-capped). */
   aiHandling?: AiHandling | null
-  /** Next-action chips set by AI inbound processing (close / assign / create_task). */
+  /** Next-action chips set by AI inbound processing (close / assign / look_at). */
   suggestedActions?: string[]
   /** AI triage (category / urgency 0-100 / certainty 0-100), null until triaged. */
   category?: string | null
   urgency?: number | null
   certainty?: number | null
   aiSummary?: string | null
+  /**
+   * The conversation's category and, for tickets, its stage. `undefined` when
+   * the row came from a live event that does not carry it (keep the known value).
+   */
+  categoryCase?: ThreadCategoryCase | null
   createdAt: string
   channel?: string
+  /** Thread origin; `personal` is the in-app Bokito helper, not Communication. */
+  source?: string
   folder?: MessageFolder | string
   projectId?: string | null
   /** The agent this thread targets (chat threads), if any. */
@@ -165,23 +178,15 @@ export type InboxMessage = {
   payload?: Record<string, unknown>
   /** The signed-in user's feedback on this message (thumbs state). */
   myFeedback?: { score: number | null; sentiment: 'up' | 'down' | null } | null
-  /** True when an agent_trace exists server-side but may be omitted from the window. */
-  hasAgentTrace?: boolean
-  /** Persisted agent tool/think steps + token usage for Cursor-style activity log. */
-  agentTrace?: {
-    usage?: { input_tokens?: number; output_tokens?: number }
-    steps?: Array<{
-      step_type?: string
-      stepType?: string
-      name?: string
-      payload?: Record<string, unknown>
-    }>
-    thinking?: {
-      text?: string
-      ms?: number
-      budget?: number
-    }
-  } | null
+  /** What the agent did before this bubble (thinking, tool calls). */
+  activity?: ActivityItem[]
+  /** Activity after the last bubble of a turn. */
+  activityAfter?: ActivityItem[]
+  /** False when the list payload omitted tool detail (load on expand). */
+  activityDetail?: boolean
+  hasActivity?: boolean
+  /** Agent turn this bubble belongs to (live stream id). */
+  turnId?: string | null
   receivedAt: string | null
   createdAt: string
 }
@@ -260,8 +265,12 @@ export type ThreadFilters = {
   agentId?: string
   /** Owner team or the team whose turn it is. */
   teamId?: string
+  /** Conversations linked to the project, or tickets in it. */
   projectId?: string
   tag?: string
+  categoryId?: string
+  /** A ticket stage key, or a stage kind (open, waiting, done). */
+  stage?: string
   assigneeId?: number
   search?: string
   page?: number
@@ -412,6 +421,13 @@ function asNullableTimestampString(value: unknown): string | null {
   return iso.length > 0 ? iso : null
 }
 
+function asThreadId(value: unknown): string | null {
+  if (typeof value === 'string' && value.length > 0) return value
+  const num = asNumber(value, NaN)
+  if (Number.isFinite(num) && num > 0) return String(num)
+  return null
+}
+
 export function normalizeThreadRow(row: unknown): InboxThread | null {
   return normalizeThread(row)
 }
@@ -419,9 +435,7 @@ export function normalizeThreadRow(row: unknown): InboxThread | null {
 function normalizeThread(row: unknown): InboxThread | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
-  const stringId = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : null
-  const numId = asNumber(raw.id, NaN)
-  const id: ThreadId | null = stringId ?? (Number.isFinite(numId) && numId > 0 ? numId : null)
+  const id = asThreadId(raw.id)
   if (id == null) return null
   const statusValue = asString(raw.status)
   const status: ThreadStatus =
@@ -433,11 +447,20 @@ function normalizeThread(row: unknown): InboxThread | null {
     organisationId: asString(raw.organisation_id),
     emailConnectionId: raw.email_connection_id == null || raw.email_connection_id === 0 ? null : asNumber(raw.email_connection_id),
     channelAccountId: asNullableString(raw.channel_account_id),
-    graphConversationId: asString(raw.graph_conversation_id),
-    emailSubject: asString(raw.email_subject, '(No subject)'),
-    lastMessagePreview: asString(raw.last_message_preview),
+    graphConversationId: asString(raw.graph_conversation_id ?? raw.external_id),
+    emailSubject: asString(raw.email_subject ?? raw.subject, '(No subject)'),
+    lastMessagePreview: plainChatText(asString(raw.last_message_preview)),
     lastMessageDirection: asString(raw.last_message_direction) as InboxThread['lastMessageDirection'],
+    lastMessageByAgent: raw.last_message_by_agent === true,
     contactId: asNullableString(raw.contact_id),
+    agentId: asNullableString(raw.agent_id),
+    agentName: asNullableString(raw.agent_name),
+    agentKind: asNullableString(raw.agent_kind),
+    agentAvatarKind: asNullableString(raw.agent_avatar_kind) ?? asNullableString(raw.avatar_kind),
+    agentAvatarIcon: asNullableString(raw.agent_avatar_icon) ?? asNullableString(raw.avatar_icon),
+    agentAvatarColor: asNullableString(raw.agent_avatar_color) ?? asNullableString(raw.avatar_color),
+    agentAvatarImageUrl:
+      asNullableString(raw.agent_avatar_image_url) ?? asNullableString(raw.avatar_image_url),
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),
@@ -451,7 +474,7 @@ function normalizeThread(row: unknown): InboxThread | null {
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0 ? null : asNumber(raw.assigned_to_user_id),
     owner: normalizeOwner(raw.owner),
     turn: normalizeTurn(raw.turn),
-    tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : undefined,
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
     hasOpenDecision: Boolean(raw.has_open_decision),
@@ -464,50 +487,53 @@ function normalizeThread(row: unknown): InboxThread | null {
     urgency: typeof raw.urgency === 'number' ? raw.urgency : null,
     certainty: typeof raw.certainty === 'number' ? raw.certainty : null,
     aiSummary: asNullableString(raw.ai_summary),
+    categoryCase: 'category_case' in raw ? normalizeCategoryCase(raw.category_case) : undefined,
     createdAt: asTimestampString(raw.created_at),
-    channel: asString(raw.channel) || undefined,
-    folder: asString(raw.folder) || undefined,
+    channel: asString(raw.channel, 'email'),
+    source: asString(raw.source),
+    folder: asString(raw.folder, raw.channel === 'internal' ? 'internal' : 'external'),
     projectId: asNullableString(raw.project_id),
   }
 }
 
-function normalizeAgentTrace(raw: Record<string, unknown>): InboxMessage['agentTrace'] {
-  const payload = raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : null
-  const fromPayload = payload?.agent_trace
-  const fromRoot = raw.agent_trace
-  const trace = (fromPayload && typeof fromPayload === 'object' ? fromPayload : null)
-    ?? (fromRoot && typeof fromRoot === 'object' ? fromRoot : null)
-  if (!trace || typeof trace !== 'object') return null
-  const t = trace as Record<string, unknown>
-  const usage =
-    t.usage && typeof t.usage === 'object'
-      ? (t.usage as { input_tokens?: number; output_tokens?: number })
-      : undefined
-  const steps = Array.isArray(t.steps) ? t.steps : undefined
-  const thinking =
-    t.thinking && typeof t.thinking === 'object'
-      ? (t.thinking as { text?: string; ms?: number; budget?: number })
-      : undefined
-  if (!usage && (!steps || steps.length === 0) && !thinking) return null
+export type ThreadCategoryCase = {
+  caseId: string
+  categoryId: string
+  name: string
+  slug: string
+  status: string
+  isTicket: boolean
+  stage: TicketStage | null
+}
+
+function normalizeCategoryCase(raw: unknown): ThreadCategoryCase | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const stage = row.stage && typeof row.stage === 'object' ? (row.stage as Record<string, unknown>) : null
   return {
-    usage,
-    steps: steps as NonNullable<InboxMessage['agentTrace']>['steps'],
-    thinking,
+    caseId: asString(row.case_id),
+    categoryId: asString(row.category_id),
+    name: asString(row.name),
+    slug: asString(row.slug),
+    status: asString(row.status),
+    isTicket: Boolean(row.is_ticket),
+    stage:
+      stage && typeof stage.key === 'string'
+        ? {
+            key: stage.key,
+            name: asString(stage.name),
+            kind: (asString(stage.kind) || 'open') as TicketStage['kind'],
+          }
+        : null,
   }
 }
 
 function normalizeMessage(row: unknown): InboxMessage | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
-  const stringId = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : null
-  const numId = asNumber(raw.id, NaN)
-  const id: ThreadId | null = stringId ?? (Number.isFinite(numId) && numId > 0 ? numId : null)
+  const id = asThreadId(raw.id)
   if (id == null) return null
-  const threadRaw = raw.thread_id
-  const threadStringId = typeof threadRaw === 'string' && threadRaw.length > 0 ? threadRaw : null
-  const threadNumId = asNumber(threadRaw, NaN)
-  const threadId: ThreadId =
-    threadStringId ?? (Number.isFinite(threadNumId) && threadNumId > 0 ? threadNumId : 0)
+  const threadId = asThreadId(raw.thread_id) ?? ''
   const directionValue = asString(raw.direction)
   const direction: MessageDirection =
     directionValue === 'outbound'
@@ -517,21 +543,10 @@ function normalizeMessage(row: unknown): InboxMessage | null {
         : directionValue === 'system'
           ? 'system'
           : 'inbound'
-  const sendStatusValue = asString(raw.send_status)
-  const sendStatus: SendStatus | null =
-    sendStatusValue === 'sending' ? 'sending' : sendStatusValue === 'sent' ? 'sent' : sendStatusValue === 'failed' ? 'failed' : null
   const bodyText = asString(raw.body_text) || undefined
   const bodyPreview = asString(raw.body_preview)
   const payload =
     raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {}
-  // Prefer API flags; fall back to body/payload heuristics for older rows.
-  const isMock =
-    raw.is_mock === true ||
-    payload.is_mock === true ||
-    payload.llm_mode === 'mock' ||
-    isMockAgentBody(bodyText) ||
-    isMockAgentBody(bodyPreview)
-  const deliveredToCustomer = isMock ? false : raw.delivered_to_customer === true
   return {
     id,
     threadId,
@@ -549,18 +564,33 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     inReplyTo: asNullableString(raw.in_reply_to),
     authorUserId: raw.author_user_id == null || raw.author_user_id === 0 ? null : asNumber(raw.author_user_id),
     isRead: Boolean(raw.is_read),
-    sendStatus,
-    isMock,
-    deliveredToCustomer,
+    ...normalizeDelivery(raw),
     attachments: Array.isArray(raw.attachments) ? raw.attachments : null,
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
     payload,
     myFeedback: normalizeMyFeedback(raw),
-    hasAgentTrace: raw.has_agent_trace === true || Boolean(normalizeAgentTrace(raw)),
-    agentTrace: normalizeAgentTrace(raw),
+    ...normalizeMessageActivity(raw),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asTimestampString(raw.created_at),
   }
+}
+
+/** Send state and the "delivered to customer" flag (API flags first, body heuristics as fallback). */
+export function normalizeDelivery(
+  raw: Record<string, unknown>,
+): Pick<InboxMessage, 'sendStatus' | 'isMock' | 'deliveredToCustomer'> {
+  const value = asString(raw.send_status)
+  const sendStatus: SendStatus | null =
+    value === 'sending' ? 'sending' : value === 'sent' ? 'sent' : value === 'failed' ? 'failed' : null
+  const payload =
+    raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {}
+  const isMock =
+    raw.is_mock === true ||
+    payload.is_mock === true ||
+    payload.llm_mode === 'mock' ||
+    isMockAgentBody(asString(raw.body_text)) ||
+    isMockAgentBody(asString(raw.body_preview))
+  return { sendStatus, isMock, deliveredToCustomer: isMock ? false : raw.delivered_to_customer === true }
 }
 
 export function normalizeMyFeedback(raw: Record<string, unknown>): InboxMessage['myFeedback'] {
@@ -576,15 +606,9 @@ export function normalizeMyFeedback(raw: Record<string, unknown>): InboxMessage[
 function normalizeEvent(row: unknown): InboxEvent | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
-  const stringId = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : null
-  const numId = asNumber(raw.id, NaN)
-  const id: ThreadId | null = stringId ?? (Number.isFinite(numId) && numId > 0 ? numId : null)
+  const id = asThreadId(raw.id)
   if (id == null) return null
-  const threadRaw = raw.thread_id
-  const threadStringId = typeof threadRaw === 'string' && threadRaw.length > 0 ? threadRaw : null
-  const threadNumId = asNumber(threadRaw, NaN)
-  const threadId: ThreadId =
-    threadStringId ?? (Number.isFinite(threadNumId) && threadNumId > 0 ? threadNumId : 0)
+  const threadId = asThreadId(raw.thread_id) ?? ''
   return {
     id,
     threadId,
@@ -797,6 +821,8 @@ export async function resolveThreadDecision(
     bodyHtml?: string
     subject?: string
     responseText?: string
+    /** Chat bubbles of an approved reply (one customer message each). */
+    messages?: string[]
     /** Sender identity for approved reply suggestions. */
     sendAs?: 'user' | 'agent'
   },

@@ -56,6 +56,8 @@ export type ModuleSourceRow = {
   workspace_doc_id?: string | null
   last_synced_at?: string | null
   sync_error?: string
+  pages_fetched?: number
+  pages_skipped?: number
   created_at?: string | null
   updated_at?: string | null
 }

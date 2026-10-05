@@ -131,3 +131,39 @@ async def test_create_task_tool_creates_agent_task(session_override):
     ).scalar_one_or_none()
     assert task is not None
     assert task.title == "Follow up customer"
+
+
+@pytest.mark.asyncio
+async def test_create_task_on_conversation_sets_look_at(session_override):
+    from app.models.signal import Signal
+    from app.tools import execute_tool
+
+    tenant = Tenant(slug="task-look", name="Task Look")
+    session_override.add(tenant)
+    await session_override.flush()
+    agent = Agent(tenant_id=tenant.id, name="Worker", role="assistant", slug="look-worker")
+    signal = Signal(tenant_id=tenant.id, channel="email", source="email", subject="Quote")
+    session_override.add(agent)
+    session_override.add(signal)
+    await session_override.commit()
+
+    result = await execute_tool(
+        session_override,
+        tenant.id,
+        None,
+        "create_task",
+        {"title": "Call them back"},
+        agent=agent,
+        signal_id=signal.id,
+        approved=True,
+    )
+    assert result.get("kind") == "look_at"
+    assert result.get("signal_id") == str(signal.id)
+    assert "task_id" not in result
+    await session_override.refresh(signal)
+    assert signal.follow_up_title == "Call them back"
+    assert signal.follow_up_at is not None
+    leftover = (
+        await session_override.execute(select(AgentTask).where(AgentTask.signal_id == signal.id))
+    ).scalars().all()
+    assert leftover == []

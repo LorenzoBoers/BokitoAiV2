@@ -171,10 +171,12 @@ async def _execute_agent_segment(
         subject=task.title,
     )
     session.add(run)
-    agent.runtime_status = "active"
-    agent.current_activity_summary = task.title[:200]
+    from app.services.workforce_runtime import apply_agent_runtime, broadcast_agent_live
+
+    apply_agent_runtime(agent, status="working", summary=task.title[:200], activity_id=run.id)
     session.add(agent)
     await session.flush()
+    await broadcast_agent_live(agent, activity_id=str(run.id))
 
     _merge_context(task, "active_run_id", str(run.id))
     session.add(task)
@@ -249,9 +251,12 @@ async def _execute_agent_segment(
         metadata={"run_id": str(run.id), "segment_index": segment_index, "agent_name": agent.name},
     )
 
-    agent.runtime_status = "standby"
+    from app.services.workforce_runtime import apply_agent_runtime, broadcast_agent_live
+
+    apply_agent_runtime(agent, status="standby")
     session.add(agent)
     await session.flush()
+    await broadcast_agent_live(agent)
     return run, text
 
 

@@ -57,7 +57,7 @@ async def sync_one(
     if (
         conn is None
         or conn.tenant_id != auth.tenant.id
-        or conn.provider not in calendar_sync.CALENDAR_PROVIDERS
+        or calendar_sync._calendar_slug(conn) is None
     ):
         raise HTTPException(status_code=404, detail="Calendar connection not found")
     return await calendar_sync.sync_connection(session, conn)
@@ -73,12 +73,13 @@ async def sync_all(
     result = await session.execute(
         select(IntegrationConnection).where(
             IntegrationConnection.tenant_id == auth.tenant.id,
-            IntegrationConnection.provider.in_(list(calendar_sync.CALENDAR_PROVIDERS)),
             IntegrationConnection.status == "active",
         )
     )
     out: list[dict[str, Any]] = []
     for conn in result.scalars().all():
+        if calendar_sync._calendar_slug(conn) is None:
+            continue
         out.append(await calendar_sync.sync_connection(session, conn))
     return {"results": out}
 

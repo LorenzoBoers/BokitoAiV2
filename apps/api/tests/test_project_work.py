@@ -20,13 +20,12 @@ async def _tenant(session) -> Tenant:
     return (await session.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
 
 
-async def _project(session, tenant_id, slug="work", autonomous=False) -> Project:
+async def _project(session, tenant_id, slug="work") -> Project:
     project = Project(
         tenant_id=tenant_id,
         name=f"Work {slug}",
         slug=slug,
         autonomous_scope="test",
-        autonomous_mode=autonomous,
     )
     session.add(project)
     await session.commit()
@@ -158,9 +157,12 @@ async def test_queue_item_lifecycle_and_audit(client: AsyncClient, session_overr
 
 
 @pytest.mark.asyncio
-async def test_autonomous_project_auto_accepts(client: AsyncClient, session_override, monkeypatch):
+async def test_autonomous_workspace_auto_accepts_queue_item(client: AsyncClient, session_override, monkeypatch):
     tenant = await _tenant(session_override)
-    project = await _project(session_override, tenant.id, "auto", autonomous=True)
+    tenant.settings_json = '{"autonomy_posture":"autonomous"}'
+    session_override.add(tenant)
+    await session_override.commit()
+    project = await _project(session_override, tenant.id, "auto")
 
     started = []
 
@@ -181,6 +183,27 @@ async def test_autonomous_project_auto_accepts(client: AsyncClient, session_over
     refreshed = await svc.get_queue_item(session_override, tenant.id, item.id)
     assert refreshed.status == "queued"
     assert started == [item.id]
+
+
+@pytest.mark.asyncio
+async def test_assisted_workspace_does_not_auto_accept_even_if_project_flag(client: AsyncClient, session_override):
+    tenant = await _tenant(session_override)
+    tenant.settings_json = '{"autonomy_posture":"assisted"}'
+    session_override.add(tenant)
+    await session_override.commit()
+    project = await _project(session_override, tenant.id, "legacy-flag")
+
+    item = await svc.create_queue_item(
+        session_override,
+        tenant.id,
+        project.id,
+        kind="feature",
+        title="Still needs accept",
+        origin_type="conversation",
+        created_by_type="agent",
+    )
+    refreshed = await svc.get_queue_item(session_override, tenant.id, item.id)
+    assert refreshed.status == "proposed"
 
 
 @pytest.mark.asyncio

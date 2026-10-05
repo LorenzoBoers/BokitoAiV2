@@ -67,19 +67,9 @@ async def list_notifications(
             Notification.created_at.desc(),
         ).limit(limit)
     )
-    return [
-        {
-            "id": str(n.id),
-            "kind": n.kind,
-            "title": n.title,
-            "body": n.body,
-            "status": n.status,
-            "tier": n.tier or 2,
-            "payload": json.loads(n.payload_json or "{}"),
-            "created_at": n.created_at.isoformat(),
-        }
-        for n in result.scalars().all()
-    ]
+    from app.services.notify import serialize_notification
+
+    return [serialize_notification(n) for n in result.scalars().all()]
 
 
 @router.get("/summary", response_model=NotificationSummary)
@@ -87,9 +77,9 @@ async def notification_summary(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Unread system notices for the bell badge, and open conversations in For you."""
-    from app.models.signal import Signal
-    from app.services.ownership import for_you_clause
+    """Unread system notices for the bell badge, and what waits on you in For you."""
+    from app.services.channel_access import visible_channel_account_ids
+    from app.services.signal_threads import attention_counts
 
     unread = (
         await session.execute(
@@ -103,18 +93,15 @@ async def notification_summary(
             )
         )
     ).scalar_one()
-    for_you = (
-        await session.execute(
-            select(func.count())
-            .select_from(Signal)
-            .where(
-                Signal.tenant_id == auth.tenant.id,
-                Signal.status == "open",
-                await for_you_clause(session, auth.tenant.id, auth.user.id),
-            )
-        )
-    ).scalar_one()
-    return {"unread": int(unread or 0), "for_you": int(for_you or 0)}
+    attention = await attention_counts(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        visible_account_ids=await visible_channel_account_ids(
+            session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+        ),
+    )
+    return {"unread": int(unread or 0), "for_you": attention["for_you"]}
 
 
 @router.post("/{notification_id}/read")

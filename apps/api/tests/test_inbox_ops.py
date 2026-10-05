@@ -435,7 +435,21 @@ async def test_delete_thread_cleans_referencing_rows(client: AsyncClient, sessio
     r = await client.delete(f"/api/signals/{signal_id}", headers=owner)
     assert r.status_code == 200, r.text
 
-    # Thread and its decision are gone.
+    hidden = (
+        await session_override.execute(select(Signal).where(Signal.id == sig_uuid))
+    ).scalar_one()
+    assert hidden.deleted_at is not None
+    listed = await client.get("/api/signals?folder=inbox", headers=owner)
+    assert listed.status_code == 200
+    ids = [item.get("id") for item in listed.json().get("items", listed.json().get("threads", []))]
+    assert signal_id not in ids
+
+    bin_list = await client.get("/api/trash", headers=owner)
+    assert bin_list.status_code == 200, bin_list.text
+    entry = next(i for i in bin_list.json()["items"] if i["resource_id"] == signal_id)
+    purged = await client.delete(f"/api/trash/{entry['id']}", headers=owner)
+    assert purged.status_code == 200, purged.text
+
     assert (
         await session_override.execute(select(Signal).where(Signal.id == sig_uuid))
     ).scalar_one_or_none() is None
@@ -445,7 +459,6 @@ async def test_delete_thread_cleans_referencing_rows(client: AsyncClient, sessio
         )
     ).scalar_one_or_none() is None
 
-    # Referencing records survive with the link detached.
     await session_override.refresh(change)
     await session_override.refresh(task)
     await session_override.refresh(trigger)

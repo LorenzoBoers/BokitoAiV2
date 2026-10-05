@@ -16,10 +16,9 @@ interface SettingsSectionProps {
 }
 
 /**
- * Standard settings form grouping. Wraps content in `Card` with a
- * compact header (title + optional description + actions) and a content
- * region. Replaces ad hoc `<Card p-6>` and `<div rounded-xl border>` patterns
- * across the settings pages.
+ * Standard settings form grouping. Header stays one compact row (title +
+ * actions). A longer description sits in a band under the header so it
+ * cannot overflow the h-11 bar onto the body.
  */
 export function SettingsSection({
   title,
@@ -32,16 +31,18 @@ export function SettingsSection({
 }: SettingsSectionProps) {
   return (
     <Card className={className}>
-      <CardHeader className="flex-wrap items-start gap-3">
-        {icon ? <div className="shrink-0">{icon}</div> : null}
-        <div className="min-w-0 flex-1">
+      <CardHeader>
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          {icon ? <div className="shrink-0">{icon}</div> : null}
           <CardTitle>{title}</CardTitle>
-          {description ? (
-            <p className="mt-1 text-xs text-text-secondary">{description}</p>
-          ) : null}
         </div>
-        {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </CardHeader>
+      {description ? (
+        <p className="border-b border-border/60 px-4 py-2 text-xs leading-5 text-text-secondary">
+          {description}
+        </p>
+      ) : null}
       <CardContent className={cn(bodyClassName)}>{children}</CardContent>
     </Card>
   )

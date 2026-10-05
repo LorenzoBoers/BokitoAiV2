@@ -1,26 +1,28 @@
 ---
 title: Zo werken Agents
 intro: De bibliotheek van AI-werkers. Communicatie is waar ze praten; deze pagina is waar je ze aanneemt en brief.
-description: Brief bedrijfsagents, zet chattoegang, archiveer ze, voeg een handtekening toe en stel initialen of icoon in.
-keywords: agents, ai-workforce, archiveren, chattoegang, handtekening, avatar, icoon, standaardagent
+description: Brief bedrijfsagents, zet chattoegang, deactiveer ze, voeg een handtekening toe en stel initialen of icoon in.
+keywords: agents, ai-workforce, deactiveren, opnieuw activeren, chattoegang, handtekening, avatar, icoon, standaardagent
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
 
 # Zo werken Agents
 
-Agents zijn de AI-werkers van deze workspace. Elke agent heeft één vorm: naam, doel, doelgroep, model, toegestane tools, eigenaar en optionele standaarden. Bokito is de systeemagent die namens de ingelogde gebruiker handelt en staat niet in de werkersbibliotheek.
+Agents zijn de AI-werkers van deze workspace. Elke agent heeft één vorm: naam, doel, model, toegestane tools, eigenaar en optionele standaarden. Bokito is de systeemagent die namens de ingelogde gebruiker handelt en staat niet in de werkersbibliotheek.
 
 ## Blader door de bibliotheek
 
 ![Agentbibliotheek](/api/docs/assets/agents/library.png)
 *Elke agent is een kaart. De standaardagent staat rustig als Standaard gemarkeerd.*
 
-1. Open **Agents**. Bedrijfsagents staan als kaarten met hun doelgroep. Op elke kaart zie je open gesprekken en threads die een beslissing nodig hebben. Zoeken en de pillen **Alles** en **Bezig** beperken het raster.
-2. Kies **Nieuwe agent**. Vul een **Naam** in, kies de **Doelgroep**, selecteer een **Model**, beschrijf het **Doel** en kies **Agent aanmaken**.
+1. Open **Agents**. Bedrijfsagents staan als kaarten. Op elke kaart zie je open gesprekken (de detaillaag, **Open gesprekken**) en threads die een beslissing nodig hebben (**Voor jou**, gefilterd op die agent). Zoeken en de pillen **Alles** en **Bezig** beperken het raster. Boven de kaarten staat **Activiteit**: een tijdlijn met **Nu** in het midden en even grote punten. Elk punt heeft een icoon voor het actietype (chat, geplande wake, heartbeat, enzovoort). Als meerdere acties dicht bij elkaar liggen, toont het punt een getal; hover om ze onder elkaar te zien. Sessies van twee minuten of korter tonen één tijdstip, geen van–tot. Klik om de run, het gesprek of het Agenda-item te openen. Dezelfde tijdlijn staat op elke agentpagina, dan alleen voor die agent.
+2. Kies **Nieuwe agent**. Vul een **Naam** in, selecteer een **Model**, beschrijf het **Doel** en kies **Agent aanmaken**.
 3. Open een kaart voor instructies, model en chattoegang. Gebruik **Chat met deze agent** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links op de detailpagina. Gerelateerde instellingen (AI-afhandeling, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
 
 Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.** Ze kunnen nog steeds chatten vanuit Communicatie.
+
+In een chat met een agent toont het zijpaneel **AI-agent** in dezelfde gedempte stijl als de modelregel. Het aanwezigheidsbolletje zit op de avatar (geen label Standby/Bezig). Kies de modelregel om **Models** te openen. **Nu actief** verschijnt terwijl hij werkt en **Laatst actief 5 minuten geleden** na zijn laatste run of antwoord. Die live-status is dezelfde op Agents, de Communicatie-rail, Teams en de project-lead. Kies de agentnaam (of de werkregel) terwijl hij actief is om het gesprek of de run te openen; **Agent openen** blijft de agentpagina. De tellerregel (**2 modules | 3 koppelingen | 999+ tools**) heeft dezelfde gedempte stijl als de modelregel. Openklappen toont één rustige regel met modules en koppelingen (logo dan naam, zonder extra kopjes). Kijkmomenten en signalen van dat gesprek staan onder **Dit gesprek**.
 
 Echte beslissingen leven in elk gesprek (en onder **Openstaande gesprekken** op de agent). Tipkaarten voor automatische mail tellen daar niet mee.
 
@@ -29,11 +31,11 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 ## Brief een agent
 
 ![Agentdetail](/api/docs/assets/agents/agent-brief.png)
-*Wijzig doel, doelgroep, model en toegestane tools.*
+*Wijzig doel, model en toegestane tools.*
 
-1. Open de agent. Wijzig **Naam**, **Doel**, **Doelgroep** en **Model**.
+1. Open de agent. De kaart **Instructies** toont een korte preview. Kies **Bewerken** om de volledige prompt in een dialoog te wijzigen. Wijzig ook **Naam**, **Doel** en **Model**.
 2. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
-3. Kies in **Communicatie-instellingen** per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Archiveren** verbergt de agent en wist de kanaalstandaarden; run-geschiedenis blijft.
+3. Kies op [Kanalen](/docs/inbox/channels) per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Deactiveren** verbergt de agent uit de bibliotheek en wist de kanaalstandaarden; run-geschiedenis blijft.
 
 ## Bepaal wanneer de agent zelf handelt
 
@@ -56,13 +58,13 @@ Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading). Die
 
 1. Open **Agents** en zoek een kaart met het label **Beheerd**.
 2. Open de agent. De badge noemt bij hover het pakket dat de agent beheert.
-3. Als je een beheerde agent **Archiveert**, zetten stack-seed of updates hem niet stil terug. Bokito opent een herstel-Decision in Communicatie; keur die goed om de agent weer in de bibliotheek te zetten, of wijs af om hem gearchiveerd te houden.
+3. Als je een beheerde agent **Deactiveert**, zetten stack-seed of updates hem niet stil terug. Bokito opent een herstel-Decision in Communicatie; keur die goed om de agent weer in de bibliotheek te zetten, of wijs af om hem gedeactiveerd te houden.
 
 ## Beperk wie mag chatten
 
 1. Een stille agent toont **Klaar**. Open **Communicatie** op de agentpagina (chattoegang). Kies **Iedereen**, **Geselecteerde gebruikers** of **Niemand**.
 2. **Niemand** houdt achtergrondwerk (Agenda, AI-afhandeling) zonder directe chat vanuit Communicatie.
-3. Om een agent uit de bibliotheek te halen, gebruik **Archiveren** onder het ···-menu.
+3. Om een agent uit de bibliotheek te halen, gebruik **Deactiveren** onder het ···-menu. Status wordt **Gedeactiveerd**. Gebruik **Opnieuw activeren** daar of op [Workforce](/docs/getting-started/team) onder **Gedeactiveerd**. Geschiedenis blijft.
 
 ## Voeg een agenthandtekening toe
 
@@ -74,7 +76,7 @@ Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading). Die
 ## Stel naam of icoon in
 
 1. Open een bedrijfsagent.
-2. Kies **Bewerken** naast de agentnaam.
+2. Kies **Bewerken** rechtsboven in de header.
 3. Pas de **naam** aan, kies **Initialen** of **Icoon**, en sla op. Agents gebruiken altijd het platform-AI-violet — er is geen eigen kleur- of fotokiezer.
 
 Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Communicatie en de webchat-headerbubble van de antwoordingende agent.

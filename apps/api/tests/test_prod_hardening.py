@@ -105,6 +105,15 @@ async def test_install_mcp_refuses_mock_in_prod(
         )
     assert mock_url.value.status_code == 422
 
+    # The low-level register path (used by seed) refuses mock URLs too.
+    from app.services.integrations_platform import register_mcp_server
+
+    with pytest.raises(HTTPException) as seeded:
+        await register_mcp_server(
+            session_override, tenant.id, name="mock-tools", server_url="mock://local"
+        )
+    assert seeded.value.status_code == 422
+
 
 @pytest.mark.asyncio
 async def test_call_mcp_tool_refuses_mock_in_prod(

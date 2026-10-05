@@ -97,7 +97,16 @@ async def _update_case(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     if case_id is None:
         return {"error": "case_id is required"}
     try:
-        case = await update_case(ctx.session, ctx.tenant_id, case_id, tool_input)
+        case = await update_case(
+            ctx.session,
+            ctx.tenant_id,
+            case_id,
+            tool_input,
+            actor_type="agent" if ctx.agent else "user",
+            actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+        )
+        if case is None:
+            return {"ok": True, "removed": True}
         case, case_type = await get_case(ctx.session, ctx.tenant_id, case.id)
     except HTTPException as exc:
         return {"error": exc.detail}
@@ -132,7 +141,7 @@ async def _link_case(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
 register_tool(
     ToolSpec(
         name="list_case_types",
-        description="List intake types this workspace can open on a conversation.",
+        description="List the categories this workspace can give a conversation.",
         category="cases",
         input_schema={"type": "object", "properties": {}},
         handler=_list_case_types,
@@ -145,7 +154,7 @@ register_tool(
 register_tool(
     ToolSpec(
         name="list_cases",
-        description="List cases on a conversation (defaults to the current thread).",
+        description="Show the category (and ticket stage) of a conversation (defaults to the current thread).",
         category="cases",
         input_schema={
             "type": "object",
@@ -162,9 +171,10 @@ register_tool(
     ToolSpec(
         name="create_case",
         description=(
-            "Open a typed case on this conversation. Use one type per intent; "
-            "never dump multiple issues into one case. The type's mode and "
-            "certainty decide whether it opens, asks the visitor, or asks the team."
+            "Give this conversation its category. A conversation has one category; "
+            "when it already has another one, split the conversation for the new "
+            "request instead. The category's mode and certainty decide whether it "
+            "opens, asks the visitor, or asks the team."
         ),
         category="cases",
         input_schema={
@@ -191,7 +201,10 @@ register_tool(
 register_tool(
     ToolSpec(
         name="update_case",
-        description="Update a case title, summary, or status.",
+        description=(
+            "Update a case title or summary, or move a ticket to another stage "
+            "(stage_key from its workstream). status works for label-only cases."
+        ),
         category="cases",
         input_schema={
             "type": "object",
@@ -199,6 +212,7 @@ register_tool(
                 "case_id": {"type": "string"},
                 "title": {"type": "string"},
                 "summary": {"type": "string"},
+                "stage_key": {"type": "string"},
                 "status": {"type": "string"},
             },
             "required": ["case_id"],

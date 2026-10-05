@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import select
 
+from app.config import get_settings
 from app.db.session import async_session_factory, init_db
 from app.models.agent import Agent
 from app.models.trigger import Trigger
@@ -338,7 +339,6 @@ async def _seed_tenant_data(session, tenant):
                 name="Front desk",
                 role="assistant",
                 slug="front-desk",
-                audience="customers",
                 chat_access="everyone",
                 runtime_status="standby",
                 system_prompt="You are the Bokito AI OS assistant.",
@@ -384,7 +384,9 @@ async def _seed_tenant_data(session, tenant):
     # Do not seed a phantom mock mailbox — the settings UI must only show
     # mailboxes that were actually connected (OAuth or explicit admin create).
 
-    if not (await session.execute(select(McpServer).where(McpServer.tenant_id == tenant.id))).scalar_one_or_none():
+    if not get_settings().is_production and not (
+        await session.execute(select(McpServer).where(McpServer.tenant_id == tenant.id))
+    ).scalar_one_or_none():
         from app.services.integrations_platform import register_mcp_server
 
         await register_mcp_server(

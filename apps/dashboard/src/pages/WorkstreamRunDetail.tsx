@@ -11,6 +11,7 @@ import { Textarea } from '../components/ui/textarea'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useEntityRefresh } from '../lib/live-store'
 import { formatAppDateTime } from '../lib/app-locale'
 import {
   cancelWorkstreamRun,
@@ -54,12 +55,10 @@ export default function WorkstreamRunDetail() {
     void load()
   }, [load])
 
-  // Light polling while the run is still moving.
-  useEffect(() => {
-    if (!detail || !OPEN_STATUSES.has(detail.run.status)) return
-    const timer = window.setInterval(() => void load({ silent: true }), 5000)
-    return () => window.clearInterval(timer)
-  }, [detail, load])
+  useEntityRefresh(['workstream_run'], () => void load({ silent: true }), {
+    enabled: Boolean(detail && OPEN_STATUSES.has(detail.run.status)),
+    match: (change) => change.id === runId,
+  })
 
   const stepNames = useMemo(() => {
     const map = new Map<string, { name: string; position: number }>()

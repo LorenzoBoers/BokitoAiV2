@@ -276,8 +276,9 @@ export default function ReplyComposer({
     pendingCaretRef.current = applied.displayCaret
     setMentionQuery(null)
     setMentionIndex(0)
-    // Selecting a mention is intentional: switch toward Intern (parent may
-    // promote agent mentions further into agent mode).
+    writeStoredDraft(persistKey, serializeComposerDraft({ body: applied.raw, cc, bcc }))
+    // Selecting a mention is intentional: people/teams go to a note; agents
+    // switch the composer to Ask without opening a meta conversation yet.
     if (mode === 'reply') setMode(item.type === 'agent' ? 'ask' : 'note')
     onMentionInserted?.(item)
     requestAnimationFrame(() => textareaRef.current?.focus())
@@ -294,13 +295,15 @@ export default function ReplyComposer({
   const replyBlocked = replyDisabledNotice != null
 
   useEffect(() => {
-    // Keep the channel default (usually Reply). When controlled, ThreadDetail
-    // owns the tab (Reply after human ask / takeover). When replies are
-    // blocked the Reply tab shows the connect-mailbox notice — do not
-    // silently dump the operator on Intern.
     if (modeProp === undefined) {
       setUncontrolledMode(surface.defaultMode)
     }
+  }, [modeProp, surface.defaultMode])
+
+  useEffect(() => {
+    // Reload the stored draft when the thread identity changes — not when
+    // the operator switches Reply/Ask/Note (that used to wipe a just-inserted
+    // @agent mention and leave a bare "@").
     const stored = parseComposerDraft(readStoredDraft(persistKey))
     setBody(stored.body)
     setCc(stored.cc)
@@ -308,7 +311,7 @@ export default function ReplyComposer({
     setCcBccOpen(Boolean(stored.cc || stored.bcc))
     setDraftRestored(Boolean(stored.body || stored.cc || stored.bcc))
     setAttachments([])
-  }, [surface.channel, surface.defaultMode, surface.recipientValue, persistKey, surface.modes, modeProp])
+  }, [persistKey, surface.channel, surface.recipientValue])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {
@@ -623,21 +626,6 @@ export default function ReplyComposer({
               </button>
             )
           ) : null}
-          {showNoteTab ? (
-            <button
-              type="button"
-              onClick={() => setMode('note')}
-              title={noteTooltip}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                isNote
-                  ? 'bg-bg-hover font-medium text-text-heading'
-                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-              }`}
-            >
-              <StickyNote size={11} />
-              {t('composer.tabNote')}
-            </button>
-          ) : null}
           {showAskTab ? (
             <button
               type="button"
@@ -655,7 +643,24 @@ export default function ReplyComposer({
               })}
             </button>
           ) : null}
-          {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
+          {showNoteTab ? (
+            <button
+              type="button"
+              onClick={() => setMode('note')}
+              title={noteTooltip}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                isNote
+                  ? 'bg-bg-hover font-medium text-text-heading'
+                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+              }`}
+            >
+              <StickyNote size={11} />
+              {t('composer.tabNote')}
+            </button>
+          ) : null}
+          {extraActions ? (
+            <div className="ml-auto flex items-center gap-1.5">{extraActions}</div>
+          ) : null}
         </div>
 
         {/* Only on Reply — Intern/Ask already work; repeating the mailbox banner there feels broken. */}
@@ -782,6 +787,7 @@ export default function ReplyComposer({
           ref={textareaRef}
           id="inbox-reply-composer"
           mode={isNote || isAsk ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
+          tone={isAsk ? 'ai' : isNote ? 'note' : 'default'}
           value={composerValue}
           readOnly={dictation.listening}
           onChange={(e) => {
@@ -820,13 +826,7 @@ export default function ReplyComposer({
                       defaultValue: surface.replyPlaceholder,
                     })
           }
-          className={
-            isAsk
-              ? 'border-border/60 border-l-[3px] border-l-ai/50 bg-bg-surface'
-              : isNote
-                ? 'border-border/70 border-l-[3px] border-l-border bg-bg-elevated/40'
-                : 'border-border/60 bg-bg-surface'
-          }
+          className={isAsk || isNote ? undefined : 'bg-bg-surface'}
           overlay={
             mentionOpen ? (
               <MentionPopover

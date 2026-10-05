@@ -40,6 +40,17 @@ def normalize_autonomy(value: Any) -> str:
     return raw if raw in AUTONOMY_MODES else "assisted"
 
 
+def parse_autonomy_level(value: Any) -> str:
+    """Accept canonical or legacy words; reject unknown values."""
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return "assisted"
+    mapped = LEGACY_AUTONOMY.get(raw, raw)
+    if mapped not in AUTONOMY_MODES:
+        raise HTTPException(status_code=400, detail="Invalid autonomy_level")
+    return mapped
+
+
 def _json(raw: str | None) -> dict[str, Any]:
     try:
         data = json.loads(raw or "{}")

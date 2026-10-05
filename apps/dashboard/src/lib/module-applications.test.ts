@@ -18,8 +18,12 @@ function app(hostSlug: string, module: string | null, providerSlugs: string[]) {
   } as unknown as IntegrationApplication
 }
 
-function moduleRow(slug: string, providerSlugs: string[]) {
-  return { slug, provider_slugs: providerSlugs } as unknown as IntegrationModuleRow
+function moduleRow(slug: string, providerSlugs: string[], planned: string[] = []) {
+  return {
+    slug,
+    provider_slugs: providerSlugs,
+    planned_provider_slugs: planned,
+  } as unknown as IntegrationModuleRow
 }
 
 const accounting = moduleRow('accounting', ['moneybird', 'king_accountancy'])
@@ -51,8 +55,13 @@ describe('applicationsForModule', () => {
     ).toEqual(['moneybird', 'king'])
   })
 
-  it('returns nothing for a module without providers', () => {
-    expect(applicationsForModule([moneybird, notion], banking)).toEqual([])
+  it('matches planned partner slugs on coming-soon modules', () => {
+    const documents = moduleRow('documents', [], ['google_drive', 'dropbox'])
+    const drive = app('google_drive', 'documents', ['google_drive'])
+    expect(moduleUsesApplication(documents, drive)).toBe(true)
+    expect(applicationsForModule([drive, notion], documents).map((a) => a.hostSlug)).toEqual([
+      'google_drive',
+    ])
   })
 })
 

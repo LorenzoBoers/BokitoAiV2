@@ -25,7 +25,7 @@ export function LinkedRequestsChips({ requests, className }: Props) {
         {requests.map((req) => {
           const href =
             req.project_id != null
-              ? `/projects/${req.project_id}?tab=queue&item=${req.id}`
+              ? `/projects/${req.project_id}?item=${req.id}`
               : undefined
           return href ? (
             <Link key={req.id} to={href} className="inline-flex max-w-full hover:opacity-90">

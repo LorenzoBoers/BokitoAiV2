@@ -50,7 +50,7 @@ def test_team_offline_without_members():
 
 def test_agent_corner_standby_and_working():
     assert agent_corner_status(_Agent()) == STANDBY
-    assert agent_corner_status(_Agent(runtime_status="active")) == WORKING
+    assert agent_corner_status(_Agent(runtime_status="working")) == WORKING
     assert agent_corner_status(_Agent(), has_running_run=True) == WORKING
     assert agent_corner_status(_Agent(runtime_status="error")) == "error"
 

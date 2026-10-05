@@ -232,7 +232,6 @@ export async function bokitoPatchBudget(
 export type CreateAgentInput = {
   name: string
   purpose?: string
-  audience?: 'customers' | 'partners' | 'internal'
   model?: string
   tools?: string[]
   chat_access?: 'everyone' | 'selected' | 'nobody'
@@ -254,8 +253,7 @@ export async function bokitoUpdateAgent(
   input: {
     name?: string
     purpose?: string
-    audience?: 'customers' | 'partners' | 'internal'
-    tools?: string[]
+      tools?: string[]
     system_prompt?: string
     email_signature_html?: string
     email_signature_text?: string

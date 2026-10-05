@@ -21,6 +21,8 @@ export const appRoutes = {
     members: (id: number | string) => `/workspaces/${id}/members`,
     member: (id: number | string, memberId: number | string) =>
       `/workspaces/${id}/members/${memberId}`,
+    memberReactivate: (id: number | string, memberId: number | string) =>
+      `/workspaces/${id}/members/${memberId}/reactivate`,
     invites: (id: number | string) => `/workspaces/${id}/invites`,
     invite: (id: number | string, inviteId: string) => `/workspaces/${id}/invites/${inviteId}`,
     inviteResend: (id: number | string, inviteId: string) =>
@@ -57,6 +59,7 @@ export const appRoutes = {
     threadMarkRead: (threadId: string) => `/signals/${threadId}/mark-read`,
     threadMarkUnread: (threadId: string) => `/signals/${threadId}/mark-unread`,
     threadPin: (threadId: string) => `/signals/${threadId}/pin`,
+    threadSplit: (threadId: string) => `/signals/${threadId}/split`,
     threadReply: (threadId: string) => `/signals/${threadId}/reply`,
     messageCancel: (messageId: string) => `/signals/messages/${messageId}/cancel`,
     threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
@@ -83,6 +86,10 @@ export const appRoutes = {
     savedReply: (replyId: string) => `/signals/saved-replies/${replyId}`,
     rules: '/signals/rules',
     rule: (ruleId: string) => `/signals/rules/${ruleId}`,
+    tags: '/signals/tags',
+    tag: (tagId: string) => `/signals/tags/${tagId}`,
+    folders: '/signals/folders',
+    folder: (folderId: string) => `/signals/folders/${folderId}`,
     note: (threadId: string, messageId: string) => `/signals/${threadId}/notes/${messageId}`,
     messageFeedback: (messageId: string) => `/messages/${messageId}/feedback`,
   },
@@ -94,12 +101,6 @@ export const appRoutes = {
     feedback: '/learning/feedback',
   },
   orchestration: {
-    tasks: '/orchestration/tasks',
-    task: (id: string) => `/orchestration/tasks/${id}`,
-    taskCancel: (id: string) => `/orchestration/tasks/${id}/cancel`,
-    taskComplete: (id: string) => `/orchestration/tasks/${id}/complete`,
-    taskResume: (id: string) => `/orchestration/tasks/${id}/resume`,
-    taskArtifacts: (id: string) => `/orchestration/tasks/${id}/artifacts`,
     runEvents: (runId: string) => `/orchestration/runs/${runId}/events`,
   },
   triggers: {
@@ -108,10 +109,6 @@ export const appRoutes = {
     run: (id: string) => `/triggers/${id}/run`,
     rotateWebhookSecret: (id: string) => `/triggers/${id}/rotate-webhook-secret`,
     testWebhook: (id: string) => `/triggers/${id}/test-webhook`,
-  },
-  channelBindings: {
-    list: '/channels/bindings',
-    byId: (id: string) => `/channels/bindings/${id}`,
   },
   channelAccounts: {
     list: '/channels/accounts',
@@ -149,6 +146,7 @@ export const appRoutes = {
     byId: (id: string) => `/teams/${id}`,
     members: (id: string) => `/teams/${id}/members`,
     myAway: '/teams/me/away',
+    room: (id: string) => `/teams/${id}/room`,
   },
   agenda: {
     occurrencesQuery: (params: URLSearchParams) => withQuery('/agenda', params),
@@ -158,9 +156,15 @@ export const appRoutes = {
     export: '/privacy/export',
     eraseSubject: '/privacy/erase-subject',
   },
+  trash: {
+    list: (params?: URLSearchParams) => withQuery('/trash', params ?? new URLSearchParams()),
+    settings: '/trash/settings',
+    empty: '/trash/empty',
+    restore: (id: string) => `/trash/${encodeURIComponent(id)}/restore`,
+    byId: (id: string) => `/trash/${encodeURIComponent(id)}`,
+  },
   notifications: {
     list: '/notifications',
-    summary: '/notifications/summary',
     markRead: (id: string) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
     decisionLearn: (decisionId: string) => `/notifications/decisions/${encodeURIComponent(decisionId)}/learn`,

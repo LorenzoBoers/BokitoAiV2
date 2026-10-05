@@ -5,7 +5,7 @@ import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, Ext
 import { toast } from 'sonner'
 import { inboxPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
-import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
+import { activityEntryPath } from '../lib/open-entity'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -28,6 +28,7 @@ import {
   setAutonomyScope,
   setPosture,
   updateAllowances,
+  normalizeAutonomyScopeLevel,
   type AllowanceMode,
   type AuditEventRow,
   type AutonomyScopeLevel,
@@ -60,6 +61,7 @@ import { Input } from '../components/ui/input'
 import GovernConversationsCard from '../components/govern/GovernConversationsCard'
 import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
 import { useIsAdmin } from '../hooks/useIsAdmin'
+import type { AgentPassport } from '../lib/workforce-api'
 import {
   Dialog,
   DialogContent,
@@ -71,7 +73,7 @@ import {
 
 const ALLOWANCE_OPTIONS: AllowanceMode[] = ['deny', 'ask', 'allow']
 const POSTURE_ORDER: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
-const SCOPE_LEVELS: AutonomyScopeLevel[] = ['manual', 'approval', 'auto']
+const SCOPE_LEVELS: AutonomyScopeLevel[] = ['manual', 'assisted', 'autonomous']
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending_review: 'secondary',
@@ -152,7 +154,7 @@ export default function GovernPage() {
   const [history, setHistory] = useState<PlatformChangeRow[]>([])
   const [audit, setAudit] = useState<AuditEventRow[]>([])
   const [openAuditId, setOpenAuditId] = useState<string | null>(null)
-  const [passports, setPassports] = useState<Array<Record<string, unknown>>>([])
+  const [passports, setPassports] = useState<AgentPassport[]>([])
   const [allowances, setAllowances] = useState<Record<string, AllowanceMode>>({})
   const [categories, setCategories] = useState<string[]>([])
   const [tools, setTools] = useState<GovernToolRow[]>([])
@@ -321,7 +323,7 @@ export default function GovernPage() {
     row: AutonomyScopeRow,
     level: AutonomyScopeLevel,
   ) {
-    if (row.autonomy_level === level || busyId === row.id) return
+    if (normalizeAutonomyScopeLevel(row.autonomy_level) === level || busyId === row.id) return
     setBusyId(row.id)
     try {
       const updated = await setAutonomyScope(kind, row.id, level)
@@ -361,10 +363,10 @@ export default function GovernPage() {
       passports.filter((row) =>
         matchesGovernText(
           governHaystack([
-            String(row.name ?? ''),
-            String(row.role ?? ''),
-            String(row.autonomy_level ?? ''),
-            String(row.id ?? ''),
+            row.name,
+            row.role,
+            row.autonomy_level ?? '',
+            row.id,
           ]),
           query,
         ),
@@ -663,12 +665,12 @@ export default function GovernPage() {
                                 key={level}
                                 type="button"
                                 role="radio"
-                                aria-checked={row.autonomy_level === level}
+                                aria-checked={normalizeAutonomyScopeLevel(row.autonomy_level) === level}
                                 disabled={busyId === row.id}
                                 onClick={() => void handleScopeChange(kind, row, level)}
                                 className={cn(
                                   'rounded-md px-3 py-1 text-xs transition-colors',
-                                  row.autonomy_level === level
+                                  normalizeAutonomyScopeLevel(row.autonomy_level) === level
                                     ? 'bg-bg-hover font-medium text-text-heading'
                                     : 'text-text-muted hover:text-text-heading',
                                 )}
@@ -898,15 +900,15 @@ export default function GovernPage() {
                     <p className="text-sm text-text-muted">{t('filterEmpty')}</p>
                   ) : (
                   filteredPassports.map((row) => (
-                    <div key={String(row.id)} className="rounded-lg border border-border p-3">
+                    <div key={row.id} className="rounded-lg border border-border p-3">
                       <p className="text-sm font-medium text-text-heading">
-                        {String(row.name)}{' '}
-                        <span className="text-text-muted font-normal">({agentRoleLabel(String(row.role), tNav)})</span>
+                        {row.name}{' '}
+                        <span className="text-text-muted font-normal">({agentRoleLabel(row.role, tNav)})</span>
                       </p>
                       <p className="text-xs text-text-muted mt-1">
                         {t('passports.autonomy', {
                           level: agentAutonomyLevelLabel(
-                            row.autonomy_level ? String(row.autonomy_level) : null,
+                            row.autonomy_level ?? null,
                             tNav,
                           ),
                         })}
@@ -914,14 +916,14 @@ export default function GovernPage() {
                       <p className="text-xs text-text-muted mt-1 break-words">
                         {t('passports.scopes', {
                           scopes: formatPermissionScopes(
-                            Array.isArray(row.permission_scopes) ? (row.permission_scopes as string[]) : [],
+                            row.permission_scopes ?? [],
                             tNav,
                             t('passports.roleDefaults'),
                           ),
                         })}
                       </p>
                       <Link
-                        to={`/agents/${String(row.id)}`}
+                        to={`/agents/${row.id}`}
                         className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
                       >
                         {t('passports.openAgent')}
@@ -968,16 +970,12 @@ export default function GovernPage() {
                     <>
                   {visibleAudit.map((event) => {
                     // Deep-link the audited resource where a surface exists.
-                    const target =
-                      event.resource_type === 'signal' && event.resource_id
-                        ? inboxPath('open', event.resource_id)
-                        : event.agent_id && event.run_id
-                          ? agentWorkforceRunUrl(event.agent_id, event.run_id)
-                          : event.resource_type === 'agent' && event.resource_id
-                            ? `/agents/${event.resource_id}`
-                            : event.agent_id
-                              ? `/agents/${event.agent_id}`
-                              : null
+                    const target = activityEntryPath({
+                      runId: event.run_id,
+                      agentId: event.agent_id,
+                      resourceType: event.resource_type,
+                      resourceId: event.resource_id,
+                    })
                     return (
                       <div key={event.id} className="text-sm border-b border-border pb-2 last:border-0">
                         <p className="font-medium text-text-heading">{event.summary || event.action}</p>

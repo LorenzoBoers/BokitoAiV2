@@ -10,7 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { ThreadCasesList } from './ThreadCasesList'
+import { ThreadCategory } from './ThreadCategory'
+import { ThreadTags } from './ThreadTags'
 
 type Props = {
   thread: InboxThread
@@ -40,7 +41,7 @@ const VALUE_BUTTON =
 
 /**
  * Everything noted on this one conversation: priority, the planned
- * look-again moment, AI triage and the Signals filed on it. Not Contact
+ * look-again moment, AI triage, its category (or ticket) and tags. Not Contact
  * identity (that is ContactPanel) and not a project folder.
  */
 export function ConversationWorkSection({ thread, saving = false, onPatch, onWhatsNext }: Props) {
@@ -55,7 +56,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
   }
   const hasTriage = Boolean(triage.category) || triage.certainty != null
   const followUpWake = thread.followUpAt ? formatWakeTime(thread.followUpAt, t, i18n.language) : null
-  // Agent and assistant threads carry Signals only; priority, look-again and
+  // Agent and assistant threads carry a category only; priority, look-again and
   // triage belong to customer conversations.
   const internal = isInternalThread(thread)
 
@@ -148,7 +149,15 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
         </div>
       ) : null}
 
-      <ThreadCasesList signalId={String(thread.id)} />
+      <ThreadCategory
+        signalId={String(thread.id)}
+        version={`${thread.categoryCase?.caseId ?? ''}|${thread.categoryCase?.status ?? ''}|${thread.categoryCase?.stage?.key ?? ''}`}
+      />
+
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-text-muted">{t('tags.title', { defaultValue: 'Tags' })}</p>
+        <ThreadTags thread={thread} saving={saving} onPatch={onPatch} />
+      </div>
     </div>
   )
 }

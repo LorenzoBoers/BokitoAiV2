@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "bokito": {
+      "url": "https://app.bokito.ai/api/mcp"
+    },
+    "github-bokito-ai": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_BOKITO_TOKEN}"
+      }
+    },
+    "personal-hostinger-mcp": {
+      "command": "npx",
+      "args": ["hostinger-api-mcp@latest"],
+      "env": {
+        "API_TOKEN": "${HOSTINGER_PERSONAL_API_TOKEN}"
+      }
+    },
+    "Resend Bokito": {
+      "url": "https://mcp.resend.com/mcp"
+    },
+    "Cloudflare bokito": {
+      "url": "https://mcp.cloudflare.com/mcp"
+    }
+  }
+}

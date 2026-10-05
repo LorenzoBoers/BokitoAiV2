@@ -1,5 +1,6 @@
-"""Agenda = planning only: on-demand runs (email/chat) stay off the calendar,
-and runs stuck on 'running' are closed by the startup data repair."""
+"""One time model: Agenda (scheduled_only) keeps on-demand runs off the
+calendar, the activity timeline sees every session, and runs stuck on
+'running' are closed by the startup data repair."""
 
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -12,7 +13,7 @@ from app.db.schema_patch import _close_stale_agent_runs
 from app.models.agent import Agent, AgentRun
 from app.models.auth import Tenant
 from app.models.trigger import Trigger
-from app.services.triggers import agenda_occurrences
+from app.services.time_items import list_time_items
 
 
 async def _tenant_and_agent(session: AsyncSession) -> tuple[Tenant, Agent]:
@@ -76,19 +77,89 @@ async def test_agenda_excludes_on_demand_runs(session_override: AsyncSession):
     session_override.add_all([scheduled_run, email_run])
     await session_override.commit()
 
-    items = await agenda_occurrences(
+    items = await list_time_items(
+        session_override,
+        tenant.id,
+        start=now - timedelta(days=1),
+        end=now + timedelta(days=1),
+        scheduled_only=True,
+    )
+    run_ids = {i["run_id"] for i in items if i["run_id"]}
+    assert str(scheduled_run.id) in run_ids
+    assert str(email_run.id) not in run_ids
+    assert all("Email:" not in (i["title"] or "") for i in items)
+    scheduled_item = next(i for i in items if i.get("run_id") == str(scheduled_run.id))
+    assert scheduled_item["kind"] == "session"
+    assert scheduled_item["trigger_kind"] == "interval"
+    assert scheduled_item["actor_kind"] == "agent"
+    assert scheduled_item["actor_id"] == str(agent.id)
+
+    everything = await list_time_items(
         session_override,
         tenant.id,
         start=now - timedelta(days=1),
         end=now + timedelta(days=1),
     )
-    run_ids = {i["run_id"] for i in items if i["run_id"]}
-    assert str(scheduled_run.id) in run_ids
-    assert str(email_run.id) not in run_ids
-    assert all("Email:" not in (i["name"] or "") for i in items)
-    scheduled_item = next(i for i in items if i.get("run_id") == str(scheduled_run.id))
-    assert scheduled_item["actor_kind"] == "agent"
-    assert scheduled_item["actor_id"] == str(agent.id)
+    email_item = next(i for i in everything if i.get("run_id") == str(email_run.id))
+    assert email_item["signal_id"] == email_run.trigger_id
+    assert email_item["trigger_kind"] is None
+
+
+@pytest.mark.asyncio
+async def test_time_items_sessions_and_wakes_for_one_agent(session_override: AsyncSession):
+    from app.models.signal import Signal
+
+    tenant, agent = await _tenant_and_agent(session_override)
+    now = datetime.utcnow().replace(microsecond=0)
+    session_override.add(
+        AgentRun(
+            tenant_id=tenant.id,
+            agent_id=agent.id,
+            trigger_type="chat",
+            subject="Reply to visitor",
+            status="completed",
+            started_at=now - timedelta(hours=3),
+            completed_at=now - timedelta(hours=2, minutes=40),
+        )
+    )
+    session_override.add(
+        Trigger(
+            tenant_id=tenant.id,
+            name="Morning scan",
+            kind="once",
+            agent_id=agent.id,
+            enabled=True,
+            next_run_at=now + timedelta(hours=6),
+            instructions="Scan the platform.",
+        )
+    )
+    session_override.add(
+        Signal(
+            tenant_id=tenant.id,
+            channel="email",
+            source="email",
+            subject="Owned look-at",
+            agent_id=agent.id,
+            follow_up_at=now + timedelta(hours=2),
+        )
+    )
+    await session_override.commit()
+
+    items = await list_time_items(
+        session_override,
+        tenant.id,
+        start=now - timedelta(hours=24),
+        end=now + timedelta(hours=24),
+        agent_id=agent.id,
+    )
+    session_row = next(row for row in items if row["title"] == "Reply to visitor")
+    wake_row = next(row for row in items if row["title"] == "Morning scan")
+    follow_row = next(row for row in items if row["kind"] == "follow_up")
+    assert session_row["kind"] == "session"
+    assert session_row["end"]
+    assert wake_row["kind"] == "wake"
+    assert wake_row["end"] is None
+    assert follow_row["agent_id"] == str(agent.id)
 
 
 @pytest.mark.asyncio
@@ -255,7 +326,7 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
     )
     assert due_now.status == "awaiting_human"
 
-    items = await agenda_occurrences(
+    items = await list_time_items(
         session_override,
         tenant.id,
         start=now - timedelta(hours=1),
@@ -265,7 +336,7 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
 
     completed = await complete_agent_task(session_override, tenant.id, due_now.id)
     assert completed.status == "completed"
-    items_after = await agenda_occurrences(
+    items_after = await list_time_items(
         session_override,
         tenant.id,
         start=now - timedelta(hours=1),
@@ -292,7 +363,7 @@ async def test_agenda_includes_conversation_follow_ups(session_override: AsyncSe
     session_override.add(signal)
     await session_override.commit()
 
-    items = await agenda_occurrences(
+    items = await list_time_items(
         session_override,
         tenant.id,
         start=now - timedelta(hours=1),
@@ -301,7 +372,7 @@ async def test_agenda_includes_conversation_follow_ups(session_override: AsyncSe
     follow_ups = [i for i in items if i.get("source") == "follow_up"]
     assert len(follow_ups) == 1
     assert follow_ups[0]["kind"] == "follow_up"
-    assert follow_ups[0]["name"] == "Complete trading account"
+    assert follow_ups[0]["title"] == "Complete trading account"
     assert follow_ups[0]["signal_id"] == str(signal.id)
     assert follow_ups[0]["actor_kind"] == "person"
 

@@ -76,6 +76,21 @@ export function groupConnectionItems(items: ConnectionListItem[]): ConnectionKin
   })
 }
 
+const CATALOG_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function isOpaqueProgramName(value: string): boolean {
+  return CATALOG_ID_RE.test(value.trim())
+}
+
+/** Prefer a human program heading when the brand resolver only has a catalog UUID. */
+export function programHeading(brandName: string, displayName: string): string {
+  const brand = brandName.trim()
+  const title = displayName.trim()
+  if (!brand || isOpaqueProgramName(brand)) return title || brand
+  return brand
+}
+
 export function filterConnectionItems(
   items: ConnectionListItem[],
   needle: string,

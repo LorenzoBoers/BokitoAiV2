@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, Eye, EyeOff, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Check, Eye, EyeOff, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
@@ -16,7 +16,6 @@ import {
   deleteTenantModel,
   getTenantModels,
   setCustomModelsOptIn,
-  setDataRegionPolicy,
   testProvider,
   updateProvider,
   type ProviderType,
@@ -33,8 +32,7 @@ const PROVIDER_TYPE_OPTIONS: { value: ProviderType; labelKey: string }[] = [
 
 export default function ModelsSettings() {
   const { t } = useTranslation('nav')
-  const { token, currentTenantRole } = useAuth()
-  const isOwnerOrAdmin = currentTenantRole === 'owner' || currentTenantRole === 'admin'
+  const { token } = useAuth()
   const [data, setData] = useState<TenantModelsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -111,19 +109,6 @@ export default function ModelsSettings() {
       setData(await setCustomModelsOptIn(token, enabled))
       flashSaved()
       if (!enabled) resetWizard()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('modelsPage.updateModelError'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleRegionPolicy = async (allowUs: boolean) => {
-    if (!token || busy) return
-    setBusy(true)
-    try {
-      setData(await setDataRegionPolicy(token, allowUs ? 'allowed' : 'blocked'))
-      flashSaved()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('modelsPage.updateModelError'))
     } finally {
@@ -245,8 +230,6 @@ export default function ModelsSettings() {
         ? t('modelsPage.managed.standby')
         : t('modelsPage.managed.notConfigured')
 
-  const dataRegion = data?.data_region
-  const allowUs = dataRegion?.non_eu_platform_models === 'allowed'
   const chat = managed?.chat
 
   return (
@@ -277,9 +260,6 @@ export default function ModelsSettings() {
             <div className="min-w-0 space-y-0.5">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
-                <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-                  {t('modelsPage.managed.euHint')}
-                </span>
               </div>
               <p className="text-sm text-text-muted">{t('modelsPage.managed.bodyDefault')}</p>
             </div>
@@ -563,48 +543,6 @@ export default function ModelsSettings() {
           ) : null}
         </section>
       )}
-
-      {/* Data processing — secondary */}
-      <details className="group rounded-lg border border-border/50 bg-bg-elevated/30">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
-          <span>{t('modelsPage.region.title')}</span>
-          <ChevronDown size={16} className="shrink-0 transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="space-y-3 border-t border-border/40 px-4 py-3">
-          <p className="text-sm text-text-muted">{t('modelsPage.region.body')}</p>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-3 text-sm text-text-primary">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border-border"
-              checked={allowUs}
-              disabled={busy || !isOwnerOrAdmin}
-              onChange={(e) => void handleRegionPolicy(e.target.checked)}
-            />
-            <span className="space-y-0.5">
-              <span className="block font-medium">{t('modelsPage.region.allowUs')}</span>
-              <span className="block text-sm text-text-muted">{t('modelsPage.region.allowUsHint')}</span>
-            </span>
-          </label>
-          {dataRegion && dataRegion.non_eu_models_in_use.length > 0 ? (
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium text-text-primary">{t('modelsPage.region.inUseTitle')}</p>
-              <ul className="flex flex-wrap gap-2">
-                {dataRegion.non_eu_models_in_use.map((slug) => (
-                  <li
-                    key={slug}
-                    className="rounded-md border border-border/60 px-3 py-1.5 text-sm text-text-primary"
-                  >
-                    {slug}
-                  </li>
-                ))}
-              </ul>
-              {!allowUs ? (
-                <p className="text-xs text-text-muted">{t('modelsPage.region.inUseBlockedHint')}</p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </details>
     </PageContent>
   )
 }

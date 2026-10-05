@@ -2,7 +2,21 @@ import { REMOTE_MCP_SLUGS } from './mcp-remote-providers'
 
 export type IntegrationKind = 'inbox' | 'repository' | 'mcp' | 'calendar' | 'app'
 
-const APP_SLUGS = new Set(['moneybird', 'exact_online', 'snelstart', 'gocardless_bank'])
+const APP_SLUGS = new Set([
+  'moneybird',
+  'exact_online',
+  'snelstart',
+  'gocardless_bank',
+  'tink',
+  'yapily',
+  'knab',
+  'twelve_data',
+  'bitvavo',
+  'tradingview_alerts',
+  'google_drive',
+  'microsoft_graph_files',
+  'dropbox',
+])
 
 const MCP_SLUGS = new Set([
   'king_accountancy',

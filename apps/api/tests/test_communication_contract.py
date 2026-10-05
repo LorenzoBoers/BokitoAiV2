@@ -10,6 +10,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from app.models.agent import Agent
 from app.models.auth import Tenant, User
 from app.models.channel import ChannelAccount
 from app.models.notification import DecisionRequest
@@ -86,9 +87,40 @@ async def test_latest_previews_prefer_non_placeholder(client: AsyncClient, sessi
     previews = await threads_svc._latest_message_previews(
         session_override, tenant.id, [signal.id]
     )
-    snippet, direction = previews[signal.id]
+    snippet, direction, by_agent = previews[signal.id]
     assert "billing" in snippet.lower() or "customer" in snippet.lower()
     assert direction in ("inbound", "outbound")
+    assert by_agent is False
+
+
+@pytest.mark.asyncio
+async def test_latest_preview_flags_agent_author(client: AsyncClient, session_override):
+    _ = client
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = Agent(tenant_id=tenant.id, name="Desk", role="assistant")
+    signal = Signal(tenant_id=tenant.id, channel="website_chat", subject="Agent reply", status="open")
+    session_override.add_all([agent, signal])
+    await session_override.flush()
+    session_override.add(
+        SignalMessage(
+            signal_id=signal.id,
+            tenant_id=tenant.id,
+            kind="agent_message",
+            direction="outbound",
+            role="assistant",
+            author_agent_id=agent.id,
+            body_text="Your order ships tomorrow.",
+            body_preview="Your order ships tomorrow.",
+        )
+    )
+    await session_override.commit()
+
+    previews = await threads_svc._latest_message_previews(session_override, tenant.id, [signal.id])
+    snippet, direction, by_agent = previews[signal.id]
+    assert "ships" in snippet
+    assert direction == "outbound"
+    assert by_agent is True
+    assert threads_svc.serialize_thread(signal, last_by_agent=by_agent)["last_message_by_agent"] is True
 
 
 @pytest.mark.asyncio
@@ -138,8 +170,8 @@ async def test_open_decisions_scoped_to_page_ids(client: AsyncClient, session_ov
     assert await threads_svc._signal_has_open_decision(
         session_override, tenant.id, in_page.id
     )
-    count = await threads_svc._count_open_decisions(session_override, tenant.id)
-    assert count >= 2
+    counts = await threads_svc.attention_counts(session_override, tenant.id)
+    assert counts["decisions"] >= 2
     _ = user
 
 

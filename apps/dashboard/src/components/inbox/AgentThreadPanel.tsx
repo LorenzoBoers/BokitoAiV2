@@ -84,18 +84,14 @@ export default function AgentThreadPanel({
     if (targetAgent) return targetAgent
     if (orchestrator) {
       return {
-        id: orchestrator.id,
+        ...orchestrator,
         organisation_id: thread.organisationId,
-        name: orchestrator.name,
-        slug: orchestrator.slug ?? '',
         role_id: null,
-        role_name: orchestrator.role ?? t('workforce.agents.types.orchestrator', { ns: 'nav' }),
-        role_slug: orchestrator.agent_type ?? null,
+        role_name: t('workforce.agents.types.orchestrator', { ns: 'nav' }),
+        role_slug: orchestrator.role,
         parent_agent_id: null,
-        status: (orchestrator.status as RuntimeAgent['status']) ?? 'active',
         current_session_id: null,
         current_activity_id: null,
-        current_activity_summary: null,
         updated_at: 0,
       }
     }
@@ -105,6 +101,7 @@ export default function AgentThreadPanel({
         organisation_id: thread.organisationId,
         name: thread.agentName,
         slug: '',
+        role: thread.agentKind === 'orchestrator' ? 'orchestrator' : 'assistant',
         role_id: null,
         role_name:
           thread.agentKind === 'orchestrator'
@@ -112,10 +109,11 @@ export default function AgentThreadPanel({
             : t('workforce.agents.types.worker', { ns: 'nav' }),
         role_slug: null,
         parent_agent_id: null,
-        status: 'active',
+        status: 'standby',
         current_session_id: null,
         current_activity_id: null,
         current_activity_summary: null,
+        current_thread_id: null,
         updated_at: 0,
       }
     }
@@ -146,6 +144,8 @@ export default function AgentThreadPanel({
               currentThreadId={thread.id}
               threadSubject={thread.emailSubject}
               threadPreview={thread.lastMessagePreview}
+              threadStatus={thread.status}
+              onPatch={onPatch}
               contactBasis={thread.contactBasis}
               closeAction={closeAction}
               threadActivityAt={thread.lastMessageAt}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { timeAgo } from '../lib/time-ago'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -78,17 +79,6 @@ const STATUS_STYLE: Record<ContactStatus, string> = {
   approved: 'bg-status-success/15 text-status-success',
   pending: 'bg-status-warning/15 text-status-warning',
   blocked: 'bg-status-error/15 text-status-error',
-}
-
-function timeAgo(iso: string | null, t: (key: string, opts?: { count: number }) => string): string {
-  if (!iso) return '-'
-  const diff = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return t('contactsPage.now')
-  if (minutes < 60) return t('contactsPage.minutesAgo', { count: minutes })
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return t('contactsPage.hoursAgo', { count: hours })
-  return t('contactsPage.daysAgo', { count: Math.floor(hours / 24) })
 }
 
 function ContactDetail({ contactId }: { contactId: string }) {
@@ -1444,7 +1434,7 @@ export default function ContactsPage() {
                     )}
                   </td>
                   <td className="hidden px-4 py-2.5 text-sm text-text-secondary lg:table-cell">
-                    {timeAgo(contact.lastSeenAt, t)}
+                    {timeAgo(contact.lastSeenAt, t) || '-'}
                   </td>
                   <td className="px-4 py-2.5 text-right text-sm text-text-secondary">
                     {contact.threadCount > 0 ? (

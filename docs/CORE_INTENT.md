@@ -39,14 +39,14 @@ Apply these to every feature request.
 | EN | NL | Role | Table (internal) |
 |----|----|------|------------------|
 | Conversation | Gesprek | The chat | `signals` |
-| Signal | Signaal | What the system recognized | `cases` |
+| Category | Categorie | What the conversation is about (one per conversation); a category served by a playbook makes it a **Ticket** that moves through that playbook's stages | `cases` / `case_types` |
 | Playbook | Draaiboek | What runs | `workstreams` |
 | Project | Project | Optional home for that work | `projects` |
 | Contact | Contact | Person you are talking to | `contacts` |
 | Agent | Agent | AI or company agent | `agents` |
 | Decision | Beslissing | Question in the thread | `decision_requests` |
 
-Do **not** add Task as an eighth operator noun. A free "look again later" is a dated next look-at on the Conversation (`Signal.follow_up_at`); typed work is a Signal (Case). Snooze parks the conversation; a look-at stays visible. `AgentTask` remains internal ledger plumbing.
+Do **not** add Task as an eighth operator noun. A free "look again later" is a dated next look-at on the Conversation (`Signal.follow_up_at`); typed work is a Ticket (a Case whose Category is served by a Playbook). Snooze parks the conversation; a look-at stays visible. `AgentTask` remains internal ledger plumbing.
 
 Overview, Govern, and Agents stay English loanwords in the Dutch UI. Communication / Communicatie is the rail hub name (not Messages / Berichten).
 
@@ -111,7 +111,7 @@ Intelligence Stack layers are **conceptual lanes** on the canvas and in metrics 
 Everything important should map to a **small set of canonical entity types**. Prefer extending:
 
 - `Signal` / `SignalMessage` — conversation context (external and internal)
-- `Case` / `CaseType` — product signal (typed recognition on a conversation); operator word **Signal**
+- `Case` / `CaseType` — the conversation's category (one per conversation, `uq_cases_signal`); operator word **Category**. A category bound to a `Workstream` makes the case a **Ticket** with a stage from `Workstream.stages_json`
 - `ChannelAccount` — one entity for every channel (mailbox, Bokito relay address, website chat, WhatsApp, Slack); lifecycle **state**, **capabilities** and **checks** are derived per kind in `services/channel_registry.py`
 - `Agent`, `Workstream` (operator: Playbook), `AgentRun` — orchestration
 - `DecisionRequest` — human action objects **within** threads, not parallel list UIs

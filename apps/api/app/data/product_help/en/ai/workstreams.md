@@ -30,9 +30,18 @@ A playbook is a defined process for work that comes back: collecting figures for
 3. Link knowledge sections to a step so the agent reads exactly the handbook material that step needs.
 4. Reorder or remove steps at any time; running runs keep the step list they started with.
 
+## Give tickets stages
+
+A category bound to this playbook turns its conversations into tickets. The playbook decides which stages those tickets move through.
+
+1. Open the playbook and find the **Ticket stages** card.
+2. Choose **Add stage** for each step a ticket passes (for example New, Waiting for parts, Fixed). Set each **Stage kind** to open, waiting or done; keep at least one done stage.
+3. In a step, pick a **Stage** so the ticket moves there when the step starts, or leave **Keep stage**.
+4. The ticket's status follows the kind of its stage, and every move shows in the conversation's timeline. See [Categories and tickets](/docs/ai/cases).
+
 ## Start and follow a run
 
-1. **Start run** stays disabled until the playbook has at least one step and is **Enabled** (not paused). Add a step first, then choose **Start run**, type the input (the request, period, or context this run is about), and confirm. Auto-start comes from the signal type (**Start the playbook right away** under [Signals](/docs/ai/cases)) or from accepted intake on the About card — at most one run per tracked signal and playbook, even when multiple recognized signals on the conversation resolve to it.
+1. **Start run** stays disabled until the playbook has at least one step and is **Enabled** (not paused). Add a step first, then choose **Start run**, type the input (the request, period, or context this run is about), and confirm. Auto-start comes from the category (**Start the playbook right away** under [Categories and tickets](/docs/ai/cases)) or from accepted intake on the About card — at most one run per ticket and playbook.
 2. The run detail shows the status (**Running**, **Waiting**, **Awaiting gate**, **Completed**, **Failed**, **Cancelled**), the input, and a step-by-step worklog: what each agent step did, when the run waited, and which decisions were taken.
 3. A waiting run continues when you **Resume** it with the reply it waits for. A decision resolves inline in the tracked conversation; the selected branch determines the next step.
 4. **Cancel** stops a run; the worklog stays.
@@ -56,8 +65,8 @@ Modules ship pre-built playbooks (for example VAT filing preparation on Accounti
 
 1. Tell an agent which playbook to create or how to change its ordered steps.
 2. The agent proposes `create_workstream` or `update_workstream` as a PlatformChange with the complete step list.
-3. Review the draft in Govern. Applying it updates the same playbook shown on **Playbooks**; `/os` remains the map view.
+3. Review the draft in Govern. Applying it updates the same playbook shown on **Playbooks**. The live map of that playbook is the Playbooks page, not a separate OS overlay.
 
 ## What to do next
 
-Route recurring queue work through playbooks on [Projects](/docs/ai/projects). Accept chat intake on the About card — see [Signals](/docs/ai/cases). Schedule a playbook with a trigger on the [Agenda](/docs/ai/agenda). Templates come from [Integrations](/docs/integrations/integrations).
+Route recurring queue work through playbooks on [Projects](/docs/ai/projects). Accept chat intake on the About card — see [Categories and tickets](/docs/ai/cases). Schedule a playbook with a trigger on the [Agenda](/docs/ai/agenda). Templates come from [Integrations](/docs/integrations/integrations).

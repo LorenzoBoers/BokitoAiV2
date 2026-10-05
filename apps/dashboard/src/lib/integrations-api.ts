@@ -101,6 +101,7 @@ export interface IntegrationModuleRow {
 export interface IntegrationConnectionRow {
   id: string
   tenant_id: string
+  provider?: string
   provider_id: string
   external_account_id: string
   display_name: string

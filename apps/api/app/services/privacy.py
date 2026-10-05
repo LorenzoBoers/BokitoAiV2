@@ -326,6 +326,13 @@ async def erase_subject(
             session.add(e)
             scrubbed_events += 1
 
+    from app.services.trash import load_tenant, purge_matching_for_subject
+
+    tenant = await load_tenant(session, tenant_id)
+    pairs: list[tuple[str, UUID]] = [("contact", c.id) for c in contacts]
+    pairs.extend(("conversation", s.id) for s in signals)
+    binned_purged = await purge_matching_for_subject(session, tenant, resource_ids=pairs)
+
     await session.commit()
     await record_audit(
         session,
@@ -341,6 +348,7 @@ async def erase_subject(
             "contacts": scrubbed_contacts,
             "messages": scrubbed_messages,
             "calendar_events": scrubbed_events,
+            "bin_purged": binned_purged,
         },
     )
     return {

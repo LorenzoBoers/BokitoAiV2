@@ -189,18 +189,9 @@ async def _apply_routing_effects(
     assign_numeric: int | None,
 ) -> None:
     if labels:
-        from app.services import signal_tags as tag_svc
+        from app.services.signal_tags import add_signal_tags
 
-        try:
-            existing = json.loads(signal.tags_json or "[]")
-        except (json.JSONDecodeError, TypeError):
-            existing = []
-        merged = tag_svc.normalize_tags(existing if isinstance(existing, list) else [])
-        for label in tag_svc.normalize_tags(labels):
-            if label not in merged:
-                merged.append(label)
-        signal.tags_json = json.dumps(merged)
-        await tag_svc.ensure_tags(session, tenant_id, merged)
+        await add_signal_tags(session, tenant_id, signal.id, labels)
     if assign_numeric is not None and signal.assigned_user_id is None:
         member_result = await session.execute(
             select(User.id)
@@ -217,11 +208,6 @@ async def _apply_routing_effects(
 
 
 def serialize_signal(row: Signal) -> dict[str, Any]:
-    tags: list = []
-    try:
-        tags = json.loads(row.tags_json or "[]")
-    except (json.JSONDecodeError, TypeError):
-        pass
     return {
         "id": str(row.id),
         "channel": row.channel,
@@ -231,7 +217,6 @@ def serialize_signal(row: Signal) -> dict[str, Any]:
         "contact_email": row.contact_email,
         "status": row.status,
         "priority": row.priority,
-        "tags": tags,
         "has_unread": row.has_unread,
         "category": row.category,
         "urgency": row.urgency,
@@ -507,7 +492,35 @@ async def _open_thread_for_inbound(
     subject: str,
     external_id: str,
 ) -> Signal | None:
-    """Continue an open conversation instead of starting a duplicate thread."""
+    """Continue an open conversation instead of starting a duplicate thread.
+
+    A split conversation hands its thread on: the match follows
+    ``superseded_by_id`` to the newest conversation.
+    """
+    from app.services.conversation_split import active_conversation
+
+    found = await _match_thread_for_inbound(
+        session,
+        tenant_id,
+        channel=channel,
+        contact_id=contact_id,
+        contact_email=contact_email,
+        subject=subject,
+        external_id=external_id,
+    )
+    return await active_conversation(session, found)
+
+
+async def _match_thread_for_inbound(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    channel: str,
+    contact_id: UUID | None,
+    contact_email: str,
+    subject: str,
+    external_id: str,
+) -> Signal | None:
     query = select(Signal).where(
         Signal.tenant_id == tenant_id,
         Signal.channel == channel,
@@ -530,6 +543,14 @@ async def _open_thread_for_inbound(
         )
         found = by_ext.scalar_one_or_none()
         if found:
+            if getattr(found, "deleted_at", None) is not None:
+                from app.services.trash import load_tenant, restore_resource_if_binned
+
+                tenant = await load_tenant(session, tenant_id)
+                await restore_resource_if_binned(
+                    session, tenant, "conversation", found.id, reason="inbound"
+                )
+                await session.refresh(found)
             return found
     email_lower = contact_email.strip().lower()
     if contact_id and email_lower:
@@ -574,9 +595,9 @@ async def apply_triage(
 ) -> Signal:
     """Persist triage scores on the thread.
 
-    Intent classification is no longer written to `tags_json`: catalog hits
-    become Cases (see `interpretation.triage_signal`). Non-intent fields
-    (priority, urgency, sentiment, ...) stay thread-level.
+    Intent classification files the conversation's category (a Case, see
+    `interpretation.triage_signal`). Priority, urgency, sentiment and the
+    other scores stay on the conversation.
     """
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)

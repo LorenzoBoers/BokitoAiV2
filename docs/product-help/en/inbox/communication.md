@@ -9,7 +9,7 @@ related: agent-runs,channels,inbox-ai,contacts,decisions,cases
 
 # How Communication works
 
-Communication is where the day happens. Customer mail, website chat, chats with company agents, and internal agent-run threads share one hub. Agent chats keep their own **Agents** folder in the sidebar, but they use the same queues and actions as the rest of Communication. Open it when something needs a reply or a decision. While an agent works, the thread shows live purple status lines — a bubble appears only when the agent writes a reply or asks for a decision.
+Communication is where the day happens. Customer mail, website chat, chats with company agents, and internal agent-run threads share one hub. The Bokito helper in the corner is not part of this list — those chats stay in that widget. Agent chats keep their own **Agents** folder in the sidebar, but they use the same queues and actions as the rest of Communication. Open it when something needs a reply or a decision. An agent answers in short chat messages, with a compact line between them that shows what it did.
 
 ## Work the Open queue
 
@@ -18,10 +18,10 @@ Open is conversation work that still needs you — customer channels and agent c
 ![Open queue in Communication](/api/docs/assets/communication/open-queue.png)
 *Open lists conversation work that still needs you, including agent chats.*
 
-1. Open **Communication**. At the top, **All communication** is a folder: click it to expand **For you**, **Open**, **Unassigned** and **Closed** (plus **Snoozed** and **Spam**). That list includes chats with company agents alongside customer mail and website chat. Below it sit the **Channels**, **Chat with agents** and **Teams** sections (you can reorder or hide them). **Contacts** and **Settings** sit pinned at the bottom. The first expand opens the default sub-view from **Settings** → **Channels** (Folders) — usually **Open**, or **For you** if you set that.
-2. Switch to **For you** for your work: conversations you own, conversations where it is your turn or your team's turn, questions to everyone, mentions, and open decision cards. Rows where you must act now sort first. **Unassigned** holds conversations a team owns that nobody picked up yet. Teams shown in the sidebar get their own folder under **Teams** (see [Team](/docs/getting-started/team)).
-3. Scan the list. Each row shows the last real message, prefixed with **You:** when you sent it. A follow-up from the same website visitor stays in that Open thread. Use the search field at the top of the list, then open **Filters** for **Your turn**, **Unread** or **Pinned** — they apply on top of For you, Open or any other queue. Filters do not stick across folders. A **Needs decision** badge marks rows with an open card. Press **?** for inbox shortcuts: **J**/**K** move, **]**/**[** jump unread, **E** closes (Undo in the toast), **H** snoozes one hour, **Shift+H** picks a time, **X** selects, **Shift-click** selects a range, **Cmd+A** selects loaded rows, **U** marks unread, **Shift+U** marks all loaded read when nothing is selected, **A** assigns to you, **Shift+A** opens the assignee list, **P** pins, **R** focuses the reply, **C** composes, **N** starts a new chat, **L** copies the link, **#** copies the thread id, **/** searches, **Esc** returns to the list (it does not leave the thread while a menu is open). Assistant chats use the same move, pin, unread, reply and search keys.
-4. The **Channels** section lists only channels you have configured: each mailbox or Bokito address, **Website chat** when the widget channel is on, and WhatsApp after you connect it. When nothing is connected yet, **Add a channel** sits at the top of that list. Every channel is a folder with the same sub-views: **For you**, **Open**, **Unassigned** and **Closed** — and each folder lists only threads from that channel (Website chat never mixes in mailbox mail). Sub-views stay hidden until you click the channel — that expands the list and opens the default sub-view; click again to collapse. Only one folder stays expanded at a time. Change the default (globally or per channel) under **Settings**, then **Channels** (Folders). The **Chat with agents** section (company agents you may chat with) uses the same folder pattern, plus an **Activity** row that opens that agent's work log. Classification uses Signals, not tags: review them under **This conversation** and manage their catalog under **Settings** → **Signal types**. See [How Signals work](/docs/ai/cases).
+1. Open **Communication**. At the top, **All communication** is a folder: click it to expand **For you**, **Open**, **Unassigned** and **Closed** (plus **Snoozed** and **Spam**). That list includes chats with company agents alongside customer mail and website chat. Below it sit the **Folders**, **Channels**, **Chat with agents** and **Teams** sections (you can reorder or hide them). **Contacts** and **Settings** sit pinned at the bottom. The first expand opens the default sub-view from **Settings** → **Channels** (Folders) — usually **Open**, or **For you** if you set that.
+2. Switch to **For you** for your work: conversations you own, conversations where it is your turn or your team's turn, questions to everyone, mentions, and open decision cards. Rows where you must act now sort first. **Unassigned** holds conversations a team owns that nobody picked up yet. Teams shown in the sidebar get their own folder under **Teams** (see [Team](/docs/getting-started/team)); **Group chat** in that folder opens the team's standing internal conversation.
+3. Scan the list. Each row shows the last real message, prefixed with **You:** when you sent it and **AI:** when an agent did. A follow-up from the same website visitor stays in that Open thread. Opening a conversation lands at the latest messages. A new inbound email opens at the start of that mail, not the signature. Use the search field at the top of the list, then open **Filters** for **Your turn**, **Unread** or **Pinned** — they apply on top of For you, Open or any other queue. Filters do not stick across folders. A **Needs decision** badge marks rows with an open card. Press **?** for inbox shortcuts: **J**/**K** move, **]**/**[** jump unread, **E** closes (Undo in the toast), **H** snoozes one hour, **Shift+H** picks a time, **X** selects, **Shift-click** selects a range, **Cmd+A** selects loaded rows, **U** marks unread, **Shift+U** marks all loaded read when nothing is selected, **A** assigns to you, **Shift+A** opens the assignee list, **P** pins, **R** focuses the reply, **C** composes, **N** starts a new chat, **L** copies the link, **#** copies the thread id, **/** searches, **Esc** returns to the list (it does not leave the thread while a menu is open). Assistant chats use the same move, pin, unread, reply and search keys.
+4. The **Channels** section lists only channels you have configured: each mailbox or Bokito address, **Website chat** when the widget channel is on, and WhatsApp after you connect it. When nothing is connected yet, **Add a channel** sits at the top of that list. Every channel is a folder with the same sub-views: **For you**, **Open**, **Unassigned** and **Closed** — and each folder lists only threads from that channel (Website chat never mixes in mailbox mail). Sub-views stay hidden until you click the channel — that expands the list and opens the default sub-view; click again to collapse. Only one folder stays expanded at a time. Change the default (globally or per channel) under **Settings**, then **Channels** (Folders). The **Chat with agents** section (company agents you may chat with) uses the same folder pattern, plus an **Activity** row that opens that agent's work log. Each conversation has one category, shown under **This conversation** and as a chip on the list row; see [Categories and tickets](/docs/ai/cases).
 5. Pin what matters, choose **Assign** or **Assign to me**, or **Snooze** (toolbar clock). Presets are **1 hour**, **4 hours**, **Tomorrow 9:00**, **Next Monday 9:00**, **Until the customer replies**, or **Choose date and time**. After a reply, the arrow next to **Send** offers **Send and close** and **Send and snooze** to finish in one step. **Mark loaded as read** clears unread on the conversations already in the list.
 6. Select several rows for bulk **Read**, **Close**, **Pin**, **Mark as spam**, **Assign to me**, **Assign**, **Reopen**, **Mark unread** or **Snooze until tomorrow 9:00**. Shift-click a checkbox to take the range from the last selected row. Row actions (close, snooze, assign) live on the row menu and the thread toolbar. **More** holds Snoozed, Closed and Spam. The command palette also jumps to Closed, Spam, Activity, New chat, Your turn and Decisions, and can open a conversation or run by ID.
 
@@ -31,10 +31,10 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 
 Every conversation has one owner: a person, an agent or a team. Without one it belongs to the channel's owner team, else to All people.
 
-1. Choose **Pick up** on a team-owned conversation to make it yours. Replying or adding a note does the same. It leaves **Unassigned** and the **For you** of the rest of the team.
-2. Choose **Assign** to open the picker with **People**, **Agents** and **Teams**. Each person, agent and team shows a corner status: green/amber/gray for people, purple standby or pulsing purple when an agent is working; teams roll that up from their members (a person available wins; otherwise a working agent, then away, then agent standby). Someone without Handle access on the channel shows **No access to this channel** and cannot be picked. The list and header use the same mark for the current owner.
+1. Choose **Assign to me** in the assignee menu on a team-owned conversation to make it yours. **Take over** in **AI handling** does the same and sets Manual. Replying or adding a note also assigns you. It leaves **Unassigned** and the **For you** of the rest of the team. **Unassigned** in that menu clears a person or agent owner back to the channel's owner team (or All people).
+2. Choose **Assign** to open the picker with **People**, **Agents** and **Teams**. Each person, agent and team shows a corner status: green/amber/gray for people, purple when an agent is available or pulsing purple when it is working; teams roll that up from their members (a person available wins; otherwise a working agent, then away, then an available agent). Someone without Handle access on the channel shows **No access to this channel** and cannot be picked. The list and header use the same mark for the current owner.
 3. Picking an agent or a team asks for an optional message. An agent starts right away and answers as an internal note. A team picks the conversation up the way it is set to (see [Team](/docs/getting-started/team)).
-4. In a note, type `@` to mention a person, an agent or a team. Mentioning an agent runs it on the conversation; mentioning a team notifies its people, or lets its agent answer first when the team is set to **Agent first**.
+4. In a note, type `@` to mention a person, an agent or a team. Mentioning an agent switches the composer to **Ask {agent}**; the meta conversation starts when you send. Mentioning a team notifies its people, or lets its agent answer first when the team is set to **Agent first**.
 
 A person owner holds the conversation: agents only draft. Handing it to an agent or a team returns the conversation to its AI handling.
 
@@ -42,7 +42,7 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 
 1. Choose **New chat**. You see three large choices: **Contact**, **Agent**, and **Teammate**. Nothing is created until you send — this is a draft in Communication.
 2. **Contact** (or **Teammate**): pick **To**, choose **From** (a connected mailbox; you can switch before send and optionally **Remember as default**), add a subject, write the message, then send. Hover **+** on a mailbox in the sidebar to start with that From already set. Typing a new address is fine; a contact is not required first.
-3. **Agent**: pick a company agent (or use **+** on an agent row), type, and send. That creates the chat thread. If no agents are available, the page says so.
+3. **Agent**: pick a company agent (or use **+** on an agent row), type, and send. That creates the chat and places your text as the first bubble. The list title stays a placeholder until that first send, then becomes a short label from the intent — not the full message.
 4. You can also start mail from a contact card or the command palette. Forward from a thread still opens the compose dialog.
 5. An empty inbox still offers **New chat**, **Install widget**, and the setup guide — website chat does not wait for email.
 
@@ -53,9 +53,9 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 
 1. Open a conversation. Under the timeline the composer shows a mode chip: **Reply to {name}**, **Ask {agent}**, and **Note**.
 2. **Reply** goes to the customer on the same channel they used. Placeholder text reminds you they will see it. On email, **Ctrl+Enter** sends; on chat, Enter sends.
-3. **Ask** talks only with the AI on this conversation (or starts an AI check-in). The customer sees nothing. A **Stop** control appears while the AI streams.
-4. **Note** is team-only. Use it for handoffs and context that must not leave the workspace.
-5. On an AI chat (`assistant` channel) or an AI check-in, Reply is hidden — only Ask and Note stay. Slash verbs and `@` mentions still work.
+3. **Ask** talks only with the AI on this conversation (or starts an AI check-in). The customer sees nothing. The composer outline turns purple. Switching to Ask or mentioning an agent does not open a meta conversation until you send. **Cancel** on an empty meta conversation removes it. A **Stop** control appears while the AI streams.
+4. **Note** is team-only. The composer outline is gray. Use it for handoffs and context that must not leave the workspace.
+5. On an AI chat (`assistant` channel) or an AI check-in, Reply is hidden — only Ask and Note stay, with **Note** after **Ask**. Slash verbs and `@` mentions still work.
 
 ## See and change what the AI does
 
@@ -66,8 +66,21 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 2. Pick another mode to set it for this conversation only, until it closes. The mode you would otherwise follow carries a badge such as **Channel default** or **Contact default**; choose it to remove the override again. Only an owner or admin can raise a conversation to Autonomous.
 3. Choose **Take over** to set Manual and assign the conversation to you. **Hand back to AI** returns it to the inherited mode. Replying yourself on an autonomous conversation also takes it over.
 4. In the composer, type `/manual`, `/assisted` or `/autonomous` (or `/handmatig`, `/geassisteerd`, `/autonoom`), optionally followed by a reason.
-5. Every change appears in the timeline, for example **AI handling set to Assisted**. Rows in the list show the mode icon when a conversation or contact differs from its channel. See [AI handling](/docs/inbox/inbox-ai).
-6. Live work appears as a thin strip under the timeline while the AI thinks or streams — the same place for customer replies and Ask turns.
+5. Every change appears in the timeline, for example **AI handling set to Assisted**. Actions within five minutes share one row (the same window as stacked chat bubbles); a later burst gets its own row with the clock time. Hover a pill for the exact moment. Rows in the list show the mode icon when a conversation or contact differs from its channel. See [AI handling](/docs/inbox/inbox-ai).
+6. Live work appears at the bottom of the timeline while the AI thinks or writes — the same place for customer replies and Ask turns. See the next section.
+
+## Follow what an agent does
+
+An agent turn reads like a chat: a few short messages, with one line between them for the work in between.
+
+![Agent turn with activity lines between chat messages](/api/docs/assets/communication/agent-turn.png)
+*Thinking and working lines sit between the agent's messages and fold up when done.*
+
+1. While the agent thinks, a line with a brain icon reads **Thinking**. While it works, the line shows the current action with the integration logo (or a knowledge or wrench icon); each new action replaces the previous one.
+2. When the agent switches from thinking to working (or back), the line folds into **Thought for 3s** or **Worked for 12s · 4 actions**. Click it to see each action, its input and its result.
+3. **Typing...** means the agent is writing its next message. A blank line in its answer starts a new message, so a turn arrives as up to five short bubbles. Email stays one structured message.
+4. Agent messages use chat formatting only: bold, italic, strikethrough and links. Headings and tables become plain lines.
+5. Under an agent message, **Sent to the customer** or **Not delivered** shows only on customer channels (email, WhatsApp, website chat). Chats with agents and internal threads never show a delivery label.
 
 ## Review an AI-suggested reply
 
@@ -88,13 +101,28 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 
 1. Open a website-chat thread. The header can show **+N earlier** when this person already wrote before — that opens the contact panel.
 2. In the contact panel, choose **+ Contact**, type their email or phone number (and a name if you have one), then **Link**. Bokito links the chat to the existing contact with that address, or creates one. See [Link a conversation to a contact](/docs/inbox/contacts).
-3. Unknown visitors show **Unknown chatter**. A saved person shows **Contact**. Mail from a workspace member shows **Teammate** instead (no Approve) — they are not treated as a customer contact. To block someone, use the thread menu (⋯) or the contact page. Unsaved contact notes stay highlighted until you save, and leaving the page asks you to confirm.
+3. Unknown visitors show **Unknown chatter**. A saved person shows **Contact**. Mail from a workspace member shows **Teammate** instead (no Approve) — they are not treated as a customer contact. An unmatched sender has one **Contact** action in the side panel, plus **Mark as spam** (or **Not spam** when it already is). There is no second add-contact button, Mail, or Open contacts there. To block someone, use the thread menu (⋯) or the contact page. Unsaved contact notes stay highlighted until you save, and leaving the page asks you to confirm.
 
-## See signals on a conversation
+## Tag a conversation and set its category
 
-1. Open a customer or internal thread. The side panel lists **Signals** under **This conversation**.
-2. Each row shows the type, status, and a playbook or project link when one is bound.
-3. Choose **Add a signal**, or **Add Storing** / **Add Factuur/betaling** (or another type) when a second intent appears. Several signals can sit on one conversation — see [Signals](/docs/ai/cases).
+1. Open a customer conversation. Under **This conversation**, **Category** shows what it is about; for a ticket it also shows the stage. Choose **Change category** to pick another one. See [Categories and tickets](/docs/ai/cases).
+2. The **Tags** row starts with the category chip (with a lock: change it under **Category**, not here), then the tags. Choose **Add tag**, type a name, and press Enter. Existing tags are suggested as you type; a new name joins the workspace tag list.
+3. Choose the **x** on a tag to remove it. Agents add tags too, but only names from the workspace tag list.
+4. Manage the list under **Settings** → **Channels** → **Tags**: rename a tag (renaming onto an existing name merges the two), add a description agents read, or delete it from every conversation.
+5. To tag automatically, add an automation rule with the action **Add tags** under **Settings** → **Channels**. The rule tags matching conversations and the normal flow continues; the timeline shows a line such as **Tagged billing by rule**.
+6. When a second request shows up in the same thread, choose **Split from here** on the message where it starts, so each conversation keeps one category.
+
+## Find work with folders
+
+A folder is a saved filter on project, category, tag and stage. Folders sit under **Folders** in the sidebar with their count of open conversations.
+
+![Folders in the Communication sidebar](/api/docs/assets/communication/folders.png)
+*Saved folders and project folders with their open counts.*
+
+1. Every project with conversations gets a folder by itself. Click it to see the open conversations linked to that project or to its tickets.
+2. To save your own, open **Settings** → **Channels** → **Folders** and choose **New folder**. Enter a name and pick any mix of **Project**, **Category**, **Tag** and **Stage** (Open, Waiting or Done). Turn on **Only for me** to keep it out of your teammates' sidebar.
+3. Use the arrows to reorder saved folders, the pencil to change the name or filter, and the bin to delete one. Deleting a folder never touches its conversations.
+4. An open folder shows a bar above the list, for example **Folder: Open repairs**. Choose **x** on that bar or **Show all conversations** to drop the filter. Links from Overview open the same filtered list.
 
 ## What to do next
 

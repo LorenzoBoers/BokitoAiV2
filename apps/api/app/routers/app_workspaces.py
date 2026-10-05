@@ -16,6 +16,7 @@ from app.services.workspaces_portal import (
     list_members,
     list_workspaces,
     onboarding_status,
+    reactivate_member,
     remove_member,
     resend_invite,
     resolve_tenant_for_workspace,
@@ -316,13 +317,44 @@ async def delete_workspace_member(
     await record_audit(
         session,
         tenant.id,
-        action="user:member_removed",
+        action="user:member_deactivated",
         actor_type="user",
         actor_id=auth.user.id,
         resource_type="membership",
         resource_id=member_id,
     )
     return {"ok": True}
+
+
+@router.post("/workspaces/{workspace_id}/members/{member_id}/reactivate")
+async def reactivate_workspace_member(
+    workspace_id: str,
+    member_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant, _role = await resolve_tenant_for_workspace(
+        session, workspace_id, auth.user, is_staff=auth.is_staff
+    )
+    auth.require_role("owner", "admin")
+    updated = await reactivate_member(
+        session,
+        tenant.id,
+        member_id,
+        acting_is_workspace_owner=_actor_is_workspace_owner(auth),
+    )
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant.id,
+        action="user:member_reactivated",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="membership",
+        resource_id=member_id,
+    )
+    return updated
 
 
 @router.post("/workspaces/{workspace_id}/invites/{invite_id}/resend")

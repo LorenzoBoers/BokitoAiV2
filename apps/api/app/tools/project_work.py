@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from app.models.project import Project
 from app.models.signal import Signal
+from app.services.work_items import serialize_work_item
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 
@@ -67,7 +68,6 @@ async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
                 "name": p.name,
                 "slug": p.slug,
                 "description": (p.description or "")[:200],
-                "autonomous_mode": p.autonomous_mode,
             }
             for p in result.scalars().all()
         ]
@@ -130,7 +130,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
             trust=ctx.trust,
         )
 
-    from app.services.project_work import create_queue_item, serialize_queue_item
+    from app.services.project_work import create_queue_item
 
     item = await create_queue_item(
         ctx.session,
@@ -145,7 +145,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
         created_by_type="agent" if ctx.agent else "user",
         created_by_id=str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
     )
-    return {"queue_item": serialize_queue_item(item), "status": "created"}
+    return {"queue_item": serialize_work_item(item, view="queue"), "status": "created"}
 
 
 async def _list_queue_items(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -177,7 +177,7 @@ async def _list_queue_items(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
 
 
 async def _update_queue_item_status(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.project_work import serialize_queue_item, transition_queue_item
+    from app.services.project_work import transition_queue_item
 
     try:
         item_id = UUID(str(tool_input.get("queue_item_id") or ""))
@@ -195,7 +195,7 @@ async def _update_queue_item_status(ctx: ToolContext, tool_input: dict[str, Any]
         impact_summary=tool_input.get("impact_summary"),
         duplicate_of_id=duplicate_of,
     )
-    return {"queue_item": serialize_queue_item(item)}
+    return {"queue_item": serialize_work_item(item, view="queue")}
 
 
 async def _link_queue_item_to_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -579,68 +579,62 @@ register_tool(
 )
 
 
+async def _resolve_canvas_owner(ctx: ToolContext, tool_input: dict[str, Any]) -> tuple[str, Any]:
+    from app.services.project_canvas import OWNER_PROJECT, OWNER_TENANT
+
+    kind = str(tool_input.get("owner_kind") or "").strip().lower()
+    owner_raw = str(tool_input.get("owner_id") or "").strip()
+    if kind == OWNER_TENANT:
+        return OWNER_TENANT, ctx.tenant_id
+    project = await _resolve_project(ctx, tool_input)
+    if project is not None:
+        return OWNER_PROJECT, project.id
+    if owner_raw and kind == OWNER_PROJECT:
+        return OWNER_PROJECT, __import__("uuid").UUID(owner_raw)
+    return OWNER_TENANT, ctx.tenant_id
+
+
 async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from fastapi import HTTPException
+
     from app.services import project_canvas as canvas_svc
 
-    project = await _resolve_project(ctx, tool_input)
-    if project is None:
-        return {
-            "error": "No project found. Pass project_id (id or slug); use list_projects to see them."
-        }
+    canvas_id = str(tool_input.get("canvas_id") or "").strip()
+    if canvas_id:
+        return await canvas_svc.get_canvas(ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id))
+    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
     slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
-    return await canvas_svc.get_canvas(
-        ctx.session, ctx.tenant_id, project.id, slug=slug, hydrate=True
-    )
+    try:
+        return await canvas_svc.get_canvas(
+            ctx.session,
+            ctx.tenant_id,
+            owner_kind=owner_kind,
+            owner_id=owner_id,
+            slug=slug,
+        )
+    except HTTPException:
+        listed = await canvas_svc.list_canvases(
+            ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
+        )
+        return {
+            "error": "Canvas not found. Pass canvas_id or slug from this list.",
+            "items": [{"id": i["id"], "slug": i["slug"], "title": i["title"]} for i in listed],
+        }
 
 
-async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Propose or apply a canvas update under Govern (resource_type=project_canvas)."""
+async def _propose_canvas_change(
+    ctx: ToolContext,
+    *,
+    change_kind: str,
+    after: dict[str, Any],
+    before: dict[str, Any],
+    summary: str,
+    tool_name: str,
+) -> dict[str, Any]:
     from app.models.auth import Tenant
     from app.services.platform_changes import propose_platform_change
-
-    project = await _resolve_project(ctx, tool_input)
-    if project is None:
-        return {
-            "error": "No project found. Pass project_id (id or slug); use list_projects to see them."
-        }
-
-    slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
-    mode = str(tool_input.get("mode") or "patch").strip().lower()
-    if mode not in {"patch", "replace", "reset"}:
-        return {"error": "mode must be patch, replace, or reset"}
-
-    notes = str(tool_input.get("notes") or "").strip()
-    after: dict[str, Any] = {
-        "project_id": str(project.id),
-        "slug": slug,
-        "mode": "replace" if mode == "reset" else mode,
-        "notes": notes or None,
-        "agent_id": str(ctx.agent.id) if ctx.agent else "",
-        "updated_by_id": str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
-    }
-    if mode == "reset":
-        after["reset_to_default"] = True
-        summary = f"Reset canvas '{slug}' on project {project.name}"
-    elif mode == "replace":
-        widgets = tool_input.get("widgets")
-        if not isinstance(widgets, list):
-            return {"error": "replace mode requires widgets[]"}
-        after["widgets"] = widgets
-        if tool_input.get("layout") is not None:
-            after["layout"] = tool_input.get("layout")
-        if tool_input.get("title") is not None:
-            after["title"] = str(tool_input.get("title") or "")
-        summary = f"Replace canvas '{slug}' on project {project.name}"
-    else:
-        upsert = tool_input.get("upsert") if isinstance(tool_input.get("upsert"), list) else []
-        remove_ids = (
-            tool_input.get("remove_ids") if isinstance(tool_input.get("remove_ids"), list) else []
-        )
-        if not upsert and not remove_ids:
-            return {"error": "patch mode requires upsert[] and/or remove_ids[]"}
-        after["upsert"] = upsert
-        after["remove_ids"] = [str(x) for x in remove_ids]
-        summary = notes or f"Update canvas '{slug}' on project {project.name}"
 
     tenant = (
         await ctx.session.execute(select(Tenant).where(Tenant.id == ctx.tenant_id))
@@ -649,14 +643,14 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
         ctx.session,
         tenant,
         resource_type="project_canvas",
-        change_kind="update",
+        change_kind=change_kind,
         after=after,
-        before={"project_id": str(project.id), "slug": slug},
+        before=before,
         summary=summary,
         agent=ctx.agent,
         run_id=ctx.run_id,
         user_id=ctx.user_id,
-        tool_name="update_project_canvas",
+        tool_name=tool_name,
         mode=ctx.mode,
         signal_id=ctx.signal_id,
     )
@@ -670,19 +664,113 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
     }
 
 
+async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
+    slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
+    notes = str(tool_input.get("notes") or "").strip()
+    source = tool_input.get("source")
+    tree = tool_input.get("tree")
+    reset = bool(tool_input.get("reset"))
+    if not reset and source is None and tree is None:
+        return {
+            "error": "Pass source (bokito/canvas JSX) or tree, or reset=true to clear the canvas."
+        }
+    after: dict[str, Any] = {
+        "owner_kind": owner_kind,
+        "owner_id": str(owner_id),
+        "project_id": str(owner_id) if owner_kind == "project" else None,
+        "slug": slug,
+        "notes": notes or None,
+        "agent_id": str(ctx.agent.id) if ctx.agent else "",
+        "updated_by_id": str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
+        "reset": reset,
+    }
+    if tool_input.get("canvas_id"):
+        after["canvas_id"] = str(tool_input.get("canvas_id"))
+    if tool_input.get("title") is not None:
+        after["title"] = str(tool_input.get("title") or "")
+    if source is not None:
+        after["source"] = str(source)
+    if isinstance(tree, dict):
+        after["tree"] = tree
+    summary = notes or f"Update canvas '{slug}'"
+    return await _propose_canvas_change(
+        ctx,
+        change_kind="update",
+        after=after,
+        before={"owner_kind": owner_kind, "owner_id": str(owner_id), "slug": slug},
+        summary=summary,
+        tool_name="update_project_canvas",
+    )
+
+
+async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
+    title = str(tool_input.get("title") or "").strip()
+    if not title:
+        return {"error": "title is required"}
+    after = {
+        "owner_kind": owner_kind,
+        "owner_id": str(owner_id),
+        "project_id": str(owner_id) if owner_kind == "project" else None,
+        "title": title,
+        "slug": str(tool_input.get("slug") or "") or None,
+        "refresh_minutes": tool_input.get("refresh_minutes"),
+        "refresh_cadence": tool_input.get("refresh_cadence"),
+        "notes": str(tool_input.get("notes") or "") or None,
+        "managing_agent_id": str(ctx.agent.id) if ctx.agent else None,
+        "agent_id": str(ctx.agent.id) if ctx.agent else "",
+    }
+    return await _propose_canvas_change(
+        ctx,
+        change_kind="create",
+        after=after,
+        before={},
+        summary=f"Create canvas '{title}'",
+        tool_name="create_canvas",
+    )
+
+
+async def _delete_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services import project_canvas as canvas_svc
+
+    canvas_id = str(tool_input.get("canvas_id") or "").strip()
+    if not canvas_id:
+        owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
+        slug = str(tool_input.get("slug") or "").strip().lower()
+        if not slug:
+            return {"error": "Pass canvas_id or slug"}
+        current = await canvas_svc.get_canvas(
+            ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id, slug=slug
+        )
+        canvas_id = current["id"]
+    return await _propose_canvas_change(
+        ctx,
+        change_kind="delete",
+        after={"canvas_id": canvas_id},
+        before={"canvas_id": canvas_id},
+        summary="Delete canvas",
+        tool_name="delete_canvas",
+    )
+
+
 register_tool(
     ToolSpec(
         name="get_project_canvas",
         description=(
-            "Read a project's canvas (dashboard/board): layout, widgets, and live "
-            "data for queue/budget/resources tiles. Default slug is 'main'."
+            "Read a snapshot canvas (project or tenant/Overview). Returns bokito/canvas "
+            "source and tree. Not live queue/budget data. Pass canvas_id, or owner_kind "
+            "+ slug (project_id for a project canvas; omit for the workspace Overview)."
         ),
         category="projects",
         input_schema={
             "type": "object",
             "properties": {
+                "canvas_id": {"type": "string"},
                 "project_id": {"type": "string"},
-                "slug": {"type": "string", "description": "Canvas slug; default main."},
+                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
+                "owner_id": {"type": "string"},
+                "slug": {"type": "string"},
             },
         },
         handler=_get_project_canvas,
@@ -695,39 +783,76 @@ register_tool(
     ToolSpec(
         name="update_project_canvas",
         description=(
-            "Update a project's flexible canvas (AI-maintained dashboard). "
-            "Prefer mode=patch with upsert widgets (markdown, metric, status, "
-            "queue_summary, queue_list, resources, budget, links, table, chart, "
-            "iframe, spacer) and optional remove_ids. Use replace only for a full "
-            "redesign; reset restores the default board. Goes through Govern."
+            "Replace a snapshot canvas document. Write bokito/canvas JSX in `source` "
+            "(import only from bokito/canvas). Allowed: Stack, Grid, Row, Text, Heading, "
+            "Callout, Divider, List, Stat, Table, BarChart, LineChart, Card, Badge. "
+            "Embed numbers you just looked up — no live tiles. Omit empty sections. "
+            "Works for project canvases and tenant canvases on Overview. Governed."
         ),
         category="projects",
         input_schema={
             "type": "object",
             "properties": {
+                "canvas_id": {"type": "string"},
                 "project_id": {"type": "string"},
+                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
                 "slug": {"type": "string"},
-                "mode": {"type": "string", "enum": ["patch", "replace", "reset"]},
-                "notes": {"type": "string", "description": "Short changelog for operators."},
+                "source": {"type": "string"},
+                "tree": {"type": "object"},
                 "title": {"type": "string"},
-                "layout": {"type": "object"},
-                "widgets": {
-                    "type": "array",
-                    "description": "Full widget list for replace mode.",
-                    "items": {"type": "object"},
-                },
-                "upsert": {
-                    "type": "array",
-                    "description": "Widgets to create or update (patch mode).",
-                    "items": {"type": "object"},
-                },
-                "remove_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Widget ids to remove (patch mode).",
-                },
+                "notes": {"type": "string"},
+                "reset": {"type": "boolean"},
             },
         },
         handler=_update_project_canvas,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="create_canvas",
+        description=(
+            "Add an empty snapshot canvas under a project or the workspace Overview. "
+            "Operators can also add canvases in the UI. You write the content afterwards "
+            "with update_project_canvas. Optional notes brief the first write. "
+            "refresh_cadence is manual, hourly, daily (default), weekly or monthly "
+            "(Agenda wake; daily is 07:00 UTC)."
+        ),
+        category="projects",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "slug": {"type": "string"},
+                "project_id": {"type": "string"},
+                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
+                "refresh_minutes": {"type": "integer"},
+                "refresh_cadence": {
+                    "type": "string",
+                    "enum": ["manual", "hourly", "daily", "weekly", "monthly"],
+                },
+                "notes": {"type": "string"},
+            },
+            "required": ["title"],
+        },
+        handler=_create_canvas_tool,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="delete_canvas",
+        description="Remove a snapshot canvas and its Agenda refresh wake.",
+        category="projects",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "canvas_id": {"type": "string"},
+                "project_id": {"type": "string"},
+                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
+                "slug": {"type": "string"},
+            },
+        },
+        handler=_delete_canvas_tool,
     )
 )

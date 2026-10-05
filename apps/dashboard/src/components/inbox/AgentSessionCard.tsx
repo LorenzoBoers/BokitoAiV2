@@ -1,8 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, ExternalLink, Loader2, Wrench, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import ChatMarkdown from './ChatMarkdown'
 import { useTranslation } from 'react-i18next'
+import ChatText from './ChatText'
+import ActivityTrail from './ActivityTrail'
+import AgentTurnLive from './AgentTurnLive'
+import { normalizeActivity, turnHasContent, type LiveTurn } from '../../lib/agentActivity'
 import { useAuth } from '../../context/AuthContext'
 import {
   bokitoListMessages,
@@ -32,6 +35,8 @@ type Props = {
   liveMessages?: ChatMessage[]
   /** True while the operator's message is streaming a reply. */
   streaming?: boolean
+  /** Live agent turn (gateway activity) for the active session. */
+  liveTurn?: LiveTurn
   /** Shared agent mark for this thread (icon / initials / image). */
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
@@ -77,29 +82,37 @@ function MetaBubble({
       />
     )
   }
+  const before = normalizeActivity(message.activity)
+  const after = normalizeActivity(message.activity_after)
   return (
-    <ChatMessageBubble
-      side="left"
-      avatar={agentAvatar}
-      variant="agent"
-      header={
-        <BubbleHeader name={agentName || t('agentSession.title')} />
-      }
-      body={
-        <div className="text-sm leading-relaxed">
-          <ChatMarkdown content={translateMockAgentBody(message.content, t)} />
-          {onUseAsReply && message.content.trim() && message.id !== 'local-stream' ? (
-            <button
-              type="button"
-              onClick={() => onUseAsReply(message.content)}
-              className="mt-1.5 text-xs font-medium text-ai-ink/80 hover:text-ai-ink"
-            >
-              {t('agentSession.useAsReply')}
-            </button>
-          ) : null}
-        </div>
-      }
-    />
+    <div className="space-y-1.5">
+      {before.length > 0 ? <ActivityTrail items={before} className="pl-[38px]" /> : null}
+      {message.content.trim() ? (
+        <ChatMessageBubble
+          side="left"
+          avatar={agentAvatar}
+          variant="agent"
+          header={
+            <BubbleHeader name={agentName || t('agentSession.title')} />
+          }
+          body={
+            <div className="text-sm leading-relaxed">
+              <ChatText content={translateMockAgentBody(message.content, t)} />
+              {onUseAsReply && message.id !== 'local-stream' ? (
+                <button
+                  type="button"
+                  onClick={() => onUseAsReply(message.content)}
+                  className="mt-1.5 text-xs font-medium text-ai-ink/80 hover:text-ai-ink"
+                >
+                  {t('agentSession.useAsReply')}
+                </button>
+              ) : null}
+            </div>
+          }
+        />
+      ) : null}
+      {after.length > 0 ? <ActivityTrail items={after} className="pl-[38px]" /> : null}
+    </div>
   )
 }
 
@@ -111,6 +124,7 @@ function SessionTranscript({
   operatorAvatar,
   onUseAsReply,
   streaming,
+  liveTurn,
 }: {
   sessionId: string
   agentName?: string | null
@@ -119,6 +133,7 @@ function SessionTranscript({
   operatorAvatar: ReactNode
   onUseAsReply?: (text: string) => void
   streaming?: boolean
+  liveTurn?: LiveTurn
 }) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -159,9 +174,18 @@ function SessionTranscript({
       <p className="px-1 py-2 text-xs text-text-muted">{t('agentSession.emptyTranscript')}</p>
     )
   }
+  // The gateway turn carries activity and bubbles; it replaces the plain SSE
+  // stream bubble while it runs and until the saved bubbles of that turn land.
+  const turnSaved = Boolean(
+    liveTurn?.streamId && messages.some((m) => m.turn_id === liveTurn.streamId),
+  )
+  const showLive = Boolean(
+    liveTurn && !turnSaved && (liveTurn.active || turnHasContent(liveTurn)),
+  )
+  const rows = showLive ? messages.filter((m) => m.id !== 'local-stream') : messages
   return (
     <div className="space-y-2.5 py-1">
-      {messages.map((m) => (
+      {rows.map((m) => (
         <MetaBubble
           key={m.id}
           message={m}
@@ -171,12 +195,7 @@ function SessionTranscript({
           onUseAsReply={onUseAsReply}
         />
       ))}
-      {streaming && !messages.some((m) => m.id === 'local-stream') ? (
-        <div className="flex items-center gap-2 px-1 py-1 text-xs text-text-muted">
-          <Loader2 size={12} className="animate-spin text-ai" />
-          {t('agentSession.thinking', { defaultValue: 'Thinking…' })}
-        </div>
-      ) : null}
+      {showLive && liveTurn ? <AgentTurnLive turn={liveTurn} /> : null}
     </div>
   )
 }
@@ -289,6 +308,7 @@ export default function AgentSessionCard({
   onUseAsReply,
   liveMessages,
   streaming,
+  liveTurn,
   agentAvatarKind,
   agentAvatarIcon,
   agentAvatarColor,
@@ -373,6 +393,7 @@ export default function AgentSessionCard({
           operatorAvatar={operatorAvatar}
           onUseAsReply={onUseAsReply}
           streaming={streaming}
+          liveTurn={liveTurn}
         />
       </div>
     )

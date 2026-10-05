@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ConnectionsNextSteps } from '../components/integrations/ConnectionsNextSteps'
 import { ConnectionSections } from '../components/integrations/ConnectionSections'
-import { InstalledModuleCard } from '../components/integrations/ModuleCard'
+import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
+import { ApplicationCard } from '../components/integrations/ApplicationCard'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import {
   ApplicationHubDialog,
@@ -18,14 +19,13 @@ import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
-import { useChannelStatus } from '../hooks/useChannelStatus'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
-import { useIntegrationBrand } from '../context/IntegrationBrandContext'
 import {
   parseKindFilter,
   kindFilterToParam,
   readLastIntegrationKind,
   writeLastIntegrationKind,
+  connectedPathWithKind,
   type IntegrationKindFilter,
 } from '../lib/integration-kind-url'
 import {
@@ -34,11 +34,13 @@ import {
   type ConnectionListItem,
 } from '../lib/connection-list'
 import {
+  filterOfferRows,
+  flattenApplicationOffers,
   resolveApplicationConnectTarget,
   type IntegrationApplication,
   type IntegrationOffer,
 } from '../lib/integration-applications'
-import { resolveProviderBrand } from '../lib/integration-brand'
+import { resolveIntegrationKind } from '../lib/integration-kind'
 import { moduleIsOn } from '../lib/integration-modules'
 import { applicationsForModule } from '../lib/module-applications'
 import {
@@ -49,9 +51,8 @@ import {
 import { parseIntegrationCallback } from '../lib/integrations-oauth'
 import { parseOAuthCallback, describeOAuthCallbackSummary } from '../lib/email-oauth'
 import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
-import { revokeIntegrationConnection } from '../lib/integrations-api'
-import { attachModuleConnection } from '../lib/module-api'
 import { revokeMcpConnection } from '../lib/mcp-integrations'
+import { attachModuleConnection } from '../lib/module-api'
 
 function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): ApplicationHubStep {
   if (!offer) return 'app'
@@ -60,30 +61,14 @@ function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): 
 
 export default function ConnectionsHub() {
   const { t } = useTranslation('nav')
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFromUrl = searchParams.get('kind')
   const kindFilter = kindFromUrl == null ? readLastIntegrationKind() : parseKindFilter(kindFromUrl)
   const [query, setQuery] = useState('')
 
-  const {
-    loading,
-    loadError,
-    github,
-    emailOutlook,
-    emailGmail,
-    mcpRows,
-    calendarRows,
-    connections,
-    appConnections,
-    counts,
-    refresh,
-  } = useConnectedIntegrationsSummary()
-  const { emailReady, sendReady } = useChannelStatus()
-  const { applications, modules, refreshCatalog } = useIntegrationCatalog()
-
-  const githubBrand = useIntegrationBrand('github')
-  const outlookBrand = useIntegrationBrand('outlook')
-  const gmailBrand = useIntegrationBrand('gmail')
+  const { loading, loadError, mcpRows, connections, counts, refresh } = useConnectedIntegrationsSummary()
+  const { applications, modules, refreshCatalog, runModuleAction } = useIntegrationCatalog()
 
   const [hubOpen, setHubOpen] = useState(false)
   const [hubApplication, setHubApplication] = useState<IntegrationApplication | null>(null)
@@ -190,90 +175,23 @@ export default function ConnectionsHub() {
     }
   }, [applications, applyCallbackBanner, openApplicationHub, setSearchParams])
 
-  const items = useMemo((): ConnectionListItem[] => {
-    const rows: ConnectionListItem[] = []
+  const connectedOffers = useMemo(
+    () =>
+      filterOfferRows(
+        flattenApplicationOffers(applications).filter((row) => row.offer.connectionCount > 0),
+        kindFilter,
+        query,
+        t,
+      ),
+    [applications, kindFilter, query, t],
+  )
 
-    if (emailOutlook > 0) {
-      rows.push({
-        id: 'inbox-outlook',
-        kind: 'inbox',
-        programKey: 'microsoft',
-        programName: 'Microsoft 365',
-        title: t('integrations.connected.mailboxProgram', { count: emailOutlook }),
-        subtitle: null,
-        brand: outlookBrand,
-        attachedModules: [],
-        eligibleModule: null,
-        source: 'inbox',
-        connectionId: 'inbox-outlook',
-      })
-    }
-    if (emailGmail > 0) {
-      rows.push({
-        id: 'inbox-gmail',
-        kind: 'inbox',
-        programKey: 'google',
-        programName: 'Google',
-        title: t('integrations.connected.mailboxProgram', { count: emailGmail }),
-        subtitle: null,
-        brand: gmailBrand,
-        attachedModules: [],
-        eligibleModule: null,
-        source: 'inbox',
-        connectionId: 'inbox-gmail',
-      })
-    }
-
-    for (const row of calendarRows) {
-      const brand = resolveProviderBrand(row.provider)
-      const provider = (row.provider || '').toLowerCase()
-      const calendarOnlyMail =
-        !emailReady &&
-        ((provider.includes('outlook') || provider.includes('microsoft'))
-          ? emailOutlook === 0
-          : provider.includes('google')
-            ? emailGmail === 0
-            : !sendReady)
-      rows.push({
-        id: row.id,
-        kind: 'calendar',
-        programKey: row.provider,
-        programName: brand.name,
-        title: row.display_name,
-        subtitle: calendarOnlyMail
-          ? t('integrations.connected.calendarOnlyNoMail', {
-              defaultValue: 'Calendar synced — mail not send-ready yet',
-            })
-          : typeof row.event_count === 'number'
-            ? t('agendaPage.calendar.eventCount', { count: row.event_count })
-            : null,
-        brand,
-        attachedModules: [],
-        eligibleModule: null,
-        source: 'calendar',
-        connectionId: row.id,
-      })
-    }
-
-    for (const row of appConnections) {
-      const brand = resolveProviderBrand(row.provider)
-      rows.push({
-        id: row.id,
-        kind: 'app',
-        programKey: row.provider,
-        programName: brand.name,
-        title: row.display_name,
-        subtitle: null,
-        brand,
-        attachedModules: row.attached_modules,
-        eligibleModule: row.eligible_module,
-        source: 'app',
-        connectionId: row.id,
-      })
-    }
-
+  const mcpItems = useMemo((): ConnectionListItem[] => {
     const summaryById = Object.fromEntries(connections.map((row) => [row.id, row]))
+    const rows: ConnectionListItem[] = []
     for (const row of mcpRows) {
+      const target = resolveApplicationConnectTarget(applications, row.providerSlug)
+      if (target?.offer && target.offer.connectionCount > 0) continue
       const summary = summaryById[row.id]
       rows.push({
         id: row.id,
@@ -296,54 +214,11 @@ export default function ConnectionsHub() {
         connectionId: row.id,
       })
     }
+    const filtered = filterConnectionItems(rows, query)
+    if (kindFilter !== 'all' && kindFilter !== 'mcp') return []
+    return filtered
+  }, [applications, connections, kindFilter, mcpRows, query])
 
-    for (const row of github) {
-      rows.push({
-        id: row.id,
-        kind: 'repository',
-        programKey: 'github',
-        programName: 'GitHub',
-        title: row.github_login,
-        subtitle: row.display_name ?? null,
-        brand: githubBrand,
-        attachedModules: [],
-        eligibleModule: null,
-        source: 'github',
-        connectionId: row.id,
-      })
-    }
-
-    return rows
-  }, [
-    appConnections,
-    calendarRows,
-    connections,
-    emailGmail,
-    emailOutlook,
-    emailReady,
-    gmailBrand,
-    github,
-    githubBrand,
-    mcpRows,
-    outlookBrand,
-    sendReady,
-    t,
-  ])
-
-  const visibleItems = useMemo(() => {
-    const filtered = filterConnectionItems(items, query)
-    return kindFilter === 'all' ? filtered : filtered.filter((row) => row.kind === kindFilter)
-  }, [items, kindFilter, query])
-
-  const connectionItems = useMemo(
-    () => visibleItems.filter((row) => row.kind !== 'mcp'),
-    [visibleItems],
-  )
-  const mcpItems = useMemo(
-    () => visibleItems.filter((row) => row.kind === 'mcp'),
-    [visibleItems],
-  )
-  const connectionGroups = useMemo(() => groupConnectionItems(connectionItems), [connectionItems])
   const mcpGroups = useMemo(() => groupConnectionItems(mcpItems), [mcpItems])
   const installedModules = useMemo(
     () => modules.filter((module) => module.status !== 'coming_soon' && moduleIsOn(module)),
@@ -356,11 +231,10 @@ export default function ConnectionsHub() {
   }, [refresh, refreshCatalog])
 
   const handleDisconnect = async (item: ConnectionListItem) => {
-    if (item.source === 'inbox' || item.source === 'calendar') return
+    if (item.source !== 'mcp') return
     if (!window.confirm(t('integrations.actions.disconnectConfirm'))) return
     try {
-      if (item.source === 'mcp') await revokeMcpConnection(item.connectionId)
-      else await revokeIntegrationConnection(item.connectionId)
+      await revokeMcpConnection(item.connectionId)
       toast.success(t('integrations.actions.disconnected'))
       await refreshAll()
     } catch {
@@ -384,10 +258,23 @@ export default function ConnectionsHub() {
     }
   }
 
+  const handleViewConnected = (offer: IntegrationOffer) => {
+    const kind = offer.kind ?? resolveIntegrationKind(offer.integration.id)
+    if (kind === 'inbox') {
+      navigate('/settings/channels')
+      return
+    }
+    if (kind === 'calendar') {
+      navigate('/agenda')
+      return
+    }
+    navigate(connectedPathWithKind(kind))
+  }
+
   const openProgram = (programKey: string) => {
     const target = resolveApplicationConnectTarget(applications, programKey)
     if (target) {
-      openApplicationHub(target.app, target.offer ? 'offer-setup' : 'app', target.offer ?? null)
+      openApplicationHub(target.app, 'offer-setup', target.offer ?? null)
     }
   }
 
@@ -400,38 +287,6 @@ export default function ConnectionsHub() {
         className="mb-0"
       />
       <IntegrationsTabs />
-
-      <section className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-text-heading">
-              {t('developersPage.controlFromCursor')}
-            </p>
-            <p className="mt-0.5 text-xs text-text-secondary">
-              {t('developersPage.controlFromCursorBody')}
-            </p>
-          </div>
-          <Button size="sm" variant="secondary" asChild>
-            <Link to="/settings/developers#connect-ai-tools">{t('developersPage.aiTools.title')}</Link>
-          </Button>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-text-heading">
-              {t('developersPage.workbench.title')}
-            </p>
-            <p className="mt-0.5 text-xs text-text-secondary">
-              {t('developersPage.workbench.body')}
-            </p>
-          </div>
-          <Button size="sm" variant="secondary" asChild>
-            <Link to="/settings/developers#workbench">{t('developersPage.workbench.connectCta')}</Link>
-          </Button>
-        </div>
-      </section>
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -464,12 +319,13 @@ export default function ConnectionsHub() {
             })}
           </p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {installedModules.map((module) => (
-              <InstalledModuleCard
+              <MarketplaceModuleCard
                 key={module.slug}
                 module={module}
                 applications={applicationsForModule(applications, module)}
+                onAction={runModuleAction}
               />
             ))}
           </div>
@@ -494,19 +350,29 @@ export default function ConnectionsHub() {
         needsModule={!hasInstalledModule}
       />
 
-      <ConnectionSections
-        title={t('integrations.connected.yourList')}
-        loading={loading}
-        groups={connectionGroups}
-        emptyLabel={
-          query.trim()
-            ? t('integrations.connected.noSearchMatches')
-            : t('integrations.connected.emptyAllDescription')
-        }
-        onOpenProgram={openProgram}
-        onAttach={handleAttach}
-        onDisconnect={handleDisconnect}
-      />
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold text-text-muted">{t('integrations.connected.yourList')}</h2>
+        {loading && applications.length === 0 ? (
+          <CardGridSkeleton />
+        ) : connectedOffers.length === 0 ? (
+          <p className="text-sm text-text-muted">
+            {query.trim()
+              ? t('integrations.connected.noSearchMatches')
+              : t('integrations.connected.emptyAllDescription')}
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {connectedOffers.map(({ application, offer }) => (
+              <ApplicationCard
+                key={`${application.hostSlug}:${offer.integration.id}`}
+                application={application}
+                offer={offer}
+                onOpenDetail={() => openApplicationHub(application, 'offer-detail', offer)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       <ConnectionSections
         title={t('integrations.connected.mcpServersTitle', {
@@ -548,7 +414,7 @@ export default function ConnectionsHub() {
         initialOfferId={hubOffer?.integration.id ?? null}
         banner={hubBanner}
         modules={modules}
-        onViewConnected={() => setHubOpen(false)}
+        onViewConnected={handleViewConnected}
         onSaved={() => void refreshAll()}
       />
     </PageContent>

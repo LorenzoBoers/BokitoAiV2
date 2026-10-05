@@ -38,7 +38,7 @@ async def test_passports_endpoint_lists_agents(client: AsyncClient, session_over
     assert "assistant" in roles
     assistant = next(a for a in items if a["role"] == "assistant")
     assert assistant["autonomy_level"] == "assisted"
-    assert assistant["allowed_tools"] == []  # empty = all default tools
+    assert assistant["tools"] == []  # empty = all default tools
 
 
 @pytest.mark.asyncio
@@ -61,7 +61,19 @@ async def test_autonomy_scopes_list_and_update(client: AsyncClient, session_over
         json={"autonomy_level": "auto"},
     )
     assert updated.status_code == 200
-    assert updated.json()["autonomy_level"] == "auto"
+    assert updated.json()["autonomy_level"] == "autonomous"
+
+    listed_again = await client.get("/api/govern/autonomy-scopes", headers=headers)
+    row = next(item for item in listed_again.json()["case_types"] if item["id"] == str(case_type.id))
+    assert row["autonomy_level"] == "autonomous"
+
+    canon = await client.patch(
+        f"/api/govern/autonomy-scopes/workstream/{workstream.id}",
+        headers=headers,
+        json={"autonomy_level": "assisted"},
+    )
+    assert canon.status_code == 200
+    assert canon.json()["autonomy_level"] == "assisted"
 
 
 @pytest.mark.asyncio

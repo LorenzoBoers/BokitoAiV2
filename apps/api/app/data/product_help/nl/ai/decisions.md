@@ -25,8 +25,9 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 ## Goedkeuren, bewerken of afwijzen
 
 1. Lees het voorstel in de context van het gesprek.
-2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Taak aanmaken** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
-3. Hover over een agentbericht: naast de bubbel verschijnen iconen voor **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent. Hover een icoon voor het label. Escaleren zet het gesprek op Handmatig en wijst jou toe.
+2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Wat nu** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
+3. Een voorgesteld chatantwoord kan uit meerdere korte berichten bestaan. De kaart toont ze als **Bericht 1**, **Bericht 2** enzovoort. Kies **Bericht verwijderen** bij een bericht dat je niet wilt, of **Bewerken** om ze als één tekst te herschrijven; een lege regel start een nieuw bericht. **Versturen** levert ze op volgorde af.
+4. Hover over een agentbericht: naast de bubbel verschijnen iconen voor **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent. Hover een icoon voor het label. Escaleren zet het gesprek op Handmatig en wijst jou toe.
 
 ## Leer de agent voor de volgende keer
 

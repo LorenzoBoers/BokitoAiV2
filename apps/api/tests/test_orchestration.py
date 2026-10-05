@@ -117,28 +117,13 @@ async def test_triggers_crud_and_bindings(client: AsyncClient):
     deleted = await client.delete(f"/api/triggers/{trigger['id']}", headers=headers)
     assert deleted.status_code == 200
 
-    agents = await client.get("/api/workforce/agents", headers=headers)
-    agent_id = agents.json()["items"][0]["id"]
-    binding = await client.post(
+    gone = await client.get("/api/channels/bindings", headers=headers)
+    assert gone.status_code == 410
+    assert gone.json()["status"] == "retired"
+
+    gone_write = await client.post(
         "/api/channels/bindings",
         headers=headers,
-        json={"channel": "widget", "agent_id": agent_id},
+        json={"channel": "widget", "agent_id": "00000000-0000-0000-0000-000000000001"},
     )
-    assert binding.status_code == 200
-    binding_id = binding.json()["id"]
-
-    bindings = await client.get("/api/channels/bindings", headers=headers)
-    assert bindings.status_code == 200
-    assert any(b["id"] == binding_id for b in bindings.json()["bindings"])
-
-    patched = await client.patch(
-        f"/api/channels/bindings/{binding_id}",
-        headers=headers,
-        json={"enabled": False, "priority": 20},
-    )
-    assert patched.status_code == 200
-    assert patched.json()["enabled"] is False
-    assert patched.json()["priority"] == 20
-
-    removed = await client.delete(f"/api/channels/bindings/{binding_id}", headers=headers)
-    assert removed.status_code == 200
+    assert gone_write.status_code == 410

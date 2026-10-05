@@ -44,7 +44,7 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 
 1. On Contacts, switch **People** and **Companies**.
 2. Companies appear automatically from business email domains (not free hosts such as Gmail). Link a person so related threads stay together.
-3. Use **Group contacts by company** to backfill companies on older addresses that never received one. From a thread without a saved person, **Add to contacts** opens this form with the address filled in.
+3. Use **Group contacts by company** to backfill companies on older addresses that never received one. From a thread without a saved person, choose **Contact** in the side panel, enter the address, then **Link**. **Mark as spam** is next to that button.
 
 ## Approve or block a sender
 

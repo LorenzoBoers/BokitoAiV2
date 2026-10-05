@@ -46,6 +46,8 @@ from app.routers import (
     push,
     inbox_settings,
     ai_handling,
+    inbox_folders,
+    signal_tags,
     signals,
     teams,
     workbench,
@@ -57,8 +59,10 @@ from app.routers import (
     workstreams,
     customer_verify,
     cases,
+    canvases,
     orchestration,
     uploads,
+    trash,
 )
 from app.gateway.bus import event_bus
 from app.gateway.router import router as gateway_router
@@ -246,6 +250,7 @@ app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(integrations.router, prefix=api_prefix)
 app.include_router(calendars.router, prefix=api_prefix)
 app.include_router(privacy.router, prefix=api_prefix)
+app.include_router(trash.router, prefix=api_prefix)
 app.include_router(github_integrations.router, prefix=api_prefix)
 app.include_router(email.router, prefix=api_prefix)
 app.include_router(inbound.router, prefix=api_prefix)
@@ -261,6 +266,7 @@ app.include_router(triggers.router, prefix=api_prefix)
 app.include_router(livechat.router, prefix=api_prefix)
 app.include_router(workspace.router, prefix=api_prefix)
 app.include_router(projects.router, prefix=api_prefix)
+app.include_router(canvases.router, prefix=api_prefix)
 app.include_router(workforce.router, prefix=api_prefix)
 app.include_router(govern.router, prefix=api_prefix)
 app.include_router(mcp.router, prefix=api_prefix)
@@ -268,6 +274,8 @@ app.include_router(oauth_as.router, prefix=api_prefix)
 app.include_router(oauth_as.mcp_well_known, prefix=api_prefix)
 app.include_router(oauth_as.well_known)
 app.include_router(partner_mcp.router, prefix=api_prefix)
+app.include_router(signal_tags.router, prefix=api_prefix)
+app.include_router(inbox_folders.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(teams.router, prefix=api_prefix)
 app.include_router(workbench.router, prefix=api_prefix)

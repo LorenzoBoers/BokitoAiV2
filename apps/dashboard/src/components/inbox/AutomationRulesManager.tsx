@@ -22,6 +22,7 @@ const ACTION_KEYS: Record<InboxRule['action'], string> = {
   auto_close: 'automationRules.actionClose',
   auto_task: 'automationRules.actionTask',
   mute_ai: 'automationRules.actionSkip',
+  tag: 'automationRules.actionTag',
 }
 
 const MATCH_KEYS: Record<InboxRule['matchType'], string> = {
@@ -57,6 +58,7 @@ export default function AutomationRulesManager() {
   const [matchType, setMatchType] = useState<InboxRule['matchType']>('sender')
   const [matchValue, setMatchValue] = useState('')
   const [action, setAction] = useState<InboxRule['action']>('auto_close')
+  const [tagsDraft, setTagsDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -78,8 +80,14 @@ export default function AutomationRulesManager() {
     }
   }, [token, t])
 
+  const draftTags = tagsDraft
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+  const canCreate = Boolean(matchValue.trim()) && (action !== 'tag' || draftTags.length > 0)
+
   const handleCreate = useCallback(async () => {
-    if (!token || !matchValue.trim()) return
+    if (!token || !canCreate) return
     setSaving(true)
     setError(null)
     try {
@@ -87,18 +95,20 @@ export default function AutomationRulesManager() {
         matchType,
         matchValue: matchValue.trim(),
         action,
+        ...(action === 'tag' ? { tags: draftTags } : {}),
       })
       if (created) {
         setRules((prev) => [created, ...prev.filter((r) => r.id !== created.id)])
       }
       setCreating(false)
       setMatchValue('')
+      setTagsDraft('')
     } catch (err) {
       setError(err instanceof Error ? err.message : t('automationRules.createFailed'))
     } finally {
       setSaving(false)
     }
-  }, [token, matchType, matchValue, action, t])
+  }, [token, canCreate, matchType, matchValue, action, draftTags, t])
 
   const handleToggle = useCallback(
     async (rule: InboxRule) => {
@@ -199,6 +209,7 @@ export default function AutomationRulesManager() {
               </p>
               <p className="text-xs text-text-secondary">
                 {t(MATCH_KEYS[rule.matchType])} &middot; {t(ACTION_KEYS[rule.action])}
+                {rule.tags.length > 0 ? `: ${rule.tags.join(', ')}` : ''}
                 {rule.hitCount > 0
                   ? ` \u00b7 ${t('automationRules.applied', { count: rule.hitCount })}`
                   : ''}
@@ -262,13 +273,23 @@ export default function AutomationRulesManager() {
                 <option value="auto_close">{t('automationRules.actionCloseThread')}</option>
                 <option value="auto_task">{t('automationRules.actionCreateTask')}</option>
                 <option value="mute_ai">{t('automationRules.actionSkipAi')}</option>
+                <option value="tag">{t('automationRules.actionAddTags')}</option>
               </select>
+              {action === 'tag' ? (
+                <Input
+                  value={tagsDraft}
+                  onChange={(e) => setTagsDraft(e.target.value)}
+                  placeholder={t('automationRules.tagsPlaceholder')}
+                  aria-label={t('automationRules.tagsPlaceholder')}
+                  className="h-8 max-w-64 text-sm"
+                />
+              ) : null}
             </div>
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="secondary" disabled={saving} onClick={() => setCreating(false)}>
                 {t('automationRules.cancel')}
               </Button>
-              <Button size="sm" disabled={saving || !matchValue.trim()} onClick={() => void handleCreate()}>
+              <Button size="sm" disabled={saving || !canCreate} onClick={() => void handleCreate()}>
                 {saving ? t('automationRules.saving') : t('automationRules.create')}
               </Button>
             </div>

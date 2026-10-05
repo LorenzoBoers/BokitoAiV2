@@ -25,18 +25,32 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex items-center justify-between border-b border-border/60 px-4 py-3', className)}
+      className={cn(
+        'flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4',
+        className,
+      )}
       {...props}
     />
   ),
 )
 CardHeader.displayName = 'CardHeader'
 
+const CardHeaderActions = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('flex h-7 shrink-0 items-center gap-0.5', className)}
+      {...props}
+    />
+  ),
+)
+CardHeaderActions.displayName = 'CardHeaderActions'
+
 const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('text-sm font-semibold text-text-heading', className)}
+      className={cn('min-w-0 truncate text-sm font-semibold text-text-heading', className)}
       {...props}
     />
   ),
@@ -62,4 +76,4 @@ const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
 )
 CardContent.displayName = 'CardContent'
 
-export { Card, CardHeader, CardTitle, CardDescription, CardContent }
+export { Card, CardHeader, CardHeaderActions, CardTitle, CardDescription, CardContent }

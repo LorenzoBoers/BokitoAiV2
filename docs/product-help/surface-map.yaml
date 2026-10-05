@@ -90,11 +90,13 @@ cockpit:
   section: getting-started
   routes:
     - /cockpit
+    - /cockpit/canvas
     - /cockpit/activity
     - /cockpit/usage
     - /overview
   code_globs:
     - apps/dashboard/src/pages/CockpitPage.tsx
+    - apps/dashboard/src/pages/CockpitCanvasPage.tsx
     - apps/dashboard/src/pages/ActivityPage.tsx
     - apps/dashboard/src/pages/UsagePage.tsx
     - apps/dashboard/src/components/cockpit/**
@@ -135,12 +137,20 @@ communication:
     - apps/dashboard/src/components/inbox/**
     - apps/dashboard/src/components/shell/MessagesHub.tsx
     - packages/shared/src/chat-layout.ts
+    - apps/api/app/services/inbox_folders.py
+    - apps/api/app/services/signal_threads.py
+    - apps/api/app/gateway/publish.py
+    - apps/api/app/services/signal_tags.py
+    - apps/api/app/routers/inbox_folders.py
+    - apps/api/app/routers/signal_tags.py
   screenshots:
     - decision-card
     - open-queue
     - thread-composer
     - composer-modes
     - handling-picker
+    - agent-turn
+    - folders
 
 agent-runs:
   section: inbox
@@ -163,7 +173,6 @@ channels:
     - /settings/channels
   code_globs:
     - apps/dashboard/src/pages/InboxSettings.tsx
-    - apps/dashboard/src/components/settings/ChannelBindingsPanel.tsx
     - apps/dashboard/src/components/channels/**
     - apps/dashboard/src/components/inbox/AddChannelDialog.tsx
     - apps/dashboard/src/components/inbox/WhatsAppConnectForm.tsx
@@ -237,6 +246,7 @@ agents:
     - apps/dashboard/src/pages/AiAgentDetail.tsx
     - apps/dashboard/src/components/workforce/**
     - apps/api/app/services/agent_rules.py
+    - apps/api/app/services/workforce_runtime.py
   screenshots:
     - agent-brief
     - library
@@ -277,8 +287,11 @@ projects:
     - apps/dashboard/src/pages/ProjectDetail.tsx
     - apps/dashboard/src/components/projects/**
     - apps/dashboard/src/lib/project-canvas-api.ts
+    - apps/dashboard/src/lib/project-canvas/**
+    - apps/dashboard/src/components/project-canvas/**
     - apps/api/app/services/project_work.py
     - apps/api/app/services/project_canvas.py
+    - apps/api/app/services/project_canvas_compile.py
     - apps/api/app/routers/projects.py
     - apps/api/app/models/project_canvas.py
   screenshots:
@@ -308,8 +321,11 @@ cases:
     - /communication
   code_globs:
     - apps/dashboard/src/pages/SignalTypesSettings.tsx
-    - apps/dashboard/src/components/inbox/ThreadCasesList.tsx
+    - apps/dashboard/src/components/inbox/ThreadCategory.tsx
     - apps/dashboard/src/components/workstreams/CaseBindingsCard.tsx
+    - apps/dashboard/src/components/workstreams/WorkstreamStagesCard.tsx
+    - apps/api/app/services/ticket_stages.py
+    - apps/api/app/services/conversation_split.py
     - apps/dashboard/src/lib/cases-api.ts
     - apps/dashboard/src/api/routes/cases.routes.ts
     - apps/api/app/routers/cases.py
@@ -346,12 +362,19 @@ privacy-security:
   section: govern
   routes:
     - /settings/trust
+    - /settings/bin
   code_globs:
     - apps/dashboard/src/pages/TrustPrivacyPage.tsx
+    - apps/dashboard/src/pages/BinPage.tsx
     - apps/dashboard/src/lib/privacy-api.ts
+    - apps/dashboard/src/lib/models-api.ts
+    - apps/dashboard/src/lib/trash-api.ts
     - apps/api/app/routers/privacy.py
+    - apps/api/app/routers/trash.py
     - apps/api/app/services/privacy.py
-  screenshots: []
+    - apps/api/app/services/trash.py
+  screenshots:
+    - data-region
 
 autonomy:
   section: govern

@@ -25,8 +25,9 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 ## Approve, edit or decline
 
 1. Read the proposal in context of the conversation.
-2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Create task** or **Keep open**. Suggested-reply cards from [AI handling](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
-3. Hover an agent message: icons next to the bubble mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent. Hover an icon to see its label. Escalate sets the conversation to Manual and assigns you.
+2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **What next** or **Keep open**. Suggested-reply cards from [AI handling](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
+3. A suggested chat reply can hold several short messages. The card lists them as **Message 1**, **Message 2** and so on. Choose **Remove message** on one you do not want, or **Edit** to rewrite them as one text; a blank line starts a new message. **Send** delivers them in order.
+4. Hover an agent message: icons next to the bubble mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent. Hover an icon to see its label. Escalate sets the conversation to Manual and assigns you.
 
 ## Teach the agent for next time
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { decisionSourcePath, parseDecisionAddressee, parseDecisionSource } from './decision-source'
+import { decisionSourceRef, parseDecisionAddressee, parseDecisionSource } from './decision-source'
+import { openEntityPath } from './open-entity'
 
 describe('parseDecisionSource', () => {
   it('reads a queue item with its project', () => {
@@ -33,18 +34,16 @@ describe('parseDecisionAddressee', () => {
   })
 })
 
-describe('decisionSourcePath', () => {
+describe('decisionSourceRef', () => {
+  const open = (source: Parameters<typeof decisionSourceRef>[0]) => openEntityPath(decisionSourceRef(source))
+
   it('sends a queue item to its project, or the agenda without one', () => {
-    expect(
-      decisionSourcePath({ type: 'agent_task', id: 't', projectId: 'proj-2' }),
-    ).toBe('/projects/proj-2')
-    expect(decisionSourcePath({ type: 'agent_task', id: 't', projectId: null })).toBe('/agenda')
+    expect(open({ type: 'agent_task', id: 't', projectId: 'proj-2' })).toBe('/projects/proj-2')
+    expect(open({ type: 'agent_task', id: 't', projectId: null })).toBe('/agenda')
   })
 
   it('sends runs to activity and platform changes to Govern drafts', () => {
-    expect(decisionSourcePath({ type: 'agent_run', id: 'r', projectId: null })).toBe('/activity')
-    expect(decisionSourcePath({ type: 'platform_change', id: 'c', projectId: null })).toBe(
-      '/settings/govern?tab=drafts',
-    )
+    expect(open({ type: 'agent_run', id: 'r', projectId: null })).toBe('/activity')
+    expect(open({ type: 'platform_change', id: 'c', projectId: null })).toBe('/settings/govern?tab=drafts')
   })
 })

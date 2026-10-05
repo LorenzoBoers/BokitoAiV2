@@ -205,6 +205,14 @@ async def test_helper_threads_stay_out_of_agent_chats(client: AsyncClient):
     assert r.status_code == 200, r.text
     assert all(row["id"] != conversation_id for row in r.json())
 
+    # Communication Open / Chat with agents must not list it either.
+    r = await client.get("/api/signals?view=all_open&folder=inbox", headers=owner)
+    assert r.status_code == 200, r.text
+    assert all(item["id"] != conversation_id for item in r.json()["items"])
+    r = await client.get("/api/signals?view=all&folder=assistant", headers=owner)
+    assert r.status_code == 200, r.text
+    assert all(item["id"] != conversation_id for item in r.json()["items"])
+
     # Asking for them explicitly does return them.
     r = await client.get("/api/signals/conversations?source=personal", headers=owner)
     assert r.status_code == 200, r.text

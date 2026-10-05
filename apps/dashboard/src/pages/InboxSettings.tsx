@@ -76,12 +76,12 @@ function ChannelKindsMark() {
     <MessageSquare key="widget" size={12} className="text-text-secondary" />,
   ]
   return (
-    <span className="inline-flex items-center" aria-hidden>
+    <span className="relative isolate inline-flex items-center" aria-hidden>
       {chips.map((chip, index) => (
         <span
           key={index}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated ',
+            'relative flex h-6 w-6 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated',
             index > 0 && '-ml-1.5',
           )}
           style={{ zIndex: chips.length - index }}
@@ -480,20 +480,14 @@ export default function InboxSettings() {
 
       <div id="channels" className="scroll-mt-6">
         <SettingsSection
-          title={
-            <span className="inline-flex flex-wrap items-center gap-2.5">
-              <span>{t('channelsPage.listTitle')}</span>
-              <ChannelKindsMark />
-            </span>
-          }
+          title={t('channelsPage.listTitle')}
+          icon={<ChannelKindsMark />}
           description={t('channelsPage.listDescription')}
           actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" onClick={() => setAddOpen(true)}>
-                <Plus size={14} />
-                {t('channelsPage.addChannel')}
-              </Button>
-            </div>
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus size={14} />
+              {t('channelsPage.addChannel')}
+            </Button>
           }
           className="overflow-hidden"
           bodyClassName="p-0"

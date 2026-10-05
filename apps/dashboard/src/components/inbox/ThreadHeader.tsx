@@ -53,8 +53,6 @@ import AssigneeSelector from './AssigneeSelector'
 import AiHandlingPicker from '../ai/AiHandlingPicker'
 import { AI_HANDLING_CHANNELS, type AiHandlingMode } from '../../lib/ai-handling'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
-import { useMembers } from '../../hooks/useMembers'
-import { useAuth } from '../../context/AuthContext'
 import { PRIORITY_META } from './ConversationWorkSection'
 
 const HEADER_ICON = THREAD_HEADER_ICON_CLASS
@@ -129,10 +127,6 @@ export default function ThreadHeader({
   const showHandling =
     !internal && Boolean(onChangeAiHandling) && AI_HANDLING_CHANNELS.has((thread.channel ?? '').toLowerCase())
   const held = handling?.own === 'manual'
-  const { user } = useAuth()
-  const { members } = useMembers()
-  const myNum =
-    members.find((member) => member.email.toLowerCase() === (user?.email ?? '').toLowerCase())?.id ?? null
   const canSnooze = !internal && thread.status !== 'closed' && thread.status !== 'spam'
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
@@ -155,15 +149,15 @@ export default function ThreadHeader({
           <ArrowLeft size={16} />
         </button>
       ) : null}
-      <div className="min-w-0 flex-1 leading-tight">
-        <h2 className="flex items-center gap-1.5 text-sm font-medium text-text-heading">
+      <div className="min-w-0 flex-1 overflow-hidden leading-tight">
+        <h2 className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-text-heading">
           {priority !== 'normal' ? (
             <span
               className={`h-1.5 w-1.5 shrink-0 rounded-full ${priorityMeta.dot}`}
               title={`${t('threadChrome.setPriority')}: ${t(priorityMeta.labelKey)}`}
             />
           ) : null}
-          <span className="truncate-fade">{translateDecisionText(thread.emailSubject, t)}</span>
+          <span className="min-w-0 flex-1 truncate-fade">{translateDecisionText(thread.emailSubject, t)}</span>
         </h2>
         <p className="truncate-fade text-xs text-text-muted">
           {internal ? (
@@ -280,29 +274,16 @@ export default function ThreadHeader({
             }
           />
         ) : null}
-        {myNum != null && thread.owner?.kind === 'team' && thread.status === 'open' ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                disabled={saving}
-                data-testid="thread-pick-up"
-                onClick={() => void onPatch({ assignedToUserId: myNum })}
-                className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 px-2 text-xs font-medium text-text-primary hover:bg-bg-hover disabled:opacity-40"
-              >
-                <Hand size={12} aria-hidden />
-                {t('threadChrome.pickUp')}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{t('threadChrome.pickUpHint')}</TooltipContent>
-          </Tooltip>
-        ) : null}
         <AssigneeSelector
           threadId={String(thread.id)}
           owner={thread.owner}
           currentAssigneeId={thread.assignedToUserId}
           disabled={saving}
-          onAssign={(assignee) => onPatch({ assignee })}
+          onAssign={(assignee) =>
+            assignee.kind === 'team' && (assignee.id == null || assignee.id === '')
+              ? onPatch({ assignee: { kind: 'team', id: null }, assignedToUserId: 0 })
+              : onPatch({ assignee })
+          }
         />
         <Tooltip>
           <TooltipTrigger asChild>

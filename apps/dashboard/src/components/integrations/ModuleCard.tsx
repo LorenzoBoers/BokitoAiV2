@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
 import { ModuleStatusBadge } from './ModuleStatusBadge'
+import { Button } from '../ui/button'
 import {
   moduleHomePath,
   moduleIsOn,
   moduleNavIcon,
-  plannedProviderLabel,
 } from '../../lib/integration-modules'
+import { hostSlugForProvider, resolveHostBrand } from '../../lib/integration-brand'
 import type { IntegrationApplication } from '../../lib/integration-applications'
 import type { IntegrationModuleRow } from '../../lib/integrations-api'
 import { cn } from '../../lib/utils'
@@ -18,20 +19,52 @@ const MAX_PARTNER_LOGOS = 4
 /** Partner logos of the programs a module can run on, overlapped like avatars. */
 export function ModulePartnerLogos({
   applications,
+  extraHostSlugs = [],
   className,
 }: {
   applications: IntegrationApplication[]
+  extraHostSlugs?: string[]
   className?: string
 }) {
-  if (applications.length === 0) return null
-  const shown = applications.slice(0, MAX_PARTNER_LOGOS)
-  const overflow = applications.length - shown.length
+  const fromApps = applications.map((app) => ({
+    key: app.hostSlug,
+    logoUrl: app.brand.logoUrl,
+    logoDarkUrl: app.brand.logoDarkUrl,
+    initials: app.brand.initials,
+    color: app.brand.color,
+    name: app.name,
+    hostSlug: app.brand.hostSlug,
+  }))
+  const seen = new Set(fromApps.map((row) => row.key))
+  const extra = extraHostSlugs
+    .map((slug) => hostSlugForProvider(slug))
+    .filter((hostSlug) => {
+      if (seen.has(hostSlug)) return false
+      seen.add(hostSlug)
+      return true
+    })
+    .map((hostSlug) => {
+      const brand = resolveHostBrand(hostSlug)
+      return {
+        key: hostSlug,
+        logoUrl: brand.logoUrl,
+        logoDarkUrl: brand.logoDarkUrl,
+        initials: brand.initials,
+        color: brand.color,
+        name: brand.name,
+        hostSlug: brand.hostSlug,
+      }
+    })
+  const marks = [...fromApps, ...extra]
+  if (marks.length === 0) return null
+  const shown = marks.slice(0, MAX_PARTNER_LOGOS)
+  const overflow = marks.length - shown.length
 
   return (
     <span className={cn('flex items-center', className)} aria-hidden>
-      {shown.map((app, index) => (
+      {shown.map((mark, index) => (
         <span
-          key={app.hostSlug}
+          key={mark.key}
           className={cn(
             'flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated',
             index > 0 && '-ml-2',
@@ -39,12 +72,12 @@ export function ModulePartnerLogos({
           style={{ zIndex: shown.length - index }}
         >
           <IntegrationHostLogo
-            logoUrl={app.brand.logoUrl}
-            logoDarkUrl={app.brand.logoDarkUrl}
-            initials={app.brand.initials}
-            color={app.brand.color}
-            name={app.name}
-            hostSlug={app.brand.hostSlug}
+            logoUrl={mark.logoUrl}
+            logoDarkUrl={mark.logoDarkUrl}
+            initials={mark.initials}
+            color={mark.color}
+            name={mark.name}
+            hostSlug={mark.hostSlug}
             size="sm"
           />
         </span>
@@ -67,50 +100,7 @@ function ModuleIcon({ slug }: { slug: string }) {
   )
 }
 
-/** Installed-zone card on the Connections hub: what this workspace runs on. */
-export function InstalledModuleCard({
-  module,
-  applications,
-}: {
-  module: IntegrationModuleRow
-  applications: IntegrationApplication[]
-}) {
-  const { t } = useTranslation('nav')
-  const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
-  const description = t(`integrations.modules.${module.slug}.description`, {
-    defaultValue: module.description,
-  })
-  const attached = module.attached_connection_count ?? 0
-
-  return (
-    <Link
-      to={moduleHomePath(module)}
-      className="flex gap-3 rounded-lg border border-border/60 bg-bg-surface p-4 transition-colors hover:border-border-light hover:bg-bg-hover/30"
-    >
-      <ModuleIcon slug={module.slug} />
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-text-heading">{name}</span>
-          <ModuleStatusBadge module={module} />
-        </span>
-        <span className="mt-1 line-clamp-2 block text-sm leading-snug text-text-secondary">
-          {description}
-        </span>
-        <span className="mt-3 flex items-center justify-between gap-3">
-          <ModulePartnerLogos applications={applications} />
-          <span className="text-xs tabular-nums text-text-muted">
-            {t('integrations.modules.attachedCount', {
-              defaultValue: '{{count}} connections',
-              count: attached,
-            })}
-          </span>
-        </span>
-      </span>
-    </Link>
-  )
-}
-
-/** Marketplace module card: install or open a preset, never a partner login. */
+/** Marketplace and Connections hub share this card: install, manage, uninstall. */
 export function MarketplaceModuleCard({
   module,
   applications,
@@ -126,10 +116,16 @@ export function MarketplaceModuleCard({
     defaultValue: module.description,
   })
   const comingSoon = module.status === 'coming_soon'
-  const planned = applications.length === 0 ? module.planned_provider_slugs : []
+  const planned = module.planned_provider_slugs ?? []
 
   return (
-    <article className="flex h-full flex-col rounded-lg border border-border/60 bg-bg-elevated/40 p-4">
+    <article
+      className={cn(
+        'flex h-full flex-col rounded-lg border border-border/60 bg-bg-elevated/40 p-4',
+        comingSoon && 'pointer-events-none cursor-not-allowed opacity-50',
+      )}
+      aria-disabled={comingSoon || undefined}
+    >
       <div className="flex items-start gap-3">
         <ModuleIcon slug={module.slug} />
         <div className="min-w-0 flex-1">
@@ -142,27 +138,18 @@ export function MarketplaceModuleCard({
           </p>
         </div>
       </div>
-      {planned.length > 0 ? (
-        <p className="mt-3 text-xs leading-snug text-text-muted">
-          {t('integrations.modules.planned', {
-            defaultValue: 'Planned connectors: {{providers}}',
-            providers: planned.map(plannedProviderLabel).join(', '),
-          })}
-        </p>
-      ) : null}
       <div className="mt-4 flex flex-1 items-end justify-between gap-2 border-t border-border/50 pt-3">
-        <ModulePartnerLogos applications={applications} />
+        <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
         <div className="flex items-center gap-2">
-          {comingSoon ? null : <ModuleInstallControls module={module} onAction={onAction} compact />}
+          {comingSoon ? null : moduleIsOn(module) ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link to={moduleHomePath(module)}>
+                {t('integrations.modules.manage', { defaultValue: 'Manage' })}
+              </Link>
+            </Button>
+          ) : null}
           {comingSoon ? null : (
-            <Link
-              to={moduleHomePath(module)}
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              {moduleIsOn(module)
-                ? t('integrations.modules.manageCta', { defaultValue: 'Manage {{name}}', name })
-                : t('integrations.modules.setupCta', { defaultValue: 'View {{name}}', name })}
-            </Link>
+            <ModuleInstallControls module={module} onAction={onAction} compact />
           )}
         </div>
       </div>

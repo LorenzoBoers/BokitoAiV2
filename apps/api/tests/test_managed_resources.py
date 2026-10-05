@@ -17,7 +17,7 @@ from app.services.managed_resources import (
     management_payload,
 )
 from app.services.platform_changes import accept_platform_change
-from app.services.workforce_runtime import archive_agent, serialize_runtime_agent
+from app.services.workforce_runtime import archive_agent, serialize_agent
 
 
 def _fields(**overrides):
@@ -175,7 +175,7 @@ async def test_accept_restore_unarchives_managed_agent(client: AsyncClient, sess
     assert agent.managed_origin == "stack"
     assert agent.template_slug == "strategy-optimizer"
 
-    serialized = serialize_runtime_agent(agent)
+    serialized = serialize_agent(agent, view="runtime")
     assert serialized["managed"] is True
     assert serialized["origin_label"] == "Trading"
 

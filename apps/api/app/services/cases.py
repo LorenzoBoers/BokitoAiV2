@@ -1,4 +1,11 @@
-"""Case intake: typed nodes on a Signal thread, routed by CaseTypeBinding."""
+"""Categories on conversations, routed by CaseTypeBinding.
+
+Operator vocabulary: a CaseType is a *category*; a Case is the category of
+one conversation (at most one per conversation). A category with an enabled
+workstream binding makes the case a *ticket* that moves through that
+workstream's stages (`services.ticket_stages`); otherwise it only labels the
+conversation and is done immediately.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +23,6 @@ from app.models.case import (
     CASE_AUDIENCES,
     CASE_BINDING_TARGETS,
     CASE_CREATE_MODES,
-    CASE_FOLLOW_UP_MODES,
     CASE_PROJECT_LINK,
     CASE_STATUSES,
     Case,
@@ -34,6 +40,7 @@ from app.modules.catalog import (
     PLATFORM_SIGNAL_TYPE_LEGACY_NAMES,
     PLATFORM_SIGNAL_TYPE_SEEDS,
 )
+from app.services.agent_rules import normalize_autonomy, parse_autonomy_level
 from app.services.customer_verify import thread_assurance_valid
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -65,8 +72,7 @@ def serialize_case_type(row: CaseType) -> dict[str, Any]:
         "description": row.description,
         "create_mode": row.create_mode,
         "send_mode": getattr(row, "send_mode", "draft"),
-        "autonomy_level": getattr(row, "autonomy_level", "approval"),
-        "follow_up_mode": getattr(row, "follow_up_mode", None) or "track",
+        "autonomy_level": normalize_autonomy(getattr(row, "autonomy_level", "assisted")),
         "ask_threshold": row.ask_threshold,
         "auto_threshold": row.auto_threshold,
         "requires_verification": row.requires_verification,
@@ -120,6 +126,8 @@ def serialize_case(row: Case, case_type: CaseType | None = None) -> dict[str, An
             if normalize_case_status(row.status) in CASE_STATUSES
             else "open"
         ),
+        "is_ticket": row.workstream_id is not None,
+        "stage_key": row.stage_key or None,
         "certainty": row.certainty,
         "create_mode_used": row.create_mode_used,
         "created_by_type": row.created_by_type,
@@ -131,7 +139,17 @@ def serialize_case(row: Case, case_type: CaseType | None = None) -> dict[str, An
 async def enrich_case_run(
     session: AsyncSession, tenant_id: UUID, row: Case, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Add the current playbook step without changing the Case persistence model."""
+    """Add the ticket's stage pipeline and the current playbook step."""
+    from app.services.ticket_stages import stage_payload, workstream_stages
+
+    if row.workstream_id:
+        ws = await session.get(Workstream, row.workstream_id)
+        stages = workstream_stages(ws)
+        payload["stages"] = stages
+        payload["stage"] = stage_payload(row, stages)
+    else:
+        payload["stages"] = []
+        payload["stage"] = None
     if not row.workstream_run_id:
         payload["current_step_name"] = None
         return payload
@@ -180,9 +198,6 @@ async def ensure_platform_case_types(
     now = datetime.utcnow()
     changed = False
     for spec in PLATFORM_SIGNAL_TYPE_SEEDS:
-        mode = str(spec.get("follow_up_mode") or "track")
-        if mode not in CASE_FOLLOW_UP_MODES:
-            mode = "track"
         existing = by_slug.get(spec["slug"])
         if existing is None:
             session.add(
@@ -192,7 +207,6 @@ async def ensure_platform_case_types(
                     name=spec["name"],
                     description=spec["description"],
                     create_mode=spec["create_mode"],
-                    follow_up_mode=mode,
                     ask_threshold=int(spec["ask_threshold"]),
                     auto_threshold=int(spec["auto_threshold"]),
                     audience=spec["audience"],
@@ -220,10 +234,6 @@ async def ensure_platform_case_types(
             and existing.sort_order != int(spec["sort_order"])
         ):
             existing.sort_order = int(spec["sort_order"])
-            row_changed = True
-        # Keep platform spam/abuse on label-only so old tenants converge.
-        if spec["slug"] == "spam_abuse" and existing.follow_up_mode != "label":
-            existing.follow_up_mode = "label"
             row_changed = True
         if row_changed:
             existing.updated_at = now
@@ -309,7 +319,7 @@ async def list_case_types(session: AsyncSession, tenant_id: UUID) -> list[CaseTy
     await ensure_platform_case_types(session, tenant_id)
     result = await session.execute(
         select(CaseType)
-        .where(CaseType.tenant_id == tenant_id)
+        .where(CaseType.tenant_id == tenant_id, CaseType.deleted_at.is_(None))
         .order_by(CaseType.sort_order, CaseType.name)
     )
     return list(result.scalars().all())
@@ -320,7 +330,11 @@ async def get_case_type(
 ) -> CaseType:
     row = (
         await session.execute(
-            select(CaseType).where(CaseType.id == type_id, CaseType.tenant_id == tenant_id)
+            select(CaseType).where(
+                CaseType.id == type_id,
+                CaseType.tenant_id == tenant_id,
+                CaseType.deleted_at.is_(None),
+            )
         )
     ).scalar_one_or_none()
     if row is None:
@@ -337,8 +351,7 @@ async def create_case_type(
     description: str = "",
     create_mode: str = "ask_customer",
     send_mode: str = "draft",
-    autonomy_level: str = "approval",
-    follow_up_mode: str = "track",
+    autonomy_level: str = "assisted",
     ask_threshold: int = 6,
     auto_threshold: int = 9,
     requires_verification: bool = False,
@@ -354,19 +367,20 @@ async def create_case_type(
     slug = slugify(slug or name)
     if create_mode not in CASE_CREATE_MODES:
         raise HTTPException(status_code=400, detail="Invalid create_mode")
-    if follow_up_mode not in CASE_FOLLOW_UP_MODES:
-        raise HTTPException(status_code=400, detail="Invalid follow_up_mode")
     if send_mode not in ("draft", "ask", "send"):
         raise HTTPException(status_code=400, detail="Invalid send_mode")
-    if autonomy_level not in ("manual", "approval", "auto"):
-        raise HTTPException(status_code=400, detail="Invalid autonomy_level")
+    autonomy_level = parse_autonomy_level(autonomy_level)
     if audience not in CASE_AUDIENCES:
         raise HTTPException(status_code=400, detail="Invalid audience")
     if allow_project_link not in CASE_PROJECT_LINK:
         raise HTTPException(status_code=400, detail="Invalid allow_project_link")
     clash = (
         await session.execute(
-            select(CaseType).where(CaseType.tenant_id == tenant_id, CaseType.slug == slug)
+            select(CaseType).where(
+                CaseType.tenant_id == tenant_id,
+                CaseType.slug == slug,
+                CaseType.deleted_at.is_(None),
+            )
         )
     ).scalar_one_or_none()
     if clash:
@@ -379,7 +393,6 @@ async def create_case_type(
         create_mode=create_mode,
         send_mode=send_mode,
         autonomy_level=autonomy_level,
-        follow_up_mode=follow_up_mode,
         ask_threshold=max(0, min(11, int(ask_threshold))),
         auto_threshold=max(0, min(11, int(auto_threshold))),
         requires_verification=requires_verification,
@@ -439,13 +452,7 @@ async def update_case_type(
             raise HTTPException(status_code=400, detail="Invalid send_mode")
         row.send_mode = patch["send_mode"]
     if "autonomy_level" in patch and patch["autonomy_level"] is not None:
-        if patch["autonomy_level"] not in ("manual", "approval", "auto"):
-            raise HTTPException(status_code=400, detail="Invalid autonomy_level")
-        row.autonomy_level = patch["autonomy_level"]
-    if "follow_up_mode" in patch and patch["follow_up_mode"] is not None:
-        if patch["follow_up_mode"] not in CASE_FOLLOW_UP_MODES:
-            raise HTTPException(status_code=400, detail="Invalid follow_up_mode")
-        row.follow_up_mode = patch["follow_up_mode"]
+        row.autonomy_level = parse_autonomy_level(patch["autonomy_level"])
     if "ask_threshold" in patch and patch["ask_threshold"] is not None:
         row.ask_threshold = max(0, min(11, int(patch["ask_threshold"])))
     if "auto_threshold" in patch and patch["auto_threshold"] is not None:
@@ -472,23 +479,19 @@ async def update_case_type(
     if commit:
         await session.commit()
         await session.refresh(row)
-        # Switching to label-only closes leftover queue cases for this type.
-        if row.follow_up_mode == "label":
-            await _close_label_queue_cases(session, tenant_id, row.id, commit=True)
-            await session.refresh(row)
     else:
         await session.flush()
     return row
 
 
-async def _close_label_queue_cases(
+async def _close_open_cases(
     session: AsyncSession,
     tenant_id: UUID,
     case_type_id: UUID,
     *,
     commit: bool = True,
 ) -> int:
-    """Finish active queue rows for a label-only type."""
+    """Finish the open cases of a category that is being retired."""
     active = ("open", "waiting")
     rows = list(
         (
@@ -514,14 +517,32 @@ async def _close_label_queue_cases(
 
 
 async def delete_case_type(
-    session: AsyncSession, tenant_id: UUID, type_id: UUID, *, commit: bool = True
+    session: AsyncSession,
+    tenant_id: UUID,
+    type_id: UUID,
+    *,
+    commit: bool = True,
+    permanent: bool = False,
 ) -> dict[str, Any]:
-    """Hard-delete when unused; otherwise archive (disable) and clear the queue.
-
-    Cases keep their `case_type_id` for history, so a hard delete is impossible
-    while cases exist — we disable the type and close open queue rows.
-    """
+    """Move unused types to the Bin; types with cases stay disabled (not Bin)."""
     from sqlalchemy import func
+
+    from app.services.trash import load_tenant, move_to_bin
+
+    if permanent:
+        row = (
+            await session.execute(
+                select(CaseType).where(CaseType.id == type_id, CaseType.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return {"ok": True, "archived": False, "cases": 0}
+        await session.delete(row)
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
+        return {"ok": True, "archived": False, "cases": 0}
 
     row = await get_case_type(session, tenant_id, type_id)
     if row.module_slug:
@@ -550,18 +571,21 @@ async def delete_case_type(
         await session.delete(binding)
 
     if case_count == 0:
-        await session.delete(row)
-        if commit:
-            await session.commit()
-        else:
-            await session.flush()
+        tenant = await load_tenant(session, tenant_id)
+        await move_to_bin(
+            session,
+            tenant,
+            resource_type="case_type",
+            row=row,
+            user_id=None,
+            commit=commit,
+        )
         return {"ok": True, "archived": False, "cases": 0}
 
     row.enabled = False
-    row.follow_up_mode = "label"
     row.updated_at = datetime.utcnow()
     session.add(row)
-    closed = await _close_label_queue_cases(session, tenant_id, type_id, commit=False)
+    closed = await _close_open_cases(session, tenant_id, type_id, commit=False)
     if commit:
         await session.commit()
     else:
@@ -718,8 +742,9 @@ async def list_cases(
     signal_id: UUID | None = None,
     status: str | None = None,
     case_type_id: UUID | None = None,
+    project_id: UUID | None = None,
     q: str | None = None,
-    include_labels: bool = True,
+    tickets_only: bool = False,
     limit: int | None = None,
     offset: int | None = None,
 ) -> list[tuple[Case, CaseType]]:
@@ -735,8 +760,10 @@ async def list_cases(
         stmt = stmt.where(Case.status == status)
     if case_type_id:
         stmt = stmt.where(Case.case_type_id == case_type_id)
-    if not include_labels:
-        stmt = stmt.where(CaseType.follow_up_mode != "label")
+    if project_id:
+        stmt = stmt.where(Case.project_id == project_id)
+    if tickets_only:
+        stmt = stmt.where(Case.workstream_id.is_not(None))
     if q and q.strip():
         needle = f"%{q.strip()}%"
         stmt = stmt.where(
@@ -881,11 +908,23 @@ async def link_case(
     created_by_type: str = "user",
     created_by_id: str = "",
 ) -> Case:
+    from app.services.ticket_stages import move_case_stage
+
     case, _ = await get_case(session, tenant_id, case_id)
     if target_kind == "project":
         case.project_id = target_id
+        case.status = "open"
     elif target_kind == "workstream":
         case.workstream_id = target_id
+        # Enter the pipeline before the run starts so its first step can move on.
+        await move_case_stage(
+            session,
+            tenant_id,
+            case,
+            status="open",
+            actor_type=created_by_type,
+            actor_id=created_by_id,
+        )
         if auto_start_run:
             from app.services.workstreams import start_run
 
@@ -906,12 +945,68 @@ async def link_case(
             case.project_id = case.project_id or run.project_id
     else:
         raise HTTPException(status_code=400, detail="Invalid target_kind")
-    case.status = "open"
     case.updated_at = datetime.utcnow()
     session.add(case)
     await session.commit()
     await session.refresh(case)
     return case
+
+
+async def _clear_category(session: AsyncSession, tenant_id: UUID, case: Case) -> str:
+    """Remove a conversation's category before an operator recategorizes it."""
+    from sqlalchemy import update
+
+    from app.models.orchestra import WorkstreamRun
+    from app.models.workbench import WorkJob
+
+    case_type = await session.get(CaseType, case.case_type_id)
+    if case.workstream_run_id:
+        run = await session.get(WorkstreamRun, case.workstream_run_id)
+        if run is not None and run.status not in ("completed", "cancelled", "failed"):
+            now = datetime.utcnow()
+            run.status = "cancelled"
+            run.wait_until = None
+            run.completed_at = now
+            run.updated_at = now
+            session.add(run)
+    await session.execute(
+        update(WorkJob)
+        .where(WorkJob.tenant_id == tenant_id, WorkJob.case_id == case.id)
+        .values(case_id=None)
+    )
+    await session.delete(case)
+    await session.flush()
+    return case_type.name if case_type else ""
+
+
+def _log_category(
+    session: AsyncSession,
+    tenant_id: UUID,
+    case: Case,
+    case_type: CaseType,
+    previous_name: str | None,
+    actor_type: str,
+    actor_id: str,
+) -> None:
+    from app.models.signal import SignalEvent
+
+    session.add(
+        SignalEvent(
+            signal_id=case.signal_id,
+            tenant_id=tenant_id,
+            event_type="category_set",
+            actor_type=actor_type or "system",
+            actor_id=actor_id or "",
+            payload_json=json.dumps(
+                {
+                    "case_id": str(case.id),
+                    "category": case_type.name,
+                    "previous": previous_name,
+                    "proposed": case.status == "proposed",
+                }
+            ),
+        )
+    )
 
 
 async def create_case(
@@ -942,6 +1037,33 @@ async def create_case(
     if signal is None:
         raise HTTPException(status_code=404, detail="Thread not found")
 
+    existing = (
+        await session.execute(
+            select(Case).where(Case.tenant_id == tenant_id, Case.signal_id == signal.id)
+        )
+    ).scalar_one_or_none()
+    previous_name: str | None = None
+    if existing is not None:
+        # The same category again re-reads a proposal or a verification wait
+        # (more certainty, or the visitor verified); anything further along stays.
+        refresh = existing.workstream_id is None and (
+            existing.status == "proposed"
+            or (existing.status == "waiting" and case_type.requires_verification)
+        )
+        if existing.case_type_id == case_type.id and not refresh:
+            return {"case": serialize_case(existing, case_type), "existing": True}
+        if existing.case_type_id != case_type.id and actor != "operator":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This conversation already has a category. Split the conversation "
+                    "to give the new request its own category."
+                ),
+            )
+        cleared = await _clear_category(session, tenant_id, existing)
+        if existing.case_type_id != case_type.id:
+            previous_name = cleared
+
     score = 10 if certainty is None and actor == "operator" else int(certainty or 0)
     score = max(0, min(10, score))
     # Explicit project beats the thread's; the type's default is the fallback.
@@ -965,6 +1087,7 @@ async def create_case(
                 created_by_id=created_by_id,
             )
             session.add(case)
+            _log_category(session, tenant_id, case, case_type, previous_name, created_by_type, created_by_id)
             await session.commit()
             await session.refresh(case)
             return {
@@ -974,35 +1097,9 @@ async def create_case(
             }
 
     mode = case_type.create_mode
-    follow_up = getattr(case_type, "follow_up_mode", None) or "track"
-    if follow_up not in CASE_FOLLOW_UP_MODES:
-        follow_up = "track"
-
-    # Label-only types stamp the thread and leave the queue immediately.
-    if follow_up == "label":
-        case = Case(
-            tenant_id=tenant_id,
-            case_type_id=case_type.id,
-            signal_id=signal.id,
-            contact_id=signal.contact_id or signal.assurance_contact_id,
-            project_id=project_id,
-            title=title.strip() or case_type.name,
-            summary=summary.strip(),
-            payload_json=json.dumps(payload or {}),
-            status="done",
-            certainty=score,
-            create_mode_used=mode,
-            created_by_type=created_by_type,
-            created_by_id=created_by_id,
-        )
-        session.add(case)
-        await session.commit()
-        await session.refresh(case)
-        return {
-            "case": serialize_case(case, case_type),
-            "bindings": 0,
-            "label_only": True,
-        }
+    bindings = await resolve_case_bindings(
+        session, tenant_id, case_type.id, project_id=project_id
+    )
 
     # A certain read files the signal; an unsure read becomes a confirm chip on
     # the thread (`proposed`), so the operator accepts or dismisses it where they
@@ -1025,6 +1122,41 @@ async def create_case(
         status = "open" if certain or score >= case_type.ask_threshold else "proposed"
         ask_operator = False
 
+    # Without a workstream binding the category only labels the conversation:
+    # an accepted read is done at once, an unsure one still waits as a proposal.
+    if not any(b.target_kind == "workstream" for b in bindings):
+        project_binding = next((b for b in bindings if b.auto_link), None)
+        if project_binding is not None and project_id is None:
+            project_id = project_binding.target_id
+        label_status = "proposed" if status == "proposed" else "done"
+        case = Case(
+            tenant_id=tenant_id,
+            case_type_id=case_type.id,
+            signal_id=signal.id,
+            contact_id=signal.contact_id or signal.assurance_contact_id,
+            project_id=project_id,
+            title=title.strip() or case_type.name,
+            summary=summary.strip(),
+            payload_json=json.dumps(payload or {}),
+            status=label_status,
+            certainty=score,
+            create_mode_used=mode,
+            created_by_type=created_by_type,
+            created_by_id=created_by_id,
+        )
+        session.add(case)
+        _log_category(session, tenant_id, case, case_type, previous_name, created_by_type, created_by_id)
+        await session.commit()
+        await session.refresh(case)
+        out: dict[str, Any] = {
+            "case": serialize_case(case, case_type),
+            "bindings": len(bindings),
+            "label_only": True,
+        }
+        if label_status == "proposed":
+            out["proposed"] = True
+        return out
+
     case = Case(
         tenant_id=tenant_id,
         case_type_id=case_type.id,
@@ -1041,12 +1173,10 @@ async def create_case(
         created_by_id=created_by_id,
     )
     session.add(case)
+    _log_category(session, tenant_id, case, case_type, previous_name, created_by_type, created_by_id)
     await session.commit()
     await session.refresh(case)
 
-    bindings = await resolve_case_bindings(
-        session, tenant_id, case_type.id, project_id=project_id
-    )
     extra: dict[str, Any] = {"bindings": len(bindings)}
 
     # A proposal waits for the operator on the thread, so it never turns into a
@@ -1104,6 +1234,13 @@ async def _route_accepted_case(
     bindings = await resolve_case_bindings(
         session, tenant_id, case.case_type_id, project_id=case.project_id
     )
+    if not any(b.target_kind == "workstream" for b in bindings):
+        case.status = "done"
+        case.updated_at = datetime.utcnow()
+        session.add(case)
+        await session.commit()
+        await session.refresh(case)
+        return case
     if len(bindings) == 1 and bindings[0].auto_link and not case.workstream_id:
         return await link_case(
             session,
@@ -1123,18 +1260,47 @@ async def update_case(
     tenant_id: UUID,
     case_id: UUID,
     patch: dict[str, Any],
-) -> Case:
+    *,
+    actor_type: str = "user",
+    actor_id: str = "",
+) -> Case | None:
+    """Edit a case. Returns None when a dismissed proposal was removed."""
+    from app.services.ticket_stages import move_case_stage
+
     case, _ = await get_case(session, tenant_id, case_id)
     was_proposed = case.status == "proposed"
     if "title" in patch and patch["title"] is not None:
         case.title = str(patch["title"]).strip()
     if "summary" in patch and patch["summary"] is not None:
         case.summary = str(patch["summary"])
-    if "status" in patch and patch["status"] is not None:
+    if patch.get("stage_key"):
+        if case.workstream_id is None:
+            raise HTTPException(status_code=400, detail="Only tickets have stages")
+        await move_case_stage(
+            session,
+            tenant_id,
+            case,
+            stage_key=str(patch["stage_key"]),
+            actor_type=actor_type,
+            actor_id=actor_id,
+        )
+    elif "status" in patch and patch["status"] is not None:
         normalized_status = normalize_case_status(str(patch["status"]))
         if normalized_status not in CASE_STATUSES:
             raise HTTPException(status_code=400, detail="Invalid status")
-        case.status = normalized_status
+        if was_proposed and normalized_status == "done":
+            # A dismissed proposal never was the conversation's category.
+            await _clear_category(session, tenant_id, case)
+            await session.commit()
+            return None
+        await move_case_stage(
+            session,
+            tenant_id,
+            case,
+            status=normalized_status,
+            actor_type=actor_type,
+            actor_id=actor_id,
+        )
     if "project_id" in patch:
         raw = patch["project_id"]
         case.project_id = UUID(str(raw)) if raw else None

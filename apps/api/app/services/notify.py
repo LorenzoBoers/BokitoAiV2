@@ -181,6 +181,23 @@ def channels_for(
     return enabled
 
 
+def serialize_notification(n: Notification) -> dict[str, Any]:
+    """One bell row: the list endpoint and the ``notification`` gateway event share it."""
+    created = n.created_at or datetime.utcnow()
+    return {
+        "id": str(n.id),
+        "kind": n.kind,
+        "title": n.title,
+        "body": n.body,
+        "status": n.status,
+        "tier": n.tier or 2,
+        "payload": json.loads(n.payload_json or "{}"),
+        "created_at": created.isoformat(),
+        "user_id": str(n.user_id) if n.user_id else None,
+        "signal_id": str(n.signal_id) if n.signal_id else None,
+    }
+
+
 async def _users(session: AsyncSession, ids: Iterable[UUID]) -> list[User]:
     unique = list(dict.fromkeys(uid for uid in ids if uid))
     if not unique:
@@ -319,9 +336,7 @@ async def notify(
     if created:
         await session.commit()
         for row in created:
-            await publish_notification(
-                tenant_id, notification_id=row.id, kind=row.kind, title=row.title, tier=row.tier
-            )
+            await publish_notification(row)
     if push_targets:
         from app.services.push import send_push_to_user
 

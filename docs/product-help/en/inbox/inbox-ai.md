@@ -43,6 +43,8 @@ A conversation exception lasts until the conversation closes. Channel and contac
 
 The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies.
 
+Replies follow the channel. Email gets one structured message. On WhatsApp and website chat the AI writes like a person in a chat: up to five short messages, sent in order with a short typing pause, and the AI note only on the first one. If one message fails to send, the rest wait. In **Assisted**, the draft card holds the same messages so you can remove or edit them before **Send** (see [Decisions](/docs/ai/decisions)).
+
 ## Set reply and team language
 
 1. Open **Language** on the same page.
@@ -65,4 +67,4 @@ The same mode decides who an unknown chatter is. When a visitor gives an email o
 
 ## What to do next
 
-Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Use **Who answers** on the same page only when a channel should skip the default agent — that is routing, not AI handling.
+Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Set **Who answers** on [Channels](/docs/inbox/channels) when a channel should skip the workspace default agent — that is routing, not AI handling.

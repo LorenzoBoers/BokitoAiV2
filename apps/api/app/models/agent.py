@@ -18,7 +18,6 @@ class Agent(SQLModel, table=True):
     owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     # One operator-facing shape. ``system_prompt`` is retained as the storage
     # column; APIs expose it as purpose while older callers may still send it.
-    audience: str = Field(default="internal")  # customers | partners | internal
     default_channels_json: str = Field(default="[]")
     default_signal_types_json: str = Field(default="[]")
     # Who may open a direct chat with this company agent.
@@ -56,6 +55,10 @@ class Agent(SQLModel, table=True):
     runtime_status: str = Field(default="standby")
     parent_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
     current_activity_summary: str = ""
+    # Conversation this agent is currently working (inbox / Ask / inbound).
+    current_signal_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    # Last time the agent ran or replied; updated_at only tracks config edits.
+    last_active_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

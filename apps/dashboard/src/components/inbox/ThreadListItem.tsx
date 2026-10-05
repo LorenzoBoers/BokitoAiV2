@@ -40,19 +40,21 @@ import {
 import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
+import { STAGE_KIND_DOT } from '../../lib/cases-api'
+import { signalTypeLabel } from '../../lib/signal-type-catalog'
 
 type Props = {
   thread: InboxThread
   isSelected: boolean
   onSelect: (id: ThreadId) => void
-  onMarkRead: (id: ThreadId) => void
-  onMarkUnread: (id: ThreadId) => void
-  onTogglePin: (id: ThreadId, currentPinned: boolean) => void
+  onMarkRead?: (id: ThreadId) => void
+  onMarkUnread?: (id: ThreadId) => void
+  onTogglePin?: (id: ThreadId, currentPinned: boolean) => void
   onSnooze?: (id: ThreadId) => void
   /** Close/archive an open thread (shown outside Closed/Spam). */
   onClose?: (id: ThreadId) => void
   /** Permanently delete — only used for Closed/Spam rows. */
-  onDelete: (id: ThreadId) => void
+  onDelete?: (id: ThreadId) => void
   deleting?: boolean
   variant?: 'customer' | 'direct'
   /** Bulk selection (checkbox) state; undefined hides the checkbox entirely. */
@@ -72,6 +74,8 @@ type Props = {
   assigneeAvatarColor?: string | null
   assigneeAvatarImageUrl?: string | null
   compact?: boolean
+  /** Hide pin/read/close controls (Overview and other link-style lists). */
+  showActions?: boolean
   /** Stagger index for list-row enter animation (cap in parent). */
   enterIndex?: number
 }
@@ -144,6 +148,7 @@ function ThreadListItem({
   assigneeAvatarColor = null,
   assigneeAvatarImageUrl = null,
   compact = false,
+  showActions = true,
   enterIndex,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
@@ -151,11 +156,24 @@ function ThreadListItem({
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
   const isAgentThread = isInternalThread(thread)
+  const ticket =
+    !isAgentThread && thread.categoryCase && thread.categoryCase.status !== 'proposed'
+      ? thread.categoryCase
+      : null
+  const ticketName = ticket ? signalTypeLabel(ticket, i18n.language) : ''
   const visitorLabel = t('contactPanel.widgetVisitor')
   const contactLabel = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel)
   const readableEmail = isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail?.trim()
+  const untitledFallback = () => {
+    const preview = translateMockAgentBody(thread.lastMessagePreview, t).trim().split('\n')[0]
+    return preview || t('listItem.untitled')
+  }
   const primaryLabel = isDirect
-    ? translateDecisionText(thread.emailSubject, t) || t('listItem.untitled')
+    ? (() => {
+        const subject = (thread.emailSubject || '').trim()
+        if (!subject || subject === 'New conversation' || subject === '(No subject)') return untitledFallback()
+        return translateDecisionText(subject, t) || untitledFallback()
+      })()
     : isAgentThread
       ? threadCounterpartyName(thread, {
           agent: t('listItem.agent'),
@@ -190,7 +208,7 @@ function ThreadListItem({
           return ''
         })()
       : thread.lastMessageDirection === 'outbound' && rawPreview
-        ? `${t('listItem.you')}: ${rawPreview}`
+        ? `${thread.lastMessageByAgent ? t('listItem.ai') : t('listItem.you')}: ${rawPreview}`
         : rawPreview
   // One arrow at most: a decision card waits (AI colour) or the customer
   // spoke last (accent). "Their turn" has no mark — the preview reads "You:".
@@ -299,13 +317,13 @@ function ThreadListItem({
               {primaryLabel}
             </span>
             <div className="flex shrink-0 items-center gap-0.5">
-              {thread.status === 'closed' || thread.status === 'spam' ? (
+              {showActions && (thread.status === 'closed' || thread.status === 'spam') ? (
                 <button
                   type="button"
                   disabled={deleting}
                   onClick={(e) => {
                     e.stopPropagation()
-                    onDelete(thread.id)
+                    onDelete?.(thread.id)
                   }}
                   onKeyDown={stop}
                   title={t('threadList.deleteThread')}
@@ -314,7 +332,7 @@ function ThreadListItem({
                 >
                   <Trash2 size={13} />
                 </button>
-              ) : onClose ? (
+              ) : showActions && onClose ? (
                 <button
                   type="button"
                   disabled={deleting}
@@ -330,6 +348,7 @@ function ThreadListItem({
                   <Archive size={13} />
                 </button>
               ) : null}
+              {showActions ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -348,19 +367,19 @@ function ThreadListItem({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" sideOffset={4} onClick={stop}>
                   {thread.hasUnread ? (
-                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkRead(thread.id)}>
+                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkRead?.(thread.id)}>
                       <MailOpen size={13} className="text-text-muted" />
                       {t('threadChrome.markRead')}
                     </DropdownMenuItem>
                   ) : (
-                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkUnread(thread.id)}>
+                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkUnread?.(thread.id)}>
                       <Mail size={13} className="text-text-muted" />
                       {t('threadChrome.markUnread')}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
                     className="gap-2"
-                    onSelect={() => onTogglePin(thread.id, thread.isPinned)}
+                    onSelect={() => onTogglePin?.(thread.id, thread.isPinned)}
                   >
                     {thread.isPinned ? (
                       <PinOff size={13} className="text-text-muted" />
@@ -377,6 +396,7 @@ function ThreadListItem({
                   ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
+              ) : null}
               <span
                 className="text-xs tabular-nums text-text-muted"
                 title={
@@ -405,6 +425,18 @@ function ThreadListItem({
             <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-secondary">
               {secondaryLabel}
             </span>
+            {ticket ? (
+              <span
+                className="inline-flex max-w-[45%] shrink-0 items-center gap-1 rounded-full border border-border/70 px-1.5 text-2xs text-text-muted"
+                title={ticket.stage ? `${ticketName} · ${ticket.stage.name}` : ticketName}
+                data-testid="thread-row-ticket"
+              >
+                {ticket.stage ? (
+                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_KIND_DOT[ticket.stage.kind])} />
+                ) : null}
+                <span className="truncate">{ticket.stage?.name ?? ticketName}</span>
+              </span>
+            ) : null}
             {handlingOverride ? (
               <span
                 title={tc(`aiHandling.modes.${handlingOverride}.label`)}

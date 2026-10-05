@@ -19,7 +19,14 @@ from app.models.api_token import ApiToken
 from app.models.auth import Tenant
 from app.models.case import CaseType
 from app.models.orchestra import Workstream
-from app.services.agent_rules import AUTONOMY_MODES, dry_run, normalize_autonomy, set_rules, workspace_rules
+from app.services.agent_rules import (
+    AUTONOMY_MODES,
+    dry_run,
+    normalize_autonomy,
+    parse_autonomy_level,
+    set_rules,
+    workspace_rules,
+)
 from app.services.audit import record_audit, search_audit, serialize_audit
 from app.services.platform_changes import (
     accept_platform_change,
@@ -214,7 +221,7 @@ async def list_autonomy_scopes(
                 "id": str(row.id),
                 "slug": row.slug,
                 "name": row.name,
-                "autonomy_level": row.autonomy_level,
+                "autonomy_level": normalize_autonomy(row.autonomy_level),
                 # draft/ask: replies on threads with this type never go out
                 # autonomously (AI handling safeguard).
                 "send_mode": row.send_mode,
@@ -222,7 +229,7 @@ async def list_autonomy_scopes(
             for row in case_types
         ],
         "workstreams": [
-            {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
+            {"id": str(row.id), "name": row.name, "autonomy_level": normalize_autonomy(row.autonomy_level)}
             for row in workstreams
         ],
     }
@@ -237,8 +244,7 @@ async def update_autonomy_scope(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    if body.autonomy_level not in ("manual", "approval", "auto"):
-        raise HTTPException(status_code=400, detail="Invalid autonomy level")
+    level = parse_autonomy_level(body.autonomy_level)
     model = CaseType if scope_kind == "case_type" else Workstream if scope_kind == "workstream" else None
     if model is None:
         raise HTTPException(status_code=400, detail="Invalid autonomy scope")
@@ -249,8 +255,8 @@ async def update_autonomy_scope(
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="Autonomy scope not found")
-    previous = row.autonomy_level
-    row.autonomy_level = body.autonomy_level
+    previous = normalize_autonomy(row.autonomy_level)
+    row.autonomy_level = level
     row.updated_at = datetime.utcnow()
     session.add(row)
     await record_audit(
@@ -262,13 +268,13 @@ async def update_autonomy_scope(
         resource_type=scope_kind,
         resource_id=str(row.id),
         outcome="applied",
-        summary=f"Autonomy for {row.name} changed from {previous} to {body.autonomy_level}",
+        summary=f"Autonomy for {row.name} changed from {previous} to {level}",
         before={"autonomy_level": previous},
-        after={"autonomy_level": body.autonomy_level},
+        after={"autonomy_level": level},
         commit=False,
     )
     await session.commit()
-    payload: dict = {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level}
+    payload: dict = {"id": str(row.id), "name": row.name, "autonomy_level": level}
     if scope_kind == "case_type":
         payload["slug"] = getattr(row, "slug", "") or ""
     return payload
@@ -415,30 +421,9 @@ async def list_passports(
     )
     agents = result.scalars().all()
 
-    def _list(raw: str) -> list:
-        try:
-            value = json.loads(raw or "[]")
-            return value if isinstance(value, list) else []
-        except (json.JSONDecodeError, TypeError):
-            return []
+    from app.services.workforce_runtime import serialize_agent
 
-    return {
-        "items": [
-            {
-                "id": str(a.id),
-                "name": a.name,
-                "role": a.role,
-                "model": a.model,
-                "provider": a.provider,
-                "autonomy_level": a.autonomy_level,
-                "allowed_tools": _list(a.tools_json),
-                "permission_scopes": _list(a.permission_scopes_json),
-                "is_active": a.is_active,
-                "runtime_status": a.runtime_status,
-            }
-            for a in agents
-        ]
-    }
+    return {"items": [serialize_agent(a, view="passport") for a in agents]}
 
 
 class RuleItem(BaseModel):
@@ -531,7 +516,7 @@ async def test_workspace_rules(
 
 class PassportUpdate(BaseModel):
     autonomy_level: str | None = None  # manual | assisted | autonomous
-    allowed_tools: list[str] | None = None
+    tools: list[str] | None = None
     permission_scopes: list[str] | None = None
 
 
@@ -557,9 +542,9 @@ async def update_passport(
             raise HTTPException(status_code=400, detail="Invalid autonomy level")
         agent.autonomy_level = level
         changed["autonomy_level"] = level
-    if body.allowed_tools is not None:
-        agent.tools_json = json.dumps([str(t) for t in body.allowed_tools])
-        changed["allowed_tools"] = body.allowed_tools
+    if body.tools is not None:
+        agent.tools_json = json.dumps([str(t) for t in body.tools])
+        changed["tools"] = body.tools
     if body.permission_scopes is not None:
         agent.permission_scopes_json = json.dumps([str(s) for s in body.permission_scopes])
         changed["permission_scopes"] = body.permission_scopes
@@ -580,28 +565,9 @@ async def update_passport(
         )
         await session.commit()
 
-    def _list(raw: str) -> list:
-        try:
-            value = json.loads(raw or "[]")
-            return value if isinstance(value, list) else []
-        except (json.JSONDecodeError, TypeError):
-            return []
+    from app.services.workforce_runtime import serialize_agent
 
-    return {
-        "ok": True,
-        "passport": {
-            "id": str(agent.id),
-            "name": agent.name,
-            "role": agent.role,
-            "model": agent.model,
-            "provider": agent.provider,
-            "autonomy_level": agent.autonomy_level,
-            "allowed_tools": _list(agent.tools_json),
-            "permission_scopes": _list(agent.permission_scopes_json),
-            "is_active": agent.is_active,
-            "runtime_status": agent.runtime_status,
-        },
-    }
+    return {"ok": True, "passport": serialize_agent(agent, view="passport")}
 
 
 @router.get("/changes")

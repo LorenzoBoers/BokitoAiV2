@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
@@ -8,15 +7,16 @@ import { isSubQueue, SUB_QUEUES, type HubLeaf, type SubQueue } from '../../lib/m
 import { listTeams, type Team } from '../../lib/teams-api'
 import { Card } from '../ui/card'
 import { SUB_QUEUE_LABEL_KEYS } from './QueueSublist'
+import { SavedFoldersSection } from './SavedFoldersSection'
+import { TagRegistrySection } from './TagRegistrySection'
 
 /**
  * Settings card: the uniform folder system for Communication.
  *
  * - Default sub-view: which queue All communication and each pinned team open
  *   on (global default + per-team override, roams via /me/preferences).
- *
- * The former tag vocabulary was superseded by Signals: classification is
- * managed as signal types on `/settings/signals`.
+ * - Folders: saved filters shown under Folders in the sidebar.
+ * - Tags: the workspace tag list (TagRegistrySection).
  */
 export default function FoldersAndTagsManager() {
   const { t } = useTranslation('nav')
@@ -132,20 +132,8 @@ export default function FoldersAndTagsManager() {
         </div>
       </div>
 
-      <div className="px-4 py-3">
-        <p className="text-sm font-medium text-text-heading">
-          {t('foldersTags.casesTitle', { defaultValue: 'Classification moved to Signals' })}
-        </p>
-        <p className="text-xs text-text-secondary">
-          {t('foldersTags.casesDescription', {
-            defaultValue:
-              'Free-form tags were replaced by intake types: one catalog that agents and operators classify conversations with.',
-          })}{' '}
-          <Link to="/settings/signals" className="font-medium text-accent hover:underline">
-                {t('casesPage.openTypes', { defaultValue: 'Open signal types' })}
-          </Link>
-        </p>
-      </div>
+      <SavedFoldersSection />
+      <TagRegistrySection />
     </Card>
   )
 }

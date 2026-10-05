@@ -1,9 +1,12 @@
-"""Project canvas — get-or-create, patch widgets, revision conflicts."""
+"""Project/tenant canvas nodes — compile, CRUD, Govern, refresh trigger."""
 
 from __future__ import annotations
 
 import pytest
+from fastapi import HTTPException
 from httpx import AsyncClient
+
+from app.services.project_canvas_compile import CanvasCompileError, compile_canvas, parse_source
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
@@ -14,79 +17,194 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
-@pytest.mark.asyncio
-async def test_project_canvas_seed_and_patch(client: AsyncClient):
-    headers = await _auth_headers(client)
+def test_compile_source_roundtrip():
+    source = """
+import { Stack, Grid, Stat, Heading } from "bokito/canvas"
+
+export default function Canvas() {
+  return (
+    <Stack>
+      <Heading>Launch</Heading>
+      <Grid columns={2}>
+        <Stat title="Open items" value="4" unit="items" source="Queue · today" />
+        <Stat title="Done" value="2" />
+      </Grid>
+    </Stack>
+  )
+}
+"""
+    compiled_source, tree = compile_canvas(source=source)
+    assert tree["type"] == "Stack"
+    assert tree["children"][0]["type"] == "Heading"
+    assert tree["children"][1]["type"] == "Grid"
+    assert tree["children"][1]["children"][0]["props"]["value"] == "4"
+    again, tree2 = compile_canvas(source=compiled_source)
+    assert tree2["type"] == "Stack"
+    assert again
+
+
+def test_compile_rejects_fetch_and_foreign_import():
+    with pytest.raises(CanvasCompileError):
+        parse_source(
+            'import { Stack } from "other"\nexport default function C() { return <Stack /> }'
+        )
+    with pytest.raises(CanvasCompileError):
+        parse_source(
+            'import { Stack } from "bokito/canvas"\n'
+            "export default function C() { fetch('/x'); return <Stack /> }"
+        )
+    with pytest.raises(CanvasCompileError):
+        parse_source("<NotAThing />")
+
+
+async def _make_project(client: AsyncClient, headers: dict[str, str], slug: str) -> str:
     created = await client.post(
         "/api/workforce/projects",
         headers=headers,
         json={
-            "name": "Ops board",
-            "slug": "ops-board-canvas",
+            "name": slug.replace("-", " ").title(),
+            "slug": slug,
             "autonomous_scope": "Run the ops dashboard",
             "description": "Canvas test project",
         },
     )
     assert created.status_code == 200, created.text
-    project_id = created.json()["id"]
+    return created.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_project_canvas_nodes_and_conflict(client: AsyncClient, session_override):
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.services.project_canvas import apply_canvas_document, put_canvas_source
+
+    headers = await _auth_headers(client)
+    project_id = await _make_project(client, headers, "ops-board-canvas")
 
     listed = await client.get(f"/api/workforce/projects/{project_id}/canvases", headers=headers)
     assert listed.status_code == 200
-    assert any(item["slug"] == "main" for item in listed.json()["items"])
+    assert listed.json()["items"] == []
 
-    canvas = await client.get(
-        f"/api/workforce/projects/{project_id}/canvases/main", headers=headers
-    )
-    assert canvas.status_code == 200
-    body = canvas.json()
-    assert body["slug"] == "main"
-    assert body["revision"] >= 1
-    assert any(w["type"] == "queue_summary" for w in body["widgets"])
-    queue_tile = next(w for w in body["widgets"] if w["type"] == "queue_summary")
-    assert "data" in queue_tile
-
-    patched = await client.patch(
-        f"/api/workforce/projects/{project_id}/canvases/main",
+    created = await client.post(
+        f"/api/workforce/projects/{project_id}/canvases",
         headers=headers,
-        json={
-            "expected_revision": body["revision"],
+        json={"title": "NPS", "refresh_minutes": 60},
+    )
+    assert created.status_code == 200, created.text
+    body = created.json()
+    assert body["slug"] == "nps"
+    assert body["owner_kind"] == "project"
+    assert body["empty"] is True
+    assert body["refresh_cadence"] == "hourly"
+    assert body["refresh_minutes"] == 60
+    assert body["refresh_trigger_id"]
+
+    source = """
+import { Stack, Stat, Heading } from "bokito/canvas"
+export default function Canvas() {
+  return (
+    <Stack>
+      <Heading>NPS</Heading>
+      <Stat title="NPS" value="72" unit="score" source="Survey · last 30 days" />
+    </Stack>
+  )
+}
+"""
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    applied = await apply_canvas_document(
+        session_override,
+        tenant.id,
+        {
+            "canvas_id": body["id"],
+            "project_id": project_id,
             "notes": "Added KPI",
-            "upsert": [
-                {
-                    "id": "kpi-1",
-                    "type": "metric",
-                    "title": "NPS",
-                    "x": 0,
-                    "y": 20,
-                    "w": 3,
-                    "h": 2,
-                    "config": {"label": "NPS", "value": "72", "trend": "+2"},
-                }
-            ],
+            "source": source,
         },
     )
-    assert patched.status_code == 200, patched.text
-    next_body = patched.json()
-    assert next_body["revision"] == body["revision"] + 1
-    assert any(w["id"] == "kpi-1" and w["config"]["value"] == "72" for w in next_body["widgets"])
-    assert next_body["notes"] == "Added KPI"
+    assert applied["status"] == "applied"
+    next_body = applied["canvas"]
+    assert next_body["empty"] is False
+    stats = [n for n in next_body["tree"]["children"] if n["type"] == "Stat"]
+    assert stats and stats[0]["props"]["value"] == "72"
 
-    conflict = await client.patch(
-        f"/api/workforce/projects/{project_id}/canvases/main",
+    with pytest.raises(HTTPException) as conflict:
+        await put_canvas_source(
+            session_override,
+            tenant.id,
+            canvas_id=UUID(body["id"]),
+            source=source,
+            expected_revision=body["revision"],
+        )
+    assert conflict.value.status_code == 409
+
+    second = await client.post(
+        f"/api/workforce/projects/{project_id}/canvases",
         headers=headers,
         json={
-            "expected_revision": body["revision"],
-            "upsert": [
-                {
-                    "id": "kpi-2",
-                    "type": "metric",
-                    "x": 0,
-                    "y": 22,
-                    "w": 3,
-                    "h": 2,
-                    "config": {"value": "1"},
-                }
-            ],
+            "title": "Delivery",
+            "notes": "Open queue and blockers",
         },
     )
-    assert conflict.status_code == 409
+    assert second.status_code == 200
+    assert second.json()["refresh_cadence"] == "daily"
+    assert second.json()["notes"] == "Open queue and blockers"
+    listed = await client.get(f"/api/workforce/projects/{project_id}/canvases", headers=headers)
+    assert len(listed.json()["items"]) == 2
+
+    deleted = await client.delete(
+        f"/api/workforce/projects/{project_id}/canvases/{second.json()['slug']}",
+        headers=headers,
+    )
+    assert deleted.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_tenant_canvas_and_forbidden_source(client: AsyncClient, session_override):
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.services.project_canvas import apply_canvas_document
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    tenant_id = str(tenant.id)
+
+    created = await client.post(
+        "/api/workforce/canvases",
+        headers=headers,
+        json={
+            "owner_kind": "tenant",
+            "owner_id": tenant_id,
+            "title": "Morning scan",
+            "refresh_cadence": "weekly",
+            "notes": "Open threads and running work",
+        },
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["owner_kind"] == "tenant"
+    assert created.json()["empty"] is True
+    assert created.json()["refresh_cadence"] == "weekly"
+    assert created.json()["notes"] == "Open threads and running work"
+
+    listed = await client.get(
+        f"/api/workforce/canvases?owner_kind=tenant&owner_id={tenant_id}",
+        headers=headers,
+    )
+    assert listed.status_code == 200
+    assert any(item["slug"] == "morning-scan" for item in listed.json()["items"])
+
+    with pytest.raises(HTTPException) as bad:
+        await apply_canvas_document(
+            session_override,
+            tenant.id,
+            {
+                "canvas_id": created.json()["id"],
+                "owner_kind": "tenant",
+                "owner_id": tenant_id,
+                "source": "import { Stack } from 'fs'\nexport default function C(){return <Stack />}",
+            },
+        )
+    assert bad.value.status_code == 400

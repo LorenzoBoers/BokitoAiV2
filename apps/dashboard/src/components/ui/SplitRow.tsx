@@ -140,10 +140,10 @@ function SplitHandle({
         onPointerCancel={endDrag}
         onDoubleClick={onReset}
         onKeyDown={onKeyDown}
-        className={cn('group relative z-20 hidden w-0 shrink-0 md:block', className)}
+        className={cn('group relative z-20 hidden w-2 shrink-0 md:block', className)}
       >
         {active ? <div className="fixed inset-0 z-[80] cursor-col-resize" /> : null}
-        <div className="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize touch-none" />
+        <div className="absolute inset-0 cursor-col-resize touch-none" />
         <div
           className={cn(
             'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/70 transition-[width,background-color,box-shadow]',

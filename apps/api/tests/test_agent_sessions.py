@@ -98,6 +98,44 @@ async def test_session_lifecycle(client: AsyncClient, session_override: AsyncSes
 
 
 @pytest.mark.asyncio
+async def test_start_session_switches_agent(
+    client: AsyncClient, session_override: AsyncSession
+):
+    from app.models.agent import Agent
+
+    headers = await _login(client)
+    thread = await _customer_thread(session_override)
+    agents = (await session_override.execute(select(Agent))).scalars().all()
+    assert len(agents) >= 2
+    first, second = agents[0], agents[1]
+
+    r1 = await client.post(
+        f"/api/signals/{thread.id}/sessions",
+        headers=headers,
+        json={"agent_id": str(first.id)},
+    )
+    assert r1.status_code == 200, r1.text
+    assert r1.json()["agent_id"] == str(first.id)
+
+    r2 = await client.post(
+        f"/api/signals/{thread.id}/sessions",
+        headers=headers,
+        json={"agent_id": str(second.id)},
+    )
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["id"] != r1.json()["id"]
+    assert r2.json()["agent_id"] == str(second.id)
+
+    # Same agent still reuses the active session.
+    r3 = await client.post(
+        f"/api/signals/{thread.id}/sessions",
+        headers=headers,
+        json={"agent_id": str(second.id)},
+    )
+    assert r3.json()["id"] == r2.json()["id"]
+
+
+@pytest.mark.asyncio
 async def test_session_outcome_extracts_actions(
     client: AsyncClient, session_override: AsyncSession
 ):

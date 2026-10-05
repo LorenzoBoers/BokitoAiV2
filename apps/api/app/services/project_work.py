@@ -35,6 +35,7 @@ from app.models.project_work import (
 )
 from app.models.signal import SignalEvent
 from app.models.workspace import DocSection, WorkspaceDoc
+from app.services.work_items import serialize_work_item
 
 # Legal workflow transitions on the unified status machine; "rejected" is
 # reachable from any non-terminal state. Accepted items execute through a
@@ -60,41 +61,6 @@ def _iso(value: datetime | None) -> str | None:
 
 
 # ── serialization ────────────────────────────────────────────────
-
-
-def serialize_queue_item(
-    item: AgentTask,
-    *,
-    links: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    try:
-        metadata = json.loads(item.metadata_json or "{}")
-    except json.JSONDecodeError:
-        metadata = {}
-    return {
-        "id": str(item.id),
-        "project_id": str(item.project_id) if item.project_id else None,
-        "kind": item.kind,
-        "title": item.title,
-        "body": item.description,
-        "priority": item.priority,
-        "status": item.status,
-        "duplicate_of_id": str(item.duplicate_of_id) if item.duplicate_of_id else None,
-        "origin_type": item.origin,
-        "signal_id": str(item.signal_id) if item.signal_id else None,
-        "message_id": str(item.message_id) if item.message_id else None,
-        "created_by_type": item.created_by_type,
-        "created_by_id": item.created_by_id,
-        "impact_summary": item.impact_summary,
-        "analyzed_at": _iso(item.analyzed_at),
-        "assigned_agent_id": str(item.assignee_agent_id) if item.assignee_agent_id else None,
-        "assignee_kind": item.assignee_kind,
-        "assignee_user_id": str(item.assignee_user_id) if item.assignee_user_id else None,
-        "metadata": metadata,
-        "links": links or [],
-        "created_at": _iso(item.created_at),
-        "updated_at": _iso(item.updated_at),
-    }
 
 
 def serialize_section(section: DocSection) -> dict[str, Any]:
@@ -172,7 +138,9 @@ async def get_queue_item(
     item = (
         await session.execute(
             select(AgentTask).where(
-                AgentTask.id == item_id, AgentTask.tenant_id == tenant_id
+                AgentTask.id == item_id,
+                AgentTask.tenant_id == tenant_id,
+                AgentTask.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
@@ -344,6 +312,7 @@ async def list_queue_items(
         AgentTask.tenant_id == tenant_id,
         AgentTask.project_id == project_id,
         AgentTask.kind.in_(QUEUE_ITEM_KINDS),
+        AgentTask.deleted_at.is_(None),
     )
     if status:
         stmt = stmt.where(AgentTask.status == status)
@@ -352,7 +321,7 @@ async def list_queue_items(
     stmt = stmt.order_by(AgentTask.created_at.desc())
     items = list((await session.execute(stmt)).scalars().all())
     links = await _links_for_items(session, tenant_id, [item.id for item in items])
-    return [serialize_queue_item(item, links=links.get(item.id, [])) for item in items]
+    return [serialize_work_item(item, view="queue", links=links.get(item.id, [])) for item in items]
 
 
 async def get_queue_item_detail(
@@ -360,7 +329,7 @@ async def get_queue_item_detail(
 ) -> dict[str, Any]:
     item = await get_queue_item(session, tenant_id, item_id)
     links = await _links_for_items(session, tenant_id, [item.id])
-    return serialize_queue_item(item, links=links.get(item.id, []))
+    return serialize_work_item(item, view="queue", links=links.get(item.id, []))
 
 
 async def create_queue_item(
@@ -379,7 +348,7 @@ async def create_queue_item(
     created_by_id: str = "",
     commit: bool = True,
 ) -> AgentTask:
-    """Create a queue task; auto-accepts and starts analysis on autonomous projects."""
+    """Create a queue task; auto-accepts when the workspace posture is autonomous."""
     if kind not in QUEUE_ITEM_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
     if priority not in TASK_PRIORITIES:
@@ -391,7 +360,11 @@ async def create_queue_item(
 
     project = (
         await session.execute(
-            select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+            select(Project).where(
+                Project.id == project_id,
+                Project.tenant_id == tenant_id,
+                Project.deleted_at.is_(None),
+            )
         )
     ).scalar_one_or_none()
     if not project:
@@ -451,19 +424,23 @@ async def create_queue_item(
             )
         )
 
-    auto = bool(project.autonomous_mode)
+    from app.models.auth import Tenant
+    from app.tools.policy import resolve_posture
+
+    tenant = await session.get(Tenant, tenant_id)
+    auto = bool(tenant and resolve_posture(tenant) == "autonomous")
     if commit:
         await session.commit()
         await session.refresh(item)
     if auto:
-        # Autonomous projects skip the human accept gate and analyze directly.
+        # Workspace Autonomous posture skips the human accept gate.
         await transition_queue_item(
             session,
             tenant_id,
             item.id,
             "queued",
             actor_type="system",
-            actor_id="autonomous_mode",
+            actor_id="workspace_posture",
         )
     return item
 
@@ -709,6 +686,7 @@ async def list_resources(
         .where(
             ProjectResource.tenant_id == tenant_id,
             ProjectResource.project_id == project_id,
+            ProjectResource.deleted_at.is_(None),
         )
         .order_by(ProjectResource.created_at)
     )
@@ -802,14 +780,25 @@ async def delete_resource(session: AsyncSession, tenant_id: UUID, resource_id: U
     resource = (
         await session.execute(
             select(ProjectResource).where(
-                ProjectResource.id == resource_id, ProjectResource.tenant_id == tenant_id
+                ProjectResource.id == resource_id,
+                ProjectResource.tenant_id == tenant_id,
+                ProjectResource.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
-    await session.delete(resource)
-    await session.commit()
+    from app.services.trash import load_tenant, move_to_bin
+
+    tenant = await load_tenant(session, tenant_id)
+    await move_to_bin(
+        session,
+        tenant,
+        resource_type="project_resource",
+        row=resource,
+        user_id=None,
+        commit=True,
+    )
 
 
 async def conversation_project_context(
@@ -827,7 +816,7 @@ async def conversation_project_context(
         (
             await session.execute(
                 select(Project)
-                .where(Project.tenant_id == tenant_id)
+                .where(Project.tenant_id == tenant_id, Project.deleted_at.is_(None))
                 .order_by(Project.updated_at.desc())
                 .limit(10)
             )

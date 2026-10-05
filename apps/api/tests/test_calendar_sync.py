@@ -13,11 +13,11 @@ from app.models.calendar import CalendarEvent
 from app.models.integration import IntegrationConnection
 from app.services.calendar_sync import (
     create_external_event,
-    events_as_agenda_items,
+    calendar_events_in_window,
     sync_connection,
     update_external_event,
 )
-from app.services.triggers import agenda_occurrences
+from app.services.time_items import list_time_items
 
 
 async def _tenant(session: AsyncSession) -> Tenant:
@@ -86,14 +86,14 @@ async def test_agenda_merges_calendar_events(session_override: AsyncSession):
     )
     await session_override.commit()
 
-    items = await agenda_occurrences(
+    items = await list_time_items(
         session_override,
         tenant.id,
         start=datetime.utcnow() - timedelta(hours=1),
         end=datetime.utcnow() + timedelta(days=2),
     )
     cal = [i for i in items if i.get("kind") == "calendar"]
-    assert any(i.get("name") == "Team sync" for i in cal)
+    assert any(i.get("title") == "Team sync" for i in cal)
 
 
 @pytest.mark.asyncio
@@ -124,13 +124,13 @@ async def test_create_and_delete_mock_event(session_override: AsyncSession):
     assert created.get("id")
     event_id = created["id"]
 
-    items = await events_as_agenda_items(
+    items = await calendar_events_in_window(
         session_override,
         tenant.id,
         start=start - timedelta(hours=1),
         end=end + timedelta(hours=1),
     )
-    assert any(i.get("name") == "Block" for i in items)
+    assert any(i.get("title") == "Block" for i in items)
 
     from app.services.calendar_sync import delete_external_event
     from uuid import UUID
@@ -195,13 +195,13 @@ async def test_update_mock_event(session_override: AsyncSession):
     assert row.start_at == new_start
     assert row.end_at == new_end
 
-    items = await events_as_agenda_items(
+    items = await calendar_events_in_window(
         session_override,
         tenant.id,
         start=new_start - timedelta(hours=1),
         end=new_end + timedelta(hours=1),
     )
-    match = next((i for i in items if i.get("name") == "Rescheduled block"), None)
+    match = next((i for i in items if i.get("title") == "Rescheduled block"), None)
     assert match is not None
     assert match.get("id", "").endswith(str(event_id)) or str(event_id) in str(match.get("id"))
     assert match.get("location") == "Room B"
@@ -415,3 +415,27 @@ async def test_calendar_providers_in_catalog(client: AsyncClient):
     assert "outlook_calendar" in slugs
     google = next(p for p in res.json()["providers"] if p["slug"] == "google_calendar")
     assert google.get("capabilities", {}).get("calendar") is True
+
+
+@pytest.mark.asyncio
+async def test_list_calendar_connections_accepts_catalog_uuid(session_override: AsyncSession):
+    from app.services.calendar_sync import list_calendar_connections
+    from app.services.integrations_catalog import provider_id
+
+    tenant = await _tenant(session_override)
+    conn = IntegrationConnection(
+        tenant_id=tenant.id,
+        provider=provider_id("google_calendar"),
+        display_name="Google Calendar",
+        status="active",
+        credentials_json='{"mock": true}',
+        metadata_json="{}",
+    )
+    session_override.add(conn)
+    await session_override.commit()
+    await session_override.refresh(conn)
+
+    rows = await list_calendar_connections(session_override, tenant.id)
+    match = next(row for row in rows if row["id"] == str(conn.id))
+    assert match["provider"] == "google_calendar"
+

@@ -344,7 +344,7 @@ export default function SetupHubPage() {
 
             <p className="text-xs text-text-muted">
               {t('setupGuidePage.advancedHint')}{' '}
-              <Link to="/connections/connected" className="text-accent hover:underline">
+              <Link to="/connections" className="text-accent hover:underline">
                 {t('setupGuidePage.advancedLink')}
               </Link>
               .

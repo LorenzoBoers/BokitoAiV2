@@ -1,4 +1,5 @@
 import { projectsRoutes } from '../api/routes'
+import type { AgentSummary } from './workforce-api'
 import { workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
 
 export type RepoSource = 'github' | 'upload' | 'none'
@@ -10,7 +11,6 @@ export interface ProjectRow {
   slug: string
   description?: string
   autonomous_scope: string
-  autonomous_mode?: boolean
   active_domains?: string[]
   github_connection_id?: string | null
   repo_binding_id?: string | null
@@ -21,19 +21,14 @@ export interface ProjectRow {
   repo_index_status?: RepoIndexStatus
   repo_indexed_at?: string | null
   repo_index_error?: string | null
-  queue_open_count?: number
+  open_signals_count?: number
   doc_sections_total?: number
   doc_sections_done?: number
   po_agent_id?: string | null
-  po_agent?: {
-    id: string
-    name: string
-    slug?: string | null
-    role?: string | null
-    agent_type?: 'po' | string | null
-    status?: string | null
-  } | null
+  po_agent?: AgentSummary | null
   agents?: ProjectAgentChip[]
+  token_budget_daily?: number | null
+  token_budget_hourly?: number | null
 }
 
 export interface ProjectAgentChip {
@@ -76,7 +71,12 @@ export async function createProject(input: {
 
 export async function patchProject(
   projectId: string,
-  patch: Partial<Pick<ProjectRow, 'autonomous_scope' | 'name' | 'description' | 'autonomous_mode'>>,
+  patch: Partial<
+    Pick<
+      ProjectRow,
+      'autonomous_scope' | 'name' | 'description' | 'token_budget_daily' | 'token_budget_hourly'
+    >
+  >,
 ): Promise<ProjectRow> {
   return workforcePatch<ProjectRow>(projectsRoutes.byId(projectId), patch)
 }
@@ -117,6 +117,10 @@ export async function reindexProjectRepo(projectId: string): Promise<{ queued: b
 
 export interface ProjectBudgetResponse {
   token_budget_daily: number
+  token_budget_hourly?: number
+  token_budget_daily_set?: number | null
+  token_budget_hourly_set?: number | null
+  workspace_daily_cap?: number | null
   token_used_today: number
   token_used_this_hour: number
   remaining_today: number

@@ -2,10 +2,11 @@
  * Gateway WebSocket client — the dashboard side of the control plane.
  *
  * One connection to `/api/ws`; components subscribe to topics
- * (`threads`, `decisions`, `notifications`, `runs`, `run:<id>`, `signal:<id>`)
- * and receive typed events (`message`, `thread`, `agent.run`, `decision`,
- * `notification`, `presence`, `health`). Reconnects with backoff and
- * re-subscribes automatically.
+ * (`threads`, `decisions`, `notifications`, `runs`, `presence`, `agents`,
+ * `entities`, `run:<id>`, `signal:<id>`) and receive typed events (`message`,
+ * `thread`, `agent.run`, `agent.status`, `decision`, `notification`,
+ * `presence`, `entity.changed`). Reconnects with backoff and re-subscribes
+ * automatically. Shared live state lives in `lib/live-store.ts`.
  */
 
 import { resolveAccessToken } from './api'

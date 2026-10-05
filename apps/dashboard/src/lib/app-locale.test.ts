@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appDateLocale, formatAppTime, formatAppWeekdayDateTime } from './app-locale'
+import { appDateLocale, formatAppTime, formatAppWeekdayDateTime, formatAppWeekdayDayMonth } from './app-locale'
 
 describe('appDateLocale', () => {
   it('uses the in-app language instead of the browser', () => {
@@ -14,6 +14,12 @@ describe('appDateLocale', () => {
     expect(formatAppTime(date, 'nl')).toMatch(/14:57/)
     expect(formatAppTime(date, 'en')).toMatch(/14:57/)
     expect(formatAppTime(date, 'en')).not.toMatch(/PM/)
+  })
+
+  it('puts weekday before day and month', () => {
+    const date = new Date(Date.UTC(2026, 9, 7, 12, 0, 0))
+    expect(formatAppWeekdayDayMonth(date, 'nl').toLowerCase()).toMatch(/wo\s+7\s+okt/)
+    expect(formatAppWeekdayDayMonth(date, 'en')).toMatch(/Wed 7 Oct/)
   })
 
   it('formats upcoming agenda rows in the workspace language', () => {

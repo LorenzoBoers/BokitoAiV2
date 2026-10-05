@@ -2,7 +2,7 @@
 
 Stored in ``Agent.settings_json`` so we stay column-light during the build
 phase. Surfaces (library, Messages, signatures, widget header) share the
-same fields via ``avatar_payload`` / ``serialize_runtime_agent``.
+same fields via ``avatar_payload`` / ``serialize_agent``.
 """
 
 from __future__ import annotations
@@ -115,10 +115,9 @@ def _role_default_mark(agent: Agent) -> dict[str, Any]:
     """Icon for agents that never picked a mark (or legacy rows). Always purple."""
     slug = (agent.slug or "").strip().lower()
     role = (agent.role or "").strip().lower()
-    audience = (agent.audience or "").strip().lower()
     if bool(getattr(agent, "acts_for_user", False)) or slug == "bokito":
         icon = "sparkles"
-    elif audience == "customers" or slug == "front-desk":
+    elif slug == "front-desk":
         icon = "headset"
     elif role in ("orchestrator", "po") or slug == "orchestrator":
         icon = "briefcase"
@@ -175,7 +174,7 @@ def avatar_payload(agent: Agent | None) -> dict[str, Any]:
     if (
         icon == "headset"
         and (agent.role or "").strip().lower() in ("orchestrator", "po")
-        and (agent.audience or "").strip().lower() != "customers"
+        and (agent.slug or "").strip().lower() != "front-desk"
     ):
         return _role_default_mark(agent)
     return {

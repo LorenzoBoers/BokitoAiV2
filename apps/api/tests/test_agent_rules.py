@@ -17,6 +17,7 @@ from app.services.agent_rules import (
     apply_judgement,
     check_can_grant,
     normalize_autonomy,
+    parse_autonomy_level,
 )
 from app.services.ai_handling import resolve_ai_handling
 from app.tools import execute_tool
@@ -57,6 +58,11 @@ def test_vocabulary_and_grant_rules():
     assert normalize_autonomy("approval") == "assisted"
     assert normalize_autonomy("auto") == "autonomous"
     assert normalize_autonomy("weird") == "assisted"
+    assert parse_autonomy_level("auto") == "autonomous"
+    assert parse_autonomy_level("approval") == "assisted"
+    with pytest.raises(HTTPException) as invalid:
+        parse_autonomy_level("yolo")
+    assert invalid.value.status_code == 400
     rule = {"mode": "autonomous"}
     check_can_grant(rule, None, "owner")
     check_can_grant(rule, {"mode": "autonomous"}, "member")

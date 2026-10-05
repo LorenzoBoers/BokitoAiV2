@@ -627,8 +627,7 @@ async def post_module_source(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     from app.modules.catalog import get_module
-    from app.services.module_sources import create_tenant_source, serialize_source
-    from app.workers.tasks import enqueue_module_source_index
+    from app.services.module_sources import create_tenant_source, queue_source_index, serialize_source
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
@@ -643,7 +642,8 @@ async def post_module_source(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    await enqueue_module_source_index(str(row.id))
+    await queue_source_index(session, row)
+    await session.refresh(row)
     return {"source": serialize_source(row)}
 
 
@@ -656,16 +656,15 @@ async def reindex_module_source(
 ):
     from app.models.module_source import ModuleSource
     from app.modules.catalog import get_module
-    from app.services.module_sources import serialize_source
-    from app.workers.tasks import enqueue_module_source_index
+    from app.services.module_sources import queue_source_index, serialize_source
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
     row = await session.get(ModuleSource, source_id)
     if row is None or row.tenant_id != auth.tenant.id or row.module_slug != slug:
         raise HTTPException(status_code=404, detail="Source not found")
-    await enqueue_module_source_index(str(source_id))
-    # Optimistic status; worker (or inline fallback) updates the real result.
+    await queue_source_index(session, row, force=True)
+    await session.refresh(row)
     return {"source": serialize_source(row), "queued": True}
 
 

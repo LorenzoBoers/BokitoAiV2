@@ -18,7 +18,7 @@ Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de
 
 1. Open **Workforce**. Vul onder **Nodig een teammate uit** een volledig e-mailadres in en kies **Rol**: **Beheerder** of **Lid**. Open **Wat elke rol mag** als je de rechtenmatrix nodig hebt.
 2. Kies **Uitnodigen**. Kan deze server geen mail versturen, gebruik dan **Uitnodigingslink kopiëren** en deel die zelf.
-3. Openstaande uitnodigingen staan in de directory onder **In afwachting**. Gebruik **Uitnodiging opnieuw versturen** of **Uitnodiging intrekken**. Op een actief iemand wijzig je de rol of kies je **Lid verwijderen**. Alleen de **Eigenaar** kan een eigenaar promoveren, degraderen of verwijderen.
+3. Openstaande uitnodigingen staan in de directory onder **In afwachting**. Gebruik **Uitnodiging opnieuw versturen** of **Uitnodiging intrekken**. Op een actief iemand wijzig je de rol of kies je **Deactiveren**. Alleen de **Eigenaar** kan een eigenaar promoveren, degraderen of deactiveren.
 
 Leden beantwoorden gesprekken. Eigenaren en beheerders koppelen ook kanalen, wijzigen autonomie en nemen Govern-voorstellen aan. Zie [Govern](/docs/govern/govern).
 
@@ -28,13 +28,19 @@ Leden beantwoorden gesprekken. Eigenaren en beheerders koppelen ook kanalen, wij
 2. Zolang je afwezig bent, slaan agents je over als ze kiezen wie ze iets vragen, geven teams je geen nieuwe gesprekken, en telt de websitechat je niet mee als beschikbaar voor een live overdracht.
 3. Zet aanwezigheid weer op beschikbaar als je terug bent. Iemand telt als beschikbaar zolang Bokito open staat op een van zijn apparaten.
 
-Agents tonen een paarse hoekmarkering: stil als ze op stand-by staan, pulsend als ze echt aan een gesprek of run werken.
+Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als ze echt aan een gesprek of run werken.
 
 ## Lees de directory
 
-1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Filter met **Alles**, **Mensen**, **Agents** of **In afwachting**, of zoek op naam.
-2. Elke persoon toont rol, teams en open werk. Elke agent toont plafond, open gesprekken en een korte 30-dagenregel (vragen en antwoordtijd). Open een agent voor volledige cijfers en regels (zie [Agents](/docs/ai/agents)).
-3. Mensen, agents en teams gebruiken dezelfde soort markering: twee letters (of een icoon/afbeelding als die is gezet). De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents op stand-by staan, grijs als iedereen offline is.
+1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen.
+2. Elke persoon toont rol, teams, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout** — geen vraagtellers. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)).
+3. Mensen, agents en teams gebruiken dezelfde soort markering: twee letters (of een icoon/afbeelding als die is gezet). De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents beschikbaar zijn, grijs als iedereen offline is.
+
+## Deactiveer een persoon of agent
+
+1. Open op **Workforce** de rij van een persoon of bedrijfsagent. Kies **Deactiveren**. Die verdwijnt uit het werkrooster: kiezers, teams, toewijzing en chatdoelen slaan hen over. Geschiedenis in gesprekken en agentruns blijft.
+2. Status op die rij (en op de agentpagina) is **Gedeactiveerd**. Open het filter **Gedeactiveerd** om iedereen te zien die buiten het rooster staat.
+3. Kies **Opnieuw activeren** op de rij, of **Opnieuw activeren** op de agentpagina, om hen terug te zetten. Dezelfde e-mail opnieuw uitnodigen brengt een gedeactiveerd persoon ook terug als die de uitnodiging accepteert.
 
 ## Maak een team
 
@@ -46,6 +52,7 @@ Agents tonen een paarse hoekmarkering: stil als ze op stand-by staan, pulsend al
    - **Om de beurt**: elk nieuw gesprek gaat direct naar het volgende beschikbare lid.
    - **Minst open**: elk nieuw gesprek gaat naar het beschikbare lid met de minste open gesprekken.
 4. Zet **Tonen in de zijbalk van Communicatie** aan om iedereen een map voor dit team te geven met **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies **Opslaan**.
+5. Open in **Communicatie** die teammap en kies **Groepschat**. Bokito opent (of maakt) één vast intern gesprek van het team, zodat leden kunnen praten zonder een klantgesprek.
 
 Om de beurt en minst open geven alleen werk aan mensen die beschikbaar zijn en agents die het kanaal mogen afhandelen. Past niemand, dan blijft het gesprek bij het team. Elke toewijzing staat in de tijdlijn en in het auditlog. Maak een team eigenaar van een kanaal onder **Instellingen**, **Kanalen** (zie [Kanalen](/docs/inbox/channels)).
 

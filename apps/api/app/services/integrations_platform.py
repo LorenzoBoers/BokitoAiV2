@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
-from app.services.integrations_catalog import PROVIDER_BY_SLUG, provider_id
+from app.services.integrations_catalog import PROVIDER_BY_SLUG, canonical_provider_slug, provider_id
 from app.services.mcp_auth import mcp_auth_headers as _mcp_auth_headers
 from app.services.crypto import (
     encrypt_credentials_blob,
@@ -42,13 +42,14 @@ def mock_authorize_url(return_url: str, params: dict[str, str]) -> str:
 
 def serialize_connection(conn: IntegrationConnection) -> dict[str, Any]:
     meta = _parse_json(conn.metadata_json)
-    slug = conn.provider
+    slug = canonical_provider_slug(conn.provider)
     pid = provider_id(slug) if slug in PROVIDER_BY_SLUG else str(conn.id)
     if slug in PROVIDER_BY_SLUG:
         pid = PROVIDER_BY_SLUG[slug]["id"]
     return {
         "id": str(conn.id),
         "tenant_id": str(conn.tenant_id),
+        "provider": slug,
         "provider_id": pid,
         "external_account_id": meta.get("external_account_id", conn.display_name),
         "display_name": conn.display_name or slug,
@@ -169,13 +170,18 @@ async def list_connected_summary(session: AsyncSession, tenant_id: UUID) -> dict
     for row in rows:
         if row.get("status") != "active":
             continue
-        provider = ""
-        for slug, spec in PROVIDER_BY_SLUG.items():
-            if spec.get("id") == row.get("provider_id") or slug == row.get("provider_id"):
-                provider = slug
-                break
-        if not provider:
-            provider = str(row.get("provider_id") or "")
+        provider = canonical_provider_slug(row.get("provider")) or canonical_provider_slug(
+            row.get("provider_id")
+        )
+        from app.services.calendar_sync import calendar_slug_for
+
+        calendar_slug = calendar_slug_for(
+            provider,
+            kind=str(row.get("kind") or ""),
+            display_name=str(row.get("display_name") or ""),
+        )
+        if calendar_slug:
+            provider = calendar_slug
         kind = _kind_for_provider(provider)
         modules = attached.get(str(row["id"]), [])
         items.append(
@@ -307,6 +313,11 @@ async def register_mcp_server(
     ``IntegrationConnection`` is the tenant-facing registration. Nothing may
     create a bare server without its connection. Does not commit.
     """
+    if server_url.startswith("mock://") and get_settings().is_production:
+        raise HTTPException(
+            status_code=422,
+            detail="Mock MCP servers are not allowed in production. Provide a real server_url.",
+        )
     server = McpServer(
         tenant_id=tenant_id,
         name=name,

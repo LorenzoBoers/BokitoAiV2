@@ -3,14 +3,23 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
 /**
  * `proposed` sits before the lifecycle: an unsure read the operator still has to
- * accept on the thread. Accepted work moves through open -> waiting -> done.
+ * accept on the thread. Accepted work moves through open -> waiting -> done; a
+ * ticket's status is always the kind of its current stage.
  */
 export type CaseStatus = 'proposed' | 'open' | 'waiting' | 'done'
 
-export type CaseCreateMode = 'ask_customer' | 'ask_operator' | 'auto' | 'manual_only'
+export type TicketStageKind = 'open' | 'waiting' | 'done'
 
-/** How a type behaves after classification. */
-export type CaseFollowUpMode = 'label' | 'track' | 'route'
+/** One stage of the pipeline a workstream defines for its tickets. */
+export type TicketStage = { key: string; name: string; kind: TicketStageKind }
+
+export const STAGE_KIND_DOT: Record<TicketStageKind, string> = {
+  open: 'bg-accent',
+  waiting: 'bg-status-warning',
+  done: 'bg-status-success',
+}
+
+export type CaseCreateMode = 'ask_customer' | 'ask_operator' | 'auto' | 'manual_only'
 
 export type CaseSendMode = 'draft' | 'ask' | 'send'
 
@@ -20,7 +29,6 @@ export type CaseTypeRow = {
   name: string
   description: string
   create_mode: CaseCreateMode
-  follow_up_mode: CaseFollowUpMode
   ask_threshold: number
   auto_threshold: number
   requires_verification: boolean
@@ -57,6 +65,12 @@ export type CaseRow = {
   workstream_id: string | null
   workstream_run_id: string | null
   current_step_name: string | null
+  /** Bound to a workstream: moves through stages instead of only labelling. */
+  is_ticket: boolean
+  stage_key: string | null
+  /** Present on single-case and per-thread responses. */
+  stage?: TicketStage | null
+  stages?: TicketStage[]
   title: string
   summary: string
   status: CaseStatus
@@ -77,18 +91,19 @@ export type DeleteCaseTypeResult = {
 export async function listCases(opts?: {
   status?: CaseStatus
   caseTypeId?: string
+  projectId?: string
   q?: string
-  /** Hub queue should pass false so label-only stamps stay out of Open/Waiting. */
-  includeLabels?: boolean
+  /** Only tickets (categories bound to a workstream), not plain labels. */
+  ticketsOnly?: boolean
   limit?: number
   offset?: number
 }): Promise<CaseRow[]> {
   const params = new URLSearchParams()
   if (opts?.status) params.set('status', opts.status)
   if (opts?.caseTypeId) params.set('case_type_id', opts.caseTypeId)
+  if (opts?.projectId) params.set('project_id', opts.projectId)
   if (opts?.q) params.set('q', opts.q)
-  if (opts?.includeLabels === false) params.set('include_labels', 'false')
-  if (opts?.includeLabels === true) params.set('include_labels', 'true')
+  if (opts?.ticketsOnly) params.set('tickets_only', 'true')
   if (opts?.limit) params.set('limit', String(opts.limit))
   if (opts?.offset) params.set('offset', String(opts.offset))
   const path = params.size > 0 ? casesRoutes.listQuery(params) : casesRoutes.list
@@ -100,11 +115,18 @@ export async function getCase(caseId: string): Promise<CaseRow> {
   return apiGet<CaseRow>(casesRoutes.byId(caseId))
 }
 
+/** Dismissing a proposal removes it: the response is then `{ id, removed: true }`. */
 export async function patchCase(
   caseId: string,
-  body: { title?: string; summary?: string; status?: CaseStatus; project_id?: string | null },
-): Promise<CaseRow> {
-  return apiPatch<CaseRow>(casesRoutes.byId(caseId), body)
+  body: {
+    title?: string
+    summary?: string
+    status?: CaseStatus
+    stage_key?: string
+    project_id?: string | null
+  },
+): Promise<CaseRow | { id: string; removed: true }> {
+  return apiPatch<CaseRow | { id: string; removed: true }>(casesRoutes.byId(caseId), body)
 }
 
 export async function linkCase(
@@ -124,7 +146,6 @@ export async function createCaseType(body: {
   slug?: string
   description?: string
   create_mode?: CaseCreateMode
-  follow_up_mode?: CaseFollowUpMode
   ask_threshold?: number
   auto_threshold?: number
   requires_verification?: boolean
@@ -142,7 +163,6 @@ export async function patchCaseType(
       | 'name'
       | 'description'
       | 'create_mode'
-      | 'follow_up_mode'
       | 'enabled'
       | 'ask_threshold'
       | 'auto_threshold'
@@ -233,7 +253,7 @@ export async function listSignalBacklog(): Promise<{
 
 export async function promoteSignalBacklog(
   key: string,
-  body?: { name?: string; description?: string; follow_up_mode?: CaseFollowUpMode },
+  body?: { name?: string; description?: string },
 ): Promise<CaseTypeRow> {
   return apiPost<CaseTypeRow>(casesRoutes.backlogPromote(key), body ?? {})
 }

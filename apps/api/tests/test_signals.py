@@ -290,6 +290,38 @@ async def test_inbox_open_includes_assistant_chat_as_assistant_folder(
 
 
 @pytest.mark.asyncio
+async def test_inbox_hides_inline_agent_sessions(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    host = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="Customer",
+        status="open",
+    )
+    session_override.add(host)
+    await session_override.flush()
+    nested = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        source="agent_session",
+        subject="Agent session: Customer",
+        status="open",
+        context_signal_id=host.id,
+    )
+    session_override.add(nested)
+    await session_override.commit()
+
+    inbox = await client.get("/api/signals?view=all_open&folder=inbox", headers=headers)
+    assert inbox.status_code == 200
+    ids = {item["id"] for item in inbox.json()["items"]}
+    assert str(nested.id) not in ids
+    assistant = await client.get("/api/signals?view=all&folder=assistant", headers=headers)
+    assert assistant.status_code == 200
+    assert str(nested.id) not in {item["id"] for item in assistant.json()["items"]}
+
+
+@pytest.mark.asyncio
 async def test_thread_detail_message_window(client: AsyncClient, session_override):
     """Default detail returns the newest N messages and exposes has_older."""
     from datetime import datetime, timedelta, timezone
@@ -395,14 +427,18 @@ async def test_thread_detail_omits_html_and_trace_for_chat(client: AsyncClient, 
     row = detail.json()["messages"][0]
     assert row["body_html"] is None
     assert row["has_html"] is True
-    assert row["has_agent_trace"] is True
-    assert "agent_trace" not in (row.get("payload") or {})
+    assert row["has_activity"] is True
+    # List payload: the groups render, long detail stays server-side.
+    lean = row["payload"]["activity"]
+    assert lean[0]["kind"] == "think" and "text" not in lean[0]
+    assert row["payload"]["activity_detail"] is False
 
     full = await client.get(f"/api/signals/{signal.id}/messages/{msg.id}", headers=headers)
     assert full.status_code == 200
     full_row = full.json()
     assert full_row["body_html"] == "<p>Hello</p>"
-    assert full_row["payload"]["agent_trace"]["thinking"]["text"] == "reasoned"
+    assert full_row["payload"]["activity"][0]["text"] == "reasoned"
+    assert full_row["payload"]["activity_detail"] is True
 
 
 @pytest.mark.asyncio

@@ -48,3 +48,8 @@ class Trigger(SQLModel, table=True):
     last_status: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    # Snapshot of enabled before a Bin move so restore can re-enable.
+    trash_was_enabled: Optional[bool] = Field(default=None)

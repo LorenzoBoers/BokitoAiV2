@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Bot, CalendarClock, ListChecks, Mail, MessageSquare, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Bot, CalendarClock, Mail, MessageSquare, Sparkles, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
@@ -278,51 +278,6 @@ export default function OnboardingChecklist({
           {t('onboarding.talkAssistant')}
         </Link>
       </div>
-    </div>
-  )
-}
-
-/** Compact dismissible banner (Cockpit). */
-export function OnboardingCompactCard() {
-  const { t } = useTranslation('communication')
-  const { status, dismissed, dismiss, retry } = useOnboardingStatus()
-
-  if (!status || status.completed || dismissed) return null
-  const nextStep = status.steps.find((step) => !step.done)
-
-  return (
-    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/50 px-4 py-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-        <ListChecks size={16} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate-fade text-sm font-medium text-text-heading">{t('onboarding.continueTitle')}</p>
-        <p className="truncate-fade text-xs text-text-secondary">
-          {nextStep
-            ? t('onboarding.nextStep', { title: t(`onboarding.steps.${nextStep.id}.title`) })
-            : t('onboarding.almostDone')}
-        </p>
-      </div>
-      <Link
-        to="/settings/setup"
-        className="shrink-0 rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
-      >
-        {t('onboarding.openGuide')}
-      </Link>
-      {nextStep ? (
-        <div className="shrink-0 [&_a]:px-3 [&_a]:py-1.5 [&_a]:text-xs [&_button]:px-3 [&_button]:py-1.5 [&_button]:text-xs">
-          <NextStepCta step={nextStep} onWatchEnabled={retry} />
-        </div>
-      ) : null}
-      <button
-        type="button"
-        onClick={dismiss}
-        title={t('onboarding.dismiss')}
-        aria-label={t('onboarding.dismiss')}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
-      >
-        <X size={14} />
-      </button>
     </div>
   )
 }

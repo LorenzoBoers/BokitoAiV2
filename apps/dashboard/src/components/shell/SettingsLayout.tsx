@@ -1,6 +1,6 @@
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Info } from 'lucide-react'
+import { Info, Trash2, type LucideIcon } from 'lucide-react'
 import ContentHeader from './ContentHeader'
 import ScrollFade from '../ui/ScrollFade'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
@@ -59,8 +59,15 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   },
 ]
 
+const BIN_LINK: SettingsLink = {
+  labelKey: 'settings.links.bin',
+  to: '/settings/bin',
+  hintKey: 'settings.hints.bin',
+}
+
 export const SETTINGS_PALETTE_LINKS: SettingsLink[] = [
   ...SETTINGS_GROUPS.flatMap((group) => group.links),
+  BIN_LINK,
   // Setup guide lives on Help; keep findable from the palette and deep links.
   {
     labelKey: 'settings.links.setupGuide',
@@ -106,7 +113,7 @@ export function SettingsHomeRedirect() {
 }
 
 /** Settings pages that render their own `ContentHeader` (title + controls). */
-const OWN_HEADER_PATHS = ['/settings/govern', '/settings/trust', '/settings/models', '/settings/mcp-catalog']
+const OWN_HEADER_PATHS = ['/settings/govern', '/settings/trust', '/settings/bin', '/settings/models', '/settings/mcp-catalog']
 
 export default function SettingsLayout() {
   const { pathname } = useLocation()
@@ -130,7 +137,10 @@ export default function SettingsLayout() {
           </nav>
         </ScrollFade>
         <TooltipProvider delayDuration={250}>
-          <SettingsHelpLink pathname={pathname} className="mt-auto shrink-0 border-t border-border/60 pt-2" />
+          <div className="mt-auto shrink-0">
+            <SettingsPinnedLink pathname={pathname} link={BIN_LINK} icon={Trash2} className="pb-2.5" />
+            <SettingsHelpLink pathname={pathname} className="border-t border-border/60 pt-2.5" />
+          </div>
         </TooltipProvider>
       </aside>
 
@@ -150,24 +160,25 @@ export default function SettingsLayout() {
   )
 }
 
-function SettingsHelpLink({
+function SettingsPinnedLink({
   pathname,
+  link,
+  icon: Icon,
   compact = false,
   className,
 }: {
   pathname: string
+  link: SettingsLink
+  icon: LucideIcon
   compact?: boolean
   className?: string
 }) {
   const { t } = useTranslation('nav')
-  const helpGroup = SETTINGS_GROUPS.find((group) => group.accent)
-  const link = helpGroup?.links[0]
-  if (!link) return null
   const active = linkIsActive(pathname, link)
   const hint = link.hintKey ? t(link.hintKey) : ''
   const item = (
     <NavLink to={link.to} className="nav-row" data-active={active ? 'true' : undefined}>
-      <Info aria-hidden />
+      <Icon aria-hidden />
       {t(link.labelKey)}
     </NavLink>
   )
@@ -192,6 +203,29 @@ function SettingsHelpLink({
   )
 }
 
+function SettingsHelpLink({
+  pathname,
+  compact = false,
+  className,
+}: {
+  pathname: string
+  compact?: boolean
+  className?: string
+}) {
+  const helpGroup = SETTINGS_GROUPS.find((group) => group.accent)
+  const link = helpGroup?.links[0]
+  if (!link) return null
+  return (
+    <SettingsPinnedLink
+      pathname={pathname}
+      link={link}
+      icon={Info}
+      compact={compact}
+      className={className}
+    />
+  )
+}
+
 function SettingsNav({ pathname, compact = false }: { pathname: string; compact?: boolean }) {
   const { t } = useTranslation('nav')
   const groups = compact
@@ -203,12 +237,14 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
         {groups.map((group) => {
           if (group.accent) {
             return (
-              <SettingsHelpLink
-                key={group.labelKey}
-                pathname={pathname}
-                compact={compact}
-                className={compact ? undefined : 'mt-2 border-t border-border/60 pt-2'}
-              />
+              <div key={group.labelKey} className={compact ? 'flex items-center gap-x-4' : undefined}>
+                <SettingsPinnedLink pathname={pathname} link={BIN_LINK} icon={Trash2} compact={compact} />
+                <SettingsHelpLink
+                  pathname={pathname}
+                  compact={compact}
+                  className={compact ? undefined : 'mt-2.5 border-t border-border/60 pt-2.5'}
+                />
+              </div>
             )
           }
           return (

@@ -30,7 +30,7 @@ Govern has two sections: **Ledger** records workspace changes and audit events, 
 3. Under **Allowance sliders**, set each category to **Deny**, **Ask first** or **Allow**. Override one tool when the category is too broad.
 4. Categories include Messaging, Workspace, Agents, Channels, Triggers, Integrations, Govern and Handoff. External visitor sessions never auto-mutate.
 5. When learning sees many escalated tool gates or rejected tool decisions on a category that was **Allow**, Bokito can tighten that slider to **Ask first** automatically. A short note appears under the sliders. Loosening a slider stays a manual edit here.
-6. Under **Type and playbook autonomy**, set each active Signal type and playbook to **Manual**, **Ask first**, or **Automatic**.
+6. Under **Type and playbook autonomy**, set each active Signal type and playbook to **Manual**, **Assisted**, or **Autonomous**.
 
 Per-agent overrides live on the agent page under Tools and permissions.
 

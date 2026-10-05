@@ -104,6 +104,8 @@ interface TenantMembership {
 
 interface User {
   id: number;
+  /** Auth user UUID (`/auth/me` `id`); live rows such as notifications are keyed by it. */
+  uuid?: string | null;
   name: string;
   email: string;
   jobTitle: string | null;
@@ -124,6 +126,8 @@ interface User {
   hasPassword: boolean;
   tenant: Tenant;
   memberships: TenantMembership[];
+  /** Platform API environment (`dev` | `prod` | `staging`, from Settings.environment). */
+  environment: string;
   /** Channel kinds parked platform-wide; their connect surfaces stay hidden. */
   parkedChannels: string[];
 }
@@ -311,6 +315,7 @@ function normalizeAuthUser(raw: unknown): User {
 
   return {
     id: toNumber(payload.numeric_id) ?? toNumber(payload.id) ?? 0,
+    uuid: typeof payload.id === 'string' && payload.id.includes('-') ? payload.id : null,
     name: toString(payload.name, 'Unknown user'),
     email: toString(payload.email),
     jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,
@@ -332,6 +337,7 @@ function normalizeAuthUser(raw: unknown): User {
       logo: resolveTenantLogo(payload, tenantRaw),
     },
     memberships,
+    environment: toString(payload.environment).toLowerCase(),
     parkedChannels: normalizeParkedChannels(payload.parked_channels),
   };
 }

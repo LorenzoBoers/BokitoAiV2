@@ -312,6 +312,34 @@ def _strip_signoff(text: str) -> str:
     return text
 
 
+def clean_chat_bubbles(bubbles: list[str]) -> tuple[list[str], str]:
+    """Chat-mode customer bubbles -> (clean bubbles, internal note).
+
+    ``INTERNAL_NOTE:`` ends the customer part: the rest of that bubble and every
+    later bubble go to the team. Echoed instructions and dividers are dropped
+    per bubble; a bubble with nothing left is skipped.
+    """
+    clean: list[str] = []
+    notes: list[str] = []
+    in_note = False
+    for raw in bubbles:
+        text = (raw or "").strip()
+        if not text:
+            continue
+        if in_note:
+            notes.append(text)
+            continue
+        body, note = _extract_sentinel_note(text)
+        if note or _SENTINEL_RE.search(text):
+            in_note = True
+            if note:
+                notes.append(note)
+        body = _collapse_blank_lines(_strip_dividers(_strip_operator_prompt(body.strip())))
+        if body:
+            clean.append(body)
+    return clean, _collapse_blank_lines("\n\n".join(notes)) if notes else ""
+
+
 def split_suggestion(text: str) -> SuggestionParts:
     """Parse raw model output into a clean draft body + internal note.
 

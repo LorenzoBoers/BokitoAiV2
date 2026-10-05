@@ -115,6 +115,9 @@ def test_provider_module_lookup():
     assert module_for_provider("king_accountancy") == "accounting"
     assert module_for_provider("bjorn_lunden_mcp") == "accounting"
     assert module_for_provider("exact_online") == "accounting"
+    assert module_for_provider("tink") == "banking"
+    assert module_for_provider("twelve_data") == "investing"
+    assert module_for_provider("google_drive") == "documents"
     assert module_for_provider("gmail") is None
 
 
@@ -898,6 +901,9 @@ def test_modules_listed_in_marketplace_payload():
     assert PROVIDER_BY_SLUG["moneybird"]["module"] == "accounting"
     assert PROVIDER_BY_SLUG["exact_online"]["status"] == "coming_soon"
     assert PROVIDER_BY_SLUG["snelstart"]["status"] == "coming_soon"
+    assert PROVIDER_BY_SLUG["tink"]["status"] == "coming_soon"
+    assert PROVIDER_BY_SLUG["twelve_data"]["module"] == "investing"
+    assert PROVIDER_BY_SLUG["google_drive"]["module"] == "documents"
     assert list(MODULE_BY_SLUG["accounting"].provider_slugs) == [
         "king_accountancy",
         "bjorn_lunden_mcp",

@@ -124,7 +124,7 @@ async def accessible_tenants(session: AsyncSession, user: User, *, is_staff: boo
     result = await session.execute(
         select(Tenant, Membership.role)
         .join(Membership, Membership.tenant_id == Tenant.id)
-        .where(Membership.user_id == user.id)
+        .where(Membership.user_id == user.id, Membership.is_active.is_(True))
         .order_by(Tenant.name)
     )
     return [(tenant, role) for tenant, role in result.all()]
@@ -332,6 +332,10 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
                 "role": canonical_workspace_role(membership.role),
                 "avatar_url": user.avatar_url,
                 "joined_at": membership.created_at.isoformat() if membership.created_at else None,
+                "is_active": bool(membership.is_active),
+                "deactivated_at": membership.deactivated_at.isoformat()
+                if membership.deactivated_at
+                else None,
             }
         )
     return rows
@@ -362,6 +366,7 @@ async def _ensure_not_last_owner(
         select(Membership).where(
             Membership.tenant_id == tenant_id,
             Membership.role == "owner",
+            Membership.is_active.is_(True),
             Membership.id != membership.id,
         )
     )
@@ -392,6 +397,7 @@ async def update_member_role(
             select(Membership).where(
                 Membership.tenant_id == tenant_id,
                 Membership.role == "owner",
+                Membership.is_active.is_(True),
                 Membership.id != membership.id,
             )
         )
@@ -420,11 +426,13 @@ async def remove_member(
 
     user, membership = await _resolve_membership(session, tenant_id, member_id)
     if user.id == acting_user.id:
-        raise AppError("You cannot remove yourself from the workspace.", status_code=400)
+        raise AppError("You cannot deactivate yourself.", status_code=400)
     if membership.role == "owner" and not acting_is_workspace_owner:
-        raise AppError("Only a workspace owner can remove another owner.", status_code=403)
+        raise AppError("Only a workspace owner can deactivate another owner.", status_code=403)
     await _ensure_not_last_owner(session, tenant_id, membership)
-    await session.delete(membership)
+    if membership.is_active:
+        membership.is_active = False
+        membership.deactivated_at = datetime.utcnow()
     if user.last_tenant_id == tenant_id:
         user.last_tenant_id = None
 
@@ -452,7 +460,7 @@ async def remove_member(
                 event_type="unassigned",
                 actor_type="user",
                 actor_id=str(acting_user.id),
-                payload_json=json.dumps({"reason": "member_removed"}),
+                payload_json=json.dumps({"reason": "member_deactivated"}),
             )
         )
 
@@ -461,7 +469,9 @@ async def remove_member(
     remaining = (
         await session.execute(
             select(Membership).where(
-                Membership.user_id == user.id, Membership.id != membership.id
+                Membership.user_id == user.id,
+                Membership.id != membership.id,
+                Membership.is_active.is_(True),
             )
         )
     ).scalars().first()
@@ -469,6 +479,29 @@ async def remove_member(
         await revoke_user_sessions(session, user.id, commit=False)
 
     await session.commit()
+
+
+async def reactivate_member(
+    session: AsyncSession,
+    tenant_id: UUID,
+    member_id: str,
+    *,
+    acting_is_workspace_owner: bool = False,
+) -> dict[str, Any]:
+    """Bring a deactivated membership back into the working roster."""
+    user, membership = await _resolve_membership(session, tenant_id, member_id)
+    if membership.role == "owner" and not acting_is_workspace_owner:
+        raise AppError("Only a workspace owner can reactivate another owner.", status_code=403)
+    membership.is_active = True
+    membership.deactivated_at = None
+    await session.commit()
+    return {
+        "id": user_numeric_id(user.id),
+        "uuid": str(user.id),
+        "email": user.email,
+        "role": canonical_workspace_role(membership.role),
+        "is_active": True,
+    }
 
 
 async def revoke_invite(session: AsyncSession, tenant_id: UUID, invite_id: str) -> None:
@@ -596,7 +629,11 @@ async def create_workspace_invite(
         await session.execute(
             select(User.id)
             .join(Membership, Membership.user_id == User.id)
-            .where(Membership.tenant_id == tenant.id, User.email == normalized_email)
+            .where(
+                Membership.tenant_id == tenant.id,
+                Membership.is_active.is_(True),
+                User.email == normalized_email,
+            )
         )
     ).scalar_one_or_none()
     if existing_member:

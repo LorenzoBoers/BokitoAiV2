@@ -13,7 +13,11 @@ from app.channels.outbound import deliver_outbound
 from app.models.agent import Agent
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.assistant_threads import append_signal_chat_message
-from app.services.suggestion_format import format_customer_email_body, split_suggestion
+from app.services.suggestion_format import (
+    clean_chat_bubbles,
+    format_customer_email_body,
+    split_suggestion,
+)
 
 
 _SKIP_REPLIES = frozenset({"", "Done.", "HEARTBEAT_OK"})
@@ -30,7 +34,7 @@ _META_DRAFT_RE = re.compile(
 
 # Channels where an approved/auto reply can be delivered to the external party
 # (widget/chat visitors receive replies live via the gateway instead).
-_DELIVERABLE_CHANNELS = ("email", "slack")
+_DELIVERABLE_CHANNELS = ("email", "slack", "whatsapp")
 
 
 def looks_like_empty_agent_ack(text: str | None) -> bool:
@@ -55,7 +59,7 @@ def compute_suggested_actions(signal: Signal) -> list[str]:
     actions = ["close"]
     if not signal.assigned_user_id:
         actions.append("assign")
-    actions.append("create_task")
+    actions.append("look_at")
     return actions[:3]
 
 
@@ -69,6 +73,7 @@ def _suggestion_options(
     subject: str,
     to_address: str,
     internal_note: str = "",
+    messages: list[str] | None = None,
 ) -> list[dict]:
     payload = {
         "body_text": body_text,
@@ -77,6 +82,9 @@ def _suggestion_options(
         "to": to_address,
         "signal_id": None,  # filled by caller
     }
+    if messages and len(messages) > 1:
+        # Chat channels: the card shows each bubble; approval sends them in order.
+        payload["messages"] = list(messages)
     if internal_note:
         # Team-facing context extracted from the model output; the decision
         # card shows it collapsed and it is never part of the outbound email.
@@ -117,7 +125,7 @@ async def create_action_suggestion(
 
     Automated / no-reply senders (system notifications, newsletters, bounces)
     must never get a drafted reply. Instead the operator gets a compact card:
-    close the thread, turn it into a task, or keep it open.
+    close the thread, set a next look-at, or keep it open.
     """
     text = (summary or "").strip() or "Automated notification; no reply needed."
     subject = signal.subject or "Automated message"
@@ -130,9 +138,9 @@ async def create_action_suggestion(
             "payload": {"signal_id": str(signal.id)},
         },
         {
-            "id": "create_task",
-            "label": "Create task",
-            "action_type": "create_task",
+            "id": "look_at",
+            "label": "What next",
+            "action_type": "look_at",
             "payload": {"title": f"Follow up: {subject}"[:120], "description": text},
         },
         {
@@ -422,24 +430,37 @@ async def create_reply_suggestion(
     reply_text: str,
     run_id: UUID | None = None,
     is_mock: bool = False,
+    messages: list[str] | None = None,
 ) -> dict:
     """Persist an inline DecisionRequest for a drafted reply (suggest-only).
 
     Channel-agnostic: works for email, widget, chat, whatsapp, slack threads.
     Approving the `send` option executes the `send_reply` tool on the thread.
+    Chat channels pass ``messages`` (the bubbles); the operator can edit or
+    drop each one before approving.
     """
     text = (reply_text or "").strip()
-    if text in _SKIP_REPLIES:
+    if text in _SKIP_REPLIES and not messages:
         return {"skipped": True, "reason": "empty"}
 
-    # The stored draft must be pure customer-facing text: strip research
-    # preambles, internal note blocks, and model-written sign-offs (the
-    # signature system appends exactly one signature at send time).
-    parts = split_suggestion(text)
-    text = parts.body
-    internal_note = parts.internal_note
-    if looks_like_meta_draft(text):
-        return {"skipped": True, "reason": "meta_draft"}
+    bubbles: list[str] = []
+    if messages and signal.channel != "email":
+        bubbles, internal_note = clean_chat_bubbles(messages)
+        bubbles = [b for b in bubbles if b not in _SKIP_REPLIES]
+        if not bubbles:
+            return {"skipped": True, "reason": "empty"}
+        if any(looks_like_meta_draft(b) for b in bubbles):
+            return {"skipped": True, "reason": "meta_draft"}
+        text = "\n\n".join(bubbles)
+    else:
+        # The stored draft must be pure customer-facing text: strip research
+        # preambles, internal note blocks, and model-written sign-offs (the
+        # signature system appends exactly one signature at send time).
+        parts = split_suggestion(text)
+        text = parts.body
+        internal_note = parts.internal_note
+        if looks_like_meta_draft(text):
+            return {"skipped": True, "reason": "meta_draft"}
     # Customer drafts may cite /docs/... as in-app markdown; rewrite to
     # absolute URLs so the card and outbound mail stay clickable outside Bokito.
     if signal.channel == "email":
@@ -451,6 +472,7 @@ async def create_reply_suggestion(
         subject=subject,
         to_address=signal.contact_email or "",
         internal_note=internal_note,
+        messages=bubbles,
     )
     for opt in options:
         if isinstance(opt.get("payload"), dict):
@@ -548,6 +570,138 @@ async def _disclosure_line(session: AsyncSession, tenant_id: UUID, signal: Signa
     return disclosure_text(tenant, language=language)
 
 
+async def _deliver_chat_reply(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    agent: Agent,
+    *,
+    bubbles: list[dict],
+    run_id: UUID | None,
+    tokens: dict | None,
+    is_mock_reply: bool,
+) -> dict:
+    """Autonomous chat-mode reply: each bubble is checked, saved and sent in
+    order with a typing pause. A bubble that fails a check is dropped; a failed
+    send stops the rest so the customer never gets a reply with a gap."""
+    from app.services import ai_handling
+    from app.services.agent.reply_mode import format_for_channel
+    from app.services.agent.turn_persist import touch_agent_activity
+    from app.services.chat_delivery import conversation_has_disclosure, pause_before
+
+    texts, internal_note = clean_chat_bubbles([b["text"] for b in bubbles])
+    texts = [t for t in texts if t not in _SKIP_REPLIES and not looks_like_meta_draft(t)]
+    if not texts:
+        return {"skipped": True, "reason": "meta_draft"}
+    activity = [a for b in bubbles for a in (b.get("activity") or [])]
+
+    if internal_note:
+        session.add(
+            SignalMessage(
+                signal_id=signal.id,
+                tenant_id=tenant_id,
+                kind="internal_note",
+                direction="internal",
+                role="assistant",
+                author_agent_id=agent.id,
+                body_text=internal_note,
+                body_preview=internal_note[:200],
+                received_at=datetime.utcnow(),
+            )
+        )
+        await session.flush()
+
+    disclosure = None
+    if not await conversation_has_disclosure(session, signal):
+        disclosure = await _disclosure_line(session, tenant_id, signal)
+
+    deliverable = signal.channel in _DELIVERABLE_CHANNELS and not is_mock_reply
+    statuses: list[str] = []
+    messages: list[SignalMessage] = []
+    for index, text in enumerate(texts):
+        if index:
+            await pause_before(text)
+        metadata: dict = {"inbound_auto_reply": True, "ai_handling": "autonomous"}
+        if run_id:
+            metadata["run_id"] = str(run_id)
+        if len(texts) > 1:
+            metadata["bubble_index"] = index
+        if index == 0:
+            if activity:
+                metadata["activity"] = activity
+            if disclosure:
+                metadata["ai_disclosure"] = disclosure
+        if index == len(texts) - 1 and tokens:
+            metadata["usage"] = tokens
+        if is_mock_reply:
+            metadata.update({"is_mock": True, "llm_mode": "mock", "llm_configured": False})
+        message = await append_signal_chat_message(
+            session,
+            signal,
+            role="assistant",
+            content=text,
+            author_agent_id=agent.id,
+            metadata=metadata,
+        )
+        messages.append(message)
+        if is_mock_reply:
+            statuses.append("not_delivered:mock")
+            continue
+        if not deliverable:
+            # Widget / in-app: the visitor receives the bubble live via the gateway.
+            statuses.append("skipped")
+            continue
+        delivery = await deliver_outbound(
+            session,
+            signal,
+            body_text=format_for_channel(text, signal.channel),
+            subject=f"Re: {signal.subject}" if signal.subject else "Reply",
+        )
+        message.send_status = delivery.status
+        message.auto_sent = delivery.status.startswith("sent")
+        session.add(message)
+        statuses.append(delivery.status)
+        if not message.auto_sent:
+            break
+
+    await touch_agent_activity(session, agent.id)
+    apply_suggested_actions(signal)
+    session.add(signal)
+    final_status = statuses[-1] if statuses else "skipped"
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            event_type="agent_replied",
+            actor_type="agent",
+            actor_id=str(agent.id),
+            payload_json=json.dumps(
+                {
+                    "run_id": str(run_id) if run_id else None,
+                    "delivery": final_status,
+                    "messages": len(messages),
+                    "is_mock": is_mock_reply,
+                }
+            ),
+        )
+    )
+    await session.commit()
+    if not is_mock_reply:
+        from app.models.auth import Tenant
+
+        account, _contact = await ai_handling.load_layers(session, tenant_id, signal)
+        await ai_handling.check_breaker(session, await session.get(Tenant, tenant_id), account)
+    return {
+        "message_id": str(messages[-1].id),
+        "message_ids": [str(m.id) for m in messages],
+        "delivery": final_status,
+        "channel": signal.channel,
+        "is_mock": is_mock_reply,
+        "delivered_to_customer": not is_mock_reply
+        and all(s.startswith("sent") for s in statuses),
+    }
+
+
 async def persist_inbound_agent_reply(
     session: AsyncSession,
     tenant_id: UUID,
@@ -559,11 +713,15 @@ async def persist_inbound_agent_reply(
     tokens: dict | None = None,
     mode: str = "assisted",
     llm_live: bool | None = None,
+    segments: list[dict] | None = None,
 ) -> dict:
     """Persist agent output on an inbound thread according to the AI handling.
 
     ``assisted`` creates an inline DecisionRequest for human approval;
     ``autonomous`` appends the reply and delivers it externally where supported.
+    Email gets one message (mail mode); every other channel gets the final
+    speech as several short bubbles (chat mode). ``segments`` is the turn
+    (``AgentLoop.turn.segments``) so activity lands on the first bubble.
 
     When ``llm_live`` is False (mock / no key), never deliver externally and
     stamp the message so the timeline never labels it as sent to the customer.
@@ -600,6 +758,12 @@ async def persist_inbound_agent_reply(
                 state_reason=str(row.get("state_reason") or ""),
             )
 
+    chat_bubbles: list[dict] = []
+    if signal.channel != "email":
+        from app.services.agent.turn_persist import plan_customer_bubbles
+
+        chat_bubbles = plan_customer_bubbles(segments or [], fallback_text=text)
+
     if mode != "autonomous":
         outcome = await create_reply_suggestion(
             session,
@@ -609,6 +773,7 @@ async def persist_inbound_agent_reply(
             reply_text=text,
             run_id=run_id,
             is_mock=is_mock_reply,
+            messages=[b["text"] for b in chat_bubbles] or None,
         )
         if outcome.get("reason") == "meta_draft":
             return await create_human_attention_suggestion(
@@ -623,6 +788,18 @@ async def persist_inbound_agent_reply(
                 run_id=run_id,
             )
         return outcome
+
+    if chat_bubbles:
+        return await _deliver_chat_reply(
+            session,
+            tenant_id,
+            signal,
+            agent,
+            bubbles=chat_bubbles,
+            run_id=run_id,
+            tokens=tokens,
+            is_mock_reply=is_mock_reply,
+        )
 
     # Auto mode delivers straight to the customer: the same cleaning applies
     # (no research preamble, no internal notes, no model-written sign-off).
@@ -652,6 +829,12 @@ async def persist_inbound_agent_reply(
         await session.flush()
 
     metadata: dict = {"inbound_auto_reply": True, "ai_handling": "autonomous"}
+    if segments:
+        from app.services.agent.turn_persist import plan_turn_messages
+
+        activity = plan_turn_messages(segments, "mail")[0]["activity"]
+        if activity:
+            metadata["activity"] = activity
     if disclosure:
         metadata["ai_disclosure"] = disclosure
     if run_id:

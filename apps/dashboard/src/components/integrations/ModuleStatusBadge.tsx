@@ -5,7 +5,7 @@ import { moduleStatusLabelKey, type IntegrationModuleRow } from '../../lib/integ
 const DEFAULTS: Record<ReturnType<typeof moduleStatusLabelKey>, string> = {
   comingSoon: 'Coming soon',
   connectedBadge: 'Connected',
-  installedBadge: 'Installed · no packages',
+  installedBadge: 'Installation incomplete',
   setupBadge: 'Needs setup',
   notInstalledBadge: 'Not installed',
   onBadge: 'Installed',

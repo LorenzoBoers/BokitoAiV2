@@ -113,6 +113,8 @@ class ResolveBody(BaseModel):
     response_text: str | None = None
     # Sender identity for approved reply suggestions: "user" (default) or "agent".
     send_as: str | None = None
+    # Chat-mode reply drafts: the edited bubbles, sent in order.
+    messages: list[str] | None = None
 
 
 class SessionStartBody(BaseModel):
@@ -176,14 +178,16 @@ class SavedReplyBody(BaseModel):
 class RuleCreateBody(BaseModel):
     match_type: str = "sender"  # sender | domain | list_id
     match_value: str
-    action: str = "auto_close"  # auto_close | auto_task | mute_ai
+    action: str = "auto_close"  # auto_close | auto_task | mute_ai | tag
     label: str = ""
+    tags: list[str] | None = None
 
 
 class RulePatchBody(BaseModel):
     action: str | None = None
     status: str | None = None  # active | paused
     label: str | None = None
+    tags: list[str] | None = None
 
 
 @router.get("/rules")
@@ -212,6 +216,7 @@ async def create_inbox_rule(
             match_value=body.match_value,
             action=body.action,
             label=body.label,
+            tags=body.tags,
             user_id=auth.user.id,
         )
     except ValueError as exc:
@@ -235,6 +240,7 @@ async def update_inbox_rule(
             action=body.action,
             status=body.status,
             label=body.label,
+            tags=body.tags,
             user_id=auth.user.id,
         )
     except ValueError as exc:
@@ -269,7 +275,7 @@ async def list_saved_replies(
 
     result = await session.execute(
         select(SavedReply)
-        .where(SavedReply.tenant_id == auth.tenant.id)
+        .where(SavedReply.tenant_id == auth.tenant.id, SavedReply.deleted_at.is_(None))
         .order_by(SavedReply.title)
     )
     return [
@@ -319,7 +325,11 @@ async def update_saved_reply(
     from app.models.signal import SavedReply
 
     result = await session.execute(
-        select(SavedReply).where(SavedReply.id == reply_id, SavedReply.tenant_id == auth.tenant.id)
+        select(SavedReply).where(
+            SavedReply.id == reply_id,
+            SavedReply.tenant_id == auth.tenant.id,
+            SavedReply.deleted_at.is_(None),
+        )
     )
     row = result.scalar_one_or_none()
     if not row:
@@ -344,13 +354,25 @@ async def delete_saved_reply(
     from app.models.signal import SavedReply
 
     result = await session.execute(
-        select(SavedReply).where(SavedReply.id == reply_id, SavedReply.tenant_id == auth.tenant.id)
+        select(SavedReply).where(
+            SavedReply.id == reply_id,
+            SavedReply.tenant_id == auth.tenant.id,
+            SavedReply.deleted_at.is_(None),
+        )
     )
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Saved reply not found")
-    await session.delete(row)
-    await session.commit()
+    from app.services.trash import move_to_bin
+
+    await move_to_bin(
+        session,
+        auth.tenant,
+        resource_type="saved_reply",
+        row=row,
+        user_id=auth.user.id if auth.user else None,
+        commit=True,
+    )
     return {"ok": True}
 
 
@@ -400,6 +422,8 @@ async def list_signal_threads(
     connection_id: str | None = Query(None),
     email_connection_id: int | None = Query(None),
     project_id: str | None = Query(None),
+    category_id: str | None = Query(None),
+    stage: str | None = Query(None),
     agent_id: str | None = Query(None),
     unread: bool = Query(False),
     needs_reply: bool = Query(False),
@@ -414,6 +438,8 @@ async def list_signal_threads(
     ``view``: ``for_you`` (yours: owned, your turn, your team's turn, mentions),
     ``all_open``, ``unassigned`` (team-owned, not picked up), ``closed``,
     ``snoozed``, ``spam``, ``all``. ``team_id`` narrows to one team's work.
+    Folder filters: ``project_id`` (linked, or a ticket in the project),
+    ``category_id``, ``tag`` and ``stage`` (a stage key or kind).
     """
     return await svc.list_threads(
         session,
@@ -429,6 +455,8 @@ async def list_signal_threads(
         connection_id=connection_id,
         email_connection_id=email_connection_id,
         project_id=project_id,
+        category_id=category_id,
+        stage=stage,
         agent_id=agent_id,
         unread=unread,
         needs_reply=needs_reply,
@@ -1075,6 +1103,48 @@ async def unpin_signal(
     return {"ok": True}
 
 
+class SplitBody(BaseModel):
+    from_message_id: UUID
+    category_id: UUID | None = None
+
+
+class SplitResult(BaseModel):
+    signal_id: str
+    parent_signal_id: str
+
+
+@router.post("/{signal_id}/split", response_model=SplitResult)
+async def split_signal(
+    signal_id: UUID,
+    body: SplitBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Move the messages from ``from_message_id`` on into a new linked conversation.
+
+    The new conversation keeps the contact, channel and provider thread; later
+    inbound replies on that thread land there. ``category_id`` files its
+    category right away.
+    """
+    from app.services.conversation_split import resolve_category, split_conversation
+
+    case_type = (
+        await resolve_category(session, auth.tenant.id, str(body.category_id))
+        if body.category_id
+        else None
+    )
+    child = await split_conversation(
+        session,
+        auth.tenant.id,
+        signal_id,
+        from_message_id=body.from_message_id,
+        case_type=case_type,
+        actor_type="user",
+        actor_id=str(auth.user.id),
+    )
+    return SplitResult(signal_id=str(child.id), parent_signal_id=str(signal_id))
+
+
 @router.post("/{signal_id}/messages/{message_id}/resolve")
 async def resolve_decision(
     signal_id: UUID,
@@ -1096,6 +1166,7 @@ async def resolve_decision(
         subject=body.subject,
         response_text=body.response_text,
         send_as=body.send_as,
+        messages=body.messages,
     )
 
 

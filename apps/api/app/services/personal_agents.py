@@ -121,7 +121,7 @@ async def deactivate_personal_agents(session: AsyncSession) -> int:
     await session.execute(
         update(Agent)
         .where(Agent.id.in_(personal_ids))
-        .values(is_active=False, runtime_status="paused")
+        .values(is_active=False, runtime_status="standby")
     )
     await session.execute(
         update(UserPreference)

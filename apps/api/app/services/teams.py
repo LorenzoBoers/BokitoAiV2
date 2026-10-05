@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.auth import Membership, User
+from app.models.signal import Signal
 from app.models.team import (
     PICKUP_MODES,
     SYSTEM_TEAM_KINDS,
@@ -73,15 +74,23 @@ async def people_team(session: AsyncSession, tenant_id: UUID) -> Team:
 
 
 async def get_team(session: AsyncSession, tenant_id: UUID, team_id: UUID) -> Team | None:
+    from app.services.trash import alive
+
     return (
-        await session.execute(select(Team).where(Team.id == team_id, Team.tenant_id == tenant_id))
+        await session.execute(
+            select(Team).where(Team.id == team_id, Team.tenant_id == tenant_id, alive(Team))
+        )
     ).scalar_one_or_none()
 
 
 async def list_teams(session: AsyncSession, tenant_id: UUID) -> list[Team]:
     await ensure_system_teams(session, tenant_id)
+    from app.services.trash import alive
+
     rows = (
-        await session.execute(select(Team).where(Team.tenant_id == tenant_id))
+        await session.execute(
+            select(Team).where(Team.tenant_id == tenant_id, alive(Team))
+        )
     ).scalars().all()
     order = {TEAM_KIND_PEOPLE: 0, TEAM_KIND_AGENTS: 1}
     return sorted(rows, key=lambda t: (order.get(t.kind, 2), t.name.lower()))
@@ -91,7 +100,11 @@ async def _workspace_user_ids(session: AsyncSession, tenant_id: UUID) -> list[UU
     rows = await session.execute(
         select(Membership.user_id)
         .join(User, User.id == Membership.user_id)
-        .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
+        .where(
+            Membership.tenant_id == tenant_id,
+            Membership.is_active.is_(True),
+            User.is_active.is_(True),
+        )
     )
     return list(rows.scalars().all())
 
@@ -228,14 +241,26 @@ async def set_team_members(session: AsyncSession, team: Team, members: list[dict
     session.add(team)
 
 
-async def delete_team(session: AsyncSession, team: Team) -> None:
+async def delete_team(session: AsyncSession, team: Team, *, permanent: bool = False) -> None:
     from sqlalchemy import update
 
     from app.models.notification import DecisionRequest
     from app.models.signal import Signal
+    from app.services.trash import load_tenant, move_to_bin
 
     if team.kind in SYSTEM_TEAM_KINDS:
         raise ValueError("System teams cannot be deleted")
+    if not permanent:
+        tenant = await load_tenant(session, team.tenant_id)
+        await move_to_bin(
+            session,
+            tenant,
+            resource_type="team",
+            row=team,
+            user_id=None,
+            commit=True,
+        )
+        return
     fallback = await people_team(session, team.tenant_id)
     await session.execute(
         update(Signal)
@@ -333,3 +358,54 @@ async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
 async def team_names(session: AsyncSession, tenant_id: UUID) -> dict[UUID, str]:
     rows = (await session.execute(select(Team.id, Team.name).where(Team.tenant_id == tenant_id))).all()
     return {row[0]: row[1] for row in rows}
+
+
+async def get_or_create_team_room(session: AsyncSession, tenant_id: UUID, team: Team) -> Signal:
+    """Standing internal conversation for a pinned team's Groepschat row."""
+    existing = (
+        await session.execute(
+            select(Signal)
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.channel == "internal",
+                Signal.source == "team",
+                Signal.assignee_kind == "team",
+                Signal.assignee_team_id == team.id,
+            )
+            .order_by(Signal.created_at.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing:
+        if existing.subject in ("", "(No subject)") or existing.subject == existing.contact_name:
+            existing.subject = team.name
+        if not existing.contact_name:
+            existing.contact_name = team.name
+        if existing.assignee_kind != "team":
+            existing.assignee_kind = "team"
+            existing.assignee_team_id = team.id
+        # Empty rooms must not sit in For you. Turn stays empty until someone
+        # posts; hub lists still include the room via assignee_kind=team.
+        if existing.turn_reason == "room":
+            existing.turn_kind = ""
+            existing.turn_team_id = None
+            existing.turn_reason = ""
+        return existing
+
+    now = datetime.utcnow()
+    signal = Signal(
+        tenant_id=tenant_id,
+        channel="internal",
+        source="team",
+        subject=team.name,
+        contact_name=team.name,
+        status="open",
+        priority="normal",
+        assignee_kind="team",
+        assignee_team_id=team.id,
+        last_message_at=now,
+        has_unread=False,
+    )
+    session.add(signal)
+    await session.flush()
+    return signal

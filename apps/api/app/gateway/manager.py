@@ -13,7 +13,7 @@ from app.gateway.bus import event_bus
 logger = logging.getLogger(__name__)
 
 # Topics dashboard/operator clients may subscribe to without extra checks.
-OPERATOR_TOPICS = ("threads", "runs", "decisions", "notifications", "presence", "health")
+OPERATOR_TOPICS = ("threads", "runs", "decisions", "notifications", "presence", "agents", "entities")
 
 
 class GatewayConnection:

@@ -1,4 +1,5 @@
 import { appRoutes } from '../api/routes/app.routes'
+import type { AgentSummary } from './workforce-api'
 import {
   APP_API_BASE,
   apiDelete,
@@ -8,8 +9,10 @@ import {
   appScopedGet,
   buildAuthHeaders,
 } from './api'
-import { normalizeMyFeedback, normalizeOwner, normalizeTurn } from './inbox-api'
+import { normalizeDelivery, normalizeMyFeedback, normalizeThreadRow } from './inbox-api'
+import { normalizeMessageActivity, type ActivityItem } from './agentActivity'
 import { normalizeAiHandling } from './ai-handling'
+import { plainChatText } from './chatText'
 import type {
   InboxEvent,
   InboxMember,
@@ -52,100 +55,6 @@ function normalizeThreadId(raw: unknown): string | null {
   return null
 }
 
-export function normalizeSignalThread(row: unknown): InboxThread | null {
-  if (!row || typeof row !== 'object') return null
-  const raw = row as Record<string, unknown>
-  const id = normalizeThreadId(raw.id)
-  if (!id) return null
-  const statusValue = asString(raw.status)
-  const status =
-    statusValue === 'pending'
-      ? 'pending'
-      : statusValue === 'closed'
-        ? 'closed'
-        : statusValue === 'spam'
-          ? 'spam'
-          : 'open'
-  const priorityValue = asString(raw.priority)
-  const priority = priorityValue === 'high' ? 'high' : priorityValue === 'urgent' ? 'urgent' : 'normal'
-  return {
-    id,
-    organisationId: asString(raw.organisation_id),
-    emailConnectionId:
-      typeof raw.email_connection_id === 'number' && raw.email_connection_id > 0
-        ? raw.email_connection_id
-        : null,
-    channelAccountId:
-      typeof raw.channel_account_id === 'string' && raw.channel_account_id.length > 0
-        ? raw.channel_account_id
-        : null,
-    graphConversationId: asString(raw.graph_conversation_id ?? raw.external_id),
-    emailSubject: asString(raw.email_subject ?? raw.subject, '(No subject)'),
-    lastMessagePreview: asString(raw.last_message_preview),
-    lastMessageDirection: asString(raw.last_message_direction) as InboxThread['lastMessageDirection'],
-    contactId: typeof raw.contact_id === 'string' && raw.contact_id.length > 0 ? raw.contact_id : null,
-    agentId: typeof raw.agent_id === 'string' && raw.agent_id.length > 0 ? raw.agent_id : null,
-    agentName: typeof raw.agent_name === 'string' && raw.agent_name.length > 0 ? raw.agent_name : null,
-    agentKind: typeof raw.agent_kind === 'string' && raw.agent_kind.length > 0 ? raw.agent_kind : null,
-    agentAvatarKind:
-      typeof raw.agent_avatar_kind === 'string' && raw.agent_avatar_kind.length > 0
-        ? raw.agent_avatar_kind
-        : typeof raw.avatar_kind === 'string' && raw.avatar_kind.length > 0
-          ? raw.avatar_kind
-          : null,
-    agentAvatarIcon:
-      typeof raw.agent_avatar_icon === 'string' && raw.agent_avatar_icon.length > 0
-        ? raw.agent_avatar_icon
-        : typeof raw.avatar_icon === 'string' && raw.avatar_icon.length > 0
-          ? raw.avatar_icon
-          : null,
-    agentAvatarColor:
-      typeof raw.agent_avatar_color === 'string' && raw.agent_avatar_color.length > 0
-        ? raw.agent_avatar_color
-        : typeof raw.avatar_color === 'string' && raw.avatar_color.length > 0
-          ? raw.avatar_color
-          : null,
-    agentAvatarImageUrl:
-      typeof raw.agent_avatar_image_url === 'string' && raw.agent_avatar_image_url.length > 0
-        ? raw.agent_avatar_image_url
-        : typeof raw.avatar_image_url === 'string' && raw.avatar_image_url.length > 0
-          ? raw.avatar_image_url
-          : null,
-    contactEmail: asString(raw.contact_email),
-    contactName: asString(raw.contact_name),
-    contactPhone: asString(raw.contact_phone),
-    contactBasis: asString(raw.contact_basis),
-    status,
-    snoozedUntil: asNullableTimestampString(raw.snoozed_until),
-    followUpAt: asNullableTimestampString(raw.follow_up_at),
-    followUpTitle: asString(raw.follow_up_title),
-    priority,
-    assignedToUserId:
-      raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0
-        ? null
-        : asNumber(raw.assigned_to_user_id),
-    owner: normalizeOwner(raw.owner),
-    turn: normalizeTurn(raw.turn),
-    tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
-    lastMessageAt: asNullableTimestampString(raw.last_message_at),
-    hasUnread: Boolean(raw.has_unread),
-    hasOpenDecision: Boolean(raw.has_open_decision),
-    isPinned: Boolean(raw.is_pinned),
-    aiHandling: normalizeAiHandling(raw.ai_handling),
-    suggestedActions: Array.isArray(raw.suggested_actions)
-      ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
-      : [],
-    category: asString(raw.category) || null,
-    urgency: typeof raw.urgency === 'number' ? raw.urgency : null,
-    certainty: typeof raw.certainty === 'number' ? raw.certainty : null,
-    aiSummary: asString(raw.ai_summary) || null,
-    channel: asString(raw.channel, 'email'),
-    folder: asString(raw.folder, raw.channel === 'internal' ? 'internal' : 'external'),
-    projectId: raw.project_id ? asString(raw.project_id) : null,
-    createdAt: asString(raw.created_at),
-  }
-}
-
 export function normalizeSignalMessage(row: unknown): InboxMessage | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
@@ -182,40 +91,14 @@ export function normalizeSignalMessage(row: unknown): InboxMessage | null {
     authorUserId:
       raw.author_user_id == null || raw.author_user_id === 0 ? null : asNumber(raw.author_user_id),
     isRead: Boolean(raw.is_read),
-    sendStatus: null,
+    ...normalizeDelivery(raw),
     attachments: Array.isArray(raw.attachments) ? raw.attachments : null,
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
     myFeedback: normalizeMyFeedback(raw),
-    hasAgentTrace: raw.has_agent_trace === true || Boolean(normalizeAgentTrace(raw)),
-    agentTrace: normalizeAgentTrace(raw),
+    ...normalizeMessageActivity(raw),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asString(raw.created_at),
-  }
-}
-
-function normalizeAgentTrace(raw: Record<string, unknown>): InboxMessage['agentTrace'] {
-  const payload = raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : null
-  const fromPayload = payload?.agent_trace
-  const fromRoot = raw.agent_trace
-  const trace = (fromPayload && typeof fromPayload === 'object' ? fromPayload : null)
-    ?? (fromRoot && typeof fromRoot === 'object' ? fromRoot : null)
-  if (!trace || typeof trace !== 'object') return null
-  const t = trace as Record<string, unknown>
-  const usage =
-    t.usage && typeof t.usage === 'object'
-      ? (t.usage as { input_tokens?: number; output_tokens?: number })
-      : undefined
-  const steps = Array.isArray(t.steps) ? t.steps : undefined
-  const thinking =
-    t.thinking && typeof t.thinking === 'object'
-      ? (t.thinking as { text?: string; ms?: number; budget?: number })
-      : undefined
-  if (!usage && (!steps || steps.length === 0) && !thinking) return null
-  return {
-    usage,
-    steps: steps as NonNullable<InboxMessage['agentTrace']>['steps'],
-    thinking,
   }
 }
 
@@ -245,6 +128,8 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.teamId) params.set('team_id', filters.teamId)
   if (filters.projectId) params.set('project_id', filters.projectId)
   if (filters.tag) params.set('tag', filters.tag)
+  if (filters.categoryId) params.set('category_id', filters.categoryId)
+  if (filters.stage) params.set('stage', filters.stage)
   if (filters.assigneeId) params.set('assignee_id', String(filters.assigneeId))
   if (filters.search) params.set('search', filters.search)
   if (filters.unread) params.set('unread', '1')
@@ -260,7 +145,7 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   const data = payload as Record<string, unknown>
   const itemsSource = Array.isArray(data.items) ? data.items : []
   return {
-    items: itemsSource.map(normalizeSignalThread).filter((t): t is InboxThread => t !== null),
+    items: itemsSource.map(normalizeThreadRow).filter((t): t is InboxThread => t !== null),
     curPage: asNumber(data.curPage, filters.page ?? 1),
     itemsTotal: Number.isFinite(asNumber(data.itemsTotal, NaN)) ? asNumber(data.itemsTotal) : null,
     nextPage: data.nextPage != null ? asNumber(data.nextPage) : null,
@@ -415,7 +300,7 @@ export async function getSignalThread(
     has_older?: unknown
     oldest_message_id?: unknown
   }>(path, token)
-  const thread = normalizeSignalThread(payload.thread)
+  const thread = normalizeThreadRow(payload.thread)
   if (!thread) return null
   const csat =
     payload.csat && typeof payload.csat.score === 'number'
@@ -468,7 +353,7 @@ export async function patchSignalThread(
   if (patch.followUpAt !== undefined) body.follow_up_at = patch.followUpAt
   if (patch.followUpTitle !== undefined) body.follow_up_title = patch.followUpTitle
   const payload = await apiPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
-  return normalizeSignalThread(payload)
+  return normalizeThreadRow(payload)
 }
 
 export async function bulkUpdateSignalThreads(
@@ -540,12 +425,12 @@ export async function deleteSignalThread(token: string, threadId: string): Promi
 
 export async function markSignalThreadRead(token: string, threadId: string): Promise<InboxThread | null> {
   const payload = await apiPatch<unknown>(appRoutes.signals.threadMarkRead(threadId), {}, token)
-  return normalizeSignalThread(payload)
+  return normalizeThreadRow(payload)
 }
 
 export async function markSignalThreadUnread(token: string, threadId: string): Promise<InboxThread | null> {
   const payload = await apiPatch<unknown>(appRoutes.signals.threadMarkUnread(threadId), {}, token)
-  return normalizeSignalThread(payload)
+  return normalizeThreadRow(payload)
 }
 
 export async function listSignalPinnedThreadIds(token: string): Promise<string[]> {
@@ -560,6 +445,19 @@ export async function pinSignalThread(token: string, threadId: string): Promise<
 
 export async function unpinSignalThread(token: string, threadId: string): Promise<void> {
   await apiDelete<unknown>(appRoutes.signals.threadPin(threadId), token)
+}
+
+/** Move the messages from `fromMessageId` on into a new linked conversation. */
+export async function splitSignalThread(
+  token: string,
+  threadId: string,
+  input: { fromMessageId: string; categoryId?: string | null },
+): Promise<{ signal_id: string; parent_signal_id: string }> {
+  return apiPost<{ signal_id: string; parent_signal_id: string }>(
+    appRoutes.signals.threadSplit(threadId),
+    { from_message_id: input.fromMessageId, category_id: input.categoryId || null },
+    token,
+  )
 }
 
 export async function replyToSignalThread(
@@ -675,7 +573,9 @@ export type InboxRule = {
   matchType: 'sender' | 'domain' | 'list_id'
   matchValue: string
   label: string
-  action: 'auto_close' | 'auto_task' | 'mute_ai'
+  action: 'auto_close' | 'auto_task' | 'mute_ai' | 'tag'
+  /** Tags the rule adds to matching conversations. */
+  tags: string[]
   status: 'suggested' | 'active' | 'paused'
   source: 'learned' | 'manual'
   observations: number
@@ -698,7 +598,9 @@ export function normalizeInboxRule(raw: unknown): InboxRule | null {
   const matchType = row.match_type
   const action = row.action
   if (matchType !== 'sender' && matchType !== 'domain' && matchType !== 'list_id') return null
-  if (action !== 'auto_close' && action !== 'auto_task' && action !== 'mute_ai') return null
+  if (action !== 'auto_close' && action !== 'auto_task' && action !== 'mute_ai' && action !== 'tag') {
+    return null
+  }
   const status = row.status
   return {
     id: row.id,
@@ -706,6 +608,7 @@ export function normalizeInboxRule(raw: unknown): InboxRule | null {
     matchValue: typeof row.match_value === 'string' ? row.match_value : '',
     label: typeof row.label === 'string' ? row.label : '',
     action,
+    tags: Array.isArray(row.labels) ? row.labels.filter((t): t is string => typeof t === 'string') : [],
     status: status === 'active' || status === 'paused' ? status : 'suggested',
     source: row.source === 'manual' ? 'manual' : 'learned',
     observations: typeof row.observations === 'number' ? row.observations : 0,
@@ -744,6 +647,7 @@ export async function createInboxRule(
     matchValue: string
     action: InboxRule['action']
     label?: string
+    tags?: string[]
   },
 ): Promise<InboxRule | null> {
   const payload = await apiPost<unknown>(
@@ -753,6 +657,7 @@ export async function createInboxRule(
       match_value: input.matchValue,
       action: input.action,
       label: input.label ?? '',
+      ...(input.tags !== undefined ? { tags: input.tags } : {}),
     },
     token,
   )
@@ -780,6 +685,156 @@ export async function deleteInboxRule(token: string, ruleId: string): Promise<vo
   await apiDelete(appRoutes.signals.rule(ruleId), token)
 }
 
+export type SignalTag = {
+  id: string
+  name: string
+  description: string
+  /** Conversations carrying the tag. */
+  count: number
+}
+
+function normalizeSignalTag(raw: unknown): SignalTag | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (typeof row.id !== 'string' || typeof row.name !== 'string') return null
+  return {
+    id: row.id,
+    name: row.name,
+    description: typeof row.description === 'string' ? row.description : '',
+    count: typeof row.count === 'number' ? row.count : 0,
+  }
+}
+
+export async function listSignalTags(token: string): Promise<SignalTag[]> {
+  const payload = await apiGet<unknown>(appRoutes.signals.tags, token)
+  return (Array.isArray(payload) ? payload : [])
+    .map(normalizeSignalTag)
+    .filter((tag): tag is SignalTag => tag !== null)
+}
+
+export async function createSignalTag(
+  token: string,
+  input: { name: string; description?: string },
+): Promise<SignalTag | null> {
+  const payload = await apiPost<unknown>(
+    appRoutes.signals.tags,
+    { name: input.name, description: input.description ?? '' },
+    token,
+  )
+  return normalizeSignalTag(payload)
+}
+
+/** Rename or describe a tag. Renaming onto an existing name merges the two tags. */
+export async function updateSignalTag(
+  token: string,
+  tagId: string,
+  patch: { name?: string; description?: string },
+): Promise<SignalTag | null> {
+  const payload = await apiPatch<unknown>(appRoutes.signals.tag(tagId), patch, token)
+  return normalizeSignalTag(payload)
+}
+
+export async function deleteSignalTag(token: string, tagId: string): Promise<void> {
+  await apiDelete(appRoutes.signals.tag(tagId), token)
+}
+
+/** Folder filter keys; the same names are conversation list query parameters. */
+export const FOLDER_FILTER_KEYS = ['project_id', 'category_id', 'tag', 'stage'] as const
+export type FolderFilterKey = (typeof FOLDER_FILTER_KEYS)[number]
+export type FolderFilter = Partial<Record<FolderFilterKey, string>>
+
+export type InboxFolder = {
+  id: string
+  /** `saved` folders are rows; `project` folders are computed per project. */
+  kind: 'saved' | 'project'
+  name: string
+  filter: FolderFilter
+  scope: 'workspace' | 'personal'
+  position: number | null
+  /** Open conversations in the folder. */
+  count: number
+}
+
+function normalizeFolderFilter(raw: unknown): FolderFilter {
+  const out: FolderFilter = {}
+  if (!raw || typeof raw !== 'object') return out
+  const row = raw as Record<string, unknown>
+  for (const key of FOLDER_FILTER_KEYS) {
+    if (typeof row[key] === 'string' && row[key]) out[key] = row[key] as string
+  }
+  return out
+}
+
+function normalizeInboxFolder(raw: unknown): InboxFolder | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (typeof row.id !== 'string' || typeof row.name !== 'string') return null
+  return {
+    id: row.id,
+    kind: row.kind === 'project' ? 'project' : 'saved',
+    name: row.name,
+    filter: normalizeFolderFilter(row.filter),
+    scope: row.scope === 'personal' ? 'personal' : 'workspace',
+    position: typeof row.position === 'number' ? row.position : null,
+    count: typeof row.count === 'number' ? row.count : 0,
+  }
+}
+
+/** Read the folder filter from a Communication URL's query string. */
+export function folderFilterFromParams(params: URLSearchParams): FolderFilter {
+  const out: FolderFilter = {}
+  for (const key of FOLDER_FILTER_KEYS) {
+    const value = params.get(key)?.trim()
+    if (value) out[key] = value
+  }
+  return out
+}
+
+export function folderFilterQuery(filter: FolderFilter): string {
+  const params = new URLSearchParams()
+  for (const key of FOLDER_FILTER_KEYS) {
+    if (filter[key]) params.set(key, filter[key] as string)
+  }
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
+export function sameFolderFilter(a: FolderFilter, b: FolderFilter): boolean {
+  return FOLDER_FILTER_KEYS.every((key) => (a[key] ?? '') === (b[key] ?? ''))
+}
+
+export async function listInboxFolders(token: string): Promise<InboxFolder[]> {
+  const payload = await apiGet<unknown>(appRoutes.signals.folders, token)
+  return (Array.isArray(payload) ? payload : [])
+    .map(normalizeInboxFolder)
+    .filter((folder): folder is InboxFolder => folder !== null)
+}
+
+export async function createInboxFolder(
+  token: string,
+  input: { name: string; filter: FolderFilter; scope?: InboxFolder['scope'] },
+): Promise<InboxFolder | null> {
+  const payload = await apiPost<unknown>(
+    appRoutes.signals.folders,
+    { name: input.name, filter: input.filter, scope: input.scope ?? 'workspace' },
+    token,
+  )
+  return normalizeInboxFolder(payload)
+}
+
+export async function updateInboxFolder(
+  token: string,
+  folderId: string,
+  patch: { name?: string; filter?: FolderFilter; position?: number },
+): Promise<InboxFolder | null> {
+  const payload = await apiPatch<unknown>(appRoutes.signals.folder(folderId), patch, token)
+  return normalizeInboxFolder(payload)
+}
+
+export async function deleteInboxFolder(token: string, folderId: string): Promise<void> {
+  await apiDelete(appRoutes.signals.folder(folderId), token)
+}
+
 export type ResolveDecisionResult = {
   ruleSuggestion: InboxRuleSuggestion | null
   taskId?: string | null
@@ -796,6 +851,8 @@ export async function resolveSignalDecision(
     bodyHtml?: string
     subject?: string
     responseText?: string
+    /** Chat bubbles of an approved reply (one customer message each). */
+    messages?: string[]
     /** Sender identity for approved reply suggestions. */
     sendAs?: 'user' | 'agent'
   },
@@ -808,6 +865,7 @@ export async function resolveSignalDecision(
     payload.body = opts.body
     payload.body_text = opts.body
   }
+  if (opts?.messages?.length) payload.messages = opts.messages
   if (opts?.bodyHtml != null) payload.body_html = opts.bodyHtml
   if (opts?.subject != null) payload.subject = opts.subject
   if (opts?.responseText != null && opts.responseText.trim()) {
@@ -925,7 +983,7 @@ export async function listSignalAssignees(token: string, threadId: string): Prom
         .trim()
         .toLowerCase()
       const status =
-        statusRaw === 'working' || statusRaw === 'active'
+        statusRaw === 'working'
           ? ('working' as const)
           : statusRaw === 'error'
             ? ('error' as const)
@@ -1023,17 +1081,9 @@ export type ConversationWithAgent = Conversation & {
 }
 
 /** A chat target: a company agent the user is permitted to message. */
-export type ChatTarget = {
-  id: string
-  name: string
+export type ChatTarget = AgentSummary & {
   kind: 'company'
-  role: string
-  runtime_status: string
   is_default: boolean
-  avatar_kind?: string | null
-  avatar_icon?: string | null
-  avatar_color?: string | null
-  avatar_image_url?: string | null
 }
 
 export type ChatDecisionOption = {
@@ -1073,17 +1123,11 @@ export type ChatMessage = {
     input_tokens?: number
     output_tokens?: number
   }
-  steps?: Array<{
-    step_type?: string
-    stepType?: string
-    name?: string
-    payload?: Record<string, unknown>
-  }>
-  thinking?: {
-    text?: string
-    ms?: number
-    budget?: number
-  }
+  /** Activity before this bubble (raw API items; see `normalizeActivity`). */
+  activity?: ActivityItem[] | unknown[]
+  /** Activity after the last bubble of a turn. */
+  activity_after?: ActivityItem[] | unknown[]
+  turn_id?: string | null
 }
 
 export async function bokitoListChatTargets(token: string) {

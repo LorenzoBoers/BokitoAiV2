@@ -153,7 +153,7 @@ Agents self-schedule through governed tools: `schedule_task` (plan a Task for la
 - **API:** `GET/POST /api/triggers`, `PATCH/DELETE /api/triggers/{id}`, `POST /api/triggers/{id}/run`, public `POST /api/hooks/{id}`
 - **UI:** Automations page (`/automations`) Triggers tab (list, enable/disable, run now, delete)
 
-`ChannelBinding` (`app/models/channel.py`) gives deterministic inbound routing (`services/routing.py`): most specific enabled binding wins — contact > channel account > channel-wide (by `priority`), falling back to the tenant's active assistant agent. Used by the inbound signal worker, widget chat, livechat stream, and assistant chat. API: `GET/POST /api/channels/bindings`, `DELETE /api/channels/bindings/{id}`.
+`ChannelAccount.default_agent_id` is inbound routing. A conversation-level `Signal.agent_id` pin wins. The `ChannelBinding` table is leftover compatibility data (cleaned on mailbox disconnect); `GET/POST/PATCH/DELETE /api/channels/bindings` returns HTTP 410. Operators set the agent on Settings → Channels (`AgentBindingPicker`) or the widget handling-agent field.
 
 ## Channel adapters (email + Slack)
 
@@ -221,4 +221,4 @@ Backend groups (bokito mode, same-origin `/api/*`):
 - `/api/notifications/decisions/*` — decision approve/reject
 - `/api/workforce/messages/*` — decision list (compat shape)
 - `/api/orchestration/*` — agent tasks, runtime profiles, workstream orchestration, run events
-- `/api/triggers`, `/api/hooks/{id}`, `/api/channels/bindings` — scheduler and inbound routing
+- `/api/triggers`, `/api/hooks/{id}` — scheduler

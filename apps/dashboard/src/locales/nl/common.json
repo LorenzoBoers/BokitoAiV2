@@ -92,8 +92,9 @@
     "available": "Beschikbaar",
     "away": "Afwezig",
     "offline": "Offline",
-    "standby": "Stand-by",
+    "standby": "Standby",
     "working": "Bezig",
-    "error": "Fout"
+    "error": "Fout",
+    "deactivated": "Gedeactiveerd"
   }
 }

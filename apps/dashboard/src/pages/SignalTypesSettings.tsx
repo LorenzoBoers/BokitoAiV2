@@ -52,7 +52,6 @@ import {
   saveSignalPolicy,
   type CaseBindingRow,
   type CaseCreateMode,
-  type CaseFollowUpMode,
   type CaseTypeRow,
   type SignalAcceptRoles,
   type SignalBacklogEntry,
@@ -65,15 +64,8 @@ import { cn } from '../lib/utils'
 
 const NONE = '__none__'
 
-const FOLLOW_UP_MODES: CaseFollowUpMode[] = ['label', 'track', 'route']
 const CREATE_MODES: CaseCreateMode[] = ['ask_customer', 'ask_operator', 'auto', 'manual_only']
 const AUDIENCES: CaseTypeRow['audience'][] = ['customer', 'internal', 'both']
-
-const FOLLOW_UP_FALLBACK: Record<CaseFollowUpMode, string> = {
-  label: 'Label only',
-  track: 'Track in the queue',
-  route: 'Run a playbook',
-}
 
 const CREATE_MODE_FALLBACK: Record<CaseCreateMode, string> = {
   ask_customer: 'Ask customer',
@@ -188,17 +180,19 @@ export default function SignalTypesSettings() {
     }
   }
 
-  const followUpLabel = (mode: CaseFollowUpMode | undefined) =>
-    t(`signalTypes.outcomes.${mode ?? 'track'}`, { defaultValue: FOLLOW_UP_FALLBACK[mode ?? 'track'] })
-
   const summaryLine = (row: CaseTypeRow): string => {
-    const parts: string[] = [followUpLabel(row.follow_up_mode)]
-    const playbook = (bindingsByType.get(row.id) ?? []).find((b) => b.target_kind === 'workstream')
+    // A playbook binding makes the category a ticket; without one it only labels.
+    const playbook = (bindingsByType.get(row.id) ?? []).find(
+      (b) => b.target_kind === 'workstream' && b.enabled,
+    )
+    const parts: string[] = [
+      playbook
+        ? t('signalTypes.outcomes.ticket', { defaultValue: 'Ticket' })
+        : t('signalTypes.outcomes.label', { defaultValue: 'Label only' }),
+    ]
     if (playbook) {
       const ws = data?.workstreams.find((w) => w.id === playbook.target_id)
       if (ws) parts.push(ws.name)
-    } else if ((row.follow_up_mode ?? 'track') === 'route') {
-      parts.push(t('signalTypes.noPlaybookYet', { defaultValue: 'no playbook picked' }))
     }
     if (row.default_project_id) {
       const project = data?.projects.find((p) => p.id === row.default_project_id)
@@ -504,7 +498,6 @@ function SignalTypeEditor({
 
   const [name, setName] = useState(row.name)
   const [description, setDescription] = useState(row.description)
-  const [followUpMode, setFollowUpMode] = useState<CaseFollowUpMode>(row.follow_up_mode ?? 'track')
   const [playbookId, setPlaybookId] = useState<string>(playbookBinding?.target_id ?? '')
   const [autoStartRun, setAutoStartRun] = useState(Boolean(playbookBinding?.auto_start_run))
   const [projectId, setProjectId] = useState<string>(row.default_project_id ?? '')
@@ -514,11 +507,10 @@ function SignalTypeEditor({
   const [showGates, setShowGates] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const effectivePlaybook = followUpMode === 'route' ? playbookId : ''
+  const effectivePlaybook = playbookId
   const dirty =
     name !== row.name ||
     description !== row.description ||
-    followUpMode !== (row.follow_up_mode ?? 'track') ||
     effectivePlaybook !== (playbookBinding?.target_id ?? '') ||
     autoStartRun !== Boolean(playbookBinding?.auto_start_run) ||
     projectId !== (row.default_project_id ?? '') ||
@@ -532,7 +524,6 @@ function SignalTypeEditor({
       await patchCaseType(row.id, {
         name,
         description,
-        follow_up_mode: followUpMode,
         default_project_id: projectId || null,
         create_mode: createMode,
         audience,
@@ -592,49 +583,30 @@ function SignalTypeEditor({
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <Label htmlFor={`outcome-${row.id}`} className="mb-1 block text-xs font-medium">
-              {t('signalTypes.outcomeLabel', { defaultValue: 'Outcome' })}
+            <Label htmlFor={`playbook-${row.id}`} className="mb-1 block text-xs font-medium">
+              {t('signalTypes.playbookLabel', { defaultValue: 'Playbook' })}
             </Label>
-            <Select value={followUpMode} onValueChange={(v) => setFollowUpMode(v as CaseFollowUpMode)}>
-              <SelectTrigger id={`outcome-${row.id}`} className="h-8 w-48 text-xs">
-                <SelectValue />
+            <Select
+              value={playbookId || NONE}
+              onValueChange={(v) => setPlaybookId(v === NONE ? '' : v)}
+            >
+              <SelectTrigger id={`playbook-${row.id}`} className="h-8 w-56 text-xs">
+                <SelectValue
+                  placeholder={t('signalTypes.playbookPlaceholder', { defaultValue: 'Pick a playbook' })}
+                />
               </SelectTrigger>
               <SelectContent>
-                {FOLLOW_UP_MODES.map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {t(`signalTypes.outcomes.${mode}`, { defaultValue: FOLLOW_UP_FALLBACK[mode] })}
+                <SelectItem value={NONE}>
+                  {t('signalTypes.noPlaybook', { defaultValue: 'No playbook (label only)' })}
+                </SelectItem>
+                {workstreams.map((ws) => (
+                  <SelectItem key={ws.id} value={ws.id}>
+                    {ws.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          {followUpMode === 'route' ? (
-            <div>
-              <Label htmlFor={`playbook-${row.id}`} className="mb-1 block text-xs font-medium">
-                {t('signalTypes.playbookLabel', { defaultValue: 'Playbook' })}
-              </Label>
-              <Select
-                value={playbookId || NONE}
-                onValueChange={(v) => setPlaybookId(v === NONE ? '' : v)}
-              >
-                <SelectTrigger id={`playbook-${row.id}`} className="h-8 w-56 text-xs">
-                  <SelectValue
-                    placeholder={t('signalTypes.playbookPlaceholder', { defaultValue: 'Pick a playbook' })}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>
-                    {t('signalTypes.noPlaybook', { defaultValue: 'No playbook' })}
-                  </SelectItem>
-                  {workstreams.map((ws) => (
-                    <SelectItem key={ws.id} value={ws.id}>
-                      {ws.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
           <div>
             <Label htmlFor={`project-${row.id}`} className="mb-1 block text-xs font-medium">
               {t('signalTypes.projectLabel', { defaultValue: 'Project (optional)' })}
@@ -657,19 +629,16 @@ function SignalTypeEditor({
           </div>
         </div>
         <p className="text-xs text-text-muted">
-          {followUpMode === 'label'
-            ? t('signalTypes.outcomeHints.label', {
-                defaultValue: 'Stamps the conversation for reporting and never appears in the queue.',
+          {playbookId
+            ? t('signalTypes.outcomeHints.ticket', {
+                defaultValue:
+                  'Conversations in this category become tickets that move through the stages of this playbook.',
               })
-            : followUpMode === 'route'
-              ? t('signalTypes.outcomeHints.route', {
-                  defaultValue: 'Accepted signals link to this playbook, so the work starts where it belongs.',
-                })
-              : t('signalTypes.outcomeHints.track', {
-                  defaultValue: 'Accepted signals sit in the queue until someone closes them.',
-                })}
+            : t('signalTypes.outcomeHints.label', {
+                defaultValue: 'Labels the conversation for filtering and reporting. No ticket, no stages.',
+              })}
         </p>
-        {followUpMode === 'route' && playbookId ? (
+        {playbookId ? (
           <label className="flex items-center gap-2 text-xs text-text-secondary">
             <Switch checked={autoStartRun} onCheckedChange={setAutoStartRun} />
             {t('signalTypes.autoStartRun', { defaultValue: 'Start the playbook right away' })}
@@ -850,7 +819,6 @@ function CreateSignalTypeDialog({
   const { t } = useTranslation('nav')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [followUpMode, setFollowUpMode] = useState<CaseFollowUpMode>('track')
   const [busy, setBusy] = useState(false)
 
   const create = async () => {
@@ -858,10 +826,9 @@ function CreateSignalTypeDialog({
     if (!trimmed) return
     setBusy(true)
     try {
-      await createCaseType({ name: trimmed, description, follow_up_mode: followUpMode })
+      await createCaseType({ name: trimmed, description })
       setName('')
       setDescription('')
-      setFollowUpMode('track')
       onCreated()
     } catch (err) {
       toast.error(
@@ -899,18 +866,6 @@ function CreateSignalTypeDialog({
               defaultValue: 'When this applies, and when it does not. Agents read this to classify.',
             })}
           />
-          <Select value={followUpMode} onValueChange={(v) => setFollowUpMode(v as CaseFollowUpMode)}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FOLLOW_UP_MODES.map((mode) => (
-                <SelectItem key={mode} value={mode}>
-                  {t(`signalTypes.outcomes.${mode}`, { defaultValue: FOLLOW_UP_FALLBACK[mode] })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <p className="flex items-start gap-1.5 text-xs text-text-muted">
             <Inbox size={13} className="mt-0.5 shrink-0" aria-hidden />
             {t('signalTypes.newTypeFooter', {

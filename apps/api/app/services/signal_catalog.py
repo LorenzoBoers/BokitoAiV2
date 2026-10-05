@@ -230,7 +230,6 @@ async def promote_backlog_entry(
     *,
     name: str | None = None,
     description: str | None = None,
-    follow_up_mode: str = "track",
 ):
     """Turn a backlog entry into a real CaseType and drop it from the backlog."""
     from fastapi import HTTPException
@@ -246,7 +245,6 @@ async def promote_backlog_entry(
         name=(name or entry["name"]).strip(),
         slug=entry["key"],
         description=(description if description is not None else entry["sentence"]),
-        follow_up_mode=follow_up_mode,
     )
     await dismiss_backlog_entry(session, tenant, key)
     return row

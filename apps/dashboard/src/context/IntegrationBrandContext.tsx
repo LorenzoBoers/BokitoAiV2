@@ -8,8 +8,8 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  indexProviderBrands,
   resolveProviderBrand,
-  resolveProviderRowBrand,
   type ResolvedIntegrationBrand,
 } from '../lib/integration-brand'
 import { listIntegrationProviders } from '../lib/integrations-api'
@@ -32,11 +32,7 @@ export function IntegrationBrandProvider({ children }: { children: ReactNode }) 
     void listIntegrationProviders()
       .then(({ providers }) => {
         if (cancelled) return
-        const map = new Map<string, ResolvedIntegrationBrand>()
-        for (const row of providers) {
-          map.set(row.slug, resolveProviderRowBrand(row))
-        }
-        setByProviderSlug(map)
+        setByProviderSlug(indexProviderBrands(providers))
         setReady(true)
       })
       .catch(() => {

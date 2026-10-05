@@ -78,12 +78,14 @@ async def init_db() -> None:
         # schema patches — no Alembic, matching the historical behavior.
         from app.db.ai_handling_converge import converge_sqlite
         from app.db.schema_patch import apply_column_patches, apply_data_repairs
+        from app.db.sqlite_converge import converge_sqlite_schema
 
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
             await conn.run_sync(apply_column_patches)
             await conn.run_sync(apply_data_repairs)
             await conn.run_sync(converge_sqlite)
+            await conn.run_sync(converge_sqlite_schema)
 
     from app.services.integration_catalog_store import ensure_catalog_fresh
     from app.services.lead_agent import ensure_lead_agents

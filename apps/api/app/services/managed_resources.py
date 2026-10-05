@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.platform_change import PlatformChange
+from app.services.agent_rules import parse_autonomy_level
 
 MANAGED_ORIGINS = frozenset({"platform", "module", "stack", "user"})
 RESTORE_REJECT_COOLDOWN = timedelta(days=7)
@@ -118,7 +119,6 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
         "chat_access",
         "autonomy_level",
         "runtime_status",
-        "audience",
         "parent_agent_id",
         "thinking_budget",
         "max_tokens",
@@ -126,7 +126,10 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
         "max_cost_cents",
     ):
         if key in fields and fields[key] is not None:
-            setattr(agent, key, fields[key])
+            value = fields[key]
+            if key == "autonomy_level":
+                value = parse_autonomy_level(value)
+            setattr(agent, key, value)
     if "tools" in fields:
         agent.tools_json = json.dumps(fields["tools"] or [])
     if "tools_json" in fields and isinstance(fields["tools_json"], str):

@@ -30,9 +30,12 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/cockpit", "tour", "sidebar"),
     ("/communication/inbox/open", "communication", "open-queue"),
     ("/communication/inbox/open", "communication", "thread-composer"),
+    ("/communication/inbox/open", "communication", "composer-modes"),
     ("/communication/inbox/open", "communication", "decision-card"),
     ("/communication/inbox/open", "decisions", "approve"),
     ("/communication/inbox/open", "communication", "handling-picker"),
+    ("/communication/inbox/open", "communication", "agent-turn"),
+    ("/communication/inbox/open", "communication", "folders"),
     ("/communication/runs/all", "agent-runs", "runs-list"),
     ("/contacts", "contacts", "contact-card"),
     ("/contacts", "contacts", "contact-handling"),
@@ -51,8 +54,9 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/settings/govern", "govern", "conversations"),
     ("/settings/govern", "autonomy", "presets"),
     ("/settings/models", "models", "catalog"),
-    ("/settings/models", "models", "data-region"),
-    ("/settings/marketplace", "integrations", "marketplace"),
+    ("/settings/trust", "privacy-security", "data-region"),
+    ("/connections/marketplace", "integrations", "marketplace"),
+    ("/connections/accounting", "integrations", "module-home"),
     ("/settings/mcp", "mcp", "servers"),
     ("/team", "team", "invite"),
     ("/settings/help-centers", "help-centers", "publish"),
@@ -62,15 +66,22 @@ SHOTS: list[tuple[str, str, str]] = [
 
 # Shots that sit below the fold: scroll the heading matching this pattern (EN|NL) into view first.
 SCROLL_TO: dict[tuple[str, str], re.Pattern[str]] = {
-    ("models", "data-region"): re.compile(r"^(Data region|Dataregio)$"),
+    ("privacy-security", "data-region"): re.compile(r"^(Data processing|Gegevensverwerking)$"),
 }
 
-# Shots that need interaction first: ("click" | "scroll", CSS selector) steps, run in order.
+# Shots that need interaction first: ("click" | "wait" | "scroll", CSS selector) steps, run in order.
 # A shot with steps always reloads its page so earlier clicks do not leak into it.
 PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ("communication", "handling-picker"): [
         ("click", 'main [role="button"][tabindex="0"]:has-text("Petra Bakker")'),
         ("click", '[data-testid="thread-ai-handling"]'),
+    ],
+    ("communication", "agent-turn"): [
+        ("click", 'main [role="button"][tabindex="0"]:has-text("Bokito Assistant")'),
+    ],
+    ("communication", "folders"): [
+        ("click", '[data-section="folders"] a.nav-row'),
+        ("wait", '[data-testid="thread-row-ticket"]'),
     ],
     ("contacts", "contact-handling"): [
         ("click", "main tbody tr"),
@@ -171,6 +182,8 @@ def main() -> int:
                         target = page.locator(selector).first
                         if action == "click":
                             target.click(timeout=5000)
+                        elif action == "wait":
+                            target.wait_for(state="visible", timeout=10000)
                         else:
                             target.scroll_into_view_if_needed(timeout=5000)
                         page.wait_for_timeout(800)

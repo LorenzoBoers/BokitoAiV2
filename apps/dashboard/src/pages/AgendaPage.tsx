@@ -22,12 +22,14 @@ import {
   listCalendarConnections,
   type CalendarConnection,
 } from '../lib/calendars-api'
+import { listTriggers, type Trigger } from '../lib/orchestration-api'
 import {
-  listAgendaOccurrences,
-  listTriggers,
-  type AgendaItem,
-  type Trigger,
-} from '../lib/orchestration-api'
+  agendaKindOf,
+  isAgentAutomation,
+  listTimeItems,
+  triggerThreadPath,
+  type TimeItem,
+} from '../lib/time-items'
 import { listWorkstreams } from '../lib/workstreams-api'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
 import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda-week'
@@ -35,13 +37,12 @@ import { isTypingTarget } from '../hooks/useInboxListShortcuts'
 import { Input } from '../components/ui/input'
 import { inboxPath } from '../lib/messages-paths'
 import { resolveAgendaAgentId, resolveAgendaAgentName, humanizeAgendaActorName } from '../lib/agenda-label'
-import { pickClosestThreadBySubject, triggerThreadPath } from '../lib/agenda-thread'
+import { openEntityPath, pickClosestThreadBySubject } from '../lib/open-entity'
 import { translateDecisionText } from '../lib/activity-labels'
-import { agendaStatusLabel } from '../lib/status-labels'
+import { AGENDA_KIND_FILTERS, agendaKindLabel, agendaStatusLabel } from '../lib/status-labels'
 import { humanizeContactName } from '../lib/contact-label'
 import { cn } from '../lib/utils'
 import { listThreads } from '../lib/inbox-api'
-import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 
 type ViewTab = 'timeline' | 'week'
 
@@ -50,52 +51,39 @@ function parseAgendaView(raw: string | null): ViewTab {
   return 'timeline'
 }
 
-const KIND_LABELS: Record<string, string> = {
-  once: 'One-off',
-  event: 'Event',
-  cron: 'Recurring',
-  interval: 'Repeating',
-  heartbeat: 'Check-in',
-  webhook: 'Incoming',
-  calendar: 'Calendar',
-  follow_up: 'Look again',
-}
-
 type SourceFilter = 'tasks' | 'all' | 'wakes' | 'calendar'
 
 function parseSourceFilter(raw: string | null): SourceFilter {
   if (raw === 'all' || raw === 'wakes' || raw === 'calendar' || raw === 'tasks') return raw
-  // Default: human look-ats / follow-ups first (F-80) — cron scans stay secondary.
-  return 'tasks'
+  // Default: everything on one list; agent automations sit in a lighter group.
+  return 'all'
 }
 
-function isCalendarItem(item: AgendaItem): boolean {
-  return item.kind === 'calendar' || item.source === 'calendar'
+function isCalendarItem(item: TimeItem): boolean {
+  return item.kind === 'calendar'
 }
 
-function isLookbackItem(item: AgendaItem): boolean {
-  if (item.kind === 'follow_up' || item.kind === 'task' || item.source === 'follow_up') return true
-  if (item.actor_kind === 'person') return true
-  return false
+function isLookbackItem(item: TimeItem): boolean {
+  return item.kind === 'follow_up' || item.actor_kind === 'person'
 }
 
-function isAgentAutomationItem(item: AgendaItem): boolean {
+function isAgentAutomationItem(item: TimeItem): boolean {
   if (isCalendarItem(item) || isLookbackItem(item)) return false
-  return item.kind === 'cron' || item.kind === 'interval' || item.kind === 'heartbeat'
+  return isAgentAutomation(item)
 }
 
-function isWakeItem(item: AgendaItem): boolean {
-  return !isCalendarItem(item)
+function isWakeItem(item: TimeItem): boolean {
+  return item.kind === 'wake' || item.kind === 'session'
 }
 
-function lookbackSortRank(item: AgendaItem): number {
+function lookbackSortRank(item: TimeItem): number {
   if (isLookbackItem(item)) return 0
   if (isCalendarItem(item)) return 1
   if (isAgentAutomationItem(item)) return 3
   return 2
 }
 
-function itemIsClickable(item: AgendaItem): boolean {
+function itemIsClickable(item: TimeItem): boolean {
   return (
     isCalendarItem(item) ||
     Boolean(item.run_id) ||
@@ -143,7 +131,7 @@ function statusStyle(status: string, kind?: string): string {
   }
   const s = status.toLowerCase()
   if (s === 'planned') return 'border-border/60 bg-bg-elevated text-text'
-  if (s === 'awaiting_human' || s === 'overdue') return 'border-status-warning/40 bg-status-warning/10 text-status-warning'
+  if (s === 'awaiting_human' || s === 'overdue' || s === 'due') return 'border-status-warning/40 bg-status-warning/10 text-status-warning'
   if (s === 'running' || s === 'active') return 'border-accent/40 bg-accent/10 text-accent'
   if (s === 'failed' || s === 'error') return 'border-status-error/40 bg-status-error/10 text-status-error'
   return 'border-status-success/40 bg-status-success/10 text-status-success'
@@ -154,17 +142,17 @@ function AgendaChip({
   onClick,
   showDate,
 }: {
-  item: AgendaItem
+  item: TimeItem
   onClick?: () => void
   showDate?: boolean
 }) {
   const { t, i18n } = useTranslation('nav')
-  const at = parseAt(item.at)
+  const at = parseAt(item.start)
   return (
     <div
       className={cn(
         'w-full rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors',
-        statusStyle(item.status, item.kind),
+        statusStyle(item.status, agendaKindOf(item)),
         !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
       )}
     >
@@ -180,10 +168,10 @@ function AgendaChip({
             {formatTime(at, i18n.language)}
           </span>
           <span className="rounded border border-current/30 px-1 py-px text-2xs opacity-80">
-            {t(`agendaPage.kinds.${item.kind}`, { defaultValue: KIND_LABELS[item.kind] ?? item.kind })}
+            {agendaKindLabel(agendaKindOf(item), t)}
           </span>
         </div>
-        <p className="mt-0.5 truncate-fade font-medium">{translateDecisionText(item.name, t) || item.name}</p>
+        <p className="mt-0.5 truncate-fade font-medium">{translateDecisionText(item.title, t) || item.title}</p>
         {item.actor_name || item.agent_name ? (
           <p className="truncate-fade opacity-75">
             {t(`agendaPage.actor.${item.actor_kind === 'person' ? 'person' : 'agent'}`)}
@@ -218,7 +206,7 @@ export default function AgendaPage() {
   )
   const [listQuery, setListQuery] = useState('')
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
-  const [items, setItems] = useState<AgendaItem[]>([])
+  const [items, setItems] = useState<TimeItem[]>([])
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [agents, setAgents] = useState<TargetOption[]>([])
   const [workstreams, setWorkstreams] = useState<TargetOption[]>([])
@@ -229,11 +217,11 @@ export default function AgendaPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false)
   const [calendarEditEvent, setCalendarEditEvent] = useState<CalendarEventEditSeed | null>(null)
-  const [calendarDetailItem, setCalendarDetailItem] = useState<AgendaItem | null>(null)
+  const [calendarDetailItem, setCalendarDetailItem] = useState<TimeItem | null>(null)
   const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null)
   const [initialRunAt, setInitialRunAt] = useState<Date | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
-  const [automationsExpanded, setAutomationsExpanded] = useState(false)
+  const [automationsExpanded, setAutomationsExpanded] = useState(true)
 
   const handleViewChange = useCallback(
     (next: ViewTab) => {
@@ -291,8 +279,7 @@ export default function AgendaPage() {
   const handleSourceFilterChange = (next: SourceFilter) => {
     setSourceFilter(next)
     const params = new URLSearchParams(searchParams)
-    // Persist the default lookbacks filter so a refresh keeps the human-first view.
-    if (next === 'tasks') params.delete('source')
+    if (next === 'all') params.delete('source')
     else params.set('source', next)
     setSearchParams(params, { replace: true })
   }
@@ -300,7 +287,10 @@ export default function AgendaPage() {
   const weekStart = useMemo(() => addDays(startOfWeek(new Date()), weekOffset * 7), [weekOffset])
 
   const dateWindow = useMemo(() => {
-    if (view === 'week') return { from: weekStart, to: addDays(weekStart, 7) }
+    if (view === 'week') {
+      // Pull recent overdue look-ats so the week grid can flag them above the days.
+      return { from: addDays(weekStart, -28), to: addDays(weekStart, 7) }
+    }
     return { from: addDays(startOfDay(new Date()), -7), to: addDays(startOfDay(new Date()), 21) }
   }, [view, weekStart])
 
@@ -309,15 +299,16 @@ export default function AgendaPage() {
     setLoading(true)
     setError(null)
     try {
-      const [occurrences, triggerRows] = await Promise.all([
-        listAgendaOccurrences({
+      const [timeWindow, triggerRows] = await Promise.all([
+        listTimeItems({
           from: dateWindow.from.toISOString(),
           to: dateWindow.to.toISOString(),
           agentId: agentFilter !== 'all' ? agentFilter : undefined,
+          scheduledOnly: true,
         }),
         listTriggers(),
       ])
-      setItems(occurrences)
+      setItems(timeWindow.items)
       setTriggers(triggerRows)
       setRefreshedAt(new Date())
     } catch (err) {
@@ -384,18 +375,18 @@ export default function AgendaPage() {
     if (sourceFilter === 'tasks') out = out.filter((i) => isLookbackItem(i) || isCalendarItem(i))
     if (sourceFilter === 'wakes') out = out.filter((i) => isWakeItem(i))
     if (sourceFilter === 'calendar') out = out.filter((i) => isCalendarItem(i))
-    if (kindFilter !== 'all') out = out.filter((i) => i.kind === kindFilter)
+    if (kindFilter !== 'all') out = out.filter((i) => agendaKindOf(i) === kindFilter)
     const q = listQuery.trim().toLowerCase()
     if (q) {
       out = out.filter((i) => {
-        const hay = `${i.name} ${i.agent_name ?? ''} ${i.provider_label ?? ''} ${i.kind} ${i.status}`.toLowerCase()
+        const hay = `${i.title} ${i.agent_name ?? ''} ${i.provider_label ?? ''} ${agendaKindOf(i)} ${i.status}`.toLowerCase()
         return hay.includes(q)
       })
     }
     return [...out].sort((a, b) => {
       const byRank = lookbackSortRank(a) - lookbackSortRank(b)
       if (byRank !== 0) return byRank
-      return parseAt(a.at).getTime() - parseAt(b.at).getTime()
+      return parseAt(a.start).getTime() - parseAt(b.start).getTime()
     })
   }, [items, kindFilter, sourceFilter, listQuery])
 
@@ -410,9 +401,9 @@ export default function AgendaPage() {
   )
 
   const primaryByDay = useMemo(() => {
-    const map = new Map<string, AgendaItem[]>()
+    const map = new Map<string, TimeItem[]>()
     for (const item of primaryFiltered) {
-      const key = dayKey(parseAt(item.at))
+      const key = dayKey(parseAt(item.start))
       const list = map.get(key) ?? []
       list.push(item)
       map.set(key, list)
@@ -423,15 +414,26 @@ export default function AgendaPage() {
   const byDay = useMemo(() => {
     // Week grid uses the human-first list; automations stay out of the day cells
     // when browsing "All" so cron scans do not bury look-ats (F-80).
-    const map = new Map<string, AgendaItem[]>()
+    const map = new Map<string, TimeItem[]>()
     for (const item of primaryFiltered) {
-      const key = dayKey(parseAt(item.at))
+      const key = dayKey(parseAt(item.start))
       const list = map.get(key) ?? []
       list.push(item)
       map.set(key, list)
     }
     return map
   }, [primaryFiltered])
+
+  const overdueOutsideWeek = useMemo(() => {
+    const start = weekStart.getTime()
+    const end = addDays(weekStart, 7).getTime()
+    return primaryFiltered.filter((item) => {
+      const status = item.status.toLowerCase()
+      if (status !== 'due' && status !== 'overdue') return false
+      const at = parseAt(item.start).getTime()
+      return at < start || at >= end
+    })
+  }, [primaryFiltered, weekStart])
 
   const openCreate = (at?: Date) => {
     setEditingTrigger(null)
@@ -449,12 +451,12 @@ export default function AgendaPage() {
     setDialogOpen(true)
   }, [searchParams, triggers])
 
-  const openItem = (item: AgendaItem) => {
+  const openItem = (item: TimeItem) => {
     if (isCalendarItem(item)) {
       setCalendarDetailItem(item)
       return
     }
-    if (item.source === 'follow_up' || item.kind === 'follow_up') {
+    if (item.kind === 'follow_up') {
       if (item.signal_id) {
         navigate(inboxPath('open', item.signal_id))
         return
@@ -467,16 +469,15 @@ export default function AgendaPage() {
         navigate(direct)
         return
       }
-      if (token && item.name.trim()) {
+      if (token && item.title.trim()) {
         try {
           const found = await listThreads(token, {
-            search: item.name,
+            search: item.title,
             perPage: 8,
           })
-          const match = pickClosestThreadBySubject(found.items, item.name, item.at)
+          const match = pickClosestThreadBySubject(found.items, item.title, item.start)
           if (match) {
             if (match.folder === 'internal' || match.channel === 'internal') {
-              const queue = item.status === 'completed' ? 'results' : 'all'
               navigate(inboxPath('all', String(match.id)))
             } else {
               navigate(inboxPath(match.status === 'pending' ? 'snoozed' : 'open', String(match.id)))
@@ -488,14 +489,14 @@ export default function AgendaPage() {
         }
       }
       if (item.run_id && item.agent_id) {
-        navigate(agentWorkforceRunUrl(item.agent_id, item.run_id))
+        navigate(openEntityPath({ type: 'run', id: item.run_id, agentId: item.agent_id }))
         return
       }
       if (item.trigger_id) openEdit(item)
     })()
   }
 
-  const openEdit = (item: AgendaItem) => {
+  const openEdit = (item: TimeItem) => {
     if (!item.trigger_id) return
     const trigger = triggers.find((t) => t.id === item.trigger_id)
     if (!trigger) {
@@ -574,7 +575,7 @@ export default function AgendaPage() {
           void load()
         }}
       />
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <Tabs value={view} onValueChange={(v) => handleViewChange(v as ViewTab)}>
           <TabsList>
             <TabsTrigger value="timeline">{t('agendaPage.timeline')}</TabsTrigger>
@@ -582,7 +583,7 @@ export default function AgendaPage() {
           </TabsList>
         </Tabs>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
             {view === 'week' ? (
               <div className="flex items-center gap-1">
                 <Button
@@ -622,12 +623,12 @@ export default function AgendaPage() {
                 value={listQuery}
                 onChange={(event) => setListQuery(event.target.value)}
                 placeholder={t('agendaPage.listSearch')}
-                className="h-8 w-[180px] text-xs"
+                className="h-8 w-full min-w-[8rem] max-w-[12rem] text-xs"
                 aria-label={t('agendaPage.listSearch')}
               />
             ) : null}
             <Select value={sourceFilter} onValueChange={(v) => handleSourceFilterChange(v as SourceFilter)}>
-              <SelectTrigger className="h-8 w-[150px] text-xs">
+              <SelectTrigger className="h-8 w-auto min-w-[8rem] max-w-[11rem] text-xs">
                 <SelectValue placeholder={t('agendaPage.sourceTasks')} />
               </SelectTrigger>
               <SelectContent>
@@ -638,7 +639,7 @@ export default function AgendaPage() {
               </SelectContent>
             </Select>
             <Select value={agentFilter} onValueChange={handleAgentFilterChange}>
-              <SelectTrigger className="h-8 w-[150px] text-xs">
+              <SelectTrigger className="h-8 w-auto min-w-[8rem] max-w-[11rem] text-xs">
                 <SelectValue placeholder={t('agendaPage.allAgents')} />
               </SelectTrigger>
               <SelectContent>
@@ -652,16 +653,14 @@ export default function AgendaPage() {
             </Select>
             {sourceFilter !== 'calendar' ? (
               <Select value={kindFilter} onValueChange={handleKindFilterChange}>
-                <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectTrigger className="h-8 w-auto min-w-[7rem] max-w-[10rem] text-xs">
                   <SelectValue placeholder={t('agendaPage.allTypes')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('agendaPage.allTypes')}</SelectItem>
-                  {Object.keys(KIND_LABELS)
-                    .filter((value) => value !== 'calendar' && value !== 'task')
-                    .map((value) => (
+                  {AGENDA_KIND_FILTERS.map((value) => (
                       <SelectItem key={value} value={value}>
-                        {t(`agendaPage.kinds.${value}`, { defaultValue: KIND_LABELS[value] })}
+                        {agendaKindLabel(value, t)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -670,12 +669,24 @@ export default function AgendaPage() {
         </div>
       </div>
 
+      {view === 'week' && overdueOutsideWeek.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
+          <p>
+            {t('agendaPage.overdueBanner', { count: overdueOutsideWeek.length })}
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={() => handleViewChange('timeline')}>
+            {t('agendaPage.overdueBannerOpen')}
+          </Button>
+        </div>
+      ) : null}
+
       {error ? (
         <ApiErrorBanner message={error} onRetry={() => void load()} />
       ) : loading ? (
         <CardGridSkeleton cards={7} className="sm:grid-cols-2 lg:grid-cols-7" />
       ) : view === 'week' ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-7">
+        <div className="overflow-x-auto">
+        <div className="grid min-w-[52rem] grid-cols-7 gap-2">
           {weekDays.map((day) => {
             const key = dayKey(day)
             const dayItems = byDay.get(key) ?? []
@@ -732,6 +743,7 @@ export default function AgendaPage() {
             )
           })}
         </div>
+        </div>
       ) : primaryFiltered.length === 0 && automationFiltered.length === 0 && listQuery.trim() ? (
         <p className="rounded-lg border border-dashed border-border/60 p-8 text-center text-sm text-text-muted">
           {t('agendaPage.listFilterEmpty')}
@@ -775,7 +787,7 @@ export default function AgendaPage() {
                 </h2>
                 <div className="space-y-1.5">
                   {dayItems.map((item) => {
-                    const at = parseAt(item.at)
+                    const at = parseAt(item.start)
                     const agentLabel = resolveAgendaAgentName(item, agents, triggers, items)
                     const agentId = resolveAgendaAgentId(item, triggers, items, agents)
                     const clickable = itemIsClickable(item)
@@ -802,12 +814,10 @@ export default function AgendaPage() {
                             {formatTime(at, i18n.language)}
                           </span>
                           <Badge variant="outline" className="shrink-0 text-2xs">
-                            {t(`agendaPage.kinds.${item.kind}`, {
-                              defaultValue: KIND_LABELS[item.kind] ?? item.kind,
-                            })}
+                            {agendaKindLabel(agendaKindOf(item), t)}
                           </Badge>
                           <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
-                            {translateDecisionText(item.name, t) || item.name}
+                            {translateDecisionText(item.title, t) || item.title}
                           </span>
                           {item.actor_name || agentLabel ? (
                             <span
@@ -839,7 +849,7 @@ export default function AgendaPage() {
                           <span
                             className={cn(
                               'shrink-0 rounded-md border px-2 py-0.5 text-2xs ',
-                              statusStyle(item.status, item.kind),
+                              statusStyle(item.status, agendaKindOf(item)),
                             )}
                           >
                             {item.status === 'calendar'
@@ -871,7 +881,7 @@ export default function AgendaPage() {
               {automationsExpanded ? (
                 <div className="space-y-1.5 border-t border-border/40 px-3 py-2.5">
                   {automationFiltered.map((item) => {
-                    const at = parseAt(item.at)
+                    const at = parseAt(item.start)
                     const clickable = itemIsClickable(item)
                     return (
                       <div
@@ -892,12 +902,10 @@ export default function AgendaPage() {
                             {formatTime(at, i18n.language)}
                           </span>
                           <Badge variant="outline" className="shrink-0 text-2xs">
-                            {t(`agendaPage.kinds.${item.kind}`, {
-                              defaultValue: KIND_LABELS[item.kind] ?? item.kind,
-                            })}
+                            {agendaKindLabel(agendaKindOf(item), t)}
                           </Badge>
                           <span className="min-w-0 flex-1 truncate-fade text-text-secondary">
-                            {translateDecisionText(item.name, t) || item.name}
+                            {translateDecisionText(item.title, t) || item.title}
                           </span>
                           <span className="shrink-0 text-2xs text-text-muted">
                             {agendaStatusLabel(item.status, t)}

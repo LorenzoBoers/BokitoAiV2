@@ -35,6 +35,59 @@ _NO_REPLY_LOCAL_PATTERNS = (
 
 _NO_REPLY_RE = re.compile("|".join(_NO_REPLY_LOCAL_PATTERNS), re.IGNORECASE)
 
+# Parcel carriers: their mail is always track-and-trace, never a conversation.
+_SHIPPER_DOMAINS = (
+    "postnl.nl",
+    "postnl.com",
+    "dhl.com",
+    "dhl.nl",
+    "dhl.de",
+    "dhlparcel.nl",
+    "ups.com",
+    "dpd.nl",
+    "dpd.com",
+    "dpd.de",
+    "gls-netherlands.com",
+    "gls-group.eu",
+    "gls-group.com",
+    "fedex.com",
+    "bpost.be",
+    "budbee.com",
+    "trunkrs.nl",
+    "homerr.com",
+    "sendcloud.com",
+    "sendcloud.sc",
+    "parcelpanel.com",
+    "aftership.com",
+)
+
+# Shipment-status subjects (NL/EN). Replies ("Re:", "Fw:") are conversations.
+_PARCEL_SUBJECT_RE = re.compile(
+    r"\b("
+    r"je pakket|jouw pakket|uw pakket|pakket(je)? (is|komt|van)|pakketnummer|"
+    r"afgeleverd|onderweg met|bezorgmoment|bezorgd|track ?(&|and|en) ?trace|"
+    r"your (parcel|package|order|shipment) (is|has|was)|out for delivery|"
+    r"has been delivered|shipment (update|notification)|tracking number"
+    r")\b",
+    re.IGNORECASE,
+)
+_REPLY_PREFIX_RE = re.compile(r"^\s*(re|fw|fwd|antw|wg)\s*:", re.IGNORECASE)
+
+
+def is_shipper_address(address: str) -> bool:
+    addr = (address or "").strip().lower()
+    if "@" not in addr:
+        return False
+    domain = addr.rsplit("@", 1)[1]
+    return any(domain == d or domain.endswith(f".{d}") for d in _SHIPPER_DOMAINS)
+
+
+def is_parcel_notification_subject(subject: str) -> bool:
+    text = (subject or "").strip()
+    if not text or _REPLY_PREFIX_RE.match(text):
+        return False
+    return bool(_PARCEL_SUBJECT_RE.search(text))
+
 # Sentinel the suggest-mode agent returns when it decides no reply is needed.
 NO_REPLY_SENTINEL = "NO_REPLY_NEEDED"
 
@@ -56,6 +109,7 @@ def is_no_reply_address(address: str) -> bool:
 def classify_automated_email(
     sender_address: str,
     headers: dict | None = None,
+    subject: str = "",
 ) -> dict:
     """Classify an inbound email as automated (no reply possible/expected).
 
@@ -64,6 +118,11 @@ def classify_automated_email(
     """
     if is_no_reply_address(sender_address):
         return {"automated": True, "reason": "no_reply_address"}
+
+    if is_shipper_address(sender_address):
+        return {"automated": True, "reason": "shipping_notification"}
+    if is_parcel_notification_subject(subject):
+        return {"automated": True, "reason": "shipping_notification"}
 
     hdrs = {k.lower(): str(v or "") for k, v in (headers or {}).items()}
 

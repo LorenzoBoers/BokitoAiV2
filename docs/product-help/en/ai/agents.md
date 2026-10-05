@@ -1,26 +1,28 @@
 ---
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
-description: Brief company agents, set chat access, archive them, add a signature, and set initials or icon.
-keywords: agents, ai workforce, archive, chat access, signature, avatar, icon, default agent, ceiling, rules, try out, ask questions to
+description: Brief company agents, set chat access, deactivate them, add a signature, and set initials or icon.
+keywords: agents, ai workforce, deactivate, reactivate, chat access, signature, avatar, icon, default agent, ceiling, rules, try out, ask questions to
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
 
 # How Agents works
 
-Agents are the AI workers for this workspace. Every agent has one shape: name, purpose, audience, model, allowed tools, owner, and optional defaults. Bokito is the system agent that acts for the signed-in user; it is not part of the worker library.
+Agents are the AI workers for this workspace. Every agent has one shape: name, purpose, model, allowed tools, owner, and optional defaults. Bokito is the system agent that acts for the signed-in user; it is not part of the worker library.
 
 ## Browse the library
 
 ![Agents library](/api/docs/assets/agents/library.png)
 *Each agent is a card. The default agent is marked quietly as Default.*
 
-1. Open **Agents**. Company agents appear as cards with their audience. Each card can show **open** conversations and threads that **need a decision**. Search and the pills **All** and **Working** narrow the grid.
-2. Choose **New agent**. Enter a **Name**, choose the **Audience**, select a **Model**, describe the **Purpose**, then choose **Create agent**.
+1. Open **Agents**. Company agents appear as cards. Each card can show **open** conversations (the agent's detail, **Open conversations**) and threads that **need a decision** (**For you**, filtered to that agent). Search and the pills **All** and **Working** narrow the grid. Above the cards, **Activity** is a now-centered timeline of even-sized points. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time, not a from–to range. Choose a point to open the run, conversation or Agenda item. The same timeline sits on each agent page for that agent alone.
+2. Choose **New agent**. Enter a **Name**, select a **Model**, describe the **Purpose**, then choose **Create agent**.
 3. Open a card for instructions, model and chat access. Use **Chat with this agent** to start an internal thread. Agenda and conversations are quiet links on the detail page. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
+
+In a chat with an agent, the side panel shows **AI agent** in the same muted style as the model line. The presence dot sits on the avatar (no Standby/Working label). Choose the model line to open **Models**. **Active now** appears while it works and **Last active 5 minutes ago** after its last run or reply. That live state is the same on Agents, the Communication rail, Teams and the project lead. Choose the agent name (or the work line) while it is active to open the conversation or run it is in; **Open agent** still opens the agent page. The count row (**2 modules | 3 connections | 999+ tools**) uses the same muted style as the model line. Expanding it shows one quiet row of modules and connections (logo then name, no extra headings). Look-ups and signals for that thread sit under **This conversation**.
 
 Real decisions live in each conversation (and under **Open conversations** on the agent). Tip cards for automated mail do not inflate those counts.
 
@@ -29,11 +31,11 @@ New chats in Communication require a **company agent**. If none are available fo
 ## Brief an agent
 
 ![Agent detail](/api/docs/assets/agents/agent-brief.png)
-*Edit purpose, audience, model and allowed tools.*
+*Edit purpose, model and allowed tools.*
 
-1. Open the agent. Edit its **Name**, **Purpose**, **Audience**, and **Model**.
+1. Open the agent. The **Instructions** card shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model**.
 2. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
-3. In **Communication settings**, choose one default agent for each connected channel. A conversation-level agent pin always wins. **Archive** hides an agent and clears its channel defaults; run history stays.
+3. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
 
 ## Set when the agent acts on its own
 
@@ -56,13 +58,13 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 
 1. Open **Agents** and find a card with the **Managed** label.
 2. Open the agent. The badge names the owning pack when you hover.
-3. If you **Archive** a managed agent, stack seed/update runs do not bring it back by themselves. Bokito opens a restore Decision in Communication; approve it to return the agent to the library, or reject to keep it archived.
+3. If you **Deactivate** a managed agent, stack seed/update runs do not bring it back by themselves. Bokito opens a restore Decision in Communication; approve it to return the agent to the library, or reject to keep it deactivated.
 
 ## Limit who can chat
 
 1. An idle agent shows **Ready**. Open **Communication** on the agent page (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.
 2. **Nobody** keeps background work (Agenda, AI handling) without a direct chat from Communication.
-3. To remove an agent from the library, use **Archive** under the ··· menu.
+3. To take an agent out of the library, use **Deactivate** under the ··· menu. Status becomes **Deactivated**. Use **Reactivate** there or on [Workforce](/docs/getting-started/team) under **Deactivated**. History stays.
 
 ## Add an agent signature
 
@@ -75,7 +77,7 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 ## Set name or icon
 
 1. Open a company agent.
-2. Choose **Edit** next to the agent name.
+2. Choose **Edit** at the top right of the header.
 3. Change the **name**, pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.

@@ -44,7 +44,7 @@ De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppel
 
 1. Wissel op Contacten tussen **Mensen** en **Bedrijven**.
 2. Bedrijven ontstaan automatisch uit zakelijke e-maildomeinen (niet van gratis hosts zoals Gmail). Koppel een persoon zodat gerelateerde gesprekken bij elkaar blijven.
-3. Gebruik **Groepeer contacten per bedrijf** om bedrijven aan te vullen op oudere adressen die nooit een bedrijf kregen. Vanuit een gesprek zonder opgeslagen persoon opent **Toevoegen aan contacten** dit formulier met het adres al ingevuld.
+3. Gebruik **Groepeer contacten per bedrijf** om bedrijven aan te vullen op oudere adressen die nooit een bedrijf kregen. Vanuit een gesprek zonder opgeslagen persoon kies je in het zijpaneel **Contact**, vul je het adres in en daarna **Koppelen**. **Markeer als spam** staat naast die knop.
 
 ## Een afzender goedkeuren of blokkeren
 

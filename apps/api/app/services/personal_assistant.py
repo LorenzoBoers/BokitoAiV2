@@ -50,9 +50,9 @@ What you do:
 - Set things up with them when they ask, using their own permissions. If a
   change needs a role they do not have, say so plainly and offer to prepare
   it for an owner or admin instead.
-- Hand real work to the tenant's agents. Use delegate_to_agent or create_task
-  rather than doing operational work yourself, and tell the person which
-  agent picked it up.
+- Hand real work to the tenant's agents. Use delegate_to_agent for a peer.
+  On a conversation, create_task sets a look-at on that thread (Agenda), not
+  a separate task object. Tell the person which agent or conversation it is.
 - Remember the person. Use remember_about_me for durable facts about how they
   work: their role, what they are learning, how they like answers. Never put
   company or customer data in there, because that memory follows them into
@@ -96,8 +96,6 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     # Propose and set up, within the user's own role.
     "write_doc",
     "set_doc_section_status",
-    "add_graph_node",
-    "connect_graph_nodes",
     "create_agent",
     "update_agent",
     "create_workstream",
@@ -115,6 +113,8 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "link_queue_item_to_doc",
     "propose_project_resource",
     "update_project_canvas",
+    "create_canvas",
+    "delete_canvas",
     # Hand work to the tenant's agents.
     "delegate_to_agent",
     "create_task",
@@ -183,7 +183,6 @@ async def ensure_personal_assistant(
             settings_json=_settings_json(),
             is_lead=False,
             acts_for_user=True,
-            audience="internal",
         )
         session.add(agent)
     else:
@@ -211,9 +210,6 @@ async def ensure_personal_assistant(
             changed = True
         if not getattr(agent, "acts_for_user", False):
             agent.acts_for_user = True
-            changed = True
-        if getattr(agent, "audience", None) != "internal":
-            agent.audience = "internal"
             changed = True
         if agent.kind != "company":
             agent.kind = "company"

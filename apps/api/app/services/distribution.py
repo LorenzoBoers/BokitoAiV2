@@ -47,7 +47,7 @@ async def _eligible(session: AsyncSession, team: Team, signal: Signal):
                     )
                 )
             ).scalar_one_or_none()
-            if user is None or membership is None or not user.is_active:
+            if user is None or membership is None or not user.is_active or not membership.is_active:
                 continue
             if user_status(user, now=now) != AVAILABLE:
                 continue
@@ -58,8 +58,6 @@ async def _eligible(session: AsyncSession, team: Team, signal: Signal):
         else:
             agent = await session.get(Agent, ref.id)
             if agent is None or agent.tenant_id != team.tenant_id or not agent.is_active:
-                continue
-            if agent.runtime_status in ("paused", "inactive"):
                 continue
             if not await agent_can_handle(session, account, agent.id):
                 continue

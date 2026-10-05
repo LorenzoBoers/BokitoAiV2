@@ -11,5 +11,6 @@ describe('app number format', () => {
 
   it('formats USD cents', () => {
     expect(formatAppUsdCents(199, 'en')).toBe('$1.99')
+    expect(formatAppUsdCents(199, 'nl').replace(/\s/g, '')).toMatch(/\$1[,.]99/)
   })
 })

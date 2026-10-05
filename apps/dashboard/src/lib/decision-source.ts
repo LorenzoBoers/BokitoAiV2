@@ -1,4 +1,4 @@
-import { activityTerminalPath } from './messages-paths'
+import type { EntityRef } from './open-entity'
 
 /** Provenance shape the API puts on `payload.decision.source`. */
 export type DecisionSource = {
@@ -23,17 +23,17 @@ export function parseDecisionSource(raw: unknown): DecisionSource | null {
   }
 }
 
-/** Where to look at the thing that raised this decision. */
-export function decisionSourcePath(source: DecisionSource): string {
+/** The thing that raised this decision, for `openEntityPath`. */
+export function decisionSourceRef(source: DecisionSource): Exclude<EntityRef, { type: 'notification' }> {
   switch (source.type) {
     case 'agent_task':
-      return source.projectId ? `/projects/${source.projectId}` : '/agenda'
+      return { type: 'work_item', id: source.id, projectId: source.projectId }
     case 'project':
-      return `/projects/${source.id}`
+      return { type: 'project', id: source.id }
     case 'agent_run':
-      return activityTerminalPath()
+      return { type: 'run', id: source.id }
     case 'platform_change':
-      return '/settings/govern?tab=drafts'
+      return { type: 'platform_change', id: source.id }
   }
 }
 

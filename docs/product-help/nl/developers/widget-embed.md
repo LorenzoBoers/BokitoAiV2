@@ -55,6 +55,14 @@ Gebruik dit wanneer je de assistent in je eigen product embedt, zodat gesprekken
 
 De widget-API staat bewust cross-origin open (de domeinen van jouw klanten zijn willekeurig) en authenticeert met kortlevende sessietokens - nooit cookies, nooit `bok_`-API-tokens. Er wordt niets over je workspace blootgelegd buiten wat de assistent mag zeggen.
 
+## Hoe antwoorden streamen
+
+De widget leest het antwoord als server-sent events. Een eigen client op dezelfde stream verwerkt drie frames:
+
+- `{"t": "..."}` - een stuk tekst voor het huidige bericht.
+- `{"type": "message_break", "id": "..."}` - het huidige bericht is klaar; de volgende stukken starten een nieuw bericht.
+- `{"type": "done", "messages": [...], "message_ids": [...], "content": "...", "conversation_id": "..."}` - de definitieve berichten, op volgorde (maximaal vijf). Vervang live tekst door `messages`. `content` voegt ze samen met een lege regel; `ai_disclosure` staat er alleen bij het eerste AI-antwoord van een gesprek.
+
 ## Checklist voor productie
 
 1. Installeer op een stagingpagina en stuur een testbericht.

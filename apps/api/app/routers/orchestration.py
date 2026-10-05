@@ -21,8 +21,8 @@ from app.services.orchestration.dispatcher import (
     complete_agent_task,
     create_agent_task,
     resume_agent_task,
-    serialize_agent_task,
 )
+from app.services.work_items import serialize_work_item
 from app.services.orchestration.queue import enqueue_agent_task_segment
 from app.services.orchestration.runner import run_agent_task_segment
 
@@ -78,7 +78,7 @@ async def list_tasks(
     rows = (
         await session.execute(query.order_by(AgentTask.created_at.desc()).limit(limit))
     ).scalars().all()
-    return [serialize_agent_task(t) for t in rows]
+    return [serialize_work_item(t, view="job") for t in rows]
 
 
 @router.post("/tasks")
@@ -112,7 +112,7 @@ async def create_task(
         scheduled_for=body.scheduled_for,
     )
     await session.refresh(task)
-    return serialize_agent_task(task)
+    return serialize_work_item(task, view="job")
 
 
 @router.get("/tasks/{task_id}")
@@ -128,7 +128,7 @@ async def get_task(
     ).scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return serialize_agent_task(task)
+    return serialize_work_item(task, view="job")
 
 
 @router.post("/tasks/{task_id}/run")
@@ -159,7 +159,7 @@ async def complete_task(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     task = await complete_agent_task(session, auth.tenant.id, task_id)
-    return serialize_agent_task(task)
+    return serialize_work_item(task, view="job")
 
 
 @router.post("/tasks/{task_id}/cancel")
@@ -169,7 +169,7 @@ async def cancel_task(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     task = await cancel_agent_task(session, auth.tenant.id, task_id)
-    return serialize_agent_task(task)
+    return serialize_work_item(task, view="job")
 
 
 @router.post("/tasks/{task_id}/resume")
@@ -179,7 +179,7 @@ async def resume_task(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     task = await resume_agent_task(session, auth.tenant.id, task_id)
-    return serialize_agent_task(task)
+    return serialize_work_item(task, view="job")
 
 
 @router.get("/tasks/{task_id}/artifacts")

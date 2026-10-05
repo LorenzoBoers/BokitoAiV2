@@ -52,9 +52,16 @@ class Workstream(SQLModel, table=True):
     # integration connected, agents available).
     module_slug: str = ""
     template_slug: str = ""
-    autonomy_level: str = Field(default="approval")  # manual | approval | auto
+    autonomy_level: str = Field(default="assisted")  # manual | assisted | autonomous
+    # Ticket pipeline: [{"key", "name", "kind": open|waiting|done}]; "[]" means
+    # the default Open / Waiting / Done.
+    stages_json: str = Field(default="[]")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    trash_was_enabled: Optional[bool] = Field(default=None)
 
 
 class WorkstreamStep(SQLModel, table=True):
@@ -80,6 +87,8 @@ class WorkstreamStep(SQLModel, table=True):
     # Handbook context: knowledge section ids the agent reads for this step.
     knowledge_section_ids_json: str = Field(default="[]")
     config_json: str = Field(default="{}")
+    # Entering this step moves the run's tickets to this stage ("" = no move).
+    stage_key: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -95,7 +104,7 @@ class WorkstreamRun(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    workstream_id: uuid.UUID = Field(foreign_key="workstreams.id", index=True)
+    workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
     project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
 

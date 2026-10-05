@@ -27,12 +27,17 @@ export const QUEUE_STATUS_ORDER: QueueItemStatus[] = [
 export const QUEUE_TRANSITIONS: Record<QueueItemStatus, QueueItemStatus[]> = {
   proposed: ['queued', 'rejected'],
   queued: ['analyzing', 'planned', 'rejected'],
-  analyzing: ['planned', 'queued', 'rejected'],
-  planned: ['running', 'analyzing', 'rejected'],
+  analyzing: ['planned', 'queued', 'verifying', 'completed', 'rejected'],
+  planned: ['running', 'analyzing', 'verifying', 'completed', 'rejected'],
   running: ['verifying', 'planned', 'completed', 'rejected'],
   verifying: ['completed', 'running'],
   completed: [],
   rejected: ['proposed'],
+}
+
+export function canMoveQueueItem(from: QueueItemStatus, to: QueueItemStatus): boolean {
+  if (from === to) return true
+  return QUEUE_TRANSITIONS[from]?.includes(to) ?? false
 }
 
 export const QUEUE_STATUS_VARIANT: Record<QueueItemStatus, BadgeVariant> = {

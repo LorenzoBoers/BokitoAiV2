@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
+from app.models.case import Case
 from app.models.orchestration import QUEUE_ITEM_KINDS, AgentTask
 from app.models.project import Project, ProjectAgent
 from app.models.project_work import ProjectResource
@@ -17,6 +18,19 @@ from app.models.orchestra import Workstream
 from app.models.usage import UsageLedger
 
 DEFAULT_TOKEN_BUDGET_DAILY = 100_000
+DEFAULT_TOKEN_BUDGET_HOURLY = 10_000
+
+
+def _positive_cap(value: Any) -> int | None:
+    if value in (None, "", 0):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Token budget must be a whole number") from exc
+    if parsed < 0:
+        raise HTTPException(status_code=422, detail="Token budget cannot be negative")
+    return parsed or None
 
 
 def _parse_json(raw: str | None) -> Any:
@@ -31,16 +45,12 @@ def _iso(value: datetime | None) -> str | None:
 
 
 def serialize_po_agent(agent: Agent | None) -> dict[str, Any] | None:
+    """The project orchestrator as an agent summary (``serialize_agent``)."""
     if not agent:
         return None
-    return {
-        "id": str(agent.id),
-        "name": agent.name,
-        "slug": None,
-        "role": agent.role,
-        "agent_type": "orchestrator",
-        "status": "active" if agent.is_active else "inactive",
-    }
+    from app.services.workforce_runtime import serialize_agent
+
+    return serialize_agent(agent)
 
 
 def _repo_config(resource: ProjectResource | None) -> dict[str, Any]:
@@ -65,7 +75,6 @@ def serialize_project(
         "slug": project.slug,
         "description": project.description or "",
         "autonomous_scope": project.autonomous_scope or "",
-        "autonomous_mode": project.autonomous_mode,
         "active_domains": _parse_json(project.active_domains_json),
         "workbench_connection_id": (
             str(project.workbench_connection_id) if project.workbench_connection_id else None
@@ -80,6 +89,8 @@ def serialize_project(
         "repo_index_error": repo.sync_error if repo else None,
         "po_agent_id": str(project.po_agent_id) if project.po_agent_id else None,
         "po_agent": serialize_po_agent(po_agent),
+        "token_budget_daily": project.token_budget_daily,
+        "token_budget_hourly": project.token_budget_hourly,
         "updated_at": _iso(project.updated_at),
         "created_at": _iso(project.created_at),
     }
@@ -103,11 +114,14 @@ async def get_repo_resource(
 
 
 async def get_project_row(
-    session: AsyncSession, tenant_id: UUID, project_id: UUID
+    session: AsyncSession, tenant_id: UUID, project_id: UUID, *, include_deleted: bool = False
 ) -> tuple[Project, Agent | None]:
-    result = await session.execute(
-        select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
-    )
+    from app.services.trash import alive
+
+    query = select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+    if not include_deleted:
+        query = query.where(alive(Project))
+    result = await session.execute(query)
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -129,8 +143,12 @@ async def get_project_detail(
 
 
 async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
+    from app.services.trash import alive
+
     result = await session.execute(
-        select(Project).where(Project.tenant_id == tenant_id).order_by(Project.updated_at.desc())
+        select(Project)
+        .where(Project.tenant_id == tenant_id, alive(Project))
+        .order_by(Project.updated_at.desc())
     )
     projects = list(result.scalars().all())
     # Batch-load orchestrator agents (tenant-scoped) to avoid N+1.
@@ -171,22 +189,21 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             roster_by_project.setdefault(row.project_id, []).append(
                 {"agent_id": str(agent.id), "name": agent.name, "is_default": row.is_default}
             )
-    # Queue and doc-health badges for the project cards (batched).
-    open_queue_by_project: dict[UUID, int] = {}
+    # Open Signals (Cases) on the project — the same board as Project Home.
+    open_cases_by_project: dict[UUID, int] = {}
     sections_by_project: dict[UUID, tuple[int, int]] = {}  # (total, verified-ish)
     if projects:
         project_ids = [p.id for p in projects]
-        queue_result = await session.execute(
-            select(AgentTask.project_id, func.count())
+        case_result = await session.execute(
+            select(Case.project_id, func.count())
             .where(
-                AgentTask.tenant_id == tenant_id,
-                AgentTask.project_id.in_(project_ids),
-                AgentTask.kind.in_(QUEUE_ITEM_KINDS),
-                AgentTask.status.not_in(["completed", "rejected", "cancelled", "failed"]),
+                Case.tenant_id == tenant_id,
+                Case.project_id.in_(project_ids),
+                Case.status.in_(("proposed", "open", "waiting")),
             )
-            .group_by(AgentTask.project_id)
+            .group_by(Case.project_id)
         )
-        open_queue_by_project = {row[0]: row[1] for row in queue_result.all()}
+        open_cases_by_project = {row[0]: row[1] for row in case_result.all()}
         from app.models.workspace import DocSection, WorkspaceDoc
 
         section_result = await session.execute(
@@ -212,7 +229,7 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             repo_by_project.get(p.id),
         )
         item["agents"] = roster_by_project.get(p.id, [])
-        item["queue_open_count"] = open_queue_by_project.get(p.id, 0)
+        item["open_signals_count"] = open_cases_by_project.get(p.id, 0)
         total, done = sections_by_project.get(p.id, (0, 0))
         item["doc_sections_total"] = total
         item["doc_sections_done"] = done
@@ -230,8 +247,12 @@ async def create_project(
     description: str = "",
 ) -> dict[str, Any]:
     slug_norm = slug.strip().lower()
+    from app.services.trash import alive
+
     existing = await session.execute(
-        select(Project).where(Project.tenant_id == tenant_id, Project.slug == slug_norm)
+        select(Project).where(
+            Project.tenant_id == tenant_id, Project.slug == slug_norm, alive(Project)
+        )
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Project slug already exists")
@@ -264,17 +285,20 @@ async def patch_project(
     name: str | None = None,
     description: str | None = None,
     autonomous_scope: str | None = None,
-    autonomous_mode: bool | None = None,
+    token_budget_daily: int | None | object = ...,
+    token_budget_hourly: int | None | object = ...,
 ) -> dict[str, Any]:
     project, po_agent = await get_project_row(session, tenant_id, project_id)
     if name is not None:
         project.name = name.strip()
     if description is not None:
         project.description = description
-    if autonomous_mode is not None:
-        project.autonomous_mode = autonomous_mode
     if autonomous_scope is not None:
         project.autonomous_scope = autonomous_scope.strip()
+    if token_budget_daily is not ...:
+        project.token_budget_daily = _positive_cap(token_budget_daily)
+    if token_budget_hourly is not ...:
+        project.token_budget_hourly = _positive_cap(token_budget_hourly)
     project.updated_at = datetime.utcnow()
     session.add(project)
     await session.commit()
@@ -288,10 +312,97 @@ async def delete_project(
     tenant_id: UUID,
     project_id: UUID,
     confirm_name: str,
+    *,
+    permanent: bool = False,
+    commit: bool = True,
+    user_id: UUID | None = None,
 ) -> dict[str, bool]:
-    project, _ = await get_project_row(session, tenant_id, project_id)
+    project, _ = await get_project_row(session, tenant_id, project_id, include_deleted=permanent)
     if confirm_name.strip() != project.name:
         raise HTTPException(status_code=400, detail="Confirmation name does not match")
+    if not permanent:
+        from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
+        from app.models.workspace import WorkspaceDoc
+        from app.services.trash import alive, load_tenant, move_to_bin
+
+        tenant = await load_tenant(session, tenant_id)
+        canvases = list(
+            (
+                await session.execute(
+                    select(ProjectCanvas).where(
+                        ProjectCanvas.tenant_id == tenant_id,
+                        ProjectCanvas.owner_kind == OWNER_PROJECT,
+                        ProjectCanvas.owner_id == project_id,
+                        alive(ProjectCanvas),
+                    )
+                )
+            ).scalars().all()
+        )
+        docs = list(
+            (
+                await session.execute(
+                    select(WorkspaceDoc).where(
+                        WorkspaceDoc.tenant_id == tenant_id,
+                        WorkspaceDoc.project_id == project_id,
+                        alive(WorkspaceDoc),
+                    )
+                )
+            ).scalars().all()
+        )
+        resources = list(
+            (
+                await session.execute(
+                    select(ProjectResource).where(
+                        ProjectResource.tenant_id == tenant_id,
+                        ProjectResource.project_id == project_id,
+                        alive(ProjectResource),
+                    )
+                )
+            ).scalars().all()
+        )
+        queue_items = list(
+            (
+                await session.execute(
+                    select(AgentTask).where(
+                        AgentTask.tenant_id == tenant_id,
+                        AgentTask.project_id == project_id,
+                        AgentTask.kind.in_(QUEUE_ITEM_KINDS),
+                        alive(AgentTask),
+                    )
+                )
+            ).scalars().all()
+        )
+        children: list[tuple[str, Any]] = []
+        children.extend(("canvas", c) for c in canvases)
+        children.extend(("knowledge", d) for d in docs)
+        children.extend(("project_resource", r) for r in resources)
+        children.extend(("queue_item", q) for q in queue_items)
+        for canvas in canvases:
+            if canvas.refresh_trigger_id:
+                from app.models.trigger import Trigger
+
+                trig = (
+                    await session.execute(
+                        select(Trigger).where(
+                            Trigger.id == canvas.refresh_trigger_id,
+                            Trigger.tenant_id == tenant_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if trig and getattr(trig, "enabled", False):
+                    trig.trash_was_enabled = True
+                    trig.enabled = False
+                    session.add(trig)
+        await move_to_bin(
+            session,
+            tenant,
+            resource_type="project",
+            row=project,
+            user_id=user_id,
+            children=children,
+            commit=commit,
+        )
+        return {"deleted": True}
     # Detach (not delete) runnable workstreams: they may still be scheduled
     # or referenced by past runs outside the project scope.
     streams = await session.execute(
@@ -360,16 +471,34 @@ async def delete_project(
     await session.execute(
         sa_delete(ProjectResource).where(ProjectResource.project_id == project_id)
     )
-    from app.models.project_canvas import ProjectCanvas
+    from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
+    from app.models.trigger import Trigger
 
+    canvases = (
+        await session.execute(
+            select(ProjectCanvas).where(
+                ProjectCanvas.tenant_id == tenant_id,
+                ProjectCanvas.owner_kind == OWNER_PROJECT,
+                ProjectCanvas.owner_id == project_id,
+            )
+        )
+    ).scalars().all()
+    trigger_ids = [c.refresh_trigger_id for c in canvases if c.refresh_trigger_id]
+    if trigger_ids:
+        await session.execute(sa_delete(Trigger).where(Trigger.id.in_(trigger_ids)))
     await session.execute(
-        sa_delete(ProjectCanvas).where(ProjectCanvas.project_id == project_id)
+        sa_delete(ProjectCanvas).where(
+            ProjectCanvas.tenant_id == tenant_id,
+            ProjectCanvas.owner_kind == OWNER_PROJECT,
+            ProjectCanvas.owner_id == project_id,
+        )
     )
     doc_ids = select(WorkspaceDoc.id).where(WorkspaceDoc.project_id == project_id)
     await session.execute(sa_delete(DocChunk).where(DocChunk.doc_id.in_(doc_ids)))
     await session.execute(sa_delete(WorkspaceDoc).where(WorkspaceDoc.project_id == project_id))
     await session.delete(project)
-    await session.commit()
+    if commit:
+        await session.commit()
     return {"deleted": True}
 
 
@@ -499,9 +628,7 @@ async def usage_budget(session: AsyncSession, tenant_id: UUID, project_id: UUID)
     hour_start = now.replace(minute=0, second=0, microsecond=0)
     used_today = await _token_usage(session, tenant_id, project_id, day_start)
     used_hour = await _token_usage(session, tenant_id, project_id, hour_start)
-    # Tenant spend cap (spend_guard) overrides the hardcoded default; real
-    # enforcement happens in resolve_model_call, this endpoint is advisory.
-    budget = DEFAULT_TOKEN_BUDGET_DAILY
+    workspace_daily = DEFAULT_TOKEN_BUDGET_DAILY
     from app.models.auth import Tenant
     from app.services.spend_guard import get_spend_config
 
@@ -509,17 +636,44 @@ async def usage_budget(session: AsyncSession, tenant_id: UUID, project_id: UUID)
     if tenant:
         cap = get_spend_config(tenant)["daily_token_cap"]
         if cap:
-            budget = cap
-    remaining_today = max(0, budget - used_today)
-    remaining_hour = max(0, min(10_000, budget) - used_hour)
+            workspace_daily = cap
+        elif cap is None:
+            workspace_daily = DEFAULT_TOKEN_BUDGET_DAILY
+    project, _ = await get_project_row(session, tenant_id, project_id)
+    daily = project.token_budget_daily or workspace_daily
+    if workspace_daily:
+        daily = min(daily, workspace_daily)
+    hourly = project.token_budget_hourly or min(DEFAULT_TOKEN_BUDGET_HOURLY, daily)
+    hourly = min(hourly, daily)
+    remaining_today = max(0, daily - used_today)
+    remaining_hour = max(0, hourly - used_hour)
     return {
-        "token_budget_daily": budget,
+        "token_budget_daily": daily,
+        "token_budget_hourly": hourly,
+        "token_budget_daily_set": project.token_budget_daily,
+        "token_budget_hourly_set": project.token_budget_hourly,
+        "workspace_daily_cap": workspace_daily,
         "token_used_today": used_today,
         "token_used_this_hour": used_hour,
         "remaining_today": remaining_today,
         "remaining_hour": remaining_hour,
-        "blocked": remaining_today <= 0,
+        "blocked": remaining_today <= 0 or remaining_hour <= 0,
     }
+
+
+async def check_project_token_budget(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID
+) -> None:
+    from app.exceptions import AppError
+
+    status = await usage_budget(session, tenant_id, project_id)
+    if not status["blocked"]:
+        return
+    raise AppError(
+        "This project's token budget is used up. Raise the cap on the project or wait for the next window.",
+        code="project_budget_exceeded",
+        status_code=402,
+    )
 
 
 def _period_bounds(period: str) -> tuple[datetime, datetime, str]:
@@ -593,6 +747,7 @@ async def create_po_agent(
     project.po_agent_id = agent.id
     project.updated_at = datetime.utcnow()
     session.add(project)
+    await _ensure_default_roster(session, tenant_id, project_id, agent.id)
     await session.commit()
     await session.refresh(agent)
     return await po_agent_summary(session, tenant_id, project_id)
@@ -611,13 +766,14 @@ async def link_po_agent(
     agent = agent_result.scalar_one_or_none()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    if agent.role not in ("orchestrator", "po"):
-        raise HTTPException(
-            status_code=400, detail="Agent must be an orchestrator to lead a project"
-        )
+    if agent.kind != "company":
+        raise HTTPException(status_code=400, detail="Only company agents can lead a project")
+    if not agent.is_active:
+        raise HTTPException(status_code=400, detail="Agent is archived")
     project.po_agent_id = agent.id
     project.updated_at = datetime.utcnow()
     session.add(project)
+    await _ensure_default_roster(session, tenant_id, project_id, agent.id)
     await session.commit()
     summary = await po_agent_summary(session, tenant_id, project_id)
     summary["po_agent"] = serialize_po_agent(agent)
@@ -703,6 +859,32 @@ async def add_project_agent(
     await session.commit()
     await session.refresh(row)
     return _serialize_project_agent(row, agent)
+
+
+async def _ensure_default_roster(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID, agent_id: UUID
+) -> None:
+    """Keep the project default agent in the roster in sync with po_agent_id."""
+    await _clear_project_default(session, project_id)
+    existing = (
+        await session.execute(
+            select(ProjectAgent).where(
+                ProjectAgent.project_id == project_id, ProjectAgent.agent_id == agent_id
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        existing.is_default = True
+        session.add(existing)
+        return
+    session.add(
+        ProjectAgent(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            agent_id=agent_id,
+            is_default=True,
+        )
+    )
 
 
 async def _clear_project_default(session: AsyncSession, project_id: UUID) -> None:

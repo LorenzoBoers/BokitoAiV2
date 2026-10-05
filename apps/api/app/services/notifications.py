@@ -189,14 +189,13 @@ async def resolve_decision(
             url = str(payload.get("url") or "").strip()
             title = str(payload.get("title") or "").strip()
             if slug and url:
-                from app.services.module_sources import create_tenant_source
-                from app.workers.tasks import enqueue_module_source_index
+                from app.services.module_sources import create_tenant_source, queue_source_index
 
                 try:
                     row = await create_tenant_source(
                         session, tenant_id, slug, title=title or url, url=url
                     )
-                    await enqueue_module_source_index(str(row.id))
+                    await queue_source_index(session, row)
                 except ValueError:
                     pass
 

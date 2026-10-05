@@ -4,7 +4,7 @@ import { formatPermissionScopes, permissionScopeLabel } from './permission-scope
 const t = (key: string) => {
   const map: Record<string, string> = {
     'workforce.scopes.platformRead': 'Platform bekijken',
-    'workforce.scopes.graphEdit': 'AI OS-canvas bewerken',
+    'workforce.scopes.graphEdit': 'Projectcanvas bewerken',
     'workforce.scopes.docWrite': 'Kennisdocumenten schrijven',
   }
   return map[key] ?? ''
@@ -13,7 +13,7 @@ const t = (key: string) => {
 describe('permissionScopeLabel', () => {
   it('maps known platform scopes to human copy', () => {
     expect(permissionScopeLabel('platform:read', t as never)).toBe('Platform bekijken')
-    expect(permissionScopeLabel('platform:graph:edit', t as never)).toBe('AI OS-canvas bewerken')
+    expect(permissionScopeLabel('platform:graph:edit', t as never)).toBe('Projectcanvas bewerken')
   })
 
   it('falls back to a readable sentence for unknown scopes', () => {

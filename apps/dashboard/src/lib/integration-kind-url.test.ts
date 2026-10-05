@@ -4,7 +4,6 @@ import {
   legacyModulesPath,
   marketplacePathWithKind,
   parseKindFilter,
-  parseStatusFilter,
 } from './integration-kind-url'
 
 describe('parseKindFilter', () => {
@@ -30,7 +29,8 @@ describe('legacyModulesPath', () => {
     expect(legacyModulesPath('/modules/connected')).toBe('/connections')
     expect(legacyModulesPath('/modules/tools')).toBe('/connections')
     expect(legacyModulesPath('/modules/marketplace')).toBe('/connections/marketplace')
-    expect(legacyModulesPath('/modules/accounting')).toBe('/connections/accounting')
+    expect(legacyModulesPath('/connections/connected')).toBe('/connections')
+    expect(legacyModulesPath('/connections/tools')).toBe('/connections')
   })
 
   it('handles the older Settings-nested paths too', () => {
@@ -39,11 +39,3 @@ describe('legacyModulesPath', () => {
   })
 })
 
-describe('parseStatusFilter', () => {
-  it('defaults to available so coming-soon cards stay off the first view', () => {
-    expect(parseStatusFilter(null)).toBe('available')
-    expect(parseStatusFilter('available')).toBe('available')
-    expect(parseStatusFilter('connected')).toBe('connected')
-    expect(parseStatusFilter('all')).toBe('all')
-  })
-})

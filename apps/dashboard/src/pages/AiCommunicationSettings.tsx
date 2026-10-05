@@ -33,7 +33,6 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import ProviderLogo from '../components/email/ProviderLogo'
-import ChannelDefaultAgentsPanel from '../components/settings/ChannelDefaultAgentsPanel'
 import AiHandlingPicker from '../components/ai/AiHandlingPicker'
 import { AiHandlingIcon } from '../components/ai/AiHandlingIcon'
 import { ChannelGlyph } from '../components/ui/ChannelGlyph'
@@ -695,7 +694,9 @@ export default function AiCommunicationSettings() {
           <h2 className="text-base font-medium text-text-heading">{t('ai.communication.whoAnswersTitle')}</h2>
           <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.whoAnswersDescription')}</p>
         </div>
-        <ChannelDefaultAgentsPanel />
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/settings/channels">{t('ai.communication.whoAnswersOpenChannels')}</Link>
+        </Button>
       </section>
 
       <PageRelatedLinks

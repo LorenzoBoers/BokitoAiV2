@@ -5,7 +5,8 @@ describe('resolveIntegrationKind', () => {
   it('keeps native accounting off the MCP lane', () => {
     expect(resolveIntegrationKind('moneybird', { accounting: true })).toBe('app')
     expect(resolveIntegrationKind('exact_online')).toBe('app')
-    expect(resolveIntegrationKind('snelstart')).toBe('app')
+    expect(resolveIntegrationKind('google_drive')).toBe('app')
+    expect(resolveIntegrationKind('tink')).toBe('app')
   })
 
   it('keeps KING and custom tools on MCP', () => {

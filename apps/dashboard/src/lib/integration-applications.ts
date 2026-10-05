@@ -69,6 +69,42 @@ const CORE_HOST_DISPLAY: Record<string, { name: string; description: string }> =
     name: 'GoCardless',
     description: 'Read-only PSD2 bank account data via GoCardless Bank Account Data.',
   },
+  tink: {
+    name: 'Tink',
+    description: 'Open-banking accounts, balances and transactions (planned for Banking).',
+  },
+  yapily: {
+    name: 'Yapily',
+    description: 'PSD2 account data across European banks (planned for Banking).',
+  },
+  knab: {
+    name: 'Knab',
+    description: 'Knab business accounts for Dutch SMBs (planned for Banking).',
+  },
+  twelve_data: {
+    name: 'Twelve Data',
+    description: 'Market quotes and time series for watchlists (planned for Investing).',
+  },
+  bitvavo: {
+    name: 'Bitvavo',
+    description: 'Dutch crypto exchange balances and orders (planned for Investing).',
+  },
+  tradingview: {
+    name: 'TradingView',
+    description: 'Webhook alerts land as Signals (planned for Investing).',
+  },
+  google_drive: {
+    name: 'Google Drive',
+    description: 'Search and read Drive files into Knowledge (planned for Documents).',
+  },
+  onedrive: {
+    name: 'OneDrive / SharePoint',
+    description: 'Search and read Microsoft 365 files into Knowledge (planned for Documents).',
+  },
+  dropbox: {
+    name: 'Dropbox',
+    description: 'Search and read Dropbox files into Knowledge (planned for Documents).',
+  },
   custom: {
     name: 'Custom tool',
     description: 'Any external tool by URL with API key or bearer token.',
@@ -100,6 +136,15 @@ const CORE_MODULE_BY_PROVIDER: Record<string, string> = {
   exact_online: 'accounting',
   snelstart: 'accounting',
   gocardless_bank: 'banking',
+  tink: 'banking',
+  yapily: 'banking',
+  knab: 'banking',
+  twelve_data: 'investing',
+  bitvavo: 'investing',
+  tradingview_alerts: 'investing',
+  google_drive: 'documents',
+  microsoft_graph_files: 'documents',
+  dropbox: 'documents',
 }
 
 export const MODULE_BY_PROVIDER_SLUG: Record<string, string> = {
@@ -116,6 +161,15 @@ const CORE_MODULE_BY_HOST: Record<string, string> = {
   exact: 'accounting',
   snelstart: 'accounting',
   gocardless: 'banking',
+  tink: 'banking',
+  yapily: 'banking',
+  knab: 'banking',
+  twelve_data: 'investing',
+  bitvavo: 'investing',
+  tradingview: 'investing',
+  google_drive: 'documents',
+  onedrive: 'documents',
+  dropbox: 'documents',
 }
 
 const MODULE_BY_HOST: Record<string, string> = {
@@ -222,12 +276,78 @@ export function localizeApplication<T extends { hostSlug: string; name: string; 
   }
 }
 
+export type ApplicationOfferRow = {
+  application: IntegrationApplication
+  offer: IntegrationOffer
+}
+
+/** One marketplace / hub card per connectable product, not per vendor host. */
+export function flattenApplicationOffers(apps: IntegrationApplication[]): ApplicationOfferRow[] {
+  return apps.flatMap((application) =>
+    application.offers.map((offer) => ({ application, offer })),
+  )
+}
+
+export function localizeOfferCopy(
+  offer: IntegrationOffer,
+  t: TranslateFn,
+): { name: string; description: string } {
+  const id = offer.integration.id
+  return {
+    name: t(`integrations.offers.${id}.name`, { defaultValue: offer.integration.name }),
+    description: t(`integrations.offers.${id}.description`, {
+      defaultValue: offer.integration.description,
+    }),
+  }
+}
+
 export function localizeOfferDescription(
-  hostSlug: string,
+  offer: IntegrationOffer,
   fallback: string,
   t: TranslateFn,
 ): string {
-  return t(`integrations.hosts.${hostSlug}.description`, { defaultValue: fallback })
+  return t(`integrations.offers.${offer.integration.id}.description`, {
+    defaultValue: fallback || offer.integration.description,
+  })
+}
+
+export function filterOfferRows(
+  rows: ApplicationOfferRow[],
+  kind: IntegrationKind | 'all',
+  query: string,
+  t: TranslateFn,
+): ApplicationOfferRow[] {
+  let list = rows
+  if (kind !== 'all') {
+    list = list.filter((row) => row.offer.kind === kind)
+  }
+  const q = query.trim().toLowerCase()
+  if (q) {
+    list = list.filter((row) => {
+      const copy = localizeOfferCopy(row.offer, t)
+      const host = localizeApplication(row.application, t)
+      const kindLabel = t(`integrations.kind.${row.offer.kind}`, {
+        defaultValue: row.offer.kind,
+      })
+      return (
+        copy.name.toLowerCase().includes(q) ||
+        copy.description.toLowerCase().includes(q) ||
+        host.name.toLowerCase().includes(q) ||
+        row.offer.integration.name.toLowerCase().includes(q) ||
+        kindLabel.toLowerCase().includes(q)
+      )
+    })
+  }
+  return [...list].sort((a, b) => {
+    const rank = (row: ApplicationOfferRow) => {
+      if (row.offer.integration.status === 'coming_soon') return 2
+      if (row.offer.connectionCount > 0) return 0
+      return 1
+    }
+    const byStatus = rank(a) - rank(b)
+    if (byStatus !== 0) return byStatus
+    return localizeOfferCopy(a.offer, t).name.localeCompare(localizeOfferCopy(b.offer, t).name)
+  })
 }
 
 export function findApplicationByHostSlug(

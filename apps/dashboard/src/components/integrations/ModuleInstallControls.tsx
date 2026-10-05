@@ -153,7 +153,7 @@ export function ModuleInstallControls({ module, onAction, compact = false }: Pro
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant={compact ? 'destructive' : 'outline'}
           disabled={busy}
           onClick={() => setUninstallStep(1)}
         >

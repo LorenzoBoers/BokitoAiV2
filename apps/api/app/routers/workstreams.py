@@ -30,6 +30,7 @@ class WorkstreamPatchBody(BaseModel):
     enabled: bool | None = None
     is_default: bool | None = None
     project_id: UUID | None = None
+    stages: list[dict[str, Any]] | None = None
 
 
 class StepBody(BaseModel):
@@ -44,6 +45,7 @@ class StepBody(BaseModel):
     on_deadline: str = "continue"
     knowledge_section_ids: list[UUID] = []
     config: dict[str, Any] = {}
+    stage_key: str = ""
 
 
 class StepsReplaceBody(BaseModel):
@@ -182,6 +184,10 @@ async def patch_workstream(
         ws.is_default = bool(patch["is_default"])
     if "project_id" in patch:
         ws.project_id = patch["project_id"]
+    if patch.get("stages") is not None:
+        from app.services.ticket_stages import validate_stages
+
+        ws.stages_json = validate_stages(patch["stages"])
     from datetime import datetime
 
     ws.updated_at = datetime.utcnow()

@@ -113,7 +113,20 @@ async def test_invite_accept_role_change_and_remove(client: AsyncClient):
     )
     assert r.status_code == 200, r.text
     r = await client.get(f"/api/app/workspaces/{ws}/members", headers=headers)
-    assert [m["email"] for m in r.json()] == [TEST_EMAIL]
+    rows = r.json()
+    newbie_after = next(m for m in rows if m["email"] == "newbie@example.com")
+    assert newbie_after["is_active"] is False
+    r = await client.post(
+        f"/api/app/workspaces/{ws}/members/{newbie['uuid']}/reactivate",
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    r = await client.get(f"/api/app/workspaces/{ws}/members", headers=headers)
+    assert next(m for m in r.json() if m["email"] == "newbie@example.com")["is_active"] is True
+    r = await client.delete(
+        f"/api/app/workspaces/{ws}/members/{newbie['uuid']}", headers=headers
+    )
+    assert r.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -325,3 +338,11 @@ async def test_delete_account(client: AsyncClient):
         "/api/auth/login", json={"email": "goner@example.com", "password": "gonerpass123"}
     )
     assert r.status_code in (400, 401)
+
+
+@pytest.mark.asyncio
+async def test_me_includes_api_environment(client: AsyncClient):
+    token = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    r = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    assert r.json()["environment"]

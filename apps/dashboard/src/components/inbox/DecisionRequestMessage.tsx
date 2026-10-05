@@ -12,14 +12,17 @@ import {
   ThumbsDown,
   ThumbsUp,
   UserRound,
+  X,
   Zap,
 } from 'lucide-react'
+import ChatText from './ChatText'
 import {
   decisionSourceLabelKey,
-  decisionSourcePath,
+  decisionSourceRef,
   parseDecisionAddressee,
   parseDecisionSource,
 } from '../../lib/decision-source'
+import { openEntityPath } from '../../lib/open-entity'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { moduleProposalFromOptions } from '../../lib/module-proposal'
@@ -169,6 +172,59 @@ function draftBodyFromOptions(options: DecisionOption[], fallback: string): stri
   return fallback
 }
 
+/** Chat bubbles of a reply suggestion (`payload.messages`); empty for one-message drafts. */
+function draftBubblesFromOptions(options: DecisionOption[]): string[] {
+  const send = options.find((o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email')
+  const raw = send?.payload?.messages
+  if (!Array.isArray(raw)) return []
+  const bubbles = raw.filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+  return bubbles.length > 1 ? bubbles : []
+}
+
+function BubbleDrafts({
+  bubbles,
+  editable,
+  onChange,
+}: {
+  bubbles: string[]
+  editable: boolean
+  onChange: (next: string[]) => void
+}) {
+  const { t } = useTranslation('communication')
+  return (
+    <div className="space-y-1.5">
+      {bubbles.map((bubble, index) => (
+        <div
+          key={index}
+          className="group relative max-w-[90%] rounded-xl rounded-tl-md border border-border/60 bg-bg-surface px-3 py-2"
+        >
+          {editable ? (
+            <textarea
+              value={bubble}
+              rows={Math.min(6, Math.max(1, bubble.split('\n').length))}
+              aria-label={t('decisionCard.bubbleLabel', { index: index + 1 })}
+              onChange={(e) => onChange(bubbles.map((b, i) => (i === index ? e.target.value : b)))}
+              className="w-full resize-none bg-transparent pr-5 text-sm leading-relaxed text-text-primary outline-none"
+            />
+          ) : (
+            <ChatText content={bubble} className="text-sm leading-relaxed text-text-primary" />
+          )}
+          {editable && bubbles.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => onChange(bubbles.filter((_, i) => i !== index))}
+              aria-label={t('decisionCard.removeBubble')}
+              className="absolute right-1.5 top-1.5 rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-bg-hover hover:text-text-primary focus:opacity-100 group-hover:opacity-100"
+            >
+              <X size={12} />
+            </button>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 
 /** Team-facing remarks the agent produced alongside the draft (never emailed). */
 function internalNoteFromOptions(options: DecisionOption[]): string {
@@ -229,6 +285,7 @@ function optionLabelKey(option: DecisionOption): string | null {
     escalate: 'escalate',
     close: 'closeThread',
     create_task: 'createTask',
+    look_at: 'createTask',
     keep_open: 'keepOpen',
     approve: 'approve',
     reject: 'reject',
@@ -247,6 +304,7 @@ function optionLabelKey(option: DecisionOption): string | null {
     draft: 'edit',
     close_thread: 'closeThread',
     create_task: 'createTask',
+    look_at: 'createTask',
     create_queue_item: 'addToQueue',
     approve: 'approve',
     defer: 'keepOpen',
@@ -365,6 +423,13 @@ export default function DecisionRequestMessage({
       t,
     )
   }, [toolCopy, options, summary, t])
+  const suggestedBubbles = useMemo(
+    () => (toolCopy ? [] : draftBubblesFromOptions(options)),
+    [toolCopy, options],
+  )
+  const [bubbles, setBubbles] = useState<string[]>(suggestedBubbles)
+  useEffect(() => setBubbles(suggestedBubbles), [suggestedBubbles])
+  const editedBubbles = bubbles.map((b) => b.trim()).filter(Boolean)
   const displaySubject = useMemo(() => {
     const raw = toolCopy?.title || message.subject
     return raw ? translateDecisionText(raw, t) : null
@@ -505,6 +570,7 @@ export default function DecisionRequestMessage({
     answerText?: string,
     sendAsOverride?: ReplySendAs,
     info?: { closed?: boolean },
+    messages?: string[],
   ) {
     if (!token || resolved) return
     setBusy(true)
@@ -512,7 +578,8 @@ export default function DecisionRequestMessage({
     try {
       const result = await resolveThreadDecision(token, threadId, message.id, action, {
         optionId,
-        body: bodyOverride,
+        body: messages ? undefined : bodyOverride,
+        messages,
         responseText: answerText,
         sendAs: sendAsOverride,
       })
@@ -609,7 +676,7 @@ export default function DecisionRequestMessage({
       })
       return
     }
-    if (option.action_type === 'create_task') {
+    if (option.action_type === 'create_task' || option.action_type === 'look_at') {
       await resolve('approve', option.id, undefined, t('decisionCard.toastTaskCreated'))
       return
     }
@@ -619,7 +686,8 @@ export default function DecisionRequestMessage({
     }
     if (option.id === 'edit' || option.action_type === 'draft') {
       onEditDraft?.({
-        body: draftBody,
+        // In the composer a blank line separates bubbles again.
+        body: editedBubbles.length ? editedBubbles.join('\n\n') : draftBody,
         subject: typeof option.payload?.subject === 'string' ? option.payload.subject : undefined,
         decisionMessageId: String(message.id),
         sendAs,
@@ -627,7 +695,16 @@ export default function DecisionRequestMessage({
       return
     }
     if (option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email') {
-      await resolve('approve', option.id, draftBody, t('decisionCard.toastSent'), undefined, sendAs)
+      await resolve(
+        'approve',
+        option.id,
+        draftBody,
+        t('decisionCard.toastSent'),
+        undefined,
+        sendAs,
+        undefined,
+        editedBubbles.length ? editedBubbles : undefined,
+      )
       return
     }
     if (option.id === 'escalate' || option.action_type === 'escalate') {
@@ -681,6 +758,14 @@ export default function DecisionRequestMessage({
   }
 
   if (resolved && !ruleSuggestion) {
+    const status = (message.payload?.decision as { status?: unknown } | undefined)?.status
+    const resolvedLabel = !isReplyProposal(options)
+      ? t('decisionCard.titleDecision')
+      : status === 'approved'
+        ? t('decisionCard.draftSent')
+        : status === 'rejected'
+          ? t('decisionCard.draftRejected')
+          : t('decisionCard.earlierDraft')
     return (
       <ChatMessageBubble
         side="left"
@@ -689,7 +774,7 @@ export default function DecisionRequestMessage({
         body={
           <div className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
-              {t('decisionCard.earlierDraft')}
+              {resolvedLabel}
               {excerpt ? ` — ${excerpt}` : ''}
             </span>
             <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary">
@@ -738,7 +823,7 @@ export default function DecisionRequestMessage({
           <p className="mb-1.5 text-xs text-text-muted">
             {t('decisionCard.source.prefix', { defaultValue: 'From' })}{' '}
             <Link
-              to={decisionSourcePath(decisionSource)}
+              to={openEntityPath(decisionSourceRef(decisionSource))}
               className="font-medium text-accent hover:underline"
             >
               {t(decisionSourceLabelKey(decisionSource), {
@@ -806,7 +891,15 @@ export default function DecisionRequestMessage({
             ) : null}
             <div className="mt-2 overflow-hidden rounded-lg border border-border/60 bg-bg-elevated">
               <div className="px-3 py-2">
-                <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
+                {suggestedBubbles.length ? (
+                  <BubbleDrafts
+                    bubbles={bubbles}
+                    editable={!resolved && isSuggestion && !busy}
+                    onChange={setBubbles}
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
+                )}
               </div>
               {!resolved && isSuggestion ? (
                 <div className="border-t border-border/40 px-3 py-2">

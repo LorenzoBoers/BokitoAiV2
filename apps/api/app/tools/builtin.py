@@ -11,6 +11,7 @@ from sqlalchemy import select
 from app.models.auth import Tenant
 from app.models.notification import DecisionRequest, Notification
 from app.services.addressee import parse_target
+from app.services.os_graph import OS_GRAPH_RETIRED
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 TO_TARGET_SCHEMA = {
@@ -272,6 +273,10 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         return {"error": f"Channel {signal.channel} has no external party to reply to"}
 
     body_text = str(tool_input.get("body_text") or tool_input.get("body") or "").strip()
+    if not body_text and isinstance(tool_input.get("messages"), list):
+        body_text = "\n\n".join(
+            m.strip() for m in tool_input["messages"] if isinstance(m, str) and m.strip()
+        )
     body_html = tool_input.get("body_html")
     if isinstance(body_html, str) and not body_html.strip():
         body_html = None
@@ -325,59 +330,82 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         agent_id=identity_agent_id,
     )
 
-    delivery_result = await deliver_outbound(
-        ctx.session,
-        signal,
-        body_text=body_text,
-        subject=subject,
-        body_html=body_html if isinstance(body_html, str) else None,
-        signature_html=signature_html,
-        from_display_name=from_display_name,
-    )
-    delivery = delivery_result.status
-    if delivery == "skipped":
-        # Channels without provider delivery (widget/chat): the visitor
-        # receives the message live via the gateway publish below.
-        delivery = "sent"
-    if not delivery.startswith("sent"):
-        return {"error": f"Delivery failed: {delivery}", "delivery": delivery}
+    from app.services.agent.reply_mode import format_for_channel
+    from app.services.chat_delivery import messages_from_payload, pause_before
 
-    stored_html = delivery_result.body_html or (
-        body_html if isinstance(body_html, str) else ""
-    )
+    # Chat channels: an approved multi-bubble draft goes out as separate
+    # messages, in order, with a short typing pause in between.
+    if signal.channel == "email":
+        bubbles = [body_text]
+    else:
+        bubbles = [
+            format_for_channel(b, signal.channel) for b in messages_from_payload(tool_input)
+        ] or [format_for_channel(body_text, signal.channel)]
 
     as_user = send_as == "user"
-    metadata: dict[str, Any] = {
-        "source": "send_reply_tool",
-        "delivery": delivery,
-        "send_as": send_as,
-    }
-    if from_display_name:
-        metadata["from_display_name"] = from_display_name
-    if ctx.user_id:
-        # Keep the approving human traceable even on agent-identity sends.
-        metadata["approved_by_user_id"] = str(ctx.user_id)
-    message = SignalMessage(
-        signal_id=signal.id,
-        tenant_id=ctx.tenant_id,
-        kind="user_message" if as_user else "agent_message",
-        direction="outbound",
-        role="user" if as_user else "assistant",
-        author_agent_id=None if as_user else identity_agent_id,
-        author_user_id=ctx.user_id if as_user else None,
-        subject=subject,
-        body_text=body_text,
-        body_html=stored_html,
-        body_preview=body_text[:200],
-        send_status=delivery,
-        auto_sent=False,
-        received_at=datetime.utcnow(),
-        metadata_json=json.dumps(metadata),
-    )
-    ctx.session.add(message)
-    signal.last_message_at = datetime.utcnow()
-    signal.updated_at = datetime.utcnow()
-    ctx.session.add(signal)
+    sent: list[SignalMessage] = []
+    delivery = "skipped"
+    for index, text in enumerate(bubbles):
+        if index:
+            await pause_before(text)
+        single_html = body_html if isinstance(body_html, str) and len(bubbles) == 1 else None
+        delivery_result = await deliver_outbound(
+            ctx.session,
+            signal,
+            body_text=text,
+            subject=subject,
+            body_html=single_html,
+            signature_html=signature_html,
+            from_display_name=from_display_name,
+        )
+        delivery = delivery_result.status
+        if delivery == "skipped":
+            # Channels without provider delivery (widget/chat): the visitor
+            # receives the message live via the gateway publish below.
+            delivery = "sent"
+        if not delivery.startswith("sent"):
+            if not sent:
+                return {"error": f"Delivery failed: {delivery}", "delivery": delivery}
+            break
+
+        metadata: dict[str, Any] = {
+            "source": "send_reply_tool",
+            "delivery": delivery,
+            "send_as": send_as,
+        }
+        if from_display_name:
+            metadata["from_display_name"] = from_display_name
+        if ctx.user_id:
+            # Keep the approving human traceable even on agent-identity sends.
+            metadata["approved_by_user_id"] = str(ctx.user_id)
+        if len(bubbles) > 1:
+            metadata["bubble_index"] = index
+        now = datetime.utcnow()
+        message = SignalMessage(
+            signal_id=signal.id,
+            tenant_id=ctx.tenant_id,
+            kind="user_message" if as_user else "agent_message",
+            direction="outbound",
+            role="user" if as_user else "assistant",
+            author_agent_id=None if as_user else identity_agent_id,
+            author_user_id=ctx.user_id if as_user else None,
+            subject=subject,
+            body_text=text,
+            body_html=delivery_result.body_html or single_html or "",
+            body_preview=text[:200],
+            send_status=delivery,
+            auto_sent=False,
+            received_at=now,
+            metadata_json=json.dumps(metadata),
+        )
+        ctx.session.add(message)
+        signal.last_message_at = now
+        signal.updated_at = now
+        ctx.session.add(signal)
+        await ctx.session.flush()
+        await publish_signal_message(signal, message)
+        sent.append(message)
+
     ctx.session.add(
         SignalEvent(
             signal_id=signal.id,
@@ -386,18 +414,28 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
             actor_type="user" if as_user else "agent",
             actor_id=str(ctx.user_id if as_user else identity_agent_id or ""),
             payload_json=json.dumps(
-                {"delivery": delivery, "via": "send_reply", "send_as": send_as}
+                {
+                    "delivery": delivery,
+                    "via": "send_reply",
+                    "send_as": send_as,
+                    "messages": len(sent),
+                }
             ),
         )
     )
     await ctx.session.flush()
-    await publish_signal_message(signal, message)
-    return {
+    out: dict[str, Any] = {
         "ok": True,
-        "delivery": delivery,
-        "message_id": str(message.id),
+        "delivery": sent[-1].send_status,
+        "message_id": str(sent[-1].id),
         "signal_id": str(signal.id),
     }
+    if len(bubbles) > 1:
+        out["message_ids"] = [str(m.id) for m in sent]
+        if len(sent) < len(bubbles):
+            out["partial"] = True
+            out["last_delivery"] = delivery
+    return out
 
 
 def _target_signal_id(ctx: ToolContext, tool_input: dict[str, Any]) -> UUID | None:
@@ -660,7 +698,7 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
 
     from app.gateway.publish import publish_thread_update
     from app.models.signal import Signal, SignalEvent
-    from app.services.signal_tags import allowed_tag_names, normalize_tag
+    from app.services.signal_tags import add_signal_tags, allowed_tag_names, normalize_tag
 
     signal_id = ctx.signal_id
     raw_signal = tool_input.get("signal_id")
@@ -698,15 +736,10 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
             "catalog": sorted(catalog)[:30],
         }
 
-    try:
-        existing = json.loads(signal.tags_json or "[]")
-    except json.JSONDecodeError:
-        existing = []
-    if not isinstance(existing, list):
-        existing = []
-    added = [t for t in allowed if t not in existing]
+    tags, added = await add_signal_tags(
+        ctx.session, ctx.tenant_id, signal.id, allowed, registered_only=True
+    )
     if added:
-        signal.tags_json = json.dumps([*existing, *added])
         signal.updated_at = datetime.utcnow()
         ctx.session.add(signal)
         ctx.session.add(
@@ -716,16 +749,16 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
                 event_type="thread_updated",
                 actor_type="agent" if ctx.agent else "user",
                 actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
-                payload_json=json.dumps({"tags": [*existing, *added], "via": "set_thread_tags"}),
+                payload_json=json.dumps({"tags": tags, "via": "set_thread_tags"}),
             )
         )
         await ctx.session.flush()
-        await publish_thread_update(signal)
+        await publish_thread_update(signal, tags=tags)
     return {
         "ok": True,
         "signal_id": str(signal.id),
         "added": added,
-        "tags": [*existing, *added],
+        "tags": tags,
         "rejected": rejected,
     }
 
@@ -1058,20 +1091,48 @@ async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     from app.services.agent.style import strip_emoji
     from app.services.orchestration.dispatcher import create_agent_task
 
-    agent_id = UUID(str(tool_input["agent_id"])) if tool_input.get("agent_id") else (ctx.agent.id if ctx.agent else None)
+    title = strip_emoji(str(tool_input.get("title", ""))) or "Follow up"
+    workstream_id = UUID(str(tool_input["workstream_id"])) if tool_input.get("workstream_id") else None
+    requested_agent = UUID(str(tool_input["agent_id"])) if tool_input.get("agent_id") else None
+    peer = requested_agent and (not ctx.agent or requested_agent != ctx.agent.id)
+
+    # On a conversation, a free-standing "task" is a look-at on that thread
+    # (Agenda + Communication). AgentTask stays for playbook jobs and peers.
+    if ctx.signal_id and not workstream_id and not peer:
+        from app.models.signal import Signal
+        from app.services.signal_threads import set_conversation_look_at
+
+        signal = (
+            await ctx.session.execute(
+                select(Signal).where(Signal.id == ctx.signal_id, Signal.tenant_id == ctx.tenant_id)
+            )
+        ).scalar_one_or_none()
+        if signal is None:
+            return {"error": "Conversation not found"}
+        set_conversation_look_at(signal, title=title)
+        await ctx.session.commit()
+        return {
+            "kind": "look_at",
+            "signal_id": str(signal.id),
+            "follow_up_at": signal.follow_up_at.isoformat() if signal.follow_up_at else None,
+            "follow_up_title": signal.follow_up_title or title,
+        }
+
+    agent_id = requested_agent or (ctx.agent.id if ctx.agent else None)
     task = await create_agent_task(
         ctx.session,
         ctx.tenant_id,
-        title=strip_emoji(str(tool_input.get("title", ""))) or "Agent task",
+        title=title,
         description=tool_input.get("description", ""),
         agent_id=agent_id,
-        project_id=UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
-        workstream_id=UUID(str(tool_input["workstream_id"])) if tool_input.get("workstream_id") else None,
+        project_id=UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else ctx.project_id,
+        workstream_id=workstream_id,
         signal_id=ctx.signal_id,
         created_by=ctx.user_id,
         auto_start=tool_input.get("auto_start", True),
     )
     return {
+        "kind": "job",
         "task_id": str(task.id),
         "signal_id": str(task.signal_id) if task.signal_id else None,
         "status": task.status,
@@ -1515,6 +1576,11 @@ register_tool(
                 "body_text": {"type": "string"},
                 "body_html": {"type": "string"},
                 "body": {"type": "string"},
+                "messages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Chat channels: several short messages, sent in order.",
+                },
                 "subject": {"type": "string"},
                 "to": {"type": "string"},
                 "send_as": {
@@ -1772,6 +1838,85 @@ register_tool(
     )
 )
 
+
+async def _split_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from fastapi import HTTPException
+
+    from app.models.signal import Signal
+    from app.services.conversation_split import (
+        resolve_category,
+        split_conversation,
+        split_or_propose,
+    )
+
+    try:
+        signal_id = UUID(str(tool_input.get("signal_id") or ctx.signal_id or ""))
+        raw_message = str(tool_input.get("from_message_id") or "").strip()
+        from_message_id = UUID(raw_message) if raw_message else None
+    except ValueError:
+        return {"error": "signal_id and from_message_id must be ids"}
+    signal = await ctx.session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != ctx.tenant_id:
+        return {"error": "Conversation not found"}
+    try:
+        case_type = await resolve_category(ctx.session, ctx.tenant_id, tool_input.get("category"))
+        if ctx.agent is None:
+            # A person ran this (or approved the split card): no AI handling gate.
+            child = await split_conversation(
+                ctx.session,
+                ctx.tenant_id,
+                signal_id,
+                from_message_id=from_message_id,
+                case_type=case_type,
+                actor_type="user" if ctx.user_id else "system",
+                actor_id=str(ctx.user_id or ""),
+            )
+            return {"status": "split", "signal_id": str(child.id)}
+        if case_type is None:
+            return {"error": "category is required: name the new request's category"}
+        return await split_or_propose(
+            ctx.session,
+            ctx.tenant_id,
+            signal,
+            case_type=case_type,
+            from_message_id=from_message_id,
+            agent_id=ctx.agent.id,
+            reason=str(tool_input.get("reason") or ""),
+        )
+    except HTTPException as exc:
+        return {"error": str(exc.detail)}
+
+
+register_tool(
+    ToolSpec(
+        name="split_conversation",
+        description=(
+            "Move a new request into its own conversation. A conversation has one "
+            "category; when the customer raises something with a different category, "
+            "split from the message where it starts. The conversation's AI handling "
+            "decides the outcome: autonomous splits, assisted asks the team, manual "
+            "leaves it to a person."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "from_message_id": {
+                    "type": "string",
+                    "description": "First message of the new request; defaults to the newest customer message",
+                },
+                "category": {"type": "string", "description": "Category slug or id for the new conversation"},
+                "reason": {"type": "string", "description": "One sentence for the team"},
+            },
+            "required": ["category"],
+        },
+        handler=_split_conversation,
+        gated=False,
+        display_name="Split conversation",
+    )
+)
+
 register_tool(
     ToolSpec(
         name="handoff_to_human",
@@ -2019,7 +2164,10 @@ register_tool(
 register_tool(
     ToolSpec(
         name="create_task",
-        description="Create an orchestration task for an agent (starts internal thread + optional workstream segment).",
+        description=(
+            "On a conversation: set a look-at (Agenda follow-up) on that thread. "
+            "Pass workstream_id or a peer agent_id to start a playbook/delegation job instead."
+        ),
         category="delegation",
         input_schema={
             "type": "object",
@@ -2298,10 +2446,19 @@ register_tool(
     )
 )
 
+
+async def _retired_os_graph(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    del ctx, tool_input
+    return dict(OS_GRAPH_RETIRED)
+
+
 register_tool(
     ToolSpec(
         name="add_graph_node",
-        description="Add a canvas node for an existing domain entity.",
+        description=(
+            "Retired: the OS graph overlay is gone. Create an Agent, Playbook, or "
+            "Connection instead, or edit a project canvas."
+        ),
         category="workspace",
         input_schema={
             "type": "object",
@@ -2314,17 +2471,19 @@ register_tool(
             },
             "required": ["node_type", "ref_id"],
         },
-        handler=_make_platform_handler(
-            "add_graph_node", "canvas_node", "create", lambda i: f"Add canvas node {i.get('node_type')}"
-        ),
-        handles_ask=True,
+        handler=_retired_os_graph,
+        mutating=False,
+        gated=False,
     )
 )
 
 register_tool(
     ToolSpec(
         name="connect_graph_nodes",
-        description="Connect two canvas nodes with a relation edge.",
+        description=(
+            "Retired: the OS graph overlay is gone. Domain entities stay in Agent, "
+            "Playbook, and Connection tables."
+        ),
         category="workspace",
         input_schema={
             "type": "object",
@@ -2335,10 +2494,9 @@ register_tool(
             },
             "required": ["source_node_id", "target_node_id", "relation"],
         },
-        handler=_make_platform_handler(
-            "connect_graph_nodes", "canvas_edge", "connect", lambda i: "Connect canvas nodes"
-        ),
-        handles_ask=True,
+        handler=_retired_os_graph,
+        mutating=False,
+        gated=False,
     )
 )
 
@@ -2580,7 +2738,9 @@ register_tool(
         name="list_threads",
         description=(
             "Summarize Signal threads (subject, channel, status, last activity). "
-            "Defaults to open/pending threads. Optional channel filter (internal, assistant, widget, email)."
+            "Defaults to open/pending threads. Does not include Bin items — use list_trash "
+            "for deleted conversations (type conversation, alias signal). "
+            "Optional channel filter (internal, assistant, widget, email)."
         ),
         category="messaging",
         input_schema={
@@ -2664,6 +2824,29 @@ async def _schedule_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     scheduled_for = _parse_when(tool_input.get("scheduled_for"))
     if tool_input.get("scheduled_for") and scheduled_for is None:
         return {"error": "scheduled_for must be an ISO datetime, e.g. 2026-09-04T09:00"}
+    title = strip_emoji(str(tool_input.get("title", ""))) or "Planned task"
+
+    if assignee == "human" and ctx.signal_id:
+        from app.models.signal import Signal
+        from app.services.signal_threads import set_conversation_look_at
+
+        signal = (
+            await ctx.session.execute(
+                select(Signal).where(Signal.id == ctx.signal_id, Signal.tenant_id == ctx.tenant_id)
+            )
+        ).scalar_one_or_none()
+        if signal is None:
+            return {"error": "Conversation not found"}
+        set_conversation_look_at(signal, title=title, when=scheduled_for)
+        await ctx.session.commit()
+        return {
+            "kind": "look_at",
+            "signal_id": str(signal.id),
+            "follow_up_at": signal.follow_up_at.isoformat() if signal.follow_up_at else None,
+            "follow_up_title": signal.follow_up_title or title,
+            "assignee_kind": "human",
+        }
+
     agent_id = (
         _UUID(str(tool_input["agent_id"]))
         if tool_input.get("agent_id")
@@ -2680,7 +2863,7 @@ async def _schedule_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     task = await create_agent_task(
         ctx.session,
         ctx.tenant_id,
-        title=strip_emoji(str(tool_input.get("title", ""))) or "Planned task",
+        title=title,
         description=str(tool_input.get("description") or ""),
         agent_id=agent_id,
         project_id=_UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
@@ -2836,26 +3019,8 @@ async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
 
 
 async def _upsert_trigger(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Propose creating/updating an Agenda trigger via PlatformChange."""
-    instructions = str(tool_input.get("instructions") or "").strip()
-    if not instructions:
-        return {"error": "instructions is required"}
-    name = str(tool_input.get("name") or "Wake").strip()
-    return await _platform_change(
-        ctx,
-        resource_type="trigger",
-        change_kind="create",
-        summary=f"Upsert trigger {name}",
-        after={
-            "name": name,
-            "instructions": instructions,
-            "agent_id": tool_input.get("agent_id"),
-            "at": tool_input.get("at"),
-            "cron": tool_input.get("cron"),
-            "every_minutes": tool_input.get("every_minutes"),
-        },
-        tool_name="upsert_trigger",
-    )
+    """Same write path as schedule_wake: one Agenda Trigger."""
+    return await _schedule_wake(ctx, tool_input)
 
 
 async def _set_posture(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -2907,8 +3072,8 @@ register_tool(
     ToolSpec(
         name="upsert_trigger",
         description=(
-            "Propose creating an Agenda trigger (one-off or recurring wake). "
-            "Same effect as schedule_wake but always via PlatformChange for Govern visibility."
+            "Create an Agenda trigger (one-off or recurring wake). Alias of "
+            "schedule_wake — same Trigger row, same Agenda timeline."
         ),
         category="triggers",
         input_schema={
@@ -3330,37 +3495,26 @@ register_tool(
 # ── workforce introspection (agents / playbooks / triggers) ──────
 
 
+_AVATAR_KEYS = ("avatar_kind", "avatar_icon", "avatar_color", "avatar_image_url")
+
+
 def _serialize_agent_row(row: Any, *, detail: bool = False) -> dict[str, Any]:
-    data: dict[str, Any] = {
-        "id": str(row.id),
-        "name": row.name,
-        "slug": row.slug or "",
-        "role": row.role,
-        "kind": row.kind,
-        "audience": row.audience,
-        "model": row.model,
-        "is_active": bool(row.is_active),
-        "is_lead": bool(row.is_lead),
-        "acts_for_user": bool(row.acts_for_user),
-        "autonomy_level": row.autonomy_level,
-        "runtime_status": row.runtime_status,
-    }
-    if detail:
-        try:
-            tools = json.loads(row.tools_json or "[]")
-        except (json.JSONDecodeError, TypeError):
-            tools = []
-        data.update(
-            {
-                # Stored as system_prompt; operators and the API call it purpose.
-                "purpose": row.system_prompt or "",
-                "tools": [str(t) for t in tools] if isinstance(tools, list) else [],
-                "chat_access": row.chat_access,
-                "max_loops": row.max_loops,
-                "current_activity_summary": row.current_activity_summary or "",
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-            }
-        )
+    from app.services.workforce_runtime import serialize_agent
+
+    data = {k: v for k, v in serialize_agent(row, view="passport").items() if k not in _AVATAR_KEYS}
+    if not detail:
+        data.pop("tools", None)
+        data.pop("permission_scopes", None)
+        return data
+    data.update(
+        {
+            # Stored as system_prompt; operators and the API call it purpose.
+            "purpose": row.system_prompt or "",
+            "chat_access": row.chat_access,
+            "max_loops": row.max_loops,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+    )
     return data
 
 
@@ -3547,7 +3701,7 @@ register_tool(
     ToolSpec(
         name="list_agents",
         description=(
-            "List the agents in this workspace (name, slug, role, audience, "
+            "List the agents in this workspace (name, slug, role, "
             "autonomy level, active flag). Pass include_inactive to also see "
             "paused agents."
         ),
@@ -3661,6 +3815,80 @@ register_tool(
             "required": ["decision_id", "action"],
         },
         handler=_resolve_decision,
+        mutating=True,
+        gated=True,
+        consequential=True,
+    )
+)
+
+
+async def _list_trash(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.trash import list_entries
+
+    return await list_entries(
+        ctx.session,
+        ctx.tenant_id,
+        resource_type=tool_input.get("type"),
+        q=tool_input.get("q"),
+        limit=int(tool_input.get("limit") or 30),
+    )
+
+
+async def _restore_trash_item(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from app.services.trash import get_entry, load_tenant, restore_entry
+
+    entry_id = _UUID(str(tool_input.get("id") or ""))
+    tenant = await load_tenant(ctx.session, ctx.tenant_id)
+    entry = await get_entry(ctx.session, ctx.tenant_id, entry_id)
+    return await restore_entry(ctx.session, tenant, entry, user_id=ctx.user_id)
+
+
+register_tool(
+    ToolSpec(
+        name="list_trash",
+        description=(
+            "List items currently in the workspace Bin (soft-deleted, recoverable). "
+            "Omit type to see every kind. Conversations are type 'conversation' "
+            "(also accept signal/thread). Other types: project, canvas, knowledge, "
+            "contact, company, playbook, trigger, team, inbox_rule, saved_reply, case_type."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": (
+                        "Optional Bin type. Use conversation for deleted chats "
+                        "(aliases: signal, thread). Leave empty to list all."
+                    ),
+                },
+                "q": {"type": "string"},
+                "limit": {"type": "integer"},
+            },
+        },
+        handler=_list_trash,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="restore_trash_item",
+        description=(
+            "Restore an item from the workspace Bin. Restoring a child while "
+            "the parent is still in the Bin fails until the parent is restored."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {"id": {"type": "string"}},
+            "required": ["id"],
+        },
+        handler=_restore_trash_item,
         mutating=True,
         gated=True,
         consequential=True,

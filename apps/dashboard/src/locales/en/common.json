@@ -94,6 +94,7 @@
     "offline": "Offline",
     "standby": "Standby",
     "working": "Working",
-    "error": "Error"
+    "error": "Error",
+    "deactivated": "Deactivated"
   }
 }

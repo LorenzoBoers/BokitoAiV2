@@ -96,7 +96,6 @@ class Signal(SQLModel, table=True):
     turn_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     turn_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
     turn_reason: str = ""  # reply_needed | question | draft_ready
-    tags_json: str = Field(default="[]")
     has_unread: bool = Field(default=True, index=True)
     # Temporary AI handling override for this conversation (manual | assisted |
     # autonomous); null follows contact -> channel -> workspace. Cleared on
@@ -104,7 +103,7 @@ class Signal(SQLModel, table=True):
     ai_handling: Optional[str] = Field(default=None)
     ai_handling_reason: Optional[str] = Field(default=None)
     # Compact next-action chips set during AI inbound processing
-    # (subset of: close, assign, create_task).
+    # (subset of: close, assign, look_at).
     suggested_actions_json: str = Field(default="[]")
 
     category: Optional[str] = Field(default=None, index=True)
@@ -138,6 +137,11 @@ class Signal(SQLModel, table=True):
     # remains the source; this flag only opts it into few-shot retrieval.
     is_example: bool = Field(default=False, index=True)
 
+    # Split on a new intent: the child keeps the provider thread id, and the
+    # parent points forward so inbound replies on that thread land in the child.
+    parent_signal_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    superseded_by_id: Optional[uuid.UUID] = Field(default=None)
+
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -150,6 +154,10 @@ class Signal(SQLModel, table=True):
     assurance_email: str = ""
     assurance_expires_at: Optional[datetime] = Field(default=None, index=True)
     assurance_verified_at: Optional[datetime] = None
+
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
 
 class SignalMessage(SQLModel, table=True):
@@ -214,15 +222,18 @@ class SavedReply(SQLModel, table=True):
     created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
 
 class SignalTag(SQLModel, table=True):
-    """Tenant tag registry: the curated vocabulary for thread tags.
+    """Tenant tag registry: the curated vocabulary for conversation tags.
 
-    Threads keep their tag names in `Signal.tags_json`; this table is the list
-    operators manage (create, rename, remove) and the only vocabulary AI triage
-    and agents may apply. Tagging a thread with a new name registers it here,
-    so the list never drifts from what is actually in use.
+    Conversations link to tags through `SignalTagLink`; this table is the list
+    operators manage (create, rename, remove) and the only vocabulary agents
+    and inbox rules may apply. Tagging a conversation with a new name registers
+    it here, so the list never drifts from what is actually in use.
     """
 
     __tablename__ = "signal_tags"
@@ -234,6 +245,39 @@ class SignalTag(SQLModel, table=True):
     # When to use this tag. Shown in settings and fed to AI tagging.
     description: str = ""
     created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SignalTagLink(SQLModel, table=True):
+    """One tag on one conversation. Renaming a tag renames it everywhere."""
+
+    __tablename__ = "signal_tag_links"
+
+    signal_id: uuid.UUID = Field(foreign_key="signals.id", primary_key=True)
+    tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class InboxFolder(SQLModel, table=True):
+    """A saved filter in Communication's Folders group.
+
+    ``filter_json`` holds any of ``project_id``, ``category_id``, ``tag`` and
+    ``stage`` (a stage key, or a stage kind: open, waiting, done). Workspace
+    folders show for everyone; personal folders only for ``owner_user_id``.
+    Projects show as folders without a row here.
+    """
+
+    __tablename__ = "inbox_folders"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    name: str = ""
+    filter_json: str = Field(default="{}")
+    scope: str = Field(default="workspace")  # workspace | personal
+    owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    position: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
