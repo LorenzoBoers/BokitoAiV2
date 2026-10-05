@@ -119,7 +119,7 @@ async def test_thread_delete_and_takeover_are_audited(client: AsyncClient, sessi
 
     r = await client.delete(f"/api/signals/{signal_id}", headers=headers)
     assert r.status_code == 200, r.text
-    deleted = await _audit_events(session_override, "signal:deleted")
+    deleted = await _audit_events(session_override, "trash:deleted")
     assert len(deleted) == 1
     assert deleted[0].actor_type == "user"
 

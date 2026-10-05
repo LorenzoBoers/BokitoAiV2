@@ -69,12 +69,13 @@ export function threadMatchesFilters(
   if (filters.folder === 'external' && !EXTERNAL_CHANNELS.has(channel)) return false
   if (filters.folder === 'internal' && channel !== 'internal') return false
   // Agent runs join the hub when a person or team must act, or under the agent chip.
-  if (
+    if (
     filters.folder === 'inbox' &&
     channel === 'internal' &&
     !filters.agentId &&
     thread.turn?.kind !== 'user' &&
-    thread.turn?.kind !== 'team'
+    thread.turn?.kind !== 'team' &&
+    thread.source !== 'team'
   ) {
     return false
   }

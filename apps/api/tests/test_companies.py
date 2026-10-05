@@ -145,10 +145,12 @@ async def test_company_detail_and_update(client: AsyncClient):
 
     deleted = await client.delete(f"/api/channels/companies/{company_id}", headers=headers)
     assert deleted.status_code == 200
-    # Contact survives, unlinked.
+    gone = await client.get(f"/api/channels/companies/{company_id}", headers=headers)
+    assert gone.status_code == 404
+    # Contact stays linked so restore from the Bin can put the company back.
     contacts = await client.get("/api/channels/contacts?search=giraffe", headers=headers)
     row = next(c for c in contacts.json()["contacts"] if c["address"] == "kim@giraffe.co")
-    assert row["company_id"] is None
+    assert row["company_id"] == company_id
 
 
 @pytest.mark.asyncio

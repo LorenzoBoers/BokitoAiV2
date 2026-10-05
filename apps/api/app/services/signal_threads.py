@@ -858,7 +858,7 @@ def _hub_predicate(user_id: UUID, *, include_runs: bool = False):
                 Signal.channel == "internal",
                 or_(
                     Signal.turn_kind.in_(("user", "team")),
-                    Signal.assignee_kind == "team",
+                    Signal.source == "team",
                 ),
             )
         )
