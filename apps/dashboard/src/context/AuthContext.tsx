@@ -13,6 +13,7 @@ import {
   authMe,
   authMeForTenant,
   authRefresh,
+  authStopImpersonation,
   authSwitchWorkspace,
   requestPasswordReset,
   resetPassword as resetPasswordRequest,
@@ -119,6 +120,9 @@ interface User {
   organisationId: string | null;
   role: UserRole;
   isStaff: boolean;
+  /** Staff is viewing the product as this customer user. */
+  isImpersonating: boolean;
+  impersonator: { id: string; email: string; displayName: string } | null;
   emailVerified: boolean;
   /** TOTP two-factor authentication enrolled and active. */
   totpEnabled: boolean;
@@ -183,11 +187,14 @@ interface AuthContextValue {
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
   isStaff: boolean;
+  isImpersonating: boolean;
   switchStaffTenant: (tenantId: string) => Promise<void>;
   /** Switch the session to another workspace: new JWT + full reload. */
   switchWorkspaceTenant: (tenantId: string) => Promise<void>;
   /** Adopt an access token issued out-of-band (e.g. workspace create) + full reload. */
   adoptWorkspaceSession: (accessToken: string) => void;
+  /** End staff impersonation and restore the operator session. */
+  stopImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -327,6 +334,20 @@ function normalizeAuthUser(raw: unknown): User {
     organisationId: normalizeOrganisationId(payload),
     role: mapTenantRoleToUserRole(payload.role),
     isStaff: Boolean(payload.is_staff),
+    isImpersonating: Boolean(payload.impersonating),
+    impersonator: (() => {
+      const raw = payload.impersonator;
+      if (!raw || typeof raw !== 'object') return null;
+      const row = raw as Record<string, unknown>;
+      const id = toString(row.id);
+      const email = toString(row.email);
+      if (!id || !email) return null;
+      return {
+        id,
+        email,
+        displayName: toString(row.display_name ?? row.displayName, email),
+      };
+    })(),
     emailVerified: Boolean(payload.email_verified),
     totpEnabled: Boolean(payload.totp_enabled),
     hasPassword: Boolean(payload.has_password),
@@ -512,11 +533,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               ? await authMeForTenant(storedToken, tenantSubdomain)
               : await authMe(storedToken);
             if (!cancelled) {
+              const normalized = normalizeAuthUser(meWithStoredToken);
               setToken(storedToken);
-              setUser(normalizeAuthUser(meWithStoredToken));
+              setUser(normalized);
               // Restored sessions must keep refreshing too — schedule from the
               // token's actual remaining lifetime, not the full TTL.
-              scheduleRefresh(jwtRemainingSeconds(storedToken));
+              // Impersonation keeps the staff refresh cookie; do not auto-swap.
+              if (!normalized.isImpersonating) {
+                scheduleRefresh(jwtRemainingSeconds(storedToken));
+              }
             }
             return;
           } catch {
@@ -779,6 +804,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [adoptWorkspaceSession, token],
   );
 
+  const stopImpersonation = useCallback(async () => {
+    if (!token) throw new Error('Not authenticated');
+    const session = await authStopImpersonation(token);
+    const nextToken = session.authToken ?? session.access_token;
+    if (!nextToken) throw new Error('No access token received');
+    adoptWorkspaceSession(nextToken);
+  }, [adoptWorkspaceSession, token]);
+
+  // Impersonation tokens must not be silently replaced by the staff refresh cookie.
+  useEffect(() => {
+    if (user?.isImpersonating) clearRefreshTimer();
+  }, [clearRefreshTimer, user?.isImpersonating]);
+
   useEffect(() => {
     if (!user) return;
     setParkedChannels(user.parkedChannels);
@@ -833,9 +871,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentTenantRole,
         hasTenantAccess,
         isStaff: Boolean(user?.isStaff),
+        isImpersonating: Boolean(user?.isImpersonating),
         switchStaffTenant,
         switchWorkspaceTenant,
         adoptWorkspaceSession,
+        stopImpersonation,
       }}
     >
       {children}

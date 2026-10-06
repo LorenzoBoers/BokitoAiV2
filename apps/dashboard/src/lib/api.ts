@@ -505,6 +505,10 @@ export async function authSwitchWorkspace(tenantId: string, token?: string): Pro
   return apiPostAuth<AuthSessionResponse>(authRoutes.session.switchWorkspace, { tenant_id: tenantId }, token);
 }
 
+export async function authStopImpersonation(token?: string): Promise<AuthSessionResponse> {
+  return apiPostAuth<AuthSessionResponse>(authRoutes.stopImpersonation, {}, token);
+}
+
 export async function authLogout(token?: string): Promise<void> {
   const headers = buildAuthHeaders(token);
   const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.proxy.logout), {

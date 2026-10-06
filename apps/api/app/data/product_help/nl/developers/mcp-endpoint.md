@@ -140,7 +140,7 @@ Elke tool komt terug met een naam, een beschrijving met categorieprefix, en een 
 
 `tools/list` is de bron van waarheid, maar deze families staan er altijd:
 
-- `messaging` - threads lezen en samenvatten (`list_threads`), beantwoorden of sluiten, en CRM met `list_contacts`, `get_contact` en `upsert_contact`
+- `messaging` - threads lezen en samenvatten (`list_threads`, optioneel `older_than_days` + `matched`/`returned` paging tot 200), één sluiten (`close_thread`) of meerdere (`close_threads` met `older_than_days` / `signal_ids`, optioneel `dry_run`), en CRM met `list_contacts`, `get_contact` en `upsert_contact`
 - `agents` - agents bekijken met `list_agents`, `get_agent`, `list_playbooks` en `get_playbook`; agents en draaiboeken aanmaken of bijwerken
 - `triggers` - `list_triggers` voor de Agenda, plus nieuwe wakes plannen
 - `tickets` - actietags en tickets: `list_categories` (lijst actietags), `get_ticket`, `file_ticket` (zelfde pad als Hashtags toevoegen; geef een van de projecten van de actietag, `null` voor Geen project, of laat `project_id` weg zodat het ticket voorgesteld blijft voor het team) en `update_ticket` om een fase te verplaatsen (geef `fields` mee als de doelfase verplichte velden heeft). Vrije hashtags gaan via `set_thread_tags`, niet via `file_ticket`.

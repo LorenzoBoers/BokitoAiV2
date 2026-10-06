@@ -146,10 +146,17 @@ class TotpVerifyRequest(BaseModel):
     code: str
 
 
-def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) -> dict:
+def _user_dict(
+    user: User,
+    tenant: Tenant,
+    role: str,
+    is_staff: bool = False,
+    *,
+    impersonator: User | None = None,
+) -> dict:
     from app.services.signatures import user_signature_html
 
-    return {
+    payload = {
         "id": str(user.id),
         "numeric_id": user_numeric_id(user.id),
         "email": user.email,
@@ -161,7 +168,15 @@ def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) ->
         "has_password": bool(user.password_hash),
         "email_signature_html": user_signature_html(user),
         "tenant": {"id": str(tenant.id), "slug": tenant.slug, "name": tenant.name},
+        "impersonating": impersonator is not None,
     }
+    if impersonator is not None:
+        payload["impersonator"] = {
+            "id": str(impersonator.id),
+            "email": impersonator.email,
+            "display_name": impersonator.display_name or impersonator.email,
+        }
+    return payload
 
 
 def _tenant_dict(tenant: Tenant) -> dict:
@@ -643,15 +658,32 @@ async def _switch_workspace_response(
             raise HTTPException(status_code=403, detail="No membership for this workspace")
         role = membership.role
 
-    auth.user.last_tenant_id = tenant.id
-    session.add(auth.user)
+    # Do not mutate the target user's last workspace while impersonating.
+    if not auth.is_impersonating:
+        auth.user.last_tenant_id = tenant.id
+        session.add(auth.user)
     await session.commit()
     access_token = create_access_token(
-        auth.user.id, tenant.id, auth.user.email, staff=auth.user.is_staff
+        auth.user.id,
+        tenant.id,
+        auth.user.email,
+        staff=auth.user.is_staff and not auth.is_impersonating,
+        impersonator_id=auth.impersonator_id,
     )
+    impersonator = None
+    if auth.impersonator_id is not None:
+        impersonator = (
+            await session.execute(select(User).where(User.id == auth.impersonator_id))
+        ).scalar_one_or_none()
     return LoginResponse(
         access_token=access_token,
-        user=_user_dict(auth.user, tenant, role, is_staff=auth.user.is_staff),
+        user=_user_dict(
+            auth.user,
+            tenant,
+            role,
+            is_staff=auth.user.is_staff and not auth.is_impersonating,
+            impersonator=impersonator,
+        ),
         tenant=_tenant_dict(tenant),
     )
 
@@ -672,6 +704,52 @@ async def switch_tenant(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await _switch_workspace_response(auth, session, body.tenant_id)
+
+
+@router.post("/stop-impersonation", response_model=LoginResponse)
+async def stop_impersonation(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """End a staff impersonation session and restore the operator JWT."""
+    if not auth.is_impersonating or auth.impersonator_id is None:
+        raise HTTPException(status_code=400, detail="Not impersonating")
+    staff_user = (
+        await session.execute(select(User).where(User.id == auth.impersonator_id))
+    ).scalar_one_or_none()
+    if staff_user is None or not staff_user.is_staff or not staff_user.is_active:
+        raise HTTPException(status_code=401, detail="Impersonator session is no longer valid")
+
+    session.add(
+        StaffAccessLog(
+            staff_user_id=staff_user.id,
+            tenant_id=auth.tenant.id,
+            action="impersonate_end",
+        )
+    )
+    staff_tenant = await first_allowed_support_tenant(
+        session, preferred_id=staff_user.last_tenant_id or auth.tenant.id
+    )
+    if staff_tenant is None:
+        raise HTTPException(status_code=403, detail="No workspace available for staff")
+    staff_user.last_tenant_id = staff_tenant.id
+    session.add(staff_user)
+    await session.commit()
+
+    access_token = create_access_token(
+        staff_user.id, staff_tenant.id, staff_user.email, staff=True
+    )
+    logger.info(
+        "staff_impersonate_end staff=%s was_user=%s tenant=%s",
+        staff_user.email,
+        auth.user.email,
+        auth.tenant.slug,
+    )
+    return LoginResponse(
+        access_token=access_token,
+        user=_user_dict(staff_user, staff_tenant, "admin", is_staff=True),
+        tenant=_tenant_dict(staff_tenant),
+    )
 
 
 @router.get("/tenants")
@@ -1027,12 +1105,21 @@ async def _build_memberships(session: AsyncSession, user: User) -> list[dict]:
     return memberships
 
 
-def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
+async def _resolve_impersonator(session: AsyncSession, auth: AuthContext) -> User | None:
+    if auth.impersonator_id is None:
+        return None
+    return (
+        await session.execute(select(User).where(User.id == auth.impersonator_id))
+    ).scalar_one_or_none()
+
+
+def _me_payload(auth: AuthContext, memberships: list[dict], *, impersonator: User | None = None) -> dict:
     avatar = None
     if auth.user.avatar_url:
         avatar = {"url": auth.user.avatar_url, "path": auth.user.avatar_url}
     tenant_id = str(auth.tenant.id)
-    return {
+    impersonating = impersonator is not None
+    payload = {
         "id": user_numeric_id(auth.user.id),
         "name": auth.user.display_name or auth.user.email,
         "email": auth.user.email,
@@ -1043,6 +1130,7 @@ def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
         "organisation_id": tenant_id,
         "account_id": None,
         "is_staff": auth.is_staff,
+        "impersonating": impersonating,
         "avatar": avatar,
         "tenant": {
             "id": tenant_id,
@@ -1063,8 +1151,17 @@ def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
         # and filter surfaces instead of shipping its own copy of the list.
         "parked_channels": sorted(get_settings().parked_channel_set()),
         "environment": get_settings().environment,
-        "user": _user_dict(auth.user, auth.tenant, auth.role, is_staff=auth.is_staff),
+        "user": _user_dict(
+            auth.user, auth.tenant, auth.role, is_staff=auth.is_staff, impersonator=impersonator
+        ),
     }
+    if impersonator is not None:
+        payload["impersonator"] = {
+            "id": str(impersonator.id),
+            "email": impersonator.email,
+            "display_name": impersonator.display_name or impersonator.email,
+        }
+    return payload
 
 
 @router.get("/me")
@@ -1097,8 +1194,10 @@ async def me(
         membership=auth.membership,
         token=auth.token,
         is_staff=auth.is_staff,
+        impersonator_id=auth.impersonator_id,
     )
-    return _me_payload(scoped_auth, memberships)
+    impersonator = await _resolve_impersonator(session, scoped_auth)
+    return _me_payload(scoped_auth, memberships, impersonator=impersonator)
 
 
 @router.patch("/profile")
@@ -1166,8 +1265,10 @@ async def patch_profile(
         membership=auth.membership,
         token=auth.token,
         is_staff=auth.is_staff,
+        impersonator_id=auth.impersonator_id,
     )
-    payload = _me_payload(scoped, memberships)
+    impersonator = await _resolve_impersonator(session, scoped)
+    payload = _me_payload(scoped, memberships, impersonator=impersonator)
     if verification_extras:
         payload.update(verification_extras)
         payload["verification_required"] = True

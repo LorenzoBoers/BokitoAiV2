@@ -5781,6 +5781,11 @@
     "switchError": "Could not switch workspace.",
     "ops": "Ops"
   },
+  "impersonation": {
+    "banner": "Viewing as {{name}} ({{email}}) in {{workspace}}",
+    "stop": "Stop viewing as",
+    "stopError": "Could not end impersonation."
+  },
   "ops": {
     "title": "Platform ops",
     "subtitle": "Tenants, users and support access on this API environment. Enter only workspaces that allow platform support.",
@@ -5790,6 +5795,11 @@
     "loading": "Loading…",
     "loadError": "Could not load ops directory.",
     "enterError": "Could not enter workspace.",
+    "impersonate": "Log in as",
+    "impersonateError": "Could not log in as this user.",
+    "impersonateNoWorkspace": "This user has no membership in a workspace that allows platform support.",
+    "impersonatePickWorkspace": "Type the workspace slug to open as this user:\n{{slugs}}",
+    "impersonateSlugMismatch": "That slug did not match an eligible workspace.",
     "delete": "Delete",
     "deletePrompt": "Type the slug \"{{slug}}\" to permanently delete {{name}}:",
     "deleteConfirm": "Delete workspace {{name}} and all of its data? This cannot be undone.",

@@ -21,7 +21,7 @@ type Props = {
 }
 
 const BUTTON =
-  'inline-flex h-6 items-center gap-1 rounded px-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40'
+  'inline-flex h-6 shrink-0 items-center gap-1 rounded px-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40'
 
 /** Action bar shown above the thread list while threads are selected. */
 export default function BulkActionsBar({ count, busy, onAction, onPin, onClear, onSelectAll }: Props) {
@@ -34,101 +34,106 @@ export default function BulkActionsBar({ count, busy, onAction, onPin, onClear, 
     null
 
   return (
-    <div className="flex items-center gap-1 border-b border-border/60 bg-accent/5 px-2 py-1.5">
-      <span className="mr-1 text-xs font-medium text-text-heading">
-        {t('bulkActions.selected', { count })}
-      </span>
-      {onSelectAll ? (
-        <button type="button" disabled={busy} className={BUTTON} onClick={onSelectAll}>
-          {t('bulkActions.selectAll')}
-        </button>
-      ) : null}
-      <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('read')}>
-        <Check size={11} />
-        {t('bulkActions.read')}
-      </button>
-      <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('close')}>
-        <Archive size={11} />
-        {t('bulkActions.close')}
-      </button>
-      {onPin ? (
-        <button type="button" disabled={busy} className={BUTTON} onClick={() => onPin(true)}>
-          <Pin size={11} />
-          {t('bulkActions.pin')}
-        </button>
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button type="button" disabled={busy} aria-label={t('bulkActions.moreActions')} className={BUTTON}>
-            <MoreHorizontal size={11} />
+    <div className="border-b border-border/60 bg-accent/5 px-2 py-1.5">
+      <div className="flex min-w-0 items-center gap-1">
+        <span className="min-w-0 truncate text-xs font-medium text-text-heading">
+          {t('bulkActions.selected', { count })}
+        </span>
+        {onSelectAll ? (
+          <button type="button" disabled={busy} className={BUTTON} onClick={onSelectAll}>
+            {t('bulkActions.selectAll')}
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-44">
-          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('snooze')}>
-            <Clock size={12} />
-            {t('bulkActions.snoozeTomorrow')}
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('unread')}>
-            <Mail size={12} />
-            {t('bulkActions.markUnread')}
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('reopen')}>
-            <ArchiveRestore size={12} />
-            {t('bulkActions.reopen')}
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('spam')}>
-            <OctagonAlert size={12} />
-            {t('bulkActions.markSpam')}
-          </DropdownMenuItem>
-          {onPin ? (
-            <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onPin(false)}>
-              <PinOff size={12} />
-              {t('bulkActions.unpin')}
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button type="button" disabled={busy} className={BUTTON}>
-            <UserRound size={11} />
-            {t('bulkActions.assign')}
+        ) : null}
+        <button
+          type="button"
+          aria-label={t('bulkActions.clearSelection')}
+          className={`${BUTTON} ml-auto`}
+          onClick={onClear}
+        >
+          <X size={11} />
+          {t('bulkActions.clear')}
+        </button>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-0.5">
+        <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('read')}>
+          <Check size={11} />
+          {t('bulkActions.read')}
+        </button>
+        <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('close')}>
+          <Archive size={11} />
+          {t('bulkActions.close')}
+        </button>
+        {onPin ? (
+          <button type="button" disabled={busy} className={BUTTON} onClick={() => onPin(true)}>
+            <Pin size={11} />
+            {t('bulkActions.pin')}
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          {myId ? (
-            <DropdownMenuItem className="gap-2 text-xs font-medium" onSelect={() => onAction('assign', myId)}>
-              <UserRound size={14} />
-              {t('bulkActions.assignToMe')}
-            </DropdownMenuItem>
-          ) : null}
-          {members.length === 0 ? (
-            <DropdownMenuItem disabled className="text-xs">
-              {t('bulkActions.noMembers')}
-            </DropdownMenuItem>
-          ) : (
-            members.map((m) => (
-              <DropdownMenuItem
-                key={m.id}
-                className="gap-2 text-xs"
-                onSelect={() => onAction('assign', m.id)}
-              >
-                <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={18} presence={m.presence} />
-                {m.name}
+        ) : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" disabled={busy} className={BUTTON}>
+              <UserRound size={11} />
+              {t('bulkActions.assign')}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52">
+            {myId ? (
+              <DropdownMenuItem className="gap-2 text-xs font-medium" onSelect={() => onAction('assign', myId)}>
+                <UserRound size={14} />
+                {t('bulkActions.assignToMe')}
               </DropdownMenuItem>
-            ))
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <button
-        type="button"
-        aria-label={t('bulkActions.clearSelection')}
-        className={`${BUTTON} ml-auto`}
-        onClick={onClear}
-      >
-        <X size={11} />
-        {t('bulkActions.clear')}
-      </button>
+            ) : null}
+            {members.length === 0 ? (
+              <DropdownMenuItem disabled className="text-xs">
+                {t('bulkActions.noMembers')}
+              </DropdownMenuItem>
+            ) : (
+              members.map((m) => (
+                <DropdownMenuItem
+                  key={m.id}
+                  className="gap-2 text-xs"
+                  onSelect={() => onAction('assign', m.id)}
+                >
+                  <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={18} presence={m.presence} />
+                  {m.name}
+                </DropdownMenuItem>
+              ))
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" disabled={busy} aria-label={t('bulkActions.moreActions')} className={BUTTON}>
+              <MoreHorizontal size={11} />
+              {t('bulkActions.moreActions')}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('snooze')}>
+              <Clock size={12} />
+              {t('bulkActions.snoozeTomorrow')}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('unread')}>
+              <Mail size={12} />
+              {t('bulkActions.markUnread')}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('reopen')}>
+              <ArchiveRestore size={12} />
+              {t('bulkActions.reopen')}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('spam')}>
+              <OctagonAlert size={12} />
+              {t('bulkActions.markSpam')}
+            </DropdownMenuItem>
+            {onPin ? (
+              <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onPin(false)}>
+                <PinOff size={12} />
+                {t('bulkActions.unpin')}
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   )
 }

@@ -5781,6 +5781,11 @@
     "switchError": "Kon niet van workspace wisselen.",
     "ops": "Ops"
   },
+  "impersonation": {
+    "banner": "Je bekijkt als {{name}} ({{email}}) in {{workspace}}",
+    "stop": "Stoppen",
+    "stopError": "Kon impersonatie niet beëindigen."
+  },
   "ops": {
     "title": "Platform ops",
     "subtitle": "Tenants, users en supporttoegang op deze API-omgeving. Ga alleen workspaces binnen die platform support toestaan.",
@@ -5790,6 +5795,11 @@
     "loading": "Laden…",
     "loadError": "Kon ops-directory niet laden.",
     "enterError": "Kon workspace niet openen.",
+    "impersonate": "Inloggen als",
+    "impersonateError": "Kon niet inloggen als deze user.",
+    "impersonateNoWorkspace": "Deze user heeft geen membership in een workspace die platform support toestaat.",
+    "impersonatePickWorkspace": "Type de workspace-slug om als deze user te openen:\n{{slugs}}",
+    "impersonateSlugMismatch": "Die slug kwam niet overeen met een toegestane workspace.",
     "delete": "Verwijderen",
     "deletePrompt": "Type de slug \"{{slug}}\" om {{name}} permanent te verwijderen:",
     "deleteConfirm": "Workspace {{name}} en alle data verwijderen? Dit kan niet ongedaan worden gemaakt.",

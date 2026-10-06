@@ -1,5 +1,5 @@
 import { staffRoutes } from '../api/routes'
-import { staffDelete, staffGet, staffPatch } from './api'
+import { staffDelete, staffGet, staffPatch, staffPost, type AuthSessionResponse } from './api'
 
 export type StaffOpsTenant = {
   id: string
@@ -11,6 +11,14 @@ export type StaffOpsTenant = {
   created_at: string | null
 }
 
+export type StaffOpsUserMembership = {
+  tenant_id: string
+  slug: string
+  name: string
+  role: string
+  support_allowed: boolean
+}
+
 export type StaffOpsUser = {
   id: string
   email: string
@@ -18,6 +26,7 @@ export type StaffOpsUser = {
   is_staff: boolean
   is_active: boolean
   membership_count: number
+  memberships: StaffOpsUserMembership[]
   created_at: string | null
 }
 
@@ -68,4 +77,14 @@ export async function setStaffTenantCustomModels(
   enabled: boolean,
 ): Promise<{ ok: boolean; tenant_id: string; custom_models: Record<string, boolean> }> {
   return staffPatch(staffRoutes.opsTenantFeatures(tenantId), { custom_models: enabled }, token)
+}
+
+export async function impersonateStaffOpsUser(
+  token: string,
+  userId: string,
+  tenantId?: string,
+): Promise<AuthSessionResponse> {
+  const body: { tenant_id?: string } = {}
+  if (tenantId) body.tenant_id = tenantId
+  return staffPost<AuthSessionResponse>(staffRoutes.opsUserImpersonate(userId), body, token)
 }

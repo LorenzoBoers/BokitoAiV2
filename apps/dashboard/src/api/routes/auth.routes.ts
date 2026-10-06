@@ -69,4 +69,5 @@ export const authRoutes = {
     switchTenant: '/switch-tenant',
     tenants: '/tenants',
   },
+  stopImpersonation: '/stop-impersonation',
 } as const

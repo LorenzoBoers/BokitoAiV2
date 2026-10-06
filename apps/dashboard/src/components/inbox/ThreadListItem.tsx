@@ -462,7 +462,8 @@ function ThreadListItem({
             <div
               className={cn(
                 'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
-                compact && !isSelected
+                // Keep rows open while bulk-selecting so hover never shifts checkbox targets.
+                compact && !isSelected && !selectionActive
                   ? 'grid-rows-[0fr] group-hover/thread:grid-rows-[1fr] group-focus-within/thread:grid-rows-[1fr]'
                   : 'grid-rows-[1fr]',
               )}

@@ -657,6 +657,17 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
     )
     signal = result.scalar_one_or_none()
+    # SQLite demo rows can store UUID PKs in a form that fails GUID bind compares.
+    if signal is None and signal_id is not None:
+        from sqlalchemy import String, cast
+
+        result = await ctx.session.execute(
+            select(Signal).where(
+                cast(Signal.id, String) == str(signal_id),
+                Signal.tenant_id == ctx.tenant_id,
+            )
+        )
+        signal = result.scalar_one_or_none()
     if not signal:
         return {"error": "Signal not found"}
     if signal.status == "closed":
@@ -2926,14 +2937,83 @@ async def _set_platform_watch(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.tenant_introspection import list_threads_summary
 
-    items = await list_threads_summary(
+    older_raw = tool_input.get("older_than_days")
+    older_than_days = int(older_raw) if older_raw is not None else None
+    return await list_threads_summary(
         ctx.session,
         ctx.tenant_id,
         status=tool_input.get("status", "open"),
         channel=tool_input.get("channel"),
+        older_than_days=older_than_days,
         limit=int(tool_input.get("limit") or 25),
     )
-    return {"threads": items}
+
+
+async def _close_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Close many open/pending threads by id list or by inactivity age."""
+    from app.services.tenant_introspection import list_threads_summary
+
+    note = str(tool_input.get("note") or "").strip()
+    dry_run = bool(tool_input.get("dry_run"))
+    limit = max(1, min(int(tool_input.get("limit") or 100), 200))
+    raw_ids = tool_input.get("signal_ids") or []
+    if isinstance(raw_ids, str):
+        raw_ids = [raw_ids]
+    if not isinstance(raw_ids, list):
+        return {"error": "signal_ids must be a list of ids"}
+
+    older_raw = tool_input.get("older_than_days")
+    signal_ids: list[str] = []
+    matched = 0
+    if raw_ids:
+        signal_ids = [str(x).strip() for x in raw_ids if str(x).strip()]
+        matched = len(signal_ids)
+        signal_ids = signal_ids[:limit]
+    elif older_raw is not None:
+        summary = await list_threads_summary(
+            ctx.session,
+            ctx.tenant_id,
+            status=tool_input.get("status", "open"),
+            channel=tool_input.get("channel"),
+            older_than_days=int(older_raw),
+            limit=limit,
+        )
+        signal_ids = [row["id"] for row in summary.get("threads") or []]
+        matched = int(summary.get("matched") or len(signal_ids))
+    else:
+        return {"error": "Provide older_than_days or signal_ids"}
+
+    if dry_run:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "matched": matched,
+            "would_close": len(signal_ids),
+            "signal_ids": signal_ids,
+            "truncated": matched > len(signal_ids),
+        }
+
+    closed: list[str] = []
+    errors: list[dict[str, str]] = []
+    for sid in signal_ids:
+        result = await _close_thread(ctx, {"signal_id": sid, "note": note})
+        if result.get("ok"):
+            closed.append(sid)
+        else:
+            errors.append({"signal_id": sid, "error": str(result.get("error") or "failed")})
+
+    return {
+        "ok": True,
+        "closed": len(closed),
+        "matched": matched,
+        "signal_ids": closed,
+        "errors": errors,
+        "truncated": matched > len(signal_ids),
+        "note": (
+            "Call again with the same filters if truncated is true — "
+            "only one page is closed per call."
+        ),
+    }
 
 
 register_tool(
@@ -3011,7 +3091,9 @@ register_tool(
             "Summarize Signal threads (subject, channel, status, last activity). "
             "Defaults to open/pending threads. Does not include Bin items — use list_trash "
             "for deleted conversations (type conversation, alias signal). "
-            "Optional channel filter (internal, assistant, widget, email)."
+            "Optional channel filter (internal, assistant, widget, email). "
+            "Use older_than_days to find stale threads; response includes matched/returned "
+            "so you know when to page with a higher limit (max 200)."
         ),
         category="messaging",
         input_schema={
@@ -3019,12 +3101,44 @@ register_tool(
             "properties": {
                 "status": {"type": "string"},
                 "channel": {"type": "string"},
+                "older_than_days": {"type": "integer"},
                 "limit": {"type": "integer"},
             },
         },
         handler=_list_threads,
         mutating=False,
         gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="close_threads",
+        description=(
+            "Close many open/pending threads at once for cleanup or support. "
+            "Pass older_than_days (inactive longer than N days) and/or signal_ids. "
+            "Set dry_run=true to preview ids without closing. One page per call "
+            "(limit max 200); if truncated is true, call again with the same filters."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "older_than_days": {"type": "integer"},
+                "signal_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "status": {"type": "string"},
+                "channel": {"type": "string"},
+                "limit": {"type": "integer"},
+                "note": {"type": "string"},
+                "dry_run": {"type": "boolean"},
+            },
+        },
+        handler=_close_threads,
+        mutating=True,
+        gated=True,
     )
 )
 

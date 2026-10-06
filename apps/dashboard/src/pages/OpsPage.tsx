@@ -9,9 +9,11 @@ import { Input } from '../components/ui/input'
 import {
   deleteStaffOpsTenant,
   getStaffOpsDirectory,
+  impersonateStaffOpsUser,
   setStaffTenantCustomModels,
   type StaffOpsDirectory,
   type StaffOpsTenant,
+  type StaffOpsUser,
 } from '../lib/ops-api'
 
 function envLabel(environment: string, apiUrl: string): string {
@@ -35,7 +37,7 @@ function formatWhen(value: string | null, locale: string): string {
 
 export default function OpsPage() {
   const { t, i18n } = useTranslation('nav')
-  const { token, isStaff, switchStaffTenant, user } = useAuth()
+  const { token, isStaff, switchStaffTenant, adoptWorkspaceSession, user } = useAuth()
   const [data, setData] = useState<StaffOpsDirectory | null>(null)
   const [query, setQuery] = useState('')
   const [appliedQuery, setAppliedQuery] = useState('')
@@ -44,6 +46,7 @@ export default function OpsPage() {
   const [enteringId, setEnteringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [featuringId, setFeaturingId] = useState<string | null>(null)
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
 
   const load = useCallback(async (q: string) => {
     if (!token) return
@@ -115,6 +118,41 @@ export default function OpsPage() {
       }
     },
     [token, featuringId, t],
+  )
+
+  const onImpersonate = useCallback(
+    async (row: StaffOpsUser) => {
+      if (!token || impersonatingId || row.is_staff || !row.is_active) return
+      const eligible = (row.memberships ?? []).filter((m) => m.support_allowed)
+      if (eligible.length === 0) {
+        setError(t('ops.impersonateNoWorkspace'))
+        return
+      }
+      let tenantId = eligible[0].tenant_id
+      if (eligible.length > 1) {
+        const hint = eligible.map((m) => m.slug).join(', ')
+        const typed = window.prompt(t('ops.impersonatePickWorkspace', { slugs: hint }))
+        if (typed == null) return
+        const match = eligible.find((m) => m.slug.toLowerCase() === typed.trim().toLowerCase())
+        if (!match) {
+          setError(t('ops.impersonateSlugMismatch'))
+          return
+        }
+        tenantId = match.tenant_id
+      }
+      setImpersonatingId(row.id)
+      setError(null)
+      try {
+        const session = await impersonateStaffOpsUser(token, row.id, tenantId)
+        const nextToken = session.authToken ?? session.access_token
+        if (!nextToken) throw new Error(t('ops.impersonateError'))
+        adoptWorkspaceSession(nextToken)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('ops.impersonateError'))
+        setImpersonatingId(null)
+      }
+    },
+    [token, impersonatingId, adoptWorkspaceSession, t],
   )
 
   const onDeleteTenant = useCallback(
@@ -343,41 +381,63 @@ export default function OpsPage() {
           <section className="space-y-2">
             <h2 className="text-sm font-semibold text-text">{t('ops.usersTitle')}</h2>
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[560px] text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-border bg-surface-2 text-xs text-text-muted">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('ops.col.user')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.role')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.memberships')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.created')}</th>
+                    <th className="px-3 py-2 font-medium" />
                   </tr>
                 </thead>
                 <tbody>
                   {data.users.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-3 py-6 text-center text-text-muted">
+                      <td colSpan={5} className="px-3 py-6 text-center text-text-muted">
                         {t('ops.emptyUsers')}
                       </td>
                     </tr>
                   ) : (
-                    data.users.map((row) => (
-                      <tr key={row.id} className="border-b border-border last:border-0">
-                        <td className="px-3 py-2.5">
-                          <div className="font-medium text-text">{row.display_name || row.email}</div>
-                          {row.display_name ? (
-                            <div className="text-xs text-text-muted">{row.email}</div>
-                          ) : null}
-                        </td>
-                        <td className="px-3 py-2.5 text-text-muted">
-                          {row.is_staff ? t('ops.staff') : t('ops.customer')}
-                          {!row.is_active ? ` · ${t('ops.inactive')}` : ''}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-text-muted">{row.membership_count}</td>
-                        <td className="px-3 py-2.5 text-text-muted">
-                          {formatWhen(row.created_at, i18n.language)}
-                        </td>
-                      </tr>
-                    ))
+                    data.users.map((row) => {
+                      const eligible = (row.memberships ?? []).filter((m) => m.support_allowed)
+                      const canImpersonate = !row.is_staff && row.is_active && eligible.length > 0
+                      return (
+                        <tr key={row.id} className="border-b border-border last:border-0">
+                          <td className="px-3 py-2.5">
+                            <div className="font-medium text-text">{row.display_name || row.email}</div>
+                            {row.display_name ? (
+                              <div className="text-xs text-text-muted">{row.email}</div>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-2.5 text-text-muted">
+                            {row.is_staff ? t('ops.staff') : t('ops.customer')}
+                            {!row.is_active ? ` · ${t('ops.inactive')}` : ''}
+                          </td>
+                          <td className="px-3 py-2.5 tabular-nums text-text-muted">{row.membership_count}</td>
+                          <td className="px-3 py-2.5 text-text-muted">
+                            {formatWhen(row.created_at, i18n.language)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            {canImpersonate ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                disabled={impersonatingId === row.id}
+                                onClick={() => void onImpersonate(row)}
+                              >
+                                {impersonatingId === row.id ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  t('ops.impersonate')
+                                )}
+                              </Button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>

@@ -6,6 +6,8 @@ export const staffRoutes = {
   opsTenant: (tenantId: string) => `/ops/tenants/${encodeURIComponent(tenantId)}`,
   opsTenantFeatures: (tenantId: string) =>
     `/ops/tenants/${encodeURIComponent(tenantId)}/features`,
+  opsUserImpersonate: (userId: string) =>
+    `/ops/users/${encodeURIComponent(userId)}/impersonate`,
   models: {
     list: '/models',
     byId: (id: string) => `/models/${encodeURIComponent(id)}`,

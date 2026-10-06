@@ -8,6 +8,7 @@ import ShellSidebar from './ShellSidebar'
 import ShellTopbar from './ShellTopbar'
 import CommandPalette from './CommandPalette'
 import { settingsLinkForPath } from './SettingsLayout'
+import ImpersonationBanner from '../layout/ImpersonationBanner'
 import MockAiBanner from './MockAiBanner'
 import VerifyEmailBanner from './VerifyEmailBanner'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
@@ -172,6 +173,7 @@ export default function AppShell() {
 
             {/* Main column */}
             <div className="flex min-w-0 flex-1 flex-col">
+              <ImpersonationBanner />
               <ShellTopbar
                 onOpenNavDrawer={() => setDrawerOpen(true)}
                 onOpenPalette={() => setPaletteOpen(true)}

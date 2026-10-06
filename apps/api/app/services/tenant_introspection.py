@@ -560,28 +560,57 @@ async def list_tasks(
     return items[:limit]
 
 
+def _signal_activity_expr():
+    """Last meaningful activity for age filters (message, else updated/created)."""
+    from app.models.signal import Signal
+
+    return func.coalesce(Signal.last_message_at, Signal.updated_at, Signal.created_at)
+
+
 async def list_threads_summary(
     session: AsyncSession,
     tenant_id: UUID,
     *,
     status: str | None = "open",
     channel: str | None = None,
+    older_than_days: int | None = None,
     limit: int = 25,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
+    """Summarize threads for agents/MCP.
+
+    Returns ``threads`` plus ``matched`` (total rows matching the filter) so
+    callers know when ``limit`` truncated the page. ``older_than_days`` filters
+    on last message / update time.
+    """
+    from datetime import timedelta
+
     from app.models.signal import Signal
 
-    limit = max(1, min(int(limit or 25), 50))
-    stmt = select(Signal).where(Signal.tenant_id == tenant_id, Signal.deleted_at.is_(None))
+    limit = max(1, min(int(limit or 25), 200))
+    filters = [Signal.tenant_id == tenant_id, Signal.deleted_at.is_(None)]
     if status:
         if status == "open":
-            stmt = stmt.where(Signal.status.in_(("open", "pending")))
+            filters.append(Signal.status.in_(("open", "pending")))
         else:
-            stmt = stmt.where(Signal.status == status)
+            filters.append(Signal.status == status)
     if channel:
-        stmt = stmt.where(Signal.channel == channel)
-    stmt = stmt.order_by(Signal.updated_at.desc()).limit(limit)
-    rows = (await session.execute(stmt)).scalars().all()
-    return [
+        filters.append(Signal.channel == channel)
+    cutoff = None
+    if older_than_days is not None:
+        days = max(1, min(int(older_than_days), 3650))
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        filters.append(_signal_activity_expr() < cutoff)
+
+    matched = int(
+        (await session.execute(select(func.count()).select_from(Signal).where(*filters))).scalar_one()
+        or 0
+    )
+
+    order = _signal_activity_expr().asc() if cutoff else Signal.updated_at.desc()
+    rows = (
+        await session.execute(select(Signal).where(*filters).order_by(order).limit(limit))
+    ).scalars().all()
+    threads = [
         {
             "id": str(s.id),
             "subject": s.subject or "",
@@ -594,3 +623,13 @@ async def list_threads_summary(
         }
         for s in rows
     ]
+    payload: dict[str, Any] = {
+        "threads": threads,
+        "returned": len(threads),
+        "matched": matched,
+        "limit": limit,
+    }
+    if older_than_days is not None:
+        payload["older_than_days"] = max(1, min(int(older_than_days), 3650))
+        payload["cutoff"] = _iso(cutoff)
+    return payload

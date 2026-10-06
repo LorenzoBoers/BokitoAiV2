@@ -118,6 +118,9 @@ export default function ThreadList({
   const [density, setDensity] = useState(readInboxDensity)
   const counts = buildFilterCounts(allThreads)
   const selectionActive = (bulkSelectedIds?.size ?? 0) > 0
+  // Compact rows expand meta on hover; during bulk select that shifts every
+  // checkbox target. Force the open layout for the whole list while selecting.
+  const compactRows = density === 'compact' && !selectionActive
   const toggleDensity = () => {
     const next = density === 'compact' ? 'comfortable' : 'compact'
     setDensity(next)
@@ -204,7 +207,7 @@ export default function ThreadList({
       }
 
       return (
-      <div className={cn(density === 'compact' ? 'pb-0' : 'pb-0.5')}>
+      <div className={cn(compactRows ? 'pb-0' : 'pb-0.5')}>
         <ThreadListItem
           thread={thread}
           isSelected={String(thread.id) === String(selectedId)}
@@ -230,14 +233,14 @@ export default function ThreadList({
           assigneeAvatarIcon={assigneeAvatarIcon}
           assigneeAvatarColor={assigneeAvatarColor}
           assigneeAvatarImageUrl={assigneeAvatarImageUrl}
-          compact={density === 'compact'}
+          compact={compactRows}
           enterIndex={index}
         />
       </div>
       )
     },
     [
-      density,
+      compactRows,
       selectedId,
       onSelectThread,
       onMarkRead,

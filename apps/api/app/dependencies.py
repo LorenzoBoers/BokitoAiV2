@@ -21,18 +21,24 @@ class AuthContext:
         membership: Membership | None,
         token: str,
         is_staff: bool = False,
+        impersonator_id: UUID | None = None,
     ):
         self.user = user
         self.tenant = tenant
         self.membership = membership
         self.token = token
         self.is_staff = is_staff
+        self.impersonator_id = impersonator_id
 
     @property
     def role(self) -> str:
         if self.is_staff:
             return "admin"
         return canonical_workspace_role(self.membership.role if self.membership else None)
+
+    @property
+    def is_impersonating(self) -> bool:
+        return self.impersonator_id is not None
 
     def require_role(self, *roles: str) -> None:
         if self.role not in roles and not self.is_staff:
@@ -56,6 +62,8 @@ async def get_current_auth(
         user_id = UUID(payload["sub"])
         tenant_id = UUID(payload["tenant_id"])
         is_staff = bool(payload.get("staff", False))
+        raw_impersonator = payload.get("impersonator_id")
+        impersonator_id = UUID(str(raw_impersonator)) if raw_impersonator else None
     except (JWTError, KeyError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
@@ -81,7 +89,14 @@ async def get_current_auth(
     if not is_staff and not membership:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
 
-    return AuthContext(user=user, tenant=tenant, membership=membership, token=token, is_staff=is_staff)
+    return AuthContext(
+        user=user,
+        tenant=tenant,
+        membership=membership,
+        token=token,
+        is_staff=is_staff,
+        impersonator_id=impersonator_id,
+    )
 
 
 async def require_verified_email(

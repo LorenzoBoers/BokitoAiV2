@@ -140,7 +140,7 @@ Each tool comes back with a name, a description prefixed with its category, and 
 
 `tools/list` is the source of truth, but these families are always there:
 
-- `messaging` - read and summarize threads (`list_threads`), reply or close them, and work the CRM with `list_contacts`, `get_contact` and `upsert_contact`
+- `messaging` - read and summarize threads (`list_threads`, optional `older_than_days` + `matched`/`returned` paging up to 200), reply or close one (`close_thread`) or many (`close_threads` with `older_than_days` / `signal_ids`, optional `dry_run`), and work the CRM with `list_contacts`, `get_contact` and `upsert_contact`
 - `agents` - inspect the workforce with `list_agents`, `get_agent`, `list_playbooks` and `get_playbook`; create or update agents and playbooks
 - `triggers` - `list_triggers` for the Agenda, plus scheduling new wakes
 - `tickets` - action tags and tickets: `list_categories` (lists action tags), `get_ticket`, `file_ticket` (same path as the Hashtags picker; pass one of the action tag's projects, `null` for No project, or leave `project_id` out to keep the ticket proposed for the team) and `update_ticket` to move a stage (include `fields` when the target stage has required values). Free hashtags use `set_thread_tags`, not `file_ticket`.

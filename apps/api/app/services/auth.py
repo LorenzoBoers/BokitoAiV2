@@ -37,8 +37,13 @@ def create_access_token(
     email: str,
     *,
     staff: bool = False,
+    impersonator_id: UUID | None = None,
 ) -> str:
     expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    # Impersonation is always a normal member session of the target user; the
+    # staff claim must stay false so UI and permissions match what they see.
+    if impersonator_id is not None:
+        staff = False
     payload = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),
@@ -47,6 +52,8 @@ def create_access_token(
         "exp": expire,
         "type": "access",
     }
+    if impersonator_id is not None:
+        payload["impersonator_id"] = str(impersonator_id)
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

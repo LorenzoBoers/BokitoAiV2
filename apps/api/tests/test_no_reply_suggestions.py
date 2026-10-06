@@ -526,6 +526,91 @@ async def test_close_thread_tool(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
+async def test_close_threads_by_age(client: AsyncClient, session_override):
+    from datetime import datetime, timedelta
+
+    await _auth_headers(client)
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    from app.models.auth import User
+    from app.tools import execute_tool
+    from scripts.seed import TEST_EMAIL
+
+    user = (
+        (await session_override.execute(select(User).where(User.email == TEST_EMAIL)))
+        .scalars()
+        .first()
+    )
+    old = datetime.utcnow() - timedelta(days=10)
+    recent = datetime.utcnow() - timedelta(days=1)
+    stale = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="test",
+        subject="Stale review",
+        status="open",
+        last_message_at=old,
+        updated_at=old,
+        created_at=old,
+    )
+    fresh = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="test",
+        subject="Fresh chat",
+        status="open",
+        last_message_at=recent,
+        updated_at=recent,
+        created_at=recent,
+    )
+    session_override.add(stale)
+    session_override.add(fresh)
+    await session_override.commit()
+    await session_override.refresh(stale)
+    await session_override.refresh(fresh)
+
+    listed = await execute_tool(
+        session_override,
+        tenant.id,
+        user.id if user else None,
+        "list_threads",
+        {"status": "open", "older_than_days": 4, "limit": 50},
+        approved=True,
+    )
+    assert listed.get("matched", 0) >= 1
+    assert any(row["id"] == str(stale.id) for row in listed.get("threads") or [])
+    assert all(row["id"] != str(fresh.id) for row in listed.get("threads") or [])
+
+    preview = await execute_tool(
+        session_override,
+        tenant.id,
+        user.id if user else None,
+        "close_threads",
+        {"older_than_days": 4, "dry_run": True, "limit": 50},
+        approved=True,
+    )
+    assert preview.get("ok") is True
+    assert preview.get("dry_run") is True
+    assert str(stale.id) in (preview.get("signal_ids") or [])
+
+    closed = await execute_tool(
+        session_override,
+        tenant.id,
+        user.id if user else None,
+        "close_threads",
+        {"older_than_days": 4, "note": "Stale cleanup", "limit": 50},
+        approved=True,
+    )
+    assert closed.get("ok") is True
+    assert closed.get("closed", 0) >= 1
+    await session_override.refresh(stale)
+    await session_override.refresh(fresh)
+    assert stale.status == "closed"
+    assert fresh.status == "open"
+
+
+@pytest.mark.asyncio
 async def test_create_task_option_sets_conversation_look_at(client: AsyncClient, session_override):
     from app.services.inbound_agent import create_action_suggestion
 

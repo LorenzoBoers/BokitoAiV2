@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from typing import Annotated
 from uuid import UUID
 
@@ -14,8 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.auth import Membership, Tenant, User
+from app.models.auth import Membership, Tenant, User, canonical_workspace_role
 from app.models.staff import StaffAccessLog
+from app.services.auth import create_access_token
 from app.services.workspaces_portal import allows_platform_support, delete_workspace
 from app.services import tenant_features
 
@@ -32,6 +34,12 @@ class StaffDeleteTenantBody(BaseModel):
 
 class StaffTenantFeaturesBody(BaseModel):
     custom_models: bool | None = None
+
+
+class StaffImpersonateBody(BaseModel):
+    """Optional workspace to open as the target user (must be a membership)."""
+
+    tenant_id: UUID | None = None
 
 
 def _require_staff(auth: AuthContext) -> None:
@@ -91,12 +99,33 @@ async def staff_ops_directory(
             }
         )
 
+    membership_rows = (
+        await session.execute(
+            select(Membership, Tenant)
+            .join(Tenant, Tenant.id == Membership.tenant_id)
+            .where(Membership.is_active.is_(True))
+            .order_by(Tenant.name)
+        )
+    ).all()
+    memberships_by_user: dict[UUID, list[dict]] = defaultdict(list)
+    for membership, tenant in membership_rows:
+        memberships_by_user[membership.user_id].append(
+            {
+                "tenant_id": str(tenant.id),
+                "slug": tenant.slug,
+                "name": tenant.name,
+                "role": canonical_workspace_role(membership.role),
+                "support_allowed": allows_platform_support(tenant),
+            }
+        )
+
     users_raw = (await session.execute(select(User).order_by(User.email))).scalars().all()
     users = []
     for user in users_raw:
         hay = f"{user.email} {user.display_name or ''}".lower()
         if needle and needle not in hay:
             continue
+        user_memberships = memberships_by_user.get(user.id, [])
         users.append(
             {
                 "id": str(user.id),
@@ -105,6 +134,7 @@ async def staff_ops_directory(
                 "is_staff": bool(user.is_staff),
                 "is_active": bool(user.is_active),
                 "membership_count": membership_counts.get(user.id, 0),
+                "memberships": user_memberships,
                 "created_at": _iso(user.created_at),
             }
         )
@@ -158,6 +188,108 @@ async def staff_ops_directory(
         "tenants": tenants,
         "users": users,
         "access_logs": access_logs,
+    }
+
+
+@router.post("/ops/users/{user_id}/impersonate")
+async def staff_impersonate_user(
+    user_id: str,
+    body: StaffImpersonateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Issue a member JWT as the target user for 1:1 support debugging.
+
+    The token carries `impersonator_id` (staff) and never a staff claim. Exit via
+    `POST /auth/stop-impersonation`. Refresh cookies stay on the staff account.
+    """
+    _require_staff(auth)
+    try:
+        target_id = UUID(user_id.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user id") from exc
+
+    target = (
+        await session.execute(select(User).where(User.id == target_id))
+    ).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if target.is_staff:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot impersonate staff accounts.",
+        )
+    if not target.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive.")
+
+    membership_rows = (
+        await session.execute(
+            select(Membership, Tenant)
+            .join(Tenant, Tenant.id == Membership.tenant_id)
+            .where(
+                Membership.user_id == target.id,
+                Membership.is_active.is_(True),
+            )
+            .order_by(Tenant.name)
+        )
+    ).all()
+    eligible = [
+        (membership, tenant)
+        for membership, tenant in membership_rows
+        if allows_platform_support(tenant)
+    ]
+    if not eligible:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User has no active membership in a workspace that allows platform support.",
+        )
+
+    chosen: tuple[Membership, Tenant] | None = None
+    if body.tenant_id is not None:
+        for membership, tenant in eligible:
+            if tenant.id == body.tenant_id:
+                chosen = (membership, tenant)
+                break
+        if chosen is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not an active member of that workspace, or support is off.",
+            )
+    else:
+        chosen = eligible[0]
+
+    membership, tenant = chosen
+    session.add(
+        StaffAccessLog(
+            staff_user_id=auth.user.id,
+            tenant_id=tenant.id,
+            action="impersonate",
+        )
+    )
+    await session.commit()
+
+    access_token = create_access_token(
+        target.id,
+        tenant.id,
+        target.email,
+        staff=False,
+        impersonator_id=auth.user.id,
+    )
+    from app.routers.auth import _tenant_dict, _user_dict
+
+    logger.info(
+        "staff_impersonate staff=%s target=%s tenant=%s",
+        auth.user.email,
+        target.email,
+        tenant.slug,
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": _user_dict(
+            target, tenant, membership.role, is_staff=False, impersonator=auth.user
+        ),
+        "tenant": _tenant_dict(tenant),
     }
 
 
