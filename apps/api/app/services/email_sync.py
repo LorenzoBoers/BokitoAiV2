@@ -1350,7 +1350,20 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
                     if not isinstance(m.get("received_at"), datetime) or m["received_at"] >= since
                 ]
         await _hydrate_attachments(account, token, new_items)
-        ingested += await _ingest_items(session, account, new_items, folder_id)
+        try:
+            ingested += await _ingest_items(session, account, new_items, folder_id)
+        except Exception as ingest_exc:  # noqa: BLE001 — surface in channel health
+            logger.exception(
+                "mailbox ingest failed for account=%s folder=%s", account.id, folder_id
+            )
+            detail = str(ingest_exc).strip() or type(ingest_exc).__name__
+            await _record_sync_error(session, account, f"Sync failed: {detail}")
+            return {
+                "account_id": str(account.id),
+                "synced": ingested,
+                "fetched": fetched,
+                "status": "error",
+            }
         if new_cursor:
             cursors[folder_id] = new_cursor
 

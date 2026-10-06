@@ -34,6 +34,30 @@ def test_default_company_name():
     assert default_company_name("bokito.ai") == "Bokito"
 
 
+@pytest.mark.asyncio
+async def test_get_or_create_company_tolerates_duplicate_domains(
+    client: AsyncClient, session_override
+):
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.models.channel import Company
+    from app.services.companies import get_or_create_company
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    session_override.add(
+        Company(tenant_id=tenant.id, name="Acme", domain="dupco.test", website="https://dupco.test")
+    )
+    session_override.add(
+        Company(tenant_id=tenant.id, name="Acme again", domain="dupco.test", website="https://dupco.test")
+    )
+    await session_override.commit()
+
+    company = await get_or_create_company(session_override, tenant.id, "dupco.test")
+    assert company.domain == "dupco.test"
+    assert company.name in {"Acme", "Acme again"}
+
+
 # --- auto-link on creation --------------------------------------------------------
 
 

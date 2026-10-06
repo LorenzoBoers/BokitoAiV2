@@ -76,10 +76,18 @@ def default_company_name(domain: str) -> str:
 async def get_or_create_company(
     session: AsyncSession, tenant_id: UUID, domain: str
 ) -> Company:
+    # Prefer the oldest live row. Duplicate (tenant, domain) rows have been
+    # created by concurrent syncs; scalar_one_or_none() would crash ingest.
     result = await session.execute(
-        select(Company).where(Company.tenant_id == tenant_id, Company.domain == domain)
+        select(Company)
+        .where(
+            Company.tenant_id == tenant_id,
+            Company.domain == domain,
+            Company.deleted_at.is_(None),
+        )
+        .order_by(Company.created_at.asc())
     )
-    company = result.scalar_one_or_none()
+    company = result.scalars().first()
     if company:
         return company
     company = Company(
