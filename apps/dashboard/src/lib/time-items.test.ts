@@ -95,7 +95,7 @@ describe('timeItemHref', () => {
 
   it('opens the conversation for a follow-up', () => {
     expect(
-      timeItemHref(item({ id: 'follow_up:s', kind: 'follow_up', start: '2026-08-27T10:00:00Z', signal_id: 's' })),
+      timeItemHref(item({ id: 'task:s', kind: 'task', start: '2026-08-27T10:00:00Z', signal_id: 's' })),
     ).toBe('/communication/inbox/all/t/s')
   })
 })

@@ -1,8 +1,8 @@
 ---
 title: Autonomiehouding instellen
 intro: Zet hoeveel agents zelf mogen doen, van volledig toezicht tot alleen uitzonderingen.
-description: Zet hoe zelfstandig agents werken met de autonomiehouding: handmatig, ondersteund of autonoom.
-keywords: autonomie, houding, handmatig, ondersteund, autonoom, apply-modi
+description: Zet hoe zelfstandig agents werken met de autonomiehouding: handmatig, geassisteerd of autonoom.
+keywords: autonomie, houding, handmatig, geassisteerd, autonoom, apply-modi
 sort: 20
 related: govern,agents,inbox-ai
 ---
@@ -16,8 +16,8 @@ Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Gove
 ![Autonomiehouding-presets](/api/docs/assets/autonomy/presets.png)
 *Het preset staat op Govern.*
 
-1. Open **Instellingen**, daarna **Govern**, daarna **Beleid**. De kaart heet **Hoeveel agents mogen doen**.
-2. Kies **Handmatig** (agents concepten, jij past toe), **Ondersteund** (laag risico gaat door, de rest vraagt), of **Autonoom** (agents handelen binnen toestemmingen). Bij **Autonoom** vraagt de UI eerst **Overschakelen naar Autonoom?**. **Autonoom** blijft uit tot er een live model onder **Providers en modellen** is én minstens één verzendklaar kanaal — anders zie je **Koppel eerst een live model onder Providers en modellen…** of **Koppel eerst een kanaal dat kan versturen…**.
+1. Open **Instellingen**, daarna **Govern**, daarna **Beleid**. De kaart heet **Workspace-plafond voor agents**.
+2. Kies **Handmatig** (agents concepten, jij past toe), **Geassisteerd** (laag risico gaat door, de rest vraagt), of **Autonoom** (agents handelen binnen toestemmingen). Bij **Autonoom** vraagt de UI eerst **Overschakelen naar Autonoom?**. **Autonoom** blijft uit tot er een live model onder **Providers en modellen** is én minstens één verzendklaar kanaal — anders zie je **Koppel eerst een live model onder Providers en modellen…** of **Koppel eerst een kanaal dat kan versturen…**.
 3. De instelling slaat op zodra je kiest. Beleid per actietag of flow mag strenger zijn, nooit ruimer. Zonder live model zijn AI-antwoorden tijdelijk en worden ze nooit als verstuurd naar de klant getoond.
 
 ## Stel de drie lagen in
@@ -29,7 +29,7 @@ Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Gove
 
 ## Begin voorzichtig
 
-1. Gebruik **Handmatig** of **Ondersteund** terwijl je leert hoe de workspace zich gedraagt.
+1. Gebruik **Handmatig** of **Geassisteerd** terwijl je leert hoe de workspace zich gedraagt.
 2. Kijk welke beslissingen je altijd goedkeurt.
 3. Verruim één toolcategorie in plaats van meteen naar **Autonoom** te springen.
 
@@ -44,7 +44,7 @@ AI-afhandeling op gesprekken (Autonoom, Geassisteerd, Handmatig) valt onder de B
 1. Staat Berichten op **Eerst vragen**, dan is elk gesprek begrensd op **Geassisteerd**: antwoorden wachten op goedkeuring.
 2. Staat Berichten op **Weigeren**, dan is elk gesprek **Handmatig**.
 3. Staat Berichten op **Toestaan**, dan geldt de meest specifieke instelling voor AI-afhandeling.
-4. De kaart **Gesprekken** op Govern toont het plafond, wat autonoom draait en de noodrem. Zie [Govern](/docs/govern/govern).
+4. Autonome antwoorden pauzeren, de noodrem en actietags die altijd controle nodig hebben staan onder [AI-afhandeling](/docs/inbox/inbox-ai).
 
 ## Wat nu
 

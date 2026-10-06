@@ -23,14 +23,14 @@ Govern heeft twee onderdelen: **Ledger** legt workspace-wijzigingen en auditgebe
 ## Zet houding en toestemmingen
 
 ![Govern-beleid](/api/docs/assets/govern/posture.png)
-*Kies Handmatig, Ondersteund of Autonoom, en stel daarna categorieën bij.*
+*Kies Handmatig, Geassisteerd of Autonoom, en stel daarna categorieën bij.*
 
-1. Open onder **Autonomie** het **Beleid**. De kaart heet **Hoeveel agents mogen doen**.
-2. Kies **Handmatig**, **Ondersteund** of **Autonoom**. Zie [Autonomie](/docs/govern/autonomy).
+1. Open onder **Autonomie** het **Beleid**. De kaart heet **Workspace-plafond voor agents**.
+2. Kies **Handmatig**, **Geassisteerd** of **Autonoom**. Zie [Autonomie](/docs/govern/autonomy). Dit plafond begrenst wat agents mogen doen; dagelijkse klantantwoorden staan onder [AI-afhandeling](/docs/inbox/inbox-ai).
 3. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Overschrijf één tool wanneer de categorie te breed is.
-4. Categorieën zijn onder meer Berichten, Workspace, Agents, Kanalen, Triggers, Integraties, Govern en Overdracht. Externe bezoekerssessies muteren nooit automatisch.
+4. Categorieën zijn onder meer Berichten, Workspace, Agents, Kanalen, Triggers, Integraties, Govern en Overdracht. Externe bezoekerssessies muteren nooit automatisch. Berichten op **Eerst vragen** of **Weigeren** begrenst ook AI-afhandeling op gesprekken.
 5. Als learning veel geëscaleerde tool-gates of afgewezen toolbeslissingen ziet op een categorie die **Toestaan** stond, kan Bokito die slider automatisch aanscherpen naar **Eerst vragen**. Onder de sliders verschijnt een korte notitie. Losser maken blijft hier een handmatige edit.
-6. Zet onder **Autonomie per categorie en draaiboek** elke actieve categorie en elk draaiboek op **Handmatig**, **Ondersteund** of **Autonoom**.
+6. Zet onder **Autonomie per actietag en flow** elke actieve actietag en flow op **Handmatig**, **Geassisteerd** of **Autonoom**.
 
 Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 
@@ -43,18 +43,7 @@ Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 
 Versturen naar klanten vraagt altijd. Zie [Agents](/docs/ai/agents) voor regels op één agent.
 
-## Autonome gesprekken bewaken
-
-![Kaart Gesprekken op Govern](/api/docs/assets/govern/conversations.png)
-*Het plafond voor AI-afhandeling, wat autonoom draait, en de noodrem.*
-
-1. Open onder **Autonomie** het tabblad **Beleid** en zoek **Gesprekken**. Het **Plafond** volgt de Berichten-toestemming: **Eerst vragen** begrenst elk gesprek op Geassisteerd, **Weigeren** op Handmatig.
-2. Kies **Autonome antwoorden pauzeren** om in een stap alles op Geassisteerd te begrenzen. **Autonome antwoorden toestaan** heft dat weer op.
-3. **Draait autonoom** toont de workspace-standaard, kanalen, contacten en gesprekken die zelf antwoorden.
-4. Zet onder **Categorieën die altijd controle nodig hebben** een categorie op **Altijd controleren**. Antwoorden op een ticket met die categorie worden een concept, ook als het gesprek autonoom is.
-5. Stel onder **Noodrem** **Autonome antwoorden per uur per kanaal** en **Negatieve signalen per uur per kanaal** in en kies **Grenzen noodrem opslaan**. Een geactiveerd kanaal draait Geassisteerd tot iemand het hervat vanaf het kanaal of vanaf deze kaart.
-
-Dagelijkse AI-afhandeling (workspace-standaard, uitzonderingen, waarborgen) staat onder [AI-afhandeling](/docs/inbox/inbox-ai).
+Autonome antwoorden pauzeren, de noodrem en actietags die altijd controle nodig hebben staan onder [AI-afhandeling](/docs/inbox/inbox-ai), niet op deze pagina.
 
 ## Ongedaan maken en audit
 

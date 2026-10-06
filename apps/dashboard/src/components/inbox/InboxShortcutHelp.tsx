@@ -5,8 +5,6 @@ const ROWS: Array<{ keys: string; labelKey: string }> = [
   { keys: 'J / K', labelKey: 'shortcuts.nextPrev' },
   { keys: '] / [', labelKey: 'shortcuts.jumpUnread' },
   { keys: 'E', labelKey: 'shortcuts.close' },
-  { keys: 'H', labelKey: 'shortcuts.snooze' },
-  { keys: 'Shift+H', labelKey: 'shortcuts.snoozeCustom' },
   { keys: 'U', labelKey: 'shortcuts.unread' },
   { keys: 'Shift+U', labelKey: 'shortcuts.markRead' },
   { keys: 'Cmd+A', labelKey: 'shortcuts.selectAll' },

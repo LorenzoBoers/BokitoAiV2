@@ -27,7 +27,6 @@ type Props = {
   onMarkRead: (id: ThreadId) => void
   onMarkUnread: (id: ThreadId) => void
   onTogglePin: (id: ThreadId, currentPinned: boolean) => void
-  onSnooze?: (id: ThreadId) => void
   onClose?: (id: ThreadId) => void
   onDelete: (id: ThreadId) => void
   deletingThreadId?: ThreadId | null
@@ -83,7 +82,6 @@ export default function ThreadList({
   onMarkRead,
   onMarkUnread,
   onTogglePin,
-  onSnooze,
   onClose,
   onDelete,
   deletingThreadId = null,
@@ -215,7 +213,6 @@ export default function ThreadList({
           onMarkRead={onMarkRead}
           onMarkUnread={onMarkUnread}
           onTogglePin={onTogglePin}
-          onSnooze={onSnooze}
           onClose={onClose}
           onDelete={onDelete}
           deleting={String(deletingThreadId) === String(thread.id)}
@@ -246,7 +243,6 @@ export default function ThreadList({
       onMarkRead,
       onMarkUnread,
       onTogglePin,
-      onSnooze,
       onClose,
       onDelete,
       deletingThreadId,
@@ -337,14 +333,7 @@ export default function ThreadList({
 
       {banner}
 
-      <div
-        title={
-          !hasMore && total != null && total > 0 && threads.length > 0 && allThreads.length >= total
-            ? t('threadList.allLoaded', { total })
-            : undefined
-        }
-        className="flex min-h-0 flex-1 flex-col p-1.5"
-      >
+      <div className="flex min-h-0 flex-1 flex-col p-1.5">
         {threads.length === 0 ? (
           loading ? (
             <InboxListSkeleton />

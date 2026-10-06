@@ -16,28 +16,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.model_catalog import ModelCatalog, PlatformSetting
 
 MARKUP_SETTING_KEY = "token_markup_multiplier"
-DEFAULT_MARKUP = 1.3
+DEFAULT_MARKUP = 1.2
 
 # slug, provider, kind, model_id, display_name, ctx, in_cents/Mtok, out_cents/Mtok,
 # tools, vision, default_chat, default_embedding, sort
 DEFAULT_MODELS: list[tuple] = [
-    # Bokito AI is the platform's own virtual model: it has no model_id of its
-    # own; resolution routes it to a real backing model (see bokito_models.py).
-    ("bokito-ai-3-1", "bokito", "chat", "", "Bokito AI 3.1",
-     200000, 300, 1500, True, True, True, False, 5),
-    # Mistral (EU, Paris): backs Bokito AI and is the EU-hosted catalog.
-    ("mistral-medium-latest", "mistral", "chat", "mistral-medium-latest", "Mistral Medium 3.5",
-     128000, 150, 750, True, True, False, False, 6),
-    ("mistral-large-latest", "mistral", "chat", "mistral-large-latest", "Mistral Large 3",
+    # Managed Bokito tiers (virtual): no model_id; see bokito_models.py.
+    # Default bill prices match the Mistral backing family (BOKITO_BACKING_FAMILY).
+    # Seed refresh overwrites these from the active family's backing row.
+    ("bokito-maki", "bokito", "chat", "", "Maki",
+     256000, 10, 10, True, True, False, False, 3),
+    ("bokito-ai-3-1", "bokito", "chat", "", "Bokito AI",
+     128000, 150, 750, True, True, True, False, 5),
+    ("bokito-kong", "bokito", "chat", "", "Kong",
      128000, 50, 150, True, True, False, False, 7),
+    # Real provider rows (staff / BYOK / silent backing).
+    ("ministral-3b-2512", "mistral", "chat", "ministral-3b-2512", "Ministral 3B",
+     256000, 10, 10, True, True, False, False, 8),
+    ("mistral-medium-latest", "mistral", "chat", "mistral-medium-latest", "Mistral Medium 3.5",
+     128000, 150, 750, True, True, False, False, 9),
+    ("mistral-large-latest", "mistral", "chat", "mistral-large-latest", "Mistral Large 3",
+     128000, 50, 150, True, True, False, False, 10),
     ("mistral-small-latest", "mistral", "chat", "mistral-small-latest", "Mistral Small 4",
-     128000, 15, 60, True, True, False, False, 8),
+     128000, 15, 60, True, True, False, False, 11),
     ("mistral-embed", "mistral", "embedding", "mistral-embed", "Mistral Embed",
-     8192, 10, 0, False, False, False, False, 9),
+     8192, 10, 0, False, False, False, False, 12),
+    ("claude-sonnet-5-5", "anthropic", "chat", "claude-sonnet-5-5", "Claude Sonnet 5.5",
+     200000, 200, 1000, True, True, False, False, 15),
     ("claude-sonnet-4-6", "anthropic", "chat", "claude-sonnet-4-6", "Claude Sonnet 4.6",
-     200000, 300, 1500, True, True, False, False, 10),
+     200000, 300, 1500, True, True, False, False, 16),
     ("claude-haiku-4-5", "anthropic", "chat", "claude-haiku-4-5-20251001", "Claude Haiku 4.5",
      200000, 100, 500, True, True, False, False, 20),
+    ("claude-opus-5-5", "anthropic", "chat", "claude-opus-5-5", "Claude Opus 5.5",
+     200000, 400, 2000, True, True, False, False, 28),
     ("claude-opus-4-8", "anthropic", "chat", "claude-opus-4-8", "Claude Opus 4.8",
      200000, 1500, 7500, True, True, False, False, 30),
     ("gpt-4o", "openai", "chat", "gpt-4o", "GPT-4o",
@@ -152,6 +163,68 @@ async def _refresh_legacy_agent_models(session: AsyncSession) -> None:
         await session.commit()
 
 
+async def _refresh_managed_virtual_rows(session: AsyncSession) -> None:
+    """Keep managed Bokito tier display names, prices and sort in sync.
+
+    List prices follow the active backing family (`BOKITO_BACKING_FAMILY`) so a
+    Mistral↔Claude switch updates customer-facing cents/Mtok without a migration.
+    """
+    from datetime import datetime
+
+    from app.services import bokito_models
+
+    by_slug = {spec[0]: spec for spec in DEFAULT_MODELS if spec[1] == "bokito"}
+    any_changed = False
+    for slug, spec in by_slug.items():
+        (_, _provider, _kind, _model_id, display_name, ctx, cin, cout,
+         _tools, _vision, _def_chat, _def_emb, sort) = spec
+        prices = bokito_models.bill_prices_for_slug(slug)
+        if prices is not None:
+            cin, cout = prices
+        result = await session.execute(select(ModelCatalog).where(ModelCatalog.slug == slug))
+        row = result.scalar_one_or_none()
+        if not row:
+            continue
+        row_changed = False
+        for attr, value in (
+            ("display_name", display_name),
+            ("context_window", ctx),
+            ("input_cost_per_mtok_cents", cin),
+            ("output_cost_per_mtok_cents", cout),
+            ("sort_order", sort),
+        ):
+            if getattr(row, attr) != value:
+                setattr(row, attr, value)
+                row_changed = True
+        if row_changed:
+            row.updated_at = datetime.utcnow()
+            any_changed = True
+    if any_changed:
+        await session.commit()
+
+
+async def _ensure_markup_default(session: AsyncSession) -> None:
+    """Align legacy platform_settings markup with DEFAULT_MARKUP when still 1.3."""
+    from datetime import datetime
+
+    result = await session.execute(
+        select(PlatformSetting).where(PlatformSetting.key == MARKUP_SETTING_KEY)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        session.add(PlatformSetting(key=MARKUP_SETTING_KEY, value=str(DEFAULT_MARKUP)))
+        await session.commit()
+        return
+    try:
+        current = float(row.value)
+    except (TypeError, ValueError):
+        current = 0.0
+    if abs(current - 1.3) < 1e-9:
+        row.value = str(DEFAULT_MARKUP)
+        row.updated_at = datetime.utcnow()
+        await session.commit()
+
+
 async def seed_model_catalog(session: AsyncSession) -> None:
     """Insert any default catalog rows that don't yet exist (non-destructive)."""
     existing = await session.execute(select(ModelCatalog.slug))
@@ -184,8 +257,10 @@ async def seed_model_catalog(session: AsyncSession) -> None:
     if added:
         await session.commit()
     await refresh_catalog_model_ids(session)
+    await _refresh_managed_virtual_rows(session)
     await _promote_bokito_default_chat(session)
     await _refresh_legacy_agent_models(session)
+    await _ensure_markup_default(session)
 
 
 async def list_models(

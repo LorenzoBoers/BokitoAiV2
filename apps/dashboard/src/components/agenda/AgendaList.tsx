@@ -2,7 +2,7 @@ import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState, type
 import { useTranslation } from 'react-i18next'
 import { ArrowUp, ChevronDown, ChevronRight } from 'lucide-react'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
-import { dayKey, groupByDay, itemOwner, itemStart, layerOf } from '../../lib/agenda-layout'
+import { dayKey, groupByDay, isRoutine, itemOwner, itemStart, layerOf } from '../../lib/agenda-layout'
 import { agendaStatusLabel } from '../../lib/status-labels'
 import type { TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
@@ -38,7 +38,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
       days.filter((day) => {
         const key = dayKey(day)
         if (key === todayKey || key === landKey) return true
-        return (byDay.get(key) ?? []).some((item) => layerOf(item) !== 'routines' || isFailed(item.status))
+        return (byDay.get(key) ?? []).some((item) => !isRoutine(item) || isFailed(item.status))
       }),
     [days, byDay, todayKey, landKey],
   )
@@ -118,8 +118,8 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
           {visible.map((day) => {
             const key = dayKey(day)
             const all = byDay.get(key) ?? []
-            const routines = all.filter((item) => layerOf(item) === 'routines')
-            const rows = all.filter((item) => layerOf(item) !== 'routines')
+            const routines = all.filter((item) => isRoutine(item))
+            const rows = all.filter((item) => !isRoutine(item))
             const isToday = key === todayKey
             const nowIndex = isToday ? rows.findIndex((item) => itemStart(item).getTime() > nowMs) : -1
             const routinesOpen = openRoutines.has(key)

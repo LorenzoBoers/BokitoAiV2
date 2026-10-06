@@ -41,7 +41,7 @@ class AgentTaskCreate(BaseModel):
     assignee_user_id: UUID | None = None
     scheduled_for: datetime | None = None
     origin: str = "manual"
-    kind: str = "job"
+    kind: str = "task"
     # Only agent tasks may auto-start; human follow-ups stay on the Agenda.
     auto_start: bool | None = None
 

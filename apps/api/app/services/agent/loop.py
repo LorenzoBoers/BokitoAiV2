@@ -476,7 +476,7 @@ class AgentLoop:
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
-        from app.services.agent.style import BOKITO_MODEL_IDENTITY, style_for_reply_mode
+        from app.services.agent.style import identity_for_bokito_slug, style_for_reply_mode
 
         parts.append(style_for_reply_mode(await self._resolve_reply_mode()))
         from app.models.auth import Tenant
@@ -492,7 +492,7 @@ class AgentLoop:
         # BYOK/real models keep their actual identity.
         resolved = getattr(self, "resolved_call", None)
         if resolved is not None and resolved.provider == "bokito":
-            parts.append(BOKITO_MODEL_IDENTITY)
+            parts.append(identity_for_bokito_slug(resolved.slug))
         return "\n\n".join(parts).strip()
 
     async def _team_reachable(self) -> bool:

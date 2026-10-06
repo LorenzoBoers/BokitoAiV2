@@ -45,7 +45,6 @@ import ScrollFade from '../ui/ScrollFade'
 import { Tip } from '../ui/Tip'
 
 const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
-  { queue: 'snoozed', labelKey: 'support.inbox.snoozed' },
   { queue: 'spam', labelKey: 'support.inbox.spam' },
 ]
 

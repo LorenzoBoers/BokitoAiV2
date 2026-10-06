@@ -40,7 +40,8 @@ function SelectContent({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         className={cn(
-          'z-50 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay data-[state=open]:animate-pop-in',
+          // Above dialogs (z-50) so pickers stay usable in channel access and other modals.
+          'z-[100] overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay data-[state=open]:animate-pop-in',
           className,
         )}
         {...props}

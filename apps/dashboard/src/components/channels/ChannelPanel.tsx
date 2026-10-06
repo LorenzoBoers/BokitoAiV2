@@ -76,6 +76,8 @@ export default function ChannelPanel({
           <AgentBindingPicker
             channel={row.channel}
             channelAccountId={row.id}
+            defaultAgentId={row.defaultAgentId}
+            onChanged={() => actions.accessChanged(row)}
             aria-label={t('bindingPicker.ariaLabel')}
           />
         </ChannelSetting>

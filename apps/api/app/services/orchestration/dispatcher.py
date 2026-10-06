@@ -194,6 +194,17 @@ async def process_due_scheduled_tasks(
             task.status = "awaiting_human"
             session.add(task)
             await session.commit()
+            # Same fire as a stage follow-up for a person: mark the conversation
+            # unread so it surfaces in For you / Open.
+            if task.signal_id:
+                from app.models.signal import Signal
+
+                signal = await session.get(Signal, task.signal_id)
+                if signal is not None and signal.tenant_id == task.tenant_id:
+                    signal.has_unread = True
+                    signal.updated_at = now
+                    session.add(signal)
+                    await session.commit()
             if task.assignee_user_id:
                 from app.models.notification import Notification
 
@@ -204,7 +215,12 @@ async def process_due_scheduled_tasks(
                         kind="task_due",
                         title=task.title,
                         body=(task.description or task.title)[:500],
-                        payload_json=json.dumps({"task_id": str(task.id)}),
+                        payload_json=json.dumps(
+                            {
+                                "task_id": str(task.id),
+                                "signal_id": str(task.signal_id) if task.signal_id else None,
+                            }
+                        ),
                     )
                 )
                 await session.commit()

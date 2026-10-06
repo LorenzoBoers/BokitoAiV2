@@ -16,7 +16,7 @@ Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/
 ![Autonomy posture presets](/api/docs/assets/autonomy/presets.png)
 *The preset lives on Govern.*
 
-1. Open **Settings**, then **Govern**, then **Policy**. The card is **How much agents can do**.
+1. Open **Settings**, then **Govern**, then **Policy**. The card is **Workspace ceiling for agents**.
 2. Choose **Manual** (agents draft, you apply), **Assisted** (low-risk actions go through, the rest asks), or **Autonomous** (agents act within allowances). Choosing **Autonomous** asks **Switch to Autonomous?** before it applies. **Autonomous** stays unavailable until the workspace has a live model under **Providers & models** and at least one send-ready channel — the UI shows **Connect a live model under Models before Autonomous.** or **Connect a send-ready channel before Autonomous.** when a gate is missing.
 3. The setting saves as you pick it. A per action tag or flow policy may be stricter, never broader. Without a live model, AI replies are placeholders and are never labeled as sent to the customer.
 
@@ -44,7 +44,7 @@ AI handling on conversations (Autonomous, Assisted, Manual) sits under the Messa
 1. When Messaging is on **Ask first**, every conversation is capped at **Assisted**: replies wait for approval.
 2. When Messaging is on **Deny**, every conversation is **Manual**.
 3. When Messaging is on **Allow**, the most specific AI handling setting applies.
-4. The **Conversations** card on Govern shows the ceiling, what runs autonomously, and the circuit breaker. See [Govern](/docs/govern/govern).
+4. Pause autonomous replies, the circuit breaker, and action tags that always need review live under [AI handling](/docs/inbox/inbox-ai).
 
 ## What to do next
 

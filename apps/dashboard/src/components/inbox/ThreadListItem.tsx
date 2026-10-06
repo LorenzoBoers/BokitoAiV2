@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import {
   Archive,
   ArrowLeft,
-  Clock,
   Mail,
   MailOpen,
   MoreHorizontal,
@@ -12,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
-import { PersonAvatar } from '../ui/PersonAvatar'
+import { ContactAvatar } from '../ui/ContactAvatar'
 import { TeamAvatar } from '../ui/TeamAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
@@ -38,7 +37,6 @@ import {
   threadSecondaryLine,
 } from '../../lib/message-composer'
 import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
-import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import { stageLabel } from '../../lib/tickets-api'
 import { HashtagMark } from '../ui/HashtagMark'
@@ -51,7 +49,6 @@ type Props = {
   onMarkRead?: (id: ThreadId) => void
   onMarkUnread?: (id: ThreadId) => void
   onTogglePin?: (id: ThreadId, currentPinned: boolean) => void
-  onSnooze?: (id: ThreadId) => void
   /** Close/archive an open thread (shown outside Closed/Spam). */
   onClose?: (id: ThreadId) => void
   /** Permanently delete — only used for Closed/Spam rows. */
@@ -133,7 +130,6 @@ function ThreadListItem({
   onMarkRead,
   onMarkUnread,
   onTogglePin,
-  onSnooze,
   onClose,
   onDelete,
   deleting = false,
@@ -308,7 +304,12 @@ function ThreadListItem({
             decorative
           />
         ) : (
-          <PersonAvatar name={thread.contactName} email={thread.contactEmail} size={28} className="mt-0.5" />
+          <ContactAvatar
+            name={thread.contactName}
+            email={thread.contactEmail}
+            size={28}
+            className="mt-0.5"
+          />
         )}
 
         <div className="min-w-0 flex-1">
@@ -393,12 +394,6 @@ function ThreadListItem({
                     )}
                     {thread.isPinned ? t('threadChrome.unpin') : t('threadChrome.pin')}
                   </DropdownMenuItem>
-                  {onSnooze ? (
-                    <DropdownMenuItem className="gap-2" onSelect={() => onSnooze(thread.id)}>
-                      <Clock size={13} className="text-text-muted" />
-                      {t('snooze.tomorrow')}
-                    </DropdownMenuItem>
-                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
               ) : null}
@@ -410,9 +405,7 @@ function ThreadListItem({
                     : undefined
                 }
               >
-                {thread.status === 'pending'
-                  ? formatWakeTime(thread.snoozedUntil, t, i18n.language) ?? t('snooze.untilReply')
-                  : formatRelativeTime(thread.lastMessageAt, t, i18n.language)}
+                {formatRelativeTime(thread.lastMessageAt, t, i18n.language)}
               </span>
             </div>
           </div>

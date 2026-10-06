@@ -510,27 +510,23 @@
       "bannerTitle": "Agenda is de klok van je workspace",
       "bannerBody": "Wat gebeurde, wat nu gebeurt en wat gepland staat, voor mensen en agents, naast je eigen agenda's.",
       "pageTitle": "Zo werkt Agenda",
-      "intro": "Eén tijdlijn voor alles wat op een klok loopt: afspraken, kijkmomenten op gesprekken, check-ups op tickets, agenttaken, routines en wat mensen en agents deden.",
+      "intro": "Eén tijdlijn voor gekoppelde agenda's, taken (eenmalig of terugkerend, voor mensen en agents) en activiteit.",
       "sections": [
         {
           "title": "Dag, week, maand en lijst",
-          "body": "Wissel rechtsboven van weergave. Ga met de pijlen of de minimaand door de tijd. Klik in Dag of Week op een leeg vak om een agenttaak te plannen."
+          "body": "Wissel rechtsboven van weergave. Ga met de pijlen of de minimaand door de tijd. Klik in Dag of Week op een leeg vak om een taak te plannen."
         },
         {
-          "title": "Lagen en wie",
-          "body": "Zet links lagen aan of uit: Agenda, Kijkmomenten, Check-ups, Agenttaken, Routines en Activiteit. Filter op één persoon, één agent of één project."
+          "title": "Tonen en wie",
+          "body": "Onder Tonen zet je elke gekoppelde agenda aan, plus Taken en Activiteit. Filter op één persoon, één agent of één project."
         },
         {
-          "title": "Check-ups",
-          "body": "Een flowfase kan een eigenaar en een check-upritme hebben. Elk ticket in die fase krijgt dan een terugkerende check-up voor wie het gesprek bezit. Openstaande check-ups staan onder Vraagt aandacht."
-        },
-        {
-          "title": "Routines",
-          "body": "Terugkerende agentscans blijven uit het rooster en vallen samen tot één chip per dag. Open Routines in de linkerkolom om er een te pauzeren, te bewerken of toe te voegen."
+          "title": "Taken",
+          "body": "Eenmalige wakes, terugkerende scans en fase-follow-ups uit flows zijn allemaal Taken. Openstaande taken staan onder Vraagt aandacht. Beheer terugkerende scans onder Taken beheren."
         },
         {
           "title": "Agendasync",
-          "body": "Koppel Google Calendar of Outlook Calendar. Afspraken die in meerdere agenda's staan, zie je één keer. Agents kunnen nieuwe blokken voorstellen die op jouw goedkeuring wachten."
+          "body": "Koppel Google Calendar of Outlook Calendar onder Koppelingen. Elke gekoppelde agenda heeft een eigen checkbox. Agents kunnen nieuwe blokken voorstellen die op jouw goedkeuring wachten."
         }
       ]
     },
@@ -690,7 +686,7 @@
     },
     "cancel": "Annuleren",
     "emptyTitle": "Niets in deze periode",
-    "emptyBody": "Plan een agenttaak of herinnering, of koppel een agenda. Zet links meer lagen aan voor activiteit en routines.",
+    "emptyBody": "Plan een taak, of koppel een agenda onder Koppelingen. Zet links Taken en Activiteit aan om meer te zien.",
     "createRun": "Iets plannen",
     "openAgenda": "Agenda openen",
     "today": "Vandaag",
@@ -794,11 +790,12 @@
     },
     "layers": {
       "calendar": "Agenda",
-      "reminders": "Kijkmomenten",
-      "checkups": "Check-ups",
-      "agents": "Agenttaken",
-      "routines": "Routines",
-      "activity": "Activiteit"
+      "tasks": "Taken",
+      "activity": "Activiteit",
+      "reminders": "Taken",
+      "checkups": "Taken",
+      "agents": "Taken",
+      "routines": "Taken"
     },
     "who": {
       "all": "Iedereen",
@@ -810,10 +807,13 @@
       "who": "Wie",
       "allProjects": "Alle projecten",
       "show": "Tonen",
-      "layersHint": "Check-ups komen uit flowfases. Routines zijn terugkerende agentscans.",
+      "layersHint": "Taken dekken eenmalig en terugkerend werk voor mensen en agents. Opvolging uit flowfases staat hier ook.",
       "calendars": "Agenda's",
-      "calendarsEmpty": "Koppel Google of Outlook om afspraken naast het werk te zien.",
-      "routines": "Routines"
+      "calendarsEmpty": "Koppel Google of Outlook onder Koppelingen om afspraken hier te zien.",
+      "connectCalendarsBanner": "Koppel je agenda's onder Koppelingen om afspraken hier te zien en agents er context van te geven.",
+      "openConnections": "Open Koppelingen",
+      "routines": "Taken",
+      "tasksManage": "Taken beheren"
     },
     "grid": {
       "allDay": "Hele dag",
@@ -880,12 +880,15 @@
     },
     "attention": {
       "title": "Vraagt aandacht",
-      "checkups_one": "{{count}} check-up open",
-      "checkups_other": "{{count}} check-ups open",
-      "checkupsTitle": "Openstaande check-ups",
-      "lookats_one": "{{count}} verlopen kijkmoment",
-      "lookats_other": "{{count}} verlopen kijkmomenten",
-      "lookatsTitle": "Verlopen kijkmomenten",
+      "tasks_one": "{{count}} taak open",
+      "tasks_other": "{{count}} taken open",
+      "tasksTitle": "Openstaande taken",
+      "checkups_one": "{{count}} taak open",
+      "checkups_other": "{{count}} taken open",
+      "checkupsTitle": "Openstaande taken",
+      "lookats_one": "{{count}} taak open",
+      "lookats_other": "{{count}} taken open",
+      "lookatsTitle": "Openstaande taken",
       "failed_one": "{{count}} mislukte run",
       "failed_other": "{{count}} mislukte runs",
       "failedTitle": "Mislukte runs"
@@ -1915,6 +1918,7 @@
     "team": "Eigenaar-team",
     "teamHint": "Het team dat nieuwe gesprekken op dit kanaal bezit tot iemand ze oppakt.",
     "defaultBadge": "Standaard",
+    "unknownTeam": "Onbekend team",
     "widgetLive": "Live overdracht",
     "widgetLiveHint": "Beschikbaar zodra iemand met Afhandelen-toegang op de widget beschikbaar is."
   },
@@ -2236,7 +2240,7 @@
     "forYouHint": "Vragen, concepten en antwoorden die op jou wachten",
     "planAgentTask": "Agenttaak plannen",
     "newReminder": "Nieuwe herinnering",
-    "checkupsDue": "Openstaande check-ups en kijkmomenten",
+    "checkupsDue": "Openstaande taken",
     "newFlow": "Nieuwe flow",
     "openActionTags": "Actietags openen",
     "newConversation": "Nieuw gesprek"
@@ -2583,7 +2587,7 @@
     "segmentCustomer": "Klant",
     "segmentAgents": "Agents",
     "moreQueues": "Meer",
-    "moreQueuesHint": "Uitgesteld, gesloten en spam",
+    "moreQueuesHint": "Gesloten en spam",
     "agentOpsHint": "Beslissingen verschijnen inline in gesprekken",
     "mailboxes": "Kanalen",
     "teams": {
@@ -2644,7 +2648,13 @@
       "handlingDescription": "Wat de AI met klantberichten doet. Een kanaal, een contact of een enkel gesprek kan afwijken; de meest specifieke instelling wint.",
       "workspaceDefaultTitle": "Workspace-standaard",
       "workspaceDefaultDescription": "Geldt voor elk kanaal, contact en gesprek zonder eigen instelling.",
-      "governNote": "Govern bepaalt het plafond en de veiligheidsgrenzen voor autonome antwoorden.",
+      "governNote": "Govern bepaalt het workspace-plafond voor wat agents mogen doen. AI-afhandeling op deze pagina blijft op of onder dat plafond.",
+      "ceiling": "Plafond: {{mode}}",
+      "ceilingHint": "Volgt uit de berichtentoestemming in Govern. Pauzeren beperkt elk gesprek tot Geassisteerd tot je autonome antwoorden weer toestaat.",
+      "pauseAutonomous": "Autonome antwoorden pauzeren",
+      "resumeAutonomous": "Autonome antwoorden toestaan",
+      "pauseAutonomousSaved": "Autonome antwoorden gepauzeerd.",
+      "resumeAutonomousSaved": "Autonome antwoorden weer toegestaan.",
       "exceptionsTitle": "Uitzonderingen",
       "exceptionsDescription": "Kanalen, contacten en open gesprekken die de workspace-standaard niet volgen.",
       "exceptionsEmpty": "Alles volgt de workspace-standaard.",
@@ -2655,6 +2665,15 @@
         "workspace": "Workspace"
       },
       "exceptionClear": "Weer de standaard volgen",
+      "reviewedTypesTitle": "Actietags die altijd controle nodig hebben",
+      "reviewedTypesHint": "Antwoorden op een ticket met een van deze actietags worden een concept, ook als het gesprek autonoom is.",
+      "noTypes": "Nog geen actietags.",
+      "alwaysReview": "Altijd controleren",
+      "mayAutoSend": "Mag versturen",
+      "breakerTitle": "Noodrem",
+      "breakerHint": "Pauzeert autonome antwoorden op een kanaal na ongewoon volume of meerdere negatieve signalen binnen een uur. Het kanaal valt terug op Geassisteerd tot iemand het hervat.",
+      "maxAutonomous": "Autonome antwoorden per uur per kanaal",
+      "maxNegative": "Negatieve signalen per uur per kanaal",
       "safeguardsTitle": "Waarborgen",
       "safeguardsDescription": "Wanneer een autonoom antwoord een concept ter controle wordt in plaats van verzonden.",
       "newContactsLabel": "Antwoorden aan nieuwe contacten controleren",
@@ -2709,7 +2728,7 @@
         "widget": "Chatwidget uiterlijk",
         "installWidget": "Widget op je site installeren",
         "agents": "Agents openen",
-        "govern": "Govern-beleid openen",
+        "govern": "Govern-plafond openen",
         "communication": "Communicatie openen"
       }
     },
@@ -3035,7 +3054,7 @@
         "install": "Installeren",
         "installAgain": "Opnieuw installeren",
         "open": "Flow openen",
-        "hashtagsTitle": "Hashtags"
+        "hashtagsTitle": "Tags"
       },
       "toolset": "AI-toolset",
       "toolsetTitle": "Acties die deze module kan uitvoeren",
@@ -3700,7 +3719,12 @@
       "toolsLoading": "Tools laden…",
       "toolsSaveError": "Kon tools niet opslaan.",
       "modelTitle": "Model en runtime",
-      "modelBody": "Het model dat deze agent gebruikt voor redeneren en chat.",
+      "modelBody": "Het model dat deze agent gebruikt voor redeneren en chat. Maki is lichter, Bokito AI is de standaard, Kong is zwaarder.",
+      "modelTier": {
+        "lighter": "lichter, minder tokens",
+        "standard": "standaard",
+        "heavier": "zwaarder, meer tokens"
+      },
       "modelLoadError": "Kon de modellijst niet laden.",
       "modelUpdateError": "Kon model niet bijwerken.",
       "openModels": "Modellen openen",
@@ -4706,7 +4730,7 @@
       "reports": "Dagelijkse scan, aandacht en verbruik",
       "developers": "AI-tools, API-tokens en webhooks",
       "models": "Bokito AI-standaard en optioneel eigen modellen",
-      "categories": "Actietags, vrije hashtags en hoe ze worden vastgelegd"
+      "categories": "Actietags, vrije tags en hoe ze worden vastgelegd"
     }
   },
   "helpHub": {
@@ -5605,7 +5629,7 @@
     "noKey": "Geen sleutel",
     "keySet": "Sleutel ingesteld ····{{last4}}",
     "pageTitle": "Modellen",
-    "pageSubtitle": "Bokito AI is de standaard voor deze workspace. Voeg eigen modellen toe wanneer je plan dat toelaat.",
+    "pageSubtitle": "Kies Maki, Bokito AI of Kong voor agents. Voeg eigen modellen toe wanneer je plan dat toelaat.",
     "saved": "Opgeslagen",
     "ownProvidersTitle": "Eigen providers",
     "ownProvidersBody": "Optioneel. Modellen op je eigen sleutels gaan voor op Bokito AI; verbruik wordt dan door de provider gefactureerd, niet via Bokito. Sleutels worden versleuteld; alleen de laatste vier tekens zijn zichtbaar.",
@@ -5639,25 +5663,31 @@
     "pricingInOut": "invoer {{in}} / miljoen tokens · uitvoer {{out}} / miljoen tokens",
     "removeModelConfirm": "Model \"{{name}}\" verwijderen?",
     "managed": {
-      "title": "Bokito AI",
-      "body": "Beheerd door Bokito: wij kiezen en onderhouden automatisch het beste model per taak. Verbruik wordt per token gemeten voor deze workspace en telt mee voor je budget.",
-      "bodyLearn": "Kiest en leert mee met jouw organisatie. Agents gebruiken Bokito AI tenzij je eigen modellen inschakelt.",
-      "bodyDefault": "Standaard voor deze workspace. Agents gebruiken Bokito AI tenzij je hieronder een eigen model toevoegt.",
+      "title": "Beheerde modellen",
+      "body": "Beheerd door Bokito. Verbruik wordt per token gemeten voor deze workspace en telt mee voor je budget.",
+      "bodyLearn": "Drie niveaus voor alledaags, standaard en zwaar werk. Agents gebruiken standaard Bokito AI tenzij je een ander niveau kiest of eigen modellen inschakelt.",
+      "bodyDefault": "Drie beheerde modellen voor deze workspace. Op elke kaart staat de prijs per 1 miljoen tokens. Lichter gebruikt minder tokens; zwaarder gebruikt meer. Agents starten op Bokito AI tenzij je een ander niveau kiest of hieronder een eigen model toevoegt.",
       "active": "Actief",
       "standby": "Stand-by",
       "notConfigured": "Niet geconfigureerd",
       "chat": "Chat",
       "embeddings": "Embeddings",
       "viewUsage": "Verbruik bekijken",
-      "standbyHint": "Deze workspace draait op je eigen providersleutels hieronder; Bokito AI blijft beschikbaar als fallback wanneer je ze verwijdert.",
-      "standbyHintNew": "Agents gebruiken je eigen modellen hieronder. Bokito AI blijft beschikbaar als fallback wanneer je eigen modellen uitzet of verwijdert.",
+      "standbyHint": "Deze workspace draait op je eigen providersleutels hieronder; beheerde modellen blijven beschikbaar als fallback wanneer je ze verwijdert.",
+      "standbyHintNew": "Agents gebruiken je eigen modellen hieronder. Beheerde modellen blijven beschikbaar als fallback wanneer je eigen modellen uitzet of verwijdert.",
       "mockModeHint": "Geen platformsleutel geconfigureerd, dus AI-aanroepen draaien in mock-modus. Neem contact op met Bokito-support of voeg hieronder je eigen providersleutel toe.",
       "mockModeHintShort": "Geen live platformsleutel geconfigureerd, dus AI-aanroepen draaien in mock-modus. Neem contact op met Bokito-support.",
       "legacyKeyHint": "Draait op je eigen {{provider}}-sleutel (legacy), dus verbruik wordt niet via Bokito gefactureerd.",
       "chatBacking": "Chatmodel",
       "embeddingBacking": "Embeddingmodel",
-      "fallbackNotice": "Het EU-gehoste model is tijdelijk niet beschikbaar, dus Bokito AI draait op een fallbackmodel in de {{actual}}. We schakelen automatisch terug naar de {{intended}}.",
-      "fallbackNoticeSoft": "Bokito AI gebruikt tijdelijk een backup. Het schakelt automatisch terug."
+      "fallbackNotice": "Het voorkeurspad is tijdelijk niet beschikbaar, dus dit model draait op een backup in de {{actual}}. We schakelen automatisch terug naar de {{intended}}.",
+      "fallbackNoticeSoft": "Een beheerd model gebruikt tijdelijk een backup. Het schakelt automatisch terug.",
+      "tiers": {
+        "defaultBadge": "Standaard",
+        "lighterBody": "Lichter — goed voor alledaagse taken. Gebruikt minder tokens, dus goedkoper.",
+        "standardBody": "Standaard — gebalanceerd voor het meeste agentwerk. Default voor nieuwe agents.",
+        "heavierBody": "Zwaarder — voor lange of complexe taken. Gebruikt meer tokens."
+      }
     },
     "custom": {
       "title": "Jouw modellen",
@@ -5944,13 +5974,13 @@
   },
   "channelAccess": {
     "title": "Toegang tot kanaal",
-    "description": "Kies wie dit kanaal ziet en wie het mag afhandelen. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Agents zonder toegang doen niets op dit kanaal.",
+    "description": "Zet met de schuifjes wie dit kanaal ziet en wie het mag afhandelen. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Agents zonder toegang doen niets op dit kanaal.",
     "hint": "Wie dit kanaal ziet en afhandelt",
     "adminsNote": "Eigenaren en beheerders handelen altijd elk kanaal af."
   },
   "connectionAccess": {
     "title": "Toegang tot koppeling",
-      "description": "Kies wie deze koppeling mag gebruiken en wie hem mag beheren. Gebruiken betekent dat agents en mensen de tools ervan kunnen draaien; Beheren betekent verifiëren, hernoemen, projecten koppelen en toegang wijzigen. Zonder toegang kan een agent de koppeling niet bereiken.",
+    "description": "Zet met de schuifjes wie deze koppeling mag gebruiken en wie hem mag beheren. Gebruiken betekent dat agents en mensen de tools ervan kunnen draaien; Beheren betekent verifiëren, hernoemen, projecten koppelen en toegang wijzigen. Zonder toegang kan een agent de koppeling niet bereiken.",
     "hint": "Wie deze koppeling gebruikt en beheert",
     "adminsNote": "Eigenaren en beheerders beheren altijd elke koppeling."
   },
@@ -5958,6 +5988,7 @@
     "default": "Alle mensen en agents",
     "count_one": "{{count}} toegang",
     "count_other": "{{count}} toegangen",
+    "who": "Wie",
     "teams": "Teams",
     "people": "Mensen",
     "agents": "Agents",
@@ -5968,6 +5999,7 @@
       "use": "Gebruiken",
       "manage": "Beheren"
     },
+    "inheritHint": "Teams dekken hun leden. Een persoon of agent zonder eigen toekenning volgt nog steeds Alle mensen of Alle agents.",
     "reset": "Terug naar standaard",
     "loadError": "Mensen en agents konden niet worden geladen.",
     "saveError": "Toegang kon niet worden bijgewerkt."
@@ -6027,38 +6059,40 @@
     "daysAgo": "{{count}}d geleden"
   },
   "tagRegistry": {
-    "title": "Hashtags",
-    "description": "Vrije hashtags groeperen gesprekken; zet er een vast om hem een rij in Communicatie te geven. Een hashtag met een flow is een actietag, gemarkeerd met een accent-#. Agents en inboxregels gebruiken alleen hashtags uit deze lijst.",
-    "newTag": "Nieuwe hashtag",
-    "namePlaceholder": "hashtag",
+    "title": "Tags",
+    "description": "Vrije tags groeperen gesprekken; zet er een vast om hem een rij in Communicatie te geven. Een tag met een flow is een actietag, gemarkeerd met een accent-#. Agents en inboxregels gebruiken alleen tags uit deze lijst.",
+    "newTag": "Nieuwe tag",
+    "newActionTag": "Nieuwe actietag",
+    "namePlaceholder": "tag",
     "descriptionPlaceholder": "Wanneer je hem gebruikt (agents lezen dit)",
-    "empty": "Nog geen hashtags. Tag een gesprek of voeg er hier een toe.",
+    "empty": "Nog geen tags. Tag een gesprek of voeg er hier een toe.",
     "count_one": "{{count}} gesprek",
     "count_other": "{{count}} gesprekken",
-    "edit": "Hashtag bewerken",
-    "delete": "Hashtag verwijderen",
-    "deleteConfirm": "#{{name}} verwijderen? De hashtag verdwijnt van {{count}} gesprekken.",
+    "edit": "Tag bewerken",
+    "delete": "Tag verwijderen",
+    "deleteConfirm": "#{{name}} verwijderen? De tag verdwijnt van {{count}} gesprekken.",
     "save": "Opslaan",
     "cancel": "Annuleren",
-    "loadFailed": "De hashtags konden niet worden geladen.",
-    "saveFailed": "De hashtag kon niet worden opgeslagen.",
+    "loadFailed": "De tags konden niet worden geladen.",
+    "saveFailed": "De tag kon niet worden opgeslagen.",
     "pin": "Vastzetten in Communicatie",
     "unpin": "Losmaken uit Communicatie",
     "showInNav": "In Communicatie",
-    "promote": "Maak actietag",
-    "promoteTitle": "Maak een actietag van",
-    "promoteHint": "Een actietag is een hashtag met een flow. Gesprekken met deze hashtag worden tickets die door de fasen van de flow gaan.",
+    "promote": "Flow aanmaken",
+    "openFlow": "Flow openen",
+    "promoteTitle": "Flow aanmaken voor",
+    "promoteHint": "Een actietag is een tag met een flow. Gesprekken met deze tag worden tickets die door de fasen van de flow gaan.",
     "playbook": "Flow",
     "newPlaybook": "Nieuwe flow #{{name}}",
     "promoteAfter": "Stel daarna de regels en projecten in.",
     "promoted": "#{{name}} is nu een actietag.",
-    "promoteFailed": "Kon van deze hashtag geen actietag maken."
+    "promoteFailed": "Kon geen flow aanmaken voor deze tag."
   },
   "tickets": {
     "title": "Ticket",
     "file": "Vastleggen",
     "change": "Wijzigen",
-    "setUp": "Nog geen actietags. Maak er een bij Hashtags of Instellingen.",
+    "setUp": "Nog geen actietags. Maak er een bij Tags of Instellingen.",
     "looksLike": "Lijkt op",
     "confirm": "Bevestigen",
     "confirmOn": "Bevestigen op",
@@ -6103,14 +6137,14 @@
   },
   "communicationTags": {
     "title": "Communicatie-menu",
-    "description": "Elke rij in het Communicatie-menu heeft dezelfde submappen: Voor jou, Open, Niet toegewezen en Gesloten. Hashtags vastzetten en actietags tonen doe je onder Instellingen, Actietags.",
+    "description": "Elke rij in het Communicatie-menu heeft dezelfde submappen: Voor jou, Open, Niet toegewezen en Gesloten. Tags vastzetten en actietags tonen doe je onder Instellingen, Actietags.",
     "defaultTitle": "Standaard submap",
     "defaultDescription": "De weergave die een rij opent als je erop klikt. Stel hieronder per rij een andere in.",
     "useGlobal": "Standaard ({{queue}})",
     "saveFailed": "Kon de Communicatie-instellingen niet opslaan."
   },
   "categoriesPage": {
-    "intro": "Een actietag is een hashtag die een flow start. Elk inkomend bericht wordt tegen deze lijst gelezen: een zekere match legt een ticket vast, een onzekere match vraagt om een bevestiging op het gesprek, en alles wat nieuw is landt in de backlog hieronder.",
+    "intro": "Een actietag is een tag die een flow start. Elk inkomend bericht wordt tegen deze lijst gelezen: een zekere match legt een ticket vast, een onzekere match vraagt om een bevestiging op het gesprek, en alles wat nieuw is landt in de backlog hieronder.",
     "loading": "Laden...",
     "loadError": "Kon de actietags niet laden.",
     "saveError": "Kon de actietag niet bijwerken.",
@@ -6129,9 +6163,9 @@
     "catalogTitle": "Actietags",
     "catalogDescription": "Wat het is, welke flow het uitvoert en op welke projecten het kan worden vastgelegd.",
     "newCategory": "Nieuwe actietag",
-    "newCategoryHint": "Kies een hashtag en de flow die hem uitvoert. Een nieuwe flow begint met Open, Wachtend en Klaar.",
+    "newCategoryHint": "Kies een tag en de flow die hem uitvoert. Een nieuwe flow begint met Open, Wachtend en Klaar.",
     "emptyTitle": "Nog geen actietags",
-    "emptyBody": "Promoveer een hashtag, of maak een actietag voor elk soort werk dat in gesprekken binnenkomt, zoals een klacht of een terugbetalingsverzoek.",
+    "emptyBody": "Maak een flow op een tag, of maak een actietag voor elk soort werk dat in gesprekken binnenkomt, zoals een klacht of een terugbetalingsverzoek.",
     "noDescription": "Nog geen omschrijving",
     "needsVerify": "bevestiging nodig",
     "showInNav": "Tonen in Communicatie",
@@ -6139,7 +6173,7 @@
     "noProjects": "geen project",
     "openCount": "{{open}} open, {{waiting}} wachtend",
     "whatItIs": "Wat het is",
-    "nameLabel": "Hashtag",
+    "nameLabel": "Tag",
     "namePlaceholder": "terugbetaling",
     "descriptionPlaceholder": "Wanneer dit geldt, en wanneer niet. Agents lezen dit om te classificeren.",
     "openPlaybook": "Open flow",
@@ -6153,8 +6187,8 @@
       "manual_only": "Alleen handmatig"
     },
     "projectRule": "Vastleggen vraagt altijd om een project als de flow op een of meer projecten staat, inclusief Geen project. Agents kiezen ook, of laten het ticket voorgesteld.",
-    "detach": "Maak vrije hashtag",
-    "detachHint": "Haalt de flow weg. De hashtag wordt weer een vrije hashtag, en gesprekken die erop zijn vastgelegd zijn geen tickets meer.",
+    "detach": "Maak vrije tag",
+    "detachHint": "Haalt de flow weg. De tag wordt weer een vrije tag, en gesprekken die erop zijn vastgelegd zijn geen tickets meer.",
     "moduleNoDetach": "Geïnstalleerd door een module. Verwijder de module om dit weg te halen.",
     "save": "Opslaan",
     "saving": "Opslaan...",

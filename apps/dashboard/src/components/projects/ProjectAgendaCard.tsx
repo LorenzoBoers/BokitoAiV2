@@ -23,7 +23,7 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
     listTimeItems({
       from: new Date(nowMs - 30 * 86_400_000).toISOString(),
       to: new Date(nowMs + 14 * 86_400_000).toISOString(),
-      sources: ['checkup', 'follow_up', 'session'],
+      sources: ['checkup', 'task', 'session'],
       projectId,
     })
       .then((res) => {

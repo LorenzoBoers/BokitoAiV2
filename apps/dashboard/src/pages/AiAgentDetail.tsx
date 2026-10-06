@@ -85,7 +85,7 @@ export default function AiAgentDetail() {
           from: new Date(Date.now() - 60_000).toISOString(),
           to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
           agentId,
-          sources: ['wake', 'checkup', 'follow_up'],
+          sources: ['wake', 'checkup', 'task'],
         })
           .then((window) => window.items)
           .catch(() => [] as TimeItem[]),

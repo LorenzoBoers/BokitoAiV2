@@ -25,12 +25,12 @@ Govern has two sections: **Ledger** records workspace changes and audit events, 
 ![Govern policy](/api/docs/assets/govern/posture.png)
 *Pick Manual, Assisted or Autonomous, then fine-tune categories.*
 
-1. Under **Autonomy**, open **Policy**. The card is **How much agents can do**.
-2. Pick **Manual**, **Assisted** or **Autonomous**. See [Autonomy](/docs/govern/autonomy).
+1. Under **Autonomy**, open **Policy**. The card is **Workspace ceiling for agents**.
+2. Pick **Manual**, **Assisted** or **Autonomous**. See [Autonomy](/docs/govern/autonomy). This ceiling bounds what agents may do; day-to-day customer replies live under [AI handling](/docs/inbox/inbox-ai).
 3. Under **Allowance sliders**, set each category to **Deny**, **Ask first** or **Allow**. Override one tool when the category is too broad.
-4. Categories include Messaging, Workspace, Agents, Channels, Triggers, Integrations, Govern and Handoff. External visitor sessions never auto-mutate.
+4. Categories include Messaging, Workspace, Agents, Channels, Triggers, Integrations, Govern and Handoff. External visitor sessions never auto-mutate. Messaging **Ask first** or **Deny** also caps AI handling on conversations.
 5. When learning sees many escalated tool gates or rejected tool decisions on a category that was **Allow**, Bokito can tighten that slider to **Ask first** automatically. A short note appears under the sliders. Loosening a slider stays a manual edit here.
-6. Under **Category and playbook autonomy**, set each active category and playbook to **Manual**, **Assisted**, or **Autonomous**.
+6. Under **Autonomy per action tag and flow**, set each active action tag and flow to **Manual**, **Assisted**, or **Autonomous**.
 
 Per-agent overrides live on the agent page under Tools and permissions.
 
@@ -43,18 +43,7 @@ Per-agent overrides live on the agent page under Tools and permissions.
 
 Sending to customers always asks. See [Agents](/docs/ai/agents) for rules on one agent.
 
-## Guard autonomous conversations
-
-![Govern Conversations card](/api/docs/assets/govern/conversations.png)
-*The ceiling for AI handling, what runs autonomously, and the circuit breaker.*
-
-1. Under **Autonomy**, open **Policy** and find **Conversations**. The **Ceiling** follows the Messaging allowance: **Ask first** caps every conversation at Assisted, **Deny** at Manual.
-2. Choose **Pause autonomous replies** to cap everything at Assisted in one step. **Allow autonomous replies** lifts the cap again.
-3. **Running autonomously** lists the workspace default, channels, contacts and conversations that answer on their own.
-4. Under **Categories that always need review**, set a category to **Always review**. Replies on a ticket with that category become a draft, even when the conversation is autonomous.
-5. Under **Circuit breaker**, set **Autonomous replies per hour per channel** and **Negative signals per hour per channel**, then **Save breaker limits**. A tripped channel runs Assisted until someone resumes it from the channel or from this card.
-
-Day-to-day AI handling (workspace default, exceptions, safeguards) lives under [AI handling](/docs/inbox/inbox-ai).
+Pause autonomous replies, the circuit breaker, and action tags that always need review live under [AI handling](/docs/inbox/inbox-ai), not on this page.
 
 ## Undo and audit
 

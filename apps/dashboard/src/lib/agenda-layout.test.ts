@@ -29,13 +29,13 @@ function item(partial: Partial<TimeItem>): TimeItem {
 }
 
 describe('layerOf', () => {
-  it('sorts every kind onto one layer', () => {
+  it('sorts every kind onto tasks, activity or calendar', () => {
     expect(layerOf(item({ kind: 'calendar' }))).toBe('calendar')
-    expect(layerOf(item({ kind: 'follow_up' }))).toBe('reminders')
-    expect(layerOf(item({ kind: 'wake', trigger_kind: 'event' }))).toBe('reminders')
-    expect(layerOf(item({ kind: 'checkup' }))).toBe('checkups')
-    expect(layerOf(item({ kind: 'wake', trigger_kind: 'heartbeat' }))).toBe('routines')
-    expect(layerOf(item({ kind: 'wake', trigger_kind: 'once' }))).toBe('agents')
+    expect(layerOf(item({ kind: 'task' }))).toBe('tasks')
+    expect(layerOf(item({ kind: 'wake', trigger_kind: 'event' }))).toBe('tasks')
+    expect(layerOf(item({ kind: 'checkup' }))).toBe('tasks')
+    expect(layerOf(item({ kind: 'wake', trigger_kind: 'heartbeat' }))).toBe('tasks')
+    expect(layerOf(item({ kind: 'wake', trigger_kind: 'once' }))).toBe('tasks')
     expect(layerOf(item({ kind: 'session', run_type: 'email' }))).toBe('activity')
     expect(layerOf(item({ kind: 'activity' }))).toBe('activity')
   })
@@ -44,8 +44,8 @@ describe('layerOf', () => {
 describe('layers param', () => {
   it('omits the param when every layer is on', () => {
     expect(layersParam(parseLayers(null))).toBeNull()
-    expect(layersParam(parseLayers('calendar,checkups'))).toBe('calendar,checkups')
-    expect([...parseLayers('calendar,nope')]).toEqual(['calendar'])
+    expect(layersParam(parseLayers('tasks'))).toBe('tasks')
+    expect([...parseLayers('calendar,checkups')].sort()).toEqual(['tasks'])
   })
 })
 
@@ -118,11 +118,11 @@ describe('viewRange', () => {
 })
 
 describe('attentionOf', () => {
-  it('lists each overdue check-up once', () => {
+  it('lists each overdue task once', () => {
     const now = new Date(2026, 9, 6, 12).getTime()
     const due = { kind: 'checkup' as const, status: 'due', series_id: 's1' }
     const result = attentionOf([item(due), item(due), item({ kind: 'checkup', status: 'planned' })], now)
-    expect(result.checkups).toHaveLength(1)
+    expect(result.tasks).toHaveLength(1)
   })
 })
 

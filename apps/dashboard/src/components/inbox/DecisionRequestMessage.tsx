@@ -48,8 +48,8 @@ import {
   type ReplySendAs,
   type ThreadId,
 } from '../../lib/inbox-api'
+import { bulkUpdateSignalThreads } from '../../lib/signals-api'
 import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib/reply-send-as'
-import { snoozeUntilIso, SNOOZE_PRESETS } from '../../lib/snooze'
 import { useAuth } from '../../context/AuthContext'
 import { listAgents } from '../../lib/agents-api'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
@@ -623,11 +623,9 @@ export default function DecisionRequestMessage({
             ? t('decisionCard.toastDeferredSnoozed')
             : t('decisionCard.toastRejected'))
       if (action === 'defer') {
-        const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
-        await patchThread(token, threadId, {
-          status: 'pending',
-          snoozedUntil: tomorrow ? snoozeUntilIso(tomorrow) : null,
-        })
+        // Park-until-date retired: keep the thread in Open and mark unread.
+        await patchThread(token, threadId, { status: 'open', snoozedUntil: null })
+        await bulkUpdateSignalThreads(token, [String(threadId)], 'unread')
       }
       toast.success(toastLabel, {
         action: result.taskId

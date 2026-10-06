@@ -2,16 +2,21 @@ import type { TFunction } from 'i18next'
 import { humanizeLabel } from './labels'
 
 const MODEL_ALIASES: Array<[RegExp, string]> = [
-  [/^bokito-ai-3[.-]1/i, 'Bokito AI 3.1'],
+  [/^bokito-maki/i, 'Maki'],
+  [/^bokito-kong/i, 'Kong'],
+  [/^bokito-ai-3[.-]1/i, 'Bokito AI'],
   [/^bokito-ai/i, 'Bokito AI'],
+  [/^ministral/i, 'Maki'],
   [/^mistral-medium/i, 'Mistral Medium'],
   [/^mistral-large/i, 'Mistral Large'],
   [/^mistral-small/i, 'Mistral Small'],
   [/^mistral-embed/i, 'Mistral Embed'],
   [/^mistral/i, 'Mistral'],
+  [/^claude-sonnet-5/i, 'Claude Sonnet 5'],
   [/^claude-sonnet-4/i, 'Claude Sonnet 4'],
   [/^claude-sonnet-3[.-]?5/i, 'Claude Sonnet 3.5'],
   [/^claude-sonnet/i, 'Claude Sonnet'],
+  [/^claude-opus-5/i, 'Claude Opus 5'],
   [/^claude-opus-4/i, 'Claude Opus 4'],
   [/^claude-opus/i, 'Claude Opus'],
   [/^claude-haiku/i, 'Claude Haiku'],

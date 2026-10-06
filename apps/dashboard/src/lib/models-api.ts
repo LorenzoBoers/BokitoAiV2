@@ -107,24 +107,34 @@ export type LlmKeyStatus = {
   updated_at: string | null
 }
 
-/** Bokito AI: abstract platform-managed default (no third-party backing names). */
+/** Managed Bokito tier: abstract platform model (no third-party backing names). */
 export type ManagedAiModel = {
   slug: string
   display_name: string
   provider: string
   key_source: 'tenant' | 'platform' | 'mock'
   ready: boolean
-  /** Soft region hint for the managed default (usually eu). */
+  /** Soft region hint for the managed tier. */
   region: DataRegion
   intended_region: DataRegion
-  /** True while the managed default runs on a temporary backup path. */
+  /** True while the tier runs on a temporary backup path. */
   fallback_active: boolean
+  /** lighter | standard | heavier — operator hint only. */
+  tier?: 'lighter' | 'standard' | 'heavier' | string
+  is_default_chat?: boolean
+  kind?: string
+  enabled?: boolean
+  input_cost_per_mtok_cents?: number
+  output_cost_per_mtok_cents?: number
 }
 
 export type ManagedAiStatus = {
   name: string
   status: 'active' | 'standby' | 'unconfigured'
   chat: ManagedAiModel
+  /** All managed chat tiers (Maki, Bokito AI, Kong). */
+  models?: ManagedAiModel[]
+  default_chat?: string
   embedding: ManagedAiModel
 }
 
@@ -162,6 +172,7 @@ export type SelectableChatModel = {
   provider?: string
   provider_type?: string
   region?: DataRegion
+  tier?: string
   kind: string
   enabled: boolean
   model_id?: string
@@ -207,6 +218,22 @@ export function selectableChatModels(payload: TenantModelsPayload): SelectableCh
   if (payload.source === 'tenant') {
     return (payload.models as TenantModelRow[]).filter((m) => m.kind === 'chat' && m.enabled)
   }
+  const tiers = payload.managed?.models
+  if (Array.isArray(tiers) && tiers.length > 0) {
+    return tiers.map((m) => ({
+      slug: m.slug,
+      display_name: m.display_name,
+      provider: m.provider,
+      region: m.region,
+      tier: m.tier,
+      kind: 'chat',
+      enabled: true,
+      model_id: '',
+      is_default_chat: Boolean(m.is_default_chat),
+      input_cost_per_mtok_cents: m.input_cost_per_mtok_cents,
+      output_cost_per_mtok_cents: m.output_cost_per_mtok_cents,
+    }))
+  }
   const managed = payload.managed?.chat
   if (managed?.slug) {
     return [
@@ -214,6 +241,8 @@ export function selectableChatModels(payload: TenantModelsPayload): SelectableCh
         slug: managed.slug,
         display_name: managed.display_name,
         provider: managed.provider,
+        region: managed.region,
+        tier: managed.tier,
         kind: 'chat',
         enabled: true,
         model_id: '',

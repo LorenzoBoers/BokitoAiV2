@@ -11,13 +11,18 @@ plus calendar and check-up extras.
 ``kind`` is one of:
 
 - ``session``: an ``AgentRun`` (past or running work).
-- ``wake``: a planned trigger moment, or a fired one-shot without a run.
-- ``checkup``: a planned stage check-up of a ticket (``Trigger.purpose``).
+- ``wake``: a planned trigger moment, or a fired one-shot without a run
+  (shown on Agenda under the Tasks layer).
+- ``checkup``: a stage follow-up trigger (``Trigger.purpose=stage_checkup``);
+  Agenda folds it into Tasks — same concept as a recurring task.
+- ``task``: an ``AgentTask`` with ``scheduled_for`` (human or agent).
 - ``calendar``: an external calendar event (merged across connections).
-- ``follow_up``: a conversation look-at (``Signal.follow_up_at``).
 - ``activity``: something that happened (ticket filed or moved, owner
   changed, conversation closed, decision asked or answered). Only returned
   when asked for, so planning views stay calm.
+
+Look-ats (``Signal.follow_up_at``) are retired: create a human ``AgentTask``
+instead. The Agenda UI no longer has separate reminder/checkup/routine layers.
 """
 
 from __future__ import annotations
@@ -33,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent, AgentRun
 from app.models.trigger import Trigger
 
-TIME_KINDS = frozenset({"session", "wake", "checkup", "calendar", "follow_up", "activity"})
+TIME_KINDS = frozenset({"session", "wake", "checkup", "task", "calendar", "activity"})
 DEFAULT_KINDS = TIME_KINDS - {"activity"}
 
 MAX_SESSIONS = 400
@@ -301,13 +306,13 @@ DUE_WINDOW_DAYS = 30
 
 
 async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> int:
-    """Agenda items waiting on this person now: overdue look-ats and due
-    check-ups on open conversations assigned to them (last 30 days, like the
-    Agenda attention strip)."""
+    """Agenda items waiting on this person now: due human tasks and due
+    stage follow-ups on open conversations assigned to them (last 30 days)."""
     from datetime import timedelta
 
     from sqlalchemy import func
 
+    from app.models.orchestration import AgentTask
     from app.models.signal import Signal
 
     now = datetime.utcnow()
@@ -317,13 +322,17 @@ async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) ->
         Signal.assigned_user_id == user_id,
         Signal.status == "open",
     )
-    lookats = (
+    tasks = (
         await session.execute(
-            select(func.count()).select_from(Signal).where(
-                *mine,
-                Signal.follow_up_at.is_not(None),
-                Signal.follow_up_at <= now,
-                Signal.follow_up_at >= now - timedelta(days=DUE_WINDOW_DAYS),
+            select(func.count()).select_from(AgentTask).where(
+                AgentTask.tenant_id == tenant_id,
+                AgentTask.assignee_kind == "human",
+                AgentTask.assignee_user_id == user_id,
+                AgentTask.deleted_at.is_(None),
+                AgentTask.status.in_(("queued", "awaiting_human")),
+                AgentTask.scheduled_for.is_not(None),
+                AgentTask.scheduled_for <= now,
+                AgentTask.scheduled_for >= now - timedelta(days=DUE_WINDOW_DAYS),
             )
         )
     ).scalar_one()
@@ -343,7 +352,7 @@ async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) ->
             )
         )
     ).scalar_one()
-    return int(lookats or 0) + int(checkups or 0)
+    return int(tasks or 0) + int(checkups or 0)
 
 
 async def list_time_items(
@@ -356,6 +365,7 @@ async def list_time_items(
     sources: Iterable[str] | None = None,
     scheduled_only: bool = False,
     project_id: UUID | None = None,
+    connection_ids: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Every time item in [start, end], sorted by start.
 
@@ -363,11 +373,17 @@ async def list_time_items(
     ``scheduled_only`` keeps only sessions fired by a trigger (planning view);
     on-demand work such as email replies stays on the activity timeline.
     ``project_id`` keeps items tied to that project's conversations or runs.
+    ``connection_ids`` limits calendar events to those connections (None = all).
     """
     from app.models.signal import Signal
     from app.services.triggers import _planned_occurrences
 
-    wanted = TIME_KINDS & set(sources) if sources else set(DEFAULT_KINDS)
+    # Legacy clients may still ask for follow_up; map to task.
+    raw_sources = set(sources) if sources else None
+    if raw_sources and "follow_up" in raw_sources:
+        raw_sources = (raw_sources - {"follow_up"}) | {"task"}
+    wanted = TIME_KINDS & raw_sources if raw_sources else set(DEFAULT_KINDS)
+    calendar_filter = {str(x) for x in connection_ids} if connection_ids is not None else None
     now = datetime.utcnow()
 
     agents = (await session.execute(select(Agent).where(Agent.tenant_id == tenant_id))).scalars().all()
@@ -534,6 +550,9 @@ async def list_time_items(
             await calendar_events_in_window(session, tenant_id, start=start, end=end)
         )
         for event in events:
+            conn_id = str(event.get("connection_id") or "")
+            if calendar_filter is not None and conn_id not in calendar_filter:
+                continue
             row = _row(
                 id=event["id"],
                 kind="calendar",
@@ -561,38 +580,48 @@ async def list_time_items(
                 row[key] = event.get(key)
             items.append(row)
 
-    if "follow_up" in wanted:
-        follow_stmt = select(Signal).where(
-            Signal.tenant_id == tenant_id,
-            Signal.follow_up_at.is_not(None),
-            Signal.follow_up_at >= start,
-            Signal.follow_up_at <= end,
-            Signal.status.notin_(("spam", "archived")),
+    if "task" in wanted:
+        from app.models.orchestration import AgentTask
+
+        task_stmt = select(AgentTask).where(
+            AgentTask.tenant_id == tenant_id,
+            AgentTask.deleted_at.is_(None),
+            AgentTask.scheduled_for.is_not(None),
+            AgentTask.scheduled_for >= start,
+            AgentTask.scheduled_for <= end,
+            AgentTask.status.notin_(("completed", "cancelled", "rejected", "failed")),
         )
         if agent_id:
-            follow_stmt = follow_stmt.where(Signal.agent_id == agent_id)
+            task_stmt = task_stmt.where(AgentTask.assignee_agent_id == agent_id)
         if project_id:
-            follow_stmt = follow_stmt.where(Signal.project_id == project_id)
-        for signal in (await session.execute(follow_stmt)).scalars().all():
-            at = signal.follow_up_at
+            task_stmt = task_stmt.where(AgentTask.project_id == project_id)
+        for task in (await session.execute(task_stmt)).scalars().all():
+            at = task.scheduled_for
             assert at is not None
-            title = (signal.follow_up_title or "").strip() or signal.subject or "Follow up"
-            owner_agent = signal.agent_id if agent_id else None
+            is_human = task.assignee_kind == "human"
+            if is_human:
+                uid = task.assignee_user_id
+                owner = ("user", str(uid) if uid else None, names.users.get(uid) if uid else None)
+            else:
+                aid = task.assignee_agent_id
+                owner = ("agent", str(aid) if aid else None, names.agents.get(aid) if aid else None)
             items.append(
                 _row(
-                    id=f"follow_up:{signal.id}",
-                    kind="follow_up",
+                    id=f"task:{task.id}",
+                    kind="task",
                     start=at,
-                    title=title,
+                    title=task.title,
                     status="due" if at <= now else "planned",
-                    agent_id=owner_agent,
-                    agent_name=agent_names.get(owner_agent) if owner_agent else None,
-                    actor_kind="person",
-                    actor_name=signal.contact_name or signal.contact_email or "You",
-                    owner=names.owner(signal),
-                    project_id=signal.project_id,
-                    signal_id=str(signal.id),
-                    source="follow_up",
+                    agent_id=task.assignee_agent_id if not is_human else None,
+                    agent_name=owner[2] if not is_human else None,
+                    actor_kind="person" if is_human else "agent",
+                    actor_name=owner[2],
+                    owner=owner,
+                    project_id=task.project_id,
+                    signal_id=str(task.signal_id) if task.signal_id else None,
+                    instructions=task.description or "",
+                    source="task",
+                    run_type=task.kind,
                 )
             )
 

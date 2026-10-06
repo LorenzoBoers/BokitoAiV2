@@ -405,7 +405,7 @@ export default function WorkstreamDetail() {
               </span>
               {workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
                 <Link
-                  to="/agenda?view=list&layers=checkups"
+                  to="/agenda?view=list&layers=tasks"
                   className="inline-flex items-center gap-1 text-text-muted hover:text-text-heading"
                 >
                   <CalendarClock size={12} aria-hidden />

@@ -130,7 +130,7 @@ async def create_action_suggestion(
 
     Automated / no-reply senders (system notifications, newsletters, bounces)
     must never get a drafted reply. Instead the operator gets a compact card:
-    close the thread, set a next look-at, or keep it open.
+    close the thread, plan a task, or keep it open.
     """
     text = (summary or "").strip() or "Automated notification; no reply needed."
     subject = signal.subject or "Automated message"
@@ -144,8 +144,8 @@ async def create_action_suggestion(
         },
         {
             "id": "look_at",
-            "label": "What next",
-            "action_type": "look_at",
+            "label": "Plan task",
+            "action_type": "create_task",
             "payload": {"title": f"Follow up: {subject}"[:120], "description": text},
         },
         {

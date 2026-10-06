@@ -65,20 +65,22 @@ async def agenda(
     sources: str | None = Query(
         None,
         description=(
-            "Comma list of session, wake, checkup, calendar, follow_up, activity "
-            "(default all but activity)"
+            "Comma list of session, wake, checkup, task, calendar, activity "
+            "(default all but activity). Legacy follow_up maps to task."
         ),
     ),
     scheduled_only: bool = Query(
         False, description="Only sessions fired by a trigger (planning view)"
     ),
     project_id: UUID | None = Query(None, description="Only items tied to this project"),
+    connection_ids: str | None = Query(
+        None,
+        description="Comma list of calendar connection ids (default: all connected)",
+    ),
 ):
-    """Time items in a window, in one shape: agent sessions, planned wakes,
-    stage check-ups, calendar events (merged across connections), conversation
-    look-ats and, on request, activity (tickets filed or moved, owners changed,
-    conversations closed, decisions asked or answered). Agenda, the agent
-    activity timeline, agent detail and the project page all read this endpoint."""
+    """Time items in a window: agent sessions, planned wakes/stage follow-ups
+    (Agenda Tasks layer), scheduled AgentTasks, calendar events per connection,
+    and on request activity. Agenda and related surfaces all read this."""
     now = datetime.utcnow()
     start = _naive_utc(from_) or now - timedelta(days=1)
     end = _naive_utc(to) or now + timedelta(days=14)
@@ -89,6 +91,9 @@ async def agenda(
     from app.services.time_items import list_time_items
 
     wanted = [s.strip() for s in sources.split(",") if s.strip()] if sources else None
+    cal_ids = (
+        [s.strip() for s in connection_ids.split(",") if s.strip()] if connection_ids is not None else None
+    )
     items = await list_time_items(
         session,
         auth.tenant.id,
@@ -98,6 +103,7 @@ async def agenda(
         sources=wanted,
         scheduled_only=scheduled_only,
         project_id=project_id,
+        connection_ids=cal_ids,
     )
     return {
         "items": items,

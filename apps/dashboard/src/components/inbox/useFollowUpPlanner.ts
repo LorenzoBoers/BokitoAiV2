@@ -3,20 +3,21 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { dayKey } from '../../lib/agenda-layout'
-import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
+import type { InboxThread } from '../../lib/inbox-api'
+import { createConversationTask } from '../../lib/orchestration-tasks-api'
 import { scheduledForIso, type FollowUpWhen } from './WhatsNextDialog'
 
 type Args = {
   thread: InboxThread | null | undefined
-  onPatch: (input: PatchThreadInput) => Promise<void>
+  onPatch?: (input: Record<string, unknown>) => Promise<void>
   onRefresh?: () => void
 }
 
 /**
- * State for the "look again" planner (WhatsNextDialog) of one conversation.
- * Lives in the page so the right panel and the header can both open it.
+ * State for the task planner (WhatsNextDialog) of one conversation.
+ * Creates a human AgentTask on the thread — look-ats are retired.
  */
-export function useFollowUpPlanner({ thread, onPatch, onRefresh }: Args) {
+export function useFollowUpPlanner({ thread, onRefresh }: Args) {
   const { t } = useTranslation('communication')
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -37,7 +38,11 @@ export function useFollowUpPlanner({ thread, onPatch, onRefresh }: Args) {
       setSaving(true)
       try {
         const at = scheduledForIso(input.when)
-        await onPatch({ followUpAt: at, followUpTitle: input.title })
+        await createConversationTask({
+          title: input.title,
+          signalId: String(thread.id),
+          scheduledFor: at,
+        })
         setOpen(false)
         toast.success(t('threadChrome.taskCreated', { title: input.title }), {
           description: t('threadChrome.taskCreatedHint'),
@@ -53,7 +58,7 @@ export function useFollowUpPlanner({ thread, onPatch, onRefresh }: Args) {
         setSaving(false)
       }
     },
-    [thread, saving, onPatch, t, navigate, onRefresh],
+    [thread, saving, t, navigate, onRefresh],
   )
 
   return { open, setOpen, title, saving, openPlanner, save }

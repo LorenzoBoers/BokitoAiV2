@@ -8,6 +8,8 @@ import {
   Languages,
   Mail,
   MessageSquareText,
+  Pause,
+  Play,
   ShieldAlert,
   ShieldCheck,
   UserRound,
@@ -53,13 +55,18 @@ import {
 import type { AiHandlingMode, AiHandlingScope } from '../lib/ai-handling'
 import {
   getAiHandlingOverview,
+  resetAiBreaker,
   saveAiHandlingSettings,
   setAiHandling,
+  type AiHandlingBreaker,
   type AiHandlingDisclosure,
   type AiHandlingException,
   type AiHandlingOverview,
   type AiHandlingSafeguards,
 } from '../lib/ai-handling-api'
+import { getAllowances, updateAllowances, type AllowanceMode } from '../lib/govern-api'
+import { listCategories, patchCategory, type CategoryRow } from '../lib/tickets-api'
+import { Hashtag } from '../components/ui/HashtagMark'
 import { resetTenantDefaultSendAs } from '../lib/reply-send-as'
 import { WEBSITE_WIDGET_CUSTOMIZE_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
@@ -67,7 +74,7 @@ import { cn } from '../lib/utils'
 
 const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
 const WORKSPACE_LANGUAGES: WorkspaceLanguage[] = ['nl', 'en', 'de', 'fr', 'es']
-const GOVERN_CONVERSATIONS_PATH = '/settings/govern?tab=policy'
+const GOVERN_POLICY_PATH = '/settings/govern?tab=policy'
 
 function LanguageSelect({
   id,
@@ -152,7 +159,12 @@ export default function AiCommunicationSettings() {
   const [handlingSaving, setHandlingSaving] = useState(false)
 
   const [safeguards, setSafeguards] = useState<AiHandlingSafeguards | null>(null)
+  const [breaker, setBreaker] = useState<AiHandlingBreaker | null>(null)
   const [disclosure, setDisclosure] = useState<AiHandlingDisclosure | null>(null)
+  const [messagingMode, setMessagingMode] = useState<AllowanceMode | null>(null)
+  const [messagingBusy, setMessagingBusy] = useState(false)
+  const [categories, setCategories] = useState<CategoryRow[]>([])
+  const [busyTypeId, setBusyTypeId] = useState<string | null>(null)
 
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null)
   const [savedAiSettings, setSavedAiSettings] = useState<AiSettings | null>(null)
@@ -167,6 +179,7 @@ export default function AiCommunicationSettings() {
   const applyOverview = useCallback((next: AiHandlingOverview) => {
     setOverview(next)
     setSafeguards(next.safeguards)
+    setBreaker(next.breaker)
     setDisclosure(next.disclosure)
   }, [])
 
@@ -180,9 +193,28 @@ export default function AiCommunicationSettings() {
     }
   }, [token, t, applyOverview])
 
+  const loadGovernCeiling = useCallback(async () => {
+    try {
+      const allowances = await getAllowances()
+      setMessagingMode(allowances.allowances.messaging ?? 'allow')
+    } catch {
+      setMessagingMode(null)
+    }
+  }, [])
+
+  const loadCategories = useCallback(async () => {
+    try {
+      setCategories(await listCategories())
+    } catch {
+      setCategories([])
+    }
+  }, [])
+
   useEffect(() => {
     void loadOverview()
-  }, [loadOverview])
+    void loadGovernCeiling()
+    void loadCategories()
+  }, [loadOverview, loadGovernCeiling, loadCategories])
 
   useEffect(() => {
     if (!token) return
@@ -257,10 +289,56 @@ export default function AiCommunicationSettings() {
     JSON.stringify(aiSettings) !== JSON.stringify(savedAiSettings)
   const safeguardsDirty =
     overview != null && safeguards != null && JSON.stringify(safeguards) !== JSON.stringify(overview.safeguards)
+  const breakerDirty =
+    overview != null && breaker != null && JSON.stringify(breaker) !== JSON.stringify(overview.breaker)
   const disclosureDirty =
     overview != null && disclosure != null && JSON.stringify(disclosure) !== JSON.stringify(overview.disclosure)
   const mailboxDirty = dirtyMailboxIds.length > 0
-  const isDirty = tenantDirty || safeguardsDirty || disclosureDirty || mailboxDirty
+  const isDirty = tenantDirty || safeguardsDirty || breakerDirty || disclosureDirty || mailboxDirty
+
+  const autonomousPaused = messagingMode === 'ask' || messagingMode === 'deny'
+
+  const toggleAutonomousPause = async () => {
+    if (messagingMode == null || messagingBusy) return
+    setMessagingBusy(true)
+    try {
+      const next: AllowanceMode = autonomousPaused ? 'allow' : 'ask'
+      await updateAllowances({ messaging: next })
+      setMessagingMode(next)
+      await loadOverview()
+      toast.success(
+        autonomousPaused
+          ? t('ai.communication.resumeAutonomousSaved')
+          : t('ai.communication.pauseAutonomousSaved'),
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('ai.communication.saveError'))
+    } finally {
+      setMessagingBusy(false)
+    }
+  }
+
+  const toggleSendMode = async (row: CategoryRow, reviewed: boolean) => {
+    setBusyTypeId(row.id)
+    try {
+      const updated = await patchCategory(row.id, { send_mode: reviewed ? 'draft' : 'send' })
+      setCategories((current) => current.map((item) => (item.id === row.id ? { ...item, send_mode: updated.send_mode } : item)))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : tc('aiHandling.saveError'))
+    } finally {
+      setBusyTypeId(null)
+    }
+  }
+
+  const resumeBreaker = async (accountId: string) => {
+    if (!token) return
+    try {
+      await resetAiBreaker(token, accountId)
+      await loadOverview()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : tc('aiHandling.saveError'))
+    }
+  }
 
   const changeWorkspaceMode = async (mode: AiHandlingMode | null) => {
     if (!token || !mode) return
@@ -293,10 +371,11 @@ export default function AiCommunicationSettings() {
   const handleSave = useCallback(async () => {
     if (!token) return
     try {
-      if (safeguardsDirty || disclosureDirty) {
+      if (safeguardsDirty || breakerDirty || disclosureDirty) {
         applyOverview(
           await saveAiHandlingSettings(token, {
             ...(safeguardsDirty && safeguards ? { safeguards } : {}),
+            ...(breakerDirty && breaker ? { breaker } : {}),
             ...(disclosureDirty && disclosure ? { disclosure } : {}),
           }),
         )
@@ -323,8 +402,10 @@ export default function AiCommunicationSettings() {
   }, [
     token,
     safeguardsDirty,
+    breakerDirty,
     disclosureDirty,
     safeguards,
+    breaker,
     disclosure,
     tenantDirty,
     aiSettings,
@@ -388,15 +469,46 @@ export default function AiCommunicationSettings() {
                 onChange={changeWorkspaceMode}
                 testId="workspace-ai-handling"
               />
-              <p className="flex items-start gap-1.5 text-xs text-text-muted">
-                <ShieldCheck size={12} className="mt-0.5 shrink-0" />
-                <span>
-                  {t('ai.communication.governNote')}{' '}
-                  <Link to={GOVERN_CONVERSATIONS_PATH} className="font-medium text-accent hover:underline">
-                    {t('ai.communication.crossLinks.govern')}
-                  </Link>
-                </span>
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <AiHandlingIcon mode={overview.ceiling} size={16} className="mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-heading">
+                      {t('ai.communication.ceiling', {
+                        mode: tc(`aiHandling.modes.${overview.ceiling}.label`),
+                      })}
+                    </p>
+                    <p className="mt-0.5 text-xs text-text-muted">
+                      {overview.clampedBy
+                        ? tc(`aiHandling.clamped.${overview.clampedBy}`, {
+                            mode: tc(`aiHandling.modes.${overview.ceiling}.label`),
+                          })
+                        : t('ai.communication.ceilingHint')}
+                    </p>
+                    <p className="mt-1 flex items-start gap-1.5 text-xs text-text-muted">
+                      <ShieldCheck size={12} className="mt-0.5 shrink-0" />
+                      <span>
+                        {t('ai.communication.governNote')}{' '}
+                        <Link to={GOVERN_POLICY_PATH} className="font-medium text-accent hover:underline">
+                          {t('ai.communication.crossLinks.govern')}
+                        </Link>
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={autonomousPaused ? 'secondary' : 'outline'}
+                  disabled={messagingBusy || messagingMode == null}
+                  onClick={() => void toggleAutonomousPause()}
+                  data-testid="ai-handling-pause"
+                >
+                  {autonomousPaused ? <Play size={13} /> : <Pause size={13} />}
+                  {autonomousPaused
+                    ? t('ai.communication.resumeAutonomous')
+                    : t('ai.communication.pauseAutonomous')}
+                </Button>
+              </div>
             </>
           )}
         </Card>
@@ -431,10 +543,17 @@ export default function AiCommunicationSettings() {
                           {row.label || row.contactName || row.address || row.id}
                         </Link>
                         {row.breakerTrippedAt ? (
-                          <Badge variant="warning" className="gap-1 px-1.5 py-0 text-2xs">
-                            <ShieldAlert size={10} />
-                            {tc('aiHandling.breakerBadge')}
-                          </Badge>
+                          <>
+                            <Badge variant="warning" className="gap-1 px-1.5 py-0 text-2xs">
+                              <ShieldAlert size={10} />
+                              {tc('aiHandling.breakerBadge')}
+                            </Badge>
+                            {group.scope === 'channel' ? (
+                              <Button size="sm" variant="outline" onClick={() => void resumeBreaker(row.id)}>
+                                {tc('aiHandling.breakerResume')}
+                              </Button>
+                            ) : null}
+                          </>
                         ) : null}
                         {row.mode ? (
                           <span className="shrink-0 text-xs text-text-secondary">
@@ -555,7 +674,87 @@ export default function AiCommunicationSettings() {
                   </p>
                 </div>
               ) : null}
+
+              <div className="space-y-3 border-t border-border/60 pt-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-medium text-text-heading">{t('ai.communication.breakerTitle')}</h4>
+                    <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.breakerHint')}</p>
+                  </div>
+                  {breaker ? (
+                    <Switch
+                      checked={breaker.enabled}
+                      onCheckedChange={(checked) =>
+                        setBreaker((prev) => (prev ? { ...prev, enabled: checked } : prev))
+                      }
+                      aria-label={t('ai.communication.breakerTitle')}
+                    />
+                  ) : null}
+                </div>
+                {breaker?.enabled ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-1 text-xs text-text-secondary">
+                      <span>{t('ai.communication.maxAutonomous')}</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        value={breaker.maxAutonomousPerHour}
+                        onChange={(e) =>
+                          setBreaker((prev) =>
+                            prev ? { ...prev, maxAutonomousPerHour: Number(e.target.value) || 1 } : prev,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-text-secondary">
+                      <span>{t('ai.communication.maxNegative')}</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={breaker.maxNegativePerHour}
+                        onChange={(e) =>
+                          setBreaker((prev) =>
+                            prev ? { ...prev, maxNegativePerHour: Number(e.target.value) || 1 } : prev,
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
             </div>
+          )}
+        </Card>
+
+        <Card className="space-y-4 p-5" data-testid="ai-handling-reviewed-types">
+          <div>
+            <h3 className="text-sm font-medium text-text-heading">{t('ai.communication.reviewedTypesTitle')}</h3>
+            <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.reviewedTypesHint')}</p>
+          </div>
+          {categories.length === 0 ? (
+            <p className="text-xs text-text-secondary">{t('ai.communication.noTypes')}</p>
+          ) : (
+            <ul className="divide-y divide-border/50 rounded-lg border border-border/60">
+              {categories.map((row) => {
+                const reviewed = row.send_mode !== 'send'
+                return (
+                  <li key={row.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <Hashtag name={row.name} category className="min-w-0 text-sm text-text-primary" />
+                    <span className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
+                      {reviewed ? t('ai.communication.alwaysReview') : t('ai.communication.mayAutoSend')}
+                      <Switch
+                        checked={reviewed}
+                        disabled={busyTypeId === row.id}
+                        onCheckedChange={(checked) => void toggleSendMode(row, checked)}
+                        aria-label={t('ai.communication.alwaysReview')}
+                      />
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
           )}
         </Card>
       </section>
@@ -687,7 +886,7 @@ export default function AiCommunicationSettings() {
           { to: '/settings/channels', label: t('ai.communication.crossLinks.channels') },
           { to: WEBSITE_WIDGET_CUSTOMIZE_PATH, label: t('ai.communication.crossLinks.widget') },
           { to: '/agents', label: t('ai.communication.crossLinks.agents') },
-          { to: GOVERN_CONVERSATIONS_PATH, label: t('ai.communication.crossLinks.govern') },
+          { to: GOVERN_POLICY_PATH, label: t('ai.communication.crossLinks.govern') },
           { to: '/docs/inbox/inbox-ai', label: t('pageGuides.learnMore') },
         ]}
       />

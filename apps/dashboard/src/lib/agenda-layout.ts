@@ -1,9 +1,22 @@
 import { isAgentAutomation, parseTimelineMs, type TimeItem } from './time-items'
 
-/** What the Agenda can show; each layer has its own colour and switch. */
-export type AgendaLayer = 'calendar' | 'reminders' | 'checkups' | 'agents' | 'routines' | 'activity'
+/**
+ * Agenda show layers. Calendar connections are toggled separately
+ * (one checkbox per connected calendar app).
+ */
+export type AgendaLayer = 'tasks' | 'activity'
 
-export const AGENDA_LAYERS: AgendaLayer[] = ['calendar', 'reminders', 'checkups', 'agents', 'routines', 'activity']
+export const AGENDA_LAYERS: AgendaLayer[] = ['tasks', 'activity']
+
+/** Legacy URL layer names map onto the unified Tasks layer. */
+const LEGACY_TASK_LAYERS = new Set([
+  'calendar',
+  'reminders',
+  'checkups',
+  'agents',
+  'routines',
+  'follow_up',
+])
 
 export type AgendaView = 'day' | 'week' | 'month' | 'list'
 
@@ -58,18 +71,14 @@ export function itemOwner(item: TimeItem): AgendaOwner | null {
   return null
 }
 
-export function layerOf(item: TimeItem): AgendaLayer {
+/** Tasks = planned work (triggers, AgentTasks, stage follow-ups). Activity = past. Calendar is separate. */
+export function layerOf(item: TimeItem): AgendaLayer | 'calendar' {
   if (item.kind === 'calendar') return 'calendar'
-  if (item.kind === 'follow_up') return 'reminders'
-  if (item.kind === 'checkup') return 'checkups'
   if (item.kind === 'activity') return 'activity'
-  if (item.kind === 'wake' && item.trigger_kind === 'event') return 'reminders'
   if (item.kind === 'session' && !item.trigger_id && CONVERSATION_RUNS.has((item.run_type ?? '').toLowerCase())) {
-    // An agent answering a conversation is something that happened, not a plan.
     return 'activity'
   }
-  if (isAgentAutomation(item)) return 'routines'
-  return 'agents'
+  return 'tasks'
 }
 
 export function parseView(raw: string | null): AgendaView {
@@ -79,15 +88,33 @@ export function parseView(raw: string | null): AgendaView {
 export function parseLayers(raw: string | null): Set<AgendaLayer> {
   if (!raw) return new Set(AGENDA_LAYERS)
   const out = new Set<AgendaLayer>()
+  let sawLegacyTasks = false
   for (const part of raw.split(',')) {
-    if (AGENDA_LAYERS.includes(part as AgendaLayer)) out.add(part as AgendaLayer)
+    if (part === 'tasks' || part === 'activity') out.add(part)
+    else if (LEGACY_TASK_LAYERS.has(part)) sawLegacyTasks = true
   }
+  if (sawLegacyTasks) out.add('tasks')
+  if (out.size === 0) return new Set(AGENDA_LAYERS)
   return out
 }
 
 export function layersParam(layers: Set<AgendaLayer>): string | null {
   if (AGENDA_LAYERS.every((layer) => layers.has(layer))) return null
   return AGENDA_LAYERS.filter((layer) => layers.has(layer)).join(',')
+}
+
+/** Comma list of calendar connection ids. Null/absent = all available. Empty string = none. */
+export function parseCalendarIds(raw: string | null, available: string[]): Set<string> {
+  if (raw == null) return new Set(available)
+  if (!raw.trim()) return new Set()
+  const wanted = new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))
+  return new Set(available.filter((id) => wanted.has(id)))
+}
+
+export function calendarIdsParam(ids: Set<string>, available: string[]): string | null {
+  if (available.length === 0) return null
+  if (available.every((id) => ids.has(id))) return null
+  return [...available].filter((id) => ids.has(id)).join(',')
 }
 
 export function parseWho(raw: string | null): AgendaWho {
@@ -118,29 +145,40 @@ export function startOfDay(d: Date): Date {
 /** Monday-based start of week. */
 export function startOfWeek(d: Date): Date {
   const out = startOfDay(d)
-  out.setDate(out.getDate() - ((out.getDay() + 6) % 7))
+  const day = out.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  out.setDate(out.getDate() + diff)
   return out
 }
 
-export function addDays(d: Date, days: number): Date {
+export function addDays(d: Date, n: number): Date {
   const out = new Date(d)
-  out.setDate(out.getDate() + days)
+  out.setDate(out.getDate() + n)
   return out
 }
 
 export function dayKey(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export function parseDayKey(raw: string | null): Date | null {
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null
   const [y, m, d] = raw.split('-').map(Number)
   const out = new Date(y, m - 1, d)
-  return Number.isNaN(out.getTime()) ? null : out
+  return Number.isNaN(out.getTime()) ? null : startOfDay(out)
 }
 
-/** The days a view shows around ``anchor``. List keeps three weeks of past above the land day. */
+export function shiftAnchor(view: AgendaView, anchor: Date, delta: number): Date {
+  if (view === 'day' || view === 'list') return addDays(anchor, delta)
+  if (view === 'week') return addDays(anchor, delta * 7)
+  const out = new Date(anchor)
+  out.setMonth(out.getMonth() + delta)
+  return startOfDay(out)
+}
+
 export function viewRange(view: AgendaView, anchor: Date): { from: Date; to: Date; days: Date[] } {
   let from: Date
   let count: number
@@ -162,41 +200,13 @@ export function viewRange(view: AgendaView, anchor: Date): { from: Date; to: Dat
   return { from, to: addDays(from, count), days }
 }
 
-export function shiftAnchor(view: AgendaView, anchor: Date, step: number): Date {
-  if (view === 'day') return addDays(anchor, step)
-  if (view === 'month') return new Date(anchor.getFullYear(), anchor.getMonth() + step, 1)
-  return addDays(anchor, step * 7)
-}
-
-function calendarDateFromIso(iso: string): Date | null {
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return null
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-}
-
 export function itemStart(item: TimeItem): Date {
-  if (item.all_day) {
-    const date = calendarDateFromIso(item.start)
-    if (date) return date
-  }
   return new Date(parseTimelineMs(item.start))
 }
 
-/** Point moments (wakes, look-ats, check-ups, activity) get a short visual block. */
-export const POINT_MINUTES = 30
-
 export function itemEnd(item: TimeItem): Date {
-  const start = itemStart(item)
-  if (item.all_day) {
-    if (item.end) {
-      const date = calendarDateFromIso(item.end)
-      if (date && date.getTime() > start.getTime()) return date
-    }
-    return new Date(start.getTime() + 24 * 3_600_000)
-  }
-  const end = parseTimelineMs(item.end ?? null)
-  if (Number.isFinite(end) && end > start.getTime()) return new Date(end)
-  return new Date(start.getTime() + POINT_MINUTES * 60_000)
+  if (item.end) return new Date(parseTimelineMs(item.end))
+  return new Date(parseTimelineMs(item.start) + 30 * 60_000)
 }
 
 export function isAllDay(item: TimeItem): boolean {
@@ -205,9 +215,9 @@ export function isAllDay(item: TimeItem): boolean {
   return itemEnd(item).getTime() - itemStart(item).getTime() >= 24 * 3_600_000
 }
 
-/** Sessions that ran on a schedule collapse into their routine lane. */
+/** Recurring agent schedules (heartbeat / cron / interval) for list collapsing. */
 export function isRoutine(item: TimeItem): boolean {
-  return layerOf(item) === 'routines'
+  return layerOf(item) === 'tasks' && isAgentAutomation(item)
 }
 
 export type PlacedItem = {
@@ -277,26 +287,26 @@ export function groupByDay(items: TimeItem[]): Map<string, TimeItem[]> {
 }
 
 export type Attention = {
-  checkups: TimeItem[]
-  lookats: TimeItem[]
+  tasks: TimeItem[]
   failed: TimeItem[]
 }
 
-/** What needs someone now: overdue check-ups and look-ats, and failed runs of today. */
+/** What needs someone now: due tasks (incl. stage follow-ups) and failed runs today. */
 export function attentionOf(items: TimeItem[], nowMs: number): Attention {
   const today = startOfDay(new Date(nowMs)).getTime()
   const due = (item: TimeItem) => item.status === 'due' || parseTimelineMs(item.start) <= nowMs
   const seen = new Set<string>()
-  const checkups = items.filter((item) => {
-    if (item.kind !== 'checkup' || item.status !== 'due') return false
+  const tasks = items.filter((item) => {
+    if (layerOf(item) !== 'tasks') return false
+    // Only items that are due now — not every planned wake in the window.
+    if (item.status !== 'due' && !(item.kind === 'task' && due(item))) return false
     const key = item.series_id ?? item.id
     if (seen.has(key)) return false
     seen.add(key)
     return true
   })
   return {
-    checkups,
-    lookats: items.filter((item) => item.kind === 'follow_up' && due(item)),
+    tasks,
     failed: items.filter(
       (item) =>
         item.kind === 'session' &&

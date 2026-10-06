@@ -13,16 +13,16 @@ Een actietag is een hashtag met een flow, gemarkeerd met een accent-`#`. Een ges
 
 Elk inkomend bericht wordt tegen de actietags gelezen voordat er een antwoord wordt opgesteld, ook als de AI-afhandeling op Handmatig staat. Een zekere lezing legt het ticket vast, een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije hashtags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
 
-## Een hashtag tot actietag maken
+## Een tag tot actietag maken
 
 ![Instellingen met één actietag](/api/docs/assets/categories/catalog.png)
-*Elke actietag toont haar hashtag, flow, projecten en aantal open.*
+*Eén Tags-lijst: eerst actietags, dan vrije tags; per rij kun je een flow aanmaken of openen.*
 
-1. Open **Instellingen**, dan **Actietags**. De pagina toont eerst de actietags, dan de vrije **Hashtags**, dan **Wat we misten** en wie tickets mag bevestigen.
-2. Kies **Maak actietag** op een vrije hashtag. Dat maakt of koppelt een flow met titel `#naam`. De hashtag schuift omhoog naar de lijst met actietags.
-3. Of kies **Nieuwe actietag**. Vul de **Hashtag** in, beschrijf wanneer die geldt (agents lezen dit), en kies de flow. Een nieuwe flow start met de fasen Open, Wachtend en Klaar en heet naar de hashtag.
-4. Open de actietag en stel onder **Hoe het wordt vastgelegd** in **Wanneer de AI het herkent** op **Vraag klant**, **Vraag operator**, **Auto** of **Alleen handmatig**.
-5. Zet **Tonen in Communicatie** aan voor een eigen rij in de zijbalk van Communicatie. **Maak vrije hashtag** haalt de flow weer weg; vastgelegde gesprekken zijn dan geen tickets meer.
+1. Open **Instellingen**, dan **Actietags**. De pagina toont één **Tags**-lijst (actietags en vrije tags), dan **Wat we misten** en wie tickets mag bevestigen.
+2. Kies **Flow aanmaken** op een vrije tag (flow-icoon). Dat maakt of koppelt een flow met titel `#naam`. De tag wordt een actietag in dezelfde lijst.
+3. Op een actietag kies je **Flow openen**. Of kies **Nieuwe actietag**. Vul de **Tag** in, beschrijf wanneer die geldt (agents lezen dit), en kies de flow. Een nieuwe flow start met de fasen Open, Wachtend en Klaar en heet naar de tag.
+4. Klap de actietag open en stel onder **Hoe het wordt vastgelegd** in **Wanneer de AI het herkent** op **Vraag klant**, **Vraag operator**, **Auto** of **Alleen handmatig**.
+5. Zet **In Communicatie** aan voor een eigen rij in de zijbalk van Communicatie. **Maak vrije tag** haalt de flow weer weg; vastgelegde gesprekken zijn dan geen tickets meer.
 
 ## Een ticket op een gesprek vastleggen
 

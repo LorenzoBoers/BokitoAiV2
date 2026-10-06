@@ -98,8 +98,9 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 ## Set a signature and default agent
 
 1. Click a mailbox or Bokito address row, then choose **Edit** next to **Signature**. Outbound mail from that address appends it. After send, Communication shows that same signature in the thread bubble (what the customer received).
-2. Under **General**, pick an **Agent** to send a channel's new conversations to a specific agent. Without one, the workspace default agent handles new threads. **Channel access** in the same section sets who may **View** or **Handle** the channel (people, teams, and agents). Owners and admins always handle every channel.
-3. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
+2. Under **General**, pick an **Owner team** for new conversations until someone takes them, and an **AI agent** for AI handling. Without an agent, the workspace default agent handles new threads.
+3. Choose **Access** to open the access matrix. Toggle **View** and **Handle** per team, person and agent. Handle means reply, take conversations and receive them; View is read only. Teams cover their members — a person with no own grant still follows **All people**. Owners and admins always handle every channel.
+4. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
 ## Archive automated mail on a mailbox
 
@@ -131,14 +132,14 @@ Contacts and single conversations can still differ from the channel. See [AI han
 2. Create a title and body, or save a draft from the composer in a thread.
 3. Anyone can insert a saved reply while answering in Communication.
 
-## Choose sub-views and manage hashtags
+## Choose sub-views and manage tags
 
 ![Tags and Communication on the Channels page](/api/docs/assets/channels/communication-tags.png)
 *Each Communication row with the sub-view it opens on.*
 
-1. Scroll to **Tags and Communication** on the same page. Every row in the Communication sidebar has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Pick the **Default sub-view**, and override it per team, channel, hashtag or project below.
-2. Scroll to **Hashtags** to keep the workspace list that agents and rules pick from. Choose **New hashtag**, type a name, and add a description agents read.
-3. Hashtags and action tags live under **Settings** → **Action tags**: pin a free hashtag there to give it a row under **Tags** in Communication, or choose **Make action tag** to attach a flow.
+1. Scroll to **Tags and Communication** on the same page. Every row in the Communication sidebar has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Pick the **Default sub-view**, and override it per team, channel, tag or project below.
+2. Manage tags and action tags under **Settings** → **Action tags**: one **Tags** list. Choose **New tag**, type a name, and add a description agents read.
+3. Pin a free tag for a row under **Tags** in Communication, or choose **Create flow** to attach a flow. On an action tag choose **Open flow**.
 4. See [Action tags and tickets](/docs/ai/categories).
 
 ## What to do next

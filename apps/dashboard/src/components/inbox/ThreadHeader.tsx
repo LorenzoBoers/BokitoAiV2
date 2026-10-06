@@ -7,7 +7,6 @@ import {
   ArchiveRestore,
   ArrowLeft,
   Bot,
-  Clock,
   Flag,
   Forward,
   Hand,
@@ -32,7 +31,6 @@ import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress 
 import { isInternalThread, threadCounterpartyName, threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { threadStatusLabel } from '../../lib/status-labels'
-import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
 import {
   THREAD_ACTION_CLUSTER_CLASS,
   THREAD_HEADER_CLASS,
@@ -119,7 +117,7 @@ export default function ThreadHeader({
   onWhatsNext,
   panelCount = 0,
 }: Props) {
-  const { t, i18n } = useTranslation('communication')
+  const { t } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
   const canRaise = useIsAdmin()
   const internal = isInternalThread(thread)
@@ -217,13 +215,6 @@ export default function ThreadHeader({
               <span className="text-text-muted/75">
                 {' · '}
                 {threadStatusLabel(thread.status, t)}
-                {thread.status === 'pending'
-                  ? ` · ${
-                      (thread.snoozedUntil
-                        ? formatWakeTime(thread.snoozedUntil, t, i18n.language)
-                        : null) ?? t('snooze.wakesOnReply')
-                    }`
-                  : ''}
               </span>
             </>
           )}
@@ -345,45 +336,6 @@ export default function ThreadHeader({
                       ) : null}
                     </DropdownMenuItem>
                   ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ) : null}
-            {canSnooze ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="gap-2">
-                  <Clock size={13} />
-                  {t('threadChrome.snooze')}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="min-w-44">
-                  {thread.status === 'pending' ? (
-                    <DropdownMenuItem onClick={() => void onPatch({ status: 'open', snoozedUntil: null })}>
-                      {t('threadChrome.resumeNow')}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {SNOOZE_PRESETS.map((preset) => (
-                    <DropdownMenuItem
-                      key={preset.key}
-                      onClick={() =>
-                        void onPatch({ status: 'pending', snoozedUntil: snoozeUntilIso(preset) })
-                      }
-                    >
-                      {t(preset.labelKey)}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      const raw = window.prompt(t('snooze.customTitle'), toLocalDateTimeValue())
-                      if (!raw) return
-                      const wake = new Date(raw)
-                      if (Number.isNaN(wake.getTime()) || wake.getTime() <= Date.now()) {
-                        toast.error(t('snooze.customInvalid'))
-                        return
-                      }
-                      void onPatch({ status: 'pending', snoozedUntil: wake.toISOString() })
-                    }}
-                  >
-                    {t('snooze.custom')}
-                  </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             ) : null}

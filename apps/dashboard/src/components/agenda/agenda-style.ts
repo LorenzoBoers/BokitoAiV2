@@ -1,37 +1,30 @@
 import { cn } from '../../lib/utils'
 import type { TFunction } from 'i18next'
-import { Bell, Bot, CalendarDays, ClipboardCheck, History, Repeat, type LucideIcon } from 'lucide-react'
+import { Bot, CalendarDays, ClipboardList, History, type LucideIcon } from 'lucide-react'
 import { layerOf, type AgendaLayer } from '../../lib/agenda-layout'
 import type { Trigger } from '../../lib/orchestration-api'
 import type { TimeItem } from '../../lib/time-items'
 import { timeAgo } from '../../lib/time-ago'
 
-export const LAYER_ICON: Record<AgendaLayer, LucideIcon> = {
+export type AgendaVisualLayer = AgendaLayer | 'calendar'
+
+export const LAYER_ICON: Record<AgendaVisualLayer, LucideIcon> = {
   calendar: CalendarDays,
-  reminders: Bell,
-  checkups: ClipboardCheck,
-  agents: Bot,
-  routines: Repeat,
+  tasks: ClipboardList,
   activity: History,
 }
 
 /** Swatch for rail toggles and list dots. */
-export const LAYER_DOT: Record<AgendaLayer, string> = {
+export const LAYER_DOT: Record<AgendaVisualLayer, string> = {
   calendar: 'bg-sky-500',
-  reminders: 'bg-amber-500',
-  checkups: 'bg-violet-500',
-  agents: 'bg-accent',
-  routines: 'bg-text-muted/60',
+  tasks: 'bg-accent',
   activity: 'bg-emerald-500',
 }
 
 /** Block on the time grid: tinted fill, coloured left edge. */
-export const LAYER_BLOCK: Record<AgendaLayer, string> = {
+export const LAYER_BLOCK: Record<AgendaVisualLayer, string> = {
   calendar: 'border-sky-500/70 bg-sky-500/10 hover:bg-sky-500/20',
-  reminders: 'border-amber-500/70 bg-amber-500/10 hover:bg-amber-500/20',
-  checkups: 'border-violet-500/70 bg-violet-500/10 hover:bg-violet-500/20',
-  agents: 'border-accent/70 bg-accent/10 hover:bg-accent/15',
-  routines: 'border-border bg-bg-elevated hover:bg-bg-elevated/80',
+  tasks: 'border-accent/70 bg-accent/10 hover:bg-accent/15',
   activity: 'border-emerald-500/60 bg-emerald-500/10 hover:bg-emerald-500/15',
 }
 
@@ -49,12 +42,9 @@ export function agendaChipState({
   return cn(past && 'opacity-60', paused && 'opacity-40')
 }
 
-export const LAYER_TEXT: Record<AgendaLayer, string> = {
+export const LAYER_TEXT: Record<AgendaVisualLayer, string> = {
   calendar: 'text-sky-600 dark:text-sky-400',
-  reminders: 'text-amber-600 dark:text-amber-400',
-  checkups: 'text-violet-600 dark:text-violet-400',
-  agents: 'text-accent',
-  routines: 'text-text-muted',
+  tasks: 'text-accent',
   activity: 'text-emerald-600 dark:text-emerald-400',
 }
 
@@ -88,7 +78,19 @@ export function itemSubtitle(item: TimeItem, t: TFunction): string {
     return names.filter(Boolean).join(' · ')
   }
   if (item.owner_name) return t('agendaPage.ownedBy', { name: item.owner_name })
-  return item.agent_name || ''
+  if (item.agent_name || item.actor_name) return actor
+  return ''
+}
+
+export function visualLayerOf(item: TimeItem): AgendaVisualLayer {
+  return layerOf(item)
+}
+
+/** Fallback icon when LAYER_ICON lookup needs a Bot for agent wakes. */
+export function itemIcon(item: TimeItem): LucideIcon {
+  const layer = layerOf(item)
+  if (layer === 'tasks' && (item.kind === 'wake' || item.kind === 'session')) return Bot
+  return LAYER_ICON[layer]
 }
 
 /** "in 20 min", "in 3 hours", "in 2 days", or the shared "5m ago" for the past. */
@@ -108,7 +110,10 @@ export function isFailed(status: string): boolean {
 }
 
 /** "every day", "every 2 hours", "on webhook" for a routine. */
-export function triggerScheduleLabel(trigger: Pick<Trigger, 'kind' | 'cron_expr' | 'interval_minutes'>, t: TFunction): string {
+export function triggerScheduleLabel(
+  trigger: Pick<Trigger, 'kind' | 'cron_expr' | 'interval_minutes'>,
+  t: TFunction,
+): string {
   if (trigger.kind === 'webhook') return t('agendaPage.schedule.webhook')
   if (trigger.kind === 'cron') return trigger.cron_expr || t('agendaPage.schedule.unscheduled')
   if (trigger.kind === 'once' || trigger.kind === 'event') return t('agendaPage.kinds.once')
@@ -122,5 +127,7 @@ export function triggerScheduleLabel(trigger: Pick<Trigger, 'kind' | 'cron_expr'
     const hours = minutes / 60
     return hours === 1 ? t('agendaPage.schedule.everyHour') : t('agendaPage.schedule.everyHours', { count: hours })
   }
-  return minutes === 1 ? t('agendaPage.schedule.everyMinute') : t('agendaPage.schedule.everyMinutes', { count: minutes })
+  return minutes === 1
+    ? t('agendaPage.schedule.everyMinute')
+    : t('agendaPage.schedule.everyMinutes', { count: minutes })
 }

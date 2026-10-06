@@ -211,7 +211,7 @@ export default function OverviewFourBlocks() {
       listTimeItems({
         from: new Date(Date.now() - 30 * 86_400_000).toISOString(),
         to: new Date(Date.now() + 86_400_000).toISOString(),
-        sources: ['checkup', 'follow_up', 'wake', 'calendar'],
+        sources: ['checkup', 'task', 'wake', 'calendar'],
       }).then((window) => window.items),
     ])
     const value = <T,>(index: number, fallback: T): T =>
@@ -276,10 +276,10 @@ export default function OverviewFourBlocks() {
     const now = Date.now()
     const due = attentionOf(data.agenda, now)
     const upcoming = data.agenda
-      .filter((item) => parseTimelineMs(item.start) > now && layerOf(item) !== 'routines')
+      .filter((item) => parseTimelineMs(item.start) > now && layerOf(item) === 'tasks')
       .sort((a, b) => parseTimelineMs(a.start) - parseTimelineMs(b.start))
       .slice(0, 3)
-    return { due: due.checkups.length + due.lookats.length, upcoming }
+    return { due: due.tasks.length, upcoming }
   }, [data.agenda])
 
   const trajectory = useMemo(() => {

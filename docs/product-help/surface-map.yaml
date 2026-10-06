@@ -368,6 +368,10 @@ agenda:
   code_globs:
     - apps/dashboard/src/pages/AgendaPage.tsx
     - apps/dashboard/src/components/agenda/**
+    - apps/dashboard/src/lib/agenda-layout.ts
+    - apps/dashboard/src/lib/time-items.ts
+    - apps/api/app/services/time_items.py
+    - apps/api/app/routers/calendars.py
   screenshots:
     - week
 
@@ -377,13 +381,11 @@ govern:
     - /settings/govern
   code_globs:
     - apps/dashboard/src/pages/GovernPage.tsx
-    - apps/dashboard/src/components/govern/GovernConversationsCard.tsx
     - apps/api/app/services/platform_apply.py
     - apps/api/app/services/routing_learning.py
   screenshots:
     - drafts
     - posture
-    - conversations
 
 privacy-security:
   section: govern

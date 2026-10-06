@@ -140,9 +140,6 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
         ),
         ("click", '[data-testid="contact-link-open"]'),
     ],
-    ("govern", "conversations"): [
-        ("scroll", '[data-testid="govern-conversations"]'),
-    ],
     ("mcp-endpoint", "connect-ai-tools"): [
         ("click", '[data-testid="ai-tool-claudeCode"] summary'),
     ],

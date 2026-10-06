@@ -11,12 +11,12 @@ Platform fallback (bootstrap / resale when tenant has no models):
   4. Env fallback (live) -> key_source="platform", billable
   5. None -> key_source="mock"
 
-Data region: Bokito AI is backed by an EU provider (Mistral). When the EU key
-is missing the managed model walks ``bokito_models.FALLBACK_BACKINGS`` and the
-result carries ``intended_region``/``fallback_from`` so the UI can say so. A
-workspace whose ``non_eu_platform_models`` policy is ``blocked`` (default) has
-US-hosted platform catalog rows redirected to the managed default model; BYOK
-connections are never redirected.
+Data region: managed tiers pick a backing provider per slug (see
+``bokito_models``). When the primary key is missing, resolution walks that
+slug's fallbacks and the result carries ``intended_region``/``fallback_from``
+so the UI can say so. A workspace whose ``non_eu_platform_models`` policy is
+``blocked`` (default) has US-hosted platform catalog rows redirected to the
+managed default model; BYOK connections are never redirected.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from app.services.model_regions import REGION_EU, infer_provider, provider_regio
 
 settings = get_settings()
 
-_FALLBACK_CHAT = ("bokito-ai-3-1", "mistral", "mistral-medium-latest")
+_FALLBACK_CHAT = ("bokito-ai-3-1", "anthropic", "claude-sonnet-5-5")
 _FALLBACK_EMBEDDING = ("text-embedding-3-small", "openai", "text-embedding-3-small")
 
 # Kept for callers that import the private helper.

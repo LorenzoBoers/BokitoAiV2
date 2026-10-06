@@ -1,5 +1,6 @@
 /**
- * Action tags (`/settings/action-tags`): hashtags that start a flow, plus the free hashtags.
+ * Action tags (`/settings/action-tags`): one Tags list (free tags and action
+ * tags), backlog of unmatched patterns, and who may confirm tickets.
  *
  * A conversation carries at most one action tag; filing it makes the
  * conversation a ticket in that flow's stages. Interpretation reads every
@@ -11,7 +12,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronDown, Plus, Radar, ShieldCheck, Users } from 'lucide-react'
+import { ChevronDown, Plus, Radar, Users } from 'lucide-react'
 import PageContent from '../components/layout/PageContent'
 import { PageIntro } from '../components/layout/PageIntro'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
@@ -30,8 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog'
-import { EmptyState } from '../components/ui/empty-state'
-import { Hashtag, HashtagMark } from '../components/ui/HashtagMark'
+import { HashtagMark } from '../components/ui/HashtagMark'
 import { Label } from '../components/ui/label'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
@@ -40,7 +40,6 @@ import { Textarea } from '../components/ui/textarea'
 import { useAuth } from '../context/AuthContext'
 import { normalizeHashtag, stripHash } from '../lib/hashtag'
 import { inboxPath } from '../lib/messages-paths'
-import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listSignalTags, type SignalTag } from '../lib/signals-api'
 import {
   createCategory,
@@ -67,7 +66,6 @@ const CREATE_MODES: CategoryCreateMode[] = ['ask_customer', 'ask_operator', 'aut
 
 type CatalogData = {
   categories: CategoryRow[]
-  projects: ProjectRow[]
   workstreams: WorkstreamRow[]
 }
 
@@ -76,17 +74,15 @@ export default function CategoriesSettings() {
   const [data, setData] = useState<CatalogData | null>(null)
   const [policy, setPolicy] = useState<SignalPolicy | null>(null)
   const [backlog, setBacklog] = useState<SignalBacklogEntry[]>([])
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [savingPolicy, setSavingPolicy] = useState(false)
 
   const load = useCallback(async () => {
-    const [categories, projects, workstreams] = await Promise.all([
+    const [categories, workstreams] = await Promise.all([
       listCategories(),
-      listProjects().catch(() => [] as ProjectRow[]),
       listWorkstreams().catch(() => [] as WorkstreamRow[]),
     ])
-    setData({ categories, projects, workstreams })
+    setData({ categories, workstreams })
   }, [])
 
   const loadBacklog = useCallback(async () => {
@@ -100,7 +96,10 @@ export default function CategoriesSettings() {
     void loadBacklog()
   }, [load, loadBacklog, t])
 
-  const projectNames = useMemo(() => new Map((data?.projects ?? []).map((p) => [p.id, p.name])), [data])
+  const categoriesById = useMemo(
+    () => new Map((data?.categories ?? []).map((row) => [row.id, row])),
+    [data],
+  )
 
   const savePolicy = async (patch: { accept_roles?: SignalAcceptRoles; backlog_threshold?: number }) => {
     setSavingPolicy(true)
@@ -113,122 +112,27 @@ export default function CategoriesSettings() {
     }
   }
 
-  const toggleNav = async (row: CategoryRow, show: boolean) => {
-    try {
-      await patchCategory(row.id, { show_in_nav: show })
-      await load()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('categoriesPage.saveError')))
-    }
-  }
-
-  const summaryLine = (row: CategoryRow): string => {
-    const ws = data?.workstreams.find((w) => w.id === row.workstream_id)
-    const projects = (ws?.project_ids ?? []).map((id) => projectNames.get(id)).filter(Boolean)
-    const parts = [row.workstream_name || ws?.name || t('categoriesPage.playbook')]
-    parts.push(projects.length > 0 ? projects.join(', ') : t('categoriesPage.noProjects'))
-    parts.push(t('categoriesPage.openCount', { open: row.open, waiting: row.waiting }))
-    return parts.join(' · ')
-  }
-
   return (
     <PageContent width="md" className="space-y-6">
       <PageIntro description={t('categoriesPage.intro')} />
 
-      <section className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-medium text-text-heading">{t('categoriesPage.catalogTitle')}</h2>
-            <p className="mt-0.5 text-xs text-text-muted">{t('categoriesPage.catalogDescription')}</p>
-          </div>
-          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus size={14} className="mr-1" />
-            {t('categoriesPage.newCategory')}
-          </Button>
-        </div>
-
-        {!data ? (
-          <LoadingBlock variant="inline" label={t('categoriesPage.loading')} />
-        ) : data.categories.length === 0 ? (
-          <EmptyState
-            icon={Radar}
-            title={t('categoriesPage.emptyTitle')}
-            description={t('categoriesPage.emptyBody')}
-            action={
-              <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-                {t('categoriesPage.newCategory')}
-              </Button>
-            }
-          />
-        ) : (
-          <ul className="space-y-1.5">
-            {data.categories.map((row) => {
-              const expanded = expandedId === row.id
-              return (
-                <li key={row.id} className="overflow-hidden rounded-lg border border-border/60">
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setExpandedId(expanded ? null : row.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setExpandedId(expanded ? null : row.id)
-                      }
-                    }}
-                    aria-expanded={expanded}
-                    className="flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-bg-hover/40"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <Hashtag name={row.name} category className="text-sm font-medium text-text-heading" />
-                        {row.module_slug ? (
-                          <Badge variant="outline" className="text-2xs">
-                            {row.module_slug}
-                          </Badge>
-                        ) : null}
-                        {row.requires_verification ? (
-                          <span title={t('categoriesPage.needsVerify')}>
-                            <ShieldCheck size={13} className="text-status-success" aria-hidden />
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 block truncate-fade text-xs text-text-muted">
-                        {row.description?.trim() ? row.description : t('categoriesPage.noDescription')}
-                      </span>
-                      <span className="mt-0.5 block truncate-fade text-xs text-text-secondary">
-                        {summaryLine(row)}
-                      </span>
-                    </span>
-                    <label
-                      className="flex shrink-0 items-center gap-2 text-xs text-text-muted"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {t('categoriesPage.showInNav')}
-                      <Switch checked={row.show_in_nav} onCheckedChange={(v) => void toggleNav(row, v)} />
-                    </label>
-                    <ChevronDown
-                      size={16}
-                      className={cn('shrink-0 text-text-muted transition-transform', expanded && 'rotate-180')}
-                    />
-                  </div>
-                  {expanded ? (
-                    <CategoryEditor
-                      key={row.id}
-                      row={row}
-                      workstreams={data.workstreams}
-                      onSaved={() => void load()}
-                    />
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-
-      <Card className="overflow-hidden p-0">
-        <TagRegistrySection freeOnly onChanged={() => void load()} />
+      <Card className="space-y-0 p-5">
+        <TagRegistrySection
+          onChanged={() => void load()}
+          onCreateActionTag={() => setCreateOpen(true)}
+          renderExpandedCategory={(tag) => {
+            const row = categoriesById.get(tag.id)
+            if (!row || !data) return null
+            return (
+              <CategoryEditor
+                key={row.id}
+                row={row}
+                workstreams={data.workstreams}
+                onSaved={() => void load()}
+              />
+            )
+          }}
+        />
       </Card>
 
       <Card className="space-y-4 p-5">
@@ -327,6 +231,7 @@ export default function CategoriesSettings() {
           void load()
         }}
       />
+
 
       <PageRelatedLinks
         links={[

@@ -105,6 +105,8 @@ export const appRoutes = {
   },
   orchestration: {
     runEvents: (runId: string) => `/orchestration/runs/${runId}/events`,
+    tasks: '/orchestration/tasks',
+    taskById: (taskId: string) => `/orchestration/tasks/${taskId}`,
   },
   triggers: {
     list: '/triggers',

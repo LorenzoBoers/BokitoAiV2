@@ -98,8 +98,9 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 ## Zet een handtekening en standaardagent
 
 1. Klik op de rij van een mailbox of Bokito-adres en kies **Wijzigen** naast **Handtekening**. Uitgaande mail vanaf dat adres voegt die toe. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
-2. Kies onder **Algemeen** een **Agent** om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder keuze behandelt de standaardagent nieuwe gesprekken. **Kanaaltoegang** in dezelfde sectie bepaalt wie het kanaal mag **Bekijken** of **Behandelen** (mensen, teams en agents). Eigenaren en beheerders behandelen altijd elk kanaal.
-3. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
+2. Kies onder **Algemeen** een **Eigenaar-team** voor nieuwe gesprekken tot iemand ze oppakt, en een **AI-agent** voor AI-afhandeling. Zonder agent behandelt de standaardagent van de werkruimte nieuwe gesprekken.
+3. Kies **Toegang** om de toegangsmatrix te openen. Zet **Zien** en **Afhandelen** per team, persoon en agent aan of uit. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Teams dekken hun leden — iemand zonder eigen toekenning volgt nog steeds **Alle mensen**. Eigenaren en beheerders handelen altijd elk kanaal af.
+4. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
 
 ## Archiveer automatische mail op een mailbox
 
@@ -131,14 +132,14 @@ Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI
 2. Maak een titel en tekst, of sla een concept op vanuit de composer in een gesprek.
 3. Iedereen kan een opgeslagen antwoord invoegen tijdens het antwoorden in Communicatie.
 
-## Kies submappen en beheer hashtags
+## Kies submappen en beheer tags
 
 ![Tags en Communicatie op de pagina Kanalen](/api/docs/assets/channels/communication-tags.png)
 *Elke rij in Communicatie met de submap waarmee hij opent.*
 
-1. Scroll naar **Tags en Communicatie** op dezelfde pagina. Elke rij in de zijbalk van Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies de **Standaard submap**, en wijk daar per team, kanaal, hashtag of project van af.
-2. Scroll naar **Hashtags** voor de lijst van de workspace waaruit agents en regels kiezen. Kies **Nieuwe hashtag**, typ een naam en voeg een omschrijving toe die agents lezen.
-3. Hashtags en actietags staan onder **Instellingen** → **Actietags**: zet daar een vrije hashtag vast voor een rij onder **Tags** in Communicatie, of kies **Maak actietag** om er een flow aan te koppelen.
+1. Scroll naar **Tags en Communicatie** op dezelfde pagina. Elke rij in de zijbalk van Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies de **Standaard submap**, en wijk daar per team, kanaal, tag of project van af.
+2. Tags en actietags beheer je onder **Instellingen** → **Actietags**: één **Tags**-lijst. Kies **Nieuwe tag**, typ een naam en voeg een omschrijving toe die agents lezen.
+3. Zet een vrije tag vast voor een rij onder **Tags** in Communicatie, of kies **Flow aanmaken** om er een flow aan te koppelen. Bij een actietag kies je **Flow openen**.
 4. Zie [Actietags en tickets](/docs/ai/categories).
 
 ## Wat nu

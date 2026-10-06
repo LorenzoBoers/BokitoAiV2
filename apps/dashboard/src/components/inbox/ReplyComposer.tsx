@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, Clock, Paperclip, PhoneOff, Quote, Send, Square, StickyNote } from 'lucide-react'
+import { Check, ChevronDown, Paperclip, PhoneOff, Quote, Send, Square, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -15,9 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import type { ComposerSurface, ComposerMode } from '../../lib/message-composer'
@@ -43,7 +40,6 @@ import {
   type StoredComposerDraft,
 } from '../../lib/inbox-ops'
 import { draftThreadReply } from '../../lib/inbox-api'
-import { SNOOZE_PRESETS } from '../../lib/snooze'
 import { uploadAttachment } from '../../lib/uploads-api'
 import { parseComposerVerb, composerVerbHelp } from '../../lib/composer-verbs'
 import ComposerWriteAssist from './ComposerWriteAssist'
@@ -1081,24 +1077,6 @@ export default function ReplyComposer({
                   >
                     {t('composer.sendAndClose')}
                   </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="gap-1.5" disabled={!canSend}>
-                      <Clock size={13} />
-                      {t('composer.sendAndWait')}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="min-w-44">
-                      {SNOOZE_PRESETS.map((preset) => (
-                        <DropdownMenuItem
-                          key={preset.key}
-                          onClick={() =>
-                            void handleSubmit('send_and_pending', preset.minutes() ?? undefined)
-                          }
-                        >
-                          {t(preset.labelKey)}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
                   {onHandledExternally ? (
                     <>
                       <DropdownMenuSeparator />

@@ -28,7 +28,7 @@
     "empty": "Nothing waiting for review. Customer decisions stay in Communication. Workspace edits show up here when you ask agents to wait.",
     "openCommunication": "Open Communication",
     "openAgents": "Open Agents",
-    "openInboxAi": "Open AI replies",
+    "openInboxAi": "Open AI handling",
     "openInCommunication": "Open in Communication",
     "viewDiff": "View changes",
     "accept": "Accept",
@@ -84,8 +84,8 @@
     "copyFailed": "Could not copy"
   },
   "posture": {
-    "title": "How much agents can do",
-    "intro": "Choose how much agents can do without waiting for you. You can fine-tune individual tool categories below.",
+    "title": "Workspace ceiling for agents",
+    "intro": "This is the ceiling for what agents may do without waiting for you. Day-to-day customer replies live under AI handling and stay at or below this ceiling. Fine-tune tool categories below.",
     "perAgentHint": "Per-agent overrides live on the agent page under Tools and permissions.",
     "saved": "Autonomy setting updated",
     "current": "Current setting",
@@ -96,7 +96,7 @@
       "label": "Manual",
       "summary": "Humans approve every mutating agent action before it applies.",
       "effects": {
-        "inbox": "Replies wait for you.",
+        "inbox": "Caps AI handling so replies wait for you.",
         "tools": "Tools always ask.",
         "structure": "Govern drafts stay drafts."
       }
@@ -105,7 +105,7 @@
       "label": "Assisted",
       "summary": "Routine messaging and workspace edits run automatically; structural changes ask first.",
       "effects": {
-        "inbox": "Routine replies can send.",
+        "inbox": "Caps AI handling at Assisted for autonomous raises.",
         "tools": "Everyday tools run; risky ones ask.",
         "structure": "Structural changes wait for review."
       }
@@ -114,7 +114,7 @@
       "label": "Autonomous",
       "summary": "AI runs operations; integrations and credentials still ask a human.",
       "effects": {
-        "inbox": "Agents send without waiting.",
+        "inbox": "Allows AI handling up to Autonomous where you set it.",
         "tools": "Most tools run on their own.",
         "structure": "Integrations and credentials still ask."
       }
@@ -128,30 +128,6 @@
     "toolOverrideCleared": "{{toolName}}: category default",
     "learningNote": "Learning tightened {{category}} from {{from}} to {{to}}.",
     "learningIntro": "Recent automatic tightenings (allow to ask first). Loosening stays a manual edit here."
-  },
-  "conversations": {
-    "title": "Conversations",
-    "intro": "AI handling for customer conversations sits under this ceiling. Channels, contacts, and single conversations can go lower, never higher.",
-    "ceiling": "Ceiling: {{mode}}",
-    "ceilingHint": "Comes from the messaging allowance below. Ask caps every conversation at Assisted; deny caps it at Manual.",
-    "workspaceDefault": "Workspace default: {{mode}}.",
-    "openSettings": "Open AI handling settings",
-    "pause": "Pause autonomous replies",
-    "resume": "Allow autonomous replies",
-    "autonomousTitle": "Running autonomously",
-    "autonomousNone": "Nothing runs autonomously right now.",
-    "autonomousWorkspace": "Workspace default (every channel without its own setting)",
-    "reviewedTypesTitle": "Action tags that always need review",
-    "reviewedTypesHint": "Replies on a ticket with one of these action tags become a draft, even when the conversation is autonomous.",
-    "noTypes": "No action tags yet.",
-    "alwaysReview": "Always review",
-    "mayAutoSend": "May send",
-    "breakerTitle": "Circuit breaker",
-    "breakerHint": "Pauses autonomous replies on a channel after unusual volume or several negative signals in one hour. The channel falls back to Assisted until someone resumes it.",
-    "maxAutonomous": "Autonomous replies per hour per channel",
-    "maxNegative": "Negative signals per hour per channel",
-    "breakerSave": "Save breaker limits",
-    "breakerSaved": "Breaker limits saved."
   },
   "scopes": {
     "title": "Autonomy per action tag and flow",

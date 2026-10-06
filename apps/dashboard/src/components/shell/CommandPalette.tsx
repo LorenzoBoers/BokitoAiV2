@@ -178,7 +178,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         { id: 'inbox-open', queue: 'open' as const, labelKey: 'support.inbox.open', hintKey: 'palette.inboxOpenHint' },
         { id: 'inbox-for-you', queue: 'for_you' as const, labelKey: 'support.inbox.forYou', hintKey: 'palette.forYouHint' },
         { id: 'inbox-unassigned', queue: 'unassigned' as const, labelKey: 'support.inbox.unassigned' },
-        { id: 'inbox-snoozed', queue: 'snoozed' as const, labelKey: 'support.inbox.snoozed' },
         { id: 'inbox-closed', queue: 'closed' as const, labelKey: 'support.inbox.closed' },
         { id: 'inbox-spam', queue: 'spam' as const, labelKey: 'support.inbox.spam' },
       ] as const
@@ -339,7 +338,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.checkupsDue'),
         group: t('palette.groupActions'),
         icon: CalendarDays,
-        run: () => navigate('/agenda?view=list&layers=checkups,reminders'),
+        run: () => navigate('/agenda?view=list&layers=tasks'),
       },
       {
         id: 'action-new-flow',

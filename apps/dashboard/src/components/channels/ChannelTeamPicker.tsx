@@ -26,6 +26,7 @@ export default function ChannelTeamPicker({
   const isAdmin = useIsAdmin()
   const [teams, setTeams] = useState<Team[]>([])
   const [value, setValue] = useState(teamId)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => setValue(teamId), [teamId])
   useEffect(() => {
@@ -38,21 +39,37 @@ export default function ChannelTeamPicker({
   const peopleTeam = teams.find((tm) => tm.kind === 'people')
   const custom = teams.filter((tm) => !tm.system)
   const current = !value || value === peopleTeam?.id ? PEOPLE : value
+  // Radix Select breaks when the controlled value has no SelectItem — keep orphans listed.
+  const knownIds = new Set(custom.map((team) => team.id))
+  const orphanTeam =
+    current !== PEOPLE && !knownIds.has(current)
+      ? teams.find((team) => team.id === current) ?? null
+      : null
+  const orphanId = current !== PEOPLE && !knownIds.has(current) && !orphanTeam ? current : null
 
   const change = async (next: string) => {
-    if (!token) return
+    if (!token || busy) return
+    const previous = value
     const id = next === PEOPLE ? null : next
     setValue(id)
+    setBusy(true)
     try {
       await updateChannelDefaultTeam(token, accountId, id)
       onChanged?.()
     } catch (err) {
+      setValue(previous)
       toast.error(formatApiErrorMessage(err, t('teamPage.saveError')))
+    } finally {
+      setBusy(false)
     }
   }
 
   return (
-    <Select value={current} onValueChange={(v) => void change(v)} disabled={!isAdmin}>
+    <Select
+      value={current}
+      onValueChange={(v) => void change(v)}
+      disabled={!isAdmin || busy || !accountId || !token}
+    >
       <SelectTrigger className="h-8 w-[200px] text-xs" aria-label={t('channelsPage.team')}>
         <SelectValue />
       </SelectTrigger>
@@ -63,6 +80,8 @@ export default function ChannelTeamPicker({
             <DefaultBadge>{t('channelsPage.defaultBadge')}</DefaultBadge>
           </span>
         </SelectItem>
+        {orphanTeam ? <SelectItem value={orphanTeam.id}>{orphanTeam.name}</SelectItem> : null}
+        {orphanId ? <SelectItem value={orphanId}>{t('channelsPage.unknownTeam')}</SelectItem> : null}
         {custom.map((team) => (
           <SelectItem key={team.id} value={team.id}>
             {team.name}

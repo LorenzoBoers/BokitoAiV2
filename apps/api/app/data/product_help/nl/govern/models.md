@@ -1,34 +1,37 @@
 ---
 title: Modellen
-intro: Bokito AI is de standaard voor je workspace. Voeg eigen modellen toe wanneer je plan dat toelaat.
-description: Gebruik beheerde Bokito AI als vaste standaard, of koppel eigen providersleutels wanneer je workspace dat mag.
-keywords: modellen, llm, providers, byok, api-keys, bokito ai, verbruik
+intro: Kies Maki, Bokito AI of Kong voor agents. Voeg eigen modellen toe wanneer je plan dat toelaat.
+description: Gebruik beheerde Bokito-modellen als standaard voor de workspace, of koppel eigen providersleutels wanneer je workspace dat mag.
+keywords: modellen, llm, providers, byok, api-keys, bokito ai, maki, kong, verbruik
 sort: 30
 related: govern,agents,integrations
 ---
 
 # Modellen
 
-Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont een banner **Bokito AI** en een lijst met modellen die je kunt toevoegen of verwijderen. Verbruik staat op Cockpit **Verbruik**.
+Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont drie beheerde modellen en, wanneer gerechtigd, een lijst met modellen die je met eigen sleutels kunt toevoegen. Verbruik staat op Cockpit **Verbruik**.
 
-## Gebruik Bokito AI
+## Gebruik beheerde modellen
 
 ![Modelinstellingen](/api/docs/assets/models/catalog.png)
-*Bokito AI is de standaard voor de workspace.*
+*Beheerde modellen zijn de standaard voor de workspace.*
 
-1. Open **Instellingen** en daarna **Modellen**. De banner **Bokito AI** toont **Actief** wanneer het platform live is.
-2. Laat agents op Bokito AI staan tenzij je eigen sleutels nodig hebt. Bokito AI is de standaard zolang je geen ander model hebt ingesteld.
-3. Open een [agent](/docs/ai/agents) om het model te bevestigen. De kiezer toont alleen Bokito AI totdat eigen modellen zijn toegestaan en aangezet.
+1. Open **Instellingen** en daarna **Modellen**. Het blok met beheerde modellen toont **Actief** wanneer het platform live is.
+2. Er zijn altijd drie modellen. Op elke kaart staat de prijs per 1 miljoen tokens (invoer en uitvoer):
+   - **Maki** — lichter, goed voor alledaagse taken. Gebruikt minder tokens, dus goedkoper.
+   - **Bokito AI** — standaard en gebalanceerd. Default voor nieuwe agents.
+   - **Kong** — zwaarder, voor lang of complex werk. Gebruikt meer tokens.
+3. Open een [agent](/docs/ai/agents) en kies het model. De kiezer toont deze drie totdat eigen modellen zijn toegestaan en aangezet.
 
 ## Voeg een model toe (wanneer gerechtigd)
 
 1. Eigen modellen verschijnen alleen wanneer zowel de platformfeature als je workspace-entitlement aan staan. Anders zie je een korte notitie **Eigen sleutels op aanvraag**.
 2. Zet **Gebruik eigen modellen** aan en kies **Model toevoegen**. Kies een provider (of **Aangepast (OpenAI-compatibel)** met een basis-URL), plak een **API-sleutel**, en kies **Opslaan en testen**.
-3. Kies een voorgesteld model of vul een eigen model-id in, en sla op. Je modellen verschijnen in de lijst en in agent-kiezers. Ze worden door de provider gefactureerd. Bokito AI blijft de fallback wanneer je eigen modellen uitzet of verwijdert.
+3. Kies een voorgesteld model of vul een eigen model-id in, en sla op. Je modellen verschijnen in de lijst en in agent-kiezers. Ze worden door de provider gefactureerd. Beheerde modellen blijven de fallback wanneer je eigen modellen uitzet of verwijdert.
 
 ## Als AI zonder live sleutel draait
 
-1. Open **Instellingen** en daarna **Modellen**. Toont Bokito AI **Niet geconfigureerd**, dan draaien calls in mock-modus.
+1. Open **Instellingen** en daarna **Modellen**. Toont een beheerd model **Niet geconfigureerd**, dan kunnen calls voor dat niveau in mock-modus draaien.
 2. Een workspacebanner legt uit dat antwoorden tijdelijke placeholders zijn en niet naar klanten gaan. De tijdlijn toont die bubbels als tijdelijk, nooit als **Verstuurd naar de klant**.
 3. Neem contact op met Bokito-support (of schakel eigen modellen in met je eigen sleutel wanneer gerechtigd) voordat je **Autonoom** kiest op [Govern](/docs/govern/autonomy).
 
@@ -47,4 +50,4 @@ Wijst een modelprovider calls voor de hele workspace af (tegoed op, ongeldige sl
 
 ## Wat nu
 
-Bevestig dat Bokito AI Actief is, en kijk daarna naar **Verbruik** op de [Cockpit](/docs/getting-started/cockpit).
+Bevestig dat beheerde modellen Actief zijn, kies per agent een niveau, en kijk daarna naar **Verbruik** op de [Cockpit](/docs/getting-started/cockpit).

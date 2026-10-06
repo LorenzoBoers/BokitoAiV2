@@ -19,6 +19,7 @@ import {
   setCustomModelsOptIn,
   testProvider,
   updateProvider,
+  type ManagedAiModel,
   type ProviderType,
   type TenantModelRow,
   type TenantModelsPayload,
@@ -231,10 +232,31 @@ export default function ModelsSettings() {
         ? t('modelsPage.managed.standby')
         : t('modelsPage.managed.notConfigured')
 
-  const chat = managed?.chat
+  const managedTiers: ManagedAiModel[] =
+    managed?.models && managed.models.length > 0
+      ? managed.models
+      : managed?.chat
+        ? [managed.chat]
+        : []
+
+  const tierBodyKey = (tier: string | undefined) => {
+    if (tier === 'lighter') return 'modelsPage.managed.tiers.lighterBody'
+    if (tier === 'heavier') return 'modelsPage.managed.tiers.heavierBody'
+    return 'modelsPage.managed.tiers.standardBody'
+  }
+
+  const formatMtok = (cents: number | undefined) => {
+    const value = Math.max(0, Number(cents) || 0) / 100
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: value < 1 ? 2 : value < 10 ? 2 : 0,
+      maximumFractionDigits: 2,
+    }).format(value)
+  }
 
   return (
-    <PageContent width="md" className="space-y-6 pb-12">
+    <PageContent width="lg" className="space-y-6 pb-12">
       <ContentHeader
         guide="models"
         title={t('modelsPage.pageTitle')}
@@ -251,17 +273,15 @@ export default function ModelsSettings() {
       />
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
-      {/* Bokito AI banner */}
-      <section className="rounded-lg border border-border/70 bg-bg-surface px-4 py-3.5">
+      {/* Managed Bokito tiers */}
+      <section className="space-y-3 rounded-lg border border-border/70 bg-bg-surface px-4 py-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-ai/10 text-ai-ink">
               <Sparkles size={16} />
             </span>
             <div className="min-w-0 space-y-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
-              </div>
+              <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
               <p className="text-sm text-text-muted">{t('modelsPage.managed.bodyDefault')}</p>
             </div>
           </div>
@@ -277,14 +297,49 @@ export default function ModelsSettings() {
             {statusLabel}
           </span>
         </div>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {managedTiers.map((tier) => (
+            <li
+              key={tier.slug}
+              className="flex min-h-[9.5rem] flex-col justify-between gap-3 rounded-md border border-border/60 bg-bg-elevated/40 px-3 py-3"
+            >
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-text-heading">{tier.display_name}</p>
+                  {tier.is_default_chat ? (
+                    <span className="rounded-full bg-ai/10 px-2 py-0.5 text-2xs font-medium text-ai-ink">
+                      {t('modelsPage.managed.tiers.defaultBadge')}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-xs text-text-muted">{t(tierBodyKey(tier.tier))}</p>
+                <p className="text-xs text-text-secondary">
+                  {t('modelsPage.pricingInOut', {
+                    in: formatMtok(tier.input_cost_per_mtok_cents),
+                    out: formatMtok(tier.output_cost_per_mtok_cents),
+                  })}
+                </p>
+              </div>
+              <span
+                className={
+                  tier.ready
+                    ? 'w-fit rounded-full bg-status-success/15 px-2 py-0.5 text-2xs font-semibold text-status-success'
+                    : 'w-fit rounded-full bg-status-warning/15 px-2 py-0.5 text-2xs font-semibold text-status-warning'
+                }
+              >
+                {tier.ready ? t('modelsPage.managed.active') : t('modelsPage.managed.notConfigured')}
+              </span>
+            </li>
+          ))}
+        </ul>
         {managed?.status === 'standby' ? (
-          <p className="mt-2 text-sm text-text-muted">{t('modelsPage.managed.standbyHintNew')}</p>
+          <p className="text-sm text-text-muted">{t('modelsPage.managed.standbyHintNew')}</p>
         ) : null}
         {managed?.status === 'unconfigured' ? (
-          <p className="mt-2 text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort')}</p>
+          <p className="text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort')}</p>
         ) : null}
-        {chat?.fallback_active ? (
-          <p className="mt-2 text-sm text-status-warning">{t('modelsPage.managed.fallbackNoticeSoft')}</p>
+        {managedTiers.some((tier) => tier.fallback_active) ? (
+          <p className="text-sm text-status-warning">{t('modelsPage.managed.fallbackNoticeSoft')}</p>
         ) : null}
       </section>
 

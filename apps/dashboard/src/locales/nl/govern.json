@@ -28,7 +28,7 @@
     "empty": "Niets wacht op review. Klantbeslissingen blijven in Communicatie. Workspace-wijzigingen verschijnen hier als je agents laat wachten.",
     "openCommunication": "Communicatie openen",
     "openAgents": "Agents openen",
-    "openInboxAi": "AI-antwoorden openen",
+    "openInboxAi": "AI-afhandeling openen",
     "openInCommunication": "Open in Communicatie",
     "viewDiff": "Bekijk wijzigingen",
     "accept": "Accepteren",
@@ -84,8 +84,8 @@
     "copyFailed": "Kopiëren mislukt"
   },
   "posture": {
-    "title": "Hoeveel agents mogen doen",
-    "intro": "Kies hoeveel agents mogen doen zonder op jou te wachten. Je kunt individuele toolcategorieën hieronder fijn afstellen.",
+    "title": "Workspace-plafond voor agents",
+    "intro": "Dit is het plafond voor wat agents mogen doen zonder op jou te wachten. Dagelijkse klantantwoorden staan onder AI-afhandeling en blijven op of onder dit plafond. Stel toolcategorieën hieronder bij.",
     "perAgentHint": "Uitzonderingen per agent stel je in op de agentpagina onder Tools en toestemmingen.",
     "saved": "Autonomie-instelling bijgewerkt",
     "current": "Huidige instelling",
@@ -96,16 +96,16 @@
       "label": "Handmatig",
       "summary": "Mensen keuren elke muterende agent-actie goed voordat die wordt toegepast.",
       "effects": {
-        "inbox": "Antwoorden wachten op jou.",
+        "inbox": "Begrenst AI-afhandeling zodat antwoorden op jou wachten.",
         "tools": "Tools vragen altijd.",
         "structure": "Govern-concepten blijven concepten."
       }
     },
     "assisted": {
-      "label": "Ondersteund",
+      "label": "Geassisteerd",
       "summary": "Routineberichten en workspace-bewerkingen draaien automatisch; structurele wijzigingen vragen eerst.",
       "effects": {
-        "inbox": "Routineantwoorden mogen uit.",
+        "inbox": "Begrenst AI-afhandeling tot Geassisteerd bij autonome verhogingen.",
         "tools": "Alledaagse tools draaien; risicovolle vragen.",
         "structure": "Structurele wijzigingen wachten op review."
       }
@@ -114,7 +114,7 @@
       "label": "Autonoom",
       "summary": "AI draait de operatie; integraties en inloggegevens vragen nog steeds een mens.",
       "effects": {
-        "inbox": "Agents versturen zonder te wachten.",
+        "inbox": "Staat AI-afhandeling toe tot Autonoom waar jij dat zet.",
         "tools": "De meeste tools draaien zelf.",
         "structure": "Integraties en inloggegevens vragen nog."
       }
@@ -129,30 +129,6 @@
     "learningNote": "Learning heeft {{category}} aangescherpt van {{from}} naar {{to}}.",
     "learningIntro": "Recente automatische aanscherpingen (toestaan naar eerst vragen). Losser maken blijft hier een handmatige edit."
   },
-  "conversations": {
-    "title": "Gesprekken",
-    "intro": "AI-afhandeling voor klantgesprekken valt onder dit plafond. Kanalen, contacten en losse gesprekken kunnen lager, nooit hoger.",
-    "ceiling": "Plafond: {{mode}}",
-    "ceilingHint": "Volgt uit de berichtentoestemming hieronder. Vragen beperkt elk gesprek tot Geassisteerd; weigeren tot Handmatig.",
-    "workspaceDefault": "Workspace-standaard: {{mode}}.",
-    "openSettings": "Instellingen AI-afhandeling openen",
-    "pause": "Autonome antwoorden pauzeren",
-    "resume": "Autonome antwoorden toestaan",
-    "autonomousTitle": "Draait autonoom",
-    "autonomousNone": "Er draait nu niets autonoom.",
-    "autonomousWorkspace": "Workspace-standaard (elk kanaal zonder eigen instelling)",
-    "reviewedTypesTitle": "Actietags die altijd controle nodig hebben",
-    "reviewedTypesHint": "Antwoorden op een ticket met een van deze actietags worden een concept, ook als het gesprek autonoom is.",
-    "noTypes": "Nog geen actietags.",
-    "alwaysReview": "Altijd controleren",
-    "mayAutoSend": "Mag versturen",
-    "breakerTitle": "Noodrem",
-    "breakerHint": "Pauzeert autonome antwoorden op een kanaal na ongewoon volume of meerdere negatieve signalen binnen een uur. Het kanaal valt terug op Geassisteerd tot iemand het hervat.",
-    "maxAutonomous": "Autonome antwoorden per uur per kanaal",
-    "maxNegative": "Negatieve signalen per uur per kanaal",
-    "breakerSave": "Grenzen noodrem opslaan",
-    "breakerSaved": "Grenzen noodrem opgeslagen."
-  },
   "scopes": {
     "title": "Autonomie per actietag en flow",
     "intro": "Stel een plafond in per actietag en flow. Deze instellingen blijven onder de houding van de workspace.",
@@ -163,7 +139,7 @@
     "saveError": "Kon dit autonomieniveau niet bijwerken.",
     "levels": {
       "manual": "Handmatig",
-      "assisted": "Ondersteund",
+      "assisted": "Geassisteerd",
       "autonomous": "Autonoom"
     }
   },

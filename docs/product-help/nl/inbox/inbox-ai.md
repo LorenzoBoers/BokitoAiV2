@@ -21,14 +21,14 @@ Overal zie je dezelfde iconen: een bliksem voor Autonoom en een pen voor Geassis
 1. Open **Instellingen** en daarna **AI-afhandeling**.
 2. Kies onder **Workspace-standaard** **Autonoom**, **Geassisteerd** of **Handmatig**. De wijziging wordt direct opgeslagen.
 3. Bij **Autonoom** zie je eerst een bevestiging met hoeveel open gesprekken deze instelling volgen en hoe vaak concepten recent ongewijzigd zijn verstuurd. Alleen een eigenaar of beheerder kan Autonoom aanzetten.
-4. Als Govern gesprekken lager begrenst, toont de kaart die grens. Open Govern via de notitie onder de kaarten om dat te wijzigen.
+4. Onder de kaarten toont het **Plafond** de Govern-grens. Kies **Autonome antwoorden pauzeren** om in één stap elk gesprek op Geassisteerd te begrenzen; **Autonome antwoorden toestaan** heft dat weer op. Open **Govern-plafond** via de notitie wanneer je de workspace-houding of Berichten-toestemming wilt wijzigen.
 
 Begin met **Geassisteerd**. Bokito stelt Autonoom voor zodra minstens 80% van 50 of meer concepten ongewijzigd wordt verstuurd.
 
 ## Uitzonderingen bekijken
 
 1. Open op dezelfde pagina **Uitzonderingen**. Daar staan alle kanalen, contacten en open gesprekken die de workspace-standaard niet volgen, gegroepeerd per laag.
-2. Elke rij toont het icoon van de modus en de naam. Kies **Weer de standaard volgen** om de uitzondering te verwijderen.
+2. Elke rij toont het icoon van de modus en de naam. Kies **Weer de standaard volgen** om de uitzondering te verwijderen. Een geactiveerde noodrem toont **Autonoom hervatten** op de kanaalrij.
 3. Nieuwe uitzonderingen zet je waar je werkt: op het kanaal onder [Kanalen](/docs/inbox/channels), op een contact onder [Contacten](/docs/inbox/contacts), of in de kop van een gesprek in [Communicatie](/docs/inbox/communication).
 
 Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op kanalen en contacten blijven tot je ze wist.
@@ -39,7 +39,14 @@ Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op k
 2. Stel de **Zekerheidsdrempel** in (1–10, van **soepel** tot **strikt**). Onder die zekerheid wordt het antwoord een concept.
 3. Zet **Antwoorden aan nieuwe contacten controleren** aan om concepten te maken zolang een contact op goedkeuring wacht. Websitechatbezoekers zijn uitgezonderd.
 4. Zet **AI-antwoorden vermelden** aan om autonome antwoorden een korte vermelding te geven. Pas de **Tekst van de vermelding** aan of laat leeg voor de standaardtekst; de preview toont wat klanten zien.
-5. Wijzigingen worden automatisch opgeslagen. **Laatst gewijzigd** in de paginakop toont wanneer de laatste opslag klaar was.
+5. Stel onder **Noodrem** **Autonome antwoorden per uur per kanaal** en **Negatieve signalen per uur per kanaal** in. Een geactiveerd kanaal draait Geassisteerd tot iemand het hervat via Uitzonderingen of het kanaal.
+6. Wijzigingen worden automatisch opgeslagen. **Laatst gewijzigd** in de paginakop toont wanneer de laatste opslag klaar was.
+
+## Actietags die altijd controle nodig hebben
+
+1. Open op dezelfde pagina **Actietags die altijd controle nodig hebben**.
+2. Zet **Altijd controleren** aan voor een actietag. Antwoorden op een ticket met die tag worden een concept, ook als het gesprek Autonoom is.
+3. Zet het uit (**Mag versturen**) wanneer autonoom versturen voor die tag goed is.
 
 De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de reden wanneer een waarborg ingrijpt.
 

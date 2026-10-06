@@ -7,7 +7,7 @@ automatically, otherwise the operator confirms it inline ("Always do this")
 or from the Automation rules section in Inbox Settings.
 
 Active rules short-circuit ``process_inbound_signal``: matching threads are
-closed, given a next look-at, or left for humans without AI involvement —
+closed, given a next task, or left for humans without AI involvement —
 always with a SignalEvent + AuditEvent trail so the timeline explains itself.
 ``tag`` rules only add their tags and leave the normal flow running; tags on
 the other actions are added too.
@@ -40,7 +40,7 @@ OPTION_ACTION_MAP = {"close": "auto_close", "create_task": "auto_task", "look_at
 
 ACTION_LABELS = {
     "auto_close": "Auto-close",
-    "auto_task": "Plan look-at",
+    "auto_task": "Plan task",
     "mute_ai": "Skip AI",
     "tag": "Add tags",
     "route": "Assign / tag",
@@ -707,13 +707,26 @@ async def apply_rule_to_signal(
         session.add(signal)
         result["delivery"] = "auto_closed"
     elif rule.action == "auto_task":
-        from app.services.signal_threads import set_conversation_look_at
+        from datetime import timedelta
+
+        from app.services.orchestration.dispatcher import create_agent_task
 
         subject = signal.subject or "Automated message"
-        set_conversation_look_at(signal, title=f"Follow up: {subject}"[:120])
-        session.add(signal)
-        result["task_id"] = str(signal.id)
-        result["delivery"] = "look_at_set"
+        assignee = signal.assigned_user_id
+        task = await create_agent_task(
+            session,
+            tenant_id,
+            title=f"Follow up: {subject}"[:120],
+            signal_id=signal.id,
+            kind="task",
+            origin="conversation",
+            assignee_kind="human",
+            assignee_user_id=assignee,
+            scheduled_for=datetime.utcnow() + timedelta(hours=4),
+            auto_start=False,
+        )
+        result["task_id"] = str(task.id)
+        result["delivery"] = "task_created"
     else:  # mute_ai: leave the thread for humans, spend no tokens.
         result["delivery"] = "ai_skipped"
     added = await _add_rule_tags(session, tenant_id, signal, rule)

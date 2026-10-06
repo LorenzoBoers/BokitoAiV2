@@ -1,15 +1,27 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, Repeat } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardList, RefreshCw, Repeat } from 'lucide-react'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '../ui/select'
+import { BrandMark } from '../integrations/BrandMark'
 import { formatAppDate } from '../../lib/app-locale'
+import { connectedPathWithKind } from '../../lib/integration-kind-url'
 import { AGENDA_LAYERS, addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
 import type { CalendarConnection } from '../../lib/calendars-api'
+import { syncAllCalendars, listCalendarConnections } from '../../lib/calendars-api'
 import { cn } from '../../lib/utils'
-import { CalendarConnectBar } from './CalendarConnectBar'
 import { LAYER_DOT } from './agenda-style'
+import { useState } from 'react'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
 export type RailOption = { id: string; name: string }
+
+function calendarBrandSlug(provider: string): string {
+  const slug = provider.trim().toLowerCase()
+  if (slug.includes('outlook') || slug.includes('microsoft')) return 'outlook-calendar'
+  if (slug.includes('google')) return 'google-calendar'
+  return slug
+}
 
 type Props = {
   anchor: Date
@@ -27,6 +39,9 @@ type Props = {
   counts: Record<AgendaLayer, number>
   onToggleLayer: (layer: AgendaLayer) => void
   calendars: CalendarConnection[]
+  calendarIds: Set<string>
+  calendarCounts: Record<string, number>
+  onToggleCalendar: (connectionId: string) => void
   calendarsLoading: boolean
   onCalendars: (rows: CalendarConnection[]) => void
   onSynced: () => void
@@ -36,6 +51,23 @@ type Props = {
 
 export default function AgendaRail(props: Props) {
   const { t } = useTranslation('nav')
+  const [syncBusy, setSyncBusy] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
+
+  const sync = async () => {
+    setSyncBusy(true)
+    setSyncError(null)
+    try {
+      await syncAllCalendars()
+      props.onCalendars(await listCalendarConnections())
+      props.onSynced()
+    } catch (err) {
+      setSyncError(formatApiErrorMessage(err, t('agendaPage.calendar.syncError')))
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
   return (
     <aside className="flex min-h-0 max-h-full flex-col gap-5 overflow-y-auto lg:self-start" data-testid="agenda-rail">
       <MiniMonth anchor={props.anchor} nowMs={props.nowMs} busyDays={props.busyDays} onPickDay={props.onPickDay} />
@@ -97,8 +129,40 @@ export default function AgendaRail(props: Props) {
 
       <section className="space-y-1">
         <RailHeading>{t('agendaPage.rail.show')}</RailHeading>
+        {props.calendars.map((connection) => {
+          const on = props.calendarIds.has(connection.id)
+          return (
+            <button
+              key={connection.id}
+              type="button"
+              role="switch"
+              aria-checked={on}
+              onClick={() => props.onToggleCalendar(connection.id)}
+              className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated"
+              data-testid="agenda-calendar-toggle"
+            >
+              <span
+                className={cn(
+                  'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+                  on ? cn(LAYER_DOT.calendar, 'border-transparent') : 'border-border bg-transparent',
+                )}
+                aria-hidden
+              >
+                {on ? <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> : null}
+              </span>
+              <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
+              <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted')}>
+                {connection.display_name}
+              </span>
+              <span className="text-2xs tabular-nums text-text-muted">
+                {props.calendarCounts[connection.id] || ''}
+              </span>
+            </button>
+          )
+        })}
         {AGENDA_LAYERS.map((layer) => {
           const on = props.layers.has(layer)
+          const Icon = layer === 'tasks' ? ClipboardList : undefined
           return (
             <button
               key={layer}
@@ -117,6 +181,7 @@ export default function AgendaRail(props: Props) {
               >
                 {on ? <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> : null}
               </span>
+              {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden /> : null}
               <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted')}>
                 {t(`agendaPage.layers.${layer}`)}
               </span>
@@ -124,18 +189,34 @@ export default function AgendaRail(props: Props) {
             </button>
           )
         })}
-        <p className="px-1.5 pt-1 text-2xs leading-relaxed text-text-muted">{t('agendaPage.rail.layersHint')}</p>
-      </section>
-
-      <section className="space-y-2">
-        <RailHeading>{t('agendaPage.rail.calendars')}</RailHeading>
-        <CalendarConnectBar
-          variant="rail"
-          connections={props.calendars}
-          loading={props.calendarsLoading}
-          onConnectionsChange={props.onCalendars}
-          onSynced={props.onSynced}
-        />
+        {props.calendars.length > 0 ? (
+          <button
+            type="button"
+            disabled={syncBusy}
+            onClick={() => void sync()}
+            className="inline-flex items-center gap-1.5 px-1.5 pt-1 text-xs text-text-muted hover:text-accent disabled:opacity-60"
+          >
+            <RefreshCw className={cn('h-3 w-3', syncBusy && 'animate-spin')} aria-hidden />
+            {t('agendaPage.calendar.syncNow')}
+          </button>
+        ) : null}
+        {syncError ? <p className="px-1.5 text-2xs text-status-error">{syncError}</p> : null}
+        {!props.calendarsLoading && props.calendars.length === 0 ? (
+          <div
+            className="mt-1 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2.5"
+            data-testid="agenda-connect-calendars-banner"
+          >
+            <p className="text-xs leading-relaxed text-text-secondary">
+              {t('agendaPage.rail.connectCalendarsBanner')}
+            </p>
+            <Link
+              to={connectedPathWithKind('calendar')}
+              className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
+            >
+              {t('agendaPage.rail.openConnections')}
+            </Link>
+          </div>
+        ) : null}
       </section>
 
       <section>
@@ -145,7 +226,7 @@ export default function AgendaRail(props: Props) {
           className="flex w-full items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-left text-sm hover:bg-bg-elevated"
         >
           <Repeat className="h-4 w-4 text-text-muted" aria-hidden />
-          <span className="flex-1 text-text-heading">{t('agendaPage.rail.routines')}</span>
+          <span className="flex-1 text-text-heading">{t('agendaPage.rail.tasksManage')}</span>
           <span className="text-xs tabular-nums text-text-muted">{props.routineCount}</span>
         </button>
       </section>

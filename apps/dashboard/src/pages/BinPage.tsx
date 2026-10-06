@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import {
+  Brain,
+  Building2,
+  FolderKanban,
+  Layers,
+  LayoutTemplate,
+  ListFilter,
+  MessageSquare,
+  MessageSquareText,
+  UserRound,
+  Users,
+  Workflow,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
@@ -17,6 +32,28 @@ import {
   type TrashItem,
   type TrashSettings,
 } from '../lib/trash-api'
+
+/** Icons match shell / entity pages so bin chips stay recognizable. */
+const BIN_TYPE_ICONS: Record<(typeof BIN_TYPES)[number], LucideIcon> = {
+  conversation: MessageSquare,
+  project: FolderKanban,
+  canvas: LayoutTemplate,
+  knowledge: Brain,
+  contact: UserRound,
+  company: Building2,
+  playbook: Workflow,
+  trigger: Zap,
+  team: Users,
+  inbox_rule: ListFilter,
+  saved_reply: MessageSquareText,
+}
+
+function iconForBinType(resourceType: string): LucideIcon {
+  if ((BIN_TYPES as readonly string[]).includes(resourceType)) {
+    return BIN_TYPE_ICONS[resourceType as (typeof BIN_TYPES)[number]]
+  }
+  return Layers
+}
 
 export default function BinPage() {
   const { t, i18n } = useTranslation('nav')
@@ -113,21 +150,26 @@ export default function BinPage() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className={`rounded-full border px-3 py-1 text-xs ${type === null ? 'border-accent text-accent' : 'border-border/60 text-text-muted'}`}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${type === null ? 'border-accent text-accent' : 'border-border/60 text-text-muted'}`}
           onClick={() => setType(null)}
         >
+          <Layers size={12} aria-hidden />
           {t('binPage.allTypes')}
         </button>
-        {BIN_TYPES.map((chip) => (
-          <button
-            key={chip}
-            type="button"
-            className={`rounded-full border px-3 py-1 text-xs ${type === chip ? 'border-accent text-accent' : 'border-border/60 text-text-muted'}`}
-            onClick={() => setType(chip)}
-          >
-            {t(`binPage.types.${chip}`)}
-          </button>
-        ))}
+        {BIN_TYPES.map((chip) => {
+          const Icon = BIN_TYPE_ICONS[chip]
+          return (
+            <button
+              key={chip}
+              type="button"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${type === chip ? 'border-accent text-accent' : 'border-border/60 text-text-muted'}`}
+              onClick={() => setType(chip)}
+            >
+              <Icon size={12} aria-hidden />
+              {t(`binPage.types.${chip}`)}
+            </button>
+          )
+        })}
       </div>
 
       <Input
@@ -142,17 +184,26 @@ export default function BinPage() {
         <p className="text-sm text-text-muted">{t('binPage.empty')}</p>
       ) : (
         <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
-          {visible.map((row) => (
+          {visible.map((row) => {
+            const TypeIcon = iconForBinType(row.resource_type)
+            return (
             <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-text-heading">{row.title || t('binPage.untitled')}</p>
-                <p className="text-xs text-text-muted">
-                  {t(`binPage.types.${row.resource_type}`, { defaultValue: row.resource_type })}
-                  {' · '}
-                  {t('binPage.deletedBy', { name: row.deleted_by_name || t('binPage.deletedByUnknown') })}
-                  {' · '}
-                  {t('binPage.purgeOn', { date: formatWhen(row.purge_after) })}
-                </p>
+              <div className="flex min-w-0 items-start gap-2.5">
+                <TypeIcon
+                  size={16}
+                  className="mt-0.5 shrink-0 text-text-muted"
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-text-heading">{row.title || t('binPage.untitled')}</p>
+                  <p className="text-xs text-text-muted">
+                    {t(`binPage.types.${row.resource_type}`, { defaultValue: row.resource_type })}
+                    {' · '}
+                    {t('binPage.deletedBy', { name: row.deleted_by_name || t('binPage.deletedByUnknown') })}
+                    {' · '}
+                    {t('binPage.purgeOn', { date: formatWhen(row.purge_after) })}
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" disabled={busyId === row.id} onClick={() => void onRestore(row.id)}>
@@ -161,6 +212,7 @@ export default function BinPage() {
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="text-status-error hover:bg-status-error/10 hover:text-status-error"
                   disabled={busyId === row.id}
                   onClick={() => void onPurge(row.id)}
                 >
@@ -168,7 +220,8 @@ export default function BinPage() {
                 </Button>
               </div>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
 

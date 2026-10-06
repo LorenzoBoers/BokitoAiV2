@@ -181,14 +181,14 @@ export default function ThreadListQuickFilters({
               aria-label={t('threadList.filters')}
               title={t('threadList.filters')}
               className={cn(
-                'inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium transition-colors',
+                'inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors',
+                filtersActive ? 'min-w-8 px-1.5' : 'w-8 px-0',
                 filtersActive
                   ? 'border-border-light bg-bg-hover text-text-heading'
                   : 'border-border/70 text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
               )}
             >
               <Filter size={13} />
-              <span className="hidden min-[280px]:inline">{t('threadList.filters')}</span>
               {filtersActive ? (
                 <span className="tabular-nums text-2xs opacity-90">{activeFilterCount}</span>
               ) : null}

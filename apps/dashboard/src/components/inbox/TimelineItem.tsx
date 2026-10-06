@@ -6,7 +6,7 @@ import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labe
 import { cn } from '../../lib/utils'
 import { cancelScheduledMessage, submitMessageFeedback } from '../../lib/signals-api'
 import { useCorrectionChat } from '../../lib/correction-chat'
-import { PersonAvatar } from '../ui/PersonAvatar'
+import { ContactAvatar } from '../ui/ContactAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tip } from '../ui/Tip'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -137,9 +137,8 @@ function ContactHoverInfo({
   )
 }
 
-// Person avatar (initials, or question mark for unknown visitors). Wrapped
-// in a hover tooltip showing name / email / phone (whatever is available).
-function ContactAvatar({
+// External counterparty avatar with a hover tooltip (name / email / phone).
+function ContactAvatarWithHover({
   email,
   name,
   phone,
@@ -151,7 +150,7 @@ function ContactAvatar({
   size?: number
 }) {
   const avatarNode = (
-    <PersonAvatar name={name} email={email} size={size} className="cursor-default" />
+    <ContactAvatar name={name} email={email} size={size} className="cursor-default" />
   )
 
   const hasInfo = !!(name && name !== email) || !!email || !!phone
@@ -1365,7 +1364,7 @@ export function MessageTimelineItem({
   )
 
   const contactAvatar = (
-    <ContactAvatar email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
+    <ContactAvatarWithHover email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
   )
   const agentAvatar = (
     <AiAvatar

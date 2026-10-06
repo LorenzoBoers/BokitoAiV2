@@ -21,14 +21,14 @@ The same icons appear everywhere: a lightning bolt for Autonomous and a pen for 
 1. Open **Settings**, then **AI handling**.
 2. Under **Workspace default**, pick **Autonomous**, **Assisted** or **Manual**. The change saves at once.
 3. Turning on **Autonomous** shows a confirmation with how many open conversations follow this setting and how often drafts were sent unedited recently. Only an owner or admin can turn on Autonomous.
-4. If Govern caps conversations lower, the card shows the cap. Open Govern from the note under the cards to change it.
+4. Under the cards, the **Ceiling** shows the Govern limit. Choose **Pause autonomous replies** to cap every conversation at Assisted in one step; **Allow autonomous replies** lifts that cap. Open **Govern ceiling** from the note when you need to change the workspace posture or Messaging allowance.
 
 Start with **Assisted**. Bokito suggests Autonomous once at least 80% of 50 or more drafts go out unedited.
 
 ## Review exceptions
 
 1. On the same page, open **Exceptions**. It lists every channel, contact and open conversation that does not follow the workspace default, grouped by layer.
-2. Each row shows its mode icon and name. Choose **Follow the default again** to remove the exception.
+2. Each row shows its mode icon and name. Choose **Follow the default again** to remove the exception. A tripped circuit breaker shows **Resume autonomous** on the channel row.
 3. Set new exceptions where you work: on the channel under [Channels](/docs/inbox/channels), on a contact under [Contacts](/docs/inbox/contacts), or in the conversation header in [Communication](/docs/inbox/communication).
 
 A conversation exception lasts until the conversation closes. Channel and contact exceptions stay until you clear them.
@@ -39,7 +39,14 @@ A conversation exception lasts until the conversation closes. Channel and contac
 2. Set the **Certainty threshold** (1–10, from **permissive** to **strict**). Below that certainty, the reply becomes a draft.
 3. Turn on **Review replies to new contacts** to draft instead of send while a contact awaits approval. Website chat visitors are exempt.
 4. Turn on **Disclose AI replies** to add a short note to autonomous replies. Change the **Note text** or leave it empty for the default; the preview shows what customers see.
-5. Changes save automatically. **Last modified** in the page header shows when the last save finished.
+5. Under **Circuit breaker**, set **Autonomous replies per hour per channel** and **Negative signals per hour per channel**. A tripped channel runs Assisted until someone resumes it from Exceptions or the channel.
+6. Changes save automatically. **Last modified** in the page header shows when the last save finished.
+
+## Action tags that always need review
+
+1. On the same page, open **Action tags that always need review**.
+2. Turn **Always review** on for an action tag. Replies on a ticket with that tag become a draft, even when the conversation is Autonomous.
+3. Turn it off (**May send**) when autonomous send is fine for that tag.
 
 The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies.
 

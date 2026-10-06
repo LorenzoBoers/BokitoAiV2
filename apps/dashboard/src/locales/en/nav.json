@@ -510,27 +510,23 @@
       "bannerTitle": "Agenda is the clock of the workspace",
       "bannerBody": "What happened, what happens now and what is planned, for people and agents, next to your own calendars.",
       "pageTitle": "How Agenda works",
-      "intro": "One timeline for everything on a clock: calendar meetings, look-ats on conversations, ticket check-ups, agent tasks, routines and what people and agents did.",
+      "intro": "One timeline for connected calendars, tasks (one-off or recurring, for people and agents) and activity.",
       "sections": [
         {
           "title": "Day, week, month and list",
-          "body": "Switch views at the top right. Use the arrows or the mini month to move in time. Click an empty slot in Day or Week to plan an agent task."
+          "body": "Switch views at the top right. Use the arrows or the mini month to move in time. Click an empty slot in Day or Week to plan a task."
         },
         {
-          "title": "Layers and who",
-          "body": "Turn layers on or off on the left: Calendar, Look-ats, Check-ups, Agent tasks, Routines and Activity. Filter on one person, one agent or one project."
+          "title": "Show and who",
+          "body": "Under Show, turn on each connected calendar plus Tasks and Activity. Filter on one person, one agent or one project."
         },
         {
-          "title": "Check-ups",
-          "body": "A flow stage can have an owner and a check-up rhythm. Every ticket in that stage then gets a recurring check-up for whoever owns the conversation. Due check-ups show under Needs attention."
-        },
-        {
-          "title": "Routines",
-          "body": "Recurring agent scans stay out of the grid and collapse into one chip per day. Open Routines in the left column to pause, edit or add one."
+          "title": "Tasks",
+          "body": "One-off wakes, recurring scans and stage follow-ups from flows are all Tasks. Due tasks show under Needs attention. Manage recurring scans under Manage tasks."
         },
         {
           "title": "Calendar sync",
-          "body": "Connect Google Calendar or Outlook Calendar. Meetings that sit in more than one calendar show once. Agents can propose new blocks that wait for your approval."
+          "body": "Connect Google Calendar or Outlook Calendar under Connections. Each connected calendar has its own checkbox. Agents can propose new blocks that wait for your approval."
         }
       ]
     },
@@ -690,7 +686,7 @@
     },
     "cancel": "Cancel",
     "emptyTitle": "Nothing in this period",
-    "emptyBody": "Plan an agent task, a reminder, or connect a calendar. Turn on more layers on the left to see activity and routines.",
+    "emptyBody": "Plan a task, or connect a calendar under Connections. Turn on Tasks and Activity on the left to see more.",
     "createRun": "Plan something",
     "openAgenda": "Open Agenda",
     "today": "Today",
@@ -794,11 +790,12 @@
     },
     "layers": {
       "calendar": "Calendar",
-      "reminders": "Look-ats",
-      "checkups": "Check-ups",
-      "agents": "Agent tasks",
-      "routines": "Routines",
-      "activity": "Activity"
+      "tasks": "Tasks",
+      "activity": "Activity",
+      "reminders": "Tasks",
+      "checkups": "Tasks",
+      "agents": "Tasks",
+      "routines": "Tasks"
     },
     "who": {
       "all": "Everyone",
@@ -810,10 +807,13 @@
       "who": "Who",
       "allProjects": "All projects",
       "show": "Show",
-      "layersHint": "Check-ups come from flow stages. Routines are recurring agent scans.",
+      "layersHint": "Tasks cover one-off and recurring work for people and agents. Stage follow-ups from flows show here too.",
       "calendars": "Calendars",
-      "calendarsEmpty": "Connect Google or Outlook to see meetings next to the work.",
-      "routines": "Routines"
+      "calendarsEmpty": "Connect Google or Outlook under Connections to see meetings here.",
+      "connectCalendarsBanner": "Connect your calendars under Connections to see meetings here and give agents context from them.",
+      "openConnections": "Open Connections",
+      "routines": "Tasks",
+      "tasksManage": "Manage tasks"
     },
     "grid": {
       "allDay": "All day",
@@ -880,12 +880,15 @@
     },
     "attention": {
       "title": "Needs attention",
-      "checkups_one": "{{count}} check-up due",
-      "checkups_other": "{{count}} check-ups due",
-      "checkupsTitle": "Check-ups due",
-      "lookats_one": "{{count}} overdue look-at",
-      "lookats_other": "{{count}} overdue look-ats",
-      "lookatsTitle": "Overdue look-ats",
+      "tasks_one": "{{count}} task due",
+      "tasks_other": "{{count}} tasks due",
+      "tasksTitle": "Tasks due",
+      "checkups_one": "{{count}} task due",
+      "checkups_other": "{{count}} tasks due",
+      "checkupsTitle": "Tasks due",
+      "lookats_one": "{{count}} task due",
+      "lookats_other": "{{count}} tasks due",
+      "lookatsTitle": "Tasks due",
       "failed_one": "{{count}} failed run",
       "failed_other": "{{count}} failed runs",
       "failedTitle": "Failed runs"
@@ -1915,6 +1918,7 @@
     "team": "Owner team",
     "teamHint": "The team that owns new conversations on this channel until someone takes them.",
     "defaultBadge": "Default",
+    "unknownTeam": "Unknown team",
     "widgetLive": "Live handoff",
     "widgetLiveHint": "Offered when someone with Handle access on the widget is available."
   },
@@ -2236,7 +2240,7 @@
     "forYouHint": "Questions, drafts and replies that wait on you",
     "planAgentTask": "Plan an agent task",
     "newReminder": "New reminder",
-    "checkupsDue": "Check-ups and look-ats due",
+    "checkupsDue": "Tasks due",
     "newFlow": "New flow",
     "openActionTags": "Open action tags",
     "newConversation": "New conversation"
@@ -2569,7 +2573,7 @@
     "segmentCustomer": "Customer",
     "segmentAgents": "Agents",
     "moreQueues": "More",
-    "moreQueuesHint": "Snoozed, closed, and spam",
+    "moreQueuesHint": "Closed and spam",
     "agentOpsHint": "Decisions appear inline in threads",
     "mailboxes": "Channels",
     "links": {
@@ -2644,7 +2648,13 @@
       "handlingDescription": "What the AI does with customer messages. A channel, a contact, or a single conversation can differ; the most specific setting wins.",
       "workspaceDefaultTitle": "Workspace default",
       "workspaceDefaultDescription": "Applies to every channel, contact, and conversation without its own setting.",
-      "governNote": "Govern sets the ceiling and the safety limits for autonomous replies.",
+      "governNote": "Govern sets the workspace ceiling for what agents may do. AI handling on this page stays at or below that ceiling.",
+      "ceiling": "Ceiling: {{mode}}",
+      "ceilingHint": "Comes from Govern messaging allowance. Pause caps every conversation at Assisted until you allow autonomous replies again.",
+      "pauseAutonomous": "Pause autonomous replies",
+      "resumeAutonomous": "Allow autonomous replies",
+      "pauseAutonomousSaved": "Autonomous replies paused.",
+      "resumeAutonomousSaved": "Autonomous replies allowed again.",
       "exceptionsTitle": "Exceptions",
       "exceptionsDescription": "Channels, contacts, and open conversations that do not follow the workspace default.",
       "exceptionsEmpty": "Everything follows the workspace default.",
@@ -2655,6 +2665,15 @@
         "workspace": "Workspace"
       },
       "exceptionClear": "Follow the default again",
+      "reviewedTypesTitle": "Action tags that always need review",
+      "reviewedTypesHint": "Replies on a ticket with one of these action tags become a draft, even when the conversation is autonomous.",
+      "noTypes": "No action tags yet.",
+      "alwaysReview": "Always review",
+      "mayAutoSend": "May send",
+      "breakerTitle": "Circuit breaker",
+      "breakerHint": "Pauses autonomous replies on a channel after unusual volume or several negative signals in one hour. The channel falls back to Assisted until someone resumes it.",
+      "maxAutonomous": "Autonomous replies per hour per channel",
+      "maxNegative": "Negative signals per hour per channel",
       "safeguardsTitle": "Safeguards",
       "safeguardsDescription": "When an autonomous reply becomes a draft for review instead of being sent.",
       "newContactsLabel": "Review replies to new contacts",
@@ -2709,7 +2728,7 @@
         "widget": "Chat widget appearance",
         "installWidget": "Install widget on your site",
         "agents": "Open Agents",
-        "govern": "Open Govern policy",
+        "govern": "Open Govern ceiling",
         "communication": "Open Communication"
       }
     },
@@ -3035,7 +3054,7 @@
         "install": "Install",
         "installAgain": "Install again",
         "open": "Open flow",
-        "hashtagsTitle": "Hashtags"
+        "hashtagsTitle": "Tags"
       },
       "toolset": "AI toolset",
       "toolsetTitle": "Actions this module can perform",
@@ -3700,7 +3719,12 @@
       "toolsLoading": "Loading tools…",
       "toolsSaveError": "Could not save tools.",
       "modelTitle": "Model and runtime",
-      "modelBody": "The model this agent uses for reasoning and chat.",
+      "modelBody": "The model this agent uses for reasoning and chat. Maki is lighter, Bokito AI is the default, Kong is heavier.",
+      "modelTier": {
+        "lighter": "lighter, fewer tokens",
+        "standard": "standard",
+        "heavier": "heavier, more tokens"
+      },
       "modelLoadError": "Could not load the model list.",
       "modelUpdateError": "Could not update model.",
       "openModels": "Open Models",
@@ -4706,7 +4730,7 @@
       "reports": "Daily scan, attention and usage",
       "developers": "AI tools, API tokens and webhooks",
       "models": "Bokito AI default and optional own models",
-      "categories": "Action tags, free hashtags, and how they get filed"
+      "categories": "Action tags, free tags, and how they get filed"
     }
   },
   "helpHub": {
@@ -5605,7 +5629,7 @@
     "noKey": "No key",
     "keySet": "Key set ····{{last4}}",
     "pageTitle": "Models",
-    "pageSubtitle": "Bokito AI is the default for this workspace. Add your own models when your plan includes them.",
+    "pageSubtitle": "Choose Maki, Bokito AI or Kong for agents. Add your own models when your plan includes them.",
     "saved": "Saved",
     "ownProvidersTitle": "Your own providers",
     "ownProvidersBody": "Optional. Models enabled on your own keys take precedence over Bokito AI; usage is then billed by the provider, not through Bokito. Keys are encrypted; only the last four characters are shown.",
@@ -5639,25 +5663,31 @@
     "pricingInOut": "in {{in}} / million tokens · out {{out}} / million tokens",
     "removeModelConfirm": "Remove model \"{{name}}\"?",
     "managed": {
-      "title": "Bokito AI",
-      "body": "Managed by Bokito: we select and maintain the best model for each task automatically. Usage is metered per token for this workspace and counts toward your budget.",
-      "bodyLearn": "Chooses and learns with your organization. Agents use Bokito AI unless you opt into custom models.",
-      "bodyDefault": "Default for this workspace. Agents use Bokito AI unless you add your own model below.",
+      "title": "Managed models",
+      "body": "Managed by Bokito. Usage is metered per token for this workspace and counts toward your budget.",
+      "bodyLearn": "Three tiers for everyday, standard and heavy work. Agents use Bokito AI by default unless you pick another tier or opt into custom models.",
+      "bodyDefault": "Three managed models for this workspace. Each card shows the price per 1 million tokens. Lighter uses fewer tokens; heavier uses more. Agents default to Bokito AI unless you pick another tier or add your own model below.",
       "active": "Active",
       "standby": "Standby",
       "notConfigured": "Not configured",
       "chat": "Chat",
       "embeddings": "Embeddings",
       "viewUsage": "View usage",
-      "standbyHint": "This workspace runs on your own provider keys below; Bokito AI stays available as fallback when you remove them.",
-      "standbyHintNew": "Agents use your own models below. Bokito AI stays available as fallback when you turn custom models off or remove them.",
+      "standbyHint": "This workspace runs on your own provider keys below; managed models stay available as fallback when you remove them.",
+      "standbyHintNew": "Agents use your own models below. Managed models stay available as fallback when you turn custom models off or remove them.",
       "mockModeHint": "No platform key is configured, so AI calls run in mock mode. Contact Bokito support or add your own provider key below.",
       "mockModeHintShort": "No live platform key is configured, so AI calls run in mock mode. Contact Bokito support.",
       "legacyKeyHint": "Runs on your own {{provider}} key (legacy), so usage is not billed through Bokito.",
       "chatBacking": "Chat model",
       "embeddingBacking": "Embedding model",
-      "fallbackNotice": "The EU-hosted model is temporarily unavailable, so Bokito AI runs on a fallback model in the {{actual}}. We switch back to the {{intended}} automatically.",
-      "fallbackNoticeSoft": "Bokito AI is temporarily using a backup path. It switches back automatically."
+      "fallbackNotice": "The preferred path is temporarily unavailable, so this model runs on a backup path in the {{actual}}. We switch back to the {{intended}} automatically.",
+      "fallbackNoticeSoft": "A managed model is temporarily using a backup path. It switches back automatically.",
+      "tiers": {
+        "defaultBadge": "Default",
+        "lighterBody": "Lighter — good for everyday tasks. Uses fewer tokens, so it costs less.",
+        "standardBody": "Standard — balanced for most agent work. Default for new agents.",
+        "heavierBody": "Heavier — for long or complex tasks. Uses more tokens."
+      }
     },
     "custom": {
       "title": "Your models",
@@ -5944,13 +5974,13 @@
   },
   "channelAccess": {
     "title": "Channel access",
-    "description": "Choose who sees this channel and who may handle it. Handle means reply, take conversations and receive them; View means read only. Agents without access do not act on this channel.",
+    "description": "Use the toggles to choose who sees this channel and who may handle it. Handle means reply, take conversations and receive them; View means read only. Agents without access do not act on this channel.",
     "hint": "Who sees and handles this channel",
     "adminsNote": "Owners and admins always handle every channel."
   },
   "connectionAccess": {
     "title": "Connection access",
-    "description": "Choose who may use this connection and who may manage it. Use means agents and people can run its tools; Manage means verify, rename, link projects and change access. Without access an agent cannot reach the connection.",
+    "description": "Use the toggles to choose who may use this connection and who may manage it. Use means agents and people can run its tools; Manage means verify, rename, link projects and change access. Without access an agent cannot reach the connection.",
     "hint": "Who uses and manages this connection",
     "adminsNote": "Owners and admins always manage every connection."
   },
@@ -5958,6 +5988,7 @@
     "default": "All people and agents",
     "count_one": "{{count}} grant",
     "count_other": "{{count}} grants",
+    "who": "Who",
     "teams": "Teams",
     "people": "People",
     "agents": "Agents",
@@ -5968,6 +5999,7 @@
       "use": "Use",
       "manage": "Manage"
     },
+    "inheritHint": "Teams cover their members. A person or agent with no own grant still follows All people or All agents.",
     "reset": "Back to default",
     "loadError": "Could not load people and agents.",
     "saveError": "Could not update access."
@@ -6027,38 +6059,40 @@
     "daysAgo": "{{count}}d ago"
   },
   "tagRegistry": {
-    "title": "Hashtags",
-    "description": "Free hashtags group conversations; pin one to give it a row in Communication. A hashtag with a flow is an action tag, marked with an accent #. Agents and inbox rules only use hashtags from this list.",
-    "newTag": "New hashtag",
-    "namePlaceholder": "hashtag",
+    "title": "Tags",
+    "description": "Free tags group conversations; pin one to give it a row in Communication. A tag with a flow is an action tag, marked with an accent #. Agents and inbox rules only use tags from this list.",
+    "newTag": "New tag",
+    "newActionTag": "New action tag",
+    "namePlaceholder": "tag",
     "descriptionPlaceholder": "When to use it (agents read this)",
-    "empty": "No hashtags yet. Tag a conversation or add one here.",
+    "empty": "No tags yet. Tag a conversation or add one here.",
     "count_one": "{{count}} conversation",
     "count_other": "{{count}} conversations",
-    "edit": "Edit hashtag",
-    "delete": "Delete hashtag",
+    "edit": "Edit tag",
+    "delete": "Delete tag",
     "deleteConfirm": "Delete #{{name}}? It is removed from {{count}} conversations.",
     "save": "Save",
     "cancel": "Cancel",
-    "loadFailed": "Could not load the hashtags.",
-    "saveFailed": "Could not save the hashtag.",
+    "loadFailed": "Could not load the tags.",
+    "saveFailed": "Could not save the tag.",
     "pin": "Pin to Communication",
     "unpin": "Unpin from Communication",
     "showInNav": "In Communication",
-    "promote": "Make action tag",
-    "promoteTitle": "Make an action tag of",
-    "promoteHint": "An action tag is a hashtag with a flow. Conversations with this hashtag become tickets that move through the flow's stages.",
+    "promote": "Create flow",
+    "openFlow": "Open flow",
+    "promoteTitle": "Create a flow for",
+    "promoteHint": "An action tag is a tag with a flow. Conversations with this tag become tickets that move through the flow's stages.",
     "playbook": "Flow",
     "newPlaybook": "New flow #{{name}}",
     "promoteAfter": "Set filing rules and projects afterwards.",
     "promoted": "#{{name}} is now an action tag.",
-    "promoteFailed": "Could not make this hashtag an action tag."
+    "promoteFailed": "Could not create a flow for this tag."
   },
   "tickets": {
     "title": "Ticket",
     "file": "File",
     "change": "Change",
-    "setUp": "No action tags yet. Make one under Hashtags or Settings.",
+    "setUp": "No action tags yet. Make one under Tags or Settings.",
     "looksLike": "Looks like",
     "confirm": "Confirm",
     "confirmOn": "Confirm on",
@@ -6103,14 +6137,14 @@
   },
   "communicationTags": {
     "title": "Communication rail",
-    "description": "Every row in the Communication rail has the same sub-views: For you, Open, Unassigned and Closed. Pin hashtags and show action tags under Settings, Action tags.",
+    "description": "Every row in the Communication rail has the same sub-views: For you, Open, Unassigned and Closed. Pin tags and show action tags under Settings, Action tags.",
     "defaultTitle": "Default sub-view",
     "defaultDescription": "The view a rail row opens on when you click it. Set a different one per row below.",
     "useGlobal": "Default ({{queue}})",
     "saveFailed": "Could not save the Communication settings."
   },
   "categoriesPage": {
-    "intro": "An action tag is a hashtag that starts a flow. Every inbound message is read against this list: a certain match files a ticket, an unsure match asks for a confirm on the thread, and anything new lands in the backlog below.",
+    "intro": "An action tag is a tag that starts a flow. Every inbound message is read against this list: a certain match files a ticket, an unsure match asks for a confirm on the thread, and anything new lands in the backlog below.",
     "loading": "Loading...",
     "loadError": "Could not load the action tags.",
     "saveError": "Could not update the action tag.",
@@ -6129,9 +6163,9 @@
     "catalogTitle": "Action tags",
     "catalogDescription": "What it is, which flow runs it, and which projects it can be filed on.",
     "newCategory": "New action tag",
-    "newCategoryHint": "Pick a hashtag and the flow that runs it. A new flow starts with Open, Waiting and Done.",
+    "newCategoryHint": "Pick a tag and the flow that runs it. A new flow starts with Open, Waiting and Done.",
     "emptyTitle": "No action tags yet",
-    "emptyBody": "Promote a hashtag, or add an action tag for each kind of work that arrives in conversations, like a complaint or a refund request.",
+    "emptyBody": "Create a flow on a tag, or add an action tag for each kind of work that arrives in conversations, like a complaint or a refund request.",
     "noDescription": "No description yet",
     "needsVerify": "needs confirmation",
     "showInNav": "Show in Communication",
@@ -6139,7 +6173,7 @@
     "noProjects": "no project",
     "openCount": "{{open}} open, {{waiting}} waiting",
     "whatItIs": "What it is",
-    "nameLabel": "Hashtag",
+    "nameLabel": "Tag",
     "namePlaceholder": "refund-request",
     "descriptionPlaceholder": "When this applies, and when it does not. Agents read this to classify.",
     "openPlaybook": "Open flow",
@@ -6153,8 +6187,8 @@
       "manual_only": "Manual only"
     },
     "projectRule": "Filing always asks for a project when the flow is on one or more projects, including No project. Agents choose too, or leave the ticket proposed.",
-    "detach": "Make free hashtag",
-    "detachHint": "Removes the flow. The hashtag becomes a free hashtag again, and conversations filed on it are no longer tickets.",
+    "detach": "Make free tag",
+    "detachHint": "Removes the flow. The tag becomes a free tag again, and conversations filed on it are no longer tickets.",
     "moduleNoDetach": "Installed by a module. Uninstall the module to remove it.",
     "save": "Save",
     "saving": "Saving...",

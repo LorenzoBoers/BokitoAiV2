@@ -12,7 +12,6 @@ import {
   type SelectableChatModel,
 } from '../../lib/models-api'
 import { humanizeModelId } from '../../lib/model-label'
-import { RegionBadge } from '../models/RegionBadge'
 
 type Props = {
   agentId: string
@@ -88,12 +87,19 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
               <SelectValue placeholder={currentLabel || t('workforce.agents.selectModel')} />
             </SelectTrigger>
             <SelectContent>
-              {models.map((m) => (
-                <SelectItem key={m.slug} value={m.slug}>
-                  {m.display_name}
-                  {m.region === 'eu' ? ' (EU)' : m.region === 'us' ? ' (US)' : ''}
-                </SelectItem>
-              ))}
+              {models.map((m) => {
+                const tierKey =
+                  m.tier === 'lighter' || m.tier === 'heavier' || m.tier === 'standard'
+                    ? `workforce.agents.modelTier.${m.tier}`
+                    : ''
+                const tierHint = tierKey ? t(tierKey) : ''
+                return (
+                  <SelectItem key={m.slug} value={m.slug}>
+                    {m.display_name}
+                    {tierHint ? ` — ${tierHint}` : ''}
+                  </SelectItem>
+                )
+              })}
             </SelectContent>
           </Select>
         ) : (
@@ -104,7 +110,6 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             ) : null}
           </p>
         )}
-        {current ? <RegionBadge region={current.region} /> : null}
       </div>
 
       {loadError ? (

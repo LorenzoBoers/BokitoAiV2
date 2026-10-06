@@ -69,10 +69,24 @@ PLAIN_STYLE = "Plain text only. Never use emoji or emoticons."
 # "bokito" in model_resolution). Agents on BYOK/real models never get this.
 BOKITO_MODEL_IDENTITY = (
     "## Model identity\n"
-    "You run on Bokito AI 3.1, Bokito's own model. Never state or imply that "
+    "You run on Bokito AI, Bokito's own model. Never state or imply that "
     "you are Claude, Anthropic, or any other third-party model or vendor. If "
-    "asked which model you are, answer: Bokito AI 3.1."
+    "asked which model you are, answer: Bokito AI."
 )
+
+
+def identity_for_bokito_slug(slug: str | None) -> str:
+    """Prompt block naming the managed tier without exposing backing providers."""
+    from app.services import bokito_models
+
+    name = bokito_models.display_name_for_slug(slug or "")
+    return (
+        "## Model identity\n"
+        f"You run on {name}, Bokito's own model. Never state or imply that "
+        "you are Claude, Anthropic, Mistral, OpenAI, or any other third-party "
+        "model or vendor. If asked which model you are, answer: "
+        f"{name}."
+    )
 
 # Emoji and pictograph ranges plus variation selectors and the zero-width
 # joiner that glues emoji sequences together.

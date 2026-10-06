@@ -78,8 +78,6 @@ type Options = {
   onReply?: () => void
   onCompose?: () => void
   onNewChat?: () => void
-  onSnooze?: () => void
-  onSnoozeCustom?: () => void
   onToggleSelect?: () => void
   onCopyLink?: () => void
   onCopyId?: () => void
@@ -204,16 +202,6 @@ export function useInboxListShortcuts(options: Options): void {
       if ((event.key === 'n' || event.key === 'N') && o.onNewChat) {
         event.preventDefault()
         o.onNewChat()
-        return
-      }
-      if ((event.key === 'h' || event.key === 'H') && event.shiftKey && o.onSnoozeCustom) {
-        event.preventDefault()
-        o.onSnoozeCustom()
-        return
-      }
-      if ((event.key === 'h' || event.key === 'H') && o.onSnooze) {
-        event.preventDefault()
-        o.onSnooze()
         return
       }
       if ((event.key === 'x' || event.key === 'X') && o.onToggleSelect) {

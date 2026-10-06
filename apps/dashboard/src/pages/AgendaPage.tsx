@@ -46,11 +46,13 @@ import {
   AGENDA_LAYERS,
   addDays,
   attentionOf,
+  calendarIdsParam,
   dayKey,
   itemStart,
   layerOf,
   layersParam,
   matchesWho,
+  parseCalendarIds,
   parseDayKey,
   parseLayers,
   parseView,
@@ -64,7 +66,7 @@ import {
 } from '../lib/agenda-layout'
 import { cn } from '../lib/utils'
 
-const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'calendar', 'follow_up', 'activity']
+const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'task', 'calendar', 'activity']
 const VIEW_KEYS: Record<string, AgendaView> = { d: 'day', w: 'week', m: 'month', l: 'list' }
 const NEW_KINDS: TriggerKind[] = ['once', 'event', 'cron']
 
@@ -92,6 +94,11 @@ export default function AgendaPage() {
   const [projects, setProjects] = useState<TargetOption[]>([])
   const [calendars, setCalendars] = useState<CalendarConnection[]>([])
   const [calendarsLoading, setCalendarsLoading] = useState(true)
+  const availableCalendarIds = useMemo(() => calendars.map((c) => c.id), [calendars])
+  const calendarIds = useMemo(
+    () => parseCalendarIds(searchParams.get('cals'), availableCalendarIds),
+    [searchParams, availableCalendarIds],
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -155,6 +162,12 @@ export default function AgendaPage() {
     else next.add(layer)
     setParams({ layers: next.size === 0 ? AGENDA_LAYERS.join(',') : layersParam(next) })
   }
+  const toggleCalendar = (connectionId: string) => {
+    const next = new Set(calendarIds)
+    if (next.has(connectionId)) next.delete(connectionId)
+    else next.add(connectionId)
+    setParams({ cals: calendarIdsParam(next, availableCalendarIds) ?? '' })
+  }
 
   const range = useMemo(() => viewRange(view, anchor), [view, anchor])
 
@@ -179,7 +192,7 @@ export default function AgendaPage() {
         listTimeItems({
           from: new Date(now - 30 * 86_400_000).toISOString(),
           to: new Date(now + 60_000).toISOString(),
-          sources: ['follow_up', 'checkup', 'session'],
+          sources: ['task', 'checkup', 'session'],
           scheduledOnly: true,
           projectId: projectId || undefined,
         }),
@@ -249,10 +262,32 @@ export default function AgendaPage() {
 
   const meId = user?.uuid ?? null
   const byWho = useMemo(() => items.filter((item) => matchesWho(item, who, meId)), [items, who, meId])
-  const visible = useMemo(() => byWho.filter((item) => layers.has(layerOf(item))), [byWho, layers])
+  const visible = useMemo(
+    () =>
+      byWho.filter((item) => {
+        const layer = layerOf(item)
+        if (layer === 'calendar') {
+          return item.connection_id ? calendarIds.has(item.connection_id) : calendarIds.size > 0
+        }
+        return layers.has(layer)
+      }),
+    [byWho, layers, calendarIds],
+  )
   const counts = useMemo(() => {
     const out = Object.fromEntries(AGENDA_LAYERS.map((layer) => [layer, 0])) as Record<AgendaLayer, number>
-    for (const item of byWho) out[layerOf(item)] += 1
+    for (const item of byWho) {
+      const layer = layerOf(item)
+      if (layer === 'calendar') continue
+      out[layer] += 1
+    }
+    return out
+  }, [byWho])
+  const calendarCounts = useMemo(() => {
+    const out: Record<string, number> = {}
+    for (const item of byWho) {
+      if (item.kind !== 'calendar' || !item.connection_id) continue
+      out[item.connection_id] = (out[item.connection_id] || 0) + 1
+    }
     return out
   }, [byWho])
   const attention = useMemo(
@@ -260,7 +295,7 @@ export default function AgendaPage() {
     [attentionItems, who, meId, nowMs],
   )
   const busyDays = useMemo(
-    () => new Set(visible.filter((item) => !['routines', 'activity'].includes(layerOf(item))).map((item) => dayKey(itemStart(item)))),
+    () => new Set(visible.filter((item) => layerOf(item) !== 'activity').map((item) => dayKey(itemStart(item)))),
     [visible],
   )
   const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
@@ -287,7 +322,7 @@ export default function AgendaPage() {
   }, [view, anchor, range, i18n.language])
 
   const selectedId = selection?.kind === 'item' ? selection.item.id : null
-  const attentionTotal = attention.checkups.length + attention.lookats.length + attention.failed.length
+  const attentionTotal = attention.tasks.length + attention.failed.length
 
   return (
     <PageContent width="full" className="flex h-full min-h-0 flex-col gap-3 px-6 pb-4 pt-4">
@@ -358,18 +393,11 @@ export default function AgendaPage() {
             <AlertTriangle className="h-4 w-4 text-status-warning" aria-hidden />
             {t('agendaPage.attention.title')}
           </span>
-          {attention.checkups.length > 0 ? (
+          {attention.tasks.length > 0 ? (
             <AttentionChip
               icon={ClipboardCheck}
-              label={t('agendaPage.attention.checkups', { count: attention.checkups.length })}
-              onClick={() => setSelection({ kind: 'group', title: t('agendaPage.attention.checkupsTitle'), items: attention.checkups })}
-            />
-          ) : null}
-          {attention.lookats.length > 0 ? (
-            <AttentionChip
-              icon={Bell}
-              label={t('agendaPage.attention.lookats', { count: attention.lookats.length })}
-              onClick={() => setSelection({ kind: 'group', title: t('agendaPage.attention.lookatsTitle'), items: attention.lookats })}
+              label={t('agendaPage.attention.tasks', { count: attention.tasks.length })}
+              onClick={() => setSelection({ kind: 'group', title: t('agendaPage.attention.tasksTitle'), items: attention.tasks })}
             />
           ) : null}
           {attention.failed.length > 0 ? (
@@ -405,6 +433,9 @@ export default function AgendaPage() {
           counts={counts}
           onToggleLayer={toggleLayer}
           calendars={calendars}
+          calendarIds={calendarIds}
+          calendarCounts={calendarCounts}
+          onToggleCalendar={toggleCalendar}
           calendarsLoading={calendarsLoading}
           onCalendars={setCalendars}
           onSynced={reload}

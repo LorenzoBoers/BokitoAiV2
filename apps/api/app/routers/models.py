@@ -173,20 +173,51 @@ class TenantModelUpdateBody(BaseModel):
 async def _managed_ai_status(
     session: AsyncSession, tenant_id: UUID, *, overridden: bool
 ) -> dict:
-    """Bokito AI: the platform-managed default provider, presented as a product.
+    """Managed Bokito tiers: platform catalog + platform keys, product-facing.
 
-    Bokito selects and maintains models automatically (platform catalog +
-    platform keys). When the tenant runs self-managed models (BYOK), the
-    managed provider is on standby: BYOK models take precedence.
+    When the tenant runs self-managed models (BYOK), managed tiers are on
+    standby: BYOK models take precedence for resolution defaults.
     """
+    from app.services import bokito_models
     from app.services.model_resolution import _resolve_from_platform_catalog
 
-    async def _model_info(kind: str) -> dict:
+    async def _tier_info(slug: str) -> dict:
         resolved = await _resolve_from_platform_catalog(
-            session, tenant_id, kind=kind, model_slug=None
+            session, tenant_id, kind="chat", model_slug=slug
+        )
+        catalog_row = await catalog_svc.get_model(session, slug)
+        display = (
+            catalog_row.display_name
+            if catalog_row
+            else bokito_models.display_name_for_slug(slug)
+        )
+        return {
+            "slug": slug,
+            "display_name": display,
+            "provider": "bokito",
+            "tier": bokito_models.tier_hint(slug),
+            "key_source": resolved.key_source,
+            "ready": resolved.live,
+            "region": resolved.region,
+            "intended_region": resolved.intended_region or resolved.region,
+            "fallback_active": resolved.fallback_active,
+            "is_default_chat": slug == catalog_svc.BOKITO_MODEL_SLUG,
+            "kind": "chat",
+            "enabled": True,
+            "model_id": "",
+            "input_cost_per_mtok_cents": (
+                catalog_row.input_cost_per_mtok_cents if catalog_row else 0
+            ),
+            "output_cost_per_mtok_cents": (
+                catalog_row.output_cost_per_mtok_cents if catalog_row else 0
+            ),
+        }
+
+    async def _embedding_info() -> dict:
+        resolved = await _resolve_from_platform_catalog(
+            session, tenant_id, kind="embedding", model_slug=None
         )
         catalog_row = await catalog_svc.get_model(session, resolved.slug)
-        # Operator-facing payload stays abstract: no third-party backing names.
         return {
             "slug": resolved.slug,
             "display_name": catalog_row.display_name if catalog_row else resolved.slug,
@@ -198,11 +229,27 @@ async def _managed_ai_status(
             "fallback_active": resolved.fallback_active,
         }
 
-    chat = await _model_info("chat")
-    embedding = await _model_info("embedding")
+    models: list[dict] = []
+    for slug in bokito_models.MANAGED_CHAT_SLUGS:
+        row = await catalog_svc.get_model(session, slug)
+        if row is None or not row.enabled:
+            continue
+        models.append(await _tier_info(slug))
+
+    default_slug = catalog_svc.BOKITO_MODEL_SLUG
+    chat = next((m for m in models if m["slug"] == default_slug), None)
+    if chat is None and models:
+        chat = models[0]
+    if chat is None:
+        # Seed missing — still return a stub so older clients keep working.
+        chat = await _tier_info(default_slug)
+        models = [chat]
+
+    embedding = await _embedding_info()
+    any_ready = any(m.get("ready") for m in models)
     if overridden:
         status = "standby"
-    elif chat["ready"]:
+    elif any_ready:
         status = "active"
     else:
         status = "unconfigured"
@@ -210,6 +257,8 @@ async def _managed_ai_status(
         "name": "Bokito AI",
         "status": status,  # active | standby | unconfigured
         "chat": chat,
+        "models": models,
+        "default_chat": chat["slug"],
         "embedding": embedding,
     }
 
@@ -249,20 +298,22 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
                 (m["slug"] for m in models if m.get("is_default_embedding")), ""
             )
 
-    # Selectable chat list for agent pickers: Bokito only, unless custom is active.
+    # Selectable chat list: all managed Bokito tiers, plus BYOK when active.
     selectable = [
         {
-            "slug": managed["chat"]["slug"],
-            "display_name": managed["chat"]["display_name"],
-            "provider": managed["chat"]["provider"],
-            "region": managed["chat"]["region"],
+            "slug": m["slug"],
+            "display_name": m["display_name"],
+            "provider": "bokito",
+            "region": m.get("region") or "",
+            "tier": m.get("tier") or "standard",
             "kind": "chat",
             "enabled": True,
             "model_id": "",
-            "is_default_chat": True,
-            "input_cost_per_mtok_cents": 0,
-            "output_cost_per_mtok_cents": 0,
+            "is_default_chat": bool(m.get("is_default_chat")),
+            "input_cost_per_mtok_cents": m.get("input_cost_per_mtok_cents") or 0,
+            "output_cost_per_mtok_cents": m.get("output_cost_per_mtok_cents") or 0,
         }
+        for m in managed.get("models") or [managed["chat"]]
     ]
     if active:
         for row in custom_block["models"]:

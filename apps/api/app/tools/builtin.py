@@ -1338,6 +1338,7 @@ async def _propose_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
 
 
 async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from datetime import datetime, timedelta
     from uuid import UUID
 
     from app.services.agent.style import strip_emoji
@@ -1348,26 +1349,32 @@ async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     requested_agent = UUID(str(tool_input["agent_id"])) if tool_input.get("agent_id") else None
     peer = requested_agent and (not ctx.agent or requested_agent != ctx.agent.id)
 
-    # On a conversation, a free-standing "task" is a look-at on that thread
-    # (Agenda + Communication). AgentTask stays for playbook jobs and peers.
+    # On a conversation without a playbook/peer: a human task on that thread
+    # (Agenda). Same AgentTask ledger as agent jobs.
     if ctx.signal_id and not workstream_id and not peer:
-        from app.models.signal import Signal
-        from app.services.signal_threads import set_conversation_look_at
-
-        signal = (
-            await ctx.session.execute(
-                select(Signal).where(Signal.id == ctx.signal_id, Signal.tenant_id == ctx.tenant_id)
-            )
-        ).scalar_one_or_none()
-        if signal is None:
-            return {"error": "Conversation not found"}
-        set_conversation_look_at(signal, title=title)
-        await ctx.session.commit()
+        when = datetime.utcnow() + timedelta(hours=4)
+        task = await create_agent_task(
+            ctx.session,
+            ctx.tenant_id,
+            title=title,
+            description=tool_input.get("description", ""),
+            signal_id=ctx.signal_id,
+            project_id=UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else ctx.project_id,
+            created_by=ctx.user_id,
+            kind="task",
+            origin="conversation",
+            assignee_kind="human",
+            assignee_user_id=ctx.user_id,
+            scheduled_for=when,
+            auto_start=False,
+        )
         return {
-            "kind": "look_at",
-            "signal_id": str(signal.id),
-            "follow_up_at": signal.follow_up_at.isoformat() if signal.follow_up_at else None,
-            "follow_up_title": signal.follow_up_title or title,
+            "kind": "task",
+            "task_id": str(task.id),
+            "signal_id": str(task.signal_id) if task.signal_id else None,
+            "scheduled_for": task.scheduled_for.isoformat() if task.scheduled_for else None,
+            "status": task.status,
+            "assignee_kind": "human",
         }
 
     agent_id = requested_agent or (ctx.agent.id if ctx.agent else None)
@@ -2458,7 +2465,7 @@ register_tool(
     ToolSpec(
         name="create_task",
         description=(
-            "On a conversation: set a look-at (Agenda follow-up) on that thread. "
+            "On a conversation: plan a human task on that thread (Agenda). "
             "Pass workstream_id or a peer agent_id to start a playbook/delegation job instead."
         ),
         category="delegation",
@@ -3210,27 +3217,6 @@ async def _schedule_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     if tool_input.get("scheduled_for") and scheduled_for is None:
         return {"error": "scheduled_for must be an ISO datetime, e.g. 2026-09-04T09:00"}
     title = strip_emoji(str(tool_input.get("title", ""))) or "Planned task"
-
-    if assignee == "human" and ctx.signal_id:
-        from app.models.signal import Signal
-        from app.services.signal_threads import set_conversation_look_at
-
-        signal = (
-            await ctx.session.execute(
-                select(Signal).where(Signal.id == ctx.signal_id, Signal.tenant_id == ctx.tenant_id)
-            )
-        ).scalar_one_or_none()
-        if signal is None:
-            return {"error": "Conversation not found"}
-        set_conversation_look_at(signal, title=title, when=scheduled_for)
-        await ctx.session.commit()
-        return {
-            "kind": "look_at",
-            "signal_id": str(signal.id),
-            "follow_up_at": signal.follow_up_at.isoformat() if signal.follow_up_at else None,
-            "follow_up_title": signal.follow_up_title or title,
-            "assignee_kind": "human",
-        }
 
     agent_id = (
         _UUID(str(tool_input["agent_id"]))

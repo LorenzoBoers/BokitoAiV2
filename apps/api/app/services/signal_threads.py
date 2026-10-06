@@ -253,10 +253,15 @@ async def _latest_message_previews(
 def set_conversation_look_at(
     signal: Signal, *, title: str | None = None, when: datetime | None = None
 ) -> None:
-    """Next look-at on the conversation (Agenda ``follow_up``), not an AgentTask."""
-    who = signal.contact_email or signal.contact_name or "conversation"
-    signal.follow_up_at = when or datetime.utcnow()
-    signal.follow_up_title = (title or f"Follow up: {signal.subject or who}")[:120]
+    """Deprecated: look-ats are AgentTasks. Clears any leftover follow_up fields.
+
+    Callers that still schedule a next look must use ``create_agent_task`` with
+    ``assignee_kind=human`` and ``scheduled_for``. The ``title``/``when`` args
+    are ignored; kept so old call sites fail closed instead of writing look-ats.
+    """
+    del title, when
+    signal.follow_up_at = None
+    signal.follow_up_title = None
     signal.updated_at = datetime.utcnow()
 
 
@@ -1635,20 +1640,18 @@ async def patch_thread(
     before_assignee = signal.assigned_user_id
     before_owner = owner_payload(signal)
     if snoozed_until_set:
-        # Snoozing implies pending; clearing the wake time alone keeps status.
-        signal.snoozed_until = snoozed_until
-        if snoozed_until is not None and status is None:
-            status = "pending"
-    if follow_up_at_set:
-        signal.follow_up_at = follow_up_at
-        if follow_up_at is None:
-            signal.follow_up_title = ""
-    if follow_up_title is not None:
-        signal.follow_up_title = follow_up_title.strip()[:200]
+        # Snooze is retired: mark unread instead of parking as pending.
+        signal.snoozed_until = None
+        if snoozed_until is not None:
+            signal.has_unread = True
+    # follow_up_* patches are retired — clients create AgentTasks via
+    # POST /orchestration/tasks. Clear leftover stamps if a client still sends them.
+    if follow_up_at_set or follow_up_title is not None:
+        signal.follow_up_at = None
+        signal.follow_up_title = None
     if status is not None:
         signal.status = status
         if status != "pending":
-            # Reopen/close/spam always clears any pending wake time.
             signal.snoozed_until = None
     newly_assigned: UUID | None = None
     if assignee is None and assigned_to_user_id is not None:
@@ -1985,8 +1988,12 @@ async def bulk_update_threads(
         elif action == "assign":
             signal.assigned_user_id = assignee_uuid
         elif action == "snooze":
-            signal.status = "pending"
-            signal.snoozed_until = snoozed_until
+            # Snooze retired: mark unread so the thread stays in Open / For you.
+            del snoozed_until
+            signal.snoozed_until = None
+            signal.has_unread = True
+            if signal.status == "pending":
+                signal.status = "open"
         if action == "close":
             handling_svc.on_status_change(session, signal, actor_id=str(user_id))
         elif action == "assign":
@@ -2351,11 +2358,11 @@ async def reply_to_thread(
         signal.snoozed_until = None
         on_status_change(session, signal, actor_id=str(user_id))
     elif action == "send_and_pending":
-        signal.status = "pending"
-        # Optional wake time; without one the thread waits for the next
-        # inbound message (snooze-until-reply).
-        if snooze_minutes and snooze_minutes > 0:
-            signal.snoozed_until = now + timedelta(minutes=snooze_minutes)
+        # Snooze-as-park retired: keep the thread open and visible.
+        if signal.status == "pending":
+            signal.status = "open"
+        signal.snoozed_until = None
+        signal.has_unread = True
     session.add(signal)
     session.add(
         SignalEvent(
@@ -3077,18 +3084,38 @@ async def resolve_message_decision(
 
     await session.commit()
 
-    # Approving "create a task" sets a conversation next look-at (not AgentTask).
+    # Approving "create a task" / legacy look_at creates a human AgentTask.
     created_task_id: str | None = None
     if user_id and action in ("approved", "approve") and option_id in ("create_task", "look_at"):
+        from datetime import timedelta
+
+        from app.services.orchestration.dispatcher import create_agent_task
+
         sig_result = await session.execute(
             select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
         )
         signal = sig_result.scalar_one_or_none()
         if signal:
-            set_conversation_look_at(signal)
+            who = signal.contact_email or signal.contact_name or "conversation"
+            title = f"Follow up: {signal.subject or who}"[:120]
+            # Clear any leftover look-at stamp from older builds.
+            signal.follow_up_at = None
+            signal.follow_up_title = None
             session.add(signal)
-            await session.commit()
-            created_task_id = str(signal.id)
+            task = await create_agent_task(
+                session,
+                tenant_id,
+                title=title,
+                signal_id=signal.id,
+                created_by=user_id,
+                kind="task",
+                origin="conversation",
+                assignee_kind="human",
+                assignee_user_id=user_id,
+                scheduled_for=datetime.utcnow() + timedelta(hours=4),
+                auto_start=False,
+            )
+            created_task_id = str(task.id)
 
     return {
         "ok": True,

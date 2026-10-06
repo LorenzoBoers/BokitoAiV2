@@ -5,7 +5,7 @@ import { agentChatPath, inboxPath } from './messages-paths'
 import { openEntityPath, pickClosestThreadBySubject } from './open-entity'
 
 /** One shape for everything over time: Agenda, the agent timeline and agent detail. */
-export type TimeItemKind = 'session' | 'wake' | 'checkup' | 'calendar' | 'follow_up' | 'activity'
+export type TimeItemKind = 'session' | 'wake' | 'checkup' | 'task' | 'calendar' | 'activity'
 
 export type OwnerKind = 'user' | 'agent' | 'team'
 
@@ -249,7 +249,7 @@ export function timeItemHref(
   threads: ThreadLike[] = [],
   nowMs: number = Date.now(),
 ): string {
-  if ((item.kind === 'follow_up' || item.kind === 'checkup' || item.kind === 'activity') && item.signal_id) {
+  if ((item.kind === 'task' || item.kind === 'checkup' || item.kind === 'activity') && item.signal_id) {
     return inboxPath('all', item.signal_id)
   }
   if (item.kind === 'calendar') return '/agenda'

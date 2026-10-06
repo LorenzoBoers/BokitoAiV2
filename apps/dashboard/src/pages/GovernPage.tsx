@@ -57,7 +57,6 @@ import { governHaystack, matchesGovernText } from '../lib/govern-list'
 import { useChannelStatus } from '../hooks/useChannelStatus'
 import { useLlmRuntime } from '../hooks/useLlmRuntime'
 import { Input } from '../components/ui/input'
-import GovernConversationsCard from '../components/govern/GovernConversationsCard'
 import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import type { AgentPassport } from '../lib/workforce-api'
@@ -620,16 +619,6 @@ export default function GovernPage() {
                 </div>
               </CardContent>
             </Card>
-
-            <GovernConversationsCard
-              messagingMode={allowances.messaging}
-              onMessagingChange={(mode) => handleAllowanceChange('messaging', mode)}
-              categories={categoryScopes}
-              onCategoryChanged={(row) =>
-                setCategoryScopes((current) => current.map((item) => (item.id === row.id ? row : item)))
-              }
-              saving={savingModes}
-            />
 
             <Card>
               <CardHeader>

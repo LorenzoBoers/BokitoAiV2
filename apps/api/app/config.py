@@ -74,15 +74,17 @@ class Settings(BaseSettings):
     def parked_channel_set(self) -> set[str]:
         return {s.strip().lower() for s in self.parked_channels.split(",") if s.strip()}
 
-    # Platform LLM keys. Mistral (EU) backs the managed Bokito AI model;
-    # Anthropic/OpenAI are the US fallbacks and the providers behind US-hosted
-    # catalog rows. All three can also be stored encrypted in platform_secrets.
+    # Platform LLM keys. Default managed family is Mistral (EU); set
+    # BOKITO_BACKING_FAMILY=claude to route all three tiers to Anthropic.
+    # OpenAI covers embeddings and BYOK. Keys can also live in platform_secrets.
     mistral_api_key: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    # mistral | claude — switches silent backings for Maki / Bokito AI / Kong.
+    bokito_backing_family: str = "mistral"
     # Customer list-price multiplier on platform-key (billable) usage. Invisible
     # to tenants; set via env, not the Models settings page.
-    token_markup_multiplier: float = 1.3
+    token_markup_multiplier: float = 1.2
     # Global kill-switch for BYOK / custom models. Must also be entitled per
     # tenant (`settings_json.features.custom_models`) before the UI appears.
     feature_custom_models: bool = False

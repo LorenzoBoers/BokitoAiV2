@@ -527,35 +527,6 @@ async def list_tasks(
     from app.services.work_items import serialize_work_item
 
     items: list[dict[str, Any]] = [serialize_work_item(t) for t in rows]
-    include_look_at = not status or status in ("look_at", "open", "pending")
-    if include_look_at:
-        from app.models.signal import Signal
-
-        look = select(Signal).where(
-            Signal.tenant_id == tenant_id,
-            Signal.deleted_at.is_(None),
-            Signal.follow_up_at.is_not(None),
-        )
-        if project_id:
-            try:
-                look = look.where(Signal.project_id == UUID(project_id))
-            except (TypeError, ValueError):
-                pass
-        look = look.order_by(Signal.follow_up_at.desc()).limit(limit)
-        for s in (await session.execute(look)).scalars().all():
-            items.append(
-                {
-                    "id": str(s.id),
-                    "kind": "look_at",
-                    "title": s.follow_up_title or s.subject or "Look at",
-                    "status": "look_at",
-                    "project_id": str(s.project_id) if s.project_id else None,
-                    "signal_id": str(s.id),
-                    "trigger_type": "follow_up",
-                    "created_at": _iso(s.follow_up_at),
-                    "completed_at": None,
-                }
-            )
     items.sort(key=lambda row: row.get("created_at") or "", reverse=True)
     return items[:limit]
 

@@ -9,7 +9,6 @@ import {
   itemStart,
   layerOf,
   layoutDay,
-  type AgendaLayer,
 } from '../../lib/agenda-layout'
 import type { TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
@@ -225,7 +224,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
 
 function Legend() {
   const { t } = useTranslation('nav')
-  const layers: AgendaLayer[] = ['calendar', 'reminders', 'checkups', 'agents', 'routines', 'activity']
+  const layers = ['calendar', 'tasks', 'activity'] as const
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 px-3 py-1.5 text-2xs text-text-muted">
       {layers.map((layer) => (

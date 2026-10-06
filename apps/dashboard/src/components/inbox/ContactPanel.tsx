@@ -18,6 +18,7 @@ import {
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { ContactAvatar } from '../ui/ContactAvatar'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -539,10 +540,10 @@ export default function ContactPanel({
               to={`/contacts/${contact.id}`}
               className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
             >
-              <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
+              <ContactAvatar name={contact.displayName} email={contact.address} size={36} />
             </Link>
           ) : (
-            <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
+            <ContactAvatar name={contact.displayName} email={contact.address} size={36} />
           )}
           <div className="min-w-0 flex-1">
             {namedHeadline ? (

@@ -13,16 +13,16 @@ An action tag is a hashtag with a flow, marked with an accent `#`. A conversatio
 
 Every inbound message is read against the action tags before a reply is drafted, also when AI handling is set to Manual. A certain read files the ticket, an unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free hashtags stay next to the action tag for grouping; see [Communication](/docs/inbox/communication).
 
-## Make a hashtag an action tag
+## Make a tag an action tag
 
 ![Action tags settings with one action tag](/api/docs/assets/categories/catalog.png)
-*Each action tag shows its hashtag, flow, projects and open count.*
+*One Tags list: action tags first, then free tags; each row can create or open its flow.*
 
-1. Open **Settings**, then **Action tags**. The page lists the action tags first, then the free **Hashtags**, then **What we missed** and who may confirm tickets.
-2. Choose **Make action tag** on a free hashtag. That creates or links a flow titled `#name`. The hashtag moves up into the action tag list.
-3. Or choose **New action tag**. Enter the **Hashtag**, describe when it applies and when it does not (agents read this to classify), and pick the flow. A new flow starts with the stages Open, Waiting and Done and is titled with the hashtag.
-4. Open the action tag and, under **How it gets filed**, set **When the AI recognizes it** to **Ask customer**, **Ask operator**, **Auto** or **Manual only**.
-5. Turn on **Show in Communication** to give the action tag its own row in the Communication sidebar. **Make free hashtag** removes the flow again; conversations filed on it are no longer tickets.
+1. Open **Settings**, then **Action tags**. The page shows one **Tags** list (action tags and free tags), then **What we missed** and who may confirm tickets.
+2. Choose **Create flow** on a free tag (flow icon). That creates or links a flow titled `#name`. The tag becomes an action tag in the same list.
+3. On an action tag, choose **Open flow** to open that flow. Or choose **New action tag**. Enter the **Tag**, describe when it applies and when it does not (agents read this to classify), and pick the flow. A new flow starts with the stages Open, Waiting and Done and is titled with the tag.
+4. Expand the action tag and, under **How it gets filed**, set **When the AI recognizes it** to **Ask customer**, **Ask operator**, **Auto** or **Manual only**.
+5. Turn on **In Communication** to give the action tag its own row in the Communication sidebar. **Make free tag** removes the flow again; conversations filed on it are no longer tickets.
 
 ## File a ticket on a conversation
 

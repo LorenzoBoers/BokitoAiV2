@@ -31,7 +31,6 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { composeEmailPath, parseComposeIntent } from '../lib/compose-intent'
 import { writeLastInboxQueue } from '../lib/inbox-prefs'
 import { nextUnreadId, parseQuickFilterParam, toggleOrRangeSelect } from '../lib/inbox-ops'
-import { snoozeUntilIso, SNOOZE_PRESETS, toLocalDateTimeValue } from '../lib/snooze'
 import {
   focusInboxReply,
   scrollActiveThreadIntoView,
@@ -226,8 +225,6 @@ export default function Communication() {
 
   const [assigneeFilter, setAssigneeFilter] = useState<number | null>(null)
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
-  const [customSnoozeOpen, setCustomSnoozeOpen] = useState(false)
-  const [customSnoozeValue, setCustomSnoozeValue] = useState(toLocalDateTimeValue)
   const lastBulkAnchorId = useRef<string | null>(null)
 
   const applyQuickFilterChange = useCallback(
@@ -514,24 +511,6 @@ export default function Communication() {
     [token, addPin, removePin],
   )
 
-  const handleListSnooze = useCallback(
-    async (id: ThreadId) => {
-      if (!token) return
-      const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
-      try {
-        await apiPatchThread(token, id, {
-          status: 'pending',
-          snoozedUntil: tomorrow ? snoozeUntilIso(tomorrow) : null,
-        })
-        toast.success(t('threadResolved.snoozed'))
-        void refreshThreads()
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : t('actions.patchError'))
-      }
-    },
-    [token, refreshThreads, t],
-  )
-
   const handleDetailTogglePin = useCallback(async () => {
     if (selectedThreadId == null || !detail) return
     const current = detail.thread.isPinned
@@ -799,10 +778,8 @@ export default function Communication() {
             toast.success(t('threadResolved.spam'), {
               action: { label: t('undoSend.undo'), onClick: undoReopen },
             })
-          } else {
-            toast.success(t('threadResolved.snoozed'), {
-              action: { label: t('undoSend.undo'), onClick: undoReopen },
-            })
+          } else if (input.status === 'pending') {
+            toast.success(t('threadChrome.markUnread'))
           }
           leaveResolvedThread(fromId, input.status)
         }
@@ -926,13 +903,6 @@ export default function Communication() {
     },
     onCompose: mode === 'customer' ? () => navigate(newConversationPath({ intent: 'contact' })) : undefined,
     onNewChat: mode === 'customer' ? () => navigate(newConversationPath()) : undefined,
-    onSnooze: () => {
-      void handlePatch({ status: 'pending', snoozedUntil: snoozeUntilIso(SNOOZE_PRESETS[0]) })
-    },
-    onSnoozeCustom: () => {
-      setCustomSnoozeValue(toLocalDateTimeValue())
-      setCustomSnoozeOpen(true)
-    },
     onToggleSelect: () => {
       if (selectedThreadId != null) handleToggleBulkSelect(selectedThreadId)
     },
@@ -968,15 +938,11 @@ export default function Communication() {
       if (!token || bulkSelectedIds.size === 0) return
       setBulkBusy(true)
       try {
-        const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
         const updated = await bulkUpdateSignalThreads(
           token,
           [...bulkSelectedIds],
           action,
           assigneeId,
-          action === 'snooze'
-            ? { snoozedUntil: tomorrow ? snoozeUntilIso(tomorrow) : null }
-            : undefined,
         )
         toast.success(t('actions.bulkUpdated', { count: updated }))
         setBulkSelectedIds(new Set())
@@ -1044,10 +1010,10 @@ export default function Communication() {
         if (resolving && fromId != null) {
           if (!undoable) {
             toast.success(
-              action === 'send_and_close' ? t('threadResolved.closed') : t('threadResolved.snoozed'),
+              action === 'send_and_close' ? t('threadResolved.closed') : t('timeline.events.replySent'),
             )
           }
-          leaveResolvedThread(fromId, action === 'send_and_pending' ? 'pending' : 'closed')
+          if (action === 'send_and_close') leaveResolvedThread(fromId, 'closed')
         }
         if (undoable && msg?.id && token) {
           const messageId = String(msg.id)
@@ -1362,7 +1328,6 @@ export default function Communication() {
             onMarkRead={handleListMarkRead}
             onMarkUnread={handleListMarkUnread}
             onTogglePin={handleListTogglePin}
-            onSnooze={mode === 'customer' ? handleListSnooze : undefined}
             onClose={(id) => void handleListClose(id)}
             onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
             deletingThreadId={deletingThreadId}
@@ -1595,53 +1560,6 @@ export default function Communication() {
         prefill={composePrefill}
       />
       <InboxShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
-      {customSnoozeOpen ? (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('snooze.customTitle')}
-          onClick={() => setCustomSnoozeOpen(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-lg border border-border/60 bg-bg-surface p-4 shadow-overlay"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-sm font-semibold text-text-heading">{t('snooze.customTitle')}</h2>
-            <p className="mt-1 text-xs text-text-muted">{t('snooze.customHint')}</p>
-            <input
-              type="datetime-local"
-              value={customSnoozeValue}
-              onChange={(event) => setCustomSnoozeValue(event.target.value)}
-              className="mt-3 h-9 w-full rounded-md border border-border/60 bg-bg-elevated px-2 text-sm text-text-primary"
-            />
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setCustomSnoozeOpen(false)}
-                className="rounded-md px-2.5 py-1 text-xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
-              >
-                {t('decisionCard.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const wake = new Date(customSnoozeValue)
-                  if (Number.isNaN(wake.getTime()) || wake.getTime() <= Date.now()) {
-                    toast.error(t('snooze.customInvalid'))
-                    return
-                  }
-                  setCustomSnoozeOpen(false)
-                  void handlePatch({ status: 'pending', snoozedUntil: wake.toISOString() })
-                }}
-                className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg"
-              >
-                {t('snooze.customApply')}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
