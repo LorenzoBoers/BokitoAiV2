@@ -182,7 +182,7 @@ async def list_module_connections(
 
     if not default_connection_id and len(connections) == 1 and connections[0]["ready"]:
         connections[0]["is_default"] = True
-    from app.services.provider_connections import enrich_rows
+    from app.services.integration_connections import enrich_rows
 
     connections = await enrich_rows(session, tenant_id, connections, user_id=user_id, role=role)
 

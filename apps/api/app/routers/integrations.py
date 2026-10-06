@@ -779,7 +779,7 @@ async def delete_connection(
     """
     from app.services.connection_access import require_manage
     from app.services.connection_scope import set_connection_projects
-    from app.services.provider_connections import clear_module_defaults_for
+    from app.services.integration_connections import clear_module_defaults_for
 
     conn = await session.get(IntegrationConnection, connection_id)
     if conn is None or conn.tenant_id != auth.tenant.id:
@@ -892,7 +892,7 @@ async def _managed_connection(
     session: AsyncSession, auth: AuthContext, connection_id: UUID
 ) -> IntegrationConnection:
     from app.services.connection_access import require_manage
-    from app.services.provider_connections import get_tenant_connection
+    from app.services.integration_connections import get_tenant_connection
 
     conn = await get_tenant_connection(session, auth.tenant.id, connection_id)
     await require_manage(session, conn, user_id=auth.user.id, role=auth.role)
@@ -924,7 +924,7 @@ async def get_provider_connections(
     projects, attached modules, the access list and whether the caller may
     manage the row. Members only see rows they may use.
     """
-    from app.services.provider_connections import list_provider_connections
+    from app.services.integration_connections import list_provider_connections
 
     rows = await list_provider_connections(
         session, auth.tenant.id, provider, user_id=auth.user.id, role=auth.role
@@ -941,7 +941,7 @@ async def patch_connection(
 ):
     """Rename a registration (display label only; requires Manage)."""
     from app.services.audit import record_audit
-    from app.services.provider_connections import rename_connection
+    from app.services.integration_connections import rename_connection
 
     conn = await _managed_connection(session, auth, connection_id)
     try:
@@ -988,7 +988,7 @@ async def get_connection_projects(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Projects this connection is exclusive to; empty means workspace-wide."""
-    from app.services.provider_connections import get_tenant_connection
+    from app.services.integration_connections import get_tenant_connection
 
     conn = await get_tenant_connection(session, auth.tenant.id, connection_id)
     return await _connection_projects(session, auth.tenant.id, conn)
@@ -1041,7 +1041,7 @@ async def get_connection_access(
 ):
     """Who may use and manage this connection (people, agents, teams)."""
     from app.services.connection_access import connection_access, is_default_access
-    from app.services.provider_connections import get_tenant_connection
+    from app.services.integration_connections import get_tenant_connection
 
     conn = await get_tenant_connection(session, auth.tenant.id, connection_id)
     return {

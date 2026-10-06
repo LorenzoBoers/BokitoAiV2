@@ -144,7 +144,7 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
         project_names,
         set_connection_projects,
     )
-    from app.services.provider_connections import get_tenant_connection
+    from app.services.integration_connections import get_tenant_connection
 
     raw_id = str(tool_input.get("connection_id") or "").strip()
     try:

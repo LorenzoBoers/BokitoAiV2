@@ -205,7 +205,7 @@ async def test_access_list_denies_agent_without_use(session_override: AsyncSessi
 @pytest.mark.asyncio
 async def test_provider_listing_rows_carry_scope(session_override: AsyncSession):
     from app.services.connection_scope import set_connection_projects
-    from app.services.provider_connections import list_provider_connections
+    from app.services.integration_connections import list_provider_connections
 
     tenant = await _tenant(session_override)
     conn = await _moneybird(session_override, tenant, key="555")
@@ -237,7 +237,7 @@ async def test_provider_listing_rows_carry_scope(session_override: AsyncSession)
 
 @pytest.mark.asyncio
 async def test_rename_without_module(session_override: AsyncSession):
-    from app.services.provider_connections import rename_connection
+    from app.services.integration_connections import rename_connection
 
     tenant = await _tenant(session_override)
     conn = await _moneybird(session_override, tenant)
