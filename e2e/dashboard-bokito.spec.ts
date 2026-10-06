@@ -49,7 +49,10 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/overview')
     await expect(page).toHaveURL(/\/cockpit/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: /Overview|Overzicht/i })).toBeVisible({
+    // The Overview header is titled with the workspace name; the greeting and
+    // date sit in its subtitle. Any visible page heading proves the render.
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('link', { name: /^(Overview|Overzicht)$/i }).first()).toBeVisible({
       timeout: 20000,
     })
   })
@@ -146,17 +149,15 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Knowledge', exact: true })).toBeVisible({ timeout: 20000 })
   })
 
-  test('agenda page renders week view and automations tab', async ({ page }) => {
+  test('agenda page renders the calendar views', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/agenda')
-    await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('tab', { name: /Week|Weekoverzicht/i })).toBeVisible({
-      timeout: 20000,
-    })
-    await page.getByRole('tab', { name: /Week|Weekoverzicht/i }).click()
-    await expect(page.getByRole('tab', { name: /Timeline|Tijdlijn/i })).toBeVisible({
-      timeout: 20000,
-    })
+    // Agenda is full-bleed: the title sits in the topbar; the view switcher
+    // (Day / Week / Month / List) and the New menu prove the page rendered.
+    await expect(page.getByRole('tab', { name: /^(Week)$/i })).toBeVisible({ timeout: 20000 })
+    await page.getByRole('tab', { name: /^(Week)$/i }).click()
+    await expect(page.getByRole('tab', { name: /^(List|Lijst)$/i })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: /^(New|Nieuw)$/i })).toBeVisible({ timeout: 20000 })
   })
 
   test('integrations settings section loads', async ({ page }) => {
