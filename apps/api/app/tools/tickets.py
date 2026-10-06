@@ -129,7 +129,10 @@ async def _update_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
             ctx.session, ctx.tenant_id, signal_id, patch, actor_type=actor_type, actor_id=actor_id
         )
     except HTTPException as exc:
-        return {"error": exc.detail}
+        detail = exc.detail
+        if isinstance(detail, dict):
+            return {"error": detail.get("message") or "Could not update the ticket", **detail}
+        return {"error": detail}
     if ticket is None:
         return {"ok": True, "removed": True}
     return {"ticket": ticket}
@@ -219,7 +222,8 @@ register_tool(
         description=(
             "Move a ticket to a stage (stage_key from its flow), accept a proposed "
             "ticket (status open, with project_id or null), dismiss it (status dismissed), "
-            "or change its project."
+            "or change its project. When the target stage has required fields, pass them "
+            "in fields in the same call or the move is rejected."
         ),
         category="tickets",
         input_schema={
@@ -229,6 +233,11 @@ register_tool(
                 "stage_key": {"type": "string"},
                 "status": {"type": "string", "enum": ["open", "waiting", "done", "dismissed"]},
                 "project_id": {"type": ["string", "null"]},
+                "fields": {
+                    "type": "object",
+                    "description": "Field values for the target stage, keyed by field key",
+                    "additionalProperties": {"type": "string"},
+                },
             },
         },
         handler=_update_ticket,

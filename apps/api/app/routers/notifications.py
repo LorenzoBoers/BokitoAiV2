@@ -181,6 +181,67 @@ async def list_decisions(
     ]
 
 
+class DecisionGroup(BaseModel):
+    title: str
+    count: int
+    without_thread: int
+    latest_at: str | None = None
+
+
+class DecisionDismissBody(BaseModel):
+    title: str | None = None
+    without_thread_only: bool = False
+    older_than_days: int | None = None
+
+
+class DecisionDismissResult(BaseModel):
+    dismissed: int
+
+
+@router.get("/decisions/groups", response_model=list[DecisionGroup])
+async def list_decision_groups(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Open decision cards grouped by title, largest group first.
+
+    Shows which kind of question is piling up (for example "No reply needed")
+    so the team can dismiss a whole kind at once instead of card by card.
+    Govern decisions are not included.
+    """
+    from app.services.signal_decisions import open_decision_groups
+
+    return await open_decision_groups(session, auth.tenant.id)
+
+
+@router.post("/decisions/dismiss", response_model=DecisionDismissResult)
+async def dismiss_decisions_bulk(
+    body: DecisionDismissBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Dismiss every open decision card that matches the filter.
+
+    Filter by ``title`` (one kind), ``without_thread_only`` (cards raised
+    outside a conversation, such as check-in proposals), or
+    ``older_than_days``. Dismissed cards are closed as deferred; nothing is
+    executed, and a dismissed proposal is not re-raised for a week.
+    """
+    from app.services.signal_decisions import dismiss_decisions
+
+    if body.title is None and not body.without_thread_only and body.older_than_days is None:
+        raise HTTPException(status_code=422, detail="Pass a title, without_thread_only or older_than_days")
+    count = await dismiss_decisions(
+        session,
+        auth.tenant.id,
+        title=body.title,
+        without_thread_only=body.without_thread_only,
+        older_than_days=body.older_than_days,
+        user_id=auth.user.id,
+    )
+    return {"dismissed": count}
+
+
 @router.post("/decisions/{decision_id}/approve")
 async def approve_decision(
     decision_id: UUID,

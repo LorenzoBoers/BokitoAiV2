@@ -55,7 +55,7 @@ async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_o
     ).scalar_one()
     assert trigger.enabled is False
     assert trigger.name == checkin_trigger_name(assistant)
-    assert trigger.interval_minutes == 60
+    assert trigger.interval_minutes == 24 * 60
 
     channel = await session_override.get(Signal, trigger.signal_id)
     assert channel is not None

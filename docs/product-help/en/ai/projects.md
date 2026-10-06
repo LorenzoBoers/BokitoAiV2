@@ -16,7 +16,7 @@ A project is work that spans days. Open **Projects** when a goal should have a h
 ![Projects list](/api/docs/assets/projects/project.png)
 *Each card shows the project agent, open tickets, and budget.*
 
-1. Open **Projects**. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
+1. Open **Projects**. The in-page heading is **{workspace} projects**; the help icon next to **Projects** in the top bar opens this guide. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
 2. Read the card: project agent, open tickets (the same boards as Project Home), documentation health, repo status, remaining budget. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
 3. Open it. You land on the **Project** tab. Click the project agent to open it. Admins choose the pencil in the card header to pick another company agent as the project default, or create one. Members can read a project; they cannot delete it or edit the name.
 
@@ -60,6 +60,15 @@ A project can have several snapshot canvases (not live tiles). You add, delete a
 1. Open the **Settings** tab. The repository card connects a GitHub repo as before; status moves from **Indexing repo** to **Repo ready**.
 2. Under **Resources**, choose **Link a resource** to attach other surfaces the project works on: a drive folder, a Notion page, a spreadsheet, a coding tool, or a website.
 3. Pick a type, add a label and a reference (URL or ID), then choose **Link**. Resources are linked by reference for now; connectors that sync and act on them attach later.
+
+## Give a project its own connection
+
+Link an integration connection when a project stands for a client or department with its own account, such as a separate Moneybird administration.
+
+1. Open the **Settings** tab and, under **Resources**, choose **Link a resource**.
+2. Pick the type **Connection**, choose the connection, then choose **Link**.
+3. The connection is now exclusive to the projects it is linked to. Agents working on this project use it before the module default; work elsewhere cannot use it.
+4. Remove the resource to make the connection workspace-wide again. Deleting a project warns when a connection is linked only to that project, because it then becomes usable everywhere. Manage the same links from the provider card; see [Integrations](/docs/integrations/integrations).
 
 ## Cap spend
 

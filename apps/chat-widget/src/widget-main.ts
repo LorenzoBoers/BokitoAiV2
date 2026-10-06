@@ -6,6 +6,7 @@
  *           data-agent-slug="assistant"
  *           data-api-url="https://app.example.com"
  *           data-tenant="my-tenant"
+ *           data-channel-id="<uuid>"
  *           data-auth-mode="anonymous"
  *           defer></script>
  */
@@ -140,7 +141,7 @@ function readCookieValue(cookieName = '') {
 class ApiClient {
   #baseUrl; #token = null; #agentSlug; #onSessionExpired; #stateMachine; #identityTokenGetter;
   #hostAuthTokenGetter; #authModeGetter; #authCookieNameGetter; #customerIdGetter; #tenantSubdomainGetter;
-  #surfaceGetter;
+  #surfaceGetter; #channelAccountIdGetter;
 
   constructor({
     baseUrl,
@@ -154,6 +155,7 @@ class ApiClient {
     customerIdGetter,
     tenantSubdomainGetter,
     surfaceGetter,
+    channelAccountIdGetter,
   }) {
     this.#surfaceGetter = surfaceGetter;
     this.#baseUrl = normalizeLivechatApiBase(baseUrl);
@@ -165,6 +167,7 @@ class ApiClient {
     this.#authModeGetter = authModeGetter;
     this.#authCookieNameGetter = authCookieNameGetter;
     this.#tenantSubdomainGetter = tenantSubdomainGetter;
+    this.#channelAccountIdGetter = channelAccountIdGetter;
     this.#customerIdGetter =
       typeof customerIdGetter === 'function' ? customerIdGetter : () => localStorage.getItem(LS_CUSTOMER_ID_KEY);
   }
@@ -193,6 +196,8 @@ class ApiClient {
       if (authMode) body.auth_mode = authMode;
       if (authCookieName) body.auth_cookie_name = authCookieName;
       if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
+      const channelAccountId = this.#channelAccountIdGetter?.();
+      if (channelAccountId) body.channel_account_id = channelAccountId;
       // Silent refresh must land on the same surface, or the helper would come
       // back as the tenant's website assistant mid-conversation.
       const surface = this.#surfaceGetter?.();
@@ -483,11 +488,11 @@ class StateMachine {
 const WIDGET_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Jaro:opsz@6&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:ital,wght@0,300..700;1,300..700&display=swap');
 :host {
-  --bk-brand:         #0D9488;
+  --bk-brand:         #32BF8E;
   --bk-primary:       var(--bk-brand);
   --bk-primary-dark:  color-mix(in srgb, var(--bk-brand) 86%, #000);
   --bk-primary-light: color-mix(in srgb, var(--bk-brand) 14%, transparent);
-  --bk-on-primary:    #0f172a;
+  --bk-on-primary:    #ffffff;
   --bk-ai:            #7C3AED;
   --bk-ai-ink:        #5B21B6;
   --bk-text:          #161022;
@@ -548,7 +553,7 @@ const WIDGET_CSS = `
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking,.agent-live-dot,.thinking-shimmer-text{animation:none!important;}.thinking-shimmer-text{color:var(--bk-ai-ink);-webkit-text-fill-color:var(--bk-ai-ink);background:none;}}
-.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
+.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow);display:flex;align-items:center;justify-content:center;overflow:visible;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
 :host([data-theme="dark"]) .bk-launcher{box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);}
 @media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-launcher{box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);}}
 .bk-launcher:hover{transform:scale(1.06);box-shadow:var(--bk-launcher-shadow-hover);}
@@ -574,7 +579,7 @@ const WIDGET_CSS = `
 @keyframes bk-bubble-pop{from{opacity:0;transform:translateY(12px) scale(.92);}to{opacity:1;transform:translateY(0) scale(1);}}
 @keyframes bk-bubble-out{from{opacity:1;transform:translateY(0) scale(1);}to{opacity:0;transform:translateY(6px) scale(.95);}}
 @media (max-width:480px){.bk-proactive-bubbles{right:calc(20px + var(--bk-bubble-size) + 8px);bottom:10px;max-width:calc(100vw - var(--bk-bubble-size) - 46px);}.bk-window{border-radius:0;}.bk-window::before{border-radius:0;}}
-.bk-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 4px;border-radius:var(--bk-radius-full);background:#EF4444;color:white;font-size:11px;font-weight:700;font-family:var(--bk-font);display:flex;align-items:center;justify-content:center;animation:bk-scale-in .2s var(--bk-spring);box-sizing:border-box;}
+.bk-badge{position:absolute;top:-3px;right:-3px;z-index:3;min-width:18px;height:18px;padding:0 5px;border-radius:var(--bk-radius-full);background:#EF4444;color:white;font-size:11px;font-weight:700;font-family:var(--bk-font);display:flex;align-items:center;justify-content:center;animation:bk-scale-in .2s var(--bk-spring);box-sizing:border-box;pointer-events:none;box-shadow:0 0 0 2px var(--bk-bg-surface);}.bk-launcher.is-open .bk-badge{opacity:0;}
 .bk-window{position:fixed;bottom:calc(var(--bk-bubble-size) + 24px);right:20px;width:var(--bk-window-w);height:var(--bk-window-h);background:var(--bk-bg);border-radius:24px;box-shadow:0 16px 48px rgba(0,0,0,.34),0 6px 20px rgba(0,0,0,.2),0 0 1px rgba(255,255,255,.04);display:flex;flex-direction:column;overflow:hidden;z-index:calc(var(--bk-z-widget) - 1);border:none;font-family:var(--bk-font);transform-origin:bottom right;will-change:transform,opacity;isolation:isolate;}
 .bk-window::before{content:'';position:absolute;left:0;right:0;top:0;height:var(--bk-atmosphere-height,min(56%,380px));min-height:var(--bk-atmosphere-min-height,260px);pointer-events:none;z-index:0;border-radius:24px 24px 0 0;background:var(--bk-window-atmosphere-bg,radial-gradient(118% 95% at 50% -12%,color-mix(in srgb,var(--bk-primary) 18%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 6%,transparent) 42%,transparent 68%),linear-gradient(180deg,color-mix(in srgb,var(--bk-primary) 14%,var(--bk-bg)) 0%,color-mix(in srgb,var(--bk-primary) 5%,var(--bk-bg)) 46%,transparent 88%));}
 .bk-window.is-opening{animation:bk-window-in .22s cubic-bezier(.2,.8,.2,1) both;}
@@ -776,8 +781,8 @@ const WIDGET_CSS = `
 .bk-msg--user .bk-msg-bubble{max-width:86%;}
 .bk-msg--ai .bk-msg-bubble{background:color-mix(in srgb,var(--bk-ai) 7%,var(--bk-bg-surface));color:var(--bk-text);border:1px solid color-mix(in srgb,var(--bk-ai) 20%,transparent);}
 .bk-msg--team .bk-msg-bubble{background:var(--bk-bg-surface);color:var(--bk-text);border:1px solid var(--bk-border-light);}
-.bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 13%,var(--bk-bg-surface));color:var(--bk-text);border:1px solid color-mix(in srgb,var(--bk-primary) 26%,var(--bk-border));}
-:host([data-theme="light"]) .bk-msg--user .bk-msg-bubble{background:color-mix(in srgb,var(--bk-primary) 11%,#fff);border-color:color-mix(in srgb,var(--bk-primary) 24%,var(--bk-border));}
+.bk-msg--user .bk-msg-bubble{background:var(--bk-primary);color:var(--bk-on-primary);border:none;}
+:host([data-theme="light"]) .bk-msg--user .bk-msg-bubble{background:var(--bk-primary);color:var(--bk-on-primary);border:none;}
 .bk-msg--ai .bk-msg-bubble,.bk-msg--team .bk-msg-bubble{border-top-left-radius:6px;}
 .bk-msg--ai.bk-msg--start .bk-msg-bubble,.bk-msg--team.bk-msg--start .bk-msg-bubble,.bk-msg--ai.bk-msg--middle .bk-msg-bubble,.bk-msg--team.bk-msg--middle .bk-msg-bubble{border-bottom-left-radius:6px;}
 .bk-msg--user .bk-msg-bubble{border-top-right-radius:6px;}
@@ -798,12 +803,14 @@ const WIDGET_CSS = `
 .bk-msg-bubble code{font-family:var(--bk-font-mono);font-size:12px;padding:1px 5px;border-radius:4px;}
 .bk-msg--ai .bk-msg-bubble code{background:var(--bk-border-light);}
 .bk-msg--team .bk-msg-bubble code{background:var(--bk-border-light);}
-.bk-msg--user .bk-msg-bubble code{background:color-mix(in srgb,var(--bk-primary) 18%,transparent);}
+.bk-msg--user .bk-msg-bubble code{background:color-mix(in srgb,var(--bk-on-primary) 18%,transparent);}
 .bk-msg-bubble pre{overflow-x:auto;margin:8px 0;}
 .bk-msg-bubble ul,.bk-msg-bubble ol{padding-left:20px;margin:8px 0;}
 .bk-msg-bubble li{margin-bottom:3px;}
 .bk-msg-bubble a{color:var(--bk-primary);}
 .bk-msg--ai .bk-msg-bubble a{color:var(--bk-ai-ink);}
+.bk-msg--user .bk-msg-bubble a{color:inherit;text-decoration:underline;}
+.bk-msg--user .bk-msg-time{color:color-mix(in srgb,var(--bk-on-primary) 72%,transparent);}
 .bk-thinking,.agent-live-status{width:100%;max-width:var(--bk-chat-col);margin:2px auto 8px;padding-left:28px;}
 .bk-thinking-dots,.agent-live-line{display:flex;align-items:center;gap:8px;padding:2px 0;background:none;border:0;border-radius:0;}
 .agent-live-line.is-current{filter:drop-shadow(0 0 10px color-mix(in srgb,var(--bk-ai) 38%,transparent));}
@@ -922,7 +929,7 @@ const WIDGET_CSS = `
 .bk-csat-comment:focus{border-color:var(--bk-primary);}
 .bk-csat-send{align-self:flex-start;padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:var(--bk-on-primary);font-size:13px;font-weight:600;cursor:pointer;}
 .bk-worklog-stack{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:var(--bk-surface-muted,#f3f4f6);font-size:13px;color:var(--bk-text-secondary,#4b5563);}
-.bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#0D9488);}
+.bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#32BF8E);}
 .bk-worklog-title{font-weight:500;margin-bottom:6px;}
 .bk-worklog-list{margin:0;padding-left:18px;}
 .bk-worklog-list li{margin:2px 0;}
@@ -1114,6 +1121,7 @@ class BokitoChatWidget extends HTMLElement {
   /** "site" (tenant's own website) or "in_app" (personal Bokito helper in the dashboard). */
   #surface = 'site';
   #tenantSubdomain = null;
+  #channelAccountId = null;
   #sessionUser = null; #sessionTenant = null; #tenantMcpServers = [];
   #loginSigninEl = null;
   #isPreferencesHydrated = false;
@@ -1610,6 +1618,7 @@ class BokitoChatWidget extends HTMLElement {
     if (!['site', 'in_app'].includes(this.#surface)) this.#surface = 'site';
     // Explicit tenant wins over host-based resolution (needed on customer domains).
     this.#tenantSubdomain = (this.dataset.tenant || '').trim() || null;
+    this.#channelAccountId = (this.dataset.channelId || '').trim() || null;
     this.#hostAuthToken = this.#resolveHostAuthToken();
     this.#nonBlockingSend = this.dataset.nonBlockingSend !== 'false';
     this.#processingTimeoutMs = Number(this.dataset.processingTimeoutMs || 30000);
@@ -2025,6 +2034,7 @@ class BokitoChatWidget extends HTMLElement {
       surfaceGetter: () => this.#surface,
       authCookieNameGetter: () => this.#authCookieName,
       tenantSubdomainGetter: () => this.#tenantSubdomain,
+      channelAccountIdGetter: () => this.#channelAccountId,
       customerIdGetter: () => this.#storGet(LS_CUSTOMER_ID_KEY),
       onSessionExpired: (data) => {
         this.#applySessionPayload(data);
@@ -3008,6 +3018,7 @@ class BokitoChatWidget extends HTMLElement {
       body.auth_mode = this.#authMode;
       body.surface = this.#surface;
       if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
+      if (this.#channelAccountId) body.channel_account_id = this.#channelAccountId;
       const data = await this.#api.post('session/start', body);
       this.#applySessionPayload(data);
       this.#emitTenantMcpTelemetry('session_start');
@@ -3081,7 +3092,7 @@ class BokitoChatWidget extends HTMLElement {
     const int = Math.min(1, Math.max(0, Number(intensity) || 1));
     const end = Math.min(96, Math.max(52, Number(linearFadeEndPct) || 88));
     const cs = getComputedStyle(this);
-    const primary = (cs.getPropertyValue('--bk-primary').trim() || '#0D9488');
+    const primary = (cs.getPropertyValue('--bk-primary').trim() || '#32BF8E');
     const bg = (cs.getPropertyValue('--bk-bg').trim() || '#F7FBF9');
     const a1 = Math.round(100 * 0.18 * int);
     const a2 = Math.round(100 * 0.06 * int);
@@ -6122,6 +6133,7 @@ if (!customElements.get('bokito-chat')) {
   const authMode = scriptEl?.dataset?.authMode || cfg.authMode || '';
   const surface = scriptEl?.dataset?.surface || cfg.surface || '';
   const tenant = scriptEl?.dataset?.tenant || cfg.tenant || '';
+  const channelId = scriptEl?.dataset?.channelId || cfg.channelId || '';
   const signinUrl = scriptEl?.dataset?.signinUrl || cfg.signinUrl || '';
   const csrfToken = scriptEl?.dataset?.csrfToken || cfg.csrfToken || '';
   const qp = new URLSearchParams(window.location.search);
@@ -6141,6 +6153,7 @@ if (!customElements.get('bokito-chat')) {
     if (authMode) widget.dataset.authMode = String(authMode);
     if (surface) widget.dataset.surface = String(surface);
     if (tenant) widget.dataset.tenant = String(tenant);
+    if (channelId) widget.dataset.channelId = String(channelId);
     if (signinUrl) widget.dataset.signinUrl = String(signinUrl);
     if (csrfToken) widget.dataset.csrfToken = String(csrfToken);
     if (debug)   widget.dataset.debug = 'true';

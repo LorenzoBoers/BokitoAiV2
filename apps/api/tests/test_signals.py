@@ -846,3 +846,84 @@ async def test_list_threads_search_matches_company_and_attachment(client: AsyncC
     by_file = await client.get("/api/signals?view=all_open&search=invoice-4821", headers=headers)
     assert by_file.status_code == 200
     assert any(item["id"] == str(signal.id) for item in by_file.json()["items"])
+
+
+@pytest.mark.asyncio
+async def test_new_inbound_message_parks_open_reply_proposal(client: AsyncClient, session_override):
+    """The draft answers the previous mail: a newer customer message sets it aside."""
+    from uuid import uuid4
+
+    from app.channels.base import InboundMessage, ingest_inbound
+    from app.models.notification import DecisionRequest
+    from app.services.inbound_agent import create_reply_suggestion
+    from app.services.signal_threads import DEFER_SUPERSEDED_BY_INBOUND
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        (
+            await session_override.execute(
+                select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            )
+        )
+        .scalars()
+        .first()
+    )
+    sender = f"anker-{uuid4().hex[:6]}@klant.nl"
+    first = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=sender,
+        subject="Vraag over levering",
+        body_text="Wanneer komt de bestelling?",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-anker",
+        metadata={"rfc_message_id": "<anker-1@klant.nl>"},
+    )
+    signal, _ = await ingest_inbound(session_override, tenant.id, first)
+    first_msg_id = (
+        await session_override.execute(
+            select(SignalMessage.id).where(
+                SignalMessage.signal_id == signal.id, SignalMessage.direction == "inbound"
+            )
+        )
+    ).scalar_one()
+
+    await create_reply_suggestion(
+        session_override, tenant.id, signal, agent, reply_text="Morgen.", is_mock=True
+    )
+    await session_override.commit()
+
+    # The card is anchored to the inbound message it answers.
+    detail = await client.get(f"/api/signals/{signal.id}", headers=headers)
+    card = next(m for m in detail.json()["messages"] if m["kind"] == "decision_request")
+    assert card["payload"]["decision"]["status"] == "awaiting_human"
+    assert card["payload"]["decision"]["based_on_message_id"] == str(first_msg_id)
+
+    second = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=sender,
+        subject="Re: Vraag over levering",
+        body_text="Laat maar, ik heb al gebeld.",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-anker",
+        metadata={"rfc_message_id": "<anker-2@klant.nl>", "in_reply_to": "<anker-1@klant.nl>"},
+    )
+    same, _ = await ingest_inbound(session_override, tenant.id, second)
+    assert same.id == signal.id
+
+    decision = (
+        await session_override.execute(
+            select(DecisionRequest).where(DecisionRequest.signal_id == signal.id)
+        )
+    ).scalar_one()
+    assert decision.status == "deferred"
+    assert decision.chosen_option_id == DEFER_SUPERSEDED_BY_INBOUND
+
+    detail = await client.get(f"/api/signals/{signal.id}", headers=headers)
+    card = next(m for m in detail.json()["messages"] if m["kind"] == "decision_request")
+    assert card["payload"]["decision"]["status"] == "deferred"
+    assert card["payload"]["decision"]["resolution_reason"] == DEFER_SUPERSEDED_BY_INBOUND
+    events = await client.get(f"/api/signals/{signal.id}", headers=headers)
+    assert any(e["event_type"] == "suggestion_deferred" for e in events.json()["events"])

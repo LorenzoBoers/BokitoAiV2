@@ -39,6 +39,26 @@ SUGGEST_MODE_TOOLS = frozenset(
 )
 
 
+def assisted_tool_allowed(name: str) -> bool:
+    """Assisted runs keep the allow-list plus ungated module reads.
+
+    Module read tools (``accounting_list_companies`` and friends) are
+    non-mutating and not gated, so they never raise an approval card; they
+    are the right path to records in connected systems, not ``call_mcp_tool``.
+    """
+    if name in SUGGEST_MODE_TOOLS:
+        return True
+    from app.tools.registry import get_tool_spec
+
+    spec = get_tool_spec(name)
+    return bool(
+        spec
+        and spec.category == "integrations"
+        and not spec.mutating
+        and not spec.gated
+    )
+
+
 async def startup(ctx):
     from app.observability import init_observability
 
@@ -86,6 +106,34 @@ async def _interpret_inbound_message(session, tenant_id: UUID, signal: Signal) -
     await session.refresh(signal)
 
 
+async def release_workspace_block(session, tenant, *, exclude_signal_id: str = "") -> int:
+    """Clear a recorded LLM block and re-queue the threads deferred under it.
+
+    Called after any successful model turn for the tenant; returns how many
+    threads were re-queued.
+    """
+    from app.services.run_errors import LLM_BLOCK_SETTINGS_KEY, close_workspace_block
+
+    if tenant is None:
+        return 0
+    try:
+        has_block = LLM_BLOCK_SETTINGS_KEY in json.loads(tenant.settings_json or "{}")
+    except (TypeError, json.JSONDecodeError):
+        has_block = False
+    if not has_block:
+        return 0
+    deferred = close_workspace_block(tenant)
+    session.add(tenant)
+    await session.commit()
+    count = 0
+    for sid in deferred:
+        if sid == exclude_signal_id:
+            continue
+        await enqueue_signal_processing(str(tenant.id), sid)
+        count += 1
+    return count
+
+
 async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
     """Run the assistant loop on a new inbound signal (email, widget, webhook, ...)."""
     from app.models.auth import Tenant
@@ -100,6 +148,30 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         signal = signal_result.scalar_one_or_none()
         if not signal:
             return {"skipped": True}
+
+        # Workspace-wide LLM block (credits, key, spend cap): do not start a run
+        # per message while it lasts; remember the thread and re-triage later.
+        from app.services.run_errors import active_workspace_block, defer_signal_during_block
+
+        tenant = await session.get(Tenant, UUID(tenant_id))
+        blocked = active_workspace_block(tenant) if tenant is not None else None
+        if blocked:
+            defer_signal_during_block(tenant, signal.id)
+            session.add(tenant)
+            session.add(
+                SignalEvent(
+                    signal_id=signal.id,
+                    tenant_id=UUID(tenant_id),
+                    event_type="agent_deferred",
+                    actor_type="system",
+                    actor_id="",
+                    payload_json=json.dumps(
+                        {"block": blocked.get("kind"), "until": blocked.get("until")}
+                    ),
+                )
+            )
+            await session.commit()
+            return {"skipped": True, "reason": f"blocked:{blocked.get('kind')}", "deferred": True}
 
         # INTERPRETATION runs first, on every inbound message: category, intent,
         # and typed signals (Cases) exist before any reply path decides what to
@@ -119,7 +191,6 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             # Mailbox disconnected: suggesting or sending replies that can
             # never be delivered would be misleading.
             return {"skipped": True, "reason": "mailbox_disconnected"}
-        tenant = await session.get(Tenant, UUID(tenant_id))
         # Match the composer: never draft/auto-send when the bound channel
         # cannot deliver (setup_required / action_required / paused).
         if (
@@ -306,11 +377,35 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         except Exception:  # noqa: BLE001 — context enrichment must never block replies
             project_context = ""
 
+        # Same person on another channel this week (WhatsApp after email, a
+        # colleague's reply from their own mailbox): the agent must not answer
+        # what was already handled elsewhere.
+        related_context = ""
+        try:
+            from app.services.related_conversations import recent_contact_context
+
+            block = await recent_contact_context(session, signal)
+            if block:
+                related_context = f"{block}\n"
+        except Exception:  # noqa: BLE001 — context enrichment must never block replies
+            related_context = ""
+
         if run_mode == "assisted":
             # Assisted: read-only research tools + inline decisions.
             # The final reply text becomes a DecisionRequest via
             # create_reply_suggestion — the agent can never send directly.
-            loop.tools = [t for t in loop.tools if t["name"] in SUGGEST_MODE_TOOLS]
+            loop.tools = [t for t in loop.tools if assisted_tool_allowed(t["name"])]
+            module_reads = sorted(
+                t["name"]
+                for t in loop.tools
+                if t["name"] not in SUGGEST_MODE_TOOLS
+            )
+            module_hint = (
+                f"the module read tools ({', '.join(module_reads[:6])}) for records in "
+                "connected business systems, "
+                if module_reads
+                else ""
+            )
             prompt = (
                 f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
                 f"Subject: {signal.subject}\n\n{msg_text}\n\n"
@@ -318,7 +413,8 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "nothing you produce is sent automatically.\n"
                 "1. Research first: use search_index / read_doc for workspace knowledge, "
                 "search_product_help for how Bokito itself works, "
-                "and call_mcp_tool to query connected business systems (accounting, CRM) "
+                f"{module_hint}"
+                "and call_mcp_tool only for other connected MCP servers "
                 "when the question concerns records that live there.\n"
                 "2. Then do exactly one of the following:\n"
                 "   - Return the proposed reply body text (it becomes a suggestion card "
@@ -348,9 +444,12 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "takeover (pause AI, no outbound). Then return exactly: Done.\n"
                 "   - If the message is an automated notification that needs no reply "
                 "(no-reply sender, newsletter, receipt, system alert), return exactly: "
-                "NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
+                "NO_REPLY_NEEDED: <one-line summary of what it says>. Return only that "
+                "single line: no analysis, reasoning or description of the mail before "
+                "or after it.\n"
                 f"{language_rules}"
                 f"{project_context}"
+                f"{related_context}"
                 "Never invent facts about the customer's administration — if research "
                 "returns nothing, say so in the draft and propose next steps."
             )
@@ -363,9 +462,11 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "with multiple choice options when human input is required. "
                 "If the message is an automated notification that needs no reply "
                 "(no-reply sender, newsletter, receipt, system alert), do not reply; "
-                "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
+                "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>, "
+                "as the only line, with no analysis before it.\n"
                 f"{language_rules}"
                 f"{project_context}"
+                f"{related_context}"
             )
         try:
             reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
@@ -390,9 +491,16 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             block = workspace_block(exc)
             if block:
                 # Spend cap / provider credits / bad key: every message fails the
-                # same way until fixed. One alert, a thread note, no retry.
+                # same way until fixed. One alert, a thread note, no retry, and
+                # a workspace block so the next messages are deferred instead
+                # of each starting a doomed run.
                 from app.services.ops_alerts import alert_workspace_block
+                from app.services.run_errors import defer_signal_during_block, open_workspace_block
 
+                if tenant is not None:
+                    open_workspace_block(tenant, kind=block, error=exc)
+                    defer_signal_during_block(tenant, signal.id)
+                    session.add(tenant)
                 session.add(
                     SignalEvent(
                         signal_id=signal.id,
@@ -419,6 +527,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
             raise
 
+        # The model answered: an expired block is over. Re-queue the threads
+        # that were deferred while it lasted so nothing stays untriaged.
+        await release_workspace_block(session, tenant, exclude_signal_id=str(signal.id))
+
         # If the agent already raised its own inline decision card during the
         # run, don't stack an automatic reply-suggestion card on top of it.
         agent_created_decision = "create_decision_request" in (
@@ -433,8 +545,41 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             persist_inbound_agent_reply,
         )
 
+        # Stale run: the contact wrote again while the agent was working. The
+        # newer message has its own run; a card answering the older message
+        # would only confuse the operator.
+        newer_inbound = (
+            await session.execute(
+                select(SignalMessage.id)
+                .where(
+                    SignalMessage.signal_id == signal.id,
+                    SignalMessage.direction == "inbound",
+                    SignalMessage.kind == "user_message",
+                    SignalMessage.author_user_id.is_(None),
+                    SignalMessage.created_at > msg.created_at,
+                    SignalMessage.id != msg.id,
+                )
+                .limit(1)
+            )
+        ).first()
+        stale = newer_inbound is not None and run_mode == "assisted" and not agent_created_decision
+
         no_reply_summary = extract_no_reply_summary(reply_text)
-        if no_reply_summary is not None:
+        if stale:
+            session.add(
+                SignalEvent(
+                    signal_id=signal.id,
+                    tenant_id=UUID(tenant_id),
+                    event_type="suggestion_skipped_stale",
+                    actor_type="system",
+                    actor_id="",
+                    payload_json=json.dumps(
+                        {"run_id": str(run.id), "trigger_message_id": str(msg.id)}
+                    ),
+                )
+            )
+            delivery = {"skipped": True, "reason": "stale", "delivery": "skipped_stale"}
+        elif no_reply_summary is not None:
             # The model judged this an automated notification: suggest an
             # action (close / task / keep open) instead of sending a reply.
             delivery = await create_action_suggestion(

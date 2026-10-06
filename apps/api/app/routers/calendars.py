@@ -25,6 +25,7 @@ class CalendarEventCreateBody(BaseModel):
     end_at: datetime
     description: str = ""
     location: str = ""
+    all_day: bool = False
 
 
 class CalendarEventUpdateBody(BaseModel):
@@ -33,6 +34,7 @@ class CalendarEventUpdateBody(BaseModel):
     end_at: datetime | None = None
     description: str | None = None
     location: str | None = None
+    all_day: bool | None = None
 
 
 @router.get("/connections")
@@ -90,11 +92,16 @@ async def create_event(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Create a calendar event on the connected Google or Outlook calendar.
+
+    ``all_day`` writes a date-only event. Those sit in the Agenda all-day row
+    under the date headers. Timed events keep start and end clock times.
+    """
     try:
         conn_id = UUID(body.connection_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid connection_id") from exc
-    if body.end_at <= body.start_at:
+    if body.end_at <= body.start_at and not body.all_day:
         raise HTTPException(status_code=400, detail="end_at must be after start_at")
     try:
         created = await calendar_sync.create_external_event(
@@ -106,6 +113,7 @@ async def create_event(
             end_at=body.end_at,
             description=body.description.strip(),
             location=body.location.strip(),
+            all_day=body.all_day,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -127,9 +135,15 @@ async def update_event(
         and body.end_at is None
         and body.description is None
         and body.location is None
+        and body.all_day is None
     ):
         raise HTTPException(status_code=400, detail="No fields to update")
-    if body.start_at is not None and body.end_at is not None and body.end_at <= body.start_at:
+    if (
+        body.start_at is not None
+        and body.end_at is not None
+        and body.end_at <= body.start_at
+        and not body.all_day
+    ):
         raise HTTPException(status_code=400, detail="end_at must be after start_at")
     try:
         updated = await calendar_sync.update_external_event(
@@ -141,6 +155,7 @@ async def update_event(
             end_at=body.end_at,
             description=body.description,
             location=body.location,
+            all_day=body.all_day,
         )
     except ValueError as exc:
         detail = str(exc)

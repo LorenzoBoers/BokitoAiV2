@@ -820,8 +820,9 @@ for module in MODULES:
 
 HEARTBEAT_MODULE_LINE = (
     "- If company.md or open threads mention work a business module covers "
-    "(see list_modules) and that module is off, use recommend_module so the "
-    "operator can turn it on; otherwise HEARTBEAT_OK"
+    "(see list_modules) and that module is off, use recommend_module once so "
+    "the operator can turn it on. Never repeat a recommendation that is still "
+    "open or was declined; otherwise HEARTBEAT_OK"
 )
 
 
@@ -1373,7 +1374,7 @@ def module_setup_playbook(module: ModuleSpec) -> str:
         f"Success: module on, at least one healthy registration, defaults set, "
         f"platform sources indexed (or explicitly skipped).\n"
         f"Tools: list_module_connections, set_module_default_connection, "
-        f"list_module_sources, propose_module_source.\n"
+        f"set_connection_scope, list_module_sources, propose_module_source.\n"
         f"If this work comes up, call recommend_module with slug `{module.slug}` "
         f"instead of guessing a vendor.\n"
         f"{steps}"

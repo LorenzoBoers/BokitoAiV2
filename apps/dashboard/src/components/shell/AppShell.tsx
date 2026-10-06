@@ -15,6 +15,7 @@ import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
 import PersonalAssistantWidget from './PersonalAssistantWidget'
 import { TourProvider } from '../tour/TourContext'
+import { TicketStageGateProvider } from '../inbox/TicketStageGate'
 import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
 import { useShellLiveBus } from '../../hooks/useShellLiveBus'
 import { cn } from '../../lib/utils'
@@ -61,7 +62,8 @@ function isFullBleed(pathname: string): boolean {
     pathname.startsWith('/communication') ||
     pathname.startsWith('/knowledge') ||
     pathname.startsWith('/settings') ||
-    pathname.startsWith('/ai/')
+    pathname.startsWith('/ai/') ||
+    pathname.startsWith('/agenda')
   )
 }
 
@@ -76,6 +78,7 @@ function contentEnterKey(pathname: string): string {
   if (pathname.startsWith('/knowledge')) return pathname.split('/').slice(0, 3).join('/') || 'knowledge'
   if (pathname.startsWith('/settings')) return pathname.split('/').slice(0, 3).join('/') || 'settings'
   if (pathname.startsWith('/ai/')) return pathname.split('/').slice(0, 3).join('/') || 'ai'
+  if (pathname.startsWith('/agenda')) return 'agenda'
   // Document pages already animate via PageContent — avoid a second remount.
   return 'document'
 }
@@ -137,6 +140,7 @@ export default function AppShell() {
       <InboxCommunicationProvider>
         <ChatSessionsProvider>
           <TourProvider>
+          <TicketStageGateProvider>
           <div className="flex h-screen overflow-hidden bg-bg">
             {/* Desktop sidebar */}
             <aside
@@ -199,6 +203,7 @@ export default function AppShell() {
             section there hands its threads to this one widget instead of
             rendering a second chat surface. */}
           <PersonalAssistantWidget />
+          </TicketStageGateProvider>
           </TourProvider>
         </ChatSessionsProvider>
       </InboxCommunicationProvider>

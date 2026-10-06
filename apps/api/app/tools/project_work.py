@@ -330,6 +330,8 @@ async def _propose_project_resource(ctx: ToolContext, tool_input: dict[str, Any]
     if project is None:
         return {"error": "No project found. Pass project_id (id or slug)."}
     resource_type = str(tool_input.get("resource_type") or "other")
+    if resource_type == "connection":
+        return {"error": "Link connections with set_connection_scope (project_ids)."}
     provider = str(tool_input.get("provider") or "")
     label = str(tool_input.get("label") or "")
     external_ref = str(tool_input.get("external_ref") or "")
@@ -541,7 +543,11 @@ register_tool(
 register_tool(
     ToolSpec(
         name="list_project_resources",
-        description="List external resources linked to a project (repo, drive, notion, vibecode).",
+        description=(
+            "List external resources linked to a project (repo, drive, notion, "
+            "vibecode, connection). Connection rows are integrations exclusive "
+            "to this project; their connection_id works with set_connection_scope."
+        ),
         category="projects",
         input_schema={
             "type": "object",

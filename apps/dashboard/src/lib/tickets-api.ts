@@ -74,6 +74,52 @@ export function stageLabel(stage: TicketStage, t: TFunction): string {
     : stage.name
 }
 
+/** Fields marked required on a stage that still have no value. */
+export function missingRequiredStageFields(
+  stage: Pick<TicketStage, 'fields'> | null | undefined,
+  values?: Record<string, string> | null,
+): TicketStageField[] {
+  return (stage?.fields ?? []).filter((field) => field.required && !(values?.[field.key] ?? '').trim())
+}
+
+export type CollectStageFields = (args: {
+  stage: TicketStage
+  fields: TicketStageField[]
+  values: Record<string, string>
+  ticketName?: string
+}) => Promise<Record<string, string> | null>
+
+/** Move a ticket; when the target has empty required fields, ask via ``collect`` first. */
+export async function moveTicketToStage(opts: {
+  signalId: string
+  stage: TicketStage
+  values?: Record<string, string> | null
+  collect?: CollectStageFields
+  ticketName?: string
+}): Promise<{ cancelled: boolean }> {
+  const missing = missingRequiredStageFields(opts.stage, opts.values)
+  let fields: Record<string, string> | undefined
+  if (missing.length) {
+    if (!opts.collect) {
+      await patchTicket(opts.signalId, { stage_key: opts.stage.key })
+      return { cancelled: false }
+    }
+    const filled = await opts.collect({
+      stage: opts.stage,
+      fields: missing,
+      values: opts.values ?? {},
+      ticketName: opts.ticketName,
+    })
+    if (filled == null) return { cancelled: true }
+    fields = filled
+  }
+  await patchTicket(opts.signalId, {
+    stage_key: opts.stage.key,
+    ...(fields ? { fields } : {}),
+  })
+  return { cancelled: false }
+}
+
 /** "Every day", "Every 2 weeks", "Off" — check-up rhythm in plain words. */
 export function checkupLabel(minutes: number, t: TFunction): string {
   const opts = { ns: 'nav' }

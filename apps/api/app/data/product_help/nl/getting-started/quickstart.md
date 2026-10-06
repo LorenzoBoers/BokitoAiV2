@@ -46,4 +46,4 @@ Dit is de kortste weg van een verse workspace naar echt werk. Na signup ronden o
 
 ## Wat je nu hebt
 
-Mail komt binnen, de assistent maakt onderbouwde concepten, en jij keurt ze goed. De uurlijkse platform-check-in start gepauzeerd; zet die aan via de [setupgids](/docs/getting-started/setup-guide) wanneer je wilt dat de assistent waakt. Ga verder met die gids voor branding, team en modules.
+Mail komt binnen, de assistent maakt onderbouwde concepten, en jij keurt ze goed. De dagelijkse platform-check-in start gepauzeerd; zet die aan via de [setupgids](/docs/getting-started/setup-guide) wanneer je wilt dat de assistent waakt. Ga verder met die gids voor branding, team en modules.

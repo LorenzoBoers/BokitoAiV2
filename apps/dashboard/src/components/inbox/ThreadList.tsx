@@ -49,14 +49,14 @@ type Props = {
   /** Visible scope when the list is filtered by project. */
   scopeLabel?: string | null
   onClearScope?: () => void
+  /** Extra strip under the filters (for example bulk decision actions). */
+  banner?: ReactNode
   /** Total thread count for the current folder (server-side). */
   total?: number | null
   /** True when more pages exist beyond the loaded threads. */
   hasMore?: boolean
   loadingMore?: boolean
   onLoadMore?: () => void
-  /** When set, the header shows a compose button (new outbound email). */
-  onCompose?: () => void
   emptyLabel?: string
   emptyHint?: ReactNode
   onRetry?: () => void
@@ -103,11 +103,11 @@ export default function ThreadList({
   onPriorityFilter,
   scopeLabel = null,
   onClearScope,
+  banner = null,
   total = null,
   hasMore = false,
   loadingMore = false,
   onLoadMore,
-  onCompose,
   emptyLabel,
   emptyHint,
   onRetry,
@@ -301,7 +301,6 @@ export default function ThreadList({
           onChange={onQuickFilterChange}
           counts={counts}
           countsArePartial={Boolean(hasMore)}
-          onCompose={onCompose}
           density={density}
           onToggleDensity={toggleDensity}
           onSelectAll={onSelectAll}
@@ -332,6 +331,8 @@ export default function ThreadList({
           </button>
         </div>
       ) : null}
+
+      {banner}
 
       <div
         title={

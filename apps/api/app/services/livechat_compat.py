@@ -83,23 +83,31 @@ def welcome_defaults_for_locale(locale: str) -> dict[str, str]:
     return WELCOME_DEFAULTS.get(locale, WELCOME_DEFAULTS["en"])
 
 
-async def widget_assistant_name(session: AsyncSession, tenant_id: UUID) -> str:
+async def widget_assistant_name(
+    session: AsyncSession, tenant_id: UUID, *, channel_account_id: UUID | None = None
+) -> str:
     """Name of the agent that actually answers the widget (binding, else lead).
 
     Empty when unset or still generic, so callers fall back to the tenant name.
     """
-    agent = await widget_assistant_agent(session, tenant_id)
+    agent = await widget_assistant_agent(
+        session, tenant_id, channel_account_id=channel_account_id
+    )
     name = (agent.name or "").strip() if agent else ""
     if name.lower() in GENERIC_ASSISTANT_NAMES:
         return ""
     return name
 
 
-async def widget_assistant_agent(session: AsyncSession, tenant_id: UUID):
+async def widget_assistant_agent(
+    session: AsyncSession, tenant_id: UUID, *, channel_account_id: UUID | None = None
+):
     """Company agent bound to the widget channel (else lead)."""
     from app.services.routing import resolve_agent_for_channel
 
-    return await resolve_agent_for_channel(session, tenant_id, "widget")
+    return await resolve_agent_for_channel(
+        session, tenant_id, "widget", channel_account_id=channel_account_id
+    )
 
 
 def livechat_theme_from_tenant(
@@ -108,6 +116,7 @@ def livechat_theme_from_tenant(
     assistant_name: str = "",
     agent_avatar: dict[str, Any] | None = None,
     surface: str = SURFACE_SITE,
+    account=None,
 ) -> dict[str, Any]:
     settings_data = tenant_settings(tenant)
     livechat = settings_data.get("livechat_settings")
@@ -119,6 +128,15 @@ def livechat_theme_from_tenant(
     flat_appearance = settings_data.get("appearance")
     if not isinstance(flat_appearance, dict):
         flat_appearance = {}
+    if account is not None:
+        from app.services.widget_channel import appearance_from_account, livechat_from_account
+
+        acc_appearance = appearance_from_account(account)
+        acc_live = livechat_from_account(account)
+        if acc_appearance:
+            appearance = acc_appearance
+        if acc_live:
+            livechat = {**livechat, **acc_live}
 
     main_color = resolve_brand_color(
         str(appearance.get("main_color") or "").strip()
@@ -219,13 +237,16 @@ def widget_settings_from_tenant(tenant: Tenant) -> dict[str, Any]:
     }
 
 
-async def widget_handler_ids(session: AsyncSession, tenant_id: UUID) -> list[UUID] | None:
+async def widget_handler_ids(
+    session: AsyncSession, tenant_id: UUID, *, account=None
+) -> list[UUID] | None:
     """People who may take a live handoff on the widget; None means every member."""
     from app.models.auth import Membership
     from app.services.ai_handling import widget_account
     from app.services.channel_access import handler_user_ids
 
-    account = await widget_account(session, tenant_id)
+    if account is None:
+        account = await widget_account(session, tenant_id)
     if account is None:
         return None
     handlers = await handler_user_ids(session, account)
@@ -240,14 +261,20 @@ async def widget_handler_ids(session: AsyncSession, tenant_id: UUID) -> list[UUI
 
 
 async def team_is_reachable(
-    session: AsyncSession, tenant: Tenant, *, surface: str = SURFACE_SITE
+    session: AsyncSession,
+    tenant: Tenant,
+    *,
+    surface: str = SURFACE_SITE,
+    account=None,
 ) -> bool:
     """Whether a live handoff is possible now: someone with Handle access on the widget is available."""
     if normalize_surface(surface) == SURFACE_IN_APP:
         return True
     from app.services.presence import anyone_available
 
-    return await anyone_available(session, tenant.id, await widget_handler_ids(session, tenant.id))
+    return await anyone_available(
+        session, tenant.id, await widget_handler_ids(session, tenant.id, account=account)
+    )
 
 
 def create_widget_session_token(
@@ -256,6 +283,7 @@ def create_widget_session_token(
     user_id: UUID | None = None,
     customer_id: str | None = None,
     surface: str = SURFACE_SITE,
+    channel_account_id: UUID | None = None,
 ) -> str:
     expire = datetime.utcnow() + timedelta(hours=12)
     payload: dict[str, Any] = {
@@ -267,11 +295,21 @@ def create_widget_session_token(
         payload["sub"] = str(user_id)
     if customer_id:
         payload["customer_id"] = customer_id
+    if channel_account_id:
+        payload["channel_account_id"] = str(channel_account_id)
     # The surface is pinned into the session so every later call (conversation,
     # stream, history) keeps answering as the same assistant.
     if normalize_surface(surface) == SURFACE_IN_APP:
         payload["surface"] = SURFACE_IN_APP
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def channel_account_id_from_widget_token(token: str) -> UUID | None:
+    try:
+        raw = decode_widget_session_token(token).get("channel_account_id")
+        return UUID(str(raw)) if raw else None
+    except Exception:
+        return None
 
 
 def surface_from_widget_token(token: str) -> str:
@@ -347,6 +385,7 @@ def session_start_payload(
     agent_avatar: dict[str, Any] | None = None,
     surface: str = SURFACE_SITE,
     team_available: bool = True,
+    account=None,
 ) -> dict[str, Any]:
     surface = normalize_surface(surface)
     theme = livechat_theme_from_tenant(
@@ -354,6 +393,7 @@ def session_start_payload(
         assistant_name=assistant_name,
         agent_avatar=agent_avatar,
         surface=surface,
+        account=account,
     )
     identity_type = "authenticated" if user else "anonymous"
     # Optional host sign-in link shown on the widget's "Sign in required" panel.
@@ -361,7 +401,9 @@ def session_start_payload(
     livechat_settings = tenant_settings(tenant).get("livechat")
     if isinstance(livechat_settings, dict):
         login_url = str(livechat_settings.get("login_url") or "")
-    widget_cfg = widget_settings_from_tenant(tenant)
+    from app.services.widget_channel import widget_settings_from_account
+
+    widget_cfg = widget_settings_from_account(tenant, account)
     agent_config = {
         "auth_mode": auth_mode,
         "theme": theme,

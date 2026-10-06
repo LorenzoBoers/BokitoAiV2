@@ -14,6 +14,7 @@ import { normalizeMessageActivity, type ActivityItem } from './agentActivity'
 import { normalizeAiHandling, type AiHandling } from './ai-handling'
 import type { TicketStage, TicketStatus } from './tickets-api'
 import { plainChatText } from './chatText'
+import { clearStoredComposerDraft } from './inbox-ops'
 import type { ResolveDecisionResult, ThreadSession } from './signals-api'
 
 // ---------------------------------------------------------------------------
@@ -227,6 +228,19 @@ export type FolderSyncState = {
   lastSyncAt: string | null
 }
 
+/** Another conversation with the same person (other channel or mailbox). */
+export type RelatedConversation = {
+  id: string
+  channel: string
+  subject: string
+  status: string
+  lastMessageAt: string | null
+  lastMessageDirection: 'inbound' | 'outbound' | ''
+  lastMessagePreview: string
+  /** An AI reply proposal is still open on that conversation. */
+  hasOpenProposal: boolean
+}
+
 export type ThreadDetail = {
   thread: InboxThread
   messages: InboxMessage[]
@@ -239,6 +253,8 @@ export type ThreadDetail = {
   hasOlder?: boolean
   /** Oldest message id in the current window (cursor for load-older). */
   oldestMessageId?: string | null
+  /** Other conversations with this person, newest first. */
+  relatedConversations?: RelatedConversation[]
 }
 
 export type ThreadFilters = {
@@ -734,7 +750,13 @@ export async function deleteThread(token: string, threadId: ThreadId): Promise<v
 }
 
 export async function patchThread(token: string, threadId: ThreadId, patch: PatchThreadInput): Promise<InboxThread | null> {
-  return patchSignalThread(token, String(threadId), patch)
+  const updated = await patchSignalThread(token, String(threadId), patch)
+  if (patch.status === 'closed' || patch.status === 'spam') {
+    // A closed or spam conversation has no reply to finish; a leftover draft
+    // would resurface as "Draft restored" on reopen.
+    clearStoredComposerDraft(String(threadId))
+  }
+  return updated
 }
 
 // ---------------------------------------------------------------------------
@@ -807,6 +829,39 @@ export async function draftThreadReply(
     token,
   )
   return typeof payload.draft === 'string' ? payload.draft : ''
+}
+
+export type HandledExternallyChannel = 'phone' | 'whatsapp' | 'email' | 'other'
+
+export type HandledExternallyInput = {
+  channel: HandledExternallyChannel
+  note?: string
+  close?: boolean
+  /** UI language for the timeline line. */
+  language?: string
+}
+
+/**
+ * The conversation was settled outside Bokito (call, personal WhatsApp,
+ * another mailbox). Logs a timeline line, parks open AI proposals and counts
+ * as the team's reply; optionally closes the thread.
+ */
+export async function markThreadHandledExternally(
+  token: string,
+  threadId: ThreadId,
+  input: HandledExternallyInput,
+): Promise<void> {
+  await apiPost(
+    appRoutes.signals.threadHandledExternally(String(threadId)),
+    {
+      channel: input.channel,
+      note: input.note ?? '',
+      close: Boolean(input.close),
+      language: input.language ?? '',
+    },
+    token,
+  )
+  clearStoredComposerDraft(String(threadId))
 }
 
 export async function resolveThreadDecision(

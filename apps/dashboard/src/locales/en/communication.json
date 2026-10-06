@@ -1,4 +1,34 @@
 {
+  "handledExternally": {
+    "title": "Already handled outside Bokito",
+    "hint": "You called, replied from a personal WhatsApp or another mailbox. Log it so the conversation stops asking for a reply and open AI proposals are set aside.",
+    "where": "Where was it handled?",
+    "channel": {
+      "phone": "Phone",
+      "whatsapp": "WhatsApp",
+      "email": "Other mailbox",
+      "other": "Elsewhere"
+    },
+    "noteLabel": "What was agreed (optional)",
+    "notePlaceholder": "Delivery moved to Thursday",
+    "alsoClose": "Also close the conversation",
+    "confirm": "Log as handled",
+    "saving": "Logging...",
+    "done": "Logged as handled outside Bokito",
+    "failed": "Could not log this"
+  },
+  "relatedConversation": {
+    "customer": "The customer",
+    "customerWrote": "{{name}} also wrote {{when}} via {{channel}}.",
+    "weReplied": "Your team replied {{when}} via {{channel}}.",
+    "openProposalThere": "An AI proposal is open there.",
+    "open": "Open"
+  },
+  "decisionGroups": {
+    "heading": "Same question, many cards",
+    "dismissAll": "Dismiss all",
+    "dismissing": "Dismissing..."
+  },
   "loadingMailboxes": "Loading mailboxes...",
   "missingOrganisation": "Your account does not have an organization context yet. Ask an admin to link your user to an organization, or sign in again if you just accepted an invite.",
   "signOut": "Sign out",
@@ -20,6 +50,10 @@
   "composer": {
     "hintEmail": "Ctrl+Enter to send, Enter for a new line — drafts are kept per conversation",
     "draftRestored": "Draft restored",
+    "draftStaleTitle": "Outdated draft.",
+    "draftStaleBody": "The conversation moved on since this was written: the customer wrote again or the proposal was set aside.",
+    "redraft": "Propose again",
+    "redrafting": "Drafting...",
     "discardDraft": "Discard",
     "hintChat": "Enter to send, Shift+Enter for a new line. Type @ to mention a person or agent.",
     "resize": "Resize composer",
@@ -110,6 +144,7 @@
     "savedReplies": "Saved replies",
     "saveAsTemplate": "Save current text as template",
     "sendAndClose": "Send and close",
+    "handledExternally": "Already handled outside Bokito",
     "sendAndWait": "Send and snooze",
     "loadingSavedReplies": "Loading...",
     "removeAttachment": "Remove {{name}}",
@@ -242,6 +277,12 @@
     "earlierDraft": "Earlier draft — dismissed",
     "draftSent": "Draft approved and sent",
     "draftRejected": "Draft rejected",
+    "draftHumanReplied": "Earlier draft — a teammate replied",
+    "draftSupersededByInbound": "Earlier draft — the customer wrote again",
+    "draftSupersededByExternalReply": "Earlier draft — answered from a teammate's mailbox",
+    "draftSiblingThread": "Earlier draft — continued in a newer conversation with this person",
+    "draftHandledExternally": "Earlier draft — handled outside Bokito",
+    "customerWroteAgain": "The customer wrote again after this proposal. Check the newest message before using it.",
     "automatedExplainer": "This looks like an automated message, so no reply was drafted.",
     "decisionNeeded": "Decision needed",
     "source": {
@@ -597,7 +638,8 @@
         "description": "Add teammates so decisions and threads reach the right people.",
         "cta": "Invite members"
       }
-    }
+    },
+    "startConversation": "New conversation"
   },
   "newConversation": {
     "title": "New conversation",
@@ -654,7 +696,9 @@
     "loadError": "Could not load who you can chat with.",
     "startError": "Could not start the conversation.",
     "retry": "Try again",
-    "openContacts": "Open Contacts"
+    "openContacts": "Open Contacts",
+    "intentEmail": "Email",
+    "intentEmailHint": "Write from a connected mailbox. The conversation exists after you send."
   },
   "threadChrome": {
     "hideDetails": "Hide details",
@@ -794,6 +838,7 @@
     "handoverCancel": "Cancel",
     "handoverConfirm": "Assign",
     "whatsNextTicket": "File a ticket",
+    "whatsNextHandled": "Handled elsewhere",
     "closeWithTicketTitle": "This conversation is an open ticket",
     "closeWithTicketBody": "{{names}} is still open. Move it to its done stage with the conversation, or leave it open for follow-up.",
     "closeWithTicketFallback": "Ticket",
@@ -826,7 +871,7 @@
     "assign": "Assign to me",
     "reply": "Focus reply",
     "compose": "New email",
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "search": "Focus search",
     "thisHelp": "Show this list",
     "escape": "Back to the list, or leave search",
@@ -924,8 +969,9 @@
     "completeFollowUp": "Done",
     "followUpCompleteError": "Could not clear the look-at.",
     "openAgendaFollowUps": "Agenda",
-    "previous": "Previous conversations",
-    "noPrevious": "No previous conversations",
+    "previous": "Other conversations",
+    "noPrevious": "No other conversations",
+    "openProposalShort": "Proposal open",
     "openCommunication": "Open Communication",
     "addContact": "Add to contacts",
     "openContacts": "Open Contacts",
@@ -988,7 +1034,7 @@
     "send": "Send",
     "emptyPick": "Start a chat with your assistant, or pick a conversation from the list.",
     "aiDisclosure": "You are chatting with AI. A teammate can take over when needed.",
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "openAgents": "Open Agents",
     "openKnowledge": "Open Knowledge",
     "openSetup": "Open setup guide",
@@ -1075,6 +1121,15 @@
   "timeline": {
     "internalNote": "Internal note",
     "ccLine": "CC: {{recipients}}",
+    "sentFromOwnMailbox": "Sent from own mailbox ({{provider}})",
+    "handledExternally": {
+      "phone": "Handled by phone by {{name}}",
+      "whatsapp": "Handled via WhatsApp by {{name}}",
+      "email": "Handled by email by {{name}}",
+      "other": "Handled outside Bokito by {{name}}"
+    },
+    "forwardedFrom": "Contains a forwarded message from {{name}}",
+    "forwardedUnknown": "Contains a forwarded message",
     "today": "Today",
     "yesterday": "Yesterday",
     "showQuoted": "Show quoted text",

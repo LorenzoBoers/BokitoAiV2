@@ -14,7 +14,7 @@ import { flowTitle } from '../../lib/flow-title'
 import { useEntityRefresh } from '../../lib/live-store'
 import {
   getProjectBoard,
-  patchTicket,
+  moveTicketToStage,
   stageLabel,
   type BoardTicket,
   type ProjectFlowBoard,
@@ -24,6 +24,7 @@ import { workstreamPath } from '../../lib/workstream-ui'
 import { FlowTicketCard } from '../workstreams/FlowTicketCard'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 import { ProjectKanbanColumn } from './ProjectKanbanColumn'
+import { useCollectStageFields } from '../inbox/TicketStageGate'
 
 const COLUMN_PREFIX = 'stage-col:'
 
@@ -164,6 +165,7 @@ function FlowBoardView({
   onChange: (board: ProjectFlowBoard) => void
 }) {
   const { t } = useTranslation('nav')
+  const collect = useCollectStageFields()
   const [busyId, setBusyId] = useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const firstKey = board.stages[0]?.key ?? ''
@@ -175,14 +177,21 @@ function FlowBoardView({
     if (!stage) return
     setBusyId(ticket.signal_id)
     const previous = board
-    onChange({
-      ...board,
-      tickets: board.tickets.map((row) =>
-        row.signal_id === ticket.signal_id ? { ...row, stage_key: stageKey, status: stage.kind } : row,
-      ),
-    })
     try {
-      await patchTicket(ticket.signal_id, { stage_key: stageKey })
+      const result = await moveTicketToStage({
+        signalId: ticket.signal_id,
+        stage,
+        values: ticket.fields,
+        collect,
+        ticketName: ticket.tag,
+      })
+      if (result.cancelled) return
+      onChange({
+        ...board,
+        tickets: board.tickets.map((row) =>
+          row.signal_id === ticket.signal_id ? { ...row, stage_key: stageKey, status: stage.kind } : row,
+        ),
+      })
     } catch (err) {
       onChange(previous)
       toast.error(formatApiErrorMessage(err, t('projects.home.ticketMoveError')))

@@ -19,7 +19,9 @@ const TONE: Record<BubbleVariant, string> = {
   external: 'bg-bg-surface ring-1 ring-inset ring-border/60 shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
   team: 'bg-bg-elevated ring-1 ring-inset ring-border/40',
   agent: 'bg-ai/[0.07] ring-1 ring-inset ring-ai/20',
-  self: 'bg-accent/[0.13] ring-1 ring-inset ring-accent/20',
+  // Solid fill like iMessage / WhatsApp; AI stays a wash to match the avatar.
+  self:
+    'bg-accent text-accent-fg shadow-[0_1px_2px_rgb(0_0_0/0.10)] [&_.text-text-muted]:text-accent-fg/70 [&_.text-text-heading]:text-accent-fg [&_.text-accent]:text-accent-fg [&_a]:text-accent-fg [&_code]:bg-accent-fg/15',
   note: 'bg-status-warning/[0.07] ring-1 ring-inset ring-status-warning/25',
 }
 
@@ -220,7 +222,8 @@ export function ChatMessageBubble({
     <div
       ref={bubbleRef}
       className={cn(
-        'relative min-w-0 max-w-[85%] px-3.5 py-2 text-base leading-relaxed text-text-primary',
+        'relative min-w-0 max-w-[85%] px-3.5 py-2 text-base leading-relaxed',
+        variant === 'self' ? 'text-accent-fg' : 'text-text-primary',
         shapeFor(side, stack),
         TONE[variant],
         onClick && 'text-left transition-colors hover:brightness-[0.98]',
@@ -230,7 +233,12 @@ export function ChatMessageBubble({
       {lead ? header : null}
       {body}
       {meta != null && closesRun(stack) ? (
-        <div className="mt-0.5 flex justify-end gap-1 text-2xs leading-none text-text-muted tabular-nums">
+        <div
+          className={cn(
+            'mt-0.5 flex justify-end gap-1 text-2xs leading-none tabular-nums',
+            variant === 'self' ? 'text-accent-fg/70' : 'text-text-muted',
+          )}
+        >
           {meta}
         </div>
       ) : null}

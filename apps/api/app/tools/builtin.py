@@ -12,6 +12,10 @@ from app.models.auth import Tenant
 from app.models.notification import DecisionRequest, Notification
 from app.services.addressee import parse_target
 from app.services.os_graph import OS_GRAPH_RETIRED
+from app.services.signal_decisions import (
+    find_open_duplicate_decision,
+    recently_declined_decision,
+)
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 TO_TARGET_SCHEMA = {
@@ -688,6 +692,61 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     return {"ok": True, "signal_id": str(signal.id), "status": "closed"}
 
 
+async def _mark_handled_externally(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Log that a conversation was settled outside Bokito (call, personal
+    WhatsApp, another mailbox). Same gate as close_thread."""
+    from app.services.signal_threads import HANDLED_EXTERNALLY_CHANNELS, mark_handled_externally
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            pass
+    if not signal_id:
+        return {"error": "signal_id required"}
+    channel = str(tool_input.get("channel") or "other").strip().lower()
+    if channel not in HANDLED_EXTERNALLY_CHANNELS:
+        return {"error": f"channel must be one of {', '.join(HANDLED_EXTERNALLY_CHANNELS)}"}
+    actor_user_id = ctx.user_id
+    if actor_user_id is None:
+        # Autonomous run: the thread owner or the agent's creator stands in as actor.
+        from app.models.signal import Signal
+
+        owner = (
+            await ctx.session.execute(
+                select(Signal.assigned_user_id).where(
+                    Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+        actor_user_id = owner or getattr(ctx.agent, "owner_user_id", None)
+    if actor_user_id is None:
+        return {"error": "No person to attribute this to; ask a team member to log it."}
+    message = await mark_handled_externally(
+        ctx.session,
+        ctx.tenant_id,
+        actor_user_id,
+        signal_id,
+        channel=channel,
+        note=str(tool_input.get("note") or ""),
+        close=bool(tool_input.get("close", False)),
+        language=str(tool_input.get("language") or ""),
+        actor_agent_id=ctx.agent.id if ctx.agent else None,
+        actor_name=str(getattr(ctx.agent, "name", "") or "") if ctx.agent else "",
+    )
+    if not message:
+        return {"error": "Signal not found"}
+    return {
+        "ok": True,
+        "signal_id": str(signal_id),
+        "channel": channel,
+        "closed": bool(tool_input.get("close", False)),
+        "message_id": message.get("id"),
+    }
+
+
 async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Add tags to a signal thread from the tenant's tag registry.
 
@@ -896,6 +955,79 @@ async def _request_customer_verify(ctx: ToolContext, tool_input: dict[str, Any])
     )
 
 
+NON_EXECUTABLE_ACTIONS = frozenset(
+    {"escalate", "acknowledge", "defer", "reject", "dismiss", "later", "ignore", "none", ""}
+)
+
+# Actions the decision resolver executes itself (no registered tool behind
+# them) and that still do something without a conversation.
+RESOLVER_ACTIONS = frozenset(
+    {
+        "setup_integration",
+        "enable_module",
+        "activate_inbox_rule",
+        "add_module_source",
+        "accept_platform_change",
+        "contact_link",
+        "contact_create",
+        "calendar_create_event",
+        "calendar_update_event",
+        # Generic module proposal cards record the approval itself.
+        "approve",
+    }
+)
+
+
+def executable_option_actions(options: list[dict[str, Any]]) -> list[str]:
+    """Action types in ``options`` that approving would actually run.
+
+    A registered tool name or a resolver action counts; escalate /
+    acknowledge / defer / reject only make sense when the card sits on a
+    thread a human can take over.
+    """
+    from app.tools.registry import get_tool_spec
+
+    found: list[str] = []
+    for option in options:
+        if not isinstance(option, dict):
+            continue
+        action = str(option.get("action_type") or "").strip().lower()
+        if option.get("input_type") == "text":
+            # A free-text answer is captured; that is the point of the card.
+            action = action or "text"
+            if action not in found:
+                found.append(action)
+            continue
+        if action in NON_EXECUTABLE_ACTIONS or action in found:
+            continue
+        if action in RESOLVER_ACTIONS or get_tool_spec(action) is not None:
+            found.append(action)
+    return found
+
+
+async def resolve_signal_by_subject(session, tenant_id: UUID, subject: str) -> UUID | None:
+    """The most recent open conversation whose subject contains ``subject``."""
+    from app.models.signal import Signal
+
+    needle = subject.strip()
+    if len(needle) < 3:
+        return None
+    row = (
+        await session.execute(
+            select(Signal.id)
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.deleted_at.is_(None),
+                Signal.status.in_(("open", "pending", "snoozed")),
+                Signal.subject.ilike(f"%{needle}%"),
+            )
+            .order_by(Signal.last_message_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return row
+
+
 async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.agent.style import strip_emoji
 
@@ -912,6 +1044,29 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
             target_signal_id = UUID(str(raw_signal))
         except ValueError:
             target_signal_id = None
+    if target_signal_id is None and str(tool_input.get("thread_subject") or "").strip():
+        # Heartbeat and scheduled runs have no thread of their own; when the
+        # question is about a conversation, attach the card to that thread so
+        # the operator sees the ask next to the message instead of in an
+        # orphan internal thread.
+        target_signal_id = await resolve_signal_by_subject(
+            ctx.session, ctx.tenant_id, str(tool_input["thread_subject"])
+        )
+    if target_signal_id is None:
+        executable = executable_option_actions(tool_input.get("options") or [])
+        if not executable:
+            # Nothing a click could run: an "acknowledge" card without a thread
+            # is just a note. Put it in the report instead of the decision list.
+            return {
+                "ok": False,
+                "code": "no_executable_option",
+                "message": (
+                    "Not raised as a decision: the card has no thread and none of its "
+                    "options runs a platform tool. Mention the observation in your "
+                    "report instead, or pass signal_id / thread_subject so the card "
+                    "lands on the conversation it concerns."
+                ),
+            }
     if target_signal_id:
         # A newer identical ask supersedes the stale card: without this the
         # thread stacks duplicate pending decisions every time the customer
@@ -942,6 +1097,26 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
                 if stale_notif and stale_notif.status == "unread":
                     stale_notif.status = "read"
                     ctx.session.add(stale_notif)
+    else:
+        # Cards without a thread (heartbeat wakes, scheduled runs) used to pile
+        # up: one tenant collected 34 identical "Turn on Banking?" cards, each
+        # in its own internal thread. Same title + same primary action while a
+        # previous ask is still open means the question is already on the table.
+        duplicate = await find_open_duplicate_decision(
+            ctx.session,
+            ctx.tenant_id,
+            title=tool_input["title"],
+            options=tool_input.get("options") or [],
+        )
+        if duplicate is not None:
+            return {
+                "decision_request_id": str(duplicate.id),
+                "status": "already_open",
+                "message": (
+                    "This question is already waiting for a human decision. "
+                    "Do not ask again; mention it at most once in your summary."
+                ),
+            }
     project_uuid = None
     raw_project = tool_input.get("project_id")
     if raw_project:
@@ -983,12 +1158,41 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
     return {"decision_request_id": str(decision.id), "status": "awaiting_human"}
 
 
+PROPOSAL_COOLDOWN_DAYS = 7
+
+
+async def proposal_cooldown(ctx: ToolContext, title: str) -> dict[str, Any] | None:
+    """Block a proposal card a human declined recently (module, integration, source).
+
+    Returns the tool result to hand back to the agent, or None when the
+    proposal may be raised.
+    """
+    declined = await recently_declined_decision(
+        ctx.session, ctx.tenant_id, title=title, within_days=PROPOSAL_COOLDOWN_DAYS
+    )
+    if declined is None:
+        return None
+    when = declined.resolved_at.date().isoformat() if declined.resolved_at else "recently"
+    return {
+        "ok": False,
+        "code": "recently_declined",
+        "decision_request_id": str(declined.id),
+        "message": (
+            f"A human answered '{declined.status}' to this proposal on {when}. "
+            f"Do not propose it again within {PROPOSAL_COOLDOWN_DAYS} days."
+        ),
+    }
+
+
 async def _suggest_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.integrations_catalog import PROVIDER_BY_SLUG
 
     provider = str(tool_input["provider"])
     catalog = PROVIDER_BY_SLUG.get(provider)
     display_name = catalog["name"] if catalog else provider.replace("_", " ").title()
+    blocked = await proposal_cooldown(ctx, f"Connect {display_name}?")
+    if blocked:
+        return blocked
     options = [
         {"id": "connect", "label": "Connect now", "action_type": "setup_integration", "payload": tool_input},
         {"id": "later", "label": "Later", "action_type": "defer"},
@@ -1042,14 +1246,34 @@ async def _suggest_inbox_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     The rule lands as *suggested*; a human activates it from Inbox settings
     (Automation rules) or an inline card. Never activates anything itself.
     """
-    from app.services.inbox_rules import suggest_rule
+    from app.services.inbox_rules import (
+        RULE_ACTIONS,
+        normalize_match_value,
+        raise_rule_decision,
+        suggest_rule,
+    )
+
+    match_type = str(tool_input.get("match_type") or "sender")
+    match_value = str(tool_input.get("match_value") or "")
+    action = str(tool_input.get("action") or "")
+    if match_type not in ("sender", "domain", "list_id"):
+        return {"error": "match_type must be one of sender, domain, list_id."}
+    if action not in RULE_ACTIONS:
+        return {"error": f"action must be one of {', '.join(RULE_ACTIONS)}."}
+    if not normalize_match_value(match_type, match_value):
+        hint = {
+            "sender": "a full email address (name@domain.tld)",
+            "domain": "a bare domain (domain.tld)",
+            "list_id": "the List-Id header value (list.domain.tld)",
+        }[match_type]
+        return {"error": f"match_value for {match_type} must be {hint}; got {match_value!r}."}
 
     payload = await suggest_rule(
         ctx.session,
         ctx.tenant_id,
-        match_type=str(tool_input.get("match_type") or "sender"),
-        match_value=str(tool_input.get("match_value") or ""),
-        action=str(tool_input.get("action") or ""),
+        match_type=match_type,
+        match_value=match_value,
+        action=action,
         label=str(tool_input.get("label") or ""),
         source="agent",
         reason=str(tool_input.get("reason") or ""),
@@ -1057,19 +1281,36 @@ async def _suggest_inbox_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     if payload is None:
         return {
             "error": (
-                "Rule not suggested: invalid match/action, or a rule for this "
-                "sender already exists (active or paused)."
+                "Rule not suggested: a rule for this sender already exists "
+                "(active or paused)."
             )
         }
+    # In a conversation the question is asked inline, where the operator
+    # already is; elsewhere the suggestion waits under Automation rules.
+    raised = None
+    if ctx.signal_id:
+        raised = await raise_rule_decision(
+            ctx.session,
+            ctx.tenant_id,
+            payload,
+            signal_id=ctx.signal_id,
+            agent_id=ctx.agent.id if ctx.agent else None,
+            summary=str(tool_input.get("reason") or ""),
+        )
     await ctx.session.commit()
     return {
         "rule": payload,
+        "decision": raised,
         "confirm_path": "/settings/channels#automation-rules",
         "note": (
-            "Suggested only — the operator must activate it. Tell them with an "
-            "in-app markdown link, e.g. "
-            "[Automation rules](/settings/channels#automation-rules). "
-            "Do not write plain breadcrumbs like Inbox > Automation rules."
+            "Suggested only — the operator must activate it. "
+            + (
+                "An inline card now asks them on this thread; do not repeat the question."
+                if raised
+                else "Tell them with an in-app markdown link, e.g. "
+                "[Automation rules](/settings/channels#automation-rules). "
+                "Do not write plain breadcrumbs like Inbox > Automation rules."
+            )
         ),
     }
 
@@ -1320,7 +1561,26 @@ async def _assign_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> 
 
 async def _call_mcp_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.agent.mcp_client import call_mcp_tool
+    from app.services.connection_scope import mcp_server_denial, record_denial
 
+    agent_id = ctx.agent.id if ctx.agent is not None else None
+    denial = await mcp_server_denial(
+        ctx.session,
+        ctx.tenant_id,
+        str(tool_input.get("server_name") or ""),
+        agent_id=agent_id,
+        project_id=ctx.project_id,
+    )
+    if denial is not None:
+        await record_denial(
+            ctx.session,
+            ctx.tenant_id,
+            agent_id=agent_id,
+            connection_id=denial[0],
+            reason=denial[1],
+            action="tool_call:call_mcp_tool",
+        )
+        return {"error": denial[1], "status": "denied", "reason": "connection_scope"}
     return await call_mcp_tool(ctx.session, ctx.tenant_id, tool_input)
 
 
@@ -1798,6 +2058,31 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="mark_handled_externally",
+        description=(
+            "Log that this conversation was already handled outside Bokito: by phone, "
+            "via a personal WhatsApp, from another mailbox, or elsewhere. Writes a "
+            "timeline line, clears unread, sets aside open reply proposals and counts "
+            "as the team's reply. Set close=true to also close the conversation."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "channel": {"type": "string", "enum": ["phone", "whatsapp", "email", "other"]},
+                "note": {"type": "string", "description": "What was agreed, one or two sentences."},
+                "close": {"type": "boolean"},
+                "language": {"type": "string", "description": "nl or en for the timeline line."},
+            },
+            "required": ["channel"],
+        },
+        handler=_mark_handled_externally,
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="set_thread_tags",
         description=(
             "Add free hashtags to a conversation. Only names that already exist in the "
@@ -2020,7 +2305,10 @@ register_tool(
             "Each option needs a distinct id and label. Use send_reply with "
             "payload.body_text when the choice should send a customer message "
             "(e.g. clarification). Use escalate or acknowledge only when a human "
-            "takes over with no outbound mail."
+            "takes over with no outbound mail. Outside a conversation (check-ins, "
+            "scheduled wakes) pass thread_subject so the card lands on the thread "
+            "it concerns; a card without a thread needs at least one option that "
+            "runs a platform tool, otherwise report the observation instead."
         ),
         category="messaging",
         input_schema={
@@ -2029,6 +2317,13 @@ register_tool(
                 "title": {"type": "string"},
                 "summary": {"type": "string"},
                 "signal_id": {"type": "string"},
+                "thread_subject": {
+                    "type": "string",
+                    "description": (
+                        "Subject (or a distinctive part of it) of the conversation this "
+                        "question is about, when signal_id is unknown."
+                    ),
+                },
                 "to": TO_TARGET_SCHEMA,
                 "options": {
                     "type": "array",
@@ -2129,7 +2424,11 @@ register_tool(
 register_tool(
     ToolSpec(
         name="call_mcp_tool",
-        description="Call a tool on a registered external MCP server.",
+        description=(
+            "Call a tool on a registered external MCP server. Not for business "
+            "modules (accounting, banking): those have their own tools such as "
+            "accounting_list_companies, which run without approval for reads."
+        ),
         category="integrations",
         input_schema={
             "type": "object",
@@ -2251,6 +2550,10 @@ register_tool(
             "properties": {
                 "name": {"type": "string"},
                 "role": {"type": "string"},
+                "description": {
+                    "type": "string",
+                    "description": "Short operator-facing role blurb (not the system prompt)",
+                },
                 "system_prompt": {"type": "string"},
                 "tools": {"type": "array", "items": {"type": "string"}},
             },
@@ -2264,13 +2567,17 @@ register_tool(
 register_tool(
     ToolSpec(
         name="update_agent",
-        description="Update an existing agent (name, prompt, role).",
+        description="Update an existing agent (name, description, prompt, role).",
         category="agents",
         input_schema={
             "type": "object",
             "properties": {
                 "agent_id": {"type": "string"},
                 "name": {"type": "string"},
+                "description": {
+                    "type": "string",
+                    "description": "Short operator-facing role blurb (not the system prompt)",
+                },
                 "system_prompt": {"type": "string"},
                 "role": {"type": "string"},
             },
@@ -3656,7 +3963,7 @@ register_tool(
     ToolSpec(
         name="list_agents",
         description=(
-            "List the agents in this workspace (name, slug, role, "
+            "List the agents in this workspace (name, description, slug, role, "
             "autonomy level, active flag). Pass include_inactive to also see "
             "paused agents."
         ),
@@ -3675,8 +3982,8 @@ register_tool(
     ToolSpec(
         name="get_agent",
         description=(
-            "Read one agent by id or slug, including its purpose (system prompt) "
-            "and tool passport."
+            "Read one agent by id or slug, including its description, purpose "
+            "(system prompt) and tool passport."
         ),
         category="agents",
         input_schema={

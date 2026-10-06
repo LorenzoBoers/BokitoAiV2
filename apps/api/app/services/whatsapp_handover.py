@@ -53,7 +53,13 @@ _SUMMARY = {
 }
 
 
-def handover_settings(tenant: Tenant | None) -> dict[str, Any]:
+def handover_settings(
+    tenant: Tenant | None, *, widget_account: ChannelAccount | None = None
+) -> dict[str, Any]:
+    if widget_account is not None:
+        from app.services.widget_channel import handover_from_account
+
+        return handover_from_account(tenant, widget_account)
     livechat = tenant_settings(tenant).get("livechat_settings") if tenant else None
     raw = livechat.get("whatsapp_handover") if isinstance(livechat, dict) else None
     raw = raw if isinstance(raw, dict) else {}
@@ -95,10 +101,13 @@ def remember_account_number(account: ChannelAccount, value: Any) -> bool:
 
 
 async def handover_target(
-    session: AsyncSession, tenant: Tenant | None
+    session: AsyncSession,
+    tenant: Tenant | None,
+    *,
+    widget_account: ChannelAccount | None = None,
 ) -> tuple[ChannelAccount | None, str]:
     """(WhatsApp account, public number) when continuing on WhatsApp is switched on and usable."""
-    cfg = handover_settings(tenant)
+    cfg = handover_settings(tenant, widget_account=widget_account)
     if tenant is None or not cfg["enabled"] or not cfg["account_id"]:
         return None, ""
     try:
@@ -131,7 +140,12 @@ async def create_handover(
     """A ``wa.me`` link with the code for this widget conversation (caller commits)."""
     if signal.channel != "widget":
         return {"error": "Continuing on WhatsApp only works from the website chat"}
-    account, number = await handover_target(session, tenant)
+    widget = None
+    if signal.channel_account_id:
+        widget = await session.get(ChannelAccount, signal.channel_account_id)
+        if widget is None or widget.channel != "widget":
+            widget = None
+    account, number = await handover_target(session, tenant, widget_account=widget)
     if account is None:
         return {"error": "Continuing on WhatsApp is not switched on for this workspace"}
     now = datetime.utcnow()

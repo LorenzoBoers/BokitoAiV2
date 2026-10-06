@@ -55,6 +55,14 @@ export const integrationsRoutes = {
       return q ? `/integrations/connections?${q}` : '/integrations/connections'
     },
     connectionById: (connectionId: string) => `/integrations/connections/${connectionId}`,
+    providerConnections: (provider: string) =>
+      `/integrations/providers/${encodeURIComponent(provider)}/connections`,
+    connectionVerify: (connectionId: string) =>
+      `/integrations/connections/${encodeURIComponent(connectionId)}/verify`,
+    connectionProjects: (connectionId: string) =>
+      `/integrations/connections/${encodeURIComponent(connectionId)}/projects`,
+    connectionAccess: (connectionId: string) =>
+      `/integrations/connections/${encodeURIComponent(connectionId)}/access`,
     connectionResources: (connectionId: string) =>
       `/integrations/connections/${connectionId}/resources`,
     oauthStart: (provider: string, returnUrl: string, projectId?: string) => {

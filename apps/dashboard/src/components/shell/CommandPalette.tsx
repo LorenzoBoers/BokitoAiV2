@@ -15,9 +15,9 @@ import {
   Mail,
   MessageSquare,
   Moon,
-  Plus,
   Settings,
   Shield,
+  SquarePen,
   User,
   UserPlus,
   Users,
@@ -192,9 +192,9 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     })).concat([
       {
         id: 'inbox-new-chat',
-        label: t('support.newChat'),
+        label: t('support.newConversation'),
         group: t('palette.groupInbox'),
-        icon: MessageSquare,
+        icon: SquarePen,
         run: () => navigate(newConversationPath()),
       },
       {
@@ -227,9 +227,9 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const actions: PaletteItem[] = [
       {
         id: 'action-new-chat',
-        label: t('palette.newChat'),
+        label: t('palette.newConversation'),
         group: t('palette.groupActions'),
-        icon: Plus,
+        icon: SquarePen,
         run: () => startNewChat(),
       },
       {

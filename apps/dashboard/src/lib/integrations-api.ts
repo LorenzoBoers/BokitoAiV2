@@ -5,6 +5,7 @@ import {
   apiGet,
   apiPatch,
   apiPost,
+  apiPut,
 } from './api'
 
 export type IntegrationAuthType = 'oauth2' | 'api_key' | 'mcp_remote_oauth' | 'none'
@@ -349,6 +350,99 @@ export async function startMcpRemoteOAuth(
 
 export async function revokeIntegrationConnection(connectionId: string): Promise<void> {
   await apiDelete(integrationsRoutes.platform.connectionById(connectionId))
+}
+
+export type ConnectionAccessLevel = 'use' | 'manage'
+
+export type ConnectionAccessEntry = {
+  kind: 'user' | 'agent' | 'team'
+  id: string
+  level: ConnectionAccessLevel
+}
+
+export type ConnectionProjectRef = { id: string; name: string }
+
+/** One registration to a provider, with status and scope (provider modal and module page). */
+export type ProviderConnectionRow = {
+  id: string
+  connection_id?: string | null
+  mcp_server_id?: string | null
+  kind: string
+  provider: string
+  vendor: string
+  display_name: string
+  created_at?: string | null
+  ready: boolean
+  status: 'ready' | 'needs_credentials' | 'unverified' | 'error' | string
+  identity?: string | null
+  last_verified_at?: string | null
+  verify_error?: string | null
+  can_verify?: boolean
+  can_disconnect?: boolean
+  can_manage?: boolean
+  can_use?: boolean
+  instance_key?: string | null
+  projects?: ConnectionProjectRef[]
+  attached_modules?: string[]
+  access_restricted?: boolean
+  access?: ConnectionAccessEntry[]
+}
+
+export type ConnectionVerifyResult = {
+  ok: boolean
+  id: string
+  identity?: string | null
+  last_verified_at?: string | null
+  error?: string | null
+  status?: string
+  merged_into?: string | null
+}
+
+export async function listProviderConnections(
+  provider: string,
+): Promise<{ provider: string; connections: ProviderConnectionRow[] }> {
+  return apiGet(integrationsRoutes.platform.providerConnections(provider))
+}
+
+export async function renameConnection(
+  connectionId: string,
+  displayName: string,
+): Promise<{ id: string; display_name: string }> {
+  return apiPatch(integrationsRoutes.platform.connectionById(connectionId), {
+    display_name: displayName,
+  })
+}
+
+export async function verifyConnection(connectionId: string): Promise<ConnectionVerifyResult> {
+  return apiPost(integrationsRoutes.platform.connectionVerify(connectionId), {})
+}
+
+export async function getConnectionProjects(
+  connectionId: string,
+): Promise<{ connection_id: string; projects: ConnectionProjectRef[] }> {
+  return apiGet(integrationsRoutes.platform.connectionProjects(connectionId))
+}
+
+export async function setConnectionProjects(
+  connectionId: string,
+  projectIds: string[],
+): Promise<{ connection_id: string; projects: ConnectionProjectRef[] }> {
+  return apiPut(integrationsRoutes.platform.connectionProjects(connectionId), {
+    project_ids: projectIds,
+  })
+}
+
+export async function getConnectionAccess(
+  connectionId: string,
+): Promise<{ connection_id: string; is_default: boolean; entries: ConnectionAccessEntry[] }> {
+  return apiGet(integrationsRoutes.platform.connectionAccess(connectionId))
+}
+
+export async function setConnectionAccess(
+  connectionId: string,
+  entries: ConnectionAccessEntry[] | null,
+): Promise<{ connection_id: string; is_default: boolean; entries: ConnectionAccessEntry[] }> {
+  return apiPut(integrationsRoutes.platform.connectionAccess(connectionId), { entries })
 }
 
 export async function createApiKeyConnection(input: {

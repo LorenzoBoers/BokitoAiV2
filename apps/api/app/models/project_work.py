@@ -21,7 +21,16 @@ from sqlmodel import Field, SQLModel
 
 QUEUE_LINK_RELATIONS = ("implements", "modifies", "touches", "documents")
 
-PROJECT_RESOURCE_TYPES = ("repo", "drive", "notion", "sheet", "vibecode", "site", "other")
+PROJECT_RESOURCE_TYPES = (
+    "repo",
+    "drive",
+    "notion",
+    "sheet",
+    "vibecode",
+    "site",
+    "connection",
+    "other",
+)
 PROJECT_RESOURCE_STATUSES = ("linked", "connected", "syncing", "error", "disconnected")
 
 

@@ -141,6 +141,9 @@ function AgentLibraryCard({
                 </span>
               ) : null}
             </div>
+            {agent.description ? (
+              <p className="mt-2 line-clamp-2 text-sm leading-snug text-text-secondary">{agent.description}</p>
+            ) : null}
             {openCount > 0 || decisionCount > 0 ? (
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                 {openCount > 0 ? (
@@ -173,7 +176,9 @@ function AgentLibraryCard({
             ) : null}
           </div>
         </div>
-        {summary ? (
+        {summary && work === 'working' ? (
+          <p className="line-clamp-2 text-sm leading-snug text-text-muted">{summary}</p>
+        ) : !agent.description && summary ? (
           <p className="line-clamp-2 text-sm leading-snug text-text-secondary">{summary}</p>
         ) : null}
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/40 pt-2.5">
@@ -216,7 +221,7 @@ export default function AiAgents() {
       const view = withAgentLive(agent)
       if (statusFilter === 'working' && agentStatusOf(view) !== 'working') return false
       if (!needle) return true
-      const hay = [view.name, view.purpose, view.current_activity_summary]
+      const hay = [view.name, view.description, view.purpose, view.current_activity_summary]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()

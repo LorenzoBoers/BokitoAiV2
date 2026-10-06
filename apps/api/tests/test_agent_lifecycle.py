@@ -165,6 +165,32 @@ async def test_archive_agent_hides_it_from_the_list(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_agent_description_roundtrip(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    r = await client.post(
+        "/api/workforce/agents",
+        headers=owner,
+        json={"name": "Role Agent", "description": "Handles inbound support"},
+    )
+    assert r.status_code == 200, r.text
+    agent = r.json()["agent"]
+    assert agent["description"] == "Handles inbound support"
+    agent_id = agent["id"]
+
+    r = await client.patch(
+        f"/api/workforce/agents/{agent_id}",
+        headers=owner,
+        json={"description": "  Hands off billing  "},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["agent"]["description"] == "Hands off billing"
+
+    listed = await _list_agents(client, owner)
+    row = next(a for a in listed if a["id"] == agent_id)
+    assert row["description"] == "Hands off billing"
+
+
+@pytest.mark.asyncio
 async def test_bokito_helper_cannot_be_archived(client: AsyncClient, session_override):
     from app.models.auth import Tenant
     from app.services.personal_assistant import ensure_personal_assistant

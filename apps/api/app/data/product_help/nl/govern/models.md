@@ -36,6 +36,15 @@ Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont ee
 
 Tokenbudgetten zitten op Cockpit **Verbruik** (dagelijks tokenplafond en maandelijks spendplafond) en op projecten. Als het workspacebudget op is, pauzeren calls op platformkeys; je eigen keys blijven werken. [Govern](/docs/govern/govern) bepaalt nog steeds of een agent mag handelen.
 
+## Als de provider weigert
+
+Wijst een modelprovider calls voor de hele workspace af (tegoed op, ongeldige sleutel, rate limit), dan stopt Bokito met proberen in plaats van elke mail en wake één voor één te laten mislukken.
+
+1. De eerste geweigerde run wordt vastgelegd als **Mislukt** met de reden van de provider in het resultaat, en er komt een melding in Communicatie.
+2. De workspace pauzeert AI-calls één uur. Nieuwe mail in dat uur wordt op het gesprek gemarkeerd als **uitgesteld** en in de wachtrij gezet; geplande wakes melden **geblokkeerd** en schuiven door naar hun volgende moment.
+3. Herstel de oorzaak: vul tegoed aan of vervang de sleutel onder **Modellen**. De eerstvolgende geslaagde run heft de pauze op en verwerkt de wachtende gesprekken op volgorde.
+4. Mislukte runs tonen altijd hun reden onder **Runs**, zodat een leeg resultaat nooit stil blijft.
+
 ## Wat nu
 
 Bevestig dat Bokito AI Actief is, en kijk daarna naar **Verbruik** op de [Cockpit](/docs/getting-started/cockpit).

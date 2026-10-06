@@ -10,6 +10,7 @@ import {
   Link2,
   Loader2,
   NotebookText,
+  Plug,
   Plus,
   Trash2,
   X,
@@ -27,8 +28,18 @@ import {
   type ProjectResourceRow,
   type ResourceType,
 } from '../../lib/project-work-api'
+import { listIntegrationConnections, type IntegrationConnectionRow } from '../../lib/integrations-api'
 
-const RESOURCE_TYPES: ResourceType[] = ['repo', 'drive', 'notion', 'sheet', 'vibecode', 'site', 'other']
+const RESOURCE_TYPES: ResourceType[] = [
+  'repo',
+  'connection',
+  'drive',
+  'notion',
+  'sheet',
+  'vibecode',
+  'site',
+  'other',
+]
 
 const TYPE_ICON: Record<ResourceType, typeof Folder> = {
   repo: GitBranch,
@@ -37,6 +48,7 @@ const TYPE_ICON: Record<ResourceType, typeof Folder> = {
   sheet: FileSpreadsheet,
   vibecode: Code2,
   site: Globe,
+  connection: Plug,
   other: Link2,
 }
 
@@ -68,6 +80,22 @@ export function ProjectResourcesSection({
   const [newType, setNewType] = useState<ResourceType>('drive')
   const [newLabel, setNewLabel] = useState('')
   const [newRef, setNewRef] = useState('')
+  const [connections, setConnections] = useState<IntegrationConnectionRow[]>([])
+  const [newConnectionId, setNewConnectionId] = useState('')
+
+  useEffect(() => {
+    if (!adding || newType !== 'connection') return
+    listIntegrationConnections()
+      .then((rows) => setConnections(rows.filter((row) => row.status === 'active')))
+      .catch(() => setConnections([]))
+  }, [adding, newType])
+
+  const linkedConnectionIds = new Set(
+    resources.filter((r) => r.resource_type === 'connection').map((r) => r.connection_id),
+  )
+  const linkableConnections = connections.filter((c) => !linkedConnectionIds.has(c.id))
+  const canSubmit =
+    newType === 'connection' ? Boolean(newConnectionId) : Boolean(newRef.trim() || newLabel.trim())
 
   const load = useCallback(async () => {
     try {
@@ -84,16 +112,18 @@ export function ProjectResourcesSection({
   }, [load])
 
   const add = async () => {
-    if (!newRef.trim() && !newLabel.trim()) return
+    if (!canSubmit) return
     setBusy(true)
     try {
-      await createProjectResource(projectId, {
-        resource_type: newType,
-        label: newLabel.trim(),
-        external_ref: newRef.trim(),
-      })
+      await createProjectResource(
+        projectId,
+        newType === 'connection'
+          ? { resource_type: 'connection', connection_id: newConnectionId }
+          : { resource_type: newType, label: newLabel.trim(), external_ref: newRef.trim() },
+      )
       setNewLabel('')
       setNewRef('')
+      setNewConnectionId('')
       setAdding(false)
       toast.success(t('projects.work.resourceLinked'))
       void load()
@@ -195,20 +225,45 @@ export function ProjectResourcesSection({
                   ))}
                 </SelectContent>
               </Select>
-              <Input
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                placeholder={t('projects.work.resourceLabelPlaceholder')}
-                className="h-8 min-w-36 flex-1 text-sm"
-              />
+              {newType === 'connection' ? (
+                <Select value={newConnectionId} onValueChange={setNewConnectionId}>
+                  <SelectTrigger className="h-8 min-w-36 flex-1 text-sm">
+                    <SelectValue placeholder={t('projects.work.connectionPick')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {linkableConnections.map((conn) => (
+                      <SelectItem key={conn.id} value={conn.id}>
+                        {conn.display_name || conn.provider || conn.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  placeholder={t('projects.work.resourceLabelPlaceholder')}
+                  className="h-8 min-w-36 flex-1 text-sm"
+                />
+              )}
             </div>
-            <Input
-              value={newRef}
-              onChange={(e) => setNewRef(e.target.value)}
-              placeholder={t('projects.work.resourceRefPlaceholder')}
-              className="h-8 text-sm"
-            />
-            <p className="text-xs text-text-muted">{t('projects.work.resourceHint')}</p>
+            {newType === 'connection' ? (
+              <p className="text-xs text-text-muted">
+                {linkableConnections.length === 0
+                  ? t('projects.work.connectionNone')
+                  : t('projects.work.connectionHint')}
+              </p>
+            ) : (
+              <>
+                <Input
+                  value={newRef}
+                  onChange={(e) => setNewRef(e.target.value)}
+                  placeholder={t('projects.work.resourceRefPlaceholder')}
+                  className="h-8 text-sm"
+                />
+                <p className="text-xs text-text-muted">{t('projects.work.resourceHint')}</p>
+              </>
+            )}
             <div className="flex justify-end gap-1.5">
               <Button type="button" size="sm" variant="ghost" className="h-7" onClick={() => setAdding(false)}>
                 <X size={12} className="mr-1" />
@@ -218,7 +273,7 @@ export function ProjectResourcesSection({
                 type="button"
                 size="sm"
                 className="h-7"
-                disabled={busy || (!newRef.trim() && !newLabel.trim())}
+                disabled={busy || !canSubmit}
                 onClick={() => void add()}
               >
                 {busy ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Plus size={12} className="mr-1" />}

@@ -63,6 +63,7 @@ export const appRoutes = {
     threadReply: (threadId: string) => `/signals/${threadId}/reply`,
     messageCancel: (messageId: string) => `/signals/messages/${messageId}/cancel`,
     threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
+    threadHandledExternally: (threadId: string) => `/signals/${threadId}/handled-externally`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
     threadAgentCandidates: (threadId: string) => `/signals/${threadId}/agent-candidates`,
@@ -126,6 +127,8 @@ export const appRoutes = {
     status: '/channels/status',
     byId: (id: string) => `/channels/accounts/${id}`,
     sync: (id: string) => `/channels/accounts/${id}/sync`,
+    widget: (id: string) => `/channels/accounts/${id}/widget`,
+    createWidget: '/channels/widget',
     emailRelays: '/channels/email/relays',
   },
   contacts: {
@@ -170,6 +173,8 @@ export const appRoutes = {
     markRead: (id: string) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
     decisionLearn: (decisionId: string) => `/notifications/decisions/${encodeURIComponent(decisionId)}/learn`,
+    decisionGroups: '/notifications/decisions/groups',
+    decisionsDismiss: '/notifications/decisions/dismiss',
   },
   push: {
     subscribe: '/push/subscribe',

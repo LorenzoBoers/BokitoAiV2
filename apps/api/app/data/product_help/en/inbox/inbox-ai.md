@@ -2,7 +2,7 @@
 title: Set AI handling
 intro: Choose whether the AI answers on its own, drafts for review, or stays quiet — once for the workspace, with exceptions per channel, contact, or conversation.
 description: Configure AI handling (Autonomous, Assisted, Manual), its layers, safeguards, disclosure, reply language and send-as.
-keywords: ai handling, autonomous, assisted, manual, drafts, auto reply, safeguards, disclosure, reply language, send as, certainty
+keywords: ai handling, autonomous, assisted, manual, drafts, auto reply, safeguards, disclosure, reply language, send as, certainty, automated mail, automation rule, no reply needed
 sort: 25
 related: communication,contacts,channels,govern,autonomy,agents
 ---
@@ -62,6 +62,17 @@ Replies follow the channel. Email gets one structured message. On WhatsApp and w
 - The mailbox still needs setup or reconnect. The thread gets an **Internal note** pointing to **Settings → Channels** instead of a draft.
 
 Hover the mode in the conversation header to see which layer decided and why.
+
+## No reply needed
+
+Not every mail wants an answer. Receipts, deploy notices and other automated mail get an action card instead of a draft, and a proposal is only kept while it still answers the latest message.
+
+1. When the AI decides no reply is needed, the conversation shows an action card with **Close** and **Keep open** instead of a draft, and the composer opens on **Note**. The AI's one-line summary (for example **GitHub deploy succeeded**) is in the card. A model that explains itself first still ends in that card; explanation text is never shown as a draft.
+2. The AI keeps one reply proposal per person. When the same person also writes on another channel, the older conversation's proposal is set aside (**Set aside: a newer conversation with this person**) and the newest conversation carries the live one.
+3. A proposal that no longer answers the latest message is set aside as well: when the customer writes again before you send (**customer wrote again**), when a colleague replied from their own mailbox (**a teammate replied**), or when someone logged **Already handled outside Bokito**. A run that finishes after a newer message arrived does not post its draft.
+4. The composer tells you when a stored draft is outdated and offers **Propose again**; see [Communication](/docs/inbox/communication).
+5. On a mailbox with **Archive automated mail** turned on, that card is skipped: the thread closes on arrival and gets the `#automated` tag. Set it per mailbox under [Channels](/docs/inbox/channels).
+6. When the third no-reply mail from the same sender arrives, the AI proposes an **Automation rule** for that sender as a card in the conversation (*Auto-close mail from newsletter@example.com?*). **Activate** turns the rule on under **Automation rules**; **Later** keeps it as a draft. An agent that proposes a rule on its own uses the same card, so rules never activate without a person.
 
 The same mode decides who an unknown chatter is. When a visitor gives an email or phone number, **Autonomous** links the conversation to the matching contact (or creates one), **Assisted** links only verified addresses and asks you for the rest, and **Manual** leaves linking to you. See [Link a conversation to a contact](/docs/inbox/contacts).
 

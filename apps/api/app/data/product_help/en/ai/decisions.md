@@ -2,7 +2,7 @@
 title: Approve and decline decisions
 intro: Agents ask inside the thread when a step needs your judgment. Every open approval lives in Communication under Decisions.
 description: Approve, edit or decline decision cards in the thread, from the Decisions folder, Cockpit, or a notification.
-keywords: decisions, approvals, decision requests, notifications, human in the loop
+keywords: decisions, approvals, decision requests, notifications, human in the loop, dismiss all, duplicate questions
 sort: 20
 related: communication,agent-runs,autonomy,govern
 ---
@@ -28,6 +28,15 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **What next** or **Keep open**. Suggested-reply cards from [AI handling](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
 3. A suggested chat reply can hold several short messages. The card lists them as **Message 1**, **Message 2** and so on. Choose **Remove message** on one you do not want, or **Edit** to rewrite them as one text; a blank line starts a new message. **Send** delivers them in order.
 4. Hover an agent message: icons next to the bubble mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent. Hover an icon to see its label. Escalate sets the conversation to Manual and assigns you.
+
+## Dismiss the same question in bulk
+
+When a check-in or agent asked the same question many times (for example *Set up Google Sheets integration?* on every run), you do not have to decline each card.
+
+1. Open **Communication**, then **Decisions**. Above the list, the banner **Same question, many cards** lists each question that waits two or more times, with its count.
+2. Choose **Dismiss all** on a row. Every open card with that title is deferred and dropped from Decisions and the bell menu; nothing executes.
+3. The agent treats a dismissal as a decline for that topic and does not raise it again for a while. Cards on a conversation stay visible in that thread as answered; the conversation itself stays open.
+4. A question that is not about a conversation and has no action to execute is no longer raised: the agent writes it in its own channel instead. When an agent asks about a conversation it names the subject, and the card lands on that thread.
 
 ## Teach the agent for next time
 

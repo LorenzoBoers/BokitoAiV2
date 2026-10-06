@@ -14,6 +14,50 @@ export type AgendaWho = 'all' | 'me' | `user:${string}` | `agent:${string}`
 
 const CONVERSATION_RUNS = new Set(['chat', 'email', 'widget', 'inbound', 'webchat', 'whatsapp', 'customer_widget'])
 
+/** Person, team or agent responsible for (or running) an item. Calendar blocks have none. */
+export type AgendaOwnerKind = 'user' | 'agent' | 'team'
+
+export type AgendaOwner = { kind: AgendaOwnerKind; id: string | null; name: string }
+
+/** Leftover Trigger.agent_role values — not people, so never show as Wie. */
+const ROLE_SLUGS = new Set([
+  'orchestrator',
+  'orchestra',
+  'po',
+  'manager',
+  'assistant',
+  'worker',
+  'lead',
+  'agent',
+  'coding',
+])
+
+function displayName(raw: string | null | undefined): string {
+  const name = (raw || '').trim()
+  if (!name || ROLE_SLUGS.has(name.toLowerCase())) return ''
+  return name
+}
+
+export function itemOwner(item: TimeItem): AgendaOwner | null {
+  if (item.kind === 'calendar') return null
+  const ownerKind = item.owner_kind
+  const ownerName = displayName(item.owner_name)
+  if ((ownerKind === 'user' || ownerKind === 'agent' || ownerKind === 'team') && (ownerName || item.owner_id)) {
+    return { kind: ownerKind, id: item.owner_id ?? null, name: ownerName }
+  }
+  const agentName = displayName(item.agent_name)
+  if (item.agent_id || agentName) {
+    return { kind: 'agent', id: item.agent_id, name: agentName }
+  }
+  if (item.actor_kind === 'person' && (displayName(item.actor_name) || item.actor_id)) {
+    return { kind: 'user', id: item.actor_id ?? null, name: displayName(item.actor_name) }
+  }
+  if (item.actor_kind === 'agent' && (displayName(item.actor_name) || item.actor_id)) {
+    return { kind: 'agent', id: item.actor_id ?? null, name: displayName(item.actor_name) }
+  }
+  return null
+}
+
 export function layerOf(item: TimeItem): AgendaLayer {
   if (item.kind === 'calendar') return 'calendar'
   if (item.kind === 'follow_up') return 'reminders'
@@ -96,7 +140,7 @@ export function parseDayKey(raw: string | null): Date | null {
   return Number.isNaN(out.getTime()) ? null : out
 }
 
-/** The days a view shows around ``anchor``. List looks a week back and three ahead. */
+/** The days a view shows around ``anchor``. List keeps three weeks of past above the land day. */
 export function viewRange(view: AgendaView, anchor: Date): { from: Date; to: Date; days: Date[] } {
   let from: Date
   let count: number
@@ -111,8 +155,8 @@ export function viewRange(view: AgendaView, anchor: Date): { from: Date; to: Dat
     from = startOfWeek(first)
     count = 42
   } else {
-    from = addDays(startOfDay(anchor), -7)
-    count = 28
+    from = addDays(startOfDay(anchor), -21)
+    count = 70
   }
   const days = Array.from({ length: count }, (_, i) => addDays(from, i))
   return { from, to: addDays(from, count), days }
@@ -124,7 +168,17 @@ export function shiftAnchor(view: AgendaView, anchor: Date, step: number): Date 
   return addDays(anchor, step * 7)
 }
 
+function calendarDateFromIso(iso: string): Date | null {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
+
 export function itemStart(item: TimeItem): Date {
+  if (item.all_day) {
+    const date = calendarDateFromIso(item.start)
+    if (date) return date
+  }
   return new Date(parseTimelineMs(item.start))
 }
 
@@ -132,10 +186,17 @@ export function itemStart(item: TimeItem): Date {
 export const POINT_MINUTES = 30
 
 export function itemEnd(item: TimeItem): Date {
-  const start = parseTimelineMs(item.start)
+  const start = itemStart(item)
+  if (item.all_day) {
+    if (item.end) {
+      const date = calendarDateFromIso(item.end)
+      if (date && date.getTime() > start.getTime()) return date
+    }
+    return new Date(start.getTime() + 24 * 3_600_000)
+  }
   const end = parseTimelineMs(item.end ?? null)
-  if (Number.isFinite(end) && end > start) return new Date(end)
-  return new Date(start + POINT_MINUTES * 60_000)
+  if (Number.isFinite(end) && end > start.getTime()) return new Date(end)
+  return new Date(start.getTime() + POINT_MINUTES * 60_000)
 }
 
 export function isAllDay(item: TimeItem): boolean {

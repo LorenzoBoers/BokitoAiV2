@@ -53,7 +53,8 @@ def serialize_connection(conn: IntegrationConnection) -> dict[str, Any]:
         "provider_id": pid,
         "external_account_id": meta.get("external_account_id", conn.display_name),
         "display_name": conn.display_name or slug,
-        "status": conn.status if conn.status in ("active", "revoked", "error") else "active",
+        "instance_key": conn.instance_key or None,
+        "status": conn.status if conn.status in ("active", "revoked", "error", "merged") else "active",
         "metadata": meta,
         "created_at": conn.created_at.isoformat() if conn.created_at else None,
         "updated_at": conn.created_at.isoformat() if conn.created_at else None,
@@ -560,6 +561,20 @@ async def install_mcp(
             auth_payload["api_key"] = "mock-key"
             auth_payload["mock"] = True
 
+    from app.services.connection_instance import find_instance_owner, instance_key_for
+
+    instance_key = instance_key_for(provider, auth=auth_payload) if not use_mock else ""
+    owner = await find_instance_owner(session, tenant_id, provider, instance_key)
+    if owner is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"This administration is already connected as "
+                f"'{owner.display_name or PROVIDER_BY_SLUG[provider]['name']}'. "
+                "Manage it from the provider instead of adding it again."
+            ),
+        )
+
     meta: dict[str, Any] = {"auth_type": auth_type}
     if auth_payload.get("last_verified_at"):
         meta["last_verified_at"] = auth_payload["last_verified_at"]
@@ -579,6 +594,9 @@ async def install_mcp(
         credentials={"api_key": key} if key else {},
         metadata=meta,
     )
+    if instance_key:
+        conn.instance_key = instance_key
+        session.add(conn)
     from app.services.module_attach import maybe_auto_attach_for_module
 
     await maybe_auto_attach_for_module(session, tenant_id, conn, module_slug)

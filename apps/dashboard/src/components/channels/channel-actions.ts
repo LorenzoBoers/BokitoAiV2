@@ -10,6 +10,7 @@ export type ChannelActions = {
   rename: (row: ChannelRow) => void
   remove: (row: ChannelRow) => void
   setSyncWindow: (row: ChannelRow, days: number) => void
+  setArchiveAutomatedMail: (row: ChannelRow, enabled: boolean) => void
   editFolders: (row: ChannelRow) => void
   editSignature: (row: ChannelRow) => void
   aiHandlingChanged: (row: ChannelRow, next: AiHandling | null) => void

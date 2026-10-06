@@ -2,7 +2,7 @@
 title: AI-afhandeling instellen
 intro: Kies of de AI zelf antwoordt, concepten ter controle maakt of stil blijft — een keer voor de workspace, met uitzonderingen per kanaal, contact of gesprek.
 description: Stel AI-afhandeling in (Autonoom, Geassisteerd, Handmatig), met lagen, waarborgen, vermelding, antwoordtaal en afzender.
-keywords: ai-afhandeling, autonoom, geassisteerd, handmatig, concepten, automatisch antwoorden, waarborgen, vermelding, antwoordtaal, afzender, zekerheid
+keywords: ai-afhandeling, autonoom, geassisteerd, handmatig, concepten, automatisch antwoorden, waarborgen, vermelding, antwoordtaal, afzender, zekerheid, automatische mail, automatiseringsregel, geen antwoord nodig
 sort: 25
 related: communication,contacts,channels,govern,autonomy,agents
 ---
@@ -62,6 +62,17 @@ Antwoorden volgen het kanaal. E-mail krijgt één gestructureerd bericht. Op Wha
 - De mailbox moet nog ingesteld of opnieuw gekoppeld worden. Het gesprek krijgt dan een **Interne notitie** met een verwijzing naar **Instellingen → Kanalen** in plaats van een concept.
 
 Beweeg over de modus in de kop van het gesprek om te zien welke laag besliste en waarom.
+
+## Geen antwoord nodig
+
+Niet elke mail wil een antwoord. Bonnetjes, deploy-meldingen en andere automatische mail krijgen een actiekaart in plaats van een concept, en een voorstel blijft alleen staan zolang het het laatste bericht beantwoordt.
+
+1. Besluit de AI dat er geen antwoord nodig is, dan toont het gesprek een actiekaart met **Sluiten** en **Open houden** in plaats van een concept, en opent de composer op **Notitie**. De samenvatting van de AI in één regel (bijvoorbeeld **GitHub deploy geslaagd**) staat in de kaart. Een model dat eerst uitlegt eindigt nog steeds in die kaart; uitlegtekst verschijnt nooit als concept.
+2. De AI houdt per persoon één antwoordvoorstel. Schrijft dezelfde persoon ook op een ander kanaal, dan gaat het voorstel van het oudere gesprek opzij (**Opzijgezet: nieuwer gesprek met deze persoon**) en draagt het nieuwste gesprek het actuele voorstel.
+3. Een voorstel dat het laatste bericht niet meer beantwoordt gaat ook opzij: als de klant opnieuw schrijft voordat je verstuurt (**klant schreef opnieuw**), als een collega vanuit de eigen mailbox antwoordde (**een collega antwoordde**), of als iemand **Al afgehandeld buiten Bokito** vastlegde. Een run die klaar is nadat een nieuwer bericht binnenkwam plaatst zijn concept niet.
+4. De composer vertelt wanneer een bewaard concept verouderd is en biedt **Opnieuw voorstellen**; zie [Communicatie](/docs/inbox/communication).
+5. Op een mailbox met **Automatische mail archiveren** aan wordt die kaart overgeslagen: het gesprek sluit bij binnenkomst en krijgt de tag `#automated`. Stel het per mailbox in onder [Kanalen](/docs/inbox/channels).
+6. Komt de derde no-reply mail van dezelfde afzender binnen, dan stelt de AI een **Automatiseringsregel** voor die afzender voor als kaart in het gesprek (*Mail van newsletter@example.com automatisch sluiten?*). **Activeren** zet de regel aan onder **Automatiseringsregels**; **Later** houdt hem als concept. Een agent die zelf een regel voorstelt gebruikt dezelfde kaart, zodat regels nooit zonder persoon actief worden.
 
 Dezelfde modus bepaalt wie een onbekende chatter is. Geeft een bezoeker een e-mail of telefoonnummer, dan koppelt **Autonoom** het gesprek aan het passende contact (of maakt er een aan), koppelt **Geassisteerd** alleen bevestigde adressen en vraagt je voor de rest, en laat **Handmatig** het koppelen aan jou. Zie [Een gesprek aan een contact koppelen](/docs/inbox/contacts).
 

@@ -38,6 +38,191 @@ def decision_provenance(decision: DecisionRequest) -> dict[str, Any] | None:
     return None
 
 
+def primary_action(options: list[dict[str, Any]] | None) -> str:
+    """The first option that does something (not defer/reject); '' when none."""
+    for option in options or []:
+        if not isinstance(option, dict):
+            continue
+        action = str(option.get("action_type") or "").strip().lower()
+        if action and action not in ("defer", "reject", "dismiss", "later"):
+            return action
+    return ""
+
+
+def _options_of(decision: DecisionRequest) -> list[dict[str, Any]]:
+    try:
+        parsed = json.loads(decision.options_json or "[]")
+    except json.JSONDecodeError:
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
+async def find_open_duplicate_decision(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    title: str,
+    options: list[dict[str, Any]] | None,
+) -> DecisionRequest | None:
+    """An awaiting card with the same title and primary action, anywhere in the tenant.
+
+    Used for cards that have no thread of their own (heartbeat and scheduled
+    runs). Per-thread duplicates are superseded in the tool instead.
+    """
+    wanted = primary_action(options)
+    rows = (
+        await session.execute(
+            select(DecisionRequest)
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.platform_change_id.is_(None),
+                DecisionRequest.title == (title or "").strip(),
+            )
+            .order_by(DecisionRequest.created_at.desc())
+        )
+    ).scalars().all()
+    for row in rows:
+        if primary_action(_options_of(row)) == wanted:
+            return row
+    return None
+
+
+async def recently_declined_decision(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    title: str,
+    within_days: int = 7,
+) -> DecisionRequest | None:
+    """A card with this title a human rejected or deferred in the last N days.
+
+    Proposals (module recommendations, integrations) must not come back the
+    next run after someone said no or later.
+    """
+    from datetime import timedelta
+
+    since = datetime.utcnow() - timedelta(days=within_days)
+    return (
+        await session.execute(
+            select(DecisionRequest)
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.title == (title or "").strip(),
+                DecisionRequest.status.in_(("rejected", "deferred")),
+                DecisionRequest.resolved_at.is_not(None),
+                DecisionRequest.resolved_at >= since,
+                DecisionRequest.chosen_option_id != "superseded",
+            )
+            .order_by(DecisionRequest.resolved_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+DISMISSED_OPTION_ID = "dismissed"
+
+
+async def open_decision_groups(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
+    """Awaiting cards grouped by title: what kind of question is piling up.
+
+    Feeds the bulk dismiss control; one tenant sat on 97 "No reply needed"
+    cards and 34 module proposals nobody wanted to click one by one.
+    """
+    from sqlalchemy import case, func
+
+    rows = (
+        await session.execute(
+            select(
+                DecisionRequest.title,
+                func.count(),
+                func.sum(case((DecisionRequest.signal_id.is_(None), 1), else_=0)),
+                func.max(DecisionRequest.created_at),
+            )
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.platform_change_id.is_(None),
+            )
+            .group_by(DecisionRequest.title)
+            .order_by(func.count().desc(), func.max(DecisionRequest.created_at).desc())
+        )
+    ).all()
+    return [
+        {
+            "title": title,
+            "count": int(count or 0),
+            "without_thread": int(orphans or 0),
+            "latest_at": latest.isoformat() if latest else None,
+        }
+        for title, count, orphans, latest in rows
+    ]
+
+
+async def dismiss_decisions(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    title: str | None = None,
+    without_thread_only: bool = False,
+    older_than_days: int | None = None,
+    user_id: UUID | None = None,
+) -> int:
+    """Close every awaiting card that matches, as 'deferred' with option 'dismissed'.
+
+    Nothing runs; a dismissed card counts as a decline for proposal cooldowns
+    and the bell stops counting it. Govern (platform change) decisions are
+    never touched here.
+    """
+    from datetime import timedelta
+
+    conditions = [
+        DecisionRequest.tenant_id == tenant_id,
+        DecisionRequest.status == "awaiting_human",
+        DecisionRequest.platform_change_id.is_(None),
+    ]
+    if title is not None:
+        conditions.append(DecisionRequest.title == title.strip())
+    if without_thread_only:
+        conditions.append(DecisionRequest.signal_id.is_(None))
+    if older_than_days is not None:
+        conditions.append(
+            DecisionRequest.created_at <= datetime.utcnow() - timedelta(days=older_than_days)
+        )
+    rows = (await session.execute(select(DecisionRequest).where(*conditions))).scalars().all()
+    if not rows:
+        return 0
+    now = datetime.utcnow()
+    notification_ids = [row.notification_id for row in rows if row.notification_id]
+    for row in rows:
+        row.status = "deferred"
+        row.chosen_option_id = DISMISSED_OPTION_ID
+        row.resolved_at = now
+        row.resolved_by_user_id = user_id
+        session.add(row)
+    if notification_ids:
+        notifs = (
+            await session.execute(
+                select(Notification).where(
+                    Notification.id.in_(notification_ids), Notification.status == "unread"
+                )
+            )
+        ).scalars().all()
+        for notif in notifs:
+            notif.status = "read"
+            session.add(notif)
+    await session.commit()
+    for row in rows:
+        await publish_decision(
+            tenant_id,
+            decision_id=row.id,
+            status=row.status,
+            title=row.title,
+            signal_id=row.signal_id,
+        )
+    return len(rows)
+
+
 async def get_or_create_internal_thread(
     session: AsyncSession,
     tenant_id: UUID,

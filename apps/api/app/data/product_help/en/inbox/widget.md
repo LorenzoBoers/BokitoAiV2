@@ -9,16 +9,16 @@ related: channels,communication,widget-embed,categories,assistant
 
 # Install the website widget
 
-The widget is a small script on your site. Visitors chat with your assistant. Those threads appear in Communication. Open **Settings**, then **Chat widget**.
+The widget is a small script on your site. Visitors chat with your assistant. Those threads appear in Communication. Open **Settings**, then **Channels**, then the **Website chat** row. Each website-chat channel has its own look, hours and snippet — add another **Website chat** from **Add channel** when a second site needs its own embed.
 
 ## Copy the embed snippet
 
 ![Website chat installation](/api/docs/assets/widget/installation.png)
 *Copy the snippet from Install.*
 
-1. Open **Settings**, then **Chat widget**, then **Install**.
-2. Copy **Widget for website visitors** for a public site. Copy **Assistant for signed-in users** only when the widget sits inside your own product and visitors are logged in. Use **Copy** on the snippet.
-3. If Install warns that the snippet uses a local development URL (`localhost` or `127.0.0.1`), paste it only for local tests. For a live website, open Chat widget on your production workspace and copy the snippet there.
+1. Open **Settings**, then **Channels**, then the **Website chat** row, then **Install**.
+2. Copy **Widget for website visitors** for a public site. Copy **Assistant for signed-in users** only when the widget sits inside your own product and visitors are logged in. Use **Copy** on the snippet. The snippet includes `data-channel-id` so this site uses this channel.
+3. If Install warns that the snippet uses a local development URL (`localhost` or `127.0.0.1`), paste it only for local tests. For a live website, open this channel on your production workspace and copy the snippet there.
 4. Paste it on a staging page first. Send a test message and confirm the thread in [Communication](/docs/inbox/communication).
 
 Developers can follow the [embed reference](/docs/developers/widget-embed).
@@ -55,7 +55,7 @@ A link works once and for seven days. A WhatsApp message without a valid link st
 ## Show your help articles
 
 1. Publish Knowledge docs of kind **Docs** from [Knowledge](/docs/ai/knowledge) with **Publish**.
-2. On Chat widget, open **Look**. Under **What visitors see**, turn on the **Help** module.
+2. On the website-chat channel, open **Look**. Under **What visitors see**, turn on the **Help** module.
 3. Visitors then see your articles next to chat. The public `/help/{workspace}` site is yours, not Bokito product help.
 
 ## What to do next

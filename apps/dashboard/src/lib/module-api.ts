@@ -1,5 +1,6 @@
 import { integrationsRoutes } from '../api/routes'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import type { ProviderConnectionRow } from './integrations-api'
 
 export type ModuleConnectionCompany = {
   id?: string
@@ -9,19 +10,7 @@ export type ModuleConnectionCompany = {
   [key: string]: unknown
 }
 
-export type ModuleConnectionRow = {
-  id: string
-  kind: string
-  provider: string
-  vendor: string
-  display_name: string
-  ready: boolean
-  status?: 'ready' | 'needs_credentials' | 'unverified' | 'error' | string
-  identity?: string | null
-  last_verified_at?: string | null
-  verify_error?: string | null
-  can_disconnect?: boolean
-  can_verify?: boolean
+export type ModuleConnectionRow = ProviderConnectionRow & {
   is_default: boolean
   default_company_id?: string | null
   companies: ModuleConnectionCompany[]

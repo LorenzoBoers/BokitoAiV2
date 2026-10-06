@@ -80,9 +80,12 @@ async def apply_agent_change(
             agent.kind = "company"
             agent.is_active = True
             agent.runtime_status = "standby"
-        for field in ("name", "role", "system_prompt", "model", "autonomy_level", "slug"):
+        for field in ("name", "role", "description", "system_prompt", "model", "autonomy_level", "slug"):
             if field in after:
-                setattr(agent, field, after[field])
+                value = after[field]
+                if field == "description":
+                    value = str(value or "").strip()[:280]
+                setattr(agent, field, value)
         if "is_active" in after and not after.get("restore"):
             agent.is_active = bool(after["is_active"])
         if "tools" in after:
@@ -103,6 +106,7 @@ async def apply_agent_change(
         name=name,
         role=role,
         slug=_slugify(name),
+        description=str(after.get("description") or "").strip()[:280],
         system_prompt=after.get("system_prompt", ""),
         model=after.get("model", "bokito-ai-3-1"),
         tools_json=json.dumps(after.get("tools", [])),

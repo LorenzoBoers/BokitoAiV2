@@ -17,6 +17,7 @@ from app.tools.registry import (
     agent_allowed_tools,
     audience_for_trust,
     get_tool_spec,
+    iter_tool_specs,
     tool_matches_audience,
 )
 
@@ -61,6 +62,40 @@ async def _agent_channel_error(
     )
 
 
+def route_module_mcp_call(tool_input: dict[str, Any]) -> dict[str, Any] | None:
+    """Map ``call_mcp_tool(server_name=<module>, tool_name=...)`` onto a module tool.
+
+    Returns None when the server is a real MCP server (no module by that
+    name), ``{"tool_name", "tool_input"}`` when a native module tool matches,
+    or ``{"error": ...}`` naming the module's tools when the verb is unknown.
+    """
+    from app.modules.catalog import MODULE_TOOL_PREFIXES, get_module
+
+    server = str(tool_input.get("server_name") or "").strip().lower()
+    spec = get_module(server) if server else None
+    if spec is None:
+        return None
+    verb = str(tool_input.get("tool_name") or "").strip()
+    prefix = MODULE_TOOL_PREFIXES[spec.slug]
+    candidates = [verb, f"{prefix}{verb}"] if verb else []
+    for candidate in candidates:
+        if candidate.startswith(prefix) and get_tool_spec(candidate) is not None:
+            arguments = tool_input.get("arguments")
+            routed_input = dict(arguments) if isinstance(arguments, dict) else {}
+            return {"tool_name": candidate, "tool_input": routed_input}
+    available = sorted(
+        spec_row.name for spec_row in iter_tool_specs() if spec_row.name.startswith(prefix)
+    )
+    return {
+        "error": (
+            f"'{server}' is a business module, not an MCP server. Call its own tools "
+            f"instead: {', '.join(available) or prefix + '*'}."
+        ),
+        "status": "unavailable",
+        "reason": "module_not_mcp",
+    }
+
+
 async def execute_tool(
     session: AsyncSession,
     tenant_id: UUID,
@@ -82,6 +117,16 @@ async def execute_tool(
     ``approved=True`` skips the gate — used when a human just approved the
     exact action through a DecisionRequest.
     """
+    if tool_name == "call_mcp_tool":
+        # A business module is not an MCP server to the agent. Calling the
+        # generic gated tool with server_name="accounting" asked a human to
+        # approve plain reads 26 times in one tenant; the native
+        # {slug}_{verb} tool carries the right gate (reads open, writes ask).
+        routed = route_module_mcp_call(tool_input)
+        if routed is not None:
+            if "error" in routed:
+                return routed
+            tool_name, tool_input = routed["tool_name"], routed["tool_input"]
     spec = get_tool_spec(tool_name)
     if spec is None:
         return {"error": f"Unknown tool: {tool_name}"}
@@ -274,7 +319,7 @@ async def execute_tool(
         agent=agent,
         run_id=run_id,
         signal_id=signal_id,
-        project_id=project_id,
+        project_id=project_id or (getattr(signal, "project_id", None) if signal else None),
         trust=trust,
         mode="ask" if mode == "ask" else "apply",
         user_role=user_role,

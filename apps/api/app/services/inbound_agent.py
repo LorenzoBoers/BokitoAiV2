@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels.outbound import deliver_outbound
@@ -28,7 +29,11 @@ _META_DRAFT_RE = re.compile(
     r"conceptreactie staat klaar|nog niets verstuurd|via govern|"
     r"openstaande concepten|/decisions\b|beoordeel en verstuur|"
     r"do not repeat these instructions|teammate'?s request|"
-    r"output only the customer-facing"
+    r"output only the customer-facing|"
+    # The model analysing the mail instead of answering it.
+    r"dit is een inkomende e-?mail|this is an (?:inbound|incoming) e-?mail|"
+    r"\bis de afzender\b|\bis de klant\b|\bis the sender\b|\bis the customer\b|"
+    r"\bNO_REPLY_NEEDED\b"
     r")"
 )
 
@@ -243,6 +248,7 @@ async def acknowledge_automated_mail(
     """
     text = (summary or "").strip() or "Automated notification; no reply needed."
     apply_suggested_actions(signal)
+    archived = await archive_automated_mail_if_enabled(session, tenant_id, signal)
     session.add(signal)
     session.add(
         SignalEvent(
@@ -256,18 +262,69 @@ async def acknowledge_automated_mail(
                     "kind": "automated_mail",
                     "reason": reason,
                     "summary": text[:500],
+                    "archived": archived,
                 }
             ),
         )
     )
     await session.commit()
+    if archived:
+        from app.gateway.publish import publish_thread_update
+
+        await publish_thread_update(signal)
+    # The third automated thread from one sender earns a rule proposal on
+    # this thread; before that, each message is just noted.
+    from app.services.inbox_rules import maybe_suggest_bulk_sender_rule
+
+    rule_suggestion = await maybe_suggest_bulk_sender_rule(
+        session, tenant_id, signal, agent_id=agent.id if agent else None
+    )
+    if rule_suggestion:
+        await session.commit()
     return {
         "suggestion": False,
         "kind": "automated_mail_ack",
         "reason": reason,
         "channel": signal.channel,
-        "delivery": "no_reply_noted",
+        "delivery": "archived" if archived else "no_reply_noted",
+        "rule_suggested": bool(rule_suggestion),
     }
+
+
+async def archive_automated_mail_if_enabled(
+    session: AsyncSession, tenant_id: UUID, signal: Signal
+) -> bool:
+    """File an automated thread as closed + ``automated`` when the mailbox says so.
+
+    The thread keeps its messages and stays searchable; it just leaves Open
+    and lands under Closed with the tag, where a saved filter acts as the
+    "Automated" folder. Returns True when the thread was archived.
+    """
+    if not signal.channel_account_id:
+        return False
+    from app.models.channel import ChannelAccount
+    from app.services.email_sync import AUTOMATED_MAIL_TAG, account_archives_automated_mail
+
+    account = await session.get(ChannelAccount, signal.channel_account_id)
+    if account is None:
+        return False
+    try:
+        settings = json.loads(account.settings_json or "{}")
+    except (TypeError, json.JSONDecodeError):
+        settings = {}
+    if not account_archives_automated_mail(settings):
+        return False
+    from app.services.ai_handling import on_status_change
+    from app.services.signal_tags import add_signal_tags
+
+    if signal.status != "closed":
+        signal.status = "closed"
+        signal.snoozed_until = None
+        on_status_change(session, signal)
+    signal.has_unread = False
+    signal.updated_at = datetime.utcnow()
+    await add_signal_tags(session, tenant_id, signal.id, [AUTOMATED_MAIL_TAG])
+    return True
 
 
 async def acknowledge_channel_not_ready(
@@ -421,6 +478,56 @@ async def create_human_attention_suggestion(
     }
 
 
+async def _defer_sibling_thread_suggestions(
+    session: AsyncSession, tenant_id: UUID, signal: Signal
+) -> None:
+    """One live proposal per person.
+
+    When the same contact also has an older conversation on another channel
+    with an open reply suggestion, that card is set aside (``sibling_thread``)
+    and points at this thread. Only threads whose last customer message is
+    older than this thread's are touched: a newer sibling keeps its own card.
+    """
+    from app.services.related_conversations import sibling_signals
+    from app.services.signal_threads import DEFER_SIBLING_THREAD, _defer_open_reply_suggestions
+
+    async def last_inbound_at(target: Signal) -> datetime | None:
+        # The customer's latest message, not last_message_at: cards and notes
+        # bump that column without the person having said anything new.
+        at = (
+            await session.execute(
+                select(func.max(SignalMessage.created_at)).where(
+                    SignalMessage.signal_id == target.id,
+                    SignalMessage.direction == "inbound",
+                    SignalMessage.kind == "user_message",
+                )
+            )
+        ).scalar_one_or_none()
+        return at or target.created_at
+
+    anchor = await last_inbound_at(signal)
+    for other in await sibling_signals(session, signal):
+        other_at = await last_inbound_at(other)
+        if anchor is None or other_at is None or other_at > anchor:
+            continue
+        deferred = await _defer_open_reply_suggestions(
+            session, tenant_id, other.id, reason=DEFER_SIBLING_THREAD, link_signal_id=signal.id
+        )
+        if deferred:
+            session.add(
+                SignalEvent(
+                    signal_id=other.id,
+                    tenant_id=tenant_id,
+                    event_type="suggestion_deferred",
+                    actor_type="system",
+                    actor_id="",
+                    payload_json=json.dumps(
+                        {"reason": DEFER_SIBLING_THREAD, "superseded_by_signal_id": str(signal.id)}
+                    ),
+                )
+            )
+
+
 async def create_reply_suggestion(
     session: AsyncSession,
     tenant_id: UUID,
@@ -482,6 +589,23 @@ async def create_reply_suggestion(
 
     # One open suggestion per thread: a newer draft replaces the leftover card.
     await _defer_open_reply_suggestions(session, tenant_id, signal.id)
+    # One live proposal per person: older conversations with the same contact
+    # on other channels drop their open draft in favour of this one.
+    await _defer_sibling_thread_suggestions(session, tenant_id, signal)
+
+    # Anchor the proposal to the inbound message it answers. When the contact
+    # writes again, the composer can tell this draft is out of date.
+    based_on = (
+        await session.execute(
+            select(SignalMessage.id)
+            .where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.direction == "inbound",
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
 
     from app.services.signal_decisions import create_decision
 
@@ -504,18 +628,21 @@ async def create_reply_suggestion(
             "is_mock": is_mock,
         },
     )
-    if is_mock and message is not None:
+    if message is not None and (is_mock or based_on is not None):
         try:
             meta = json.loads(message.metadata_json or "{}")
         except json.JSONDecodeError:
             meta = {}
         if not isinstance(meta, dict):
             meta = {}
-        meta["is_mock"] = True
-        meta["llm_mode"] = "mock"
-        meta["llm_configured"] = False
+        if based_on is not None:
+            meta["based_on_message_id"] = str(based_on)
+        if is_mock:
+            meta["is_mock"] = True
+            meta["llm_mode"] = "mock"
+            meta["llm_configured"] = False
+            message.auto_sent = False
         message.metadata_json = json.dumps(meta)
-        message.auto_sent = False
         session.add(message)
 
     apply_suggested_actions(signal)

@@ -22,6 +22,9 @@
     },
     "Cloudflare bokito": {
       "url": "https://mcp.cloudflare.com/mcp"
+    },
+    "Figma bokito": {
+      "url": "https://mcp.figma.com/mcp"
     }
   }
 }

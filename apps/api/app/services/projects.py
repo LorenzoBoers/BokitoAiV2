@@ -729,6 +729,8 @@ async def create_po_agent(
         name=name or f"{project.name} Orchestrator",
         role="orchestrator",
         slug="orchestrator",
+        chat_access="everyone",
+        description=f"Plans and routes the work for project {project.name}."[:280],
         system_prompt=(
             f"You are the orchestrator for project {project.name}. "
             "Plan work, route agents, and keep project knowledge current.\n\n"

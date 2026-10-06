@@ -212,7 +212,11 @@ async def _latest_message_previews(
         .where(
             SignalMessage.tenant_id == tenant_id,
             SignalMessage.signal_id.in_(signal_ids),
-            SignalMessage.kind.in_(("user_message", "agent_message")),
+            or_(
+                SignalMessage.kind.in_(("user_message", "agent_message")),
+                # "Handled outside Bokito" is the team's last word on the thread.
+                and_(SignalMessage.kind == "system_event", SignalMessage.direction == "outbound"),
+            ),
         )
         .subquery()
     )
@@ -386,12 +390,23 @@ def serialize_message(
             "source": decision_provenance(decision),
             "addressee": addressee_payload(decision),
         }
+        if decision.status == "deferred" and decision.chosen_option_id:
+            # Why the card was set aside (human_replied, superseded_by_inbound,
+            # superseded_by_external_reply, sibling_thread, handled_externally).
+            payload["decision"]["resolution_reason"] = decision.chosen_option_id
     try:
         meta = json.loads(message.metadata_json or "{}")
     except json.JSONDecodeError:
         meta = {}
     if not isinstance(meta, dict):
         meta = {}
+    if "decision" in payload:
+        # Anchor: the inbound message this proposal answers. The composer
+        # compares it with the newest inbound message to flag stale drafts.
+        if meta.get("based_on_message_id"):
+            payload["decision"]["based_on_message_id"] = str(meta["based_on_message_id"])
+        if meta.get("superseded_by_signal_id"):
+            payload["decision"]["superseded_by_signal_id"] = str(meta["superseded_by_signal_id"])
     from app.services.agent.turn_persist import message_activity
 
     activity = message_activity(meta, detail=include_trace)
@@ -431,6 +446,24 @@ def serialize_message(
         if isinstance(meta.get("artifact"), dict):
             payload["workbench_artifact"] = meta["artifact"]
     payload["delivered_to_customer"] = delivered
+    # Settled outside Bokito (call, personal WhatsApp, other mailbox): the
+    # timeline pill is rendered from these fields in the operator's language.
+    if meta.get("handled_externally"):
+        payload["handled_externally"] = {
+            "channel": str(meta.get("channel") or "other"),
+            "by_name": str(meta.get("by_name") or ""),
+            "note": str(meta.get("note") or ""),
+        }
+    # Team reply logged from a colleague's own mailbox (Sent items sync).
+    if meta.get("origin") == "external_mailbox":
+        payload["origin"] = "external_mailbox"
+        payload["mailbox_provider"] = str(meta.get("provider") or "")
+        payload["mailbox"] = str(meta.get("mailbox") or "")
+        if meta.get("sender_name"):
+            payload["sender_name"] = str(meta["sender_name"])
+    # A teammate forwarded someone else's mail into the inbox.
+    if isinstance(meta.get("forwarded_from"), dict):
+        payload["forwarded_from"] = meta["forwarded_from"]
     has_html = bool((message.body_html or "").strip())
     body_html = (message.body_html or None) if include_html else None
     return {
@@ -812,7 +845,8 @@ def _needs_reply_predicate(tenant_id: UUID):
         .where(
             SignalMessage.tenant_id == tenant_id,
             SignalMessage.direction == "outbound",
-            SignalMessage.kind.in_(("user_message", "agent_message")),
+            # Outbound system_event = "handled outside Bokito": counts as answered.
+            SignalMessage.kind.in_(("user_message", "agent_message", "system_event")),
             # Same skip as list previews: mock/placeholder bodies are not a reply.
             ~func.lower(SignalMessage.body_text).like("[mock]%"),
             ~func.lower(SignalMessage.body_text).like("i received your message about:%"),
@@ -1406,7 +1440,22 @@ async def get_thread(
         "csat": csat,
         "has_older": has_older,
         "oldest_message_id": oldest_id,
+        # Where else this person is talking to us (WhatsApp after email, a
+        # second mailbox): the thread banner and the contact panel use it.
+        "related_conversations": await _related_conversations(session, signal),
     }
+
+
+async def _related_conversations(session: AsyncSession, signal: Signal) -> list[dict[str, Any]]:
+    if is_internal_channel(signal.channel) or signal.channel == "assistant":
+        return []
+    from app.services.related_conversations import related_conversations
+
+    try:
+        return await related_conversations(session, signal)
+    except Exception:  # noqa: BLE001 — a sidebar hint must never break the thread
+        logger.debug("related_conversations failed for %s", signal.id, exc_info=True)
+        return []
 
 
 async def get_message(
@@ -2080,17 +2129,33 @@ async def delete_thread(
     return True
 
 
+REPLY_SUGGESTION_TITLES = ("Suggested reply", "Reply to customer message")
+
+# Why an open reply suggestion was set aside (stored in ``chosen_option_id``
+# on a deferred DecisionRequest; the card renders a matching label).
+DEFER_HUMAN_REPLIED = "human_replied"
+DEFER_SUPERSEDED_BY_INBOUND = "superseded_by_inbound"
+DEFER_SUPERSEDED_BY_EXTERNAL_REPLY = "superseded_by_external_reply"
+DEFER_SIBLING_THREAD = "sibling_thread"
+DEFER_HANDLED_EXTERNALLY = "handled_externally"
+
+
 async def _defer_open_reply_suggestions(
     session: AsyncSession,
     tenant_id: UUID,
     signal_id: UUID,
     *,
-    reason: str = "human_replied",
-) -> None:
-    """Clear leftover 'Suggested reply' cards once a human already answered.
+    reason: str = DEFER_HUMAN_REPLIED,
+    link_signal_id: UUID | None = None,
+) -> int:
+    """Set aside leftover 'Suggested reply' cards that no longer fit the thread.
 
-    Only reply-suggestion cards are deferred. Platform-change reviews and
-    other awaiting_human decisions stay open.
+    Runs when a human answered, when the contact wrote again (the draft no
+    longer answers the latest message), when a colleague's reply from their
+    own mailbox was logged, or when a newer conversation with the same person
+    carries the live proposal. Only reply-suggestion cards are deferred;
+    platform-change reviews and other awaiting_human decisions stay open.
+    Returns how many cards were deferred.
     """
     result = await session.execute(
         select(DecisionRequest).where(
@@ -2098,14 +2163,28 @@ async def _defer_open_reply_suggestions(
             DecisionRequest.signal_id == signal_id,
             DecisionRequest.status == "awaiting_human",
             DecisionRequest.platform_change_id.is_(None),
-            DecisionRequest.title.in_(("Suggested reply", "Reply to customer message")),
+            DecisionRequest.title.in_(REPLY_SUGGESTION_TITLES),
         )
     )
     now = datetime.utcnow()
+    count = 0
     for decision in result.scalars().all():
+        count += 1
         decision.status = "deferred"
         decision.resolved_at = now
         decision.chosen_option_id = reason
+        if link_signal_id and decision.message_id:
+            card = await session.get(SignalMessage, decision.message_id)
+            if card is not None:
+                try:
+                    meta = json.loads(card.metadata_json or "{}")
+                except json.JSONDecodeError:
+                    meta = {}
+                if not isinstance(meta, dict):
+                    meta = {}
+                meta["superseded_by_signal_id"] = str(link_signal_id)
+                card.metadata_json = json.dumps(meta)
+                session.add(card)
         session.add(decision)
         if decision.notification_id:
             # Clear the paired bell item too: the card no longer needs anyone.
@@ -2117,6 +2196,7 @@ async def _defer_open_reply_suggestions(
             if notif and notif.status == "unread":
                 notif.status = "read"
                 session.add(notif)
+    return count
 
 
 async def _rebind_email_account_for_reply(
@@ -2347,6 +2427,146 @@ async def reply_to_thread(
                 signal.id,
                 attachments=list(attachments) if attachments else None,
             )
+    return serialize_message(message)
+
+
+HANDLED_EXTERNALLY_CHANNELS = ("phone", "whatsapp", "email", "other")
+
+_HANDLED_EXTERNALLY_TEXT = {
+    "en": {
+        "phone": "Handled by phone by {name}",
+        "whatsapp": "Handled via WhatsApp by {name}",
+        "email": "Handled by email by {name}",
+        "other": "Handled outside Bokito by {name}",
+    },
+    "nl": {
+        "phone": "Afgehandeld via telefoon door {name}",
+        "whatsapp": "Afgehandeld via WhatsApp door {name}",
+        "email": "Afgehandeld via e-mail door {name}",
+        "other": "Afgehandeld buiten Bokito door {name}",
+    },
+}
+
+
+def handled_externally_text(channel: str, name: str, *, language: str = "") -> str:
+    lang = "nl" if str(language or "").lower().startswith("nl") else "en"
+    key = channel if channel in HANDLED_EXTERNALLY_CHANNELS else "other"
+    return _HANDLED_EXTERNALLY_TEXT[lang][key].format(name=name or "team")
+
+
+async def mark_handled_externally(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    signal_id: UUID,
+    *,
+    channel: str = "other",
+    note: str = "",
+    close: bool = False,
+    language: str = "",
+    actor_agent_id: UUID | None = None,
+    actor_name: str = "",
+) -> dict[str, Any] | None:
+    """The conversation was settled outside Bokito (a call, a WhatsApp from a
+    personal phone, a mail from another mailbox).
+
+    Writes an outbound ``system_event`` so the thread counts as answered
+    (needs-reply, previews), clears the unread flag, sets aside open reply
+    proposals with reason ``handled_externally`` and optionally closes the
+    thread. Returns the serialized system message.
+    """
+    signal = await _get_signal_row(session, tenant_id, signal_id)
+    if not signal:
+        return None
+    if channel not in HANDLED_EXTERNALLY_CHANNELS:
+        channel = "other"
+    note = (note or "").strip()[:2000]
+    if not actor_name:
+        author = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+        actor_name = (author.display_name or author.email) if author else ""
+    now = datetime.utcnow()
+    text = handled_externally_text(channel, actor_name, language=language)
+    body = f"{text}\n\n{note}" if note else text
+    meta: dict[str, Any] = {
+        "handled_externally": True,
+        "channel": channel,
+        "by_name": actor_name,
+    }
+    if note:
+        meta["note"] = note
+    if actor_agent_id:
+        meta["by_agent_id"] = str(actor_agent_id)
+    message = SignalMessage(
+        signal_id=signal_id,
+        tenant_id=tenant_id,
+        kind="system_event",
+        # Outbound: the team spoke last, even though nothing left Bokito.
+        direction="outbound",
+        role="system",
+        author_user_id=user_id,
+        author_agent_id=actor_agent_id,
+        from_address="",
+        to_addresses=signal.contact_email,
+        subject=signal.subject,
+        body_text=body,
+        body_preview=clean_message_preview(body, limit=200),
+        body_html="",
+        metadata_json=json.dumps(meta),
+        send_status="skipped",
+        received_at=now,
+    )
+    session.add(message)
+    signal.last_message_at = now
+    signal.updated_at = now
+    signal.has_unread = False
+    before_status = signal.status
+    deferred = await _defer_open_reply_suggestions(
+        session, tenant_id, signal_id, reason=DEFER_HANDLED_EXTERNALLY
+    )
+    await pick_up(session, signal, user_id, via="reply")
+    if close and signal.status != "closed":
+        from app.services.ai_handling import on_status_change
+
+        signal.status = "closed"
+        signal.snoozed_until = None
+        on_status_change(session, signal, actor_id=str(user_id))
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal_id,
+            tenant_id=tenant_id,
+            event_type="handled_externally",
+            actor_type="agent" if actor_agent_id else "user",
+            actor_id=str(actor_agent_id or user_id),
+            payload_json=json.dumps(
+                {"channel": channel, "closed": bool(close), "deferred_suggestions": deferred}
+            ),
+        )
+    )
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant_id,
+        action="signal:handled_externally",
+        actor_type="agent" if actor_agent_id else "user",
+        actor_id=actor_agent_id or user_id,
+        resource_type="signal",
+        resource_id=signal_id,
+        summary=(signal.subject or "")[:120],
+        before={"status": before_status},
+        after={"status": signal.status, "channel": channel},
+        commit=False,
+    )
+    await session.commit()
+    await session.refresh(message)
+    await session.refresh(signal)
+    await publish_signal_message(signal, message)
+    await publish_thread_update(signal)
+    if signal.status == "closed" and before_status != "closed":
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        await emit_webhook_event(session, tenant_id, "signal.closed", signal_event_data(signal))
     return serialize_message(message)
 
 

@@ -51,7 +51,13 @@ def _verb_handler(slug: str, verb: str):
         from app.modules.dispatch import call_module_verb
 
         return await call_module_verb(
-            ctx.session, ctx.tenant_id, slug, verb, tool_input, agent_id=_agent_id(ctx)
+            ctx.session,
+            ctx.tenant_id,
+            slug,
+            verb,
+            tool_input,
+            agent_id=_agent_id(ctx),
+            project_id=ctx.project_id,
         )
 
     return handler
@@ -73,7 +79,7 @@ async def _company_label(
             slug,
             "list_companies",
             {k: tool_input[k] for k in ("connection_id",) if tool_input.get(k)},
-            agent_id=_agent_id(ctx),
+            agent_id=_agent_id(ctx), project_id=ctx.project_id,
         )
     except Exception:
         return ""
@@ -144,7 +150,7 @@ def _customer_read_handler(slug: str, verb: str):
                 slug,
                 "search_parties",
                 {"query": email, "role": "customer"},
-                agent_id=_agent_id(ctx),
+                agent_id=_agent_id(ctx), project_id=ctx.project_id,
             )
         except Exception as exc:
             return {"documents": [], "note": str(exc)}
@@ -173,7 +179,7 @@ def _customer_read_handler(slug: str, verb: str):
                 slug,
                 "list_documents",
                 payload,
-                agent_id=_agent_id(ctx),
+                agent_id=_agent_id(ctx), project_id=ctx.project_id,
             )
         except Exception as exc:
             return {"documents": [], "note": str(exc)}

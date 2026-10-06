@@ -157,13 +157,23 @@ async def alert_channel_disconnect(
     channel_label: str,
     reason: str,
     account_id: UUID | None = None,
+    paused: bool = False,
 ) -> int:
-    """Alert admins that a connected channel stopped working (e.g. mailbox auth)."""
+    """Alert admins that a connected channel stopped working (e.g. mailbox auth).
+
+    ``paused`` marks the automatic pause after repeated failures; it gets its
+    own title so the earlier "needs attention" alert does not swallow it.
+    """
+    title = (
+        f"Channel paused: {channel_label[:120]}"
+        if paused
+        else f"Channel needs attention: {channel_label[:120]}"
+    )
     return await notify_tenant_admins(
         session,
         tenant_id,
         category=OPS_CHANNEL_DISCONNECT,
-        title=f"Channel needs attention: {channel_label[:120]}",
+        title=title,
         body=reason[:500],
         payload={"account_id": str(account_id)} if account_id else None,
         # Channel problems persist until fixed; don't re-alert within a day.

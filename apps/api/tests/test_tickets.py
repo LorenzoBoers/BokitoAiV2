@@ -520,3 +520,49 @@ async def test_category_list_carries_project_choices_and_counts(client: AsyncCli
     assert (row["open"], row["waiting"], row["proposed"]) == (2, 0, 1)
     assert row["filed_7d"] == 2
     assert row["filed_prev_7d"] == 0
+
+
+@pytest.mark.asyncio
+async def test_stage_move_requires_target_fields(client: AsyncClient, session_override):
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    klacht = await _category(client, headers, "klacht", create_mode="auto")
+    ws_id = klacht["workstream_id"]
+    stages = [
+        {"name": "Niet gestart", "kind": "open"},
+        {"name": "Actief", "kind": "waiting"},
+        {
+            "name": "Klaar",
+            "kind": "done",
+            "fields": [{"name": "Eindoordeel", "type": "text", "required": True}],
+        },
+    ]
+    patched = await client.patch(f"/api/workstreams/{ws_id}", headers=headers, json={"stages": stages})
+    assert patched.status_code == 200, patched.text
+    klaar_key = next(s["key"] for s in patched.json()["stages"] if s["kind"] == "done")
+
+    signal = await _signal(session_override, tenant.id, subject="Broken pipe")
+    await file_ticket(
+        session_override, tenant.id, signal_id=signal.id, tag_id=UUID(klacht["id"]), certainty=10, actor="agent"
+    )
+
+    blocked = await client.patch(
+        f"/api/signals/{signal.id}/ticket", headers=headers, json={"stage_key": klaar_key}
+    )
+    assert blocked.status_code == 400
+    err = blocked.json()["error"]
+    assert err["code"] == "stage_fields_required"
+    assert any(f["key"] == "eindoordeel" for f in err["fields"])
+
+    still = (await client.get(f"/api/signals/{signal.id}/ticket", headers=headers)).json()["ticket"]
+    assert still["status"] != "done"
+
+    moved = await client.patch(
+        f"/api/signals/{signal.id}/ticket",
+        headers=headers,
+        json={"stage_key": klaar_key, "fields": {"eindoordeel": "Opgelost"}},
+    )
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["ticket"]["status"] == "done"
+    assert moved.json()["ticket"]["fields"]["eindoordeel"] == "Opgelost"
+

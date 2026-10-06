@@ -709,6 +709,28 @@ async def create_resource(
 ) -> dict[str, Any]:
     if resource_type not in PROJECT_RESOURCE_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid resource type: {resource_type}")
+    if resource_type == "connection":
+        from app.models.integration import IntegrationConnection
+
+        conn = await session.get(IntegrationConnection, connection_id) if connection_id else None
+        if conn is None or conn.tenant_id != tenant_id or conn.status != "active":
+            raise HTTPException(status_code=404, detail="Connection not found")
+        duplicate = (
+            await session.execute(
+                select(ProjectResource.id).where(
+                    ProjectResource.tenant_id == tenant_id,
+                    ProjectResource.project_id == project_id,
+                    ProjectResource.resource_type == "connection",
+                    ProjectResource.connection_id == conn.id,
+                    ProjectResource.deleted_at.is_(None),
+                )
+            )
+        ).first()
+        if duplicate is not None:
+            raise HTTPException(status_code=409, detail="This connection is already linked")
+        provider = conn.provider
+        label = label or conn.display_name or conn.provider
+        external_ref = str(conn.id)
     resource = ProjectResource(
         tenant_id=tenant_id,
         project_id=project_id,

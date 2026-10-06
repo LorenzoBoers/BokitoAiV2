@@ -20,6 +20,7 @@ import type {
   InboxThread,
   PatchThreadInput,
   PagedThreadResult,
+  RelatedConversation,
   ReplyInput,
   ThreadDetail,
   ThreadFilters,
@@ -299,9 +300,30 @@ export async function getSignalThread(
     csat?: { score?: unknown; comment?: unknown; created_at?: unknown } | null
     has_older?: unknown
     oldest_message_id?: unknown
+    related_conversations?: unknown[]
   }>(path, token)
   const thread = normalizeThreadRow(payload.thread)
   if (!thread) return null
+  const relatedConversations: RelatedConversation[] = (payload.related_conversations ?? [])
+    .map((raw): RelatedConversation | null => {
+      if (!raw || typeof raw !== 'object') return null
+      const row = raw as Record<string, unknown>
+      if (typeof row.id !== 'string' || !row.id) return null
+      return {
+        id: row.id,
+        channel: typeof row.channel === 'string' ? row.channel : '',
+        subject: typeof row.subject === 'string' ? row.subject : '',
+        status: typeof row.status === 'string' ? row.status : 'open',
+        lastMessageAt: typeof row.last_message_at === 'string' ? row.last_message_at : null,
+        lastMessageDirection:
+          row.last_message_direction === 'inbound' || row.last_message_direction === 'outbound'
+            ? row.last_message_direction
+            : '',
+        lastMessagePreview: typeof row.last_message_preview === 'string' ? row.last_message_preview : '',
+        hasOpenProposal: Boolean(row.has_open_proposal),
+      }
+    })
+    .filter((row): row is RelatedConversation => row !== null)
   const csat =
     payload.csat && typeof payload.csat.score === 'number'
       ? {
@@ -328,6 +350,7 @@ export async function getSignalThread(
         : messages[0]
           ? String(messages[0].id)
           : null,
+    relatedConversations,
   }
 }
 

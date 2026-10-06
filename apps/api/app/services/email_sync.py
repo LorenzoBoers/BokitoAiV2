@@ -32,7 +32,12 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.channels.base import BlockedContactError, InboundMessage, ingest_inbound
+from app.channels.base import (
+    BlockedContactError,
+    InboundMessage,
+    UnknownRecipientError,
+    ingest_inbound,
+)
 from app.models.channel import ChannelAccount
 from app.services import oauth_providers
 
@@ -59,6 +64,9 @@ MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 # (or when a cursor is invalidated). Per-account override via
 # settings_json["sync_window_days"]; 0 means no limit.
 DEFAULT_SYNC_WINDOW_DAYS = 30
+# Consecutive sync failures after which a mailbox is paused automatically.
+# Polls run every few minutes, so this is roughly a few hours of outage.
+SYNC_AUTO_PAUSE_AFTER = 50
 # Presets offered during mailbox install (UI + OAuth). 0 = everything is
 # still allowed via advanced settings, but not as an install default.
 INSTALL_SYNC_WINDOW_DAYS = (7, 30, 90, 365)
@@ -75,12 +83,21 @@ def clamp_sync_window_days(value: Any, *, default: int = DEFAULT_SYNC_WINDOW_DAY
 
 # Standard folder set offered in "Select folders to sync". Each selected
 # folder is polled with its own cursor (settings_json["sync_cursors"]).
+# Sent items are read by default: a reply a teammate sends from Outlook or
+# Gmail directly lands on the customer's conversation as a team reply (only
+# mail to a known contact or an existing conversation is logged).
 DEFAULT_SYNC_FOLDERS: list[dict[str, Any]] = [
     {"id": "inbox", "display_name": "Inbox", "is_selected": True},
-    {"id": "sent", "display_name": "Sent items", "is_selected": False},
+    {"id": "sent", "display_name": "Sent items", "is_selected": True},
     {"id": "archive", "display_name": "Archive", "is_selected": False},
     {"id": "junk", "display_name": "Spam", "is_selected": False},
 ]
+
+# Providers whose Sent folder Bokito can poll. SMTP/IMAP stays inbox-only.
+SENT_SYNC_PROVIDERS = ("gmail", "outlook")
+
+# settings_json flag: the Sent default was applied once to a stored selection.
+SENT_DEFAULT_FLAG = "sent_sync_default_applied"
 
 # Generic folder id -> Graph well-known folder name.
 GRAPH_FOLDER_NAMES = {
@@ -99,12 +116,77 @@ GMAIL_LABEL_IDS = {
 }
 
 
-def account_sync_folders(settings: dict[str, Any]) -> list[dict[str, Any]]:
-    """Folder selection for a mailbox: stored choice or the default set."""
+def account_sync_folders(
+    settings: dict[str, Any], *, provider: str | None = None
+) -> list[dict[str, Any]]:
+    """Folder selection for a mailbox: stored choice or the default set.
+
+    SMTP/IMAP mailboxes only ever sync the inbox, so only that folder is
+    offered for them.
+    """
     stored = settings.get("sync_folders")
     if isinstance(stored, list) and stored:
-        return [dict(f) for f in stored if isinstance(f, dict) and f.get("id")]
-    return [dict(f) for f in DEFAULT_SYNC_FOLDERS]
+        folders = [dict(f) for f in stored if isinstance(f, dict) and f.get("id")]
+    else:
+        folders = [dict(f) for f in DEFAULT_SYNC_FOLDERS]
+    if provider == "smtp_imap":
+        inbox = [f for f in folders if str(f.get("id")) == "inbox"]
+        folders = inbox or [{"id": "inbox", "display_name": "Inbox", "is_selected": True}]
+        for f in folders:
+            f["is_selected"] = True
+    return folders
+
+
+def ensure_sent_folder_default(settings: dict[str, Any], provider: str) -> dict[str, Any]:
+    """One-time backfill: mailboxes connected before Sent items were read by
+    default get Sent switched on once. Operators can switch it off again in
+    the folder settings; the flag keeps that choice."""
+    if provider not in SENT_SYNC_PROVIDERS or settings.get(SENT_DEFAULT_FLAG):
+        return settings
+    stored = settings.get("sync_folders")
+    if isinstance(stored, list) and stored:
+        found = False
+        for folder in stored:
+            if isinstance(folder, dict) and str(folder.get("id")) == "sent":
+                folder["is_selected"] = True
+                found = True
+        if not found:
+            stored.append({"id": "sent", "display_name": "Sent items", "is_selected": True})
+        settings["sync_folders"] = stored
+    settings[SENT_DEFAULT_FLAG] = True
+    return settings
+
+
+_ADDRESS_RE = re.compile(r"[\w.+\-']+@[\w\-]+(?:\.[\w\-]+)+", re.IGNORECASE)
+
+
+def parse_address_list(*raw_values: Any) -> list[str]:
+    """Lowercase, de-duplicated addresses from header strings or Graph
+    recipient lists (``[{"emailAddress": {"address": ...}}]``)."""
+    out: list[str] = []
+    seen: set[str] = set()
+
+    def add(address: str) -> None:
+        key = address.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(key)
+
+    for raw in raw_values:
+        if not raw:
+            continue
+        if isinstance(raw, list):
+            for entry in raw:
+                if isinstance(entry, dict):
+                    address = (entry.get("emailAddress") or {}).get("address") or entry.get("address") or ""
+                    add(str(address))
+                elif isinstance(entry, str):
+                    for match in _ADDRESS_RE.findall(entry):
+                        add(match)
+        elif isinstance(raw, str):
+            for match in _ADDRESS_RE.findall(raw):
+                add(match)
+    return out
 
 
 def account_sync_window_days(settings: dict[str, Any]) -> int:
@@ -112,6 +194,19 @@ def account_sync_window_days(settings: dict[str, Any]) -> int:
     return clamp_sync_window_days(
         settings.get("sync_window_days", DEFAULT_SYNC_WINDOW_DAYS)
     )
+
+
+ARCHIVE_AUTOMATED_MAIL_KEY = "archive_automated_mail"
+# Tag that marks threads filed by the automated-mail archive.
+AUTOMATED_MAIL_TAG = "automated"
+
+
+def account_archives_automated_mail(settings: dict[str, Any] | None) -> bool:
+    """Mailbox setting: file newsletters, receipts and no-reply mail as closed.
+
+    Off by default; the thread is then only noted and stays in Open.
+    """
+    return bool((settings or {}).get(ARCHIVE_AUTOMATED_MAIL_KEY, False))
 
 
 def set_account_sync_window(account: ChannelAccount, days: int) -> dict[str, Any]:
@@ -243,12 +338,25 @@ async def _record_sync_error(
     error_count = int(settings.get("sync_error_count") or 0) + 1
     settings["sync_error_count"] = error_count
 
+    # A mailbox that keeps failing is paused instead of polled forever: one
+    # account reached 40,000 consecutive IMAP failures while still enabled.
+    # Reconnecting (or Resume in Channels) clears the pause.
+    auto_paused = False
+    if error_count >= SYNC_AUTO_PAUSE_AFTER and account.is_enabled:
+        account.is_enabled = False
+        settings["auto_paused_at"] = datetime.utcnow().isoformat()
+        settings["auto_paused_reason"] = (
+            f"Paused after {error_count} consecutive sync failures: {message}"[:500]
+        )
+        auto_paused = True
+
     # Alert tenant admins when the mailbox needs a human: immediately for
-    # expired auth, after 3 consecutive failures otherwise. At most once per
-    # 24h per account (tracked here; ops_alerts adds tenant-level dedupe).
-    should_alert = kind == "auth_expired" or error_count >= 3
+    # expired auth or an automatic pause, after 3 consecutive failures
+    # otherwise. At most once per 24h per account (tracked here; ops_alerts
+    # adds tenant-level dedupe).
+    should_alert = kind == "auth_expired" or auto_paused or error_count >= 3
     last_alert_raw = settings.get("last_ops_alert_at")
-    if should_alert and last_alert_raw:
+    if should_alert and last_alert_raw and not auto_paused:
         try:
             last_alert = datetime.fromisoformat(str(last_alert_raw))
             if datetime.utcnow() - last_alert < timedelta(hours=24):
@@ -269,9 +377,17 @@ async def _record_sync_error(
             session,
             account.tenant_id,
             channel_label=account.address or account.provider or "mailbox",
-            reason=message,
+            reason=settings.get("auto_paused_reason") if auto_paused else message,
             account_id=account.id,
+            paused=auto_paused,
         )
+
+
+def clear_sync_pause(settings: dict[str, Any]) -> dict[str, Any]:
+    """Drop the error and auto-pause markers when a mailbox is (re)connected or resumed."""
+    for key in ("last_error", "sync_error_count", "auto_paused_at", "auto_paused_reason"):
+        settings.pop(key, None)
+    return settings
 
 
 def _credentials(account: ChannelAccount) -> dict[str, Any]:
@@ -333,6 +449,8 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
         "rfc_message_id": headers.get("message-id", ""),
         # Who else was copied — shown in the timeline and used for reply-all.
         "cc": headers.get("cc", ""),
+        # Recipients: thread a Sent copy onto the customer we wrote to.
+        "to": headers.get("to", ""),
         "in_reply_to": headers.get("in-reply-to", ""),
         "references": headers.get("references", ""),
         "auto_headers": {k: headers[k] for k in _AUTO_HEADER_KEYS if headers.get(k)},
@@ -490,6 +608,8 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
             for r in (msg.get("ccRecipients") or [])
             if (addr := ((r.get("emailAddress") or {}).get("address") or ""))
         ),
+        # Recipients: thread a Sent copy onto the customer we wrote to.
+        "to": ", ".join(parse_address_list(msg.get("toRecipients") or [])),
     }
 
 
@@ -652,8 +772,8 @@ async def _fetch_graph_page(
 
 
 GRAPH_MESSAGE_SELECT = (
-    "id,subject,from,bodyPreview,body,conversationId,hasAttachments,"
-    "internetMessageId,receivedDateTime"
+    "id,subject,from,toRecipients,ccRecipients,bodyPreview,body,conversationId,"
+    "hasAttachments,internetMessageId,receivedDateTime"
 )
 
 
@@ -1010,6 +1130,9 @@ async def _ingest_items(
     if not isinstance(account_settings, dict):
         account_settings = {}
 
+    # Sent items are copies of mail the team sent from the mailbox itself:
+    # logged as outbound team replies, never processed by the agent.
+    outbound = folder_id == "sent"
     ingested = 0
     for item in items:
         received_at = item.get("received_at")
@@ -1024,6 +1147,8 @@ async def _ingest_items(
             thread_external_id=item.get("thread_id", ""),
             channel_account_id=account.id,
             received_at=received_at if isinstance(received_at, datetime) else None,
+            direction="outbound" if outbound else "inbound",
+            recipient_addresses=parse_address_list(item.get("to", ""), item.get("cc", "")),
             metadata={
                 "body_html": item.get("body_html", ""),
                 "attachments": item.get("attachments") or [],
@@ -1033,11 +1158,19 @@ async def _ingest_items(
                 "auto_headers": item.get("auto_headers") or {},
                 "folder": folder_id,
                 "cc": item.get("cc", ""),
+                "to": item.get("to", ""),
             },
         )
         try:
             _signal, should_process = await ingest_inbound(session, account.tenant_id, inbound)
         except BlockedContactError:
+            continue
+        except UnknownRecipientError:
+            # Sent mail to a supplier or a private address: not a customer
+            # conversation, stays out of Bokito.
+            continue
+        if outbound:
+            ingested += 1
             continue
         if should_process:
             ingested += 1
@@ -1079,8 +1212,7 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
                 settings = {}
             settings = ensure_ai_live_since(settings)
             settings["last_sync_at"] = datetime.utcnow().isoformat()
-            settings.pop("last_error", None)
-            settings.pop("sync_error_count", None)
+            clear_sync_pause(settings)
             account.settings_json = json.dumps(settings)
             session.add(account)
             await session.commit()
@@ -1092,9 +1224,14 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     # Stamp the AI-live cutoff on the first sync so historical (backfilled)
     # mail is stored without triggering agent runs or decision cards.
     settings = ensure_ai_live_since(settings)
+    settings = ensure_sent_folder_default(settings, account.provider)
     account.settings_json = json.dumps(settings)
-    folders = [f["id"] for f in account_sync_folders(settings) if f.get("is_selected")]
-    if account.provider == "smtp_imap":
+    folders = [
+        f["id"]
+        for f in account_sync_folders(settings, provider=account.provider)
+        if f.get("is_selected")
+    ]
+    if account.provider not in SENT_SYNC_PROVIDERS:
         folders = [f for f in folders if f == "inbox"] or ["inbox"]
     cursors: dict[str, str] = (
         dict(settings.get("sync_cursors"))
@@ -1223,8 +1360,7 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     settings["last_sync_at"] = datetime.utcnow().isoformat()
     settings["messages_synced"] = int(settings.get("messages_synced") or 0) + ingested
     settings["sync_cursors"] = cursors
-    settings.pop("last_error", None)
-    settings.pop("sync_error_count", None)
+    clear_sync_pause(settings)
     account.settings_json = json.dumps(settings)
     if cursors.get("inbox"):
         # Keep the legacy account-level cursor in step for older readers.

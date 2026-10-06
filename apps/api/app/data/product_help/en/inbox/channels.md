@@ -2,19 +2,19 @@
 title: Connect channels
 intro: Bring customer mail and other inboxes into Communication.
 description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and pause or remove a channel.
-keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, pause channel
+keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, pause channel, archive automated mail, newsletters, sync errors
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its settings: the same **Status**, **General** and **Manage** sections for every channel, plus one section with what only that kind has. A new workspace starts with the website chat only, so add an email channel before you expect mail.
+Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and hours** and **Install** on that page. A new workspace starts with the website chat only, so add an email channel before you expect mail.
 
 ## Add a channel
 
 ![Channel settings with an opened channel](/api/docs/assets/channels/mailbox-status.png)
-*Each row shows the AI handling mode and state; the opened row shows Status, General, the kind section and Manage.*
+*Each row shows the AI handling mode and state; click a row to open the channel page.*
 
 1. Open **Settings**, then **Channels**.
 2. Choose **Add channel**.
@@ -54,6 +54,19 @@ A Bokito address receives and sends; it has no sync, so it shows no folders or l
 
 If the state badge reads **Action needed**, choose **Reconnect** (or fix settings and retry) before you try to send.
 
+## Read Sent items along
+
+A reply a colleague sends from Gmail or Outlook itself still belongs on the conversation. Sent items of a connected Gmail or Outlook mailbox are read by default, so that reply lands on the timeline as a team reply.
+
+![Folders of a connected mailbox with Sent items selected](/api/docs/assets/channels/sent-items.png)
+*Inbox and Sent items are selected by default for Gmail and Outlook; SMTP/IMAP reads Inbox only.*
+
+1. Open **Channels**, click the mailbox row and open **Folders** under **Mailbox**. **Inbox** and **Sent items** are selected for Gmail and Outlook. Turn **Sent items** off when the mailbox is also used for private mail you do not want to see at all.
+2. Only mail to a known contact, or a reply on an existing conversation, is logged. Mail to a supplier or a private address stays out of Bokito and never creates a conversation.
+3. A logged reply shows as a team bubble with **Sent from own mailbox (Outlook)** under the name. The author is the teammate whose login email matches the sender; otherwise the member whose email is the mailbox address, or the single person the mailbox is shared with.
+4. The conversation is marked read, leaves **Your turn**, and an open AI proposal is set aside with reason **a teammate replied**. Mail that Bokito itself sent from that mailbox is recognised and not logged twice.
+5. A mail that forwards a customer message (**FW:** with a **From:** line) is logged on the teammate and shows **Contains a forwarded message from {name}** so you know who the original sender is.
+
 ## Rename a channel
 
 1. Open **Channels**.
@@ -71,6 +84,7 @@ Setup, Connections, Channels and the reply composer all use the same channel sta
 2. When a channel needs a human, the row shows one repair button next to the state: **Reconnect**, **Retry sync** or **Resume**. A yellow notice above the list counts channels that still need setup, and the first of them opens automatically.
 3. Click the row and read **Status**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
 4. For a mailbox, **History** in the **Mailbox** section is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
+5. A mailbox that fails 50 syncs in a row pauses itself instead of retrying forever. The row reads **Paused**, **Sync errors** shows the reason, and an alert lands in Communication. Fix the sign-in or server and choose **Resume**; a successful sync clears the counter.
 
 ## Pause or remove a channel
 
@@ -87,6 +101,15 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 2. Under **General**, pick an **Agent** to send a channel's new conversations to a specific agent. Without one, the workspace default agent handles new threads. **Channel access** in the same section sets who may **View** or **Handle** the channel (people, teams, and agents). Owners and admins always handle every channel.
 3. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
+## Archive automated mail on a mailbox
+
+Newsletters, receipts and no-reply notifications do not need an answer, but they still land in **Open** and ask the team to look. Turn this on per mailbox and they file themselves.
+
+1. Click the mailbox row and scroll to **Mailbox**.
+2. Turn on **Archive automated mail**. Bokito closes each newsletter, receipt or no-reply message on arrival and tags it `#automated`; the thread stays searchable under **Closed**.
+3. Leave it off to keep the current behaviour: the AI notes that no reply is needed and the thread stays in **Open** until someone closes it.
+4. When the same bulk sender keeps arriving, the AI proposes an **Automation rule** for it as a card in the conversation. Choose **Activate** to auto-close that sender from then on, or **Later**. See [AI handling](/docs/inbox/inbox-ai).
+
 ## Set AI handling per channel
 
 1. The row shows the channel's current mode (**Autonomous**, **Assisted** or **Manual**) with its icon. Click the row and open **AI handling** under **General**. The mode marked **Company default** is what the channel follows when it has no own setting; choose it to clear an override.
@@ -100,7 +123,7 @@ Contacts and single conversations can still differ from the channel. See [AI han
 1. Choose **Add channel**, then **WhatsApp Business**. Marketplace cards for the app also send you here.
 2. WhatsApp is a guided setup: **Prepare in Meta** (app, number, Phone number ID, permanent System User token), then **Paste in Bokito** (display name, Phone number ID, optional WABA ID, access token) and **Connect number**. The Phone number ID is a long number from Meta → WhatsApp → API Setup — not your phone number.
 3. After connecting, Bokito shows **Webhook URL** and **Verify token**. Paste those in Meta under WhatsApp → Configuration, subscribe to **messages**, and send a test message. Temporary Meta tokens expire after 24 hours.
-4. Website chat is the [Chat widget](/docs/inbox/widget); its **Website chat** section links to **Look and texts**, **Office hours** and **Installation**. After you connect, these channels appear in the Communication sidebar.
+4. Website chat is the [website widget](/docs/inbox/widget). **Add channel** then **Website chat** creates another channel with its own snippet. After you connect, these channels appear in the Communication sidebar.
 
 ## Save replies the team can reuse
 

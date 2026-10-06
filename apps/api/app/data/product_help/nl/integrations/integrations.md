@@ -14,7 +14,7 @@ Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, dra
 ## Zie wat gekoppeld is
 
 1. Open **Koppelingen**. De banner **AI (coding) tools** staat boven de tabs **Koppelingen** / **Marketplace**: logo's van Cursor, Claude, OpenAI, VS Code, Windsurf en Copilot, en **Koppelen** opent Developers. **Geïnstalleerde modules** gebruiken dezelfde kaarten als de Marketplace: status (inclusief **Installatie incompleet** zonder pakket), partnerlogo's, **Beheren** en **Deïnstalleren**. Ontbrekende eerste stappen kunnen daaronder staan (**Koppel e-mail of chat**, **Koppel Agenda**, **Installeer een module**). Daarna **Koppelingen**: elke gekoppelde integratie als dezelfde kaart als op Marketplace — één kaart per product (Microsoft 365, Outlook Calendar en Microsoft Graph staan los). Soort-chips en zoeken blijven. Mailboxen openen **Kanalen** vanuit de kaart; Agenda-apps openen [Agenda](/docs/ai/agenda). **Custom MCP-servers** blijft een aparte lijst voor logins die niet in de catalogus staan.
-2. Kies **Nieuwe koppeling** op een kaart voor een tweede login. Hang een partner aan Boekhouding vanaf de modulepagina (**Deze koppeling gebruiken**), niet vanaf een gegroepeerde programmarij. GitHub blijft een **Code**-kaart.
+2. Kies een kaart om elke registratie bij die provider in één lijst te zien (zie **Beheer koppelingen met één provider** hieronder). Kies **Nieuwe koppeling** op een kaart voor een tweede login. Hang een partner aan Boekhouding vanaf de modulepagina (**Deze koppeling gebruiken**), niet vanaf een gegroepeerde programmarij. GitHub blijft een **Code**-kaart.
 3. Kies **Ontkoppelen** op een custom MCP-rij wanneer die login moet stoppen (bevestig **Deze koppeling verwijderen?**). Mailboxen en agenda's beheer je onder Kanalen en Agenda.
 
 ## Installeer vanuit de marketplace
@@ -48,8 +48,41 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De marketplace
 1. Open **Boekhouding** via de kaart op **Koppelingen**. Registraties staan bovenaan de modulepagina (niet op een aparte tab). De lijst toont alleen attached registraties, niet elke Moneybird-login in de workspace.
 2. Kies **Nieuwe registratie** om vanuit de module te koppelen (die login wordt automatisch attached), of **Deze koppeling gebruiken** voor een login die al op Koppelingen staat.
 3. Rond setup af met echte credentials (OAuth voor Moneybird, partner key plus administraties voor KING, client id/secret voor Bjorn Lunden, Trading API-key plus secret voor Alpaca). Alleen een willekeurige naam maakt geen werkende koppeling.
-4. Elke rij toont status (**Geverifieerd**, **Credentials nodig**, **Niet geverifieerd** of **Fout**), optionele provider-identiteit, en acties: **Verifiëren**, **Uit module halen** (de login blijft op Koppelingen), **Ontkoppelen**, **Hernoemen** en **Als standaard** (alleen als geverifieerd).
-5. Alleen agents die aan de module zijn toegewezen mogen de gedeelde boekhoud-toolset gebruiken. Propose-tools landen als een [beslissing](/docs/ai/decisions) die jij goedkeurt.
+4. Elke rij toont status (**Geverifieerd**, **Credentials nodig**, **Niet geverifieerd** of **Fout**), optionele provider-identiteit, de projecten (of **Alle projecten**), en acties: **Verifiëren**, **Als standaard** (alleen als geverifieerd), **Hernoemen**, **Uit module halen** (de login blijft op Koppelingen), **Ontkoppelen** en **Beheren** voor projecten en toegang.
+5. Elke administratie koppel je één keer. Dezelfde Moneybird-administratie of KING-omgeving opnieuw koppelen werkt de bestaande registratie bij en toont **Deze administratie was al gekoppeld**, in plaats van een tweede rij toe te voegen.
+6. Alleen agents die aan de module zijn toegewezen mogen de gedeelde boekhoud-toolset gebruiken. Propose-tools landen als een [beslissing](/docs/ai/decisions) die jij goedkeurt.
+
+## Beheer koppelingen met één provider
+
+Open een providerkaart om elke registratie bij die provider op één plek te beheren.
+
+![Providerkoppelingen](/api/docs/assets/integrations/provider-connections.png)
+*Het providervenster toont elke registratie met status, projecten en acties.*
+
+1. Open **Koppelingen** en kies de providerkaart, bijvoorbeeld **Moneybird**.
+2. Het venster toont elke registratie met status, identiteit, administratienummer, projecten en de modules die hem gebruiken. Een badge **Beperkt** betekent dat alleen sommige mensen of agents hem mogen gebruiken.
+3. Gebruik **Verifiëren**, **Hernoemen** of **Ontkoppelen** op een rij. Ontkoppelen haalt hem weg als modulestandaard en verwijdert zijn projectkoppelingen.
+4. Kies **Nog een registratie toevoegen** om een tweede account te koppelen. Dezelfde administratie twee keer werkt de bestaande rij bij.
+
+## Gebruik een koppeling alleen voor één klant of afdeling
+
+Koppel een registratie aan projecten wanneer hij bij één klant of afdeling hoort.
+
+1. Open de providerkaart op **Koppelingen** (of de modulepagina) en kies **Beheren** bij de registratie.
+2. Selecteer onder **Projecten** een of meer projecten en kies **Projecten opslaan**.
+3. Een gekoppelde registratie is exclusief: agents gebruiken hem alleen voor werk in die projecten (een gesprek dat op het project staat, of een run met dat project). Daarbuiten is hij niet beschikbaar.
+4. Zonder geselecteerd project toont de registratie **Alle projecten** en werkt hij overal. Binnen een project kiezen agents de registratie van dat project vóór de modulestandaard.
+
+Je kunt ook koppelen vanaf de projectpagina; zie [Projecten](/docs/ai/projects).
+
+## Kies wie een koppeling mag gebruiken
+
+Bepaal welke mensen, agents en teams een registratie mogen gebruiken of beheren.
+
+1. Kies **Beheren** bij de registratie en daarna de knop onder **Toegang** (standaard **Alle mensen en agents**).
+2. Kies per team, persoon of agent **Gebruiken** (de tools ervan draaien) of **Beheren** (verifiëren, hernoemen, projecten koppelen, toegang wijzigen). **Geen toegang** verbergt hem voor hen.
+3. Kies **Opslaan**. **Terug naar standaard** geeft alle mensen en agents weer **Gebruiken**. Eigenaren en beheerders beheren altijd elke koppeling.
+4. Een agent zonder toegang kan de registratie niet bereiken; de poging staat in het auditlog. Agents kunnen een wijziging voorstellen met `set_connection_scope`, wat altijd om goedkeuring vraagt.
 
 **Bankieren** is installeerbaar met een read-only GoCardless Bank Account Data-koppeling (saldi en transacties; betalingen verschijnen alleen als voorstel). **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar; zij en hun geplande packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded op Marketplace.
 

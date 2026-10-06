@@ -165,13 +165,33 @@ def clip_with_ellipsis(text: str, max_chars: int = 160) -> str:
     return f"{clipped}..." if clipped else f"{slice_.rstrip()}..."
 
 
+_SENTINEL_LINE_RE = re.compile(
+    r"^\s*(?:[*_`#>\-]+\s*)?" + re.escape(NO_REPLY_SENTINEL) + r"\b(.*)$",
+    re.IGNORECASE,
+)
+
+
 def extract_no_reply_summary(reply_text: str) -> str | None:
     """Parse the agent's ``NO_REPLY_NEEDED: <summary>`` sentinel.
 
-    Returns the one-line summary when the sentinel is present, else ``None``.
+    Models sometimes think out loud first ("Dit is een inkomende e-mail van
+    ...") and only then write the sentinel line. The sentinel counts wherever
+    it appears on its own line; the preamble is dropped so it never becomes a
+    customer draft. Returns the one-line summary when the sentinel is present,
+    else ``None``.
     """
     text = (reply_text or "").strip()
-    if not text.upper().startswith(NO_REPLY_SENTINEL):
+    if not text:
         return None
-    rest = text[len(NO_REPLY_SENTINEL):].lstrip(" :.-\u2014").strip()
-    return rest or "Automated notification; no reply needed."
+    for line in text.splitlines():
+        match = _SENTINEL_LINE_RE.match(line)
+        if not match:
+            continue
+        rest = match.group(1).lstrip(" :.-\u2014").strip().rstrip("*_`")
+        return rest or "Automated notification; no reply needed."
+    return None
+
+
+def mentions_no_reply_sentinel(text: str | None) -> bool:
+    """True when the sentinel appears anywhere (even mid-sentence)."""
+    return NO_REPLY_SENTINEL in (text or "").upper()

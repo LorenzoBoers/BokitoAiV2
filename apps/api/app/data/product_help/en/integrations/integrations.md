@@ -14,7 +14,7 @@ Integrations are partner logins. A **module** is one package of hashtags, playbo
 ## See what is connected
 
 1. Open **Connections**. The **AI (coding) tools** banner sits above the **Connections** / **Marketplace** tabs: logos for Cursor, Claude, OpenAI, VS Code, Windsurf and Copilot, and **Set up** opens Developers. **Installed modules** uses the same cards as Marketplace: status (including **Installation incomplete** when no package is attached), partner logos, **Manage**, and **Uninstall**. Missing first steps may appear next (**Connect email or chat**, **Connect Agenda**, **Install a module**). Below that, **Connections** shows each connected integration as the same card as Marketplace — one card per product (Microsoft 365, Outlook Calendar, and Microsoft Graph are separate). Kind chips and search still apply. Mailboxes open **Channels** from the card dialog; Agenda apps open [Agenda](/docs/ai/agenda). **Custom MCP servers** stays a separate list for logins that are not in the catalog.
-2. Choose **New connection** on a card for a second login. Attach a partner to Accounting from the module page (**Use this connection**), not from a grouped program row. GitHub stays a **Code** card.
+2. Choose a card to see every registration to that provider in one list (see **Manage connections to one provider** below). Choose **New connection** on a card for a second login. Attach a partner to Accounting from the module page (**Use this connection**), not from a grouped program row. GitHub stays a **Code** card.
 3. Choose **Disconnect** on a custom MCP row when that login should stop (confirm **Remove this connection?**). Mailboxes and calendars are managed on Channels and Agenda.
 
 ## Install from the marketplace
@@ -48,8 +48,41 @@ WhatsApp itself is configured under **Channels**, not only here. The marketplace
 1. Open **Accounting** from its card on **Connections**. Registrations sit at the top of the module page (not on a separate tab). The list shows only attached registrations, not every Moneybird login in the workspace.
 2. Choose **New registration** to connect from the module (that login attaches automatically), or **Use this connection** for a login that already exists on Connections.
 3. Finish setup with real credentials (OAuth for Moneybird, partner key plus administraties for KING, client id/secret for Bjorn Lunden, Trading API key plus secret for Alpaca). Empty or random labels alone do not create a working link.
-4. Each row shows status (**Verified**, **Needs credentials**, **Unverified**, or **Error**), optional provider identity, and actions: **Verify**, **Remove from module** (keeps the login on Connections), **Disconnect**, **Rename**, and **Set default** (only when verified).
-5. Only agents assigned to the module can use the shared accounting toolset. Propose tools land as a [decision](/docs/ai/decisions) you approve first.
+4. Each row shows status (**Verified**, **Needs credentials**, **Unverified**, or **Error**), optional provider identity, its projects (or **All projects**), and actions: **Verify**, **Set default** (only when verified), **Rename**, **Remove from module** (keeps the login on Connections), **Disconnect**, and **Manage** for projects and access.
+5. Each administration connects once. Connecting the same Moneybird administration or KING omgeving again updates the existing registration and shows **This administration was already connected**, instead of adding a second row.
+6. Only agents assigned to the module can use the shared accounting toolset. Propose tools land as a [decision](/docs/ai/decisions) you approve first.
+
+## Manage connections to one provider
+
+Open a provider card to manage every registration to it in one place.
+
+![Provider connections](/api/docs/assets/integrations/provider-connections.png)
+*The provider dialog lists each registration with status, projects and actions.*
+
+1. Open **Connections** and choose the provider card, for example **Moneybird**.
+2. The dialog lists every registration with its status, identity, administration number, projects, and the modules that use it. A **Restricted** badge means only some people or agents may use it.
+3. Use **Verify**, **Rename** or **Disconnect** on a row. Disconnecting clears it as a module default and drops its project links.
+4. Choose **Add another registration** to connect a second account. The same administration twice updates the existing row.
+
+## Use a connection for one client or department only
+
+Link a registration to projects when it belongs to one client or department.
+
+1. Open the provider card on **Connections** (or the module page) and choose **Manage** on the registration.
+2. Under **Projects**, select one or more projects and choose **Save projects**.
+3. A linked registration is exclusive: agents use it only for work in those projects (a conversation filed on the project, or a run with that project). Outside them it is not available.
+4. With no project selected the registration shows **All projects** and works everywhere. Inside a project, agents pick that project's registration before the module default.
+
+You can also link from the project page; see [Projects](/docs/ai/projects).
+
+## Choose who may use a connection
+
+Set which people, agents and teams may use or manage a registration.
+
+1. Choose **Manage** on the registration, then the button under **Access** (by default **All people and agents**).
+2. Per team, person or agent pick **Use** (run its tools) or **Manage** (verify, rename, link projects, change access). **No access** hides it from them.
+3. Choose **Save**. **Back to default** gives all people and agents **Use** again. Owners and admins always manage every connection.
+4. An agent without access cannot reach the registration; the attempt appears in the audit log. Agents can propose a change with `set_connection_scope`, which always asks for approval.
 
 **Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; they and their planned packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear faded on Marketplace.
 

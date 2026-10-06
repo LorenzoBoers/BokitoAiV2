@@ -20,6 +20,7 @@ from app.services.auth import create_invite_token
 from app.services.tenant_bootstrap import (
     bootstrap_tenant,
     default_tenant_settings,
+    normalize_brand_hex,
     resolve_brand_color,
     serialize_settings,
 )
@@ -243,14 +244,17 @@ async def update_workspace(
             raise AppError("Subdomain already in use", status_code=409)
         tenant.slug = new_slug
     if "brand_color" in data and isinstance(data["brand_color"], str):
+        color = normalize_brand_hex(data["brand_color"])
+        if not color:
+            raise AppError("Brand color must be a hex color like #32BF8E", status_code=400)
         appearance = settings.setdefault("appearance", {})
         if not isinstance(appearance, dict):
             appearance = {}
             settings["appearance"] = appearance
-        appearance["main_color"] = data["brand_color"].strip()
+        appearance["main_color"] = color
         livechat = settings.setdefault("livechat_settings", {})
         if isinstance(livechat, dict):
-            livechat["main_color"] = data["brand_color"].strip()
+            livechat["main_color"] = color
     if "require_2fa" in data and isinstance(data["require_2fa"], bool):
         security = settings.setdefault("security", {})
         if not isinstance(security, dict):
@@ -745,8 +749,16 @@ async def apply_branding(
                         appearance[str(key)] = value
         except json.JSONDecodeError as exc:
             raise AppError("Invalid appearance_json", status_code=400) from exc
+        if "main_color" in appearance:
+            normalized = normalize_brand_hex(appearance["main_color"])
+            if normalized:
+                appearance["main_color"] = normalized
+            else:
+                appearance.pop("main_color")
     if brand_color and brand_color.strip():
-        color = brand_color.strip()
+        color = normalize_brand_hex(brand_color)
+        if not color:
+            raise AppError("Brand color must be a hex color like #32BF8E", status_code=400)
         appearance["main_color"] = color
         livechat["main_color"] = color
     if clear_logo:

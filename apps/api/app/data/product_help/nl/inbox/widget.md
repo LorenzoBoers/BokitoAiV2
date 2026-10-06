@@ -9,16 +9,16 @@ related: channels,communication,widget-embed,categories,assistant
 
 # De websitewidget installeren
 
-De widget is een klein script op je site. Bezoekers chatten met je assistent. Die gesprekken verschijnen in Communicatie. Open **Instellingen** en daarna **Chatwidget**.
+De widget is een klein script op je site. Bezoekers chatten met je assistent. Die gesprekken verschijnen in Communicatie. Open **Instellingen**, daarna **Kanalen**, daarna de rij **Websitechat**. Elk websitechat-kanaal heeft eigen uiterlijk, uren en snippet — kies **Kanaal toevoegen** en **Websitechat** als een tweede site een eigen embed nodig heeft.
 
 ## Kopieer de embed-snippet
 
 ![Websitechat-installatie](/api/docs/assets/widget/installation.png)
 *Kopieer de snippet onder Installeren.*
 
-1. Open **Instellingen**, daarna **Chatwidget**, daarna **Installeren**.
-2. Kopieer **Widget voor websitebezoekers** voor een openbare site. Kopieer **Assistent voor ingelogde gebruikers** alleen wanneer de widget in je eigen product zit en bezoekers zijn ingelogd. Gebruik **Kopiëren** bij de snippet.
-3. Als Installeren waarschuwt dat de snippet een lokale ontwikkel-URL gebruikt (`localhost` of `127.0.0.1`), plak die alleen voor lokale tests. Voor een live website open je Chatwidget in je productie-workspace en kopieer je de snippet daar.
+1. Open **Instellingen**, daarna **Kanalen**, daarna de rij **Websitechat**, daarna **Installatie**.
+2. Kopieer **Widget voor websitebezoekers** voor een openbare site. Kopieer **Assistent voor ingelogde gebruikers** alleen wanneer de widget in je eigen product zit en bezoekers zijn ingelogd. Gebruik **Kopiëren** bij de snippet. De snippet bevat `data-channel-id` zodat deze site dit kanaal gebruikt.
+3. Als Installatie waarschuwt dat de snippet een lokale ontwikkel-URL gebruikt (`localhost` of `127.0.0.1`), plak die alleen voor lokale tests. Voor een live website open je dit kanaal in je productie-workspace en kopieer je de snippet daar.
 4. Plak die eerst op een stagingpagina. Stuur een testbericht en bevestig het gesprek in [Communicatie](/docs/inbox/communication).
 
 Developers volgen de [embed-referentie](/docs/developers/widget-embed).
@@ -55,7 +55,7 @@ Een link werkt één keer en zeven dagen lang. Een WhatsApp-bericht zonder geldi
 ## Toon je hulp-artikelen
 
 1. Publiceer Kennis-docs van het soort **Docs** vanuit [Kennis](/docs/ai/knowledge) met **Publiceren**.
-2. Open op Chatwidget **Uiterlijk**. Onder **Wat bezoekers zien** zet je de module **Help** aan.
+2. Open op het websitechat-kanaal **Uiterlijk**. Onder **Wat bezoekers zien** zet je de module **Help** aan.
 3. Bezoekers zien dan jouw artikelen naast chat. De openbare site `/help/{workspace}` is van jou, niet de Bokito-producthulp.
 
 ## Wat nu

@@ -55,6 +55,7 @@ async def get_or_create_widget_thread(
     conversation_id: str | None = None,
     customer_id: str | None = None,
     surface: str = SURFACE_SITE,
+    channel_account_id: UUID | None = None,
 ) -> Signal:
     """Resolve the Signal thread for a widget session.
 
@@ -114,9 +115,12 @@ async def get_or_create_widget_thread(
         )
         session.add(contact)
         await session.flush()
+    from app.services.widget_channel import get_widget_account
     from app.services.tenant_bootstrap import ensure_widget_channel
 
-    account = await ensure_widget_channel(session, tenant.id, commit=False)
+    account = await get_widget_account(session, tenant.id, channel_account_id)
+    if account is None:
+        account = await ensure_widget_channel(session, tenant.id, commit=False)
     signal = Signal(
         tenant_id=tenant.id,
         channel="widget",

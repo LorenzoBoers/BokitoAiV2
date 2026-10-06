@@ -9,7 +9,6 @@ import {
   FolderKanban,
   GitBranch,
   MessageSquare,
-  RefreshCw,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -47,6 +46,7 @@ import {
   type ProjectBudgetResponse,
   type ProjectRow,
 } from '../lib/projects-api'
+import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 
@@ -90,6 +90,7 @@ export default function ProjectDetail() {
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const widenedConnections = useProjectDeleteConnectionImpact(deleteOpen ? project?.id ?? null : null)
 
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
@@ -211,21 +212,11 @@ export default function ProjectDetail() {
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => void load()}
-                disabled={loading}
-                aria-label={t('projects.detail.refresh')}
-                title={
-                  refreshedAt
-                    ? t('projects.detail.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })
-                    : t('projects.detail.refresh')
-                }
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-              </Button>
+              {refreshedAt ? (
+                <span className="hidden text-xs text-text-muted sm:inline">
+                  {t('projects.detail.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+                </span>
+              ) : null}
               <Button asChild type="button" size="sm" variant="outline">
                 <Link to={threadsHref}>
                   <MessageSquare size={14} className="mr-1" />
@@ -424,7 +415,13 @@ export default function ProjectDetail() {
           title={t('projects.detail.deleteTitle')}
           itemLabel={t('projects.detail.deleteItem')}
           itemName={project.name}
-          impactText={t('projects.detail.deleteImpact')}
+          impactText={
+            widenedConnections.length > 0
+              ? `${t('projects.detail.deleteImpact')} ${t('projects.work.deleteWidensConnections', {
+                  names: widenedConnections.join(', '),
+                })}`
+              : t('projects.detail.deleteImpact')
+          }
           isDeleting={deleting}
           onCancel={() => setDeleteOpen(false)}
           onConfirm={confirmDelete}

@@ -318,6 +318,7 @@
     "widgetInstall": "Install",
     "widgetVoice": "Voice and hours",
     "widgetLook": "Appearance",
+    "channel": "Channel",
     "marketplace": "Marketplace",
     "modules": "Modules",
     "moduleSetup": "Module setup",
@@ -676,7 +677,8 @@
       "routines_one": "{{count}} routine",
       "routines_other": "{{count}} routines",
       "routinesFailed": "one failed",
-      "now": "Now"
+      "now": "Now",
+      "backToTop": "Back to top"
     },
     "refresh": "Refresh",
     "refreshedAt": "Updated {{time}}",
@@ -721,6 +723,7 @@
       "eventTitle": "Title",
       "start": "Starts",
       "end": "Ends",
+      "allDay": "All day",
       "location": "Location",
       "description": "Notes",
       "createSubmit": "Create",
@@ -728,7 +731,7 @@
       "editTitle": "Edit calendar block",
       "updateSubmit": "Save",
       "saving": "Saving...",
-      "createValidation": "Fill title, start and end (end after start).",
+      "createValidation": "Fill title, start and end (end on or after start).",
       "createError": "Could not create the calendar event.",
       "updateError": "Could not update the calendar event.",
       "provider": "Provider",
@@ -1622,6 +1625,14 @@
     "openWidget": "Install chat widget",
     "loadingChannels": "Loading channels...",
     "loadError": "Could not load channels.",
+    "notFound": "This channel was not found.",
+    "backToList": "Back to channels",
+    "widgetTabs": {
+      "general": "General",
+      "look": "Look",
+      "hours": "Voice and hours",
+      "install": "Install"
+    },
     "back": "Back",
     "done": "Done",
     "copied": "Copied",
@@ -1638,6 +1649,8 @@
     "history": "History",
     "historyAria": "How far back to sync mail history",
     "historyAdvancedHint": "Applies to future backfills after reconnect. Day-to-day sync runs automatically.",
+    "archiveAutomated": "Archive automated mail",
+    "archiveAutomatedHint": "Newsletters, receipts and no-reply mail are closed and tagged automated instead of staying in Open.",
     "installHistory": "How far back should we sync?",
     "installHistoryHint": "Bokito imports this history once during install, then keeps the mailbox in sync automatically.",
     "days": "{{count}} days",
@@ -1732,7 +1745,7 @@
       "whatsapp": "WhatsApp Business",
       "slack": "Slack workspace",
       "widget": "Website chat",
-      "widgetHint": "Already active for your workspace. Open its design and behaviour."
+      "widgetHint": "Creates a website chat with its own look, hours and install snippet."
     },
     "email": {
       "gmail": "Gmail",
@@ -2192,7 +2205,7 @@
     "groupKnowledge": "Knowledge",
     "unnamedContact": "Unnamed contact",
     "untitledConversation": "Untitled conversation",
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "newEmail": "New email",
     "newContact": "New contact",
     "newAgent": "New agent",
@@ -2225,7 +2238,8 @@
     "newReminder": "New reminder",
     "checkupsDue": "Check-ups and look-ats due",
     "newFlow": "New flow",
-    "openActionTags": "Open action tags"
+    "openActionTags": "Open action tags",
+    "newConversation": "New conversation"
   },
   "gateway": {
     "connected": "Live",
@@ -2458,7 +2472,7 @@
       "inbox": "Queues",
       "agentOps": "Agent ops"
     },
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "activity": {
       "label": "Activity",
       "hint": "Live timeline of agent and team work"
@@ -2585,7 +2599,8 @@
     "projects": {
       "empty": "Create a project",
       "settingsAria": "Manage projects"
-    }
+    },
+    "newConversation": "New conversation"
   },
   "users": {
     "group": {
@@ -2744,7 +2759,6 @@
       "manage": "Manage",
       "manageInMcp": "Manage in Connected tools",
       "viewInConnected": "View in Connected",
-      "addAccount": "Add account",
       "comingSoon": "Coming soon",
       "disconnect": "Disconnect",
       "disconnectConfirm": "Remove this connection? You can reconnect from the marketplace.",
@@ -2769,7 +2783,40 @@
       "manageInbox": "Manage mailboxes",
       "notConnected": "Not connected",
       "mailboxCount": "{{count}} connected",
-      "other": "Other"
+      "other": "Other",
+      "reused": "This administration was already connected. Bokito updated the existing connection instead of adding a second one.",
+      "listTitle_one": "{{count}} connection",
+      "listTitle_other": "{{count}} connections",
+      "addAnother": "Add another registration",
+      "oneAdministrationNote": "Each administration can be connected once. Connecting the same one again updates the existing connection.",
+      "statusReady": "Verified",
+      "statusError": "Error",
+      "statusUnverified": "Unverified",
+      "needsCreds": "Needs credentials",
+      "restricted": "Restricted",
+      "instanceKey": "Administration {{key}}",
+      "allProjects": "All projects",
+      "default": "Default",
+      "setDefault": "Set default",
+      "finishSetup": "Finish setup",
+      "verify": "Verify",
+      "verifyFailed": "Verification failed.",
+      "rename": "Rename",
+      "renameTitle": "Rename registration",
+      "renameHint": "This is a display label only. Provider identity stays separate after verification.",
+      "renameLabel": "Label",
+      "identity": "Identity",
+      "detach": "Remove from module",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect this registration? Agents will lose access to it.",
+      "manage": "Manage",
+      "projects": "Projects",
+      "projectsAllHint": "Not linked: every project and conversation can use this connection.",
+      "projectsExclusiveHint": "Linked: only work in these projects can use this connection.",
+      "projectsNone": "No projects yet.",
+      "projectsSave": "Save projects",
+      "projectsSaveError": "Could not update the projects for this connection.",
+      "access": "Access"
     },
     "hub": {
       "detail": {
@@ -3282,19 +3329,12 @@
         "useExisting": "Use an existing connection",
         "useExistingHint": "These registrations are already on Connections and are allowed on this module.",
         "useThis": "Use this connection",
-        "detach": "Remove from module",
         "detachConfirm": "Remove this registration from the module? It stays on Connections.",
-        "default": "Default",
-        "needsCreds": "Needs credentials",
-        "setDefault": "Set default",
-        "rename": "Rename",
-        "renamePrompt": "Registration name"
+        "defaultRequiresReady": "Only a verified registration can be the default."
       }
     },
     "marketplace": {
       "connectedCount": "{{count}} connected",
-      "activeConnections": "{{count}} active connections",
-      "activeConnections_one": "{{count}} active connection",
       "searchPlaceholder": "Search integrations...",
       "empty": "No integrations found.",
       "emptyKind": "No integrations in this category.",
@@ -3578,10 +3618,13 @@
       "editInstructions": "Edit",
       "renameAgent": "Edit name",
       "editIdentity": "Edit",
-      "identityDialogTitle": "Name and icon",
-      "identityDialogBody": "How this agent appears in the library, Messages, and webchat. Platform AI violet — no custom colors.",
-      "identitySaved": "Agent appearance saved",
-      "identitySaveError": "Could not save appearance.",
+      "identityDialogTitle": "Name, description and icon",
+      "identityDialogBody": "How this agent appears in the library, Messages, and webchat. Use the description to spell out its role. Platform AI violet — no custom colors.",
+      "identityDescription": "Description",
+      "identityDescriptionPlaceholder": "e.g. Handles inbound support and hands off billing questions",
+      "identityDescriptionHint": "Shown on the agent card so teammates can tell agents apart. Separate from instructions.",
+      "identitySaved": "Agent identity saved",
+      "identitySaveError": "Could not save identity.",
       "archiveConfirmAction": "Deactivate agent",
       "archiveCancel": "Keep agent",
       "knowledgeHint": "Agents read Voice and Memory here while they work.",
@@ -3758,6 +3801,8 @@
         "body": "Create an agent your team can chat with and assign work to.",
         "name": "Name",
         "namePlaceholder": "e.g. Support specialist",
+        "description": "Description (optional)",
+        "descriptionPlaceholder": "e.g. Handles inbound support and hands off billing questions",
         "role": "Role",
         "model": "Model",
         "workspaceDefault": "Workspace default",
@@ -3919,6 +3964,7 @@
     },
     "page": {
       "title": "Projects",
+      "tenantTitle": "{{name}} projects",
       "subtitle": "Longer-running work with its own goal, tickets and docs. Each project can have a project agent that watches it.",
       "refresh": "Refresh",
       "new": "New project",
@@ -4232,8 +4278,13 @@
       "resourceLabelPlaceholder": "Label (e.g. Product drive)",
       "resourceRefPlaceholder": "Reference: URL, folder ID, page ID...",
       "resourceHint": "Linked by reference for now. Connectors (sync, actions) attach to these slots later.",
+      "deleteWidensConnections": "These connections are linked only to this project and become usable workspace-wide: {{names}}.",
+      "connectionPick": "Choose a connection",
+      "connectionHint": "Once linked, only work in this project (and other linked projects) can use this connection.",
+      "connectionNone": "No connections left to link. Add one on Connections first.",
       "resourceType": {
         "repo": "Repository",
+        "connection": "Connection",
         "drive": "Drive",
         "notion": "Notion",
         "sheet": "Spreadsheet",
@@ -5885,6 +5936,15 @@
     "title": "Channel access",
     "description": "Choose who sees this channel and who may handle it. Handle means reply, take conversations and receive them; View means read only. Agents without access do not act on this channel.",
     "hint": "Who sees and handles this channel",
+    "adminsNote": "Owners and admins always handle every channel."
+  },
+  "connectionAccess": {
+    "title": "Connection access",
+    "description": "Choose who may use this connection and who may manage it. Use means agents and people can run its tools; Manage means verify, rename, link projects and change access. Without access an agent cannot reach the connection.",
+    "hint": "Who uses and manages this connection",
+    "adminsNote": "Owners and admins always manage every connection."
+  },
+  "access": {
     "default": "All people and agents",
     "count_one": "{{count}} grant",
     "count_other": "{{count}} grants",
@@ -5894,12 +5954,13 @@
     "level": {
       "none": "No access",
       "view": "View",
-      "handle": "Handle"
+      "handle": "Handle",
+      "use": "Use",
+      "manage": "Manage"
     },
-    "adminsNote": "Owners and admins always handle every channel.",
     "reset": "Back to default",
     "loadError": "Could not load people and agents.",
-    "saveError": "Could not update channel access."
+    "saveError": "Could not update access."
   },
   "agentRules": {
     "title": "When this agent acts on its own",
@@ -6013,6 +6074,11 @@
     "filedAgo": "Filed {{time}}",
     "stageOf": "Stage {{index}} of {{count}}",
     "moveTo": "Move to {{stage}}",
+    "stageFieldsTitle": "Move to {{stage}}",
+    "stageFieldsHint": "Fill the required fields for this stage before the ticket can move.",
+    "stageFieldsHintNamed": "Fill the required fields for #{{name}} before this ticket can move.",
+    "stageFieldsSubmit": "Move",
+    "stageFieldsCancel": "Cancel",
     "openFlow": "Open flow",
     "addValue": "Add a note...",
     "required": "required",

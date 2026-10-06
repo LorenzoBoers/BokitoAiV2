@@ -91,6 +91,33 @@ async def test_change_password_and_branding(client: AsyncClient):
     assert body["name"] == "Branded Tenant"
     assert body.get("brand_color") == "#112233" or body.get("livechat_settings", {}).get("main_color") == "#112233"
 
+    shorthand = await client.post(
+        f"{AUTH}/workspaces/{tenant_id}/branding",
+        headers=headers,
+        data={"brand_color": "abc"},
+    )
+    assert shorthand.status_code == 200
+    assert shorthand.json().get("livechat_settings", {}).get("main_color") == "#AABBCC"
+
+    invalid = await client.post(
+        f"{AUTH}/workspaces/{tenant_id}/branding",
+        headers=headers,
+        data={"brand_color": "yellowish"},
+    )
+    assert invalid.status_code == 400
+
+
+def test_brand_color_normalization():
+    from app.services.tenant_bootstrap import normalize_brand_hex, resolve_brand_color
+
+    assert normalize_brand_hex("#fff") == "#FFFFFF"
+    assert normalize_brand_hex(" 32bf8e ") == "#32BF8E"
+    assert normalize_brand_hex("rgb(0,0,0)") is None
+    assert normalize_brand_hex(None) is None
+    assert resolve_brand_color("nonsense") == "#32BF8E"
+    assert resolve_brand_color("#00ff99") == "#32BF8E"
+    assert resolve_brand_color("#b91c1c") == "#B91C1C"
+
 
 @pytest.mark.asyncio
 async def test_update_require_2fa_and_delete(client: AsyncClient):

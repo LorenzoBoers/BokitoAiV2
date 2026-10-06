@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Filter, List, Mail, Pin, Rows3, Search, Settings, SquarePen, X } from 'lucide-react'
+import { Filter, List, Mail, Pin, Rows3, Search, Settings, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import type { InboxDensity } from '../../lib/inbox-prefs'
@@ -16,6 +16,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select'
 
 function mailboxSyncLabel(
   lastSyncAt: string,
@@ -39,8 +46,6 @@ type Props = {
     unread: number
     pinned: number
   }
-  /** When set, shows a compose button (new outbound email). */
-  onCompose?: () => void
   countsArePartial?: boolean
   density?: InboxDensity
   onToggleDensity?: () => void
@@ -65,18 +70,14 @@ const FILTERS: Array<{
   { id: 'pinned', labelKey: 'listFilters.pinned', icon: Pin },
 ]
 
-const SELECT_CLASS =
-  'mt-1 h-7 w-full rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-primary outline-none focus:border-accent/50'
-
 /**
  * Compact list toolbar: search + one Filters menu (quick filters and dropdowns),
- * with compose / density as icon actions. Keeps the conversation list scannable.
+ * with density as an icon action. New conversations start from the inner rail.
  */
 export default function ThreadListQuickFilters({
   value,
   onChange,
   counts,
-  onCompose,
   countsArePartial = false,
   density = 'compact',
   onToggleDensity,
@@ -232,35 +233,43 @@ export default function ThreadListQuickFilters({
                   {onAssigneeFilter ? (
                     <label className="block text-xs text-text-muted">
                       {t('threadList.filterAssignee')}
-                      <select
-                        value={assigneeFilter == null ? '' : String(assigneeFilter)}
-                        onChange={(event) =>
-                          onAssigneeFilter(event.target.value ? Number(event.target.value) : null)
+                      <Select
+                        value={assigneeFilter == null ? 'all' : String(assigneeFilter)}
+                        onValueChange={(next) =>
+                          onAssigneeFilter(next === 'all' ? null : Number(next))
                         }
-                        className={SELECT_CLASS}
                       >
-                        <option value="">{t('threadList.filterAssigneeAll')}</option>
-                        {members.map((member) => (
-                          <option key={member.id} value={member.id}>
-                            {member.name || member.email}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="mt-1 h-7 w-full text-xs" aria-label={t('threadList.filterAssignee')}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t('threadList.filterAssigneeAll')}</SelectItem>
+                          {members.map((member) => (
+                            <SelectItem key={member.id} value={String(member.id)}>
+                              {member.name || member.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </label>
                   ) : null}
                   {onPriorityFilter ? (
                     <label className="block text-xs text-text-muted">
                       {t('threadList.filterPriority')}
-                      <select
-                        value={priorityFilter ?? ''}
-                        onChange={(event) => onPriorityFilter(event.target.value || null)}
-                        className={SELECT_CLASS}
+                      <Select
+                        value={priorityFilter ?? 'all'}
+                        onValueChange={(next) => onPriorityFilter(next === 'all' ? null : next)}
                       >
-                        <option value="">{t('threadList.filterPriorityAll')}</option>
-                        <option value="urgent">{t('priority.urgent')}</option>
-                        <option value="high">{t('priority.high')}</option>
-                        <option value="normal">{t('priority.normal')}</option>
-                      </select>
+                        <SelectTrigger className="mt-1 h-7 w-full text-xs" aria-label={t('threadList.filterPriority')}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t('threadList.filterPriorityAll')}</SelectItem>
+                          <SelectItem value="urgent">{t('priority.urgent')}</SelectItem>
+                          <SelectItem value="high">{t('priority.high')}</SelectItem>
+                          <SelectItem value="normal">{t('priority.normal')}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </label>
                   ) : null}
                 </div>
@@ -322,17 +331,6 @@ export default function ThreadListQuickFilters({
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
             {density === 'compact' ? <Rows3 size={13} /> : <List size={13} />}
-          </button>
-        ) : null}
-        {onCompose ? (
-          <button
-            type="button"
-            onClick={onCompose}
-            aria-label={t('compose.title')}
-            title={t('compose.title')}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
-          >
-            <SquarePen size={13} />
           </button>
         ) : null}
       </div>

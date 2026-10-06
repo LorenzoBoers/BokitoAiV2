@@ -7,6 +7,7 @@ import { relativeMoment } from '../agenda/agenda-style'
 import {
   checkupLabel,
   getTicket,
+  moveTicketToStage,
   patchTicket,
   stageLabel,
   type ProjectChoice,
@@ -14,6 +15,7 @@ import {
   type TicketStageField,
   type TicketStageKind,
 } from '../../lib/tickets-api'
+import { useCollectStageFields } from './TicketStageGate'
 import { timeAgo } from '../../lib/time-ago'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { cn } from '../../lib/utils'
@@ -121,6 +123,7 @@ function DetailRow({
 export function ThreadCategory({ signalId, version }: Props) {
   const { t } = useTranslation('nav')
   const isAdmin = useIsAdmin()
+  const collect = useCollectStageFields()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -146,6 +149,23 @@ export function ThreadCategory({ signalId, version }: Props) {
 
   const patch = (body: Parameters<typeof patchTicket>[1], fallback: string) =>
     run(() => patchTicket(signalId, body), fallback)
+
+  const moveTo = (stageKey: string) => {
+    const current = ticket
+    const stage = current?.stages.find((row) => row.key === stageKey)
+    if (!current || !stage) return
+    void run(async () => {
+      const result = await moveTicketToStage({
+        signalId,
+        stage,
+        values: current.fields,
+        collect,
+        ticketName: current.name,
+      })
+      if (result.cancelled) return current
+      return (await getTicket(signalId).catch(() => current)) ?? current
+    }, t('tickets.updateError'))
+  }
 
   if (!ticket) return null
 
@@ -268,7 +288,7 @@ export function ThreadCategory({ signalId, version }: Props) {
                           key={stage.key}
                           type="button"
                           disabled={busy || current}
-                          onClick={() => void patch({ stage_key: stage.key }, t('tickets.updateError'))}
+                          onClick={() => moveTo(stage.key)}
                           title={current ? stageLabel(stage, t) : t('tickets.moveTo', { stage: stageLabel(stage, t) })}
                           aria-label={t('tickets.moveTo', { stage: stageLabel(stage, t) })}
                           aria-current={current ? 'step' : undefined}

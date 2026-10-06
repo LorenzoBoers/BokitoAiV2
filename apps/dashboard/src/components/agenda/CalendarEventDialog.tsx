@@ -10,6 +10,7 @@ import {
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { Switch } from '../ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
   createCalendarEvent,
@@ -26,6 +27,9 @@ export type CalendarEventEditSeed = {
   location?: string
   description?: string
   connectionId?: string
+  allDay?: boolean
+  startIso?: string
+  endIso?: string | null
 }
 
 type CalendarEventDialogProps = {
@@ -37,9 +41,37 @@ type CalendarEventDialogProps = {
   onCreated: () => void
 }
 
+function pad(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
 function toLocalInputValue(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function toDateInput(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function datePart(value: string): string {
+  return value.slice(0, 10)
+}
+
+function isoDatePart(iso: string): string {
+  const m = iso.match(/^(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : toDateInput(new Date(iso))
+}
+
+function addCalendarDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T12:00:00`)
+  d.setDate(d.getDate() + days)
+  return toDateInput(d)
+}
+
+function exclusiveEndDate(endIso: string | null | undefined, startDate: string): string {
+  if (!endIso) return startDate
+  const inclusive = addCalendarDays(isoDatePart(endIso), -1)
+  return inclusive < startDate ? startDate : inclusive
 }
 
 export default function CalendarEventDialog({
@@ -54,6 +86,7 @@ export default function CalendarEventDialog({
   const editing = Boolean(editEvent?.id)
   const [connectionId, setConnectionId] = useState('')
   const [title, setTitle] = useState('')
+  const [allDay, setAllDay] = useState(false)
   const [startLocal, setStartLocal] = useState('')
   const [endLocal, setEndLocal] = useState('')
   const [location, setLocation] = useState('')
@@ -65,20 +98,32 @@ export default function CalendarEventDialog({
     if (!open) return
     setError(null)
     if (editEvent) {
+      const nextAllDay = Boolean(editEvent.allDay)
       setTitle(editEvent.title || '')
       setLocation(editEvent.location || '')
       setDescription(editEvent.description || '')
       setConnectionId(editEvent.connectionId || connections[0]?.id || '')
-      setStartLocal(toLocalInputValue(editEvent.startAt))
-      const end =
-        editEvent.endAt ||
-        new Date(editEvent.startAt.getTime() + 60 * 60 * 1000)
-      setEndLocal(toLocalInputValue(end))
+      setAllDay(nextAllDay)
+      if (nextAllDay) {
+        const startDate = editEvent.startIso
+          ? isoDatePart(editEvent.startIso)
+          : toDateInput(editEvent.startAt)
+        const endDate = exclusiveEndDate(editEvent.endIso, startDate)
+        setStartLocal(startDate)
+        setEndLocal(endDate)
+      } else {
+        setStartLocal(toLocalInputValue(editEvent.startAt))
+        const end =
+          editEvent.endAt ||
+          new Date(editEvent.startAt.getTime() + 60 * 60 * 1000)
+        setEndLocal(toLocalInputValue(end))
+      }
       return
     }
     setTitle('')
     setLocation('')
     setDescription('')
+    setAllDay(false)
     setConnectionId(connections[0]?.id ?? '')
     const start = initialStart ? new Date(initialStart) : new Date()
     if (!initialStart) {
@@ -91,6 +136,21 @@ export default function CalendarEventDialog({
     setEndLocal(toLocalInputValue(end))
   }, [open, connections, initialStart, editEvent])
 
+  const toggleAllDay = (checked: boolean) => {
+    setAllDay(checked)
+    if (checked) {
+      const start = datePart(startLocal) || toDateInput(new Date())
+      const end = datePart(endLocal) || start
+      setStartLocal(start)
+      setEndLocal(end < start ? start : end)
+      return
+    }
+    const start = datePart(startLocal) || toDateInput(new Date())
+    const end = datePart(endLocal) || start
+    setStartLocal(`${start}T09:00`)
+    setEndLocal(`${end}T10:00`)
+  }
+
   const submit = async () => {
     if (!title.trim() || !startLocal || !endLocal) {
       setError(t('agendaPage.calendar.createValidation'))
@@ -100,11 +160,26 @@ export default function CalendarEventDialog({
       setError(t('agendaPage.calendar.createValidation'))
       return
     }
-    const startAt = new Date(startLocal)
-    const endAt = new Date(endLocal)
-    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
-      setError(t('agendaPage.calendar.createValidation'))
-      return
+    let startAt: string
+    let endAt: string
+    if (allDay) {
+      const startDate = datePart(startLocal)
+      const endDate = datePart(endLocal)
+      if (!startDate || !endDate || endDate < startDate) {
+        setError(t('agendaPage.calendar.createValidation'))
+        return
+      }
+      startAt = `${startDate}T00:00:00`
+      endAt = `${addCalendarDays(endDate, 1)}T00:00:00`
+    } else {
+      const start = new Date(startLocal)
+      const end = new Date(endLocal)
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+        setError(t('agendaPage.calendar.createValidation'))
+        return
+      }
+      startAt = start.toISOString()
+      endAt = end.toISOString()
     }
     setSaving(true)
     setError(null)
@@ -112,19 +187,21 @@ export default function CalendarEventDialog({
       if (editing && editEvent) {
         await updateCalendarEvent(editEvent.id, {
           title: title.trim(),
-          start_at: startAt.toISOString(),
-          end_at: endAt.toISOString(),
+          start_at: startAt,
+          end_at: endAt,
           description: description.trim(),
           location: location.trim(),
+          all_day: allDay,
         })
       } else {
         await createCalendarEvent({
           connection_id: connectionId,
           title: title.trim(),
-          start_at: startAt.toISOString(),
-          end_at: endAt.toISOString(),
+          start_at: startAt,
+          end_at: endAt,
           description: description.trim(),
           location: location.trim(),
+          all_day: allDay,
         })
       }
       onOpenChange(false)
@@ -178,12 +255,16 @@ export default function CalendarEventDialog({
               className="h-9"
             />
           </div>
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="cal-all-day">{t('agendaPage.calendar.allDay')}</Label>
+            <Switch id="cal-all-day" checked={allDay} onCheckedChange={toggleAllDay} />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <Label htmlFor="cal-start">{t('agendaPage.calendar.start')}</Label>
               <Input
                 id="cal-start"
-                type="datetime-local"
+                type={allDay ? 'date' : 'datetime-local'}
                 value={startLocal}
                 onChange={(e) => setStartLocal(e.target.value)}
                 className="h-9"
@@ -193,7 +274,7 @@ export default function CalendarEventDialog({
               <Label htmlFor="cal-end">{t('agendaPage.calendar.end')}</Label>
               <Input
                 id="cal-end"
-                type="datetime-local"
+                type={allDay ? 'date' : 'datetime-local'}
                 value={endLocal}
                 onChange={(e) => setEndLocal(e.target.value)}
                 className="h-9"

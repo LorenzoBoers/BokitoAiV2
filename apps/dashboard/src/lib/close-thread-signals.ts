@@ -1,4 +1,11 @@
-import { getTicket, patchTicket, type Ticket } from './tickets-api'
+import { getTicket, moveTicketToStage, patchTicket, type CollectStageFields, type Ticket } from './tickets-api'
+
+export class TicketStageMoveCancelled extends Error {
+  constructor() {
+    super('cancelled')
+    this.name = 'TicketStageMoveCancelled'
+  }
+}
 
 /** An open ticket that should not silently stay open after the conversation closes. */
 export function isOpenTicket(ticket: Ticket | null): ticket is Ticket {
@@ -13,11 +20,25 @@ export async function loadOpenTickets(signalId: string): Promise<Ticket[]> {
 }
 
 /** Move each ticket to its playbook's first done stage. */
-export async function resolveOpenTickets(tickets: Ticket[]): Promise<void> {
-  await Promise.all(
-    tickets.map((ticket) => {
-      const done = ticket.stages.find((stage) => stage.kind === 'done')
-      return patchTicket(ticket.signal_id, done ? { stage_key: done.key } : { status: 'done' })
-    }),
-  )
+export async function resolveOpenTickets(
+  tickets: Ticket[],
+  collect?: CollectStageFields,
+): Promise<void> {
+  for (const ticket of tickets) {
+    const done = ticket.stages.find((stage) => stage.kind === 'done')
+    if (!done) {
+      await patchTicket(ticket.signal_id, { status: 'done' })
+      continue
+    }
+    const result = await moveTicketToStage({
+      signalId: ticket.signal_id,
+      stage: done,
+      values: ticket.fields,
+      collect,
+      ticketName: ticket.name,
+    })
+    if (result.cancelled) {
+      throw new TicketStageMoveCancelled()
+    }
+  }
 }

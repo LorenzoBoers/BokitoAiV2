@@ -25,14 +25,14 @@ A flow is the pipeline for work that comes back under one action tag: a complain
 1. Open a flow. Under the title you see its **Action tag**, the projects it is **Used in**, and counts such as **Open tickets** and **Longest idle**.
 2. The board has a column per stage and a lane per project, plus **No project** for tickets filed without one. Collapse a lane with its header, or choose **Open project** to go to that project.
 3. A card shows the conversation title, contact, up to two intake fields, the channel, the time of the last message, the assignee and the next check-up. Click a card to open the conversation.
-4. Drag a card to another stage in the same lane. The move shows in the conversation's timeline; the project only changes from the conversation.
+4. Drag a card to another stage in the same lane. The move shows in the conversation's timeline; the project only changes from the conversation. If the target stage has required fields that are still empty, a dialog asks for them first and the card stays put until they are filled.
 
 ## Edit the stages in edit mode
 
 1. Admins choose **Edit** at the top right. The board hides and the **Edit mode** bar appears; title, description and stages become editable. Changing the title renames the action tag on every conversation; the bar shows the old and new hashtag before you save.
-2. In **Ticket stages**, choose **Add new stage** for each step (for example New, Waiting for parts, Fixed). Set each **Stage kind** to open, waiting, done or closed, and keep at least one done stage. Drag stages to reorder.
+2. In **Ticket stages**, choose **Add new stage** for each step (for example New, Waiting for parts, Fixed). Set each **Stage kind** to open, waiting, done or closed, and keep at least one done stage. Drag stages to reorder. Every flow starts with Open, Waiting and Done; **Save** is disabled while the pipeline is empty or has no done stage, so a board can never end up without columns.
 3. On a done stage, turn on **Auto-close conversation** when entering it should close the thread.
-4. Open **Intake fields** on a stage to add text, long text, number or choice-list fields. Fields on the first stage are asked when someone files the action tag.
+4. Open **Intake fields** on a stage to add text, long text, number or choice-list fields. Fields on the first stage are asked when someone files the action tag. Required fields on a later stage must be filled before a ticket can enter that stage.
 5. Pick an **Owner** per stage (a person, agent or team, or **Keep current owner**) and a **Check-up** rhythm. Tickets in that stage get a check-up on [Agenda](/docs/ai/agenda) for their owner; done stages never check up.
 6. Nothing saves until you choose **Save**; the bar shows **Unsaved changes** meanwhile. **Cancel** asks to **Discard** your changes and returns to the board unchanged. A hashtag that another tag already uses cannot be saved.
 

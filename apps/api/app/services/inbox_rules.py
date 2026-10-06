@@ -84,6 +84,26 @@ def sender_keys(from_address: str, headers: dict | None = None) -> list[tuple[st
     return keys
 
 
+def normalize_match_value(match_type: str, raw: str) -> str:
+    """Canonical match value per type; '' when the value cannot match anything.
+
+    Agents used to hand in values like ``"<news.example.com>"`` for a list id
+    or a bare name for a sender; the rule then sat in Inbox settings forever
+    without ever matching a message.
+    """
+    value = (raw or "").strip()
+    if match_type == "sender":
+        return normalize_address(value)
+    if match_type == "domain":
+        domain = value.lower().lstrip("@")
+        if "@" in domain:
+            domain = domain.split("@", 1)[1]
+        return domain if "." in domain and " " not in domain else ""
+    if match_type == "list_id":
+        return normalize_list_id(value)
+    return ""
+
+
 def rule_tags(rule: InboxRule) -> list[str]:
     try:
         labels = json.loads(rule.labels_json or "[]")
@@ -289,11 +309,7 @@ async def suggest_rule(
     """
     if match_type not in ("sender", "domain", "list_id") or action not in RULE_ACTIONS:
         return None
-    value = (
-        normalize_address(match_value)
-        if match_type == "sender"
-        else (match_value or "").strip().lower()
-    )
+    value = normalize_match_value(match_type, match_value)
     if not value:
         return None
 
@@ -341,6 +357,154 @@ async def suggest_rule(
     payload = serialize_rule(rule)
     payload["ready_to_activate"] = rule.observations >= PROMOTION_THRESHOLD
     return payload
+
+
+ACTIVATE_RULE_ACTION = "activate_inbox_rule"
+
+# Distinct threads from one automated sender before Bokito proposes a rule.
+BULK_SENDER_THRESHOLD = 3
+
+
+def rule_decision_title(rule_payload: dict[str, Any]) -> str:
+    action_label = ACTION_LABELS.get(str(rule_payload.get("action")), str(rule_payload.get("action")))
+    return f"{action_label} mail from {rule_payload.get('label') or rule_payload.get('match_value')}?"
+
+
+async def raise_rule_decision(
+    session: AsyncSession,
+    tenant_id: UUID,
+    rule_payload: dict[str, Any],
+    *,
+    signal_id: UUID | None,
+    agent_id: UUID | None = None,
+    summary: str = "",
+) -> dict[str, Any] | None:
+    """Ask inline whether a suggested rule may go live.
+
+    Approving runs ``activate_inbox_rule``; a decline (or dismiss) is a
+    decline for a week, so the same sender is not proposed every message.
+    Returns the created decision id, or None when the question is already
+    on the table or was declined recently.
+    """
+    from app.services.signal_decisions import (
+        create_decision,
+        find_open_duplicate_decision,
+        recently_declined_decision,
+    )
+
+    title = rule_decision_title(rule_payload)
+    options = [
+        {
+            "id": "activate",
+            "label": "Yes, always",
+            "action_type": ACTIVATE_RULE_ACTION,
+            "payload": {"rule_id": rule_payload["id"]},
+        },
+        {"id": "later", "label": "Not now", "action_type": "defer"},
+    ]
+    if await recently_declined_decision(session, tenant_id, title=title):
+        return None
+    if await find_open_duplicate_decision(session, tenant_id, title=title, options=options):
+        return None
+    if signal_id is not None:
+        # Same thread, same question: the newer card replaces the stale one.
+        from app.models.notification import DecisionRequest
+
+        stale_rows = (
+            await session.execute(
+                select(DecisionRequest).where(
+                    DecisionRequest.tenant_id == tenant_id,
+                    DecisionRequest.signal_id == signal_id,
+                    DecisionRequest.status == "awaiting_human",
+                    DecisionRequest.title == title,
+                )
+            )
+        ).scalars().all()
+        for stale in stale_rows:
+            stale.status = "deferred"
+            stale.resolved_at = datetime.utcnow()
+            stale.chosen_option_id = "superseded"
+            session.add(stale)
+    decision, _ = await create_decision(
+        session,
+        tenant_id,
+        title=title,
+        summary=summary
+        or (
+            f"{rule_payload.get('observations', 1)} messages from this sender needed no reply. "
+            "Approve to handle the next ones automatically; the rule stays editable under "
+            "Settings > Email & messages > Automation rules."
+        ),
+        options=options,
+        agent_id=agent_id,
+        signal_id=signal_id,
+        notification_payload={"rule": rule_payload},
+    )
+    return {"decision_request_id": str(decision.id), "title": title}
+
+
+async def maybe_suggest_bulk_sender_rule(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Any,
+    *,
+    agent_id: UUID | None = None,
+    threshold: int = BULK_SENDER_THRESHOLD,
+) -> dict[str, Any] | None:
+    """After N automated threads from one sender, propose auto-close inline.
+
+    Called when automated mail is acknowledged. Counts distinct email threads
+    from the sender in this workspace; at the threshold a *suggested*
+    ``auto_close`` rule is written and a decision card lands on the current
+    thread. Nothing is activated without a human.
+    """
+    from sqlalchemy import func
+
+    from app.models.signal import Signal, SignalEvent
+
+    sender = normalize_address(getattr(signal, "contact_email", "") or "")
+    if not sender:
+        return None
+    if await find_matching_rule(session, tenant_id, sender):
+        return None
+    existing = await _rule_by_key(session, tenant_id, "sender", sender)
+    if existing is not None and existing.status in ("active", "paused"):
+        return None
+    # Threads from this sender that were noted as automated (including the
+    # current one); plain conversations with the same address do not count.
+    count = (
+        await session.execute(
+            select(func.count(func.distinct(Signal.id)))
+            .select_from(Signal)
+            .join(SignalEvent, SignalEvent.signal_id == Signal.id)
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.channel == "email",
+                Signal.deleted_at.is_(None),
+                func.lower(Signal.contact_email) == sender,
+                SignalEvent.event_type == "no_reply_noted",
+            )
+        )
+    ).scalar_one()
+    if int(count or 0) < threshold:
+        return None
+    payload = await suggest_rule(
+        session,
+        tenant_id,
+        match_type="sender",
+        match_value=sender,
+        action="auto_close",
+        label=(getattr(signal, "contact_name", "") or sender)[:120],
+        source="learned",
+        reason=f"{count} automated threads from this sender needed no reply",
+        observations=int(count),
+    )
+    if payload is None:
+        return None
+    raised = await raise_rule_decision(
+        session, tenant_id, payload, signal_id=signal.id, agent_id=agent_id
+    )
+    return {"rule": payload, "decision": raised}
 
 
 async def activate_rule_row(
@@ -401,11 +565,7 @@ async def create_rule(
         raise ValueError("Invalid action")
     if action == "tag" and not tags:
         raise ValueError("A tag rule needs at least one tag")
-    value = (
-        normalize_address(match_value)
-        if match_type == "sender"
-        else (match_value or "").strip().lower()
-    )
+    value = normalize_match_value(match_type, match_value)
     if not value:
         raise ValueError("match_value required")
 

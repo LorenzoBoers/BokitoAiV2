@@ -62,6 +62,7 @@ async def _calendar_propose_event(ctx: ToolContext, tool_input: dict[str, Any]) 
     connection_id = str(tool_input.get("connection_id") or "").strip()
     description = str(tool_input.get("description") or "").strip()
     location = str(tool_input.get("location") or "").strip()
+    all_day = bool(tool_input.get("all_day"))
     payload = {
         "connection_id": connection_id,
         "title": title,
@@ -69,12 +70,14 @@ async def _calendar_propose_event(ctx: ToolContext, tool_input: dict[str, Any]) 
         "end_at": end_at,
         "description": description,
         "location": location,
+        "all_day": all_day,
     }
+    when = "all day" if all_day else f"from {start_at} to {end_at}"
     result = await _create_decision_request(
         ctx,
         {
             "title": f"Create calendar event: {title}",
-            "summary": f"{title} from {start_at} to {end_at}",
+            "summary": f"{title} {when}",
             "signal_id": tool_input.get("signal_id")
             or (str(ctx.signal_id) if ctx.signal_id else None),
             "options": [
@@ -106,10 +109,19 @@ async def _calendar_propose_update(ctx: ToolContext, tool_input: dict[str, Any])
     end_at = str(tool_input.get("end_at") or "").strip()
     description = tool_input.get("description")
     location = tool_input.get("location")
-    if not any([title, start_at, end_at, description is not None, location is not None]):
+    if not any(
+        [
+            title,
+            start_at,
+            end_at,
+            description is not None,
+            location is not None,
+            "all_day" in tool_input,
+        ]
+    ):
         return {
             "ok": False,
-            "error": "Provide at least one of title, start_at, end_at, description, location",
+            "error": "Provide at least one of title, start_at, end_at, description, location, all_day",
         }
     payload: dict[str, Any] = {"event_id": event_id}
     if title:
@@ -122,6 +134,8 @@ async def _calendar_propose_update(ctx: ToolContext, tool_input: dict[str, Any])
         payload["description"] = str(description)
     if location is not None:
         payload["location"] = str(location)
+    if "all_day" in tool_input:
+        payload["all_day"] = bool(tool_input.get("all_day"))
     label = title or "calendar event"
     result = await _create_decision_request(
         ctx,
@@ -185,8 +199,18 @@ register_tool(
             "type": "object",
             "properties": {
                 "title": {"type": "string"},
-                "start_at": {"type": "string", "description": "ISO start datetime"},
-                "end_at": {"type": "string", "description": "ISO end datetime"},
+                "start_at": {
+                    "type": "string",
+                    "description": "ISO start datetime, or the first date when all_day",
+                },
+                "end_at": {
+                    "type": "string",
+                    "description": "ISO end datetime, or the last inclusive date when all_day",
+                },
+                "all_day": {
+                    "type": "boolean",
+                    "description": "Date-only event; shows in the Agenda all-day row.",
+                },
                 "description": {"type": "string"},
                 "location": {"type": "string"},
                 "connection_id": {
@@ -219,8 +243,18 @@ register_tool(
                     "description": "Event id from calendar_list_events",
                 },
                 "title": {"type": "string"},
-                "start_at": {"type": "string", "description": "ISO start datetime"},
-                "end_at": {"type": "string", "description": "ISO end datetime"},
+                "start_at": {
+                    "type": "string",
+                    "description": "ISO start datetime, or the first date when all_day",
+                },
+                "end_at": {
+                    "type": "string",
+                    "description": "ISO end datetime, or the last inclusive date when all_day",
+                },
+                "all_day": {
+                    "type": "boolean",
+                    "description": "Date-only event; shows in the Agenda all-day row.",
+                },
                 "description": {"type": "string"},
                 "location": {"type": "string"},
             },

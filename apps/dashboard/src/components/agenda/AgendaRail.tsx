@@ -37,9 +37,10 @@ type Props = {
 export default function AgendaRail(props: Props) {
   const { t } = useTranslation('nav')
   return (
-    <aside className="space-y-5" data-testid="agenda-rail">
+    <aside className="flex min-h-0 max-h-full flex-col gap-5 overflow-y-auto lg:self-start" data-testid="agenda-rail">
       <MiniMonth anchor={props.anchor} nowMs={props.nowMs} busyDays={props.busyDays} onPickDay={props.onPickDay} />
 
+      <div className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-3">
       <section className="space-y-2">
         <RailHeading>{t('agendaPage.rail.who')}</RailHeading>
         <Select value={props.who} onValueChange={(value) => props.onWho(value as AgendaWho)}>
@@ -148,6 +149,7 @@ export default function AgendaRail(props: Props) {
           <span className="text-xs tabular-nums text-text-muted">{props.routineCount}</span>
         </button>
       </section>
+      </div>
     </aside>
   )
 }

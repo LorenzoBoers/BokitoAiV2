@@ -78,6 +78,7 @@ const BinPage = lazy(() => import('./pages/BinPage'))
 const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const TeamPage = lazy(() => import('./pages/TeamPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
+const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
 const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
@@ -458,6 +459,7 @@ export default function App() {
             <Route path="/settings/members" element={<Navigate to="/team" replace />} />
             <Route path="/settings/teams" element={<Navigate to="/team#teams" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
+            <Route path="/settings/channels/:channelId" element={<ChannelDetailPage />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
             <Route path="/settings/action-tags" element={<CategoriesSettings />} />
             <Route path="/settings/categories" element={<Navigate to="/settings/action-tags" replace />} />

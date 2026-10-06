@@ -144,6 +144,9 @@ communication:
     - apps/api/app/routers/communication_nav.py
     - apps/dashboard/src/hooks/useCommunicationNav.ts
     - apps/dashboard/src/lib/messages-paths.ts
+    - apps/dashboard/src/lib/inbox-ops.ts
+    - apps/api/app/services/related_conversations.py
+    - apps/api/app/channels/base.py
   screenshots:
     - decision-card
     - open-queue
@@ -152,6 +155,7 @@ communication:
     - handling-picker
     - agent-turn
     - hashtags
+    - stale-draft
 
 agent-runs:
   section: inbox
@@ -174,6 +178,7 @@ channels:
     - /settings/channels
   code_globs:
     - apps/dashboard/src/pages/InboxSettings.tsx
+    - apps/dashboard/src/pages/ChannelDetailPage.tsx
     - apps/dashboard/src/components/channels/**
     - apps/dashboard/src/components/inbox/AddChannelDialog.tsx
     - apps/dashboard/src/components/inbox/WhatsAppConnectForm.tsx
@@ -187,10 +192,12 @@ channels:
     - apps/api/app/services/smtp_imap.py
     - apps/api/app/services/oauth_flow.py
     - apps/api/app/services/email_sync.py
+    - apps/api/app/channels/base.py
     - apps/api/app/routers/channels.py
   screenshots:
     - mailbox-status
     - communication-tags
+    - sent-items
 
 contacts:
   section: inbox
@@ -221,6 +228,9 @@ inbox-ai:
     - apps/dashboard/src/lib/composer-verbs.ts
     - apps/api/app/services/ai_handling.py
     - apps/api/app/routers/ai_handling.py
+    - apps/api/app/services/inbound_agent.py
+    - apps/api/app/services/automated_mail.py
+    - apps/api/app/services/inbox_rules.py
   screenshots:
     - workspace-default
 
@@ -231,12 +241,16 @@ widget:
     - /ai/assistant/external/installation
     - /ai/assistant/external/hours
     - /ai/assistant/external/customization
+    - /settings/channels
   code_globs:
     - apps/dashboard/src/pages/MessengerSettings.tsx
+    - apps/dashboard/src/pages/ChannelDetailPage.tsx
     - apps/chat-widget/src/widget-main.ts
     - packages/shared/src/chat-layout.ts
     - apps/api/app/services/whatsapp_handover.py
+    - apps/api/app/services/widget_channel.py
     - apps/api/app/routers/inbox_settings.py
+    - apps/api/app/routers/channels.py
   screenshots:
     - installation
 
@@ -266,7 +280,10 @@ decisions:
     - apps/dashboard/src/lib/hub-list-filters.ts
     - apps/dashboard/src/lib/notification-path.ts
     - apps/dashboard/src/pages/Communication.tsx
+    - apps/dashboard/src/components/inbox/DecisionGroupsBanner.tsx
+    - apps/dashboard/src/lib/decision-groups-api.ts
     - apps/api/app/services/signal_decisions.py
+    - apps/api/app/routers/notifications.py
   screenshots:
     - approve
 
@@ -289,6 +306,7 @@ projects:
     - apps/dashboard/src/pages/ProjectsPage.tsx
     - apps/dashboard/src/pages/ProjectDetail.tsx
     - apps/dashboard/src/components/projects/**
+    - apps/dashboard/src/lib/use-project-delete-connection-impact.ts
     - apps/dashboard/src/lib/project-canvas-api.ts
     - apps/dashboard/src/lib/project-canvas/**
     - apps/dashboard/src/components/project-canvas/**
@@ -331,6 +349,7 @@ categories:
     - apps/dashboard/src/components/inbox/ThreadCategory.tsx
     - apps/dashboard/src/components/inbox/ThreadTags.tsx
     - apps/dashboard/src/components/inbox/HashtagPickerModal.tsx
+    - apps/dashboard/src/components/inbox/TicketStageGate.tsx
     - apps/dashboard/src/components/inbox/TagRegistrySection.tsx
     - apps/dashboard/src/lib/tickets-api.ts
     - apps/dashboard/src/api/routes/categories.routes.ts
@@ -405,6 +424,7 @@ models:
     - apps/api/app/services/model_resolution.py
     - apps/api/app/services/bokito_models.py
     - apps/api/app/routers/models.py
+    - apps/api/app/services/run_errors.py
   screenshots:
     - catalog
 
@@ -426,11 +446,18 @@ integrations:
     - apps/api/app/services/module_connections.py
     - apps/api/app/services/module_attach.py
     - apps/api/app/services/module_agents.py
+    - apps/api/app/services/provider_connections.py
+    - apps/api/app/services/connection_instance.py
+    - apps/api/app/services/connection_scope.py
+    - apps/api/app/services/connection_access.py
     - apps/dashboard/src/components/modules/**
+    - apps/dashboard/src/components/access/**
+    - apps/dashboard/src/lib/use-connection-actions.ts
   screenshots:
     - marketplace
     - modules-hub
     - module-home
+    - provider-connections
 
 mcp:
   section: integrations

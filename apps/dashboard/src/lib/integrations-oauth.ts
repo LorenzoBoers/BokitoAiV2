@@ -3,6 +3,8 @@ export interface IntegrationCallbackResult {
   connected: boolean
   provider: string | null
   error: string | null
+  /** The login belonged to an account that was already connected; tokens were refreshed on it. */
+  reused: boolean
 }
 
 /** Parse ?integration=connected&provider=github or legacy ?github=connected */
@@ -10,6 +12,7 @@ export function parseIntegrationCallback(params: URLSearchParams): IntegrationCa
   const integration = params.get('integration')
   const integrationError = params.get('integration_error')
   const provider = params.get('provider')
+  const reused = params.get('connection_reused') === '1'
 
   if (integrationError) {
     return {
@@ -17,6 +20,7 @@ export function parseIntegrationCallback(params: URLSearchParams): IntegrationCa
       connected: false,
       provider: provider ?? null,
       error: integrationError,
+      reused: false,
     }
   }
 
@@ -26,6 +30,7 @@ export function parseIntegrationCallback(params: URLSearchParams): IntegrationCa
       connected: true,
       provider: provider ?? 'github',
       error: null,
+      reused,
     }
   }
 
@@ -37,6 +42,7 @@ export function parseIntegrationCallback(params: URLSearchParams): IntegrationCa
       connected: false,
       provider: 'github',
       error: githubError,
+      reused: false,
     }
   }
   if (github === 'connected') {
@@ -45,8 +51,9 @@ export function parseIntegrationCallback(params: URLSearchParams): IntegrationCa
       connected: true,
       provider: 'github',
       error: null,
+      reused: false,
     }
   }
 
-  return { handled: false, connected: false, provider: null, error: null }
+  return { handled: false, connected: false, provider: null, error: null, reused: false }
 }

@@ -746,16 +746,6 @@ export default function MessagesHubNav() {
     <NavFlashProvider activeLeaf={activeLeaf}>
     <div className="flex h-full min-h-0 flex-col">
       <ScrollFade className="space-y-3 pb-1">
-        <section>
-          <NavLink
-            to={newConversationPath()}
-            className="nav-row border border-border/70 bg-bg-surface text-text-heading hover:border-border-light"
-          >
-            <Plus aria-hidden />
-            <span>{t('support.newChat')}</span>
-          </NavLink>
-        </section>
-
         <section className="space-y-px">
           <SidebarFolder
             baseLeaf={inboxBaseLeaf}

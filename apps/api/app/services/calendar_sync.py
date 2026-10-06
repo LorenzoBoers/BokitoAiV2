@@ -80,6 +80,40 @@ def _iso_naive(dt: datetime) -> datetime:
     return dt
 
 
+def all_day_span(start_at: datetime, end_at: datetime) -> tuple[datetime, datetime]:
+    """Midnight start and exclusive midnight end for an all-day event."""
+    start = _iso_naive(start_at).replace(hour=0, minute=0, second=0, microsecond=0)
+    end = _iso_naive(end_at)
+    end_midnight = end.replace(hour=0, minute=0, second=0, microsecond=0)
+    if end <= start:
+        return start, start + timedelta(days=1)
+    if end == end_midnight:
+        return start, end
+    return start, end_midnight + timedelta(days=1)
+
+
+def _google_bounds(start: datetime, end: datetime, *, all_day: bool) -> tuple[dict[str, str], dict[str, str]]:
+    if all_day:
+        return {"date": start.date().isoformat()}, {"date": end.date().isoformat()}
+    return (
+        {"dateTime": start.isoformat() + "Z", "timeZone": "UTC"},
+        {"dateTime": end.isoformat() + "Z", "timeZone": "UTC"},
+    )
+
+
+def _graph_bounds(start: datetime, end: datetime, *, all_day: bool) -> tuple[dict[str, str], dict[str, str]]:
+    if all_day:
+        fmt = "%Y-%m-%dT00:00:00"
+        return (
+            {"dateTime": start.strftime(fmt), "timeZone": "UTC"},
+            {"dateTime": end.strftime(fmt), "timeZone": "UTC"},
+        )
+    return (
+        {"dateTime": start.isoformat(), "timeZone": "UTC"},
+        {"dateTime": end.isoformat(), "timeZone": "UTC"},
+    )
+
+
 def _parse_google_dt(value: dict[str, Any] | None) -> tuple[datetime, bool]:
     if not isinstance(value, dict):
         return datetime.utcnow(), False
@@ -546,6 +580,7 @@ async def create_external_event(
     end_at: datetime,
     description: str = "",
     location: str = "",
+    all_day: bool = False,
 ) -> dict[str, Any]:
     """Create an event on the external calendar and cache it locally."""
     conn = await session.get(IntegrationConnection, connection_id)
@@ -554,6 +589,12 @@ async def create_external_event(
         raise ValueError("Calendar connection not found")
     from app.services.crypto import get_connection_credentials
     creds = get_connection_credentials(conn)
+    start_n = _iso_naive(start_at)
+    end_n = _iso_naive(end_at)
+    if all_day:
+        start_n, end_n = all_day_span(start_n, end_n)
+    if end_n <= start_n:
+        raise ValueError("end_at must be after start_at")
     if creds.get("mock") or not creds.get("access_token"):
         # Local-only demo write.
         row = CalendarEvent(
@@ -566,14 +607,15 @@ async def create_external_event(
             title=title.strip() or "Untitled",
             description=description,
             location=location,
-            start_at=_iso_naive(start_at),
-            end_at=_iso_naive(end_at),
+            start_at=start_n,
+            end_at=end_n,
+            all_day=all_day,
             status="confirmed",
         )
         session.add(row)
         await session.commit()
         await session.refresh(row)
-        return {"id": str(row.id), "external_id": row.external_id, "mock": True}
+        return {"id": str(row.id), "external_id": row.external_id, "mock": True, "all_day": all_day}
 
     token = await _access_token(session, conn)
     if not token:
@@ -584,17 +626,16 @@ async def create_external_event(
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
-    start_n = _iso_naive(start_at)
-    end_n = _iso_naive(end_at)
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         if _calendar_slug(conn) == "google_calendar":
+            g_start, g_end = _google_bounds(start_n, end_n, all_day=all_day)
             body = {
                 "summary": title,
                 "description": description,
                 "location": location,
-                "start": {"dateTime": start_n.isoformat() + "Z", "timeZone": "UTC"},
-                "end": {"dateTime": end_n.isoformat() + "Z", "timeZone": "UTC"},
+                "start": g_start,
+                "end": g_end,
             }
             resp = await client.post(
                 GOOGLE_EVENTS_URL.format(cal="primary"), headers=headers, json=body
@@ -604,12 +645,14 @@ async def create_external_event(
             external_id = str(data.get("id") or "")
             html_link = str(data.get("htmlLink") or "")
         else:
+            o_start, o_end = _graph_bounds(start_n, end_n, all_day=all_day)
             body = {
                 "subject": title,
                 "body": {"contentType": "text", "content": description},
                 "location": {"displayName": location},
-                "start": {"dateTime": start_n.isoformat(), "timeZone": "UTC"},
-                "end": {"dateTime": end_n.isoformat(), "timeZone": "UTC"},
+                "isAllDay": all_day,
+                "start": o_start,
+                "end": o_end,
             }
             resp = await client.post(GRAPH_CREATE_URL, headers=headers, json=body)
             resp.raise_for_status()
@@ -629,13 +672,14 @@ async def create_external_event(
         location=location,
         start_at=start_n,
         end_at=end_n,
+        all_day=all_day,
         status="confirmed",
         html_link=html_link,
     )
     session.add(row)
     await session.commit()
     await session.refresh(row)
-    return {"id": str(row.id), "external_id": row.external_id, "html_link": html_link}
+    return {"id": str(row.id), "external_id": row.external_id, "html_link": html_link, "all_day": all_day}
 
 
 async def update_external_event(
@@ -648,6 +692,7 @@ async def update_external_event(
     end_at: datetime | None = None,
     description: str | None = None,
     location: str | None = None,
+    all_day: bool | None = None,
 ) -> dict[str, Any]:
     """Patch an event on the external calendar and refresh the local cache."""
     row = await session.get(CalendarEvent, event_id)
@@ -656,8 +701,11 @@ async def update_external_event(
 
     new_title = title.strip() if title is not None else row.title
     new_title = (new_title or "").strip() or "Untitled"
+    new_all_day = row.all_day if all_day is None else bool(all_day)
     new_start = _iso_naive(start_at) if start_at is not None else row.start_at
     new_end = _iso_naive(end_at) if end_at is not None else row.end_at
+    if new_all_day:
+        new_start, new_end = all_day_span(new_start, new_end)
     if new_end <= new_start:
         raise ValueError("end_at must be after start_at")
     new_description = description if description is not None else (row.description or "")
@@ -683,18 +731,13 @@ async def update_external_event(
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
             if _calendar_slug(conn) == "google_calendar":
+                g_start, g_end = _google_bounds(new_start, new_end, all_day=new_all_day)
                 body = {
                     "summary": new_title,
                     "description": new_description,
                     "location": new_location,
-                    "start": {
-                        "dateTime": new_start.isoformat() + "Z",
-                        "timeZone": "UTC",
-                    },
-                    "end": {
-                        "dateTime": new_end.isoformat() + "Z",
-                        "timeZone": "UTC",
-                    },
+                    "start": g_start,
+                    "end": g_end,
                 }
                 url = (
                     GOOGLE_EVENTS_URL.format(cal=row.calendar_id or "primary")
@@ -706,12 +749,14 @@ async def update_external_event(
                 if data.get("htmlLink"):
                     row.html_link = str(data.get("htmlLink") or "")
             else:
+                o_start, o_end = _graph_bounds(new_start, new_end, all_day=new_all_day)
                 body = {
                     "subject": new_title,
                     "body": {"contentType": "text", "content": new_description},
                     "location": {"displayName": new_location},
-                    "start": {"dateTime": new_start.isoformat(), "timeZone": "UTC"},
-                    "end": {"dateTime": new_end.isoformat(), "timeZone": "UTC"},
+                    "isAllDay": new_all_day,
+                    "start": o_start,
+                    "end": o_end,
                 }
                 resp = await client.patch(
                     GRAPH_EVENT_URL.format(id=row.external_id),
@@ -726,6 +771,7 @@ async def update_external_event(
     row.title = new_title
     row.start_at = new_start
     row.end_at = new_end
+    row.all_day = new_all_day
     row.description = new_description
     row.location = new_location
     session.add(row)
@@ -738,6 +784,7 @@ async def update_external_event(
         "title": row.title,
         "start_at": row.start_at.isoformat() if row.start_at else None,
         "end_at": row.end_at.isoformat() if row.end_at else None,
+        "all_day": row.all_day,
     }
 
 

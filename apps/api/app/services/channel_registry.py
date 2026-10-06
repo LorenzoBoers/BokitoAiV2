@@ -197,12 +197,12 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
     """Connected Gmail/Outlook/SMTP-IMAP mailbox: receives, sends, and polls folders."""
     from app.services.email_sync import account_sync_folders
 
-    selected = [f for f in account_sync_folders(ctx.settings) if f.get("is_selected")]
-    # SMTP/IMAP V1 only syncs INBOX — surface that clearly in checks.
-    if ctx.account.provider == "smtp_imap":
-        selected = [f for f in selected if str(f.get("id")) == "inbox"] or [
-            {"id": "inbox", "display_name": "Inbox", "is_selected": True}
-        ]
+    # SMTP/IMAP V1 only syncs INBOX — account_sync_folders narrows to it.
+    selected = [
+        f
+        for f in account_sync_folders(ctx.settings, provider=ctx.account.provider)
+        if f.get("is_selected")
+    ]
     last_sync = _parse_dt(ctx.settings.get("last_sync_at"))
     try:
         error_count = int(ctx.settings.get("sync_error_count") or 0)
@@ -250,7 +250,7 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
             _check(
                 "sync_errors",
                 "fail" if error_count >= SYNC_ERROR_LIMIT or network_fail else "warn",
-                detail=ctx.last_error,
+                detail=str(ctx.settings.get("auto_paused_reason") or ctx.last_error),
                 action="retry_sync" if not network_fail else "reconnect",
                 fail_state="action_required" if network_fail else "error",
             )
@@ -284,7 +284,7 @@ def _resolve_widget(ctx: ChannelContext) -> ChannelFacts:
         capabilities=("receive", "send"),
         checks=checks,
         actions=["pause", "configure"],
-        configure_href="/ai/assistant/external/customization",
+        configure_href="",
     )
 
 
@@ -349,7 +349,8 @@ def _fallback_facts(ctx: ChannelContext) -> ChannelFacts:
 def _derive_state(ctx: ChannelContext, facts: ChannelFacts) -> tuple[str, str]:
     """State + the check id that explains it."""
     if not ctx.account.is_enabled:
-        return "paused", ""
+        # Paused by the platform after repeated sync failures, not by a person.
+        return "paused", "sync_errors" if ctx.settings.get("auto_paused_at") else ""
     failed = [c for c in facts.checks if c["state"] == "fail"]
     if failed:
         for state in _FAIL_PRIORITY:
@@ -376,12 +377,13 @@ def resolve_channel(
     tenant: Tenant | None = None,
     last_event_at: datetime | None = None,
     now: datetime | None = None,
+    widget_count: int | None = None,
 ) -> dict[str, Any]:
     """One uniform row for any channel kind: state, capabilities, checks, actions."""
     from app.services.ai_handling import breaker_tripped_at, resolve_ai_handling
     from app.services.channel_access import account_access, is_default_access
     from app.services.crypto import credentials_ready_from_settings, get_connection_credentials
-    from app.services.email_sync import account_sync_window_days
+    from app.services.email_sync import account_archives_automated_mail, account_sync_window_days
 
     settings = _loads(account.settings_json)
     # Skip decrypt on list paths when settings already stamp connected readiness.
@@ -401,6 +403,8 @@ def resolve_channel(
     actions = list(facts.actions)
     if not account.is_enabled:
         actions = ["resume" if a == "pause" else a for a in actions]
+    if kind == "widget" and widget_count is not None and widget_count > 1 and "remove" not in actions:
+        actions.append("remove")
 
     # The widget's address is the internal tenant key, not something an
     # operator shares or copies, so the row keeps it out of the UI.
@@ -423,7 +427,7 @@ def resolve_channel(
             {k: v for k, v in check.items() if k != "fail_state"} for check in facts.checks
         ],
         "actions": actions,
-        "configure_href": facts.configure_href,
+        "configure_href": facts.configure_href or f"/settings/channels/{account.id}",
         "last_event_at": _iso(last_event_at),
         "last_sync_at": _iso(settings.get("last_sync_at")),
         "last_error": ctx.last_error,
@@ -439,6 +443,7 @@ def resolve_channel(
         "access_is_default": is_default_access(account),
         "created_at": account.created_at.isoformat(),
         "sync_window_days": account_sync_window_days(settings),
+        "archive_automated_mail": account_archives_automated_mail(settings),
     }
 
 
@@ -569,12 +574,14 @@ async def list_channels(
     ]
     events = await last_event_by_account(session, tenant.id)
     now = datetime.utcnow()
+    widget_count = sum(1 for account in accounts if account.channel == "widget")
     return [
         resolve_channel(
             account,
             tenant=tenant,
             last_event_at=events.get(account.id),
             now=now,
+            widget_count=widget_count,
         )
         for account in accounts
     ]

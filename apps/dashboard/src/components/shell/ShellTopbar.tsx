@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
+import { PageGuideLink } from '../layout/PageGuideLink'
 import StaffTenantBar from '../layout/StaffTenantBar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 import { Tip } from '../ui/Tip'
 import { settingsLinkForPath } from './SettingsLayout'
 import { extraCrumbsForPath } from '../../lib/page-crumbs'
+import { pageGuideForPath } from '../../lib/page-guides'
 
 type ShellTopbarProps = {
   onOpenNavDrawer: () => void
@@ -38,6 +40,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
       : (currentWorkspace?.name ?? 'Bokito')
   const settingsLink = settingsLinkForPath(pathname)
   const extraCrumbs = extraCrumbsForPath(pathname)
+  const pageGuide = pageGuideForPath(pathname)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
   const crumbs: string[] = [
@@ -61,6 +64,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <span className={`min-w-0 truncate-fade ${crumbs.length ? 'text-text-secondary' : 'font-medium text-text-heading'}`}>
           {pageTitle}
         </span>
+        {pageGuide ? <PageGuideLink page={pageGuide} compact className="h-6 w-6" /> : null}
         {crumbs.map((crumb, index) => {
           const last = index === crumbs.length - 1
           return (

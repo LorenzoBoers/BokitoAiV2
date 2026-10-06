@@ -37,7 +37,14 @@ import {
   isGenericVisitorName,
   isPlaceholderContactAddress,
 } from '../../lib/contact-label'
-import type { InboxMember, InboxThread, PatchThreadInput, ThreadId, ThreadStatus } from '../../lib/inbox-api'
+import type {
+  InboxMember,
+  InboxThread,
+  PatchThreadInput,
+  RelatedConversation,
+  ThreadId,
+  ThreadStatus,
+} from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath } from '../../lib/compose-intent'
 import { IdentitySeenLine } from './IdentitySeenLine'
@@ -81,6 +88,70 @@ type Props = {
   closeAction?: ReactNode
   /** Activity on the open thread; fallback when the book has no last-seen. */
   threadActivityAt?: string | null
+  /** Sibling conversations from the thread payload (other channels, merged identities). */
+  relatedConversations?: RelatedConversation[]
+}
+
+type OtherConversation = {
+  id: string
+  channel: string
+  subject: string
+  status: ThreadStatus
+  hasUnread: boolean
+  lastMessageAt: string | null
+  hasOpenProposal: boolean
+}
+
+const OPEN_STATUSES = new Set<string>(['open', 'pending'])
+
+/**
+ * Merge the contact book's threads with the sibling rows from the thread
+ * payload, drop the current thread, and put open conversations first.
+ */
+export function otherConversations(
+  threads: InboxThread[],
+  related: RelatedConversation[] | undefined,
+  currentThreadId: ThreadId | null | undefined,
+): OtherConversation[] {
+  const current = String(currentThreadId ?? '')
+  const byId = new Map<string, OtherConversation>()
+  for (const row of threads) {
+    const id = String(row.id)
+    if (id === current) continue
+    byId.set(id, {
+      id,
+      channel: row.channel ?? '',
+      subject: row.emailSubject || '',
+      status: row.status,
+      hasUnread: row.hasUnread,
+      lastMessageAt: row.lastMessageAt ?? null,
+      hasOpenProposal: false,
+    })
+  }
+  for (const row of related ?? []) {
+    if (row.id === current) continue
+    const existing = byId.get(row.id)
+    if (existing) {
+      existing.hasOpenProposal = row.hasOpenProposal
+      continue
+    }
+    byId.set(row.id, {
+      id: row.id,
+      channel: row.channel,
+      subject: row.subject,
+      status: row.status as ThreadStatus,
+      hasUnread: false,
+      lastMessageAt: row.lastMessageAt,
+      hasOpenProposal: row.hasOpenProposal,
+    })
+  }
+  const at = (row: OtherConversation) => (row.lastMessageAt ? new Date(row.lastMessageAt).getTime() : 0)
+  return [...byId.values()].sort((a, b) => {
+    const aOpen = OPEN_STATUSES.has(a.status) ? 0 : 1
+    const bOpen = OPEN_STATUSES.has(b.status) ? 0 : 1
+    if (aOpen !== bOpen) return aOpen - bOpen
+    return at(b) - at(a)
+  })
 }
 
 function FieldRow({ icon: Icon, value }: { icon: typeof Mail; value?: string | null }) {
@@ -106,6 +177,7 @@ export default function ContactPanel({
   children,
   closeAction,
   threadActivityAt,
+  relatedConversations,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token, user } = useAuth()
@@ -438,9 +510,7 @@ export default function ContactPanel({
     )
   }
 
-  const previousThreads = threads.filter(
-    (row) => String(row.id) !== String(currentThreadId ?? ''),
-  )
+  const previousThreads = otherConversations(threads, relatedConversations, currentThreadId)
 
   const anonymous = isAnonymousContact(contact.displayName, contact.address)
   const headlineName =
@@ -646,18 +716,21 @@ export default function ContactPanel({
           <div className="space-y-1">
             {previousThreads.slice(0, 5).map((thread) => (
               <Link
-                key={String(thread.id)}
-                to={inboxPath('open', String(thread.id))}
+                key={thread.id}
+                to={inboxPath('open', thread.id)}
                 className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 transition-colors hover:bg-bg-hover/70"
+                data-testid="contact-other-conversation"
               >
                 <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
+                <ChannelGlyph channel={thread.channel} size={13} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate-fade text-xs font-medium text-text-primary">
-                    {thread.emailSubject || t('contactPanel.noSubject')}
+                    {thread.subject || t('contactPanel.noSubject')}
                   </span>
                   <span className="block truncate-fade text-2xs text-text-muted">
                     {threadStatusLabel(thread.status, t)}
                     {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
+                    {thread.hasOpenProposal ? ` - ${t('contactPanel.openProposalShort')}` : ''}
                   </span>
                 </span>
               </Link>

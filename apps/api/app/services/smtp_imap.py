@@ -200,6 +200,7 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
     in_reply_to = (msg.get("In-Reply-To") or "").strip()
     references = (msg.get("References") or "").strip()
     cc = _decode_header_value(msg.get("Cc"))
+    to = _decode_header_value(msg.get("To"))
 
     received_at: datetime | None = None
     date_hdr = msg.get("Date")
@@ -293,6 +294,7 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
         "in_reply_to": in_reply_to,
         "references": references,
         "cc": cc,
+        "to": to,
         "received_at": received_at,
         "attachments": attachments,
         "imap_uid": uid,

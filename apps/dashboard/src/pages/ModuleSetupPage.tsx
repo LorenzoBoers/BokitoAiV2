@@ -183,7 +183,9 @@ export default function ModuleSetupPage() {
         } else if (integrationCb.connected) {
           setHubBanner({
             type: 'success',
-            message: t('integrations.hub.setup.successRemoteMcp'),
+            message: integrationCb.reused
+              ? t('integrations.connections.reused')
+              : t('integrations.hub.setup.successRemoteMcp'),
           })
           bumpConnections()
         }

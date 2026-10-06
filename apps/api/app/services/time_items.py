@@ -125,10 +125,52 @@ def _row(
     }
 
 
-def _trigger_actor(trigger: Trigger, agent_name: str | None) -> tuple[str, str]:
-    actor_kind = "person" if trigger.kind == "event" else "agent"
-    actor_name = agent_name or (trigger.agent_role if actor_kind == "agent" else "Person")
-    return actor_kind, actor_name
+def _is_runnable_company(agent: Agent) -> bool:
+    return (
+        agent.kind == "company"
+        and bool(agent.is_active)
+        and not bool(agent.acts_for_user)
+    )
+
+
+def _lead_agent(agents: list[Agent]) -> Agent | None:
+    """Same fallback as ``lead_agent.get_lead_agent``, from agents already loaded."""
+    company = [a for a in agents if _is_runnable_company(a)]
+    leads = [a for a in company if a.is_lead]
+    if leads:
+        return min(leads, key=lambda a: a.created_at or datetime.min)
+    assistants = [a for a in company if (a.role or "") == "assistant"]
+    pool = assistants or company
+    if not pool:
+        return None
+    return min(pool, key=lambda a: a.created_at or datetime.min)
+
+
+def _agent_for_trigger(trigger: Trigger, agents: list[Agent]) -> Agent | None:
+    """Who actually fires the trigger — never a role slug such as ``orchestrator``."""
+    by_id = {a.id: a for a in agents}
+    if trigger.agent_id:
+        bound = by_id.get(trigger.agent_id)
+        if bound is not None:
+            return bound if _is_runnable_company(bound) else None
+    role = (trigger.agent_role or "orchestra").strip()
+    roles = ("orchestra", "orchestrator") if role in ("orchestra", "orchestrator") else (role,)
+    for agent in agents:
+        if _is_runnable_company(agent) and (agent.role or "") in roles:
+            return agent
+    return _lead_agent(agents)
+
+
+def _wake_who(
+    trigger: Trigger, agents: list[Agent]
+) -> tuple[str, UUID | None, str | None]:
+    """Actor kind, agent id and display name for a planned wake."""
+    if trigger.kind == "event":
+        return "person", None, None
+    agent = _agent_for_trigger(trigger, agents)
+    if agent is None:
+        return "agent", None, None
+    return "agent", agent.id, agent.name
 
 
 class _Names:
@@ -400,18 +442,21 @@ async def list_time_items(
 
     if "wake" in wanted and not project_id:
         for trigger in wakes:
-            name = agent_names.get(trigger.agent_id) if trigger.agent_id else None
-            actor_kind, actor_name = _trigger_actor(trigger, name)
+            actor_kind, resolved_id, resolved_name = _wake_who(trigger, agents)
             base = dict(
                 kind="wake",
                 trigger_kind=trigger.kind,
                 title=trigger.name,
-                agent_id=trigger.agent_id,
-                agent_name=name,
+                agent_id=resolved_id,
+                agent_name=resolved_name,
                 agent_role=trigger.agent_role,
                 actor_kind=actor_kind,
-                actor_name=actor_name,
-                owner=("agent", str(trigger.agent_id), name) if trigger.agent_id else (None, None, None),
+                actor_name=resolved_name,
+                owner=(
+                    ("agent", str(resolved_id), resolved_name)
+                    if resolved_id
+                    else (None, None, None)
+                ),
                 series_id=str(trigger.id),
                 instructions=trigger.instructions,
                 enabled=trigger.enabled,

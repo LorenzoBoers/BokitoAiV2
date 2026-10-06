@@ -18,7 +18,7 @@ Open is gesprekswerk dat nog jou nodig heeft — klantkanalen én agentchats. Ac
 ![Wachtrij Open in Communicatie](/api/docs/assets/communication/open-queue.png)
 *Open toont gesprekswerk dat nog jou nodig heeft, inclusief agentchats.*
 
-1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Die lijst bevat chats met bedrijfsagents naast klantmail en websitechat. Daaronder staan de secties **Teams**, **Kanalen**, **Chat met agents**, **Tags** en **Projecten** (volgorde en zichtbaarheid kun je aanpassen). **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Communicatie-menu) — meestal **Open**, of **Voor jou** als je dat zo hebt gezet.
+1. Open **Communicatie**. Het hulp-icoon naast de titel in de bovenbalk opent de gids. **Nieuw gesprek** staat bovenaan de binnenrail, links van de knop om de zijbalk aan te passen. **Alle communicatie** is een map: klik om **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Die lijst bevat chats met bedrijfsagents naast klantmail en websitechat. Daaronder staan de secties **Teams**, **Kanalen**, **Chat met agents**, **Tags** en **Projecten** (volgorde en zichtbaarheid kun je aanpassen). **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Communicatie-menu) — meestal **Open**, of **Voor jou** als je dat zo hebt gezet.
 2. Wissel naar **Voor jou** voor jouw werk: gesprekken die van jou zijn, gesprekken waar jij of je team aan de beurt is, vragen aan iedereen, vermeldingen en open beslissingskaarten. Rijen waar jij nu iets moet doen staan bovenaan. **Niet toegewezen** bevat gesprekken van een team die nog niemand oppakte. Teams die in de zijbalk staan krijgen een eigen map onder **Teams** (zie [Team](/docs/getting-started/team)); **Groepschat** in die map opent het vaste interne gesprek van het team.
 3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde en **AI:** als een agent het stuurde. Naast **Filters** wisselt de lijstweergave tussen **Compacte lijst** en **Ruime lijst**. Compact houdt toegewezene, ticket en hashtags op een onderste rij die alleen verschijnt als je een gesprek aanwijst, focust of selecteert; **Ruime lijst** houdt die rij zichtbaar. Openen van een gesprek landt bij de nieuwste berichten. Een nieuwe inkomende e-mail opent bij het begin van die mail, niet bij de handtekening. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Voor jou, Open of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen.
 4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per rij) onder **Instellingen**, dan **Kanalen** (Tags en Communicatie). De sectie **Chat met agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde, plus een rij **Activiteit** naar het werklog van die agent. Een gesprek kan één categorie hebben, die er een ticket van maakt, zichtbaar onder **Ticket** en als chip op de rij in de lijst; zie [Categorieën en tickets](/docs/ai/categories).
@@ -38,13 +38,13 @@ Elk gesprek heeft één eigenaar: een persoon, een agent of een team. Zonder eig
 
 Een persoon als eigenaar houdt het gesprek vast: agents maken dan alleen concepten. Geef je het aan een agent of team, dan geldt weer de AI-afhandeling van het gesprek.
 
-## Start een nieuwe chat of e-mail
+## Start een nieuw gesprek
 
-1. Kies **Nieuwe chat**. Je ziet drie grote keuzes: **Contact**, **Agent** en **Teamlid**. Er wordt pas iets aangemaakt als je verstuurt — dit is een concept in Communicatie.
-2. **Contact** (of **Teamlid**): kies **Aan**, kies **Van** (een gekoppelde mailbox; je kunt wisselen vóór versturen en optioneel **Onthouden als standaard**), vul een onderwerp in, schrijf het bericht en verstuur. Hover **+** op een mailbox in de zijbalk om met die Van te starten. Een nieuw adres typen mag; een contact aanmaken eerst is niet nodig.
+1. Kies **Nieuw gesprek** bovenaan de binnenrail (links van de knop om de zijbalk aan te passen). Je ziet vier grote keuzes: **E-mail**, **Contact**, **Agent** en **Teamlid**. **E-mail** en **Contact** openen beide het e-mailconcept. Er wordt pas iets aangemaakt als je verstuurt — dit is een concept in Communicatie.
+2. **E-mail** of **Contact** (of **Teamlid**): kies **Aan**, kies **Van** (een gekoppelde mailbox; je kunt wisselen vóór versturen en optioneel **Onthouden als standaard**), vul een onderwerp in, schrijf het bericht en verstuur. Hover **+** op een mailbox in de zijbalk om met die Van te starten. Een nieuw adres typen mag; een contact aanmaken eerst is niet nodig.
 3. **Agent**: kies een bedrijfsagent (of gebruik **+** op een agentrij), typ en verstuur. Dan ontstaat de chat en staat jouw tekst als eerste wolkje. De lijsttitel blijft een placeholder tot die eerste send, daarna een korte intent-titel — niet het hele bericht.
 4. Je kunt mail ook starten vanaf een contactkaart of het commandopalet. Doorsturen vanuit een thread opent nog het compose-dialoog.
-5. Een lege inbox biedt nog steeds **Nieuwe chat**, **Widget installeren** en de setupgids — websitechat wacht niet op e-mail.
+5. Een lege inbox biedt nog steeds **Nieuw gesprek**, **Widget installeren** en de setupgids — websitechat wacht niet op e-mail.
 
 ## Kies wat je stuurt (Antwoord / Vraag AI / Notitie)
 
@@ -87,6 +87,29 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 1. Als de AI een antwoord voorstelt, verschijnt het concept in de composer. De tekst gloeit een paar seconden paars, zodat je ziet dat het gegenereerd is. In de tijdlijn staat alleen een korte regel: **AI stelde een antwoord voor**.
 2. Pas de tekst zo nodig aan en kies **Versturen** (of het verstuurmenu voor sluiten / uitstellen). Versturen lost de beslissing op en levert het antwoord af.
 3. **Verwerpen** op de conceptbalk wijst het voorstel af zonder te versturen. Andere beslissingen (platform, module, agenda, afronding) blijven kaarten met de kop **Wacht op jouw OK** en gewone werkwoordknoppen — geen toolnamen in de copy.
+
+## Een verouderd concept
+
+Een concept beantwoordt één klantbericht. Schrijft de klant opnieuw, antwoordt een collega vanuit de eigen mailbox, of gaat dezelfde persoon verder op een ander kanaal, dan past het oude concept niet meer.
+
+![Melding Verouderd concept boven de composer](/api/docs/assets/communication/stale-draft.png)
+*De composer markeert een concept dat voor een eerder bericht is geschreven en biedt een nieuw voorstel.*
+
+1. Open het gesprek. Boven de composer staat **Verouderd concept** met de reden: de klant schreef opnieuw na dit concept. De tijdlijnregel van het oude voorstel leest **Opzijgezet: klant schreef opnieuw**, **Opzijgezet: een collega antwoordde** of **Opzijgezet: nieuwer gesprek met deze persoon**.
+2. Kies **Opnieuw voorstellen** om de AI een antwoord op het laatste bericht te laten maken, of **Verwerpen** om de tekst te wissen en opnieuw te beginnen. Een concept dat je nooit hebt aangeraakt wordt niet bewaard; een ongewijzigd AI-voorstel verdwijnt dus vanzelf als het opzij gaat.
+3. Schreef de klant ook op een ander kanaal, dan staat boven de composer **{naam} schreef 2 uur geleden ook via WhatsApp** met **Openen**. Elk kanaal houdt zijn eigen gesprek; de regel vertelt waar het actuele gesprek loopt, en de AI houdt per persoon één voorstel open op het nieuwste gesprek.
+4. Het zijpaneel toont **Andere gesprekken** met deze persoon, open gesprekken eerst, elk met kanaalicoon en **Voorstel open** wanneer daar een AI-voorstel wacht.
+5. Een gesprek sluiten of als spam markeren gooit het onverzonden concept weg.
+
+## Al afgehandeld buiten Bokito
+
+Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld vanuit een andere mailbox. Leg het vast zodat het gesprek niet meer om een antwoord vraagt.
+
+1. Open het gesprek. Kies **Al afgehandeld buiten Bokito** in het pijlmenu naast **Versturen** (werkt ook met een lege composer), of open **Wat nu** in het gespreksmenu en kies **Buitenom afgehandeld**.
+2. Kies waar het is afgehandeld: **Telefoon**, **WhatsApp**, **Andere mailbox** of **Elders**. Zet er desgewenst in één regel bij wat is afgesproken.
+3. Laat **Gesprek ook sluiten** aan om het in dezelfde stap te sluiten, of zet het uit om het in Open te laten met jou als eigenaar.
+4. Kies **Vastleggen als afgehandeld**. De tijdlijn toont **Afgehandeld via telefoon door {naam}** met je notitie, het gesprek is gelezen, open AI-voorstellen gaan opzij met reden **afgehandeld buiten Bokito**, en het gesprek verdwijnt uit **Jij aan zet**.
+5. Een antwoord dat een collega vanuit de eigen Gmail- of Outlook-mailbox stuurde wordt vanzelf vastgelegd als die mailbox gekoppeld is; zie [Kanalen](/docs/inbox/channels). Agents leggen hetzelfde vast met de gegoverneerde tool `mark_handled_externally`.
 
 ## Beslis in het gesprek
 

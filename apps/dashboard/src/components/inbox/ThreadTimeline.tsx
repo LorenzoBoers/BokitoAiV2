@@ -308,6 +308,8 @@ type Props = {
   }) => void
   /** Decision message ids whose draft already sits in the composer. */
   compactDecisionMessageIds: string[]
+  /** Open proposals that answer an older message than the newest inbound one. */
+  outdatedDecisionMessageIds?: string[]
   /** Live AI strip pinned under the last row while a reply streams. */
   liveTrace?: ReactNode
   emptyState?: ReactNode
@@ -367,6 +369,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     onDecisionResolved,
     onEditDraft,
     compactDecisionMessageIds,
+    outdatedDecisionMessageIds,
     liveTrace,
     emptyState,
     onAtBottomChange,
@@ -377,8 +380,12 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const scrollerNode = useRef<HTMLDivElement | null>(null)
   const bottomTimersRef = useRef<number[]>([])
-  const ignoreUnpinUntilRef = useRef(0)
   const flushRafRef = useRef(0)
+  /** True after the operator scrolls away from the latest row. */
+  const readingHistoryRef = useRef(false)
+  const atBottomRef = useRef(true)
+  /** Programmatic land may keep snapping until this instant, unless the user scrolls. */
+  const settleUntilRef = useRef(0)
   const bubbleStacks = useMemo(() => stacksForRows(rows), [rows])
   const virtuosoData = useMemo<VirtuosoRow[]>(() => {
     const extra: VirtuosoRow[] = []
@@ -396,7 +403,18 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     [rows, virtuosoData.length, focusedMessageId, messageLayout],
   )
 
+  const stopSettling = useCallback(() => {
+    settleUntilRef.current = 0
+    if (flushRafRef.current) {
+      window.cancelAnimationFrame(flushRafRef.current)
+      flushRafRef.current = 0
+    }
+    for (const id of bottomTimersRef.current) window.clearTimeout(id)
+    bottomTimersRef.current = []
+  }, [])
+
   const snapScrollerToEnd = useCallback(() => {
+    if (readingHistoryRef.current) return
     const el = scrollerNode.current
     const top = el ? Math.max(0, el.scrollHeight - el.clientHeight) : Number.MAX_SAFE_INTEGER
     virtuosoRef.current?.scrollTo({ top, behavior: 'auto' })
@@ -404,8 +422,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   }, [])
 
   const scrollToAbsoluteBottom = useCallback(
-    (behavior: 'auto' | 'smooth' = 'auto') => {
-      ignoreUnpinUntilRef.current = Date.now() + 1800
+    (behavior: 'auto' | 'smooth' = 'auto', settleMs = 0) => {
+      readingHistoryRef.current = false
+      atBottomRef.current = true
+      stopSettling()
       const last = Math.max(0, virtuosoData.length - 1)
       virtuosoRef.current?.scrollToIndex({
         index: last,
@@ -413,9 +433,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         behavior,
       })
       snapScrollerToEnd()
-      if (flushRafRef.current) window.cancelAnimationFrame(flushRafRef.current)
+      if (settleMs <= 0) return
+      settleUntilRef.current = Date.now() + settleMs
       const loop = () => {
-        if (Date.now() > ignoreUnpinUntilRef.current) {
+        if (readingHistoryRef.current || Date.now() > settleUntilRef.current) {
           flushRafRef.current = 0
           return
         }
@@ -423,53 +444,81 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         flushRafRef.current = window.requestAnimationFrame(loop)
       }
       flushRafRef.current = window.requestAnimationFrame(loop)
-      for (const id of bottomTimersRef.current) window.clearTimeout(id)
-      bottomTimersRef.current = [32, 80, 180, 360, 640, 1200].map((ms) =>
-        window.setTimeout(snapScrollerToEnd, ms),
-      )
+      bottomTimersRef.current = [40, 120].map((ms) => window.setTimeout(snapScrollerToEnd, ms))
     },
-    [snapScrollerToEnd, virtuosoData.length],
+    [snapScrollerToEnd, stopSettling, virtuosoData.length],
   )
 
   useEffect(() => {
-    return () => {
-      for (const id of bottomTimersRef.current) window.clearTimeout(id)
-      if (flushRafRef.current) window.cancelAnimationFrame(flushRafRef.current)
-    }
-  }, [threadId])
+    readingHistoryRef.current = false
+    atBottomRef.current = true
+    stopSettling()
+    return () => stopSettling()
+  }, [threadId, stopSettling])
 
   const openedThreadSnapRef = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    openedThreadSnapRef.current = null
+  }, [threadId])
   useLayoutEffect(() => {
     if (!landing.pinToBottom || virtuosoData.length === 0) return
     const key = String(threadId)
     if (openedThreadSnapRef.current === key) return
     openedThreadSnapRef.current = key
-    scrollToAbsoluteBottom('auto')
+    scrollToAbsoluteBottom('auto', 280)
   }, [threadId, landing.pinToBottom, virtuosoData.length, scrollToAbsoluteBottom])
 
   useEffect(() => {
     const el = scrollerNode.current
     if (!el) return
+    const releaseIfScrollingUp = (delta: number) => {
+      if (delta >= -6) return
+      readingHistoryRef.current = true
+      atBottomRef.current = false
+      stopSettling()
+      onAtBottomChange?.(false)
+    }
+    const onWheel = (event: WheelEvent) => releaseIfScrollingUp(event.deltaY)
+    let touchY = 0
+    const onTouchStart = (event: TouchEvent) => {
+      touchY = event.touches[0]?.clientY ?? 0
+    }
+    const onTouchMove = (event: TouchEvent) => {
+      const y = event.touches[0]?.clientY ?? touchY
+      releaseIfScrollingUp(touchY - y)
+      touchY = y
+    }
+    el.addEventListener('wheel', onWheel, { passive: true })
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: true })
     const onResize = () => {
-      if (Date.now() < ignoreUnpinUntilRef.current) snapScrollerToEnd()
+      if (readingHistoryRef.current) return
+      if (atBottomRef.current || Date.now() < settleUntilRef.current) snapScrollerToEnd()
     }
     const ro = new ResizeObserver(onResize)
     ro.observe(el)
     const inner = el.firstElementChild
     if (inner) ro.observe(inner)
-    return () => ro.disconnect()
-  }, [threadId, virtuosoData.length, snapScrollerToEnd])
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      ro.disconnect()
+    }
+  }, [threadId, virtuosoData.length, snapScrollerToEnd, stopSettling, onAtBottomChange])
 
   useImperativeHandle(
     ref,
     () => ({
       scrollToBottom: (behavior: 'auto' | 'smooth' = 'auto') => {
-        scrollToAbsoluteBottom(behavior)
+        scrollToAbsoluteBottom(behavior, 0)
       },
       land: (behavior: 'auto' | 'smooth' = 'auto') => {
+        if (readingHistoryRef.current) return landing
         if (landing.pinToBottom) {
-          scrollToAbsoluteBottom(behavior)
+          scrollToAbsoluteBottom(behavior, 280)
         } else {
+          stopSettling()
           virtuosoRef.current?.scrollToIndex({
             index: landing.index,
             align: landing.align,
@@ -479,7 +528,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         return landing
       },
     }),
-    [landing, scrollToAbsoluteBottom],
+    [landing, scrollToAbsoluteBottom, stopSettling],
   )
 
   // Deep link from a notification: land on that card instead of the bottom.
@@ -499,6 +548,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const compact = useMemo(
     () => new Set(compactDecisionMessageIds),
     [compactDecisionMessageIds],
+  )
+  const outdated = useMemo(
+    () => new Set(outdatedDecisionMessageIds ?? []),
+    [outdatedDecisionMessageIds],
   )
 
   if (rows.length === 0) {
@@ -584,6 +637,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             agentAvatarColor={agentAvatarColor}
             agentAvatarImageUrl={agentAvatarImageUrl}
             compactReplyProposal={compact.has(String(message.id))}
+            outdated={outdated.has(String(message.id))}
             onResolved={onDecisionResolved}
             onEditDraft={onEditDraft}
           />
@@ -624,13 +678,27 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         defaultItemHeight={72}
         alignToBottom
         followOutput={(atBottom) => {
-          if (atBottom || Date.now() < ignoreUnpinUntilRef.current) return 'auto'
-          return false
+          if (readingHistoryRef.current) return false
+          return atBottom ? 'auto' : false
         }}
-        atBottomThreshold={200}
+        atBottomThreshold={72}
         atBottomStateChange={(atBottom) => {
-          if (!atBottom && Date.now() < ignoreUnpinUntilRef.current) return
-          onAtBottomChange?.(atBottom)
+          atBottomRef.current = atBottom
+          if (atBottom) {
+            readingHistoryRef.current = false
+            onAtBottomChange?.(true)
+            return
+          }
+          // Virtuoso reports a brief "not at bottom" while it measures. Ignore
+          // that during a programmatic land; a real wheel/touch already flipped
+          // `readingHistoryRef` and cancelled the settle.
+          if (readingHistoryRef.current) {
+            onAtBottomChange?.(false)
+            return
+          }
+          if (Date.now() < settleUntilRef.current) return
+          readingHistoryRef.current = true
+          onAtBottomChange?.(false)
         }}
         // Email bodies render in iframes that measure asynchronously; a
         // generous viewport keeps them mounted so heights stay stable.

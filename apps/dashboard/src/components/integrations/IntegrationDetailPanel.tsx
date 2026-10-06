@@ -14,6 +14,7 @@ import { getRegistryEntryByStaticId } from '../../lib/integrations/registry'
 import { resolveIntegrationKind, type IntegrationKind } from '../../lib/integration-kind'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { ProviderConnectionsList } from './ProviderConnectionsList'
 
 type HubBanner = { type: 'success' | 'error'; message: string } | null
 
@@ -23,8 +24,10 @@ type Props = {
   connectionCount: number
   banner: HubBanner
   onSetup: () => void
+  /** Fallback when the provider keeps its logins outside Connections (mailboxes, repositories). */
   onViewConnected: () => void
-  onAddAccount?: () => void
+  /** A registration was verified, renamed, disconnected or rescoped. */
+  onChanged?: () => void
   /** Extra context above the actions, e.g. the modules that use this login. */
   children?: ReactNode
 }
@@ -48,7 +51,7 @@ export function IntegrationDetailPanel({
   banner,
   onSetup,
   onViewConnected,
-  onAddAccount,
+  onChanged,
   children,
 }: Props) {
   const { t } = useTranslation('nav')
@@ -56,7 +59,7 @@ export function IntegrationDetailPanel({
   const isConnected = connectionCount > 0
   const isComingSoon = integration.status === 'coming_soon'
   const caps = capabilityLabels(provider, integration)
-  const showAddAccount = kind === 'repository' && isConnected && onAddAccount != null
+  const [listedCount, setListedCount] = useState<number | null>(provider?.slug ? null : 0)
   const remoteDef = remoteMcpByStaticId(integration.id)
   const registryEntry = getRegistryEntryByStaticId(integration.id)
   const remoteEndpoint =
@@ -239,12 +242,16 @@ export function IntegrationDetailPanel({
         <Badge variant="neutral" className="text-2xs">
           {t(kindLabelKey(kind))}
         </Badge>
-        {isConnected ? (
-          <span className="text-xs text-text-muted">
-            {t('integrations.marketplace.activeConnections', { count: connectionCount })}
-          </span>
-        ) : null}
       </div>
+
+      {isConnected && provider?.slug ? (
+        <ProviderConnectionsList
+          provider={provider.slug}
+          onAddAnother={isComingSoon ? undefined : onSetup}
+          onChanged={onChanged}
+          onLoaded={setListedCount}
+        />
+      ) : null}
 
       <div className="flex flex-col gap-2 pt-2">
         {isComingSoon ? (
@@ -252,16 +259,16 @@ export function IntegrationDetailPanel({
             {t('integrations.actions.comingSoon')}
           </Button>
         ) : isConnected ? (
-          <>
-            {showAddAccount ? (
-              <Button size="sm" variant="ghost" onClick={onAddAccount}>
-                {t('integrations.actions.addAccount')}
+          listedCount === 0 ? (
+            <>
+              <Button size="sm" variant="ghost" onClick={onSetup}>
+                {t('integrations.connections.addAnother')}
               </Button>
-            ) : null}
-            <Button size="sm" variant="secondary" onClick={onViewConnected}>
-              {t('integrations.hub.detail.manageConnected')}
-            </Button>
-          </>
+              <Button size="sm" variant="secondary" onClick={onViewConnected}>
+                {t('integrations.hub.detail.manageConnected')}
+              </Button>
+            </>
+          ) : null
         ) : (
           <Button size="sm" onClick={onSetup}>
             {t('integrations.hub.detail.setup')}

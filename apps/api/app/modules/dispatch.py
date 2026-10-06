@@ -2,7 +2,7 @@
 
 Agents call ``{slug}_{verb}`` tools; this module routes the verb to the
 module's provider package by convention: ``app.modules.{slug}.router`` must
-expose ``call_verb(session, tenant_id, verb, args, *, agent_id)`` and may
+expose ``call_verb(session, tenant_id, verb, args, *, agent_id, project_id)`` and may
 expose ``build_proposal(verb, args)`` for custom decision cards.
 
 Adding a new module therefore never touches shared code: add the ModuleSpec
@@ -49,8 +49,13 @@ async def call_module_verb(
     args: dict[str, Any] | None = None,
     *,
     agent_id: UUID | None = None,
+    project_id: UUID | None = None,
 ) -> dict[str, Any]:
-    """Execute one module verb through the module's provider package."""
+    """Execute one module verb through the module's provider package.
+
+    ``project_id`` is the call's project context; providers use it to keep
+    project-linked connections inside their projects.
+    """
     spec = get_module(slug)
     if spec is None:
         return module_error("unknown_module", f"Unknown module '{slug}'.")
@@ -61,7 +66,9 @@ async def call_module_verb(
             "not_implemented",
             f"The {spec.name} module has no live provider yet.",
         )
-    return await handler(session, tenant_id, verb, args or {}, agent_id=agent_id)
+    return await handler(
+        session, tenant_id, verb, args or {}, agent_id=agent_id, project_id=project_id
+    )
 
 
 async def module_writes_gate(

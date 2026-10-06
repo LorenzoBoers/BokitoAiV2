@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderKanban, MessageSquare, Pause, Pencil, Play, Bot, X, Zap } from 'lucide-react'
 import { Button } from '../ui/button'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
-import { itemEnd, itemStart, layerOf } from '../../lib/agenda-layout'
+import { itemEnd, itemOwner, itemStart, layerOf } from '../../lib/agenda-layout'
 import { runTrigger, updateTrigger, type Trigger } from '../../lib/orchestration-api'
 import { openEntityPath } from '../../lib/open-entity'
 import { agendaStatusLabel } from '../../lib/status-labels'
@@ -20,6 +20,7 @@ import {
   relativeMoment,
   triggerScheduleLabel,
 } from './agenda-style'
+import { AgendaOwnerMark } from './AgendaOwnerMark'
 import type { AgendaSelection } from './AgendaTimeGrid'
 
 type Props = {
@@ -119,6 +120,9 @@ function ItemBody({
   }
 
   const subtitle = itemSubtitle(item, t)
+  const owner = itemOwner(item)
+  const calendarLine = item.kind === 'calendar' ? subtitle : ''
+  const whatLine = item.kind === 'activity' ? subtitle : ''
 
   return (
     <div className="space-y-4 px-4 py-3 text-sm">
@@ -130,12 +134,24 @@ function ItemBody({
           {!item.all_day && !pointInTime ? ` – ${formatAppTime(end, i18n.language)}` : ''}
           <span className="block text-xs text-text-muted">{relativeMoment(start.getTime(), nowMs, t)}</span>
         </dd>
-        {subtitle ? (
+        {owner ? (
           <>
-            <dt className="text-text-muted">
-              {item.kind === 'activity' ? t('agendaPage.panel.what') : item.kind === 'calendar' ? t('agendaPage.panel.calendars') : t('agendaPage.panel.who')}
-            </dt>
-            <dd className="text-text-heading">{subtitle}</dd>
+            <dt className="text-text-muted">{t('agendaPage.panel.who')}</dt>
+            <dd className="text-text-heading">
+              <AgendaOwnerMark owner={owner} size={20} withName className="text-sm" />
+            </dd>
+          </>
+        ) : null}
+        {whatLine ? (
+          <>
+            <dt className="text-text-muted">{t('agendaPage.panel.what')}</dt>
+            <dd className="text-text-heading">{whatLine}</dd>
+          </>
+        ) : null}
+        {calendarLine ? (
+          <>
+            <dt className="text-text-muted">{t('agendaPage.panel.calendars')}</dt>
+            <dd className="text-text-heading">{calendarLine}</dd>
           </>
         ) : null}
         {trigger && !isCheckup ? (

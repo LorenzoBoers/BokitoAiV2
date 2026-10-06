@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { PanelRightClose } from 'lucide-react'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listAgents } from '../../lib/agents-api'
-import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
+import type { InboxThread, PatchThreadInput, RelatedConversation } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import ContactPanel from './ContactPanel'
 import AgentContextPanel from './AgentContextPanel'
@@ -18,6 +18,8 @@ type Props = {
   saving?: boolean
   onPatch?: (input: PatchThreadInput) => Promise<void>
   onWhatsNext?: () => void
+  /** Other conversations with this person (from the thread payload). */
+  relatedConversations?: RelatedConversation[]
 }
 
 export default function AgentThreadPanel({
@@ -27,6 +29,7 @@ export default function AgentThreadPanel({
   saving,
   onPatch,
   onWhatsNext,
+  relatedConversations,
 }: Props) {
   const { t } = useTranslation(['nav', 'communication'])
   const [project, setProject] = useState<ProjectRow | null>(null)
@@ -149,6 +152,7 @@ export default function AgentThreadPanel({
               contactBasis={thread.contactBasis}
               closeAction={closeAction}
               threadActivityAt={thread.lastMessageAt}
+              relatedConversations={relatedConversations}
             >
               <ConversationWorkSection
                 thread={thread}

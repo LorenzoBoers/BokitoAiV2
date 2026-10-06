@@ -2,19 +2,19 @@
 title: Kanalen koppelen
 intro: Breng klantmail en andere inboxen naar Communicatie.
 description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP of WhatsApp, lees de status en controles per kanaal, en pauzeer of verwijder een kanaal.
-keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening, kanaal pauzeren
+keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening, kanaal pauzeren, automatische mail archiveren, nieuwsbrieven, syncfouten
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
 
 # Kanalen koppelen
 
-Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de instellingen te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**, plus één sectie met wat alleen dat type heeft. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
+Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de pagina te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**. Websitechat voegt **Uiterlijk**, **Stem en uren** en **Installatie** toe op die pagina. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
 
 ## Voeg een kanaal toe
 
 ![Kanaalinstellingen met een geopend kanaal](/api/docs/assets/channels/mailbox-status.png)
-*Elke rij toont de AI-afhandeling en de status; de geopende rij toont Status, Algemeen, de typesectie en Beheer.*
+*Elke rij toont de AI-afhandeling en de status; klik een rij om de kanaalpagina te openen.*
 
 1. Open **Instellingen** en daarna **Kanalen**.
 2. Kies **Kanaal toevoegen**.
@@ -54,6 +54,19 @@ Een Bokito-adres ontvangt en verstuurt; het synchroniseert niet, dus het toont g
 
 Staat er **Actie nodig** op de statusbadge, kies dan **Opnieuw koppelen** (of pas de configuratie aan en probeer opnieuw) voordat je verstuurt.
 
+## Verzonden items meelezen
+
+Een antwoord dat een collega rechtstreeks vanuit Gmail of Outlook stuurt hoort nog steeds bij het gesprek. Verzonden items van een gekoppelde Gmail- of Outlook-mailbox worden standaard meegelezen, zodat dat antwoord als teamantwoord op de tijdlijn landt.
+
+![Mappen van een gekoppelde mailbox met Verzonden items aangevinkt](/api/docs/assets/channels/sent-items.png)
+*Inbox en Verzonden items staan standaard aan voor Gmail en Outlook; SMTP/IMAP leest alleen de Inbox.*
+
+1. Open **Kanalen**, klik op de mailboxrij en open **Mappen** onder **Mailbox**. **Inbox** en **Verzonden items** staan aan voor Gmail en Outlook. Zet **Verzonden items** uit als de mailbox ook voor privémail wordt gebruikt die je helemaal niet wilt zien.
+2. Alleen mail aan een bekend contact, of een antwoord op een bestaand gesprek, wordt vastgelegd. Mail aan een leverancier of een privéadres blijft buiten Bokito en maakt nooit een gesprek aan.
+3. Een vastgelegd antwoord staat als teambubbel met **Verstuurd vanuit eigen mailbox (Outlook)** onder de naam. De auteur is het teamlid wiens inlog-e-mail overeenkomt met de afzender; anders het lid met het mailboxadres als e-mail, of de enige persoon met wie de mailbox is gedeeld.
+4. Het gesprek is gelezen, verdwijnt uit **Jij aan zet**, en een open AI-voorstel gaat opzij met reden **een collega antwoordde**. Mail die Bokito zelf vanuit die mailbox stuurde wordt herkend en niet dubbel vastgelegd.
+5. Een mail die een klantbericht doorstuurt (**FW:** met een **Van:**-regel) wordt op het teamlid vastgelegd en toont **Bevat doorgestuurd bericht van {naam}**, zodat je weet wie de oorspronkelijke afzender is.
+
 ## Hernoem een kanaal
 
 1. Open **Kanalen**.
@@ -71,6 +84,7 @@ Setupgids, Koppelingen, Kanalen en de reply-composer gebruiken dezelfde kanaalst
 2. Heeft een kanaal een mens nodig, dan toont de rij één herstelknop naast de status: **Opnieuw koppelen**, **Sync opnieuw proberen** of **Hervatten**. Een gele melding boven de lijst telt de kanalen die nog niet klaar zijn, en de eerste daarvan gaat vanzelf open.
 3. Klik op de rij en lees **Status**. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
 4. Bij een mailbox staat **Geschiedenis** in de sectie **Mailbox** voor latere backfills na opnieuw koppelen. Hoe ver terug bij de eerste installatie kies je tijdens **Kanaal toevoegen**.
+5. Een mailbox die 50 keer achter elkaar niet kan synchroniseren pauzeert zichzelf in plaats van eindeloos opnieuw te proberen. De rij toont **Gepauzeerd**, **Syncfouten** toont de reden en er komt een melding in Communicatie. Herstel de aanmelding of server en kies **Hervatten**; een geslaagde sync zet de teller op nul.
 
 ## Pauzeer of verwijder een kanaal
 
@@ -87,6 +101,15 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 2. Kies onder **Algemeen** een **Agent** om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder keuze behandelt de standaardagent nieuwe gesprekken. **Kanaaltoegang** in dezelfde sectie bepaalt wie het kanaal mag **Bekijken** of **Behandelen** (mensen, teams en agents). Eigenaren en beheerders behandelen altijd elk kanaal.
 3. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
 
+## Archiveer automatische mail op een mailbox
+
+Nieuwsbrieven, bonnetjes en no-reply meldingen hoeven geen antwoord, maar ze belanden wel in **Open** en vragen aandacht van het team. Zet dit per mailbox aan en ze bergen zichzelf op.
+
+1. Klik op de mailboxrij en scroll naar **Mailbox**.
+2. Zet **Automatische mail archiveren** aan. Bokito sluit elke nieuwsbrief, bon of no-reply mail bij binnenkomst en tagt die met `#automated`; het gesprek blijft vindbaar onder **Gesloten**.
+3. Laat het uit om het huidige gedrag te houden: de AI noteert dat er geen antwoord nodig is en het gesprek blijft in **Open** tot iemand het sluit.
+4. Blijft dezelfde bulkafzender binnenkomen, dan stelt de AI een **Automatiseringsregel** voor als kaart in het gesprek. Kies **Activeren** om die afzender voortaan automatisch te sluiten, of **Later**. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+
 ## AI-afhandeling per kanaal instellen
 
 1. De rij toont de huidige modus van het kanaal (**Autonoom**, **Geassisteerd** of **Handmatig**) met het icoon. Klik op de rij en open **AI-afhandeling** onder **Algemeen**. De modus met **Bedrijfsstandaard** is wat het kanaal volgt zonder eigen instelling; kies die om een afwijking weg te halen.
@@ -100,7 +123,7 @@ Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI
 1. Kies **Kanaal toevoegen** en daarna **WhatsApp Business**. Marketplacekaarten voor deze app sturen je hier ook heen.
 2. WhatsApp is een stapsgewijze setup: **Voorbereiden in Meta** (app, nummer, Phone number ID, permanent System User-token), daarna **Plakken in Bokito** (weergavenaam, Telefoonnummer-ID, optioneel WABA-ID, toegangstoken) en **Nummer koppelen**. De Phone number ID is een lang getal uit Meta → WhatsApp → API Setup — niet je telefoonnummer.
 3. Na het koppelen toont Bokito **Webhook-URL** en **Verify token**. Plak die in Meta onder WhatsApp → Configuration, abonneer op **messages**, en stuur een testbericht. Tijdelijke Meta-tokens verlopen na 24 uur.
-4. Websitechat is de [Chatwidget](/docs/inbox/widget); de sectie **Websitechat** linkt naar **Uiterlijk en teksten**, **Openingstijden** en **Installatie**. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
+4. Websitechat is de [websitewidget](/docs/inbox/widget). **Kanaal toevoegen** en daarna **Websitechat** maakt een extra kanaal met eigen snippet. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
 
 ## Bewaar antwoorden die het team hergebruikt
 

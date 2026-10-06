@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
-import { dayKey, groupByDay, itemStart, layerOf } from '../../lib/agenda-layout'
+import { dayKey, groupByDay, itemOwner, itemStart, layerOf } from '../../lib/agenda-layout'
 import type { TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
-import { LAYER_DOT } from './agenda-style'
+import { agendaChipState, LAYER_DOT } from './agenda-style'
+import { AgendaOwnerMark } from './AgendaOwnerMark'
 import type { AgendaSelection } from './AgendaTimeGrid'
 
 const VISIBLE = 3
@@ -14,11 +15,12 @@ type Props = {
   month: number
   items: TimeItem[]
   nowMs: number
+  selectedId: string | null
   onSelect: (selection: AgendaSelection) => void
   onOpenDay: (day: Date) => void
 }
 
-export default function AgendaMonthGrid({ days, month, items, nowMs, onSelect, onOpenDay }: Props) {
+export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId, onSelect, onOpenDay }: Props) {
   const { t, i18n } = useTranslation('nav')
   const byDay = useMemo(() => groupByDay(items), [items])
   const todayKey = dayKey(new Date(nowMs))
@@ -57,23 +59,30 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, onSelect, o
               >
                 {day.getDate()}
               </button>
-              {planned.slice(0, VISIBLE).map((item) => (
+              {planned.slice(0, VISIBLE).map((item) => {
+                const owner = itemOwner(item)
+                return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => onSelect({ kind: 'item', item })}
                   className={cn(
                     'flex min-w-0 items-center gap-1 rounded px-1 text-left text-2xs hover:bg-bg-elevated',
-                    itemStart(item).getTime() < nowMs && 'opacity-60',
+                    agendaChipState({
+                      selected: selectedId === item.id,
+                      past: itemStart(item).getTime() < nowMs,
+                    }),
                   )}
                 >
                   <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', LAYER_DOT[layerOf(item)])} aria-hidden />
                   <span className="shrink-0 tabular-nums text-text-muted">
                     {item.all_day ? '' : formatAppTime(itemStart(item), i18n.language)}
                   </span>
-                  <span className="truncate text-text-heading">{item.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-text-heading">{item.title}</span>
+                  {owner ? <AgendaOwnerMark owner={owner} size={12} /> : null}
                 </button>
-              ))}
+                )
+              })}
               {planned.length > VISIBLE || quiet > 0 ? (
                 <button
                   type="button"

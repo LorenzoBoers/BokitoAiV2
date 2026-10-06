@@ -200,6 +200,49 @@ def workstream_stages(ws: Workstream | None) -> list[dict[str, Any]]:
     return parse_stages(ws.stages_json if ws else None)
 
 
+def default_stages_json() -> str:
+    """The default pipeline, stored explicitly so a flow never has empty stages."""
+    return json.dumps([dict(s) for s in DEFAULT_TICKET_STAGES])
+
+
+async def ensure_flow_stages(session: AsyncSession) -> int:
+    """Startup backfill: write the default pipeline into flows that have none.
+
+    Older flows were saved without stages and rendered as empty boards; the
+    implicit fallback in ``parse_stages`` hid that from the API but not from
+    the operator.
+    """
+    rows = (
+        await session.execute(select(Workstream).where(Workstream.deleted_at.is_(None)))
+    ).scalars().all()
+    fixed = 0
+    for ws in rows:
+        if has_explicit_stages(ws):
+            continue
+        ws.stages_json = default_stages_json()
+        session.add(ws)
+        fixed += 1
+    if fixed:
+        await session.commit()
+    return fixed
+
+
+def has_explicit_stages(ws: Workstream | None) -> bool:
+    """True when ``stages_json`` holds at least one valid stage of its own."""
+    if ws is None:
+        return False
+    try:
+        data = json.loads(ws.stages_json or "[]")
+    except json.JSONDecodeError:
+        return False
+    return isinstance(data, list) and any(
+        isinstance(item, dict)
+        and str(item.get("key") or "").strip()
+        and str(item.get("kind") or "") in TICKET_STAGE_KINDS
+        for item in data
+    )
+
+
 def intake_fields(stages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Fields collected when filing: from the first open (niet gestart) stage."""
     for stage in stages:
@@ -230,6 +273,35 @@ def parse_ticket_fields(raw: str | None) -> dict[str, str]:
     if not isinstance(data, dict):
         return {}
     return {str(k): str(v) if v is not None else "" for k, v in data.items()}
+
+
+def missing_required_stage_fields(
+    stage: dict[str, Any] | None, values: dict[str, str]
+) -> list[dict[str, Any]]:
+    """Required fields on ``stage`` that have no value yet."""
+    if not stage:
+        return []
+    missing: list[dict[str, Any]] = []
+    for field in stage.get("fields") or []:
+        if not field.get("required"):
+            continue
+        if not str(values.get(field["key"], "")).strip():
+            missing.append(dict(field))
+    return missing
+
+
+def raise_stage_fields_required(stage: dict[str, Any], missing: list[dict[str, Any]]) -> None:
+    names = ", ".join(str(field.get("name") or field.get("key")) for field in missing)
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "code": "stage_fields_required",
+            "message": f"Fill required fields before moving to {stage.get('name') or stage.get('key')}: {names}",
+            "stage_key": stage.get("key"),
+            "stage_name": stage.get("name") or stage.get("key"),
+            "fields": missing,
+        },
+    )
 
 
 def normalize_ticket_fields(
@@ -737,6 +809,12 @@ async def move_ticket_stage(
         return False
     if current is not None and current["key"] == target["key"] and signal.ticket_status == target["kind"]:
         return False
+    # First enter after filing skips this: intake is collected on file.
+    # Later moves (board, ticket panel, close, agents) must fill the target.
+    if current is not None:
+        missing = missing_required_stage_fields(target, parse_ticket_fields(signal.ticket_fields_json))
+        if missing:
+            raise_stage_fields_required(target, missing)
     signal.stage_key = target["key"]
     signal.ticket_status = target["kind"]
     signal.updated_at = datetime.utcnow()

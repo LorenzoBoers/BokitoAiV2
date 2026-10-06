@@ -25,14 +25,14 @@ Een flow is de pijplijn voor werk dat onder één actietag terugkomt: een klacht
 1. Open een flow. Onder de titel zie je de **Actietag**, de projecten waarin hij **Gebruikt in** is, en tellers zoals **Open tickets** en **Langst stil**.
 2. Het bord heeft een kolom per fase en een baan per project, plus **Geen project** voor tickets zonder project. Klap een baan in via de kop, of kies **Project openen** om naar dat project te gaan.
 3. Een kaart toont de gesprekstitel, het contact, maximaal twee invoervelden, het kanaal, het tijdstip van het laatste bericht, de behandelaar en de volgende check-up. Klik op een kaart om het gesprek te openen.
-4. Sleep een kaart naar een andere fase in dezelfde baan. De verplaatsing staat in de tijdlijn van het gesprek; het project wijzig je alleen vanuit het gesprek.
+4. Sleep een kaart naar een andere fase in dezelfde baan. De verplaatsing staat in de tijdlijn van het gesprek; het project wijzig je alleen vanuit het gesprek. Als de doelfase verplichte velden heeft die nog leeg zijn, vraagt een dialoog ze eerst in te vullen en blijft de kaart staan tot ze er zijn.
 
 ## De fasen bewerken in de bewerkmodus
 
 1. Beheerders kiezen rechtsboven **Bewerken**. Het bord verdwijnt en de balk **Bewerkmodus** verschijnt; titel, beschrijving en fasen zijn dan bewerkbaar. Een andere titel hernoemt de actietag op elk gesprek; de balk toont de oude en nieuwe hashtag voordat je opslaat.
-2. Kies in **Ticketfases** voor elke stap **Nieuwe fase toevoegen** (bijvoorbeeld Nieuw, Wacht op onderdelen, Gerepareerd). Zet elk **Soort fase** op open, waiting, done of closed, en houd minstens één klaar-fase. Sleep fasen om te herordenen.
+2. Kies in **Ticketfases** voor elke stap **Nieuwe fase toevoegen** (bijvoorbeeld Nieuw, Wacht op onderdelen, Gerepareerd). Zet elk **Soort fase** op open, waiting, done of closed, en houd minstens één klaar-fase. Sleep fasen om te herordenen. Elke flow start met Open, Wachtend en Klaar; **Opslaan** blijft uit zolang de pipeline leeg is of geen klaar-fase heeft, zodat een bord nooit zonder kolommen komt te staan.
 3. Op een klaar-fase zet je **Gesprek automatisch sluiten** aan als binnenkomen in die fase de thread moet sluiten.
-4. Open **Invoervelden** op een fase om tekst-, lange-tekst-, getal- of keuzelijstvelden toe te voegen. Velden op de eerste fase worden gevraagd bij het vastleggen van de actietag.
+4. Open **Invoervelden** op een fase om tekst-, lange-tekst-, getal- of keuzelijstvelden toe te voegen. Velden op de eerste fase worden gevraagd bij het vastleggen van de actietag. Verplichte velden op een latere fase moeten ingevuld zijn voordat een ticket die fase in kan.
 5. Kies per fase een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme. Tickets in die fase krijgen een check-up op [Agenda](/docs/ai/agenda) voor hun eigenaar; klaar-fasen checken nooit.
 6. Er wordt niets opgeslagen tot je **Opslaan** kiest; intussen toont de balk **Niet-opgeslagen wijzigingen**. **Annuleren** vraagt of je wilt **Weggooien** en brengt je ongewijzigd terug naar het bord. Een hashtag die een andere tag al gebruikt, kun je niet opslaan.
 

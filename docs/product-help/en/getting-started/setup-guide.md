@@ -17,7 +17,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 *Set the name, logo and language first.*
 
 1. Open **Settings**, then **General**. Set **Workspace name** and choose **Save settings**. Language is personal (Dutch or English) and lives under **Profile & security**, not here. **Platform support** decides whether Bokito support may open this workspace. Owners delete the workspace in the **Danger zone** at the bottom of this page (type the workspace name to confirm).
-2. Open **Branding**. Set **Name**, **Logo**, **Favicon**, **Brand color** and **Workspace subdomain**, then **Save changes**. They carry into the [website widget](/docs/inbox/widget) and outbound mail.
+2. Open **Branding**. Set **Name**, **Logo**, **Favicon**, **Brand color** and **Workspace subdomain**, then **Save changes**. They carry into the [website widget](/docs/inbox/widget) and outbound mail. **Brand color** takes a hex value such as `#32BF8E`. The preview under it shows the button and link in light and dark. Bokito keeps the hue and adjusts lightness so button text (white or dark) stays readable. White, grey and black give a neutral style: dark buttons in light mode, light buttons in dark mode.
 3. Do branding before anything customer-facing goes live so drafts and the launcher already look like you.
 
 ## Invite the team
@@ -43,7 +43,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 
 ## Schedule recurring work
 
-New workspaces seed an hourly **platform check-in** that starts **paused**. When you turn it on, the assistant wakes, reads the Daily check-in note in Knowledge, and writes in its own channel in Communication only when something needs you. That is the same conversation you open under **Agents** in the Communication sidebar, so findings sit next to the questions you already ask that assistant. Turn it on from the setup guide, from Overview, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Overview](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Overview **Usage**.
+New workspaces seed a daily **platform check-in** that starts **paused**. When you turn it on, the assistant wakes once a day, reads the Daily check-in note in Knowledge and what it wrote last time, and writes in its own channel in Communication only when something new needs you. It does not repeat a question it already asked, and it only raises a decision card when the question is about a conversation or has an action you can approve. Change the rhythm on the wake in [Agenda](/docs/ai/agenda). That is the same conversation you open under **Agents** in the Communication sidebar, so findings sit next to the questions you already ask that assistant. Turn it on from the setup guide, from Overview, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Overview](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Overview **Usage**.
 
 ## Follow the live checklist
 
@@ -53,7 +53,7 @@ On first login, owners complete the **first-run wizard**, then the product tour.
 2. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Channels**, not the module marketplace. See [Channels](/docs/inbox/channels).
 3. **Talk with the assistant** — a short chat fills company knowledge. See [Knowledge](/docs/ai/knowledge).
 4. **Resolve your first decision** — the checklist card (and **Try the demo** where offered) starts a sample thread so you can approve a card.
-5. **Turn on check-in** — the hourly check-in is seeded paused; turn it on when you want watching.
+5. **Turn on check-in** — the daily check-in is seeded paused; turn it on when you want watching.
 
 **Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), projects, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Data & privacy](/docs/govern/privacy-security) (retention, data region, and data subject requests).
 

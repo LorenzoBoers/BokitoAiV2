@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { AiAvatar } from '../ui/AiAvatar'
+import { Textarea } from '../ui/textarea'
 import { useAuth } from '../../context/AuthContext'
 import { bokitoUpdateAgent } from '../../lib/bokito-api'
 import {
@@ -28,22 +29,26 @@ type Props = {
   onOpenChange: (open: boolean) => void
   agentId: string
   agentName: string
+  agentDescription?: string | null
   avatarKind?: string | null
   avatarIcon?: string | null
   onChanged?: () => void
 }
+
+const MAX_DESCRIPTION = 280
 
 function editorKind(value: string | null | undefined): 'initials' | 'icon' {
   const kind = (value ?? '').trim().toLowerCase() as AgentAvatarKind | ''
   return kind === 'icon' ? 'icon' : 'initials'
 }
 
-/** Name + optional icon for a company agent (platform AI violet, no custom colors). */
+/** Name, short description and optional icon for a company agent (platform AI violet). */
 export function AgentIdentityDialog({
   open,
   onOpenChange,
   agentId,
   agentName,
+  agentDescription,
   avatarKind,
   avatarIcon,
   onChanged,
@@ -52,6 +57,7 @@ export function AgentIdentityDialog({
   const { t: tc } = useTranslation()
   const { token } = useAuth()
   const [name, setName] = useState(agentName)
+  const [description, setDescription] = useState(agentDescription ?? '')
   const [kind, setKind] = useState<'initials' | 'icon'>(editorKind(avatarKind))
   const [icon, setIcon] = useState(avatarIcon ?? 'bot')
   const [busy, setBusy] = useState(false)
@@ -60,10 +66,11 @@ export function AgentIdentityDialog({
   useEffect(() => {
     if (!open) return
     setName(agentName)
+    setDescription(agentDescription ?? '')
     setKind(editorKind(avatarKind))
     setIcon(avatarIcon ?? 'bot')
     setError(null)
-  }, [open, agentName, avatarKind, avatarIcon])
+  }, [open, agentName, agentDescription, avatarKind, avatarIcon])
 
   const save = async () => {
     if (!token || busy) return
@@ -81,6 +88,7 @@ export function AgentIdentityDialog({
     try {
       await bokitoUpdateAgent(token, agentId, {
         name: trimmed,
+        description: description.trim(),
         avatar_kind: kind,
         avatar_icon: kind === 'icon' ? icon : null,
         avatar_image_url: null,
@@ -127,6 +135,22 @@ export function AgentIdentityDialog({
                 }}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-secondary" htmlFor="agent-identity-description">
+              {t('workforce.agents.identityDescription')}
+            </label>
+            <Textarea
+              id="agent-identity-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION))}
+              disabled={busy}
+              rows={3}
+              maxLength={MAX_DESCRIPTION}
+              placeholder={t('workforce.agents.identityDescriptionPlaceholder')}
+            />
+            <p className="text-2xs text-text-muted">{t('workforce.agents.identityDescriptionHint')}</p>
           </div>
 
           <Tabs value={kind} onValueChange={(v) => setKind(v === 'icon' ? 'icon' : 'initials')}>

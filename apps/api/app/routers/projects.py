@@ -603,6 +603,20 @@ class ResourceCreateBody(BaseModel):
     label: str = ""
     external_ref: str = ""
     config: dict[str, Any] | None = None
+    # resource_type="connection": the IntegrationConnection to make exclusive to this project.
+    connection_id: UUID | None = None
+
+
+async def _require_connection_manage(
+    session: AsyncSession, auth: AuthContext, connection_id: UUID | None
+) -> None:
+    from app.models.integration import IntegrationConnection
+    from app.services.connection_access import require_manage
+
+    conn = await session.get(IntegrationConnection, connection_id) if connection_id else None
+    if conn is None or conn.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    await require_manage(session, conn, user_id=auth.user.id, role=auth.role)
 
 
 class ResourcePatchBody(BaseModel):
@@ -618,7 +632,7 @@ async def list_project_resources(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """External surfaces linked to this project (repo, drive, notion, vibecode)."""
+    """External surfaces linked to this project (repo, drive, notion, vibecode, connection)."""
     await svc.get_project_row(session, auth.tenant.id, project_id)
     return {"items": await work.list_resources(session, auth.tenant.id, project_id)}
 
@@ -630,8 +644,14 @@ async def create_project_resource(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Link a resource slot to the project; connectors attach to it later."""
+    """Link a resource slot to the project; connectors attach to it later.
+
+    ``resource_type="connection"`` with ``connection_id`` makes that connection
+    exclusive to its linked projects (requires Manage on the connection).
+    """
     await svc.get_project_row(session, auth.tenant.id, project_id)
+    if body.resource_type == "connection":
+        await _require_connection_manage(session, auth, body.connection_id)
     return await work.create_resource(
         session,
         auth.tenant.id,
@@ -641,6 +661,7 @@ async def create_project_resource(
         label=body.label,
         external_ref=body.external_ref,
         config=body.config,
+        connection_id=body.connection_id if body.resource_type == "connection" else None,
         created_by_type="user",
         created_by_id=str(auth.user.id),
     )
@@ -672,6 +693,15 @@ async def delete_project_resource(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.models.project_work import ProjectResource
+
+    resource = await session.get(ProjectResource, resource_id)
+    if (
+        resource is not None
+        and resource.tenant_id == auth.tenant.id
+        and resource.resource_type == "connection"
+    ):
+        await _require_connection_manage(session, auth, resource.connection_id)
     await work.delete_resource(session, auth.tenant.id, resource_id)
     return {"ok": True}
 

@@ -121,11 +121,24 @@ async def _generic_rows(
 
 
 async def list_module_connections(
-    session: AsyncSession, tenant_id: UUID, module_slug: str
+    session: AsyncSession,
+    tenant_id: UUID,
+    module_slug: str,
+    *,
+    user_id: UUID | None = None,
+    role: str | None = None,
 ) -> dict[str, Any]:
-    """Unified registrations for a module home Connections tab."""
+    """Unified registrations for a module home Connections tab.
+
+    Rows carry the shared scope fields (projects, access, can_manage) for the
+    viewer given by ``user_id`` / ``role``.
+    """
     if MODULE_BY_SLUG.get(module_slug) is None:
         raise ValueError(f"Unknown module '{module_slug}'")
+    if module_slug == "accounting":
+        from app.services.connection_instance import converge_once
+
+        await converge_once(session, tenant_id)
 
     prefs = await get_module_prefs(session, tenant_id, module_slug)
     default_connection_id = str(prefs.get("default_connection_id") or "").strip()
@@ -155,6 +168,7 @@ async def list_module_connections(
         connections.append(
             {
                 "id": cid,
+                "connection_id": str(row.get("connection_id") or cid),
                 "kind": row.get("kind") or "oauth",
                 "provider": row.get("provider"),
                 "vendor": row.get("vendor") or row.get("provider"),
@@ -168,6 +182,9 @@ async def list_module_connections(
 
     if not default_connection_id and len(connections) == 1 and connections[0]["ready"]:
         connections[0]["is_default"] = True
+    from app.services.provider_connections import enrich_rows
+
+    connections = await enrich_rows(session, tenant_id, connections, user_id=user_id, role=role)
 
     from app.config import get_settings
 
@@ -250,6 +267,21 @@ async def _clear_module_default_if_needed(
         )
 
 
+async def _drop_project_links(
+    session: AsyncSession, tenant_id: UUID, connection_id: UUID
+) -> None:
+    from app.services.connection_scope import set_connection_projects
+    from app.services.module_attach import resolve_integration_connection_id
+
+    try:
+        ic_id = await resolve_integration_connection_id(session, tenant_id, connection_id)
+    except HTTPException:
+        return
+    conn = await session.get(IntegrationConnection, ic_id)
+    if conn is not None:
+        await set_connection_projects(session, tenant_id, conn, [])
+
+
 async def disconnect_module_connection(
     session: AsyncSession,
     tenant_id: UUID,
@@ -261,6 +293,7 @@ async def disconnect_module_connection(
         raise ValueError(f"Unknown module '{module_slug}'")
 
     cid = str(connection_id)
+    await _drop_project_links(session, tenant_id, connection_id)
 
     # Moneybird / OAuth path: IntegrationConnection id.
     conn = await session.get(IntegrationConnection, connection_id)
@@ -307,11 +340,53 @@ async def verify_module_connection(
     """Live-verify a module registration and persist identity / last_verified_at."""
     if MODULE_BY_SLUG.get(module_slug) is None:
         raise ValueError(f"Unknown module '{module_slug}'")
+    return await verify_connection(session, tenant_id, connection_id, module_slug=module_slug)
 
+
+async def bound_mcp_server(
+    session: AsyncSession, tenant_id: UUID, connection_id: UUID
+) -> McpServer | None:
+    """Active native McpServer behind an IntegrationConnection, if any."""
+    rows = await session.execute(
+        select(IntegrationBinding).where(
+            IntegrationBinding.tenant_id == tenant_id,
+            IntegrationBinding.connection_id == connection_id,
+            IntegrationBinding.binding_type == "mcp_server",
+        )
+    )
+    for binding in rows.scalars().all():
+        raw = str(_parse_json(binding.config_json).get("mcp_server_id") or "").strip()
+        try:
+            server = await session.get(McpServer, UUID(raw))
+        except ValueError:
+            continue
+        if server is not None and server.tenant_id == tenant_id and server.is_active:
+            return server
+    return None
+
+
+async def verify_connection(
+    session: AsyncSession,
+    tenant_id: UUID,
+    connection_id: UUID,
+    *,
+    module_slug: str | None = None,
+) -> dict[str, Any]:
+    """Live-verify a registration (IntegrationConnection or native McpServer id)."""
     cid = str(connection_id)
     now = datetime.now(timezone.utc).isoformat()
 
     server = await session.get(McpServer, connection_id)
+    if server is None:
+        ic = await session.get(IntegrationConnection, connection_id)
+        if ic is not None and ic.tenant_id == tenant_id:
+            bound = await bound_mcp_server(session, tenant_id, ic.id)
+            if bound is not None:
+                server = bound
+                if module_slug is None:
+                    from app.modules.catalog import module_for_provider
+
+                    module_slug = module_for_provider(ic.provider)
     if server is not None and server.tenant_id == tenant_id and server.is_active:
         from app.services.integrations_platform import test_mcp_server
 
@@ -319,7 +394,7 @@ async def verify_module_connection(
         auth = _parse_json(server.auth_json)
         ok = bool(result.get("ok")) and not result.get("note")
         identity = str(auth.get("identity") or "").strip() or None
-        if ok and not identity and server.server_url.startswith("native://"):
+        if ok and not identity and server.server_url.startswith("native://") and module_slug:
             import importlib
 
             try:
@@ -366,8 +441,10 @@ async def verify_module_connection(
     ok = False
     identity = str(meta.get("identity") or meta.get("email") or "").strip() or None
     error: str | None = None
+    instance_key = ""
 
     if conn.provider == "moneybird":
+        from app.services.connection_instance import instance_key_for
         from app.services.moneybird import (
             has_moneybird_credentials,
             list_administrations,
@@ -384,6 +461,7 @@ async def verify_module_connection(
                     admins = await list_administrations(creds)
                     if admins:
                         identity = str(admins[0].get("name") or admins[0].get("id") or identity)
+                        instance_key = instance_key_for("moneybird", administrations=admins)
                 except Exception:
                     pass
             else:
@@ -408,10 +486,18 @@ async def verify_module_connection(
         meta["verify_error"] = error or "Verification failed"
     conn.metadata_json = json.dumps(meta)
     session.add(conn)
+    merged_into: str | None = None
+    if ok and instance_key:
+        from app.services.connection_instance import claim_instance_key
+
+        survivor = await claim_instance_key(session, tenant_id, conn, instance_key)
+        if survivor.id != conn.id:
+            merged_into = str(survivor.id)
     await session.commit()
     return {
         "ok": ok,
-        "id": cid,
+        "id": merged_into or cid,
+        "merged_into": merged_into,
         "kind": "oauth",
         "identity": identity if ok else None,
         "last_verified_at": now if ok else None,

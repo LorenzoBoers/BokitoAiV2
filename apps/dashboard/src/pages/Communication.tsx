@@ -1,4 +1,4 @@
-import { Bot, Mail, MessageSquare } from 'lucide-react'
+import { Mail, MessageSquare, SquarePen } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -19,6 +19,7 @@ import {
   threadFitsChannelLeaf,
 } from '../lib/hub-list-filters'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
+import DecisionGroupsBanner from '../components/inbox/DecisionGroupsBanner'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
@@ -49,7 +50,8 @@ import {
   pickPreferredInboxThread,
   threadHubPath,
 } from '../lib/message-composer'
-import { loadOpenTickets, resolveOpenTickets } from '../lib/close-thread-signals'
+import { TicketStageMoveCancelled, loadOpenTickets, resolveOpenTickets } from '../lib/close-thread-signals'
+import { useCollectStageFields } from '../components/inbox/TicketStageGate'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { InboxSplitSkeleton } from '../components/ui/skeleton'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
@@ -114,6 +116,7 @@ export default function Communication() {
   const { threadId: threadIdParam } = useParams<{ threadId?: string }>()
   const navigate = useNavigate()
   const { user, token, logout } = useAuth()
+  const collectStageFields = useCollectStageFields()
   const { refresh: refreshNavBadges } = useNavBadges()
   const currentUserId = user?.id ?? null
 
@@ -646,8 +649,9 @@ export default function Communication() {
             )
           ) {
             try {
-              await resolveOpenTickets(openTickets)
+              await resolveOpenTickets(openTickets, collectStageFields)
             } catch (err) {
+              if (err instanceof TicketStageMoveCancelled) return
               toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
               return
             }
@@ -680,6 +684,7 @@ export default function Communication() {
     },
     [
       token,
+      collectStageFields,
       selectedThreadId,
       leaveResolvedThread,
       leaf,
@@ -865,8 +870,9 @@ export default function Communication() {
             )
           ) {
             try {
-              await resolveOpenTickets(openTickets)
+              await resolveOpenTickets(openTickets, collectStageFields)
             } catch (err) {
+              if (err instanceof TicketStageMoveCancelled) return
               toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
               return
             }
@@ -918,7 +924,7 @@ export default function Communication() {
       }
       if (!focusInboxReply()) toast.message(t('shortcuts.replyBlocked'))
     },
-    onCompose: mode === 'customer' ? openCompose : undefined,
+    onCompose: mode === 'customer' ? () => navigate(newConversationPath({ intent: 'contact' })) : undefined,
     onNewChat: mode === 'customer' ? () => navigate(newConversationPath()) : undefined,
     onSnooze: () => {
       void handlePatch({ status: 'pending', snoozedUntil: snoozeUntilIso(SNOOZE_PRESETS[0]) })
@@ -1281,8 +1287,8 @@ export default function Communication() {
             to="/communication/new"
             className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
           >
-            <Bot size={14} />
-            {t('onboarding.startChat')}
+            <SquarePen size={14} />
+            {t('onboarding.startConversation')}
           </Link>
           {enabledConnections.length === 0 ? (
             <Link
@@ -1293,14 +1299,13 @@ export default function Communication() {
               {t('openEmailSettings')}
             </Link>
           ) : (
-            <button
-              type="button"
-              onClick={openCompose}
+            <Link
+              to={newConversationPath({ intent: 'contact' })}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <Mail size={14} />
-              {t('threadList.compose')}
-            </button>
+              {t('newConversation.intentEmail')}
+            </Link>
           )}
           <Link
             to="/settings/setup"
@@ -1377,11 +1382,15 @@ export default function Communication() {
             onPriorityFilter={setPriorityFilter}
             scopeLabel={scopeLabel}
             onClearScope={hasFolderFilter ? clearScope : undefined}
+            banner={
+              needsDecisionParam ? (
+                <DecisionGroupsBanner onDismissed={() => void refreshThreads()} />
+              ) : null
+            }
             total={threadsTotal}
             hasMore={threadsHaveMore}
             loadingMore={threadsLoadingMore}
             onLoadMore={() => void loadMoreThreads()}
-            onCompose={mode === 'customer' && enabledConnections.length > 0 ? openCompose : undefined}
             emptyLabel={
               search.trim()
                 ? t('threadList.emptySearch', { query: search.trim() })
@@ -1472,7 +1481,7 @@ export default function Communication() {
                     to="/communication/new"
                     className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
-                    {t('onboarding.startChat')}
+                    {t('onboarding.startConversation')}
                   </Link>
                 </div>
               ) : undefined
@@ -1540,6 +1549,7 @@ export default function Communication() {
               saving={saving}
               onPatch={handlePatch}
               onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
+              relatedConversations={detail.relatedConversations}
             />
           </SplitPane>
         ) : null}
@@ -1561,6 +1571,7 @@ export default function Communication() {
               saving={saving}
               onPatch={handlePatch}
               onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
+              relatedConversations={detail.relatedConversations}
             />
           </div>
         </div>
@@ -1574,6 +1585,7 @@ export default function Communication() {
           saving={followUp.saving}
           onSaveReminder={followUp.save}
           onSignalCreated={refreshDetail}
+          onHandledExternally={() => void refreshDetail()}
         />
       ) : null}
       <ComposeEmailModal

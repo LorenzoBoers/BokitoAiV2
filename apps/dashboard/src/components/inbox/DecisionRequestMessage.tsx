@@ -94,6 +94,37 @@ type Props = {
    * the AI proposed a reply instead of repeating the whole card.
    */
   compactReplyProposal?: boolean
+  /** The customer wrote again after this proposal; the draft answers an older message. */
+  outdated?: boolean
+}
+
+/** Inbound message a reply proposal answers (server anchor), if the card carries one. */
+export function proposalBasedOnMessageId(message: InboxMessage): string | null {
+  const decision = message.payload?.decision as { based_on_message_id?: unknown } | undefined
+  const id = decision?.based_on_message_id
+  return typeof id === 'string' && id ? id : null
+}
+
+/** Why a reply proposal was set aside (server `resolution_reason`), if any. */
+export function proposalResolutionReason(message: InboxMessage): string | null {
+  const decision = message.payload?.decision as { resolution_reason?: unknown } | undefined
+  const reason = decision?.resolution_reason
+  return typeof reason === 'string' && reason ? reason : null
+}
+
+/** True for an open "No reply needed" card: the agent judged the mail automated. */
+export function isOpenNoReplyCard(message: InboxMessage, events: InboxEvent[]): boolean {
+  if (message.kind !== 'decision_request') return false
+  if (isDecisionResolved(message, events)) return false
+  const options = extractOptions(message)
+  if (isReplyProposal(options)) return false
+  return options.some((o) => o.action_type === 'close_thread')
+}
+
+/** Open proposal state of a decision card: undefined when the message is not a card. */
+export function decisionCardOpen(message: InboxMessage, events: InboxEvent[]): boolean | undefined {
+  if (message.kind !== 'decision_request') return undefined
+  return !isDecisionResolved(message, events)
 }
 
 function isDecisionResolved(message: InboxMessage, events: InboxEvent[]): boolean {
@@ -335,6 +366,7 @@ export default function DecisionRequestMessage({
   agentAvatarColor,
   agentAvatarImageUrl,
   compactReplyProposal = false,
+  outdated = false,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
@@ -759,13 +791,23 @@ export default function DecisionRequestMessage({
 
   if (resolved && !ruleSuggestion) {
     const status = (message.payload?.decision as { status?: unknown } | undefined)?.status
+    const reason = proposalResolutionReason(message)
+    const deferredLabelKey: Record<string, string> = {
+      superseded_by_inbound: 'decisionCard.draftSupersededByInbound',
+      superseded_by_external_reply: 'decisionCard.draftSupersededByExternalReply',
+      sibling_thread: 'decisionCard.draftSiblingThread',
+      handled_externally: 'decisionCard.draftHandledExternally',
+      human_replied: 'decisionCard.draftHumanReplied',
+    }
     const resolvedLabel = !isReplyProposal(options)
       ? t('decisionCard.titleDecision')
       : status === 'approved'
         ? t('decisionCard.draftSent')
         : status === 'rejected'
           ? t('decisionCard.draftRejected')
-          : t('decisionCard.earlierDraft')
+          : reason && deferredLabelKey[reason]
+            ? t(deferredLabelKey[reason])
+            : t('decisionCard.earlierDraft')
     return (
       <ChatMessageBubble
         side="left"
@@ -835,6 +877,14 @@ export default function DecisionRequestMessage({
         {!resolved && addresseeName ? (
           <p className="mb-1.5 text-xs text-text-muted" data-testid="decision-addressee">
             {t('decisionCard.askedTo', { name: addresseeName })}
+          </p>
+        ) : null}
+        {!resolved && outdated && isSuggestion ? (
+          <p
+            className="mb-1.5 rounded-md border border-status-warning/40 bg-status-warning/10 px-2 py-1 text-xs text-text-secondary"
+            data-testid="decision-outdated"
+          >
+            {t('decisionCard.customerWroteAgain')}
           </p>
         ) : null}
         {message.decisionId ? (

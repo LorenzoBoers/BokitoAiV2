@@ -20,10 +20,8 @@ import {
 } from '../../lib/contact-label'
 import { fileTicket, listCategories, stageLabel, type Ticket } from '../../lib/tickets-api'
 import { normalizeHashtag } from '../../lib/hashtag'
-import {
-  loadOpenTickets,
-  resolveOpenTickets,
-} from '../../lib/close-thread-signals'
+import { TicketStageMoveCancelled, loadOpenTickets, resolveOpenTickets } from '../../lib/close-thread-signals'
+import { useCollectStageFields } from './TicketStageGate'
 import {
   Dialog,
   DialogContent,
@@ -35,7 +33,14 @@ import {
 import { isAiHandlingVerb, type ParsedComposerVerb } from '../../lib/composer-verbs'
 import type { AiHandlingMode } from '../../lib/ai-handling'
 import { listSignalAssignees, patchSignalThread, type AssigneeCandidates } from '../../lib/signals-api'
-import { replyProposalFromMessage } from './DecisionRequestMessage'
+import {
+  decisionCardOpen,
+  isOpenNoReplyCard,
+  proposalBasedOnMessageId,
+  replyProposalFromMessage,
+} from './DecisionRequestMessage'
+import RelatedConversationBanner from './RelatedConversationBanner'
+import { HandledExternallyDialog } from './HandledExternallyForm'
 import ReplyComposer from './ReplyComposer'
 import ThreadHeader from './ThreadHeader'
 import ThreadTimeline, { buildTimelineRows, type ThreadTimelineHandle } from './ThreadTimeline'
@@ -139,6 +144,7 @@ type Props = {
 export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
+  const collectStageFields = useCollectStageFields()
   const location = useLocation()
   const navigate = useNavigate()
   const { connections } = useMailboxConnections()
@@ -155,6 +161,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [searchParams, setSearchParams] = useSearchParams()
   // Card targeted by a `?message=` deep link; highlighted for a few seconds.
   const [focusedMessageId, setFocusedMessageId] = useState<string | null>(null)
+  const [handledExternallyOpen, setHandledExternallyOpen] = useState(false)
   const [composerDraft, setComposerDraft] = useState<{
     body: string
     subject?: string
@@ -163,6 +170,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     decisionMessageId?: string
     /** Sender identity chosen on the suggestion card (user | agent). */
     sendAs?: 'user' | 'agent'
+    /** Inbound message the proposal answers (server anchor). */
+    basedOnMessageId?: string
   } | null>(null)
   // Composer surface the operator is on. Sticky on `ask` while an AI turn
   // runs, so the next keystroke goes to the AI, not the customer.
@@ -194,15 +203,54 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     },
     [],
   )
+  // Newest message the customer sent: anchors drafts and tells whether an
+  // open proposal still answers the latest message.
+  const latestInboundMessageId = useMemo(() => {
+    if (!detail) return null
+    for (let i = detail.messages.length - 1; i >= 0; i -= 1) {
+      const message = detail.messages[i]
+      if (message.direction !== 'inbound') continue
+      if (message.kind && message.kind !== 'user_message') continue
+      if (message.authorUserId != null) continue
+      return String(message.id)
+    }
+    return null
+  }, [detail])
+
+  // Open proposals anchored to an older inbound message than the newest one:
+  // shown with "the customer wrote again" and never auto-filled.
+  const outdatedDecisionMessageIds = useMemo(() => {
+    if (!detail || !latestInboundMessageId) return []
+    const ids: string[] = []
+    for (const message of detail.messages) {
+      if (!replyProposalFromMessage(message, detail.events)) continue
+      const basedOn = proposalBasedOnMessageId(message)
+      if (basedOn && basedOn !== latestInboundMessageId) ids.push(String(message.id))
+    }
+    return ids
+  }, [detail, latestInboundMessageId])
+
+  const isProposalOpen = useCallback(
+    (decisionMessageId: string): boolean | undefined => {
+      if (!detail) return undefined
+      const message = detail.messages.find((m) => String(m.id) === decisionMessageId)
+      if (!message) return undefined
+      return decisionCardOpen(message, detail.events)
+    },
+    [detail],
+  )
+
   const appliedProposalRef = useRef<string | null>(null)
   useEffect(() => {
     appliedProposalRef.current = null
   }, [threadId])
   useEffect(() => {
     if (!detail) return
+    const outdated = new Set(outdatedDecisionMessageIds)
     for (let i = detail.messages.length - 1; i >= 0; i -= 1) {
       const proposal = replyProposalFromMessage(detail.messages[i], detail.events)
       if (!proposal) continue
+      if (outdated.has(proposal.decisionMessageId)) continue
       if (appliedProposalRef.current === proposal.decisionMessageId) return
       if (agentStreamingRef.current) return
       appliedProposalRef.current = proposal.decisionMessageId
@@ -211,11 +259,21 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         subject: proposal.subject,
         key: `${proposal.decisionMessageId}-auto`,
         decisionMessageId: proposal.decisionMessageId,
+        basedOnMessageId: proposalBasedOnMessageId(detail.messages[i]) ?? undefined,
       })
       setComposerMode('reply')
       return
     }
-  }, [detail, applyComposerDraft])
+  }, [detail, applyComposerDraft, outdatedDecisionMessageIds])
+
+  // The proposal in the composer was resolved or set aside elsewhere (another
+  // operator, a new inbound, a colleague's mailbox reply): drop the prefill.
+  useEffect(() => {
+    if (!detail || !composerDraft?.decisionMessageId) return
+    if (isProposalOpen(composerDraft.decisionMessageId) === false) {
+      setComposerDraft(null)
+    }
+  }, [detail, composerDraft, isProposalOpen])
 
   // People, agents and teams are @-mentionable; those without access to this
   // channel stay listed but greyed out. An @agent opens that agent's session;
@@ -397,15 +455,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
     apply()
     const raf = window.requestAnimationFrame(apply)
-    landTimersRef.current = [80, 350, 800, 1600].map((ms) => window.setTimeout(apply, ms))
-    return () => window.cancelAnimationFrame(raf)
+    // One short retry for Virtuoso measuring item heights. Longer retries
+    // fight the operator if they already started reading upward.
+    landTimersRef.current = [80, 220].map((ms) => window.setTimeout(apply, ms))
+    return () => {
+      window.cancelAnimationFrame(raf)
+      for (const id of landTimersRef.current) window.clearTimeout(id)
+    }
   }, [loading, threadId, loadedThreadId, rows.length, messageLayout, messageCount])
-
-  // Re-pin when timeline content changes while anchored.
-  useLayoutEffect(() => {
-    if (!anchorToBottomRef.current || loadedThreadId == null || rows.length === 0) return
-    pinToBottom('auto')
-  }, [rows, loadedThreadId, pinToBottom, gatewayStream.turn, agentStreaming])
 
   // Scroll on message-count growth when already near the bottom.
   useEffect(() => {
@@ -603,8 +660,17 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     const threadChanged = prevThreadIdRef.current !== threadId
     prevThreadIdRef.current = threadId
     if (threadChanged) {
-      setComposerMode(resolveComposerSurface(thread).defaultMode)
+      // An automated mail the agent judged "no reply needed" has nobody to
+      // write to: start on a note instead of a reply to the no-reply sender.
+      const noReplyOpen = Boolean(
+        detail && detail.messages.some((m) => isOpenNoReplyCard(m, detail.events)),
+      )
+      const surface = resolveComposerSurface(thread)
+      setComposerMode(
+        noReplyOpen && surface.modes.includes('note') ? 'note' : surface.defaultMode,
+      )
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- detail.messages only matter on thread change
   }, [threadId, activeSessionId, handlingEffective, detail?.thread])
 
   const loadSessionMessages = useCallback(
@@ -842,18 +908,19 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setCloseSignalsBusy(true)
       try {
         if (mode === 'resolve') {
-          await resolveOpenTickets(closeSignalsPrompt.tickets)
+          await resolveOpenTickets(closeSignalsPrompt.tickets, collectStageFields)
         }
         await onPatch({ status: 'closed' })
         if (closeSignalsPrompt.afterResolve) await closeSignalsPrompt.afterResolve()
         setCloseSignalsPrompt(null)
       } catch (err) {
+        if (err instanceof TicketStageMoveCancelled) return
         toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
       } finally {
         setCloseSignalsBusy(false)
       }
     },
-    [closeSignalsPrompt, onPatch, t],
+    [closeSignalsPrompt, collectStageFields, onPatch, t],
   )
 
   const handleReply = useCallback(
@@ -1087,17 +1154,20 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }}
           onDecisionResolved={onDecisionResolved}
           onEditDraft={(draft) => {
+            const card = detail.messages.find((m) => String(m.id) === draft.decisionMessageId)
             applyComposerDraft({
               body: draft.body,
               subject: draft.subject,
               key: `${draft.decisionMessageId}-${Date.now()}`,
               decisionMessageId: draft.decisionMessageId,
               sendAs: draft.sendAs,
+              basedOnMessageId: card ? (proposalBasedOnMessageId(card) ?? undefined) : undefined,
             })
           }}
           compactDecisionMessageIds={
             composerDraft?.decisionMessageId ? [composerDraft.decisionMessageId] : []
           }
+          outdatedDecisionMessageIds={outdatedDecisionMessageIds}
           onAtBottomChange={(atBottom) => {
             anchorToBottomRef.current = atBottom
           }}
@@ -1121,6 +1191,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         />
       </div>
 
+      {composerSurface ? (
+        <RelatedConversationBanner
+          rows={detail.relatedConversations}
+          contactName={thread.contactName}
+        />
+      ) : null}
       {composerSurface ? (
         <ReplyComposer
           surface={composerSurface}
@@ -1172,10 +1248,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           draftBody={composerDraft?.body ?? null}
           draftKey={composerDraft?.key ?? null}
           persistKey={String(thread.id)}
+          latestInboundMessageId={latestInboundMessageId}
+          isProposalOpen={isProposalOpen}
           proposal={
             composerDraft?.decisionMessageId
               ? {
                   decisionMessageId: composerDraft.decisionMessageId,
+                  basedOnMessageId: composerDraft.basedOnMessageId ?? null,
                   onDismiss: async () => {
                     if (!token || !composerDraft.decisionMessageId) return
                     await resolveThreadDecision(
@@ -1194,8 +1273,23 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
           suggestedCc={suggestedCc}
           mentionExtras={mentionExtras}
+          onHandledExternally={
+            mode === 'customer' && thread.status !== 'closed' && thread.status !== 'spam'
+              ? () => setHandledExternallyOpen(true)
+              : undefined
+          }
         />
       ) : null}
+      <HandledExternallyDialog
+        open={handledExternallyOpen}
+        onOpenChange={setHandledExternallyOpen}
+        threadId={thread.id}
+        onDone={() => {
+          setComposerDraft(null)
+          appliedProposalRef.current = null
+          onRefresh()
+        }}
+      />
       <Dialog
         open={closeSignalsPrompt != null}
         onOpenChange={(open) => {

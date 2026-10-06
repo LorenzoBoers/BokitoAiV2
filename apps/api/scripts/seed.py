@@ -423,7 +423,7 @@ async def _seed_triggers(session, tenant):
             name="Daily platform scan",
             kind="interval",
             interval_minutes=1440,
-            agent_role="orchestrator",
+            agent_role="assistant",
             instructions="Scan workspace docs and suggest improvements or missing integrations.",
             enabled=True,
             next_run_at=now + timedelta(days=1),

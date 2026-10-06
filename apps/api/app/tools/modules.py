@@ -19,7 +19,7 @@ async def _list_modules(ctx: ToolContext, _tool_input: dict[str, Any]) -> dict[s
 
 
 async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.tools.builtin import _create_decision_request
+    from app.tools.builtin import _create_decision_request, proposal_cooldown
 
     slug = str(tool_input.get("slug") or "").strip()
     spec = get_module(slug)
@@ -62,6 +62,9 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     summary = reason or f"Use when {spec.needs_when}."
     if provider:
         summary = f"{summary} Suggested package: {provider}."
+    blocked = await proposal_cooldown(ctx, title)
+    if blocked:
+        return blocked
     return await _create_decision_request(
         ctx,
         {
@@ -84,7 +87,23 @@ async def _list_module_connections(
     slug = str(tool_input.get("slug") or "").strip()
     if get_module(slug) is None:
         return {"error": f"Unknown module '{slug}'."}
-    return await list_module_connections(ctx.session, ctx.tenant_id, slug)
+    listing = await list_module_connections(ctx.session, ctx.tenant_id, slug)
+    if ctx.agent is None:
+        return listing
+    from uuid import UUID
+
+    from app.services.connection_scope import usable_connection_ids
+
+    ids = [UUID(c["connection_id"]) for c in listing["connections"] if c.get("connection_id")]
+    usable, denied = await usable_connection_ids(
+        ctx.session, ctx.tenant_id, ids, agent_id=ctx.agent.id, project_id=ctx.project_id
+    )
+    listing["connections"] = [
+        c for c in listing["connections"] if c.get("connection_id") in usable
+    ]
+    if denied:
+        listing["out_of_scope"] = list(denied.values())
+    return listing
 
 
 async def _set_module_default_connection(
@@ -107,6 +126,92 @@ async def _set_module_default_connection(
         default_company_id=str(company_id) if company_id is not None else None,
     )
     return {"ok": True, "prefs": prefs}
+
+
+async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID
+
+    from fastapi import HTTPException
+
+    from app.services.audit import record_audit
+    from app.services.connection_access import (
+        connection_access,
+        is_default_access,
+        set_connection_access,
+    )
+    from app.services.connection_scope import (
+        project_links,
+        project_names,
+        set_connection_projects,
+    )
+    from app.services.provider_connections import get_tenant_connection
+
+    raw_id = str(tool_input.get("connection_id") or "").strip()
+    try:
+        conn = await get_tenant_connection(ctx.session, ctx.tenant_id, UUID(raw_id))
+    except (ValueError, HTTPException):
+        return {"error": f"Unknown connection '{raw_id}'. Use the connection_id from list_module_connections."}
+    has_projects = "project_ids" in tool_input and tool_input["project_ids"] is not None
+    has_access = "access" in tool_input
+    if not has_projects and not has_access:
+        return {"error": "Pass project_ids, access, or both."}
+
+    actor_type = "agent" if ctx.agent is not None else "user"
+    actor_id = ctx.agent.id if ctx.agent is not None else ctx.user_id
+    before_projects = (await project_links(ctx.session, ctx.tenant_id, [conn.id])).get(str(conn.id), [])
+    before_access = connection_access(conn)
+    try:
+        if has_projects:
+            await set_connection_projects(
+                ctx.session,
+                ctx.tenant_id,
+                conn,
+                [str(p) for p in tool_input["project_ids"]],
+                actor_user_id=ctx.user_id,
+            )
+        if has_access:
+            access = tool_input["access"]
+            await set_connection_access(ctx.session, conn, access if access is not None else None)
+    except ValueError as exc:
+        await ctx.session.rollback()
+        return {"error": str(exc)}
+    await ctx.session.commit()
+
+    after_projects = (await project_links(ctx.session, ctx.tenant_id, [conn.id])).get(str(conn.id), [])
+    after_access = connection_access(conn)
+    if has_projects:
+        await record_audit(
+            ctx.session,
+            ctx.tenant_id,
+            action="integration:projects_set",
+            actor_type=actor_type,
+            actor_id=actor_id,
+            resource_type="connection",
+            resource_id=conn.id,
+            before={"project_ids": before_projects},
+            after={"project_ids": after_projects},
+        )
+    if has_access:
+        await record_audit(
+            ctx.session,
+            ctx.tenant_id,
+            action="integration:access_set",
+            actor_type=actor_type,
+            actor_id=actor_id,
+            resource_type="connection",
+            resource_id=conn.id,
+            before={"entries": before_access},
+            after={"entries": after_access},
+        )
+    names = await project_names(ctx.session, ctx.tenant_id, after_projects)
+    return {
+        "ok": True,
+        "connection_id": str(conn.id),
+        "display_name": conn.display_name,
+        "projects": [{"id": p, "name": names.get(p, "")} for p in after_projects],
+        "access_default": is_default_access(conn),
+        "access": after_access,
+    }
 
 
 async def _list_module_sources(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -258,6 +363,47 @@ register_tool(
         },
         handler=_set_module_default_connection,
         gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="set_connection_scope",
+        description=(
+            "Limit where and by whom a connection (registration) may be used. "
+            "project_ids links it exclusively to those projects (empty list = "
+            "workspace-wide). access replaces who may use or manage it: entries "
+            "{kind: user|agent|team, id, level: use|manage}; null restores the "
+            "default (all people and agents may use it). Always asks for approval."
+        ),
+        category="integrations",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "connection_id": {
+                    "type": "string",
+                    "description": "connection_id from list_module_connections.",
+                },
+                "project_ids": {"type": "array", "items": {"type": "string"}},
+                "access": {
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["user", "agent", "team"]},
+                            "id": {"type": "string"},
+                            "level": {"type": "string", "enum": ["use", "manage"]},
+                        },
+                        "required": ["kind", "id", "level"],
+                    },
+                },
+            },
+            "required": ["connection_id"],
+        },
+        handler=_set_connection_scope,
+        mutating=True,
+        gated=True,
+        consequential=True,
     )
 )
 

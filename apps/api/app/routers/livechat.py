@@ -22,6 +22,7 @@ from app.services.agent_avatar import avatar_payload
 from app.services.livechat_compat import (
     SURFACE_IN_APP,
     SURFACE_SITE,
+    channel_account_id_from_widget_token,
     create_widget_session_token,
     decode_widget_session_token,
     normalize_surface,
@@ -51,6 +52,7 @@ class SessionStartBody(BaseModel):
     # "site" (a tenant's own website) or "in_app" (the operator's personal
     # Bokito helper inside the dashboard).
     surface: str = SURFACE_SITE
+    channel_account_id: str | None = None
 
 
 async def _optional_widget_auth(
@@ -105,11 +107,31 @@ async def session_start(
         surface = SURFACE_SITE
 
     customer_id = body.customer_id or f"cust_{secrets.token_hex(8)}"
+    widget_account = None
+    widget_account_id = None
+    if surface != SURFACE_IN_APP:
+        from app.services.widget_channel import get_widget_account
+        from app.services.tenant_bootstrap import ensure_widget_channel
+
+        requested = None
+        if body.channel_account_id:
+            try:
+                requested = UUID(str(body.channel_account_id).strip())
+            except ValueError:
+                requested = None
+        if requested:
+            widget_account = await get_widget_account(session, tenant.id, requested)
+            if widget_account is None:
+                raise HTTPException(status_code=404, detail="Widget channel not found")
+        else:
+            widget_account = await ensure_widget_channel(session, tenant.id, commit=False)
+        widget_account_id = widget_account.id if widget_account else None
     session_token = create_widget_session_token(
         tenant_id=tenant.id,
         user_id=user.id if user else None,
         customer_id=customer_id,
         surface=surface,
+        channel_account_id=widget_account_id,
     )
     if surface == SURFACE_IN_APP:
         # Chrome is forced to Bokito for this surface, so the tenant's
@@ -117,8 +139,12 @@ async def session_start(
         assistant_name = ""
         agent_avatar = None
     else:
-        assistant_agent = await widget_assistant_agent(session, tenant.id)
-        assistant_name = await widget_assistant_name(session, tenant.id)
+        assistant_agent = await widget_assistant_agent(
+            session, tenant.id, channel_account_id=widget_account_id
+        )
+        assistant_name = await widget_assistant_name(
+            session, tenant.id, channel_account_id=widget_account_id
+        )
         agent_avatar = (
             avatar_payload(assistant_agent) if assistant_agent is not None else None
         )
@@ -133,7 +159,10 @@ async def session_start(
         assistant_name=assistant_name,
         agent_avatar=agent_avatar,
         surface=surface,
-        team_available=await team_is_reachable(session, tenant, surface=surface),
+        team_available=await team_is_reachable(
+            session, tenant, surface=surface, account=widget_account
+        ),
+        account=widget_account,
     )
 
 
@@ -770,6 +799,7 @@ async def create_conversation(
         user,
         customer_id=customer_id,
         surface=surface_from_widget_token(token),
+        channel_account_id=channel_account_id_from_widget_token(token),
     )
     await session.commit()
     if getattr(signal, "_newly_created", False):
@@ -846,7 +876,12 @@ async def stream_chat(
     message = (body.message_content or body.message or "").strip()
     attachments = body.attachments if isinstance(body.attachments, list) else None
     signal = await get_or_create_widget_thread(
-        session, tenant, user, conversation_id=body.conversation_id, surface=surface
+        session,
+        tenant,
+        user,
+        conversation_id=body.conversation_id,
+        surface=surface,
+        channel_account_id=channel_account_id_from_widget_token(token),
     )
     await session.commit()
     page_context = _page_context_text(body.page_context)
@@ -882,7 +917,12 @@ async def stream_chat_continue(
     page_content = (body.page_content or "").strip()
     message = page_content or "Continue with the page context provided."
     signal = await get_or_create_widget_thread(
-        session, tenant, user, conversation_id=body.conversation_id, surface=surface
+        session,
+        tenant,
+        user,
+        conversation_id=body.conversation_id,
+        surface=surface,
+        channel_account_id=channel_account_id_from_widget_token(token),
     )
     await session.commit()
     page_context = _page_context_text(body.page_context)

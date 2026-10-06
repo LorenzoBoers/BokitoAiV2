@@ -18,7 +18,15 @@ export type QueueItemStatus =
 // Section maturity: draft (concept) -> review (written) -> final (verified).
 export type DocSectionStatus = 'draft' | 'review' | 'final'
 
-export type ResourceType = 'repo' | 'drive' | 'notion' | 'sheet' | 'vibecode' | 'site' | 'other'
+export type ResourceType =
+  | 'repo'
+  | 'drive'
+  | 'notion'
+  | 'sheet'
+  | 'vibecode'
+  | 'site'
+  | 'connection'
+  | 'other'
 export type ResourceStatus = 'linked' | 'connected' | 'syncing' | 'error' | 'disconnected'
 
 export interface QueueItemLink {
@@ -236,6 +244,8 @@ export async function createProjectResource(
   input: {
     resource_type: ResourceType
     provider?: string
+    /** Required for `connection`: links the integration connection exclusively to this project. */
+    connection_id?: string
     label?: string
     external_ref?: string
     config?: Record<string, unknown>

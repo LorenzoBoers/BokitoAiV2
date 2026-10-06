@@ -13,7 +13,7 @@ The chat widget is a single script tag. It renders a launcher on your site, and 
 
 ## The snippet
 
-Copy the exact snippet from **Settings**, then **Chat widget**, then **Install** — it is pre-filled for your workspace.
+Copy the exact snippet from **Settings**, then **Channels**, then the **Website chat** row, then **Install** — it is pre-filled for that channel.
 
 ![Website chat installation snippet](/api/docs/assets/widget-embed/snippet.png)
 *The Installation tab shows the snippet and a live preview.*
@@ -26,6 +26,8 @@ The shape:
   data-bokito-chat-widget
   data-agent-slug="your-agent"
   data-api-url="https://your-bokito-host"
+  data-tenant="your-workspace-slug"
+  data-channel-id="channel-uuid"
   data-auth-mode="anonymous"
   defer
 ></script>
@@ -36,6 +38,8 @@ The shape:
 - `data-bokito-chat-widget` - marks the tag; the script only boots when present.
 - `data-agent-slug` - which configured assistant answers this widget.
 - `data-api-url` - the Bokito API origin the widget talks to.
+- `data-tenant` - workspace slug so the embed reaches the right tenant.
+- `data-channel-id` - website-chat channel UUID; each extra site has its own channel and snippet.
 - `data-auth-mode` - `anonymous` for public website visitors, `required` for logged-in users of your own product.
 - `defer` - load without blocking your page.
 

@@ -74,6 +74,9 @@ class AccountingConnection:
     name: str
     auth: dict[str, Any] = field(default_factory=dict)
     has_credentials: bool = False
+    # IntegrationConnection id: project links and access live there, while
+    # ``id`` is the McpServer id for KING / Björn Lundén.
+    connection_id: str = ""
 
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
@@ -95,8 +98,22 @@ async def list_accounting_connections(
     from app.models.integration import IntegrationConnection, McpServer
     from app.services.module_attach import attached_connection_ids, attached_mcp_server_ids
 
+    from app.models.integration import IntegrationBinding
+
     attached_ics = await attached_connection_ids(session, tenant_id, "accounting")
     attached_servers = await attached_mcp_server_ids(session, tenant_id, "accounting")
+    server_to_ic: dict[str, str] = {}
+    for binding in (
+        await session.execute(
+            select(IntegrationBinding).where(
+                IntegrationBinding.tenant_id == tenant_id,
+                IntegrationBinding.binding_type == "mcp_server",
+            )
+        )
+    ).scalars().all():
+        sid = str(_parse_json(binding.config_json).get("mcp_server_id") or "").strip()
+        if sid and str(binding.connection_id) in attached_ics:
+            server_to_ic[sid] = str(binding.connection_id)
 
     connections: list[AccountingConnection] = []
 
@@ -127,6 +144,7 @@ async def list_accounting_connections(
                     name=server.name,
                     auth=auth,
                     has_credentials=has_king_credentials(auth),
+                    connection_id=server_to_ic.get(str(server.id), ""),
                 )
             )
         elif server.server_url.startswith("native://bjorn-lunden") or (
@@ -143,6 +161,7 @@ async def list_accounting_connections(
                     name=server.name,
                     auth=auth,
                     has_credentials=has_bl_credentials(auth),
+                    connection_id=server_to_ic.get(str(server.id), ""),
                 )
             )
 
@@ -173,10 +192,46 @@ async def list_accounting_connections(
                 name=conn.display_name or "Moneybird",
                 auth=credentials,
                 has_credentials=has_moneybird_credentials(credentials),
+                connection_id=str(conn.id),
             )
         )
 
     return connections
+
+
+async def scoped_accounting_connections(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    agent_id: UUID | None,
+    project_id: UUID | None,
+) -> tuple[list[AccountingConnection], dict[str, str], set[str]]:
+    """(usable, {denied module id: reason}, project-linked module ids) for one call.
+
+    Applies project links and the connection access list (``connection_scope``).
+    Without an agent every attached connection is usable.
+    """
+    from app.services.connection_scope import project_linked_ids, usable_connection_ids
+
+    connections = await list_accounting_connections(session, tenant_id)
+    ic_ids = [UUID(c.connection_id) for c in connections if c.connection_id]
+    usable_ics, denied_ics = await usable_connection_ids(
+        session, tenant_id, ic_ids, agent_id=agent_id, project_id=project_id
+    )
+    linked_ics = await project_linked_ids(session, tenant_id, project_id, ic_ids)
+    usable: list[AccountingConnection] = []
+    denied: dict[str, str] = {}
+    linked: set[str] = set()
+    for conn in connections:
+        if conn.connection_id in denied_ics:
+            denied[conn.id] = denied_ics[conn.connection_id]
+            continue
+        if agent_id is not None and conn.connection_id and conn.connection_id not in usable_ics:
+            continue
+        usable.append(conn)
+        if conn.connection_id in linked_ics:
+            linked.add(conn.id)
+    return usable, denied, linked
 
 
 async def _dispatch(
@@ -207,17 +262,33 @@ def _resolve_connection(
     args: dict[str, Any],
     *,
     default_connection_id: str | None = None,
+    project_linked: set[str] | None = None,
 ) -> AccountingConnection | dict[str, Any]:
-    requested = str(args.get("connection_id") or "").strip() or (
-        str(default_connection_id or "").strip()
-    )
+    """Pick order: explicit id, the project's own connection, module default, the only one."""
+    requested = str(args.get("connection_id") or "").strip()
     if requested:
-        match = next((c for c in connections if c.id == requested), None)
+        match = next(
+            (c for c in connections if requested in (c.id, c.connection_id)), None
+        )
         if match is None:
             return module_error(
                 "unknown_connection", f"No accounting connection with id {requested}."
             )
         return match
+    linked = [c for c in connections if c.id in (project_linked or set())]
+    if len(linked) == 1:
+        return linked[0]
+    default = str(default_connection_id or "").strip()
+    if default:
+        match = next((c for c in connections if default in (c.id, c.connection_id)), None)
+        if match is not None and (not linked or match in linked):
+            return match
+    if len(linked) > 1:
+        return module_error(
+            "ambiguous_connection",
+            "This project has several accounting connections. Pass connection_id "
+            "(see accounting_list_companies).",
+        )
     if len(connections) == 1:
         return connections[0]
     return module_error(
@@ -234,11 +305,13 @@ async def call_accounting_verb(
     args: dict[str, Any] | None = None,
     *,
     agent_id: UUID | None = None,
+    project_id: UUID | None = None,
 ) -> dict[str, Any]:
     """Execute one module verb against the right adapter with normalized output.
 
     ``agent_id`` enables per-agent enforcement: roster membership, company
-    scope, and write access from the ModuleAgent row.
+    scope, and write access from the ModuleAgent row, plus connection scope
+    (project links and access list) evaluated in ``project_id``.
     """
     args = dict(args or {})
     from app.modules.catalog import module_is_on
@@ -269,8 +342,51 @@ async def call_accounting_verb(
                 "grant write access under Modules > Accounting > Agents.",
             )
 
-    connections = await list_accounting_connections(session, tenant_id)
+    connections, denied, project_linked = await scoped_accounting_connections(
+        session, tenant_id, agent_id=agent_id, project_id=project_id
+    )
+    requested = str(args.get("connection_id") or "").strip()
+    denied_requested = next(
+        (
+            (cid, reason)
+            for cid, reason in denied.items()
+            if requested and requested == cid
+        ),
+        None,
+    )
+    if denied_requested is None and requested and not any(
+        requested in (c.id, c.connection_id) for c in connections
+    ):
+        all_rows = await list_accounting_connections(session, tenant_id)
+        hit = next((c for c in all_rows if requested == c.connection_id), None)
+        if hit is not None and hit.id in denied:
+            denied_requested = (hit.id, denied[hit.id])
+    if denied_requested is not None:
+        from app.services.connection_scope import record_denial
+
+        await record_denial(
+            session,
+            tenant_id,
+            agent_id=agent_id,
+            connection_id=denied_requested[0],
+            reason=denied_requested[1],
+            action=f"accounting:{verb}",
+        )
+        return module_error("connection_out_of_scope", denied_requested[1])
     if not connections:
+        if denied:
+            from app.services.connection_scope import record_denial
+
+            first_id, first_reason = next(iter(denied.items()))
+            await record_denial(
+                session,
+                tenant_id,
+                agent_id=agent_id,
+                connection_id=first_id,
+                reason=first_reason,
+                action=f"accounting:{verb}",
+            )
+            return module_error("connection_out_of_scope", first_reason)
         return module_error(
             "no_connection",
             "No accounting package is connected. Open /connections/accounting "
@@ -309,7 +425,10 @@ async def call_accounting_verb(
     prefs = await get_module_prefs(session, tenant_id, "accounting")
     default_connection_id = str(prefs.get("default_connection_id") or "").strip() or None
     resolved = _resolve_connection(
-        connections, args, default_connection_id=default_connection_id
+        connections,
+        args,
+        default_connection_id=default_connection_id,
+        project_linked=project_linked,
     )
     if isinstance(resolved, dict):
         return resolved
@@ -434,8 +553,11 @@ async def call_verb(
     args: dict[str, Any] | None = None,
     *,
     agent_id: UUID | None = None,
+    project_id: UUID | None = None,
 ) -> dict[str, Any]:
-    return await call_accounting_verb(session, tenant_id, verb, args, agent_id=agent_id)
+    return await call_accounting_verb(
+        session, tenant_id, verb, args, agent_id=agent_id, project_id=project_id
+    )
 
 
 def build_proposal(verb: str, args: dict[str, Any]) -> dict[str, Any] | None:

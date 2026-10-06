@@ -9,7 +9,8 @@ import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
 import { AUTH_API_BASE } from '../lib/api'
 import { WEBSITE_WIDGET_CUSTOMIZE_PATH } from '../lib/assistant-settings-path'
-import { DEFAULT_BRAND_COLOR, resolveBrandSeed } from '../lib/tenant-branding'
+import { brandPalette, BRAND_DEFAULT_BG } from '@bokito/shared'
+import { DEFAULT_BRAND_COLOR, normalizeBrandHex, resolveBrandSeed } from '../lib/tenant-branding'
 import { inboxPath } from '../lib/messages-paths'
 
 const SUPPORTED_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] as const
@@ -100,21 +101,24 @@ function SettingRow({
 function ColorField({
   value,
   onChange,
+  invalid,
 }: {
   value: string
   onChange: (v: string) => void
+  invalid: boolean
 }) {
+  const hex = normalizeBrandHex(value)
   return (
     <div className="flex items-center gap-2.5">
       <label className="relative cursor-pointer shrink-0">
         <span
           className="block w-9 h-9 rounded-lg border border-border/60 transition-transform hover:scale-105"
-          style={{ background: value }}
+          style={{ background: hex ?? 'transparent' }}
         />
         <input
           type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={(hex ?? DEFAULT_BRAND_COLOR).toLowerCase()}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
           className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
         />
       </label>
@@ -122,8 +126,49 @@ function ColorField({
         type="text"
         value={value.toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-28 bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-sm text-text-primary font-mono focus:outline-none focus:border-accent/55 transition-colors"
+        aria-invalid={invalid}
+        className={`w-28 bg-bg-input border rounded-lg px-3 py-2 text-sm text-text-primary font-mono focus:outline-none transition-colors ${
+          invalid ? 'border-status-error focus:border-status-error' : 'border-border/60 focus:border-accent/55'
+        }`}
       />
+    </div>
+  )
+}
+
+const cssRgb = (rgb: [number, number, number]) => `rgb(${rgb.join(' ')})`
+
+/** Live preview of the tokens `applyBrandColor` will write for each theme. */
+function BrandPreview({ color }: { color: string }) {
+  const { t } = useTranslation('workspace')
+  const themes = [
+    { key: 'light', bg: BRAND_DEFAULT_BG.light, text: [17, 24, 39], label: t('brandingPage.brandPreviewLight') },
+    { key: 'dark', bg: BRAND_DEFAULT_BG.dark, text: [236, 237, 240], label: t('brandingPage.brandPreviewDark') },
+  ] as const
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {themes.map(({ key, bg, text, label }) => {
+        const p = brandPalette(color, key)
+        return (
+          <div
+            key={key}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5"
+            style={{ background: cssRgb(bg), color: cssRgb(text as [number, number, number]) }}
+          >
+            <span className="text-xs opacity-70">{label}</span>
+            <span className="flex items-center gap-3">
+              <span className="text-xs font-medium underline underline-offset-2" style={{ color: cssRgb(p.ink) }}>
+                {t('brandingPage.brandPreviewLink')}
+              </span>
+              <span
+                className="rounded-md px-2.5 py-1 text-xs font-medium"
+                style={{ background: cssRgb(p.solid), color: cssRgb(p.fg) }}
+              >
+                {t('brandingPage.brandPreviewButton')}
+              </span>
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -153,10 +198,12 @@ export default function CompanyConfig() {
   const savedName = currentWorkspace?.name || 'Bokito AI'
   const savedSubdomain = currentWorkspace?.slug || user?.tenant?.slug || ''
   const savedColor = resolveBrandSeed(currentWorkspace?.brand_color)
+  const brandHex = normalizeBrandHex(brandColor)
+  const brandColorInvalid = brandHex == null
   const brandingDirty =
     name.trim() !== savedName.trim() ||
     subdomain.trim().toLowerCase() !== savedSubdomain.trim().toLowerCase() ||
-    brandColor.trim().toLowerCase() !== savedColor.trim().toLowerCase() ||
+    (brandHex ?? brandColor.trim().toUpperCase()) !== savedColor ||
     logoFile != null ||
     faviconFile != null ||
     clearLogo ||
@@ -225,6 +272,10 @@ export default function CompanyConfig() {
       setSaveError(t('brandingPage.noWorkspace'))
       return
     }
+    if (!brandHex) {
+      setSaveError(t('brandingPage.brandColorInvalid'))
+      return
+    }
     const normalizedSubdomain = subdomain.trim().toLowerCase()
     const localSubdomainError = validateSubdomain(normalizedSubdomain, t)
     if (localSubdomainError) {
@@ -238,7 +289,7 @@ export default function CompanyConfig() {
       const form = new FormData()
       form.append('name', name.trim())
       form.append('subdomain', normalizedSubdomain)
-      form.append('brand_color', brandColor.trim())
+      form.append('brand_color', brandHex)
       if (logoFile) {
         form.append('logo', logoFile)
       }
@@ -284,7 +335,7 @@ export default function CompanyConfig() {
     currentWorkspace?.id,
     subdomain,
     name,
-    brandColor,
+    brandHex,
     logoFile,
     faviconFile,
     clearLogo,
@@ -394,8 +445,9 @@ export default function CompanyConfig() {
               </SettingRow>
 
               <SettingRow label={t('brandingPage.brandColor')} description={t('brandingPage.brandColorHint')}>
+                <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
-                  <ColorField value={brandColor} onChange={setBrandColor} />
+                  <ColorField value={brandColor} onChange={setBrandColor} invalid={brandColorInvalid} />
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-hover"
@@ -408,6 +460,17 @@ export default function CompanyConfig() {
                     <Copy size={12} />
                     {t('brandingPage.copyColor')}
                   </button>
+                </div>
+                {brandColorInvalid ? (
+                  <p className="text-xs text-status-error">{t('brandingPage.brandColorInvalid')}</p>
+                ) : (
+                  <>
+                    <BrandPreview color={brandHex} />
+                    {brandPalette(brandHex, 'light').neutral ? (
+                      <p className="text-xs text-text-muted">{t('brandingPage.brandColorNeutral')}</p>
+                    ) : null}
+                  </>
+                )}
                 </div>
               </SettingRow>
 

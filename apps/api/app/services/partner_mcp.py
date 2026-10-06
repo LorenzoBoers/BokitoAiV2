@@ -144,6 +144,9 @@ async def list_attached_mcp_tools_by_module(
         )
     )
 
+    from app.services.connection_scope import project_links
+
+    links = await project_links(session, tenant_id)
     out: dict[str, list[dict[str, Any]]] = {}
     for binding, conn in bindings.all():
         modules = by_connection.get(str(conn.id)) or []
@@ -181,6 +184,9 @@ async def list_attached_mcp_tools_by_module(
         entry = {
             "server_id": str(server.id),
             "server_name": server.name,
+            "connection_id": str(conn.id),
+            # Non-empty: agents reach these tools only inside these projects.
+            "project_ids": links.get(str(conn.id), []),
             "provider": conn.provider,
             "server_url": server.server_url,
             "tools_synced_at": (

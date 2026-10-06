@@ -114,6 +114,18 @@ async def resolve_decision(
 
             await apply_checkout_choice(session, tenant_id, payload, user_id=user_id)
 
+        if action_type == "activate_inbox_rule":
+            rule_raw = str(payload.get("rule_id") or "").strip()
+            if rule_raw:
+                from app.services.inbox_rules import update_rule
+
+                try:
+                    await update_rule(
+                        session, tenant_id, UUID(rule_raw), status="active", user_id=user_id
+                    )
+                except ValueError as exc:
+                    raise DecisionActionError(action_type, str(exc)) from exc
+
         if action_type == "enable_module":
             slug = str(payload.get("module") or "").strip()
             if slug:
@@ -146,6 +158,7 @@ async def resolve_decision(
                         end_at=end_at,
                         description=str(payload.get("description") or ""),
                         location=str(payload.get("location") or ""),
+                        all_day=bool(payload.get("all_day")),
                     )
                 except Exception as exc:
                     raise DecisionActionError(action_type, str(exc)) from exc
@@ -180,6 +193,7 @@ async def resolve_decision(
                         location=(
                             str(payload.get("location")) if "location" in payload else None
                         ),
+                        all_day=payload.get("all_day") if "all_day" in payload else None,
                     )
                 except Exception as exc:
                     raise DecisionActionError(action_type, str(exc)) from exc
@@ -286,6 +300,7 @@ async def resolve_decision(
             "take_over",
             "setup_integration",
             "enable_module",
+            "activate_inbox_rule",
             "calendar_create_event",
             "calendar_update_event",
             "add_module_source",

@@ -943,9 +943,34 @@ function parseSystemEventPayload(raw: string): Record<string, unknown> | null {
 }
 
 /** System messages (contact link, escalate, …) — not teammate notes. */
+/** Localized "Handled by phone by Lorenzo" from the server's structured fields. */
+export function handledExternallyLabel(
+  payload: Record<string, unknown> | undefined,
+  t: TFunction,
+): string | null {
+  const info = payload?.handled_externally
+  if (!info || typeof info !== 'object') return null
+  const row = info as { channel?: string; by_name?: string; note?: string }
+  const channel = ['phone', 'whatsapp', 'email', 'other'].includes(row.channel ?? '')
+    ? (row.channel as string)
+    : 'other'
+  const name = (row.by_name || '').trim() || t('timeline.roleTeam')
+  const base = t(`timeline.handledExternally.${channel}`, { name })
+  const note = (row.note || '').trim()
+  return note ? `${base} - ${note}` : base
+}
+
 function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
   const { t } = useTranslation('communication')
   const raw = (message.bodyText || message.bodyPreview || '').trim()
+  const handled = handledExternallyLabel(message.payload, t)
+  if (handled) {
+    return (
+      <div className="flex justify-center py-0.5 px-2" data-testid="handled-externally-pill">
+        <ActivityPill label={handled} />
+      </div>
+    )
+  }
   const fromPayload =
     message.payload && Object.keys(message.payload).length > 0 ? message.payload : null
   const fromBody = raw ? parseSystemEventPayload(raw) : null
@@ -1235,8 +1260,35 @@ export function MessageTimelineItem({
     return Object.values(membersById).find((m) => m.email?.toLowerCase() === address)
   })()
   const author = authorFromId ?? authorFromEmail
-  const authorName = author?.name ?? (isOutbound ? t('timeline.events.you') : t('timeline.events.teamMember'))
-  const authorEmail = author?.email ?? ''
+  // Reply a colleague sent from their own Outlook/Gmail, logged via Sent
+  // items. Without a matching member the mail's own sender name is shown.
+  const externalMailbox = message.payload?.origin === 'external_mailbox'
+  const mailboxProviderLabel = (() => {
+    const provider = String(message.payload?.mailbox_provider ?? '')
+    if (provider === 'outlook') return 'Outlook'
+    if (provider === 'gmail') return 'Gmail'
+    return String(message.payload?.mailbox ?? '') || provider
+  })()
+  const externalSenderName =
+    typeof message.payload?.sender_name === 'string' && message.payload.sender_name.trim()
+      ? message.payload.sender_name.trim()
+      : message.fromAddress || ''
+  const authorName =
+    author?.name ??
+    (externalMailbox && externalSenderName
+      ? externalSenderName
+      : isOutbound
+        ? t('timeline.events.you')
+        : t('timeline.events.teamMember'))
+  const authorEmail = author?.email ?? (externalMailbox ? message.fromAddress || '' : '')
+  const forwardedFrom = (() => {
+    const raw = message.payload?.forwarded_from
+    if (!raw || typeof raw !== 'object') return null
+    const row = raw as { name?: unknown; email?: unknown }
+    const name = typeof row.name === 'string' ? row.name.trim() : ''
+    const email = typeof row.email === 'string' ? row.email.trim() : ''
+    return name || email ? { name, email } : { name: '', email: '' }
+  })()
   const authorAvatarUrl = author?.avatarUrl ?? null
 
   // Inbound contact info: prefer thread contact, fallback to message fromAddress
@@ -1429,9 +1481,46 @@ export function MessageTimelineItem({
       )
     }
     if (authorKind === 'teammate') {
-      return <BubbleHeader name={authorName} chip={<RoleChip kind="team" />} />
+      return (
+        <BubbleHeader
+          name={authorName}
+          chip={<RoleChip kind="team" />}
+          subtitle={
+            externalMailbox
+              ? t('timeline.sentFromOwnMailbox', { provider: mailboxProviderLabel })
+              : undefined
+          }
+        />
+      )
     }
     return null
+  })()
+
+  // Provenance lines inside the bubble: a reply logged from a colleague's
+  // own mailbox, or a teammate forwarding someone else's mail.
+  const provenanceLine = (() => {
+    const rows: string[] = []
+    if (externalMailbox && authorKind === 'self') {
+      rows.push(t('timeline.sentFromOwnMailbox', { provider: mailboxProviderLabel }))
+    }
+    if (forwardedFrom) {
+      const who = forwardedFrom.name || forwardedFrom.email
+      rows.push(
+        who
+          ? t('timeline.forwardedFrom', { name: who })
+          : t('timeline.forwardedUnknown'),
+      )
+    }
+    if (rows.length === 0) return null
+    return (
+      <div className="mb-1 space-y-0.5" data-testid="message-provenance">
+        {rows.map((row) => (
+          <div key={row} className="truncate-fade text-2xs text-text-muted" title={row}>
+            {row}
+          </div>
+        ))}
+      </div>
+    )
   })()
 
   // Own messages carry no name; delivery problems and the soft-undo window
@@ -1540,9 +1629,10 @@ export function MessageTimelineItem({
       </div>
     ) : null
   const bubbleBodyWithMeta =
-    ccLine || selfStatusLine ? (
+    ccLine || selfStatusLine || provenanceLine ? (
       <div>
         {selfStatusLine}
+        {provenanceLine}
         {ccLine}
         {bubbleBody}
       </div>

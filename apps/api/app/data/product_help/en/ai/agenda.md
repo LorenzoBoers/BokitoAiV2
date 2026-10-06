@@ -16,10 +16,10 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 ![Agenda week view](/api/docs/assets/agenda/week.png)
 *Week shows calendar meetings, check-ups, look-ats and agent tasks per day.*
 
-1. Open **Agenda**. **Week** is the default; switch to **Day**, **Month** or **List** at the top, or press D, W, M or L.
-2. Use **Today** and the arrows (or the arrow keys) to move through time.
+1. Open **Agenda**. The help icon next to the title in the top bar opens this guide. **Week** is the default; switch to **Day**, **Month** or **List** on the same row as **New**, or press D, W, M or L.
+2. Use **Today** and the arrows (or the arrow keys) to move through time. In **List**, the current day starts at the top; scroll up for earlier days, pick a date on the mini calendar on the left, or use **Back to top** after you scroll down. **Who** and **Show** stay on screen while the list scrolls.
 3. On the left, choose **Who** (**Everyone**, **Only me**, **People**, **Agents**) and a project, and turn layers on or off under **Show**: **Calendar**, **Look-ats**, **Check-ups**, **Agent tasks**, **Routines** and **Activity**.
-4. Choose an item to open its details on the right, with links to the conversation, project or agent.
+4. Choose an item to open its details on the right, with who is responsible (a person, a team or an agent), and links to the conversation, project or agent.
 
 ## Act on what needs attention
 
@@ -38,8 +38,8 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 ## Plan something new
 
 1. Choose **New** and pick **Agent task** (an agent picks it up once), **Reminder** (fires on a date or a platform event), **Routine** (an agent repeats it on a rhythm) or **Calendar block** (adds a block to a connected calendar).
-2. Fill the name, the agent, when, and the instructions. Choose **Save**.
-3. Routines stay out of the grid so important moments stand out. Manage them under **Routines** on the left.
+2. Fill the name, the agent, when, and the instructions. For a calendar block, pick the calendar, title, start and end. Turn on **All day** to put it in the top row under the date headers. Choose **Save** or **Create**.
+3. Every layer turned on under **Show**, including **Routines** and **Activity**, appears in the grid at its own time; only all-day items sit in the top row. Each block shows who is responsible with a person, team or agent mark. Turn a layer off to hide it. Manage routines under **Routines** on the left.
 4. Shortcuts: **Plan an agent task** and **New reminder** in the command palette (Ctrl+K), or **Schedule on Agenda** on an agent's page, which opens Agenda filtered to that agent with the form ready.
 
 Agents plan work too: ask one in a conversation to "check this again on Friday". Depending on your [autonomy posture](/docs/govern/autonomy), the plan is created directly or arrives as a decision in Communication first.

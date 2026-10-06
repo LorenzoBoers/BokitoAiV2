@@ -1,6 +1,7 @@
 """Tenant bootstrap defaults on signup."""
 
 import json
+import re
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,15 +14,31 @@ from app.services.personal_assistant import ensure_personal_assistant
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
 
-DEFAULT_BRAND_COLOR = "#0D9488"
-_LEGACY_DEFAULT_BRAND_COLORS = frozenset({"#00FF99", "#00D986"})
+DEFAULT_BRAND_COLOR = "#32BF8E"
+_LEGACY_DEFAULT_BRAND_COLORS = frozenset({"#00FF99", "#00D986", "#0D9488"})
+
+
+_HEX_RE = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+
+def normalize_brand_hex(value: object) -> str | None:
+    """`#RGB` / `RRGGBB` / `#rrggbb` -> `#RRGGBB`; anything else -> None."""
+    if not isinstance(value, str):
+        return None
+    match = _HEX_RE.match(value.strip())
+    if not match:
+        return None
+    digits = match.group(1)
+    if len(digits) == 3:
+        digits = "".join(c * 2 for c in digits)
+    return f"#{digits.upper()}"
 
 
 def resolve_brand_color(value: str | None) -> str:
-    raw = (value or "").strip()
-    if not raw or raw.upper() in {item.upper() for item in _LEGACY_DEFAULT_BRAND_COLORS}:
+    hex_value = normalize_brand_hex(value)
+    if not hex_value or hex_value in _LEGACY_DEFAULT_BRAND_COLORS:
         return DEFAULT_BRAND_COLOR
-    return raw
+    return hex_value
 
 
 ONBOARDING_SYSTEM_PROMPT = """You are the Bokito onboarding assistant. Interview the user about their organization:
@@ -43,8 +60,16 @@ these steps one at a time:
    first). Point them to Email & messages, not the module marketplace.
 2. Talk - interview them and document the organization (company.md) in this
    chat.
-3. One decision - make sure they have seen and approved a decision card.
-4. Check-in / watching - use get_platform_watch and set_platform_watch
+3. Brief - once company.md says what the business does, draft your own
+   working brief from it with update_agent on yourself (use list_agents to
+   find your id): a one-line description (who you serve, what you handle,
+   what you leave to people) and a system prompt in the company's language
+   and tone that names their services, customers and house rules. Do the
+   same for any other agent they ask for. The change lands in Govern for
+   approval; tell them it is waiting there and do not apply it yourself.
+4. One decision - make sure they have seen and approved a decision card
+   (the brief from step 3 counts).
+5. Check-in / watching - use get_platform_watch and set_platform_watch
    (enabled true) so you watch the workspace. The check-in starts paused;
    turn it on when they want watching. Findings land in your own channel in
    Communication. Keep heartbeat.md as the checklist you work through when
@@ -80,7 +105,7 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
         "heartbeat.md",
         "heartbeat",
-        "# Daily check-in\n\n- Review open conversations needing a reply\n- Check pending decisions\n- If company.md or open threads mention work a business module covers (see list_modules) and that module is off, use recommend_module; otherwise HEARTBEAT_OK\n",
+        "# Daily check-in\n\n- Review open conversations needing a reply\n- Check pending decisions\n- If company.md or open threads mention work a business module covers (see list_modules) and that module is off, use recommend_module once; never repeat an open or declined recommendation; otherwise HEARTBEAT_OK\n",
     ),
 ]
 
@@ -107,6 +132,12 @@ async def ensure_front_desk(
         # Keep the customer-facing mark consistent when older tenants have none.
         from app.services.agent_avatar import avatar_payload
 
+        changed = False
+        # The workspace's first agent must be reachable from Communication;
+        # one tenant's lead sat on chat_access=nobody and nobody could brief it.
+        if existing.is_lead and existing.chat_access == "nobody":
+            existing.chat_access = "everyone"
+            changed = True
         av = avatar_payload(existing)
         if av.get("avatar_kind") == "initials" and not av.get("avatar_icon"):
             try:
@@ -123,6 +154,8 @@ async def ensure_front_desk(
                 }
             )
             existing.settings_json = json.dumps(stored)
+            changed = True
+        if changed:
             session.add(existing)
             if commit:
                 await session.commit()
@@ -151,6 +184,10 @@ async def ensure_front_desk(
         name="Front desk",
         role="assistant",
         slug="front-desk",
+        description=(
+            "First reply on every channel: answers from the workspace docs, "
+            "drafts for the team, and hands over when a person is needed."
+        ),
         chat_access="everyone",
         system_prompt=ONBOARDING_SYSTEM_PROMPT,
         is_active=True,
@@ -209,6 +246,21 @@ async def ensure_front_desks(session: AsyncSession) -> int:
     for tenant_id in tenant_ids:
         front_desk = await ensure_front_desk(session, tenant_id, commit=False)
         await ensure_widget_default_agent(session, tenant_id, front_desk, commit=False)
+    # Whatever agent carries the lead flag must be reachable by the team.
+    unreachable_leads = (
+        await session.execute(
+            select(Agent).where(
+                Agent.kind == "company",
+                Agent.is_lead.is_(True),
+                Agent.is_active.is_(True),
+                Agent.acts_for_user.is_(False),
+                Agent.chat_access == "nobody",
+            )
+        )
+    ).scalars().all()
+    for lead in unreachable_leads:
+        lead.chat_access = "everyone"
+        session.add(lead)
     if tenant_ids:
         await session.commit()
     return len(tenant_ids)
@@ -252,17 +304,24 @@ async def ensure_widget_channel(
 
     existing = (
         await session.execute(
-            sa_select(ChannelAccount).where(
+            sa_select(ChannelAccount)
+            .where(
                 ChannelAccount.tenant_id == tenant_id,
                 ChannelAccount.channel == "widget",
             )
+            .order_by(ChannelAccount.created_at)
         )
     ).scalars().first()
-    if existing:
-        return existing
     tenant = (
         await session.execute(sa_select(Tenant).where(Tenant.id == tenant_id))
     ).scalar_one()
+    if existing:
+        from app.services.widget_channel import merge_widget_settings_from_tenant
+
+        merge_widget_settings_from_tenant(tenant, existing)
+        return existing
+    from app.services.widget_channel import merge_widget_settings_from_tenant
+
     account = ChannelAccount(
         tenant_id=tenant_id,
         channel="widget",
@@ -272,6 +331,7 @@ async def ensure_widget_channel(
         is_enabled=True,
         settings_json=json.dumps({"ai_config": {"ai_handling": {"mode": "autonomous"}}}),
     )
+    merge_widget_settings_from_tenant(tenant, account)
     session.add(account)
     if commit:
         await session.commit()

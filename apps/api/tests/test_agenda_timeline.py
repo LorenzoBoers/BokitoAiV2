@@ -416,3 +416,34 @@ async def test_stale_running_runs_closed_by_repair(session_override: AsyncSessio
     assert stale_after.status == "completed"
     assert stale_after.completed_at is not None
     assert fresh_after.status == "running"
+
+
+@pytest.mark.asyncio
+async def test_wake_who_is_a_real_agent_not_a_role_slug(session_override: AsyncSession):
+    tenant, _agent = await _tenant_and_agent(session_override)
+    session_override.add(
+        Trigger(
+            tenant_id=tenant.id,
+            name="Role-only scan",
+            kind="interval",
+            interval_minutes=1440,
+            agent_role="orchestrator",
+            enabled=True,
+            next_run_at=datetime.utcnow() + timedelta(hours=1),
+        )
+    )
+    await session_override.commit()
+
+    now = datetime.utcnow()
+    items = await list_time_items(
+        session_override,
+        tenant.id,
+        start=now,
+        end=now + timedelta(days=2),
+        sources=["wake"],
+    )
+    scan = next(i for i in items if i.get("title") == "Role-only scan")
+    shown = (scan.get("agent_name") or scan.get("owner_name") or "").lower()
+    assert shown not in {"orchestrator", "orchestra", "po"}
+    assert scan.get("agent_id")
+    assert scan.get("agent_name")

@@ -36,6 +36,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/communication/inbox/open", "communication", "handling-picker"),
     ("/communication/inbox/open", "communication", "agent-turn"),
     ("/communication/inbox/open", "communication", "hashtags"),
+    ("/communication/inbox/open", "communication", "stale-draft"),
     ("/settings/action-tags", "categories", "catalog"),
     ("/communication/tag/klacht/all", "categories", "ticket-panel"),
     ("/communication/runs/all", "agent-runs", "runs-list"),
@@ -44,6 +45,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/communication/inbox/open", "contacts", "link-conversation"),
     ("/settings/channels", "channels", "mailbox-status"),
     ("/settings/channels", "channels", "communication-tags"),
+    ("/settings/channels", "channels", "sent-items"),
     ("/settings/channels", "quickstart", "mailbox"),
     ("/settings/communication", "inbox-ai", "workspace-default"),
     ("/ai/assistant/external/installation", "widget", "installation"),
@@ -62,6 +64,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/settings/trust", "privacy-security", "data-region"),
     ("/connections/marketplace", "integrations", "marketplace"),
     ("/connections/accounting", "integrations", "module-home"),
+    ("/connections", "integrations", "provider-connections"),
     ("/settings/mcp", "mcp", "servers"),
     ("/team", "team", "invite"),
     ("/settings/help-centers", "help-centers", "publish"),
@@ -74,12 +77,34 @@ SCROLL_TO: dict[tuple[str, str], re.Pattern[str]] = {
     ("privacy-security", "data-region"): re.compile(r"^(Data processing|Gegevensverwerking)$"),
 }
 
-# Shots that need interaction first: ("click" | "wait" | "scroll", CSS selector) steps, run in order.
+# Shots that need interaction first: ("click" | "wait" | "scroll" | "eval" | "reload", arg) steps,
+# run in order. "eval" runs JavaScript on the page; "reload" reloads the current URL.
 # A shot with steps always reloads its page so earlier clicks do not leak into it.
 PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ("communication", "handling-picker"): [
         ("click", 'main [role="button"][tabindex="0"]:has-text("Petra Bakker")'),
         ("click", '[data-testid="thread-ai-handling"]'),
+    ],
+    ("communication", "stale-draft"): [
+        ("click", 'main [role="button"][tabindex="0"]:has-text("Petra Bakker")'),
+        ("wait", '[data-testid="composer-draft-stale"], textarea'),
+        # Store a draft anchored on a message that is no longer the newest one,
+        # so the composer shows the Outdated draft notice after reload.
+        (
+            "eval",
+            "(() => { const id = location.pathname.split('/').filter(Boolean).pop();"
+            " localStorage.setItem('inbox.draft.' + id, JSON.stringify({"
+            " body: 'Beste Petra, bedankt voor uw bericht. Donderdag past ons prima.',"
+            " cc: '', bcc: '', basedOnMessageId: 'docs-stale-anchor' })); })()",
+        ),
+        ("reload", ""),
+        ("wait", '[data-testid="composer-draft-stale"]'),
+    ],
+    # Needs a connected mailbox; without one the Channels list is captured.
+    ("channels", "sent-items"): [
+        ("click", '[data-testid="channel-row"][data-kind="email_mailbox"] a'),
+        ("click", '[data-testid="mailbox-folders-edit"]'),
+        ("wait", '[data-testid="mailbox-folders-dialog"]'),
     ],
     ("communication", "agent-turn"): [
         ("click", 'main [role="button"][tabindex="0"]:has-text("Bokito Assistant")'),
@@ -120,6 +145,11 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ],
     ("mcp-endpoint", "connect-ai-tools"): [
         ("click", '[data-testid="ai-tool-claudeCode"] summary'),
+    ],
+    ("integrations", "provider-connections"): [
+        ("click", 'main article[role="button"]:has-text("Outlook Calendar")'),
+        ("wait", '[data-testid="provider-connections"]'),
+        ("click", '[data-testid="provider-connections"] button[aria-expanded="false"]'),
     ],
     ("channels", "mailbox-status"): [
         ("click", '[data-testid="channel-row"] button[aria-expanded="false"]'),
@@ -199,13 +229,18 @@ def main() -> int:
             if steps:
                 try:
                     for action, selector in steps:
-                        target = page.locator(selector).first
-                        if action == "click":
-                            target.click(timeout=5000)
-                        elif action == "wait":
-                            target.wait_for(state="visible", timeout=10000)
+                        if action == "eval":
+                            page.evaluate(selector)
+                        elif action == "reload":
+                            page.reload(wait_until="networkidle", timeout=60000)
                         else:
-                            target.scroll_into_view_if_needed(timeout=5000)
+                            target = page.locator(selector).first
+                            if action == "click":
+                                target.click(timeout=5000)
+                            elif action == "wait":
+                                target.wait_for(state="visible", timeout=10000)
+                            else:
+                                target.scroll_into_view_if_needed(timeout=5000)
                         page.wait_for_timeout(800)
                 except Exception as exc:  # noqa: BLE001 — keep the shot, just unprepared
                     print(f"prepare skipped for {slug}/{name}: {exc}")

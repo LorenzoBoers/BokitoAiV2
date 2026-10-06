@@ -1,98 +1,54 @@
-/** Brand / accent tokens applied on the widget host. Theme CSS must not override these. */
+/**
+ * Brand / accent tokens applied on the widget host. Theme CSS must not override these.
+ * Tokens come from `brandPalette` in `@bokito/shared`, the same engine as the dashboard.
+ */
 
-export const DEFAULT_BRAND = '#0D9488'
+import {
+  brandPalette,
+  hexToRgb,
+  normalizeBrandHex,
+  resolveBrandSeed,
+  rgbToHex,
+  DEFAULT_BRAND_HEX,
+  type BrandTheme,
+  type Rgb as RgbTuple,
+} from '@bokito/shared'
 
-const LEGACY_NEON = new Set(['#00FF99', '#00D986', '#00ff99', '#00d986'])
+export const DEFAULT_BRAND = DEFAULT_BRAND_HEX
+export { resolveBrandSeed }
+export type { BrandTheme }
 
 export type Rgb = { r: number; g: number; b: number }
-export type BrandTheme = 'light' | 'dark'
+
+const WIDGET_BG: Record<BrandTheme, RgbTuple> = {
+  light: [247, 248, 250],
+  dark: [16, 19, 26],
+}
 
 export function parseHexColor(value: string): Rgb | null {
-  const hex = value.trim().replace(/^#/, '')
-  if (/^[0-9a-fA-F]{3}$/.test(hex)) {
-    return {
-      r: parseInt(hex[0] + hex[0], 16),
-      g: parseInt(hex[1] + hex[1], 16),
-      b: parseInt(hex[2] + hex[2], 16),
-    }
-  }
-  if (/^[0-9a-fA-F]{6}$/.test(hex)) {
-    return {
-      r: parseInt(hex.slice(0, 2), 16),
-      g: parseInt(hex.slice(2, 4), 16),
-      b: parseInt(hex.slice(4, 6), 16),
-    }
-  }
-  return null
+  const rgb = hexToRgb(value)
+  return rgb ? { r: rgb[0], g: rgb[1], b: rgb[2] } : null
 }
 
-/** Empty or the old neon default become the current platform teal. */
-export function resolveBrandSeed(color: string | null | undefined): string {
-  if (!color || !color.trim()) return DEFAULT_BRAND
-  const hex = color.trim().startsWith('#') ? color.trim() : `#${color.trim()}`
-  if (LEGACY_NEON.has(hex) || LEGACY_NEON.has(hex.toUpperCase())) return DEFAULT_BRAND
-  return hex
-}
+const css = (rgb: RgbTuple) => `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`
 
-export function relativeLuminance(rgb: Rgb): number {
-  const lin = (channel: number) => {
-    const s = channel / 255
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
-  }
-  return 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b)
-}
+export type WidgetBrandTokens = Record<
+  '--bk-brand' | '--bk-primary' | '--bk-primary-dark' | '--bk-primary-light' | '--bk-on-primary' | '--bk-mark' | '--bk-launcher-icon',
+  string
+>
 
-/** Text/icon color that stays readable on the brand fill. */
-export function onBrandColor(rgb: Rgb): string {
-  return relativeLuminance(rgb) > 0.45 ? '#0f172a' : '#ffffff'
-}
-
-export function darkenRgb(rgb: Rgb, factor = 0.14): Rgb {
-  const f = Math.max(0, Math.min(0.5, factor))
-  return { r: rgb.r * (1 - f), g: rgb.g * (1 - f), b: rgb.b * (1 - f) }
-}
-
-export function lightenRgb(rgb: Rgb, factor = 0.28): Rgb {
-  const f = Math.max(0, Math.min(0.9, factor))
+export function widgetBrandTokens(color: unknown, theme: BrandTheme): WidgetBrandTokens {
+  const p = brandPalette(color, theme, WIDGET_BG[theme])
   return {
-    r: rgb.r + (255 - rgb.r) * f,
-    g: rgb.g + (255 - rgb.g) * f,
-    b: rgb.b + (255 - rgb.b) * f,
+    '--bk-brand': css(p.solid),
+    '--bk-primary': css(p.solid),
+    '--bk-primary-dark': css(p.pressed),
+    '--bk-primary-light': `rgba(${p.solid[0]},${p.solid[1]},${p.solid[2]},0.14)`,
+    '--bk-on-primary': css(p.fg),
+    '--bk-mark': css(p.ink),
+    // Light launcher is a solid fill; dark launcher is a tinted surface.
+    '--bk-launcher-icon': css(theme === 'light' ? p.fg : p.ink),
   }
-}
-
-export function rgbCss(rgb: Rgb): string {
-  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n)))
-  return `rgb(${c(rgb.r)}, ${c(rgb.g)}, ${c(rgb.b)})`
-}
-
-/**
- * Lift dark/muddy tenant colors into a readable accent for icons and rings,
- * matching the dashboard's product-safe ramp intent (without pulling OKLCH).
- */
-export function productAccent(rgb: Rgb, theme: BrandTheme): Rgb {
-  const lum = relativeLuminance(rgb)
-  if (theme === 'dark') {
-    // Dark brands vanish on dark chrome — lift until the mark reads clearly.
-    if (lum < 0.28) return lightenRgb(rgb, 0.42)
-    if (lum < 0.4) return lightenRgb(rgb, 0.22)
-    return rgb
-  }
-  // Light theme: near-black brands read as mud on white launcher chrome;
-  // very light brands need darkening for borders/text.
-  if (lum < 0.2) return lightenRgb(rgb, 0.4)
-  if (lum < 0.35) return lightenRgb(rgb, 0.2)
-  if (lum > 0.72) return darkenRgb(rgb, 0.28)
-  if (lum > 0.58) return darkenRgb(rgb, 0.12)
-  return rgb
-}
-
-/**
- * Icon/mark color that stays visible on launcher and header avatar chrome
- * (those are surface fills, not solid brand).
- */
-export function markColor(rgb: Rgb, theme: BrandTheme): string {
-  return rgbCss(productAccent(rgb, theme))
 }
 
 function hostTheme(host: HTMLElement): BrandTheme {
@@ -105,33 +61,7 @@ function hostTheme(host: HTMLElement): BrandTheme {
 }
 
 export function applyBrandToHost(host: HTMLElement, color: string, rgb: Rgb | null): void {
-  const seed = resolveBrandSeed(color)
-  const parsed = rgb ?? parseHexColor(seed)
-  const theme = hostTheme(host)
-  const accent = parsed ? productAccent(parsed, theme) : null
-
-  host.style.setProperty('--bk-brand', seed)
-  if (accent && parsed) {
-    host.style.setProperty('--bk-primary', rgbCss(accent))
-    host.style.setProperty('--bk-primary-dark', rgbCss(darkenRgb(accent, 0.14)))
-    host.style.setProperty(
-      '--bk-primary-light',
-      `rgba(${Math.round(accent.r)},${Math.round(accent.g)},${Math.round(accent.b)},0.14)`,
-    )
-    host.style.setProperty('--bk-on-primary', onBrandColor(accent))
-    // Mark stays the readable accent for header/avatar chrome; launcher icon
-    // follows theme CSS (--bk-on-primary on light solid fill, accent on dark).
-    host.style.setProperty('--bk-mark', markColor(parsed, theme))
-    if (theme === 'light') {
-      host.style.setProperty('--bk-launcher-icon', onBrandColor(accent))
-    } else {
-      host.style.setProperty('--bk-launcher-icon', markColor(parsed, theme))
-    }
-  } else {
-    host.style.setProperty('--bk-primary', seed)
-    host.style.setProperty('--bk-primary-dark', seed)
-    host.style.setProperty('--bk-on-primary', '#ffffff')
-    host.style.setProperty('--bk-mark', seed)
-    host.style.setProperty('--bk-launcher-icon', seed)
-  }
+  const seed = normalizeBrandHex(color) ?? (rgb ? rgbToHex([rgb.r, rgb.g, rgb.b]) : null)
+  const tokens = widgetBrandTokens(seed, hostTheme(host))
+  for (const [key, value] of Object.entries(tokens)) host.style.setProperty(key, value)
 }

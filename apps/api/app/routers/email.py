@@ -502,7 +502,7 @@ async def list_connection_folders(
     settings = _load_settings(account)
     last_sync_at = settings.get("last_sync_at")
     folders = []
-    for folder in account_sync_folders(settings):
+    for folder in account_sync_folders(settings, provider=account.provider):
         selected = bool(folder.get("is_selected"))
         folders.append(
             {

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, Clock, Paperclip, Quote, Send, Square, StickyNote } from 'lucide-react'
+import { Check, ChevronDown, Clock, Paperclip, PhoneOff, Quote, Send, Square, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -21,6 +22,7 @@ import {
 } from '../ui/dropdown-menu'
 import type { ComposerSurface, ComposerMode } from '../../lib/message-composer'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
+import { cn } from '../../lib/utils'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { listChannels, type ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
@@ -33,7 +35,14 @@ import {
   type MentionQuery,
 } from '../../lib/mentions'
 import { applyDisplayEdit, applyMentionAtDisplay, displayFromRaw } from '../../lib/mention-editor'
-import { parseComposerDraft, serializeComposerDraft } from '../../lib/inbox-ops'
+import {
+  composerDraftStorageKey,
+  isStoredDraftStale,
+  parseComposerDraft,
+  serializeComposerDraft,
+  type StoredComposerDraft,
+} from '../../lib/inbox-ops'
+import { draftThreadReply } from '../../lib/inbox-api'
 import { SNOOZE_PRESETS } from '../../lib/snooze'
 import { uploadAttachment } from '../../lib/uploads-api'
 import { parseComposerVerb, composerVerbHelp } from '../../lib/composer-verbs'
@@ -93,11 +102,19 @@ type Props = {
   /** Open AI reply proposal loaded into the composer. Discarding the draft rejects it. */
   proposal?: {
     decisionMessageId: string
+    /** Inbound message the proposal answers (server anchor). */
+    basedOnMessageId?: string | null
     onDismiss: () => void | Promise<void>
   } | null
+  /** Newest inbound customer message; anchors drafts so a later message flags them. */
+  latestInboundMessageId?: string | null
+  /** Whether a suggestion card is still open; undefined when the card is not loaded. */
+  isProposalOpen?: (decisionMessageId: string) => boolean | undefined
+  /** Opens "Already handled outside Bokito" (send menu, customer threads only). */
+  onHandledExternally?: () => void
 }
 
-const draftStorageKey = (persistKey: string) => `inbox.draft.${persistKey}`
+const draftStorageKey = composerDraftStorageKey
 
 function readStoredDraft(persistKey: string | null | undefined): string {
   if (!persistKey || typeof window === 'undefined') return ''
@@ -142,6 +159,9 @@ export default function ReplyComposer({
   lastInboundText,
   channelAccountId: boundChannelAccountId,
   proposal = null,
+  latestInboundMessageId = null,
+  isProposalOpen,
+  onHandledExternally,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -175,6 +195,14 @@ export default function ReplyComposer({
   const [cc, setCc] = useState('')
   const [bcc, setBcc] = useState('')
   const [draftRestored, setDraftRestored] = useState(false)
+  // Restored draft that no longer answers the latest message (customer wrote
+  // again, or its proposal card was resolved/set aside).
+  const [draftStale, setDraftStale] = useState(false)
+  const [redrafting, setRedrafting] = useState(false)
+  // An AI proposal dropped into the composer is not the operator's draft
+  // until they touch it: untouched prefills are never written to storage, so
+  // a rejected or superseded proposal cannot resurface as "Draft restored".
+  const untouchedPrefillRef = useRef<string | null>(null)
   const [aiFlashNonce, setAiFlashNonce] = useState(0)
   const flashAiDraft = () => setAiFlashNonce((n) => n + 1)
   const [uploading, setUploading] = useState(false)
@@ -276,7 +304,8 @@ export default function ReplyComposer({
     pendingCaretRef.current = applied.displayCaret
     setMentionQuery(null)
     setMentionIndex(0)
-    writeStoredDraft(persistKey, serializeComposerDraft({ body: applied.raw, cc, bcc }))
+    untouchedPrefillRef.current = null
+    writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf({ body: applied.raw, cc, bcc })))
     // Selecting a mention is intentional: people/teams go to a note; agents
     // switch the composer to Ask without opening a meta conversation yet.
     if (mode === 'reply') setMode(item.type === 'agent' ? 'ask' : 'note')
@@ -300,11 +329,63 @@ export default function ReplyComposer({
     }
   }, [modeProp, surface.defaultMode])
 
+  // Anchor every stored draft to the proposal and the inbound message it
+  // answers, so a restore can tell whether it is still current.
+  const anchorRef = useRef({ proposal, latestInboundMessageId })
+  anchorRef.current = { proposal, latestInboundMessageId }
+  const restoredDraftRef = useRef<StoredComposerDraft | null>(null)
+  const storedDraftOf = (draft: { body: string; cc: string; bcc: string }): StoredComposerDraft => {
+    const out: StoredComposerDraft = { ...draft }
+    // An untouched restored draft keeps the anchors it was written with, so
+    // a write-back (flush, debounce) cannot silently make a stale draft look
+    // current again.
+    const restored = restoredDraftRef.current
+    if (restored && restored.body === draft.body && (restored.decisionMessageId || restored.basedOnMessageId)) {
+      if (restored.decisionMessageId) out.decisionMessageId = restored.decisionMessageId
+      if (restored.basedOnMessageId) out.basedOnMessageId = restored.basedOnMessageId
+      return out
+    }
+    const { proposal: current, latestInboundMessageId: latest } = anchorRef.current
+    if (current?.decisionMessageId) out.decisionMessageId = current.decisionMessageId
+    const anchor = current?.basedOnMessageId || latest
+    if (anchor) out.basedOnMessageId = anchor
+    return out
+  }
+  const isUntouchedPrefill = (value: string) =>
+    untouchedPrefillRef.current != null && value === untouchedPrefillRef.current
+
+  // Stale check of the restored draft: the card it came from is gone, or the
+  // customer wrote again. Re-evaluated when the thread's newest message or
+  // the open cards change (realtime).
+  useEffect(() => {
+    const restored = restoredDraftRef.current
+    if (!restored || !draftRestored) {
+      setDraftStale(false)
+      return
+    }
+    setDraftStale(
+      isStoredDraftStale(restored, {
+        latestInboundMessageId: latestInboundMessageId ?? null,
+        proposalOpen: isProposalOpen,
+      }),
+    )
+  }, [draftRestored, latestInboundMessageId, isProposalOpen])
+
+  // Latest draft values for the synchronous flush below.
+  const draftRef = useRef({ body, cc, bcc })
+  draftRef.current = { body, cc, bcc }
+
   useEffect(() => {
     // Reload the stored draft when the thread identity changes — not when
     // the operator switches Reply/Ask/Note (that used to wipe a just-inserted
     // @agent mention and leave a bare "@").
     const stored = parseComposerDraft(readStoredDraft(persistKey))
+    untouchedPrefillRef.current = null
+    restoredDraftRef.current = stored
+    // Keep the flush ref in step right away: a cleanup that runs before the
+    // restored values have rendered (StrictMode, fast thread switch) must
+    // write the restored draft back, not an empty one.
+    draftRef.current = { body: stored.body, cc: stored.cc, bcc: stored.bcc }
     setBody(stored.body)
     setCc(stored.cc)
     setBcc(stored.bcc)
@@ -316,23 +397,62 @@ export default function ReplyComposer({
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {
     if (!persistKey) return
+    if (isUntouchedPrefill(body)) return
     const timer = window.setTimeout(
-      () => writeStoredDraft(persistKey, serializeComposerDraft({ body, cc, bcc })),
+      () => writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf({ body, cc, bcc }))),
       400,
     )
     return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- anchors are read from refs
   }, [persistKey, body, cc, bcc])
 
   // Flush the draft synchronously when leaving the thread or unmounting, so
   // the debounce above cannot drop the last keystrokes.
-  const draftRef = useRef({ body, cc, bcc })
-  draftRef.current = { body, cc, bcc }
   useEffect(() => {
     if (!persistKey) return
-    return () => writeStoredDraft(persistKey, serializeComposerDraft(draftRef.current))
+    return () => {
+      if (isUntouchedPrefill(draftRef.current.body)) return
+      writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf(draftRef.current)))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- anchors are read from refs
   }, [persistKey])
 
+  const clearDraft = () => {
+    setBody('')
+    setCc('')
+    setBcc('')
+    setCcBccOpen(false)
+    setDraftRestored(false)
+    setDraftStale(false)
+    restoredDraftRef.current = null
+    untouchedPrefillRef.current = null
+    writeStoredDraft(persistKey, '')
+  }
+
+  // Stale draft: ask the agent for a fresh proposal on the current thread.
+  const redraft = async () => {
+    if (!token || !persistKey || redrafting) return
+    setRedrafting(true)
+    try {
+      const fresh = await draftThreadReply(token, persistKey)
+      if (!fresh.trim()) {
+        toast.error(t('composer.aiEmpty'))
+        return
+      }
+      clearDraft()
+      setMode('reply')
+      setBody(fresh.trim())
+      flashAiDraft()
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('composer.aiError')))
+    } finally {
+      setRedrafting(false)
+    }
+  }
+
   const appendDictation = (chunk: string) => {
+    untouchedPrefillRef.current = null
     setBody((prev) => appendSpeechChunk(prev, chunk))
     setDictationInterim('')
   }
@@ -369,6 +489,11 @@ export default function ReplyComposer({
     if (draftBody != null && draftBody !== '') {
       setMode('reply')
       setBody(draftBody)
+      untouchedPrefillRef.current = draftBody
+      // A live proposal replaces whatever restore banner was showing.
+      setDraftRestored(false)
+      setDraftStale(false)
+      restoredDraftRef.current = null
       flashAiDraft()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- draftKey drives re-apply
@@ -384,6 +509,7 @@ export default function ReplyComposer({
   const isAsk = mode === 'ask'
   const isReply = mode === 'reply'
   const busy = saving
+  const canSend = Boolean(body.trim()) || attachments.length > 0
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
 
@@ -400,10 +526,8 @@ export default function ReplyComposer({
       try {
         const handled = await onVerb(verb)
         if (handled) {
-          setBody('')
+          clearDraft()
           setAttachments([])
-          setDraftRestored(false)
-          writeStoredDraft(persistKey, '')
           return
         }
         toast.message(composerVerbHelp())
@@ -419,10 +543,8 @@ export default function ReplyComposer({
       if (isAsk) {
         if (!onAgentMessage) return
         // Clear immediately so Enter cannot triple-submit the same body.
-        setBody('')
+        clearDraft()
         setAttachments([])
-        setDraftRestored(false)
-        writeStoredDraft(persistKey, '')
         await onAgentMessage(text)
         requestAnimationFrame(() => textareaRef.current?.focus())
         return
@@ -441,13 +563,8 @@ export default function ReplyComposer({
             : undefined
         await onReply(replyText, action, payload, snoozeMinutes, extras)
       }
-      setBody('')
+      clearDraft()
       setAttachments([])
-      setCc('')
-      setBcc('')
-      setCcBccOpen(false)
-      setDraftRestored(false)
-      writeStoredDraft(persistKey, '')
     } catch (err) {
       toast.error(
         formatApiErrorMessage(
@@ -762,23 +879,47 @@ export default function ReplyComposer({
         />
 
         {draftRestored && !isNote ? (
-          <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-bg-elevated/70 px-2 py-1">
-            <span className="text-xs text-text-muted">{t('composer.draftRestored')}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setBody('')
-                setCc('')
-                setBcc('')
-                setCcBccOpen(false)
-                setDraftRestored(false)
-                writeStoredDraft(persistKey, '')
-                if (proposal) void proposal.onDismiss()
-              }}
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              {t('composer.discardDraft')}
-            </button>
+          <div
+            className={cn(
+              'flex items-center justify-between gap-2 rounded-md border px-2 py-1',
+              draftStale
+                ? 'border-status-warning/40 bg-status-warning/10'
+                : 'border-border/50 bg-bg-elevated/70',
+            )}
+            data-testid={draftStale ? 'composer-draft-stale' : 'composer-draft-restored'}
+          >
+            <span className={cn('text-xs', draftStale ? 'text-text-secondary' : 'text-text-muted')}>
+              {draftStale ? (
+                <>
+                  <span className="font-medium text-text-primary">{t('composer.draftStaleTitle')}</span>{' '}
+                  {t('composer.draftStaleBody')}
+                </>
+              ) : (
+                t('composer.draftRestored')
+              )}
+            </span>
+            <span className="flex shrink-0 items-center gap-3">
+              {draftStale && token && persistKey ? (
+                <button
+                  type="button"
+                  disabled={redrafting}
+                  onClick={() => void redraft()}
+                  className="text-xs font-medium text-accent hover:underline disabled:opacity-50"
+                >
+                  {redrafting ? t('composer.redrafting') : t('composer.redraft')}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  clearDraft()
+                  if (proposal) void proposal.onDismiss()
+                }}
+                className="text-xs font-medium text-accent hover:underline"
+              >
+                {t('composer.discardDraft')}
+              </button>
+            </span>
           </div>
         ) : null}
 
@@ -794,6 +935,7 @@ export default function ReplyComposer({
             if (dictation.listening) return
             const el = e.currentTarget
             const edit = applyDisplayEdit(body, el.value)
+            untouchedPrefillRef.current = null
             setBody(edit.raw)
             if (edit.display !== el.value) {
               // A mention was removed atomically; restore our caret position.
@@ -851,6 +993,7 @@ export default function ReplyComposer({
               body={body}
               disabled={saving || disabled || busy}
               onApply={(text, meta) => {
+                untouchedPrefillRef.current = null
                 setBody(text)
                 if (meta?.fromAi) flashAiDraft()
                 requestAnimationFrame(() => textareaRef.current?.focus())
@@ -890,7 +1033,7 @@ export default function ReplyComposer({
             ) : null}
             <button
               type="button"
-              disabled={(!body.trim() && attachments.length === 0) || busy || disabled || uploading}
+              disabled={!canSend || busy || disabled || uploading}
               onClick={() => void handleSubmit('send')}
               title={
                 isAsk
@@ -921,7 +1064,9 @@ export default function ReplyComposer({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    disabled={(!body.trim() && attachments.length === 0) || busy || disabled || uploading}
+                    disabled={
+                      (!canSend && !onHandledExternally) || busy || disabled || uploading
+                    }
                     title={t('composer.sendMore')}
                     aria-label={t('composer.sendMore')}
                     className="flex h-8 w-6 items-center justify-center border-l border-accent-fg/20 bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
@@ -930,11 +1075,14 @@ export default function ReplyComposer({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-44">
-                  <DropdownMenuItem onClick={() => void handleSubmit('send_and_close')}>
+                  <DropdownMenuItem
+                    disabled={!canSend}
+                    onClick={() => void handleSubmit('send_and_close')}
+                  >
                     {t('composer.sendAndClose')}
                   </DropdownMenuItem>
                   <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="gap-1.5">
+                    <DropdownMenuSubTrigger className="gap-1.5" disabled={!canSend}>
                       <Clock size={13} />
                       {t('composer.sendAndWait')}
                     </DropdownMenuSubTrigger>
@@ -951,6 +1099,19 @@ export default function ReplyComposer({
                       ))}
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
+                  {onHandledExternally ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="gap-1.5"
+                        onClick={onHandledExternally}
+                        data-testid="composer-handled-externally"
+                      >
+                        <PhoneOff size={13} />
+                        {t('composer.handledExternally')}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}

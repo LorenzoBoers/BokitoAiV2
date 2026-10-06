@@ -84,7 +84,7 @@ export function ApplicationHubDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
         <DialogHeader>
           <div className="flex items-start gap-3">
             {step !== 'app' ? (
@@ -133,6 +133,7 @@ export function ApplicationHubDialog({
           </div>
         </DialogHeader>
 
+        <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
         {step === 'app' ? (
           <div className="space-y-4">
             {banner ? (
@@ -201,11 +202,7 @@ export function ApplicationHubDialog({
             banner={null}
             onSetup={() => setStep('offer-setup')}
             onViewConnected={() => onViewConnected(activeOffer)}
-            onAddAccount={
-              activeOffer.integration.id === 'github' && activeOffer.connectionCount > 0
-                ? () => setStep('offer-setup')
-                : undefined
-            }
+            onChanged={onSaved}
           >
             <ModuleUsageNote modules={usableModules} />
           </IntegrationDetailPanel>
@@ -222,6 +219,7 @@ export function ApplicationHubDialog({
             onBack={() => setStep('offer-detail')}
           />
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   )

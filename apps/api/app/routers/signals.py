@@ -1036,6 +1036,46 @@ async def add_note(
     return message
 
 
+class HandledExternallyBody(BaseModel):
+    """The conversation was settled outside Bokito."""
+
+    channel: Literal["phone", "whatsapp", "email", "other"] = "other"
+    note: str = ""
+    close: bool = False
+    # UI language for the timeline line ("Afgehandeld via telefoon door ...").
+    language: str = ""
+
+
+@router.post("/{signal_id}/handled-externally")
+async def handled_externally(
+    signal_id: UUID,
+    body: HandledExternallyBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Log that the conversation was handled by phone, WhatsApp, another
+    mailbox or elsewhere.
+
+    Writes a system line on the timeline, clears unread, sets aside open AI
+    reply proposals (reason ``handled_externally``), counts as the team's
+    reply for needs-reply, and optionally closes the conversation.
+    """
+    await _require_handle(session, auth, signal_id)
+    message = await svc.mark_handled_externally(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        signal_id,
+        channel=body.channel,
+        note=body.note,
+        close=body.close,
+        language=body.language,
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return message
+
+
 @router.get("/{signal_id}/notes")
 async def list_notes(
     signal_id: UUID,

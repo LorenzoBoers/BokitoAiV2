@@ -12,6 +12,7 @@ from app.models.auth import Tenant
 from app.models.calendar import CalendarEvent
 from app.models.integration import IntegrationConnection
 from app.services.calendar_sync import (
+    all_day_span,
     create_external_event,
     calendar_events_in_window,
     sync_connection,
@@ -142,6 +143,59 @@ async def test_create_and_delete_mock_event(session_override: AsyncSession):
         )
     ).scalar_one_or_none()
     assert remaining is None
+
+
+def test_all_day_span_same_day_is_exclusive_next_midnight():
+    start = datetime(2026, 10, 6, 13, 0, 0)
+    end = datetime(2026, 10, 6, 14, 0, 0)
+    assert all_day_span(start, end) == (
+        datetime(2026, 10, 6, 0, 0, 0),
+        datetime(2026, 10, 7, 0, 0, 0),
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_all_day_mock_event(session_override: AsyncSession):
+    tenant = await _tenant(session_override)
+    conn = IntegrationConnection(
+        tenant_id=tenant.id,
+        provider="google_calendar",
+        display_name="Google Calendar",
+        status="active",
+        credentials_json='{"mock": true}',
+        metadata_json="{}",
+    )
+    session_override.add(conn)
+    await session_override.commit()
+    await session_override.refresh(conn)
+
+    start = datetime(2026, 10, 6, 13, 0, 0)
+    end = datetime(2026, 10, 6, 14, 0, 0)
+    created = await create_external_event(
+        session_override,
+        tenant.id,
+        connection_id=conn.id,
+        title="Offsite",
+        start_at=start,
+        end_at=end,
+        all_day=True,
+    )
+    assert created.get("all_day") is True
+    row = await session_override.get(CalendarEvent, UUID(created["id"]))
+    assert row is not None
+    assert row.all_day is True
+    assert row.start_at == datetime(2026, 10, 6, 0, 0, 0)
+    assert row.end_at == datetime(2026, 10, 7, 0, 0, 0)
+
+    items = await calendar_events_in_window(
+        session_override,
+        tenant.id,
+        start=datetime(2026, 10, 6, 0, 0, 0),
+        end=datetime(2026, 10, 7, 0, 0, 0),
+    )
+    match = next((i for i in items if i.get("title") == "Offsite"), None)
+    assert match is not None
+    assert match.get("all_day") is True
 
 
 @pytest.mark.asyncio

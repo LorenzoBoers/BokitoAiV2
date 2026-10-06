@@ -1,11 +1,13 @@
 """Channel management API: accounts, contacts (pairing), inbound webhooks."""
 
+from __future__ import annotations
+
 import json
 import secrets
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy import String, cast, func, or_, select
@@ -299,12 +301,126 @@ async def delete_account(
     auth.require_role("owner", "admin")
     account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
     if account.channel == "widget":
-        raise HTTPException(
-            status_code=400,
-            detail="The website chat cannot be removed. You can pause it instead.",
-        )
+        from app.services.widget_channel import count_widget_channels
+
+        if await count_widget_channels(session, auth.tenant.id) <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="The last website chat cannot be removed. You can pause it instead.",
+            )
     await _detach_and_delete(session, account)
     return {"ok": True}
+
+
+class WidgetCreateBody(BaseModel):
+    label: str = ""
+
+
+@router.post("/widget", status_code=201)
+async def create_widget_channel(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    body: WidgetCreateBody | None = None,
+) -> dict[str, Any]:
+    """Create an extra website-chat channel with its own snippet and look."""
+    auth.require_role("owner", "admin")
+    from app.services.widget_channel import create_extra_widget_channel
+
+    label = body.label if body else ""
+    account = await create_extra_widget_channel(session, auth.tenant, label=label)
+    await session.commit()
+    await session.refresh(account)
+    return await _row(session, auth, account)
+
+
+@router.get("/accounts/{account_id}/widget")
+async def get_channel_widget(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    if account.channel != "widget":
+        raise HTTPException(status_code=400, detail="Not a website chat channel")
+    from app.services.widget_channel import widget_payload
+
+    return await widget_payload(session, auth.tenant, account)
+
+
+@router.put("/accounts/{account_id}/widget")
+async def put_channel_widget(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    appearance_json: str | None = Form(None),
+    pre_chat_form: str | None = Form(None),
+    offline_message: str | None = Form(None),
+    whatsapp_handover_json: str | None = Form(None),
+    widget_favicon: UploadFile | None = File(None),
+):
+    auth.require_role("owner", "admin")
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    if account.channel != "widget":
+        raise HTTPException(status_code=400, detail="Not a website chat channel")
+    from app.services.widget_channel import (
+        apply_widget_appearance,
+        apply_widget_livechat,
+        set_widget_favicon,
+        widget_payload,
+    )
+    from app.services.whatsapp_handover import digits
+    from app.services.workspaces_portal import MAX_UPLOAD_BYTES
+
+    if appearance_json and appearance_json.strip():
+        try:
+            parsed = json.loads(appearance_json)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid appearance_json") from exc
+        if isinstance(parsed, dict):
+            apply_widget_appearance(account, parsed)
+    live_patch: dict[str, Any] = {}
+    if pre_chat_form is not None:
+        live_patch["pre_chat_form"] = pre_chat_form.strip() in ("1", "true", "True")
+    if offline_message is not None:
+        live_patch["offline_message"] = offline_message.strip()[:500]
+    if whatsapp_handover_json:
+        try:
+            handover = json.loads(whatsapp_handover_json)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid whatsapp_handover_json") from exc
+        if not isinstance(handover, dict):
+            raise HTTPException(status_code=400, detail="Invalid whatsapp_handover_json")
+        account_id_raw = str(handover.get("account_id") or "")
+        enabled = bool(handover.get("enabled"))
+        if account_id_raw:
+            try:
+                wa = await session.get(ChannelAccount, UUID(account_id_raw))
+            except ValueError:
+                wa = None
+            if wa is None or wa.tenant_id != auth.tenant.id or wa.channel != "whatsapp":
+                raise HTTPException(status_code=422, detail="Choose a WhatsApp channel of this workspace")
+        elif enabled:
+            raise HTTPException(status_code=422, detail="Choose the WhatsApp channel to continue on")
+        live_patch["whatsapp_handover"] = {
+            "enabled": enabled,
+            "account_id": account_id_raw,
+            "number": digits(handover.get("number"))[:20],
+        }
+    if live_patch:
+        apply_widget_livechat(account, live_patch)
+    if widget_favicon and widget_favicon.filename:
+        data = await widget_favicon.read()
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=400, detail="Favicon file too large")
+        mime = widget_favicon.content_type or "image/png"
+        import base64
+
+        encoded = base64.b64encode(data).decode("ascii")
+        set_widget_favicon(account, f"data:{mime};base64,{encoded}")
+    session.add(account)
+    await session.commit()
+    await session.refresh(account)
+    return await widget_payload(session, auth.tenant, account)
 
 
 # ── unified channel rows (state + capabilities + checks) ─────────────
@@ -356,6 +472,9 @@ class ChannelRow(BaseModel):
     created_at: str
     # Initial backfill window in days for sync channels; 0 = everything.
     sync_window_days: int = 30
+    # Mailboxes: file newsletters, receipts and no-reply mail as closed +
+    # tagged "automated" instead of leaving them in Open.
+    archive_automated_mail: bool = False
 
 
 class ChannelListResponse(BaseModel):
@@ -367,6 +486,7 @@ class ChannelPatchBody(BaseModel):
     is_enabled: bool | None = None
     is_primary: bool | None = None
     sync_window_days: int | None = None
+    archive_automated_mail: bool | None = None
     default_agent_id: UUID | None = None
     default_team_id: UUID | None = None
 
@@ -415,10 +535,19 @@ async def _detach_and_delete(session: AsyncSession, account: ChannelAccount) -> 
 
 async def _row(session: AsyncSession, auth: AuthContext, account: ChannelAccount) -> dict:
     from app.services.channel_registry import last_event_by_account, resolve_channel
+    from app.services.widget_channel import count_widget_channels
 
     events = await last_event_by_account(session, auth.tenant.id)
+    widget_count = (
+        await count_widget_channels(session, auth.tenant.id)
+        if account.channel == "widget"
+        else None
+    )
     return resolve_channel(
-        account, tenant=auth.tenant, last_event_at=events.get(account.id)
+        account,
+        tenant=auth.tenant,
+        last_event_at=events.get(account.id),
+        widget_count=widget_count,
     )
 
 
@@ -515,6 +644,10 @@ async def patch_channel(
         if body.sync_window_days < 0 or body.sync_window_days > MAX_SYNC_WINDOW_DAYS:
             raise HTTPException(status_code=400, detail="Backfill window out of range")
         settings["sync_window_days"] = clamp_sync_window_days(body.sync_window_days)
+    if body.archive_automated_mail is not None:
+        from app.services.email_sync import ARCHIVE_AUTOMATED_MAIL_KEY
+
+        settings[ARCHIVE_AUTOMATED_MAIL_KEY] = bool(body.archive_automated_mail)
     if body.label is not None:
         label = body.label.strip()
         if label:
@@ -526,6 +659,12 @@ async def patch_channel(
             account.display_name = account.address or ""
     if body.is_enabled is not None:
         account.is_enabled = bool(body.is_enabled)
+        if account.is_enabled:
+            # Resume after an automatic pause starts with a clean error counter,
+            # otherwise the next failure pauses the mailbox again immediately.
+            from app.services.email_sync import clear_sync_pause
+
+            clear_sync_pause(settings)
     if "default_agent_id" in body.model_fields_set:
         if body.default_agent_id is not None:
             from app.models.agent import Agent

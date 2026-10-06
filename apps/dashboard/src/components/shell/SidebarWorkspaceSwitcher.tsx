@@ -5,7 +5,7 @@ import { useTheme } from '../../context/ThemeContext'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { buildControlPlaneUrl } from '../../lib/host-routing'
 import { REPORTS_PATH } from '../../lib/navigation'
-import { DEFAULT_BRAND_MARK, resolveBrandIconUrl, workspaceBrandName } from '../../lib/tenant-branding'
+import { DEFAULT_BRAND_MARK, resolveBrandIconUrl, workspaceBrandName, BOKITO_MARK_FILTER_DARK, BOKITO_MARK_FILTER_LIGHT } from '../../lib/tenant-branding'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,11 +15,6 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tip } from '../ui/Tip'
-
-const BOKITO_MARK_FILTER_DARK =
-  'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
-const BOKITO_MARK_FILTER_LIGHT =
-  'brightness(0) saturate(100%) invert(20%) sepia(4%) saturate(300%) hue-rotate(20deg) brightness(95%) contrast(90%)'
 
 /** Navigates to the workspaces hub, cross-host when running on a tenant subdomain. */
 export function useGoToWorkspacesHub() {

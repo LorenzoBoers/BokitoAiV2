@@ -82,6 +82,7 @@ export function parseHubConnectParam(searchParams: URLSearchParams): {
 const OAUTH_CALLBACK_KEYS = [
   'integration',
   'integration_error',
+  'connection_reused',
   'provider',
   'github',
   'github_error',

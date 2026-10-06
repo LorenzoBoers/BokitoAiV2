@@ -14,7 +14,6 @@ import {
   Repeat,
 } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
-import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import {
@@ -143,7 +142,11 @@ export default function AgendaPage() {
     })
   }, [agentParam, newParam, searchParams, setParams])
 
-  const setView = (next: AgendaView) => setParams({ view: next === 'week' ? null : next })
+  const setView = (next: AgendaView) =>
+    setParams({
+      view: next === 'week' ? null : next,
+      ...(next === 'list' ? { date: null } : {}),
+    })
   const setAnchor = (next: Date) =>
     setParams({ date: dayKey(next) === dayKey(new Date()) ? null : dayKey(next) })
   const toggleLayer = (layer: AgendaLayer) => {
@@ -287,78 +290,70 @@ export default function AgendaPage() {
   const attentionTotal = attention.checkups.length + attention.lookats.length + attention.failed.length
 
   return (
-    <PageContent width="full" className="space-y-4">
-      <ContentHeader
-        guide="agenda"
-        title={t('tabs.agenda.title')}
-        subtitle={t('tabs.agenda.subtitle')}
-        meta={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              aria-label={t('agendaPage.refresh')}
-              title={t('agendaPage.refreshedAt', { time: formatAppTime(new Date(nowMs), i18n.language) })}
-              onClick={reload}
-              disabled={loading}
-            >
-              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} aria-hidden />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" size="sm">
-                  <Plus className="mr-1.5 h-4 w-4" aria-hidden />
-                  {t('agendaPage.new')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <NewItem icon={Bot} title={t('agendaPage.newMenu.agent')} body={t('agendaPage.newMenu.agentBody')} onSelect={() => openNew('once')} />
-                <NewItem icon={Bell} title={t('agendaPage.newMenu.reminder')} body={t('agendaPage.newMenu.reminderBody')} onSelect={() => openNew('event')} />
-                <NewItem icon={Repeat} title={t('agendaPage.newMenu.routine')} body={t('agendaPage.newMenu.routineBody')} onSelect={() => openNew('cron')} />
-                <NewItem
-                  icon={CalendarDays}
-                  title={t('agendaPage.newMenu.calendar')}
-                  body={calendars.length ? t('agendaPage.newMenu.calendarBody') : t('agendaPage.newMenu.calendarNeedsConnect')}
-                  disabled={calendars.length === 0}
-                  onSelect={() => openCalendarNew()}
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        }
-      />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => setAnchor(new Date())}>
-            {t('agendaPage.today')}
+    <PageContent width="full" className="flex h-full min-h-0 flex-col gap-3 px-6 pb-4 pt-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={() => setAnchor(new Date())}>
+          {t('agendaPage.today')}
+        </Button>
+        <div className="flex">
+          <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.previous')} onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}>
+            <ChevronLeft className="h-4 w-4" aria-hidden />
           </Button>
-          <div className="flex">
-            <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.previous')} onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}>
-              <ChevronLeft className="h-4 w-4" aria-hidden />
-            </Button>
-            <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.next')} onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}>
-              <ChevronRight className="h-4 w-4" aria-hidden />
-            </Button>
-          </div>
-          <h2 className="text-base font-semibold text-text-heading first-letter:uppercase">
-            {view === 'list' ? t('agendaPage.list.range', { from: formatAppDate(range.from, i18n.language, { day: 'numeric', month: 'short' }) }) : rangeLabel}
-          </h2>
+          <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.next')} onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}>
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Button>
         </div>
-        <Tabs value={view} onValueChange={(value) => setView(value as AgendaView)}>
-          <TabsList>
-            {(['day', 'week', 'month', 'list'] as AgendaView[]).map((value) => (
-              <TabsTrigger key={value} value={value}>
-                {t(`agendaPage.views.${value}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <h2 className="text-base font-semibold text-text-heading first-letter:uppercase">
+          {view === 'list'
+            ? t('agendaPage.list.range', { from: formatAppDate(anchor, i18n.language, { day: 'numeric', month: 'short' }) })
+            : rangeLabel}
+        </h2>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Tabs value={view} onValueChange={(value) => setView(value as AgendaView)}>
+            <TabsList>
+              {(['day', 'week', 'month', 'list'] as AgendaView[]).map((value) => (
+                <TabsTrigger key={value} value={value}>
+                  {t(`agendaPage.views.${value}`)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={t('agendaPage.refresh')}
+            title={t('agendaPage.refreshedAt', { time: formatAppTime(new Date(nowMs), i18n.language) })}
+            onClick={reload}
+            disabled={loading}
+          >
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} aria-hidden />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="sm">
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                {t('agendaPage.new')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <NewItem icon={Bot} title={t('agendaPage.newMenu.agent')} body={t('agendaPage.newMenu.agentBody')} onSelect={() => openNew('once')} />
+              <NewItem icon={Bell} title={t('agendaPage.newMenu.reminder')} body={t('agendaPage.newMenu.reminderBody')} onSelect={() => openNew('event')} />
+              <NewItem icon={Repeat} title={t('agendaPage.newMenu.routine')} body={t('agendaPage.newMenu.routineBody')} onSelect={() => openNew('cron')} />
+              <NewItem
+                icon={CalendarDays}
+                title={t('agendaPage.newMenu.calendar')}
+                body={calendars.length ? t('agendaPage.newMenu.calendarBody') : t('agendaPage.newMenu.calendarNeedsConnect')}
+                disabled={calendars.length === 0}
+                onSelect={() => openCalendarNew()}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {attentionTotal > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warning/30 bg-status-warning/5 px-3 py-2" data-testid="agenda-attention">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-status-warning/30 bg-status-warning/5 px-3 py-2" data-testid="agenda-attention">
           <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-text-heading">
             <AlertTriangle className="h-4 w-4 text-status-warning" aria-hidden />
             {t('agendaPage.attention.title')}
@@ -388,7 +383,12 @@ export default function AgendaPage() {
         </div>
       ) : null}
 
-      <div className={cn('grid gap-5 lg:grid-cols-[14.5rem_minmax(0,1fr)]', selection && 'xl:grid-cols-[14.5rem_minmax(0,1fr)_21rem]')}>
+      <div
+        className={cn(
+          'grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden lg:grid-cols-[14.5rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]',
+          selection && 'xl:grid-cols-[14.5rem_minmax(0,1fr)_21rem]',
+        )}
+      >
         <AgendaRail
           anchor={anchor}
           nowMs={nowMs}
@@ -412,7 +412,7 @@ export default function AgendaPage() {
           onOpenRoutines={() => setRoutinesOpen(true)}
         />
 
-        <main className="min-w-0 space-y-3">
+        <main className={cn('flex h-full min-h-0 min-w-0 flex-col', view !== 'list' && 'overflow-y-auto')}>
           {error ? <ApiErrorBanner message={error} onRetry={reload} /> : null}
           {view === 'day' || view === 'week' ? (
             <AgendaTimeGrid
@@ -429,6 +429,7 @@ export default function AgendaPage() {
               month={anchor.getMonth()}
               items={visible}
               nowMs={nowMs}
+              selectedId={selectedId}
               onSelect={setSelection}
               onOpenDay={(day) => setParams({ view: 'day', date: dayKey(day) })}
             />
@@ -439,6 +440,7 @@ export default function AgendaPage() {
               days={range.days}
               items={visible}
               nowMs={nowMs}
+              landKey={dayKey(anchor)}
               selectedId={selectedId}
               projectNames={projectNames}
               onSelect={setSelection}
@@ -447,7 +449,7 @@ export default function AgendaPage() {
         </main>
 
         {selection ? (
-          <div className="fixed inset-y-4 right-4 z-40 w-[min(22rem,calc(100vw-2rem))] shadow-overlay xl:static xl:inset-auto xl:z-auto xl:w-auto xl:shadow-none">
+          <div className="fixed inset-y-4 right-4 z-40 w-[min(22rem,calc(100vw-2rem))] shadow-overlay xl:static xl:inset-auto xl:z-auto xl:min-h-0 xl:w-auto xl:overflow-y-auto xl:shadow-none">
             <AgendaItemPanel
               selection={selection}
               nowMs={nowMs}

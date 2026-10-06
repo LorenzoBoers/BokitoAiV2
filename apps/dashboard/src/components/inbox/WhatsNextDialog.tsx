@@ -14,6 +14,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { cn } from '../../lib/utils'
+import { HandledExternallyForm } from './HandledExternallyForm'
 
 export type FollowUpWhen = 'today' | 'tomorrow' | 'next_week' | 'none'
 
@@ -25,6 +26,8 @@ type Props = {
   saving: boolean
   onSaveReminder: (input: { title: string; when: FollowUpWhen }) => Promise<void>
   onSignalCreated?: () => void
+  /** The conversation was logged as handled outside Bokito. */
+  onHandledExternally?: (info: { closed: boolean }) => void
 }
 
 export function WhatsNextDialog({
@@ -35,10 +38,11 @@ export function WhatsNextDialog({
   saving,
   onSaveReminder,
   onSignalCreated,
+  onHandledExternally,
 }: Props) {
   const { t } = useTranslation('communication')
   const { t: tn } = useTranslation('nav')
-  const [mode, setMode] = useState<'remind' | 'signal'>('remind')
+  const [mode, setMode] = useState<'remind' | 'signal' | 'handled'>('remind')
   const [title, setTitle] = useState(defaultTitle)
   const [when, setWhen] = useState<FollowUpWhen>('today')
   const [types, setTypes] = useState<CategoryRow[] | null>(null)
@@ -107,6 +111,7 @@ export function WhatsNextDialog({
             [
               ['remind', 'whatsNextRemind'],
               ['signal', 'whatsNextTicket'],
+              ['handled', 'whatsNextHandled'],
             ] as const
           ).map(([value, key]) => (
             <button
@@ -161,6 +166,15 @@ export function WhatsNextDialog({
               </div>
             </div>
           </div>
+        ) : mode === 'handled' ? (
+          <HandledExternallyForm
+            threadId={signalId}
+            onCancel={() => onOpenChange(false)}
+            onDone={(info) => {
+              onOpenChange(false)
+              onHandledExternally?.(info)
+            }}
+          />
         ) : pickProjectFor ? (
           <div className="space-y-1.5">
             <button
@@ -211,6 +225,7 @@ export function WhatsNextDialog({
             )}
           </div>
         )}
+        {mode === 'handled' ? null : (
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('threadChrome.cancel', { defaultValue: 'Cancel' })}
@@ -225,6 +240,7 @@ export function WhatsNextDialog({
             </Button>
           ) : null}
         </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -678,6 +678,122 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     assert options[0]["payload"]["module"] == "accounting"
 
 
+@pytest.mark.asyncio
+async def test_recommend_module_dedupes_and_respects_cooldown(session_override: AsyncSession):
+    """Heartbeats must not stack identical proposal cards or re-ask after a no."""
+    from datetime import datetime
+
+    from sqlalchemy import select
+
+    from app.models.notification import DecisionRequest
+    from app.tools import execute_tool
+
+    tenant = await _tenant(session_override)
+    first = await execute_tool(
+        session_override, tenant.id, None, "recommend_module",
+        {"slug": "banking", "reason": "bank statements"},
+    )
+    assert first["status"] == "awaiting_human"
+
+    second = await execute_tool(
+        session_override, tenant.id, None, "recommend_module",
+        {"slug": "banking", "reason": "still bank statements"},
+    )
+    assert second["status"] == "already_open"
+    assert second["decision_request_id"] == first["decision_request_id"]
+    count = (
+        await session_override.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.tenant_id == tenant.id,
+                DecisionRequest.title == "Turn on Banking?",
+            )
+        )
+    ).scalars().all()
+    assert len(count) == 1
+
+    decision = await session_override.get(DecisionRequest, UUID(first["decision_request_id"]))
+    decision.status = "rejected"
+    decision.resolved_at = datetime.utcnow()
+    decision.chosen_option_id = "reject"
+    session_override.add(decision)
+    await session_override.commit()
+
+    third = await execute_tool(
+        session_override, tenant.id, None, "recommend_module",
+        {"slug": "banking", "reason": "again"},
+    )
+    assert third.get("code") == "recently_declined"
+    assert "decision_request_id" in third
+    remaining = (
+        await session_override.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.tenant_id == tenant.id,
+                DecisionRequest.title == "Turn on Banking?",
+            )
+        )
+    ).scalars().all()
+    assert len(remaining) == 1
+
+
+def test_call_mcp_tool_routes_module_servers_to_module_tools():
+    from app.tools.executor import route_module_mcp_call
+
+    routed = route_module_mcp_call(
+        {"server_name": "accounting", "tool_name": "accounting_list_companies"}
+    )
+    assert routed == {"tool_name": "accounting_list_companies", "tool_input": {}}
+
+    routed = route_module_mcp_call(
+        {"server_name": "Accounting", "tool_name": "search_parties", "arguments": {"query": "Fox"}}
+    )
+    assert routed == {"tool_name": "accounting_search_parties", "tool_input": {"query": "Fox"}}
+
+    unknown = route_module_mcp_call({"server_name": "accounting", "tool_name": "GetAdmInfo"})
+    assert unknown["reason"] == "module_not_mcp"
+    assert "accounting_list_companies" in unknown["error"]
+
+    assert route_module_mcp_call({"server_name": "github", "tool_name": "search"}) is None
+
+
+@pytest.mark.asyncio
+async def test_call_mcp_tool_on_module_read_never_asks_a_human(session_override: AsyncSession):
+    """26 approval cards in one tenant came from this exact call shape."""
+    from app.models.agent import Agent
+    from app.models.notification import DecisionRequest
+    from app.tools import execute_tool
+
+    from unittest.mock import AsyncMock, patch
+
+    from sqlalchemy import select
+
+    tenant = await _tenant(session_override)
+    agent = Agent(tenant_id=tenant.id, name="Kantoor AI", kind="company", is_lead=True)
+    session_override.add(agent)
+    await session_override.commit()
+    await session_override.refresh(agent)
+
+    with patch(
+        "app.modules.dispatch.call_module_verb",
+        new=AsyncMock(return_value={"companies": [{"id": "1", "name": "Demo BV"}]}),
+    ) as verb:
+        result = await execute_tool(
+            session_override,
+            tenant.id,
+            None,
+            "call_mcp_tool",
+            {"server_name": "accounting", "tool_name": "accounting_list_companies"},
+            agent=agent,
+        )
+    assert result == {"companies": [{"id": "1", "name": "Demo BV"}]}
+    assert verb.await_args.args[2:4] == ("accounting", "list_companies")
+    cards = (
+        await session_override.execute(
+            select(DecisionRequest).where(DecisionRequest.tenant_id == tenant.id)
+        )
+    ).scalars().all()
+    assert cards == []
+
+
 def test_module_tools_hidden_until_enabled():
     tools = [
         {"name": "list_modules"},

@@ -27,6 +27,8 @@ class Agent(SQLModel, table=True):
     is_lead: bool = Field(default=False, index=True)
     model: str = "bokito-ai-3-1"
     provider: str = Field(default="platform")
+    # Short operator-facing role blurb (library, identity). Distinct from system_prompt.
+    description: str = ""
     system_prompt: str = ""
     thinking_budget: int = 0
     max_tokens: int = 4096

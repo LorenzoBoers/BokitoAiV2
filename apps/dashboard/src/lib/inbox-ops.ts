@@ -70,19 +70,40 @@ export function parseQuickFilterParam(
   return null
 }
 
-export type StoredComposerDraft = { body: string; cc: string; bcc: string }
+export type StoredComposerDraft = {
+  body: string
+  cc: string
+  bcc: string
+  /** Suggestion card the draft was taken from, when it started as an AI proposal. */
+  decisionMessageId?: string
+  /**
+   * Newest inbound message when the draft was written (or the message the AI
+   * proposal answered). A different newest message now means the customer
+   * wrote again and the draft is out of date.
+   */
+  basedOnMessageId?: string
+}
+
+const EMPTY_DRAFT: StoredComposerDraft = { body: '', cc: '', bcc: '' }
 
 export function parseComposerDraft(raw: string): StoredComposerDraft {
-  if (!raw) return { body: '', cc: '', bcc: '' }
+  if (!raw) return { ...EMPTY_DRAFT }
   if (raw.startsWith('{')) {
     try {
       const parsed = JSON.parse(raw) as Partial<StoredComposerDraft>
       if (typeof parsed.body === 'string') {
-        return {
+        const draft: StoredComposerDraft = {
           body: parsed.body,
           cc: typeof parsed.cc === 'string' ? parsed.cc : '',
           bcc: typeof parsed.bcc === 'string' ? parsed.bcc : '',
         }
+        if (typeof parsed.decisionMessageId === 'string' && parsed.decisionMessageId) {
+          draft.decisionMessageId = parsed.decisionMessageId
+        }
+        if (typeof parsed.basedOnMessageId === 'string' && parsed.basedOnMessageId) {
+          draft.basedOnMessageId = parsed.basedOnMessageId
+        }
+        return draft
       }
     } catch {
       // Legacy plain-text drafts stay as the body.
@@ -92,8 +113,52 @@ export function parseComposerDraft(raw: string): StoredComposerDraft {
 }
 
 export function serializeComposerDraft(draft: StoredComposerDraft): string {
-  if (!draft.cc && !draft.bcc) return draft.body
-  return JSON.stringify(draft)
+  if (!draft.cc && !draft.bcc && !draft.decisionMessageId && !draft.basedOnMessageId) {
+    return draft.body
+  }
+  const out: StoredComposerDraft = { body: draft.body, cc: draft.cc, bcc: draft.bcc }
+  if (draft.decisionMessageId) out.decisionMessageId = draft.decisionMessageId
+  if (draft.basedOnMessageId) out.basedOnMessageId = draft.basedOnMessageId
+  return JSON.stringify(out)
+}
+
+export const composerDraftStorageKey = (threadId: string) => `inbox.draft.${threadId}`
+
+/** Drop the unsent draft of a conversation (close, spam, handled elsewhere). */
+export function clearStoredComposerDraft(threadId: string | null | undefined): void {
+  if (!threadId || typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(composerDraftStorageKey(threadId))
+  } catch {
+    // Private mode / quota: nothing to clear.
+  }
+}
+
+export type DraftFreshnessContext = {
+  /** Id of the newest inbound customer message on the thread, if any. */
+  latestInboundMessageId: string | null
+  /** True when the suggestion card is still awaiting a decision; undefined when unknown. */
+  proposalOpen?: (decisionMessageId: string) => boolean | undefined
+}
+
+/**
+ * A restored draft is stale when the proposal it came from was resolved or
+ * set aside, or when the customer wrote again after the draft was written.
+ * Drafts without an anchor (legacy) are never flagged.
+ */
+export function isStoredDraftStale(
+  draft: StoredComposerDraft,
+  ctx: DraftFreshnessContext,
+): boolean {
+  if (!draft.body.trim()) return false
+  if (draft.decisionMessageId && ctx.proposalOpen) {
+    const open = ctx.proposalOpen(draft.decisionMessageId)
+    if (open === false) return true
+  }
+  if (draft.basedOnMessageId && ctx.latestInboundMessageId) {
+    return draft.basedOnMessageId !== ctx.latestInboundMessageId
+  }
+  return false
 }
 
 export type SavedInboxSearch = { id: string; name: string; query: string }

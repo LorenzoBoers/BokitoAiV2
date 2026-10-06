@@ -16,7 +16,7 @@ Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis mo
 ![Projectenlijst](/api/docs/assets/projects/project.png)
 *Elke kaart toont de projectagent, open tickets en het budget.*
 
-1. Open **Projecten**. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
+1. Open **Projecten**. De titel op de pagina is **{workspace} projecten**; het hulp-icoon naast **Projecten** in de bovenbalk opent deze gids. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
 2. Lees de kaart: projectagent, open tickets (dezelfde borden als Project Home), documentatiegezondheid, repo-status, resterend budget. Zoek op naam of agent als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
 3. Open die. Je landt op het tabblad **Project**. Klik de projectagent om die te openen. Beheerders kiezen de pen in de kaartkop om een andere bedrijfsagent als projectstandaard te zetten, of maken er een. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
 
@@ -60,6 +60,15 @@ Een project kan meerdere snapshot-canvasses hebben (geen live tegels). Jij voegt
 1. Open het tabblad **Instellingen**. De repositorykaart koppelt een GitHub-repo zoals voorheen; de status gaat van **Repo indexeren** naar **Repo klaar**.
 2. Kies onder **Resources** voor **Resource koppelen** om andere omgevingen aan te haken waar het project op werkt: een drive-map, een Notion-pagina, een spreadsheet, een codeertool of een website.
 3. Kies een type, voeg een label en een referentie toe (URL of ID), en kies **Koppelen**. Resources zijn nu gekoppeld op referentie; connectors die synchroniseren en handelen haken hier later op aan.
+
+## Geef een project een eigen koppeling
+
+Koppel een integratiekoppeling wanneer een project staat voor een klant of afdeling met een eigen account, zoals een aparte Moneybird-administratie.
+
+1. Open het tabblad **Instellingen** en kies onder **Resources** voor **Resource koppelen**.
+2. Kies het type **Koppeling**, kies de koppeling en daarna **Koppelen**.
+3. De koppeling is nu exclusief voor de projecten waaraan hij gekoppeld is. Agents die aan dit project werken gebruiken hem vóór de modulestandaard; werk elders kan hem niet gebruiken.
+4. Verwijder de resource om de koppeling weer in de hele workspace bruikbaar te maken. Een project verwijderen waarschuwt wanneer een koppeling alleen aan dat project hangt, omdat hij daarna overal bruikbaar wordt. Beheer dezelfde koppelingen vanaf de providerkaart; zie [Integraties](/docs/integrations/integrations).
 
 ## Beperk uitgaven
 

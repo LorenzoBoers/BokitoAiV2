@@ -39,7 +39,7 @@ const config: ExpoConfig = {
     [
       'expo-notifications',
       {
-        color: '#0d9488',
+        color: '#32bf8e',
       },
     ],
   ],

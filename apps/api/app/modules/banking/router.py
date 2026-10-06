@@ -37,7 +37,9 @@ async def call_verb(
     args: dict[str, Any] | None = None,
     *,
     agent_id: UUID | None = None,
+    project_id: UUID | None = None,
 ) -> dict[str, Any]:
+    del project_id
     args = dict(args or {})
     from app.modules.catalog import active_module_connections, module_is_on
 

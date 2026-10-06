@@ -32,7 +32,7 @@ export const PAGE_GUIDE_BACK: Record<PageGuideSlug, string> = {
   channels: '/settings/channels',
   integrations: '/connections',
   models: '/settings/models',
-  widget: '/ai/assistant/external/installation',
+  widget: '/settings/channels',
   autonomy: '/settings/govern',
 }
 
@@ -47,14 +47,14 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   communication: [
     { to: '/settings/channels', labelKey: 'pageGuides.related.channels' },
     { to: '/settings/communication', labelKey: 'pageGuides.related.inboxAi' },
-    { to: '/ai/assistant/external/installation', labelKey: 'pageGuides.related.widget' },
+    { to: '/settings/channels', labelKey: 'pageGuides.related.widget' },
     { to: '/contacts', labelKey: 'pageGuides.related.contacts' },
     { to: '/activity', labelKey: 'pageGuides.related.activity' },
   ],
   contacts: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/settings/channels', labelKey: 'pageGuides.related.channels' },
-    { to: '/ai/assistant/external/installation', labelKey: 'pageGuides.related.widget' },
+    { to: '/settings/channels', labelKey: 'pageGuides.related.widget' },
   ],
   agenda: [
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
@@ -96,7 +96,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
   channels: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
-    { to: '/ai/assistant/external/installation', labelKey: 'pageGuides.related.widget' },
+    { to: '/settings/channels', labelKey: 'pageGuides.related.widget' },
     { to: '/connections/marketplace', labelKey: 'pageGuides.related.integrations' },
   ],
   integrations: [
@@ -131,5 +131,14 @@ export function publicDocsPath(path?: string): string {
 
 export function isPageGuideSlug(value: string | undefined): value is PageGuideSlug {
   return Boolean(value && (PAGE_GUIDE_SLUGS as readonly string[]).includes(value))
+}
+
+/** Compact help icon next to the shell topbar title. */
+export function pageGuideForPath(pathname: string): PageGuideSlug | null {
+  if (pathname.startsWith('/communication')) return 'communication'
+  if (pathname.startsWith('/agenda')) return 'agenda'
+  if (pathname.startsWith('/projects')) return 'projects'
+  if (pathname.startsWith('/cockpit')) return 'cockpit'
+  return null
 }
 

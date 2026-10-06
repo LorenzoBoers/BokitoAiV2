@@ -4,7 +4,7 @@ import { Info, Trash2, type LucideIcon } from 'lucide-react'
 import ContentHeader from './ContentHeader'
 import ScrollFade from '../ui/ScrollFade'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { MY_ASSISTANT_SETTINGS_PATH, WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
+import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 import { cn } from '../../lib/utils'
 
@@ -30,8 +30,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     labelKey: 'settings.groups.communication',
     links: [
-      { labelKey: 'settings.links.emailMessages', to: '/settings/channels', hintKey: 'settings.hints.emailMessages' },
-      { labelKey: 'settings.links.chatWidget', to: WEBSITE_WIDGET_PATH, match: '/ai/assistant', hintKey: 'settings.hints.chatWidget' },
+      { labelKey: 'settings.links.emailMessages', to: '/settings/channels', match: '/settings/channels', hintKey: 'settings.hints.emailMessages' },
       { labelKey: 'settings.links.inboxAi', to: '/settings/communication', match: '/settings/communication', hintKey: 'settings.hints.inboxAi' },
       { labelKey: 'settings.links.categories', to: '/settings/action-tags', hintKey: 'settings.hints.categories' },
     ],
@@ -119,7 +118,9 @@ export default function SettingsLayout() {
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
   const activeLink = SETTINGS_PALETTE_LINKS.find((link) => linkIsActive(pathname, link))
-  const ownsHeader = OWN_HEADER_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+  const ownsHeader =
+    OWN_HEADER_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
+    /^\/settings\/channels\/[^/]+/.test(pathname)
   // One title per page: the active section name, with its hint as subtitle.
   // The topbar breadcrumb already reads "Settings / {section}".
   const title = activeLink ? t(activeLink.labelKey) : t('tabs.settings.title')

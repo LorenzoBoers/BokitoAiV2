@@ -418,9 +418,16 @@ export default function NewConversationPage() {
                 <h1 className="text-lg font-semibold text-text-primary">{t('newConversation.pickTitle')}</h1>
                 <p className="mt-1 text-sm text-text-muted">{t('newConversation.pickHint')}</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <IntentCard
                   icon={<Mail size={22} />}
+                  title={t('newConversation.intentEmail')}
+                  hint={t('newConversation.intentEmailHint')}
+                  disabled={!canSendEmail}
+                  onClick={() => setIntent('contact')}
+                />
+                <IntentCard
+                  icon={<User size={22} />}
                   title={t('newConversation.intentContact')}
                   hint={t('newConversation.intentContactHint')}
                   disabled={!canSendEmail}

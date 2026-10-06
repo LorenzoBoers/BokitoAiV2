@@ -64,7 +64,8 @@ class TicketFileBody(BaseModel):
 
 class TicketPatchBody(BaseModel):
     """``status``: ``open`` accepts a proposal, ``dismissed`` removes the action tag,
-    ``waiting`` / ``done`` move to the first stage of that kind."""
+    ``waiting`` / ``done`` move to the first stage of that kind.
+    Required fields of the target stage must be in ``fields`` or already stored."""
 
     status: str | None = None
     stage_key: str | None = None

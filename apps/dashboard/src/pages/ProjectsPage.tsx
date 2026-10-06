@@ -38,6 +38,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useWorkspace } from '../context/WorkspaceContext'
 import { projectHubPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
 import {
@@ -48,8 +49,10 @@ import {
   type ProjectBudgetResponse,
   type ProjectRow,
 } from '../lib/projects-api'
+import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
 import { indexStatusLabel } from '../lib/status-labels'
 import { formatAppTime } from '../lib/app-locale'
+import { workspaceBrandName } from '../lib/tenant-branding'
 
 function slugify(value: string): string {
   return value
@@ -247,15 +250,7 @@ function ProjectCard({
         ) : null}
         {budget ? <ProjectBudgetBar budget={budget} /> : null}
         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
-          {project.po_agent ? (
-            <Link
-              to={`/agents/${project.po_agent.id}`}
-              onClick={(event) => event.stopPropagation()}
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              {t('projects.page.openLead')}
-            </Link>
-          ) : canManage ? (
+          {canManage && !project.po_agent ? (
             <Link
               to={`/projects/${project.id}`}
               onClick={(event) => event.stopPropagation()}
@@ -264,7 +259,6 @@ function ProjectCard({
               {t('projects.page.assignLead')}
             </Link>
           ) : null}
-          {/* Threads live in Communication; keep this as a quiet shortcut. */}
           <Link
             to={threadsHref}
             onClick={(event) => event.stopPropagation()}
@@ -281,6 +275,7 @@ function ProjectCard({
 export default function ProjectsPage() {
   const { t, i18n } = useTranslation('nav')
   const navigate = useNavigate()
+  const { currentWorkspace } = useWorkspace()
   const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = useIsAdmin()
   const [projects, setProjects] = useState<ProjectRow[]>([])
@@ -299,6 +294,7 @@ export default function ProjectsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const widenedConnections = useProjectDeleteConnectionImpact(deleteTarget?.id ?? null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -390,8 +386,7 @@ export default function ProjectsPage() {
   return (
     <PageContent width="xl" className="space-y-4 py-1">
       <ContentHeader
-        guide="projects"
-        title={t('projects.page.title')}
+        title={t('projects.page.tenantTitle', { name: workspaceBrandName(currentWorkspace) })}
         subtitle={t('projects.page.subtitle')}
         className="mb-0"
         meta={
@@ -570,7 +565,13 @@ export default function ProjectsPage() {
           title={t('projects.page.deleteTitle')}
           itemLabel={t('projects.page.deleteItem')}
           itemName={deleteTarget.name}
-          impactText={t('projects.page.deleteImpact')}
+          impactText={
+            widenedConnections.length > 0
+              ? `${t('projects.page.deleteImpact')} ${t('projects.work.deleteWidensConnections', {
+                  names: widenedConnections.join(', '),
+                })}`
+              : t('projects.page.deleteImpact')
+          }
           isDeleting={deleting}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={confirmDelete}

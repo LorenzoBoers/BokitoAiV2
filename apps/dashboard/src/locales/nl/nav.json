@@ -318,6 +318,7 @@
     "widgetInstall": "Installeren",
     "widgetVoice": "Stem en uren",
     "widgetLook": "Uiterlijk",
+    "channel": "Kanaal",
     "marketplace": "Marketplace",
     "modules": "Modules",
     "moduleSetup": "Module-setup",
@@ -676,7 +677,8 @@
       "routines_one": "{{count}} routine",
       "routines_other": "{{count}} routines",
       "routinesFailed": "een mislukt",
-      "now": "Nu"
+      "now": "Nu",
+      "backToTop": "Terug naar boven"
     },
     "refresh": "Vernieuwen",
     "refreshedAt": "Bijgewerkt {{time}}",
@@ -721,6 +723,7 @@
       "eventTitle": "Titel",
       "start": "Start",
       "end": "Einde",
+      "allDay": "Hele dag",
       "location": "Locatie",
       "description": "Notities",
       "createSubmit": "Aanmaken",
@@ -728,7 +731,7 @@
       "editTitle": "Kalenderblok bewerken",
       "updateSubmit": "Opslaan",
       "saving": "Bezig...",
-      "createValidation": "Vul titel, start en einde in (einde na start).",
+      "createValidation": "Vul titel, start en einde in (einde op of na start).",
       "createError": "Kalenderafspraak aanmaken mislukt.",
       "updateError": "Kalenderafspraak bijwerken mislukt.",
       "provider": "Provider",
@@ -1613,7 +1616,7 @@
   },
   "channelsPage": {
     "listTitle": "Kanalen",
-    "listDescription": "Elk kanaal dat gesprekken binnenbrengt: mailboxen, Bokito-adressen, de websitechat, WhatsApp en Slack. Klap een rij open om te zien wat werkt en wie nieuwe gesprekken behandelt.",
+    "listDescription": "Elk kanaal dat gesprekken binnenbrengt: mailboxen, Bokito-adressen, de websitechat, WhatsApp en Slack. Open een rij voor status, AI-afhandeling en wat alleen dit kanaal heeft.",
     "addChannel": "Kanaal toevoegen",
     "addChannelDescription": "Kies wat je wilt koppelen. Een Bokito-adres maak je hier aan; de rest vraagt om inloggen of gegevens.",
     "noChannels": "Nog geen kanalen. Zonder kanaal kan niemand je bereiken.",
@@ -1622,6 +1625,14 @@
     "openWidget": "Chatwidget installeren",
     "loadingChannels": "Kanalen laden...",
     "loadError": "Kanalen konden niet worden geladen.",
+    "notFound": "Dit kanaal is niet gevonden.",
+    "backToList": "Terug naar kanalen",
+    "widgetTabs": {
+      "general": "Algemeen",
+      "look": "Uiterlijk",
+      "hours": "Stem en uren",
+      "install": "Installatie"
+    },
     "back": "Terug",
     "done": "Klaar",
     "copied": "Gekopieerd",
@@ -1638,6 +1649,8 @@
     "history": "Geschiedenis",
     "historyAria": "Hoe ver terug mailgeschiedenis synchroniseren",
     "historyAdvancedHint": "Geldt voor toekomstige backfills na opnieuw koppelen. Dagelijkse sync loopt automatisch.",
+    "archiveAutomated": "Automatische mail archiveren",
+    "archiveAutomatedHint": "Nieuwsbrieven, bonnetjes en no-reply mail worden gesloten en getagd met automated in plaats van in Open te blijven staan.",
     "installHistory": "Hoe ver terug synchroniseren?",
     "installHistoryHint": "Bokito haalt deze geschiedenis eenmalig op tijdens installatie en houdt de mailbox daarna automatisch bij.",
     "days": "{{count}} dagen",
@@ -1732,7 +1745,7 @@
       "whatsapp": "WhatsApp Business",
       "slack": "Slack-workspace",
       "widget": "Websitechat",
-      "widgetHint": "Al actief voor je workspace. Open de vormgeving en het gedrag."
+      "widgetHint": "Maakt een websitechat met eigen uiterlijk, uren en installatiesnippet."
     },
     "email": {
       "gmail": "Gmail",
@@ -2192,7 +2205,7 @@
     "groupKnowledge": "Kennis",
     "unnamedContact": "Naamloos contact",
     "untitledConversation": "Naamloos gesprek",
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "newEmail": "Nieuwe e-mail",
     "newContact": "Nieuw contact",
     "newAgent": "Nieuwe agent",
@@ -2225,7 +2238,8 @@
     "newReminder": "Nieuwe herinnering",
     "checkupsDue": "Openstaande check-ups en kijkmomenten",
     "newFlow": "Nieuwe flow",
-    "openActionTags": "Actietags openen"
+    "openActionTags": "Actietags openen",
+    "newConversation": "Nieuw gesprek"
   },
   "gateway": {
     "connected": "Live",
@@ -2458,7 +2472,7 @@
       "inbox": "Inbox",
       "agentOps": "Agent-ops"
     },
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "activity": {
       "label": "Activiteit",
       "hint": "Live tijdlijn van agent- en teamwerk"
@@ -2585,7 +2599,8 @@
     "projects": {
       "empty": "Maak een project",
       "settingsAria": "Projecten beheren"
-    }
+    },
+    "newConversation": "Nieuw gesprek"
   },
   "users": {
     "group": {
@@ -2744,7 +2759,6 @@
       "manage": "Beheren",
       "manageInMcp": "Beheren bij Gekoppelde tools",
       "viewInConnected": "Bekijk bij Koppelingen",
-      "addAccount": "Account toevoegen",
       "comingSoon": "Binnenkort",
       "disconnect": "Ontkoppelen",
       "disconnectConfirm": "Deze koppeling verwijderen? Je kunt opnieuw verbinden via de marketplace.",
@@ -2769,7 +2783,40 @@
       "manageInbox": "Mailboxen beheren",
       "notConnected": "Niet verbonden",
       "mailboxCount": "{{count}} verbonden",
-      "other": "Overige"
+      "other": "Overige",
+      "reused": "Deze administratie was al gekoppeld. Bokito heeft de bestaande koppeling bijgewerkt in plaats van een tweede toe te voegen.",
+      "listTitle_one": "{{count}} koppeling",
+      "listTitle_other": "{{count}} koppelingen",
+      "addAnother": "Nog een registratie toevoegen",
+      "oneAdministrationNote": "Elke administratie kan één keer gekoppeld worden. Dezelfde opnieuw koppelen werkt de bestaande koppeling bij.",
+      "statusReady": "Geverifieerd",
+      "statusError": "Fout",
+      "statusUnverified": "Niet geverifieerd",
+      "needsCreds": "Credentials nodig",
+      "restricted": "Beperkt",
+      "instanceKey": "Administratie {{key}}",
+      "allProjects": "Alle projecten",
+      "default": "Standaard",
+      "setDefault": "Als standaard",
+      "finishSetup": "Instellen afronden",
+      "verify": "Verifiëren",
+      "verifyFailed": "Verificatie mislukt.",
+      "rename": "Hernoemen",
+      "renameTitle": "Registratie hernoemen",
+      "renameHint": "Dit is alleen een weergavenaam. De identiteit bij de provider blijft apart na verificatie.",
+      "renameLabel": "Naam",
+      "identity": "Identiteit",
+      "detach": "Uit module halen",
+      "disconnect": "Ontkoppelen",
+      "disconnectConfirm": "Deze registratie ontkoppelen? Agents verliezen er de toegang toe.",
+      "manage": "Beheren",
+      "projects": "Projecten",
+      "projectsAllHint": "Niet gekoppeld: elk project en gesprek kan deze koppeling gebruiken.",
+      "projectsExclusiveHint": "Gekoppeld: alleen werk in deze projecten kan deze koppeling gebruiken.",
+      "projectsNone": "Nog geen projecten.",
+      "projectsSave": "Projecten opslaan",
+      "projectsSaveError": "De projecten voor deze koppeling konden niet worden bijgewerkt.",
+      "access": "Toegang"
     },
     "hub": {
       "detail": {
@@ -3282,19 +3329,12 @@
         "useExisting": "Bestaande koppeling gebruiken",
         "useExistingHint": "Deze registraties staan al op Koppelingen en zijn toegestaan op deze module.",
         "useThis": "Deze koppeling gebruiken",
-        "detach": "Uit module halen",
         "detachConfirm": "Deze registratie uit de module halen? De koppeling blijft op Koppelingen.",
-        "default": "Standaard",
-        "needsCreds": "Credentials nodig",
-        "setDefault": "Als standaard",
-        "rename": "Hernoemen",
-        "renamePrompt": "Registratienaam"
+        "defaultRequiresReady": "Alleen een gecontroleerde registratie kan de standaard zijn."
       }
     },
     "marketplace": {
       "connectedCount": "{{count}} verbonden",
-      "activeConnections": "{{count}} actieve verbindingen",
-      "activeConnections_one": "{{count}} actieve verbinding",
       "searchPlaceholder": "Zoek integraties...",
       "empty": "Geen integraties gevonden.",
       "emptyKind": "Geen integraties in deze categorie.",
@@ -3578,10 +3618,13 @@
       "editInstructions": "Bewerken",
       "renameAgent": "Naam bewerken",
       "editIdentity": "Bewerken",
-      "identityDialogTitle": "Naam en icoon",
-      "identityDialogBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie en webchat. Platform-AI-violet — geen eigen kleuren.",
-      "identitySaved": "Weergave opgeslagen",
-      "identitySaveError": "Kon weergave niet opslaan.",
+      "identityDialogTitle": "Naam, omschrijving en icoon",
+      "identityDialogBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie en webchat. Gebruik de omschrijving om de rol te verwoorden. Platform-AI-violet — geen eigen kleuren.",
+      "identityDescription": "Omschrijving",
+      "identityDescriptionPlaceholder": "bijv. Behandelt inbound support en geeft factuurvragen door",
+      "identityDescriptionHint": "Staat op de agentkaart zodat het team agents uit elkaar houdt. Los van instructies.",
+      "identitySaved": "Agentidentiteit opgeslagen",
+      "identitySaveError": "Kon identiteit niet opslaan.",
       "archiveConfirmAction": "Agent deactiveren",
       "archiveCancel": "Agent behouden",
       "knowledgeHint": "Agents lezen hier Stem en Geheugen tijdens het werk.",
@@ -3758,6 +3801,8 @@
         "body": "Maak een agent waarmee je team kan chatten en werk kan toewijzen.",
         "name": "Naam",
         "namePlaceholder": "bijv. Supportmedewerker",
+        "description": "Omschrijving (optioneel)",
+        "descriptionPlaceholder": "bijv. Behandelt inbound support en geeft factuurvragen door",
         "role": "Rol",
         "model": "Model",
         "workspaceDefault": "Workspace-standaard",
@@ -3919,6 +3964,7 @@
     },
     "page": {
       "title": "Projecten",
+      "tenantTitle": "{{name}} projecten",
       "subtitle": "Langer lopend werk met een eigen doel, tickets en documentatie. Elk project kan een projectagent hebben die het bewaakt.",
       "refresh": "Vernieuwen",
       "new": "Nieuw project",
@@ -4232,8 +4278,13 @@
       "resourceLabelPlaceholder": "Label (bijv. Product-drive)",
       "resourceRefPlaceholder": "Referentie: URL, map-ID, pagina-ID...",
       "resourceHint": "Nu gekoppeld op referentie. Connectors (synchronisatie, acties) haken hier later op aan.",
+      "deleteWidensConnections": "Deze koppelingen zijn alleen aan dit project gekoppeld en worden daarna in de hele workspace bruikbaar: {{names}}.",
+      "connectionPick": "Kies een koppeling",
+      "connectionHint": "Na koppelen kan alleen werk in dit project (en andere gekoppelde projecten) deze koppeling gebruiken.",
+      "connectionNone": "Geen koppelingen meer om te koppelen. Voeg er eerst een toe bij Koppelingen.",
       "resourceType": {
         "repo": "Repository",
+        "connection": "Koppeling",
         "drive": "Drive",
         "notion": "Notion",
         "sheet": "Spreadsheet",
@@ -5885,6 +5936,15 @@
     "title": "Toegang tot kanaal",
     "description": "Kies wie dit kanaal ziet en wie het mag afhandelen. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Agents zonder toegang doen niets op dit kanaal.",
     "hint": "Wie dit kanaal ziet en afhandelt",
+    "adminsNote": "Eigenaren en beheerders handelen altijd elk kanaal af."
+  },
+  "connectionAccess": {
+    "title": "Toegang tot koppeling",
+      "description": "Kies wie deze koppeling mag gebruiken en wie hem mag beheren. Gebruiken betekent dat agents en mensen de tools ervan kunnen draaien; Beheren betekent verifiëren, hernoemen, projecten koppelen en toegang wijzigen. Zonder toegang kan een agent de koppeling niet bereiken.",
+    "hint": "Wie deze koppeling gebruikt en beheert",
+    "adminsNote": "Eigenaren en beheerders beheren altijd elke koppeling."
+  },
+  "access": {
     "default": "Alle mensen en agents",
     "count_one": "{{count}} toegang",
     "count_other": "{{count}} toegangen",
@@ -5894,12 +5954,13 @@
     "level": {
       "none": "Geen toegang",
       "view": "Zien",
-      "handle": "Afhandelen"
+      "handle": "Afhandelen",
+      "use": "Gebruiken",
+      "manage": "Beheren"
     },
-    "adminsNote": "Eigenaren en beheerders handelen altijd elk kanaal af.",
     "reset": "Terug naar standaard",
     "loadError": "Mensen en agents konden niet worden geladen.",
-    "saveError": "Toegang tot het kanaal kon niet worden bijgewerkt."
+    "saveError": "Toegang kon niet worden bijgewerkt."
   },
   "agentRules": {
     "title": "Wanneer deze agent zelf handelt",
@@ -6013,6 +6074,11 @@
     "filedAgo": "Vastgelegd {{time}}",
     "stageOf": "Fase {{index}} van {{count}}",
     "moveTo": "Naar {{stage}}",
+    "stageFieldsTitle": "Naar {{stage}}",
+    "stageFieldsHint": "Vul de verplichte velden van deze fase in voordat het ticket kan verplaatsen.",
+    "stageFieldsHintNamed": "Vul de verplichte velden van #{{name}} in voordat dit ticket kan verplaatsen.",
+    "stageFieldsSubmit": "Verplaatsen",
+    "stageFieldsCancel": "Annuleren",
     "openFlow": "Flow openen",
     "addValue": "Notitie toevoegen...",
     "required": "verplicht",

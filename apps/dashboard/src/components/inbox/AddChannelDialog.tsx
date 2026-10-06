@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ArrowLeft, Check, ChevronRight, Copy, Mail, MessageSquare } from 'lucide-react'
@@ -18,13 +18,14 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
   buildRelayAddress,
   createEmailRelay,
+  createWidgetChannel,
   getRelayOptions,
   normalizeRelayPrefix,
+  channelSettingsPath,
   type RelayOptions,
 } from '../../lib/channels-api'
 import { startOAuthConnection } from '../../lib/email-api'
 import { isChannelParked } from '../../lib/channel-surface'
-import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { cn } from '../../lib/utils'
 import type { Provider } from '../../lib/email-oauth'
 
@@ -163,7 +164,7 @@ function ProviderCard({
 /**
  * One entry point for every channel type. Mailboxes go through OAuth, a Bokito
  * relay address is created here, WhatsApp and Slack use their credential forms,
- * and the website chat points at its design page (it already exists as a row).
+ * and Website chat creates another website-chat channel with its own snippet.
  */
 export default function AddChannelDialog({
   open,
@@ -172,6 +173,7 @@ export default function AddChannelDialog({
 }: AddChannelDialogProps) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const navigate = useNavigate()
   const slackParked = isChannelParked('slack')
   const [choice, setChoice] = useState<Choice>('menu')
   const [connectBusy, setConnectBusy] = useState<'outlook' | 'gmail' | null>(null)
@@ -184,6 +186,7 @@ export default function AddChannelDialog({
   const [relayError, setRelayError] = useState<string | null>(null)
   const [createdAddress, setCreatedAddress] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [widgetBusy, setWidgetBusy] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -369,27 +372,30 @@ export default function AddChannelDialog({
                     hint={t('slackCard.description')}
                   />
                 )}
-                <Link
-                  to={WEBSITE_WIDGET_PATH}
-                  onClick={() => onOpenChange(false)}
-                  className="group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated/30 px-3 py-3 text-left transition-all hover:border-border hover:bg-bg-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                >
-                  <IconTile className="text-text-secondary">
-                    <MessageSquare size={16} />
-                  </IconTile>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium text-text-heading">
-                      {t('channelsPage.option.widget')}
-                    </span>
-                    <span className="mt-0.5 block text-xs leading-snug text-text-secondary">
-                      {t('channelsPage.option.widgetHint')}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    size={16}
-                    className="shrink-0 text-text-muted/70 transition-transform group-hover:translate-x-0.5 group-hover:text-text-secondary"
-                  />
-                </Link>
+                <ChoiceRow
+                  disabled={widgetBusy || !token}
+                  onClick={() => {
+                    if (!token || widgetBusy) return
+                    setWidgetBusy(true)
+                    void createWidgetChannel(token)
+                      .then((row) => {
+                        onOpenChange(false)
+                        onChannelAdded()
+                        if (row) navigate(channelSettingsPath(row.id, 'look'))
+                      })
+                      .catch((err) => {
+                        toast.error(formatApiErrorMessage(err, t('channelsPage.loadError')))
+                      })
+                      .finally(() => setWidgetBusy(false))
+                  }}
+                  icon={
+                    <IconTile className="text-text-secondary">
+                      <MessageSquare size={16} />
+                    </IconTile>
+                  }
+                  title={t('channelsPage.option.widget')}
+                  hint={t('channelsPage.option.widgetHint')}
+                />
               </div>
             ) : null}
 

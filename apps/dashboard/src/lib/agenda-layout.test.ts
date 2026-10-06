@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   attentionOf,
+  dayKey,
+  isAllDay,
+  itemEnd,
+  itemOwner,
+  itemStart,
   layerOf,
   layersParam,
   layoutDay,
@@ -41,6 +46,24 @@ describe('layers param', () => {
     expect(layersParam(parseLayers(null))).toBeNull()
     expect(layersParam(parseLayers('calendar,checkups'))).toBe('calendar,checkups')
     expect([...parseLayers('calendar,nope')]).toEqual(['calendar'])
+  })
+})
+
+describe('itemOwner', () => {
+  it('prefers the conversation owner, then the agent, then the actor', () => {
+    expect(
+      itemOwner(item({ owner_kind: 'user', owner_id: 'u1', owner_name: 'Sam', agent_name: 'Bot' })),
+    ).toEqual({ kind: 'user', id: 'u1', name: 'Sam' })
+    expect(itemOwner(item({ agent_id: 'a1', agent_name: 'Scout' }))).toEqual({
+      kind: 'agent',
+      id: 'a1',
+      name: 'Scout',
+    })
+    expect(
+      itemOwner(item({ kind: 'activity', actor_kind: 'person', actor_id: 'u2', actor_name: 'Lea' })),
+    ).toEqual({ kind: 'user', id: 'u2', name: 'Lea' })
+    expect(itemOwner(item({ kind: 'calendar', agent_name: 'Bot' }))).toBeNull()
+    expect(itemOwner(item({ agent_name: 'orchestrator', actor_name: 'orchestra' }))).toBeNull()
   })
 })
 
@@ -85,6 +108,13 @@ describe('viewRange', () => {
     expect(month.days).toHaveLength(42)
     expect(month.from.getDay()).toBe(1)
   })
+
+  it('keeps three weeks of past above the list land day', () => {
+    const anchor = new Date(2026, 9, 6)
+    const range = viewRange('list', anchor)
+    expect(dayKey(range.from)).toBe('2026-09-15')
+    expect(range.days).toHaveLength(70)
+  })
 })
 
 describe('attentionOf', () => {
@@ -93,5 +123,31 @@ describe('attentionOf', () => {
     const due = { kind: 'checkup' as const, status: 'due', series_id: 's1' }
     const result = attentionOf([item(due), item(due), item({ kind: 'checkup', status: 'planned' })], now)
     expect(result.checkups).toHaveLength(1)
+  })
+})
+
+describe('isAllDay', () => {
+  it('treats flagged calendar events as all-day', () => {
+    expect(isAllDay(item({ kind: 'calendar', all_day: true }))).toBe(true)
+    expect(
+      isAllDay(
+        item({
+          kind: 'calendar',
+          start: '2026-10-06T09:00:00',
+          end: '2026-10-06T10:00:00',
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('binds exclusive midnight all-day events to one local date', () => {
+    const event = item({
+      kind: 'calendar',
+      all_day: true,
+      start: '2026-10-06T00:00:00',
+      end: '2026-10-07T00:00:00',
+    })
+    expect(dayKey(itemStart(event))).toBe('2026-10-06')
+    expect(itemEnd(event).getTime()).toBe(itemStart(event).getTime() + 24 * 3_600_000)
   })
 })

@@ -25,6 +25,8 @@ ROLE_SLUG_MAP = {
     "orchestra": "orchestra",
 }
 
+MAX_AGENT_DESCRIPTION = 280
+
 ROLE_NAME_MAP = {
     "po": "Orchestrator",
     "orchestrator": "Orchestrator",
@@ -43,6 +45,10 @@ def tenant_numeric_id(tenant_id: UUID) -> int:
 def _slugify(name: str) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return base or "agent"
+
+
+def normalize_agent_description(raw: str | None) -> str:
+    return (raw or "").strip()[:MAX_AGENT_DESCRIPTION]
 
 
 def _ms(value: datetime | None) -> int:
@@ -109,6 +115,7 @@ def serialize_agent(
     payload: dict[str, Any] = {
         "id": str(agent.id),
         "name": agent.name,
+        "description": agent.description or "",
         "slug": agent.slug or _slugify(agent.name),
         "role": agent.role,
         "kind": agent.kind,
@@ -456,6 +463,7 @@ async def create_agent(
     *,
     name: str,
     role: str = "assistant",
+    description: str = "",
     system_prompt: str = "",
     tools: list[str] | None = None,
     owner_user_id: UUID | None = None,
@@ -520,6 +528,7 @@ async def create_agent(
         kind="company",
         chat_access=chat_access,
         owner_user_id=owner_user_id,
+        description=normalize_agent_description(description),
         system_prompt=(system_prompt or "").strip(),
         tools_json=json.dumps(tools or []),
         default_channels_json=json.dumps(default_channels or []),
@@ -543,6 +552,7 @@ async def update_agent(
     agent_id: UUID,
     *,
     name: str | None = None,
+    description: str | None = None,
     system_prompt: str | None = None,
     tools: list[str] | None = None,
     owner_user_id: UUID | None = None,
@@ -557,7 +567,7 @@ async def update_agent(
     avatar_image_url: str | None = None,
     ask_target: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Edit a company agent's identity, system prompt, signature, avatar, and who it asks."""
+    """Edit a company agent's identity, description, system prompt, signature, avatar, and who it asks."""
     result = await session.execute(
         select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
     )
@@ -569,6 +579,8 @@ async def update_agent(
         if not clean:
             raise HTTPException(status_code=400, detail="Agent name cannot be empty")
         agent.name = clean
+    if description is not None:
+        agent.description = normalize_agent_description(description)
     if system_prompt is not None:
         agent.system_prompt = system_prompt.strip()
     if tools is not None:

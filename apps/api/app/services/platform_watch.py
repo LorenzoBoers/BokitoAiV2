@@ -31,7 +31,9 @@ OPERATIONS_SETTINGS_KEY = "operations_signal_id"
 # Marks the one shared, tenant-wide conversation of an agent, next to the
 # per-user chats (source="chat") and inline sessions (source="agent_session").
 AGENT_CHANNEL_SOURCE = "agent_channel"
-PLATFORM_CHECKIN_INTERVAL_MINUTES = 60
+# Once a working day. An hourly check-in produced near-identical posts and
+# repeated proposals; the agent still wakes on email, chat and decisions.
+PLATFORM_CHECKIN_INTERVAL_MINUTES = 24 * 60
 # Names earlier versions gave the seeded trigger; renamed on sight.
 _LEGACY_TRIGGER_NAMES = ("Heartbeat", "Platform check-in")
 _CHECKIN_NAME_PREFIX = "Check-in"

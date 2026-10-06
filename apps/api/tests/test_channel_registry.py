@@ -132,7 +132,7 @@ def test_widget_receives_without_credentials():
     row = resolve_channel(account)
     assert row["state"] == "active"
     assert row["capabilities"] == ["receive", "send"]
-    assert row["configure_href"] == "/ai/assistant/external/customization"
+    assert row["configure_href"].startswith("/settings/channels/")
     assert "remove" not in row["actions"]
     assert next(c for c in row["checks"] if c["id"] == "installed")["state"] == "pending"
 

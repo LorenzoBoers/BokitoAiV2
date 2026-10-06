@@ -6,7 +6,8 @@ import { ChevronDown, FolderKanban } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Skeleton } from '../ui/skeleton'
-import { patchTicket, stageLabel, type BoardTicket, type FlowBoard, type FlowBoardLane } from '../../lib/tickets-api'
+import { stageLabel, moveTicketToStage, type BoardTicket, type FlowBoard, type FlowBoardLane } from '../../lib/tickets-api'
+import { useCollectStageFields } from '../inbox/TicketStageGate'
 import { cn } from '../../lib/utils'
 import { FlowTicketCard } from './FlowTicketCard'
 import { StageProgressIcon } from './StageProgressIcon'
@@ -33,6 +34,7 @@ export function FlowTicketBoard({
   onChange: (board: FlowBoard) => void
 }) {
   const { t } = useTranslation('nav')
+  const collect = useCollectStageFields()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const stageKeys = new Set(board.stages.map((s) => s.key))
   const firstKey = board.stages[0]?.key ?? ''
@@ -44,14 +46,21 @@ export function FlowTicketBoard({
     const stage = board.stages.find((row) => row.key === stageKey)
     if (!stage) return
     const previous = board
-    onChange({
-      ...board,
-      tickets: board.tickets.map((row) =>
-        row.signal_id === ticket.signal_id ? { ...row, stage_key: stageKey, status: stage.kind } : row,
-      ),
-    })
     try {
-      await patchTicket(ticket.signal_id, { stage_key: stageKey })
+      const result = await moveTicketToStage({
+        signalId: ticket.signal_id,
+        stage,
+        values: ticket.fields,
+        collect,
+        ticketName: ticket.tag,
+      })
+      if (result.cancelled) return
+      onChange({
+        ...board,
+        tickets: board.tickets.map((row) =>
+          row.signal_id === ticket.signal_id ? { ...row, stage_key: stageKey, status: stage.kind } : row,
+        ),
+      })
     } catch (err) {
       onChange(previous)
       toast.error(formatApiErrorMessage(err, t('projects.home.ticketMoveError')))

@@ -74,6 +74,7 @@ async def list_rows(session: AsyncSession, tenant_id: UUID) -> list[dict[str, An
         out.append(
             {
                 "id": conn.id,
+                "connection_id": conn.connection_id or None,
                 "kind": "mcp" if conn.vendor in ("king", "bjorn_lunden") else "oauth",
                 "provider": conn.vendor,
                 "vendor": conn.vendor,

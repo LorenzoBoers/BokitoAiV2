@@ -18,6 +18,7 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/communication/new')) return [{ labelKey: 'crumbs.newConversation' }]
   if (pathname.startsWith('/communication/inbox/for_you')) return [{ labelKey: 'crumbs.forYou' }]
   if (pathname.startsWith('/communication/team/')) return [{ labelKey: 'crumbs.team' }]
+  if (/^\/settings\/channels\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.channel' }]
   if (pathname.startsWith('/ai/assistant') && pathname.includes('/installation')) {
     return [{ labelKey: 'crumbs.widgetInstall' }]
   }

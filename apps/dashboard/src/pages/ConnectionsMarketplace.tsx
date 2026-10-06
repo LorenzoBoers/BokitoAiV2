@@ -119,9 +119,11 @@ export default function ConnectionsMarketplace() {
         } else if (integrationCb.connected) {
           setHubBanner({
             type: 'success',
-            message: isGithub
-              ? t('integrations.hub.setup.successGithub')
-              : t('integrations.hub.setup.successRemoteMcp'),
+            message: integrationCb.reused
+              ? t('integrations.connections.reused')
+              : isGithub
+                ? t('integrations.hub.setup.successGithub')
+                : t('integrations.hub.setup.successRemoteMcp'),
           })
         }
         const id = connectParam ?? staticId

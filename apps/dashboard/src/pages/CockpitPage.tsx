@@ -4,13 +4,16 @@ import WorkspaceIdHint from '../components/shell/WorkspaceIdHint'
 import CockpitTabs from '../components/shell/CockpitTabs'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
+import { useWorkspace } from '../context/WorkspaceContext'
 import { formatAppDate } from '../lib/app-locale'
 import { greetingBucket, greetingFirstName } from '../lib/cockpit-greeting'
+import { workspaceBrandName } from '../lib/tenant-branding'
 import OverviewFourBlocks from '../components/cockpit/OverviewFourBlocks'
 
 export default function CockpitPage() {
   const { t, i18n } = useTranslation('nav')
   const { user } = useAuth()
+  const { currentWorkspace } = useWorkspace()
   const greetingName = greetingFirstName(user?.name)
   const bucket = greetingBucket()
   const greetingKey = greetingName
@@ -28,7 +31,7 @@ export default function CockpitPage() {
   return (
     <PageContent width="xl">
       <ContentHeader
-        title={t('tabs.overview.title', { defaultValue: 'Overview' })}
+        title={workspaceBrandName(currentWorkspace)}
         subtitle={`${t(greetingKey, { name: greetingName })} · ${formatAppDate(new Date(), i18n.language, {
           weekday: 'long',
           day: 'numeric',

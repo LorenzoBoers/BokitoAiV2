@@ -64,6 +64,7 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "managed_origin": "VARCHAR DEFAULT ''",
         "managed_ref": "VARCHAR DEFAULT ''",
         "template_slug": "VARCHAR DEFAULT ''",
+        "description": "VARCHAR DEFAULT ''",
     },
     "channel_accounts": {
         "default_agent_id": "VARCHAR",

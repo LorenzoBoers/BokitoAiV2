@@ -5,14 +5,14 @@ import { toast } from 'sonner'
 import { ArrowRight, Check, Copy, Star, Wifi } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { Switch } from '../ui/switch'
 import { ChannelSetting } from './ChannelSetting'
 import { CHANNEL_SYNC_WINDOW_OPTIONS } from '../inbox/MailboxSyncWindowField'
 import {
-  WEBSITE_WIDGET_CUSTOMIZE_PATH,
-  WEBSITE_WIDGET_HOURS_PATH,
-  WEBSITE_WIDGET_PATH,
-} from '../../lib/assistant-settings-path'
-import type { ChannelKind, ChannelRow } from '../../lib/channels-api'
+  channelSettingsPath,
+  type ChannelKind,
+  type ChannelRow,
+} from '../../lib/channels-api'
 import type { ChannelActions } from './channel-actions'
 
 type KindSettingsProps = {
@@ -115,7 +115,12 @@ function MailboxSettings(props: KindSettingsProps) {
   return (
     <>
       <ChannelSetting label={t('channelsPage.folders')} hint={folders || t('channelsPage.foldersHint')}>
-        <Button variant="secondary" size="sm" onClick={() => actions.editFolders(row)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => actions.editFolders(row)}
+          data-testid="mailbox-folders-edit"
+        >
           {t('channelsPage.edit')}
         </Button>
       </ChannelSetting>
@@ -143,6 +148,18 @@ function MailboxSettings(props: KindSettingsProps) {
           </SelectContent>
         </Select>
       </ChannelSetting>
+      <ChannelSetting
+        label={t('channelsPage.archiveAutomated')}
+        hint={t('channelsPage.archiveAutomatedHint')}
+      >
+        <Switch
+          checked={row.archiveAutomatedMail}
+          disabled={busy}
+          onCheckedChange={(checked) => actions.setArchiveAutomatedMail(row, checked)}
+          aria-label={t('channelsPage.archiveAutomated')}
+          data-testid="mailbox-archive-automated"
+        />
+      </ChannelSetting>
       <ReconnectSetting {...props} />
     </>
   )
@@ -169,17 +186,17 @@ function WidgetSettings({ row }: KindSettingsProps) {
       <LinkSetting
         label={t('channelsPage.widgetDesign')}
         hint={t('channelsPage.widgetDesignHint')}
-        to={row.configureHref || WEBSITE_WIDGET_CUSTOMIZE_PATH}
+        to={channelSettingsPath(row.id, 'look')}
       />
       <LinkSetting
         label={t('channelsPage.widgetLive')}
         hint={t('channelsPage.widgetLiveHint')}
-        to={WEBSITE_WIDGET_HOURS_PATH}
+        to={channelSettingsPath(row.id, 'hours')}
       />
       <LinkSetting
         label={t('channelsPage.widgetInstall')}
         hint={t('channelsPage.widgetInstallHint')}
-        to={WEBSITE_WIDGET_PATH}
+        to={channelSettingsPath(row.id, 'install')}
       />
     </>
   )

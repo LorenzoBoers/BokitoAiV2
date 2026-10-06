@@ -1,7 +1,7 @@
 /** Uniform channel rows: one shape for mailboxes, relays, widget, WhatsApp, Slack. */
 
 import { appRoutes } from '../api/routes/app.routes'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 import { normalizeAccess, type ChannelAccess } from './channel-accounts-api'
 import { normalizeAiHandling, type AiHandling } from './ai-handling'
 
@@ -62,6 +62,8 @@ export type ChannelRow = {
   createdAt: string
   /** Initial backfill window in days for sync channels; 0 = everything. */
   syncWindowDays: number
+  /** Mailboxes: file automated mail (newsletters, receipts, no-reply) as closed + tagged. */
+  archiveAutomatedMail: boolean
 }
 
 export type RelayOptions = {
@@ -127,7 +129,109 @@ export function normalizeChannelRow(raw: unknown): ChannelRow | null {
     createdAt: asString(value.created_at),
     syncWindowDays:
       typeof value.sync_window_days === 'number' ? value.sync_window_days : 30,
+    archiveAutomatedMail: value.archive_automated_mail === true,
   }
+}
+
+export function channelSettingsPath(id: string, tab?: string): string {
+  const base = `/settings/channels/${id}`
+  return tab ? `${base}?tab=${tab}` : base
+}
+
+export async function getChannel(token: string, channelId: string): Promise<ChannelRow | null> {
+  const raw = await apiGet<Record<string, unknown>>(appRoutes.channels.byId(channelId), token)
+  return normalizeChannelRow(raw)
+}
+
+export async function createWidgetChannel(
+  token: string,
+  payload?: { label?: string },
+): Promise<ChannelRow | null> {
+  const raw = await apiPost<Record<string, unknown>>(
+    appRoutes.channels.createWidget,
+    { label: payload?.label ?? '' },
+    token,
+  )
+  return normalizeChannelRow(raw)
+}
+
+export type ChannelWidgetConfig = {
+  appearance: Record<string, unknown>
+  preChatForm: boolean
+  offlineMessage: string
+  teamAvailable: boolean
+  whatsappHandover: {
+    enabled: boolean
+    accountId: string
+    number: string
+    numberKnown: boolean
+    ready: boolean
+  }
+}
+
+function normalizeChannelWidget(raw: Record<string, unknown>): ChannelWidgetConfig {
+  const appearance =
+    raw.appearance && typeof raw.appearance === 'object' && !Array.isArray(raw.appearance)
+      ? (raw.appearance as Record<string, unknown>)
+      : {}
+  const handover = (raw.whatsapp_handover ?? {}) as Record<string, unknown>
+  return {
+    appearance,
+    preChatForm: Boolean(raw.pre_chat_form),
+    offlineMessage: asString(raw.offline_message),
+    teamAvailable: raw.team_available !== false,
+    whatsappHandover: {
+      enabled: Boolean(handover.enabled),
+      accountId: asString(handover.account_id),
+      number: asString(handover.number),
+      numberKnown: Boolean(handover.number_known),
+      ready: Boolean(handover.ready),
+    },
+  }
+}
+
+export async function getChannelWidget(token: string, channelId: string): Promise<ChannelWidgetConfig> {
+  const raw = await apiGet<Record<string, unknown>>(appRoutes.channels.widget(channelId), token)
+  return normalizeChannelWidget(raw)
+}
+
+export async function saveChannelWidget(
+  token: string,
+  channelId: string,
+  input: {
+    appearance?: Record<string, unknown>
+    preChatForm?: boolean
+    offlineMessage?: string
+    whatsappHandover?: { enabled: boolean; accountId: string; number: string }
+    widgetFavicon?: File | null
+  },
+): Promise<ChannelWidgetConfig> {
+  const form = new FormData()
+  if (input.appearance) form.append('appearance_json', JSON.stringify(input.appearance))
+  if (input.preChatForm !== undefined) form.append('pre_chat_form', input.preChatForm ? '1' : '0')
+  if (input.offlineMessage !== undefined) form.append('offline_message', input.offlineMessage)
+  if (input.whatsappHandover) {
+    form.append(
+      'whatsapp_handover_json',
+      JSON.stringify({
+        enabled: input.whatsappHandover.enabled,
+        account_id: input.whatsappHandover.accountId,
+        number: input.whatsappHandover.number,
+      }),
+    )
+  }
+  if (input.widgetFavicon) form.append('widget_favicon', input.widgetFavicon)
+  const raw = await fetch(`/api${appRoutes.channels.widget(channelId)}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'include',
+    body: form,
+  })
+  if (!raw.ok) {
+    const err = await raw.json().catch(() => ({ detail: `HTTP ${raw.status}` }))
+    throw new Error(typeof err?.detail === 'string' ? err.detail : `HTTP ${raw.status}`)
+  }
+  return normalizeChannelWidget((await raw.json()) as Record<string, unknown>)
 }
 
 export async function listChannels(token: string): Promise<ChannelRow[]> {
@@ -144,6 +248,7 @@ export async function patchChannel(
     is_enabled?: boolean
     is_primary?: boolean
     sync_window_days?: number
+    archive_automated_mail?: boolean
   },
 ): Promise<ChannelRow | null> {
   const raw = await apiPatch<Record<string, unknown>>(

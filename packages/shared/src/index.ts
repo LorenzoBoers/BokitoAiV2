@@ -132,6 +132,28 @@ export {
 } from './speech-dictation.js'
 
 export {
+  brandPalette,
+  contrastRatio,
+  hexToRgb,
+  normalizeBrandHex,
+  oklchToRgb,
+  relativeLuminance,
+  resolveBrandSeed,
+  rgbToHex,
+  rgbToOklch,
+  BRAND_DEFAULT_BG,
+  BRAND_FG_DARK,
+  BRAND_FG_LIGHT,
+  DEFAULT_BRAND_HEX,
+  MIN_FG_CONTRAST,
+  MIN_INK_CONTRAST,
+  MIN_SURFACE_CONTRAST,
+  type BrandPalette,
+  type BrandTheme,
+  type Rgb,
+} from './brand-color.js'
+
+export {
   assignBubbleStacks,
   chatRunCloses,
   chatRunLeads,

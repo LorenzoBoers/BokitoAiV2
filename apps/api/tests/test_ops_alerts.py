@@ -196,3 +196,44 @@ async def test_generic_sync_errors_alert_after_three_failures(session_override):
     settings = json.loads(account.settings_json)
     assert settings["sync_error_count"] == 3
     assert settings.get("last_ops_alert_at")
+
+
+async def test_mailbox_auto_pauses_after_repeated_failures(session_override):
+    """40,000 consecutive IMAP failures on one enabled account is the case to stop."""
+    session = session_override
+    from app.models.channel import ChannelAccount
+    from app.services.channel_registry import resolve_channel
+    from app.services.email_sync import (
+        SYNC_AUTO_PAUSE_AFTER,
+        _record_sync_error,
+        clear_sync_pause,
+    )
+
+    tenant, *_ = await _tenant_with_admins(session)
+    account = ChannelAccount(
+        tenant_id=tenant.id, channel="email", address="dead@ops.test", provider="smtp_imap",
+        settings_json=json.dumps({"sync_error_count": SYNC_AUTO_PAUSE_AFTER - 2}),
+    )
+    session.add(account)
+    await session.commit()
+
+    await _record_sync_error(session, account, "Sync failed: IMAP unreachable")
+    assert account.is_enabled is True
+    before = len(await _notifications(session, tenant.id))
+
+    await _record_sync_error(session, account, "Sync failed: IMAP unreachable")
+    assert account.is_enabled is False
+    settings = json.loads(account.settings_json)
+    assert settings["auto_paused_at"]
+    assert "consecutive sync failures" in settings["auto_paused_reason"]
+    # The pause itself alerts even inside the 24h per-account cooldown.
+    assert len(await _notifications(session, tenant.id)) == before + 2
+
+    resolved = resolve_channel(account, tenant=tenant)
+    assert resolved["state"] == "paused"
+    assert resolved["state_reason"] == "sync_errors"
+
+    # Resume / reconnect starts from a clean counter.
+    clear_sync_pause(settings)
+    assert "sync_error_count" not in settings
+    assert "auto_paused_at" not in settings

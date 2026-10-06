@@ -7,7 +7,7 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from app.services.tickets import parse_stages, validate_stages
+from app.services.tickets import missing_required_stage_fields, parse_stages, validate_stages
 
 
 def test_validate_stages_persists_auto_close_only_on_done():
@@ -36,3 +36,27 @@ def test_validate_stages_requires_done():
     with pytest.raises(HTTPException) as exc:
         validate_stages([{"name": "Only open", "kind": "open"}])
     assert exc.value.status_code == 400
+
+
+def test_missing_required_stage_fields():
+    stages = parse_stages(
+        json.dumps(
+            [
+                {"key": "open", "name": "Open", "kind": "open"},
+                {
+                    "key": "klaar",
+                    "name": "Klaar",
+                    "kind": "done",
+                    "fields": [
+                        {"key": "eindoordeel", "name": "Eindoordeel", "type": "text", "required": True},
+                        {"key": "note", "name": "Note", "type": "text", "required": False},
+                    ],
+                },
+            ]
+        )
+    )
+    klaar = stages[1]
+    assert [f["key"] for f in missing_required_stage_fields(klaar, {})] == ["eindoordeel"]
+    assert missing_required_stage_fields(klaar, {"eindoordeel": "ok"}) == []
+    assert missing_required_stage_fields(stages[0], {}) == []
+

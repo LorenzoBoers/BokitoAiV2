@@ -122,26 +122,16 @@ class WidgetSettingsResponse(BaseModel):
 
 
 async def _widget_settings_payload(session: AsyncSession, tenant) -> dict:
-    from app.models.channel import ChannelAccount
-    from app.services.livechat_compat import team_is_reachable, widget_settings_from_tenant
-    from app.services.whatsapp_handover import account_number, handover_settings, handover_target
+    from app.services.tenant_bootstrap import ensure_widget_channel
+    from app.services.widget_channel import widget_payload
 
-    cfg = handover_settings(tenant)
-    account = None
-    if cfg["account_id"]:
-        try:
-            account = await session.get(ChannelAccount, UUID(cfg["account_id"]))
-        except ValueError:
-            account = None
-    ready_account, _ = await handover_target(session, tenant)
+    account = await ensure_widget_channel(session, tenant.id, commit=False)
+    payload = await widget_payload(session, tenant, account)
     return {
-        **widget_settings_from_tenant(tenant),
-        "team_available": await team_is_reachable(session, tenant),
-        "whatsapp_handover": {
-            **cfg,
-            "number_known": bool(account_number(account)),
-            "ready": ready_account is not None,
-        },
+        "pre_chat_form": payload["pre_chat_form"],
+        "offline_message": payload["offline_message"],
+        "team_available": payload["team_available"],
+        "whatsapp_handover": payload["whatsapp_handover"],
     }
 
 
@@ -164,17 +154,14 @@ async def update_widget_settings(
 
     Continuing on WhatsApp needs a connected WhatsApp channel of this workspace.
     """
+    auth.require_role("owner", "admin")
     from app.models.channel import ChannelAccount
+    from app.services.tenant_bootstrap import ensure_widget_channel
+    from app.services.widget_channel import apply_widget_livechat
     from app.services.whatsapp_handover import digits
 
-    auth.require_role("owner", "admin")
-    tenant = auth.tenant
-    settings = json.loads(tenant.settings_json or "{}")
-    livechat = settings.get("livechat_settings")
-    if not isinstance(livechat, dict):
-        livechat = {}
-        settings["livechat_settings"] = livechat
-    livechat.pop("office_hours", None)
+    account = await ensure_widget_channel(session, auth.tenant.id, commit=False)
+    livechat: dict = {}
     if body.pre_chat_form is not None:
         livechat["pre_chat_form"] = body.pre_chat_form
     if body.offline_message is not None:
@@ -183,10 +170,10 @@ async def update_widget_settings(
         handover = body.whatsapp_handover
         if handover.account_id:
             try:
-                account = await session.get(ChannelAccount, UUID(handover.account_id))
+                wa = await session.get(ChannelAccount, UUID(handover.account_id))
             except ValueError:
-                account = None
-            if account is None or account.tenant_id != tenant.id or account.channel != "whatsapp":
+                wa = None
+            if wa is None or wa.tenant_id != auth.tenant.id or wa.channel != "whatsapp":
                 raise HTTPException(status_code=422, detail="Choose a WhatsApp channel of this workspace")
         elif handover.enabled:
             raise HTTPException(status_code=422, detail="Choose the WhatsApp channel to continue on")
@@ -195,10 +182,11 @@ async def update_widget_settings(
             "account_id": handover.account_id,
             "number": digits(handover.number)[:20],
         }
-    tenant.settings_json = json.dumps(settings)
-    session.add(tenant)
+    if livechat:
+        apply_widget_livechat(account, livechat)
+        session.add(account)
     await session.commit()
-    return await _widget_settings_payload(session, tenant)
+    return await _widget_settings_payload(session, auth.tenant)
 
 
 

@@ -7,6 +7,7 @@ import ContentHeader from '../components/shell/ContentHeader'
 import CockpitTabs from '../components/shell/CockpitTabs'
 import WorkspaceIdHint from '../components/shell/WorkspaceIdHint'
 import { useAuth } from '../context/AuthContext'
+import { useWorkspace } from '../context/WorkspaceContext'
 import {
   bokitoGetBudget,
   bokitoGetCockpitSummary,
@@ -20,6 +21,7 @@ import {
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { formatAppTime } from '../lib/app-locale'
 import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
+import { workspaceBrandName } from '../lib/tenant-branding'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
 import { humanizeModelId } from '../lib/model-label'
@@ -73,6 +75,7 @@ function BudgetBar({
 export default function UsagePage() {
   const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
+  const { currentWorkspace } = useWorkspace()
   const locale = i18n.language
   const num = (value: number) => formatAppNumber(value, locale)
   const usd = (value: number) => formatUsd(value, locale)
@@ -233,8 +236,7 @@ export default function UsagePage() {
   return (
     <div>
       <ContentHeader
-        guide="cockpit"
-        title={t('tabs.overview.title', { defaultValue: 'Overview' })}
+        title={workspaceBrandName(currentWorkspace)}
         subtitle={t('pageHeaders.cockpitUsage')}
         meta={
           <div className="flex flex-wrap items-center gap-2">

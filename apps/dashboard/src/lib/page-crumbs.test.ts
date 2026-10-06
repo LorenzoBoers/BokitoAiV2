@@ -11,6 +11,7 @@ describe('extra crumbs', () => {
     expect(extraCrumbsForPath('/communication/inbox/all')).toEqual([])
     expect(extraCrumbsForPath('/communication/inbox/for_you/t/s1')).toEqual([{ labelKey: 'crumbs.forYou' }])
     expect(extraCrumbsForPath('/communication/team/tm-1/open')).toEqual([{ labelKey: 'crumbs.team' }])
+    expect(extraCrumbsForPath('/settings/channels/abc')).toEqual([{ labelKey: 'crumbs.channel' }])
     expect(extraCrumbsForPath('/ai/assistant/external/installation')).toEqual([
       { labelKey: 'crumbs.widgetInstall' },
     ])

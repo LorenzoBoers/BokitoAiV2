@@ -280,6 +280,9 @@ export default function AiAgentDetail() {
                       ? presenceLabel('deactivated', t)
                       : presenceLabel(work, t)}
                   </p>
+                  {agent.description ? (
+                    <p className="mt-1.5 max-w-xl text-sm text-text-secondary">{agent.description}</p>
+                  ) : null}
                   {work === 'working' && (view?.current_activity_summary || live?.summary) ? (
                     workHref ? (
                       <Link to={workHref} className="mt-1 block text-sm text-text-secondary hover:text-text-heading">
@@ -443,6 +446,7 @@ export default function AiAgentDetail() {
             prefill={{
               name: t('workforce.agents.duplicateName', { name: agent.name }),
               model: agent.model ?? undefined,
+              description: agent.description ?? undefined,
               purpose: agent.purpose ?? agent.system_prompt ?? undefined,
             }}
           />
@@ -453,6 +457,7 @@ export default function AiAgentDetail() {
               onOpenChange={setIdentityOpen}
               agentId={agent.id}
               agentName={agent.name}
+              agentDescription={agent.description}
               avatarKind={agent.avatar_kind}
               avatarIcon={agent.avatar_icon}
               onChanged={() => void load()}

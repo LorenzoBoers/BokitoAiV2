@@ -232,6 +232,24 @@ export default function InboxSettings() {
     [token, applyRow, refreshConnections, t],
   )
 
+  const handleArchiveAutomatedChange = useCallback(
+    async (row: ChannelRow, enabled: boolean) => {
+      if (!token) return
+      setBusyId(row.id)
+      try {
+        applyRow(await patchChannel(token, row.id, { archive_automated_mail: enabled }))
+      } catch (err) {
+        setPageAlert({
+          kind: 'simple_error',
+          message: formatApiErrorMessage(err, t('channelsPage.mailboxSaveError')),
+        })
+      } finally {
+        setBusyId(null)
+      }
+    },
+    [token, applyRow, t],
+  )
+
   const handleSync = useCallback(
     async (row: ChannelRow) => {
       if (!token) return
@@ -361,6 +379,7 @@ export default function InboxSettings() {
         setDeleteTarget(row)
       },
       setSyncWindow: (row, days) => void handleSyncWindowChange(row, days),
+      setArchiveAutomatedMail: (row, enabled) => void handleArchiveAutomatedChange(row, enabled),
       editFolders: (row) => void handleFolders(row),
       editSignature: (row) => void handleSignature(row),
       aiHandlingChanged: (row, next) => applyRow({ ...row, aiHandling: next }),
@@ -372,6 +391,7 @@ export default function InboxSettings() {
       handleMakePrimary,
       handleRename,
       handleSyncWindowChange,
+      handleArchiveAutomatedChange,
       handleFolders,
       handleSignature,
       applyRow,
@@ -567,7 +587,10 @@ export default function InboxSettings() {
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
+          <Dialog.Content
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-bg-surface p-5 shadow-overlay"
+            data-testid="mailbox-folders-dialog"
+          >
             <Dialog.Title className="mb-1 text-base font-semibold text-text-heading">
               {t('channelsPage.foldersTitle')}
             </Dialog.Title>

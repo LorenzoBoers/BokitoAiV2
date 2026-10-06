@@ -36,6 +36,15 @@ Models live under **Settings**, then **Models**. The page shows a **Bokito AI** 
 
 Token budgets sit on Cockpit **Usage** (daily token cap and monthly spend cap) and on projects. When the workspace budget is exhausted, platform-key calls pause; your own keys keep working. [Govern](/docs/govern/govern) still decides whether an agent may act.
 
+## When the provider refuses
+
+When a model provider rejects calls for the whole workspace (out of credits, invalid key, rate limit), Bokito stops hammering it instead of failing every mail and wake one by one.
+
+1. The first refused run is recorded as **Failed** with the provider's reason in its result, and an alert lands in Communication.
+2. The workspace pauses AI calls for one hour. New mail in that hour is marked **deferred** on the thread and queued; scheduled wakes report **blocked** and move to their next time.
+3. Fix the cause: top up credits or replace the key under **Models**. The next successful run clears the pause and processes the queued conversations in order.
+4. Failed runs always show their reason under **Runs**, so an empty result is never silent.
+
 ## What to do next
 
 Confirm Bokito AI is Active, then watch **Usage** on the [Cockpit](/docs/getting-started/cockpit).

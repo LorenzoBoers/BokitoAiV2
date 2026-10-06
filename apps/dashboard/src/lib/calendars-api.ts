@@ -34,6 +34,7 @@ export async function createCalendarEvent(input: {
   end_at: string
   description?: string
   location?: string
+  all_day?: boolean
 }): Promise<{ event: { id: string; external_id?: string; html_link?: string } }> {
   return apiPost(integrationsRoutes.platform.calendars.events, input)
 }
@@ -46,6 +47,7 @@ export async function updateCalendarEvent(
     end_at?: string
     description?: string
     location?: string
+    all_day?: boolean
   },
 ): Promise<{ event: { id: string; external_id?: string; html_link?: string } }> {
   return apiPatch(integrationsRoutes.platform.calendars.eventById(eventId), input)

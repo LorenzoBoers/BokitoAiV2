@@ -1,4 +1,34 @@
 {
+  "handledExternally": {
+    "title": "Al afgehandeld buiten Bokito",
+    "hint": "Je hebt gebeld, of geantwoord via een eigen WhatsApp of een andere mailbox. Leg het vast zodat het gesprek niet meer om een antwoord vraagt en open AI-voorstellen opzij gaan.",
+    "where": "Waar is het afgehandeld?",
+    "channel": {
+      "phone": "Telefoon",
+      "whatsapp": "WhatsApp",
+      "email": "Andere mailbox",
+      "other": "Elders"
+    },
+    "noteLabel": "Wat is afgesproken (optioneel)",
+    "notePlaceholder": "Levering verplaatst naar donderdag",
+    "alsoClose": "Gesprek ook sluiten",
+    "confirm": "Vastleggen als afgehandeld",
+    "saving": "Vastleggen...",
+    "done": "Vastgelegd als afgehandeld buiten Bokito",
+    "failed": "Vastleggen is niet gelukt"
+  },
+  "relatedConversation": {
+    "customer": "De klant",
+    "customerWrote": "{{name}} schreef {{when}} ook via {{channel}}.",
+    "weReplied": "Je team antwoordde {{when}} via {{channel}}.",
+    "openProposalThere": "Daar staat een AI-voorstel open.",
+    "open": "Openen"
+  },
+  "decisionGroups": {
+    "heading": "Dezelfde vraag, veel kaarten",
+    "dismissAll": "Alles afwijzen",
+    "dismissing": "Afwijzen..."
+  },
   "loadingMailboxes": "Mailboxen laden...",
   "missingOrganisation": "Je account heeft nog geen organisatiecontext. Vraag een beheerder om je gebruiker aan een organisatie te koppelen, of log opnieuw in als je net een uitnodiging hebt geaccepteerd.",
   "signOut": "Uitloggen",
@@ -20,6 +50,10 @@
   "composer": {
     "hintEmail": "Ctrl+Enter om te versturen, Enter voor een nieuwe regel — concepten blijven per gesprek bewaard",
     "draftRestored": "Concept hersteld",
+    "draftStaleTitle": "Verouderd concept.",
+    "draftStaleBody": "Het gesprek is sindsdien verdergegaan: de klant schreef opnieuw of het voorstel is terzijde gelegd.",
+    "redraft": "Opnieuw voorstellen",
+    "redrafting": "Bezig met opstellen...",
     "discardDraft": "Verwerpen",
     "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel. Typ @ om een persoon of agent te vermelden.",
     "resize": "Composer groter of kleiner maken",
@@ -110,6 +144,7 @@
     "savedReplies": "Opgeslagen antwoorden",
     "saveAsTemplate": "Huidige tekst als sjabloon opslaan",
     "sendAndClose": "Versturen en sluiten",
+    "handledExternally": "Al afgehandeld buiten Bokito",
     "sendAndWait": "Versturen en uitstellen",
     "loadingSavedReplies": "Laden...",
     "removeAttachment": "{{name}} verwijderen",
@@ -242,6 +277,12 @@
     "earlierDraft": "Eerder concept — terzijde gelegd",
     "draftSent": "Concept goedgekeurd en verstuurd",
     "draftRejected": "Concept afgewezen",
+    "draftHumanReplied": "Eerder concept — een collega heeft geantwoord",
+    "draftSupersededByInbound": "Eerder concept — de klant schreef daarna opnieuw",
+    "draftSupersededByExternalReply": "Eerder concept — beantwoord vanuit de mailbox van een collega",
+    "draftSiblingThread": "Eerder concept — gaat verder in een nieuwer gesprek met deze persoon",
+    "draftHandledExternally": "Eerder concept — buiten Bokito afgehandeld",
+    "customerWroteAgain": "De klant schreef opnieuw na dit voorstel. Lees eerst het nieuwste bericht voordat je het gebruikt.",
     "automatedExplainer": "Dit lijkt een automatisch bericht, dus er is geen antwoord opgesteld.",
     "decisionNeeded": "Beslissing nodig",
     "source": {
@@ -597,7 +638,8 @@
         "description": "Voeg teamleden toe zodat beslissingen en gesprekken de juiste mensen bereiken.",
         "cta": "Leden uitnodigen"
       }
-    }
+    },
+    "startConversation": "Nieuw gesprek"
   },
   "newConversation": {
     "title": "Nieuw gesprek",
@@ -654,7 +696,9 @@
     "loadError": "Kon niet laden met wie je kunt chatten.",
     "startError": "Kon het gesprek niet starten.",
     "retry": "Opnieuw",
-    "openContacts": "Contacten openen"
+    "openContacts": "Contacten openen",
+    "intentEmail": "E-mail",
+    "intentEmailHint": "Schrijf vanuit een gekoppelde mailbox. Het gesprek bestaat pas na verzenden."
   },
   "threadChrome": {
     "hideDetails": "Details verbergen",
@@ -794,6 +838,7 @@
     "handoverCancel": "Annuleren",
     "handoverConfirm": "Toewijzen",
     "whatsNextTicket": "Ticket vastleggen",
+    "whatsNextHandled": "Buitenom afgehandeld",
     "closeWithTicketTitle": "Dit gesprek is een open ticket",
     "closeWithTicketBody": "{{names}} staat nog open. Zet het mee in de klaar-fase met het gesprek, of laat het open voor opvolging.",
     "closeWithTicketFallback": "Ticket",
@@ -826,7 +871,7 @@
     "assign": "Aan mij toewijzen",
     "reply": "Antwoord focussen",
     "compose": "Nieuwe e-mail",
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "search": "Zoeken focussen",
     "thisHelp": "Deze lijst tonen",
     "escape": "Terug naar de lijst, of zoeken verlaten",
@@ -924,8 +969,9 @@
     "completeFollowUp": "Klaar",
     "followUpCompleteError": "Kon het kijkmoment niet wissen.",
     "openAgendaFollowUps": "Agenda",
-    "previous": "Eerdere gesprekken",
-    "noPrevious": "Geen eerdere gesprekken",
+    "previous": "Andere gesprekken",
+    "noPrevious": "Geen andere gesprekken",
+    "openProposalShort": "Voorstel open",
     "openCommunication": "Communicatie openen",
     "addContact": "Toevoegen aan contacten",
     "openContacts": "Contacten openen",
@@ -988,7 +1034,7 @@
     "send": "Versturen",
     "emptyPick": "Start een chat met je assistent, of kies een gesprek uit de lijst.",
     "aiDisclosure": "Je chat met AI. Een medewerker kan overnemen wanneer nodig.",
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "openAgents": "Agents openen",
     "openKnowledge": "Kennis openen",
     "openSetup": "Setupgids openen",
@@ -1075,6 +1121,15 @@
   "timeline": {
     "internalNote": "Interne notitie",
     "ccLine": "CC: {{recipients}}",
+    "sentFromOwnMailbox": "Verstuurd vanuit eigen mailbox ({{provider}})",
+    "handledExternally": {
+      "phone": "Afgehandeld via telefoon door {{name}}",
+      "whatsapp": "Afgehandeld via WhatsApp door {{name}}",
+      "email": "Afgehandeld via e-mail door {{name}}",
+      "other": "Afgehandeld buiten Bokito door {{name}}"
+    },
+    "forwardedFrom": "Bevat doorgestuurd bericht van {{name}}",
+    "forwardedUnknown": "Bevat een doorgestuurd bericht",
     "today": "Vandaag",
     "notDelivered": "Niet afgeleverd",
     "showQuoted": "Toon geciteerde tekst",

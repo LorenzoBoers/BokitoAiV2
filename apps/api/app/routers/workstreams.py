@@ -90,6 +90,12 @@ async def create_workstream(
 
         ws.stages_json = validate_stages(body.stages)
         await validate_stage_owners(session, auth.tenant.id, ws.stages_json)
+    else:
+        # A flow is its stages: without them tickets have nowhere to move and
+        # the board renders empty. Seed the default pipeline; edit afterwards.
+        from app.services.tickets import default_stages_json
+
+        ws.stages_json = default_stages_json()
     session.add(ws)
     await session.flush()
     if tag is None:

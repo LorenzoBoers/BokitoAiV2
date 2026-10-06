@@ -1,242 +1,233 @@
-"""Per-tenant LLM provider connection CRUD and connectivity tests."""
+"""Provider-scoped connection management: every registration to one provider.
+
+Backs the provider modal (Moneybird, KING, ...). Rows share the module
+connection DTO (``module_connections._row_extras``) and are enriched with the
+same scope fields the module page shows: ``instance_key``, linked projects,
+attached modules, access summary and whether the viewer may manage it.
+"""
 
 from __future__ import annotations
 
-from datetime import datetime
+import json
 from typing import Any
 from uuid import UUID
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.provider import ProviderConnection
-from app.services.crypto import decrypt_secret, encrypt_secret
-from app.services.model_regions import provider_region
-from app.services.provider_presets import get_preset, is_valid_provider_type
-
-DEFAULT_LABELS = {
-    "mistral": "Mistral",
-    "anthropic": "Anthropic",
-    "openai": "OpenAI",
-    "openai_compatible": "OpenAI-compatible",
-}
+from app.models.integration import IntegrationConnection, McpServer
 
 
-def _last4(raw: str) -> str:
-    raw = raw.strip()
-    return raw[-4:] if len(raw) >= 4 else raw
-
-
-def _normalize_base_url(base_url: str) -> str:
-    return (base_url or "").strip().rstrip("/")
-
-
-def default_base_url(provider_type: str) -> str:
-    """Base URL used when a connection of this type leaves ``base_url`` empty."""
-    preset = get_preset(provider_type)
-    if preset and preset["default_base_url"]:
-        return preset["default_base_url"]
-    return "https://api.openai.com/v1"
-
-
-def serialize_connection(conn: ProviderConnection, *, include_id: bool = True) -> dict[str, Any]:
-    data: dict[str, Any] = {
-        "provider_type": conn.provider_type,
-        "label": conn.label,
-        "base_url": conn.base_url or "",
-        "region": provider_region(conn.provider_type, conn.base_url),
-        "enabled": conn.enabled,
-        "is_set": bool(conn.encrypted_value),
-        "last4": conn.last4,
-        "updated_at": conn.updated_at.isoformat() if conn.updated_at else None,
-    }
-    if include_id:
-        data["id"] = str(conn.id)
-    return data
-
-
-async def list_connections(session: AsyncSession, tenant_id: UUID) -> list[ProviderConnection]:
-    result = await session.execute(
-        select(ProviderConnection)
-        .where(ProviderConnection.tenant_id == tenant_id)
-        .order_by(ProviderConnection.label)
-    )
-    return list(result.scalars().all())
-
-
-async def get_connection(
-    session: AsyncSession, tenant_id: UUID, connection_id: UUID
-) -> ProviderConnection | None:
-    result = await session.execute(
-        select(ProviderConnection).where(
-            ProviderConnection.id == connection_id,
-            ProviderConnection.tenant_id == tenant_id,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_decrypted_key(session: AsyncSession, connection: ProviderConnection) -> str | None:
-    if not connection.encrypted_value:
-        return None
-    value = decrypt_secret(connection.encrypted_value)
-    return value or None
-
-
-async def create_connection(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    provider_type: str,
-    label: str = "",
-    base_url: str = "",
-    api_key: str,
-) -> ProviderConnection:
-    if not is_valid_provider_type(provider_type):
-        raise ValueError("Unknown provider type")
-    preset = get_preset(provider_type)
-    if preset and preset["requires_base_url"] and not _normalize_base_url(base_url):
-        raise ValueError("Base URL is required for OpenAI-compatible providers")
-
-    raw_key = (api_key or "").strip()
-    if not raw_key:
-        raise ValueError("API key cannot be empty")
-
-    clean_label = (label or "").strip() or DEFAULT_LABELS.get(provider_type, provider_type)
-    existing = await session.execute(
-        select(ProviderConnection).where(
-            ProviderConnection.tenant_id == tenant_id,
-            ProviderConnection.label == clean_label,
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise ValueError("A provider with this label already exists")
-
-    now = datetime.utcnow()
-    conn = ProviderConnection(
-        tenant_id=tenant_id,
-        provider_type=provider_type,
-        label=clean_label,
-        base_url=_normalize_base_url(base_url),
-        encrypted_value=encrypt_secret(raw_key),
-        last4=_last4(raw_key),
-        enabled=True,
-        created_at=now,
-        updated_at=now,
-    )
-    session.add(conn)
-    await session.commit()
-    await session.refresh(conn)
-    return conn
-
-
-async def update_connection(
-    session: AsyncSession,
-    tenant_id: UUID,
-    connection_id: UUID,
-    *,
-    label: str | None = None,
-    base_url: str | None = None,
-    api_key: str | None = None,
-    enabled: bool | None = None,
-) -> ProviderConnection:
-    conn = await get_connection(session, tenant_id, connection_id)
-    if not conn:
-        raise ValueError("Provider connection not found")
-
-    now = datetime.utcnow()
-    if label is not None:
-        clean_label = label.strip()
-        if not clean_label:
-            raise ValueError("Label cannot be empty")
-        clash = await session.execute(
-            select(ProviderConnection).where(
-                ProviderConnection.tenant_id == tenant_id,
-                ProviderConnection.label == clean_label,
-                ProviderConnection.id != connection_id,
-            )
-        )
-        if clash.scalar_one_or_none():
-            raise ValueError("A provider with this label already exists")
-        conn.label = clean_label
-
-    if base_url is not None:
-        conn.base_url = _normalize_base_url(base_url)
-        preset = get_preset(conn.provider_type)
-        if preset and preset["requires_base_url"] and not conn.base_url:
-            raise ValueError("Base URL is required for OpenAI-compatible providers")
-
-    if api_key is not None:
-        raw_key = api_key.strip()
-        if not raw_key:
-            raise ValueError("API key cannot be empty")
-        conn.encrypted_value = encrypt_secret(raw_key)
-        conn.last4 = _last4(raw_key)
-
-    if enabled is not None:
-        conn.enabled = enabled
-
-    conn.updated_at = now
-    session.add(conn)
-    await session.commit()
-    await session.refresh(conn)
-    return conn
-
-
-async def delete_connection(session: AsyncSession, tenant_id: UUID, connection_id: UUID) -> bool:
-    conn = await get_connection(session, tenant_id, connection_id)
-    if not conn:
-        return False
-    from app.models.provider import TenantModel
-
-    models = await session.execute(
-        select(TenantModel).where(
-            TenantModel.tenant_id == tenant_id,
-            TenantModel.connection_id == connection_id,
-        )
-    )
-    for model in models.scalars().all():
-        await session.delete(model)
-    await session.delete(conn)
-    await session.commit()
-    return True
-
-
-async def test_connection(session: AsyncSession, tenant_id: UUID, connection_id: UUID) -> dict[str, Any]:
-    conn = await get_connection(session, tenant_id, connection_id)
-    if not conn:
-        raise ValueError("Provider connection not found")
-
-    api_key = await get_decrypted_key(session, conn)
-    if not api_key:
-        return {"ok": False, "message": "No API key configured"}
-
+def _parse_json(raw: str | None) -> dict[str, Any]:
     try:
-        if conn.provider_type == "anthropic":
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(
-                    "https://api.anthropic.com/v1/models",
-                    headers={
-                        "x-api-key": api_key,
-                        "anthropic-version": "2023-06-01",
-                    },
-                )
-                if response.status_code == 401:
-                    return {"ok": False, "message": "Invalid API key"}
-                response.raise_for_status()
-                return {"ok": True, "message": "Connection successful"}
+        data = json.loads(raw or "{}")
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
 
-        # mistral, openai and openai_compatible share the OpenAI client shape
-        base = _normalize_base_url(conn.base_url) or default_base_url(conn.provider_type)
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(
-                f"{base}/models",
-                headers={"Authorization": f"Bearer {api_key}"},
+
+def _server_has_credentials(provider: str, auth: dict[str, Any]) -> bool:
+    if provider == "king_accountancy":
+        from app.services.king_finance import has_king_credentials
+
+        return has_king_credentials(auth) or bool(auth.get("mock"))
+    if provider == "bjorn_lunden_mcp":
+        from app.services.bjorn_lunden import has_bl_credentials
+
+        return has_bl_credentials(auth) or bool(auth.get("mock"))
+    return bool(
+        str(auth.get("api_key") or auth.get("bearer_token") or auth.get("access_token") or "").strip()
+        or auth.get("mock")
+    )
+
+
+def _identity_fallback(provider: str, meta: dict[str, Any], auth: dict[str, Any]) -> str | None:
+    if provider == "king_accountancy":
+        from app.services.king_finance import parse_administraties
+
+        admins = parse_administraties(auth)
+        if admins:
+            return admins[0].get("name") or None
+    return str(meta.get("email") or meta.get("external_account_id") or "") or None
+
+
+async def enrich_rows(
+    session: AsyncSession,
+    tenant_id: UUID,
+    rows: list[dict[str, Any]],
+    *,
+    user_id: UUID | None = None,
+    role: str | None = None,
+) -> list[dict[str, Any]]:
+    """Add scope fields to connection rows keyed by ``connection_id`` (IntegrationConnection id)."""
+    from app.services.connection_access import connection_access, is_default_access, user_level
+    from app.services.connection_scope import project_links, project_names
+    from app.services.module_attach import attached_modules_by_connection
+
+    ic_ids: list[UUID] = []
+    for row in rows:
+        try:
+            ic_ids.append(UUID(str(row.get("connection_id") or row["id"])))
+        except (ValueError, KeyError):
+            continue
+    conns = {
+        str(c.id): c
+        for c in (
+            await session.execute(
+                select(IntegrationConnection).where(
+                    IntegrationConnection.tenant_id == tenant_id,
+                    IntegrationConnection.id.in_(ic_ids),
+                )
             )
-            if response.status_code == 401:
-                return {"ok": False, "message": "Invalid API key"}
-            response.raise_for_status()
-            return {"ok": True, "message": "Connection successful"}
-    except httpx.HTTPError as exc:
-        return {"ok": False, "message": f"Connection failed: {exc}"}
+        ).scalars().all()
+    } if ic_ids else {}
+    links = await project_links(session, tenant_id, ic_ids)
+    names = await project_names(session, tenant_id, {p for ps in links.values() for p in ps})
+    modules = await attached_modules_by_connection(session, tenant_id)
+    for row in rows:
+        cid = str(row.get("connection_id") or row["id"])
+        conn = conns.get(cid)
+        row["connection_id"] = cid if conn is not None else row.get("connection_id")
+        row["instance_key"] = (conn.instance_key or None) if conn is not None else None
+        project_ids = links.get(cid, [])
+        row["projects"] = [{"id": p, "name": names.get(p, "")} for p in project_ids]
+        row["attached_modules"] = modules.get(cid, [])
+        if conn is not None:
+            row["access_restricted"] = not is_default_access(conn)
+            row["access"] = connection_access(conn)
+            if user_id is not None and role is not None:
+                level = await user_level(session, conn, user_id=user_id, role=role)
+                row["can_manage"] = level == "manage"
+                row["can_use"] = level is not None
+            else:
+                row["can_manage"] = True
+                row["can_use"] = True
+        else:
+            row["access_restricted"] = False
+            row["access"] = []
+            row["can_manage"] = role is None or role in ("owner", "admin")
+            row["can_use"] = True
+        if not row["can_manage"]:
+            row["can_verify"] = False
+            row["can_disconnect"] = False
+    return rows
+
+
+async def list_provider_connections(
+    session: AsyncSession,
+    tenant_id: UUID,
+    provider: str,
+    *,
+    user_id: UUID | None = None,
+    role: str | None = None,
+) -> list[dict[str, Any]]:
+    """Active registrations for one canonical provider, oldest first."""
+    from app.services.connection_instance import converge_once
+    from app.services.crypto import get_connection_credentials
+    from app.services.integrations_catalog import canonical_provider_slug
+    from app.services.module_connections import _row_extras, bound_mcp_server
+
+    slug = canonical_provider_slug(provider) or provider
+    if slug in ("moneybird", "king_accountancy"):
+        await converge_once(session, tenant_id)
+    conns = (
+        await session.execute(
+            select(IntegrationConnection)
+            .where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.provider == slug,
+                IntegrationConnection.status == "active",
+            )
+            .order_by(IntegrationConnection.created_at.asc())
+        )
+    ).scalars().all()
+    rows: list[dict[str, Any]] = []
+    for conn in conns:
+        meta = _parse_json(conn.metadata_json)
+        server = await bound_mcp_server(session, tenant_id, conn.id)
+        if server is not None:
+            auth = _parse_json(server.auth_json)
+            has_creds = _server_has_credentials(conn.provider, auth)
+            row_meta = {**meta, **{k: v for k, v in auth.items() if k in (
+                "identity", "last_verified_at", "verify_error")}}
+            fallback = _identity_fallback(conn.provider, meta, auth)
+        else:
+            creds = get_connection_credentials(conn)
+            if conn.provider == "moneybird":
+                from app.services.moneybird import has_moneybird_credentials
+
+                has_creds = has_moneybird_credentials(creds)
+            else:
+                has_creds = bool(
+                    str(creds.get("access_token") or creds.get("api_key") or "").strip()
+                    or creds.get("mock")
+                )
+            row_meta = meta
+            fallback = _identity_fallback(conn.provider, meta, {})
+        extras = _row_extras(has_credentials=has_creds, meta=row_meta, identity_fallback=fallback)
+        rows.append(
+            {
+                "id": str(conn.id),
+                "connection_id": str(conn.id),
+                "mcp_server_id": str(server.id) if server is not None else None,
+                "kind": "mcp" if server is not None else "oauth",
+                "provider": conn.provider,
+                "vendor": conn.provider,
+                "display_name": conn.display_name or conn.provider,
+                "created_at": conn.created_at.isoformat() if conn.created_at else None,
+                **extras,
+                "ready": extras["ready"],
+            }
+        )
+    return await enrich_rows(session, tenant_id, rows, user_id=user_id, role=role)
+
+
+async def get_tenant_connection(
+    session: AsyncSession, tenant_id: UUID, connection_id: UUID
+) -> IntegrationConnection:
+    """IntegrationConnection by its id or by its native McpServer id (404 otherwise)."""
+    from fastapi import HTTPException
+
+    from app.services.module_attach import resolve_integration_connection_id
+
+    ic_id = await resolve_integration_connection_id(session, tenant_id, connection_id)
+    conn = await session.get(IntegrationConnection, ic_id)
+    if conn is None or conn.tenant_id != tenant_id or conn.status != "active":
+        raise HTTPException(status_code=404, detail="Connection not found")
+    return conn
+
+
+async def rename_connection(
+    session: AsyncSession, tenant_id: UUID, conn: IntegrationConnection, display_name: str
+) -> dict[str, Any]:
+    """Rename the registration and its native MCP server label."""
+    from app.services.module_connections import bound_mcp_server
+
+    name = (display_name or "").strip()
+    if not name:
+        raise ValueError("display_name is required")
+    conn.display_name = name
+    session.add(conn)
+    server: McpServer | None = await bound_mcp_server(session, tenant_id, conn.id)
+    if server is not None:
+        server.name = name
+        session.add(server)
+    await session.commit()
+    return {"id": str(conn.id), "display_name": name}
+
+
+async def clear_module_defaults_for(
+    session: AsyncSession, tenant_id: UUID, conn: IntegrationConnection
+) -> None:
+    """Drop module defaults that point at this connection (or its MCP server)."""
+    from app.models.module_install import ModuleInstall
+    from app.services.connection_instance import _mcp_server_ids
+
+    refs = {str(conn.id), *(str(s) for s in await _mcp_server_ids(session, tenant_id, conn.id))}
+    installs = (
+        await session.execute(select(ModuleInstall).where(ModuleInstall.tenant_id == tenant_id))
+    ).scalars().all()
+    for install in installs:
+        if install.default_connection_id and install.default_connection_id in refs:
+            install.default_connection_id = None
+            session.add(install)

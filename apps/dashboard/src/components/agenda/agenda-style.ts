@@ -1,3 +1,4 @@
+import { cn } from '../../lib/utils'
 import type { TFunction } from 'i18next'
 import { Bell, Bot, CalendarDays, ClipboardCheck, History, Repeat, type LucideIcon } from 'lucide-react'
 import { layerOf, type AgendaLayer } from '../../lib/agenda-layout'
@@ -32,6 +33,20 @@ export const LAYER_BLOCK: Record<AgendaLayer, string> = {
   agents: 'border-accent/70 bg-accent/10 hover:bg-accent/15',
   routines: 'border-border bg-bg-elevated hover:bg-bg-elevated/80',
   activity: 'border-emerald-500/60 bg-emerald-500/10 hover:bg-emerald-500/15',
+}
+
+/** Selected chip stays fully opaque even when the occurrence is in the past or paused. */
+export function agendaChipState({
+  selected,
+  past,
+  paused,
+}: {
+  selected: boolean
+  past?: boolean
+  paused?: boolean
+}): string {
+  if (selected) return 'z-10 bg-accent/15 ring-2 ring-accent opacity-100'
+  return cn(past && 'opacity-60', paused && 'opacity-40')
 }
 
 export const LAYER_TEXT: Record<AgendaLayer, string> = {

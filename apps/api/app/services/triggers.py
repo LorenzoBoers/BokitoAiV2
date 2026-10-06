@@ -9,8 +9,10 @@ Signal thread so humans see it.
 from __future__ import annotations
 
 import json
+import re
 import secrets
 from datetime import datetime, timedelta
+from difflib import SequenceMatcher
 from typing import Any
 from uuid import UUID
 
@@ -19,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun
+from app.models.auth import Tenant
 from app.models.trigger import TRIGGER_KINDS, Trigger
 
 HEARTBEAT_OK = "HEARTBEAT_OK"
@@ -27,8 +30,40 @@ HEARTBEAT_PROMPT = (
     "This is a scheduled heartbeat wake. Work through the checklist below. "
     "Use your tools to check on anything that needs attention. "
     f"If everything is fine and there is nothing to report, reply with exactly {HEARTBEAT_OK} "
-    "and nothing else. Otherwise describe what needs attention or what you did."
+    "and nothing else. Otherwise describe what needs attention or what you did.\n"
+    "Report only what changed since the previous check-in: new threads, new "
+    "decisions, finished work. Do not repeat items the previous check-in already "
+    "listed, do not restate open counts, and never raise a proposal (module, "
+    "integration, rule) that is still awaiting an answer or was declined. "
+    "When a question concerns a conversation, pass its subject as thread_subject "
+    "to create_decision_request so the card lands on that thread. "
+    f"When nothing changed, reply {HEARTBEAT_OK}."
 )
+
+# A report that reads the same as the previous one (counts aside) is noise:
+# one tenant received 193 near-identical half-hourly posts in four days.
+HEARTBEAT_SIMILARITY_SUPPRESS = 0.85
+_DIGITS_RE = re.compile(r"\d+")
+_WS_RE = re.compile(r"\s+")
+
+
+def _normalize_report(text: str) -> str:
+    lowered = _DIGITS_RE.sub("#", (text or "").lower())
+    return _WS_RE.sub(" ", lowered).strip()
+
+
+def heartbeat_report_similarity(previous: str, current: str) -> float:
+    """0..1 similarity between two check-in reports, ignoring numbers and spacing."""
+    a, b = _normalize_report(previous), _normalize_report(current)
+    if not a or not b:
+        return 0.0
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def is_repeat_heartbeat_report(previous: str | None, current: str) -> bool:
+    if not previous:
+        return False
+    return heartbeat_report_similarity(previous, current) >= HEARTBEAT_SIMILARITY_SUPPRESS
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -285,6 +320,36 @@ async def _operations_signal_id(session: AsyncSession, tenant_id: UUID) -> UUID 
         return None
 
 
+async def previous_heartbeat_report(
+    session: AsyncSession, trigger: Trigger
+) -> tuple[str, datetime | None]:
+    """The last report this trigger posted, so the next run can diff against it."""
+    from app.models.signal import SignalMessage
+
+    if not trigger.signal_id:
+        return "", None
+    rows = (
+        await session.execute(
+            select(SignalMessage)
+            .where(
+                SignalMessage.signal_id == trigger.signal_id,
+                SignalMessage.tenant_id == trigger.tenant_id,
+                SignalMessage.kind == "agent_message",
+            )
+            .order_by(SignalMessage.received_at.desc())
+            .limit(20)
+        )
+    ).scalars().all()
+    for row in rows:
+        try:
+            meta = json.loads(row.metadata_json or "{}")
+        except (TypeError, json.JSONDecodeError):
+            meta = {}
+        if str(meta.get("trigger_id") or "") == str(trigger.id):
+            return row.body_text or "", row.received_at
+    return "", None
+
+
 async def _surface_result(
     session: AsyncSession, trigger: Trigger, agent: Agent, text: str
 ) -> None:
@@ -428,6 +493,20 @@ async def fire_trigger(
         await session.commit()
         return {"status": status}
 
+    # Workspace LLM block (credits, key, spend cap): skip the run instead of
+    # logging one more identical failure; the trigger simply fires next time.
+    from app.services.run_errors import active_workspace_block
+
+    tenant = await session.get(Tenant, trigger.tenant_id)
+    blocked = active_workspace_block(tenant) if tenant is not None else None
+    if blocked:
+        trigger.last_status = f"blocked:{blocked.get('kind')}"
+        trigger.next_run_at = compute_next_run(trigger, now)
+        session.add(trigger)
+        await session.commit()
+        return {"status": "blocked", "block": blocked.get("kind")}
+
+    previous_report = ""
     if trigger.kind == "heartbeat":
         checklist = await _heartbeat_checklist(session, trigger.tenant_id)
         prompt_parts = [HEARTBEAT_PROMPT]
@@ -435,6 +514,14 @@ async def fire_trigger(
             prompt_parts.append(f"## Checklist\n{checklist}")
         if trigger.instructions.strip():
             prompt_parts.append(trigger.instructions)
+        previous_report, previous_at = await previous_heartbeat_report(session, trigger)
+        if previous_report:
+            stamp = previous_at.strftime("%Y-%m-%d %H:%M UTC") if previous_at else "earlier"
+            prompt_parts.append(
+                f"## Previous check-in ({stamp})\n"
+                "Already reported; mention only what is new or resolved since.\n\n"
+                f"{previous_report[:4000]}"
+            )
         prompt = "\n\n".join(prompt_parts)
     else:
         prompt = trigger.instructions.strip() or "Execute the scheduled wake."
@@ -476,7 +563,32 @@ async def fire_trigger(
         await promote_run_to_task(session, run, title=trigger.name)
 
     loop = AgentLoop(session, trigger.tenant_id, None, agent=agent, run=run)
-    text, _tokens = await loop.run_chat([{"role": "user", "content": prompt}])
+    try:
+        text, _tokens = await loop.run_chat([{"role": "user", "content": prompt}])
+    except Exception as exc:
+        # Record the failure on the run itself (a bare rollback left runs
+        # with no error text), then open the workspace block when the cause
+        # is a credits / key / spend-cap problem that will hit every run.
+        from app.services.run_errors import open_workspace_block, record_run_error, workspace_block
+
+        run.status = "failed"
+        run.completed_at = datetime.utcnow()
+        record_run_error(run, exc)
+        session.add(run)
+        block = workspace_block(exc)
+        if block and tenant is not None:
+            open_workspace_block(tenant, kind=block, error=exc)
+            session.add(tenant)
+        trigger.last_status = f"blocked:{block}" if block else "error"
+        trigger.next_run_at = compute_next_run(trigger, now)
+        session.add(trigger)
+        await session.commit()
+        if block:
+            from app.services.ops_alerts import alert_workspace_block
+
+            await alert_workspace_block(session, trigger.tenant_id, block=block, error=exc)
+            return {"run_id": str(run.id), "status": "blocked", "block": block}
+        raise
     run.status = "completed"
     run.completed_at = datetime.utcnow()
 
@@ -484,19 +596,34 @@ async def fire_trigger(
 
     await settle_run_task(session, run)
 
+    # A completed model turn ends any recorded block; deferred inbound
+    # threads get re-queued.
+    from app.workers.tasks import release_workspace_block
+
+    await release_workspace_block(session, tenant)
+
     suppressed = trigger.kind == "heartbeat" and text.strip().rstrip(".") == HEARTBEAT_OK
-    if not suppressed and text.strip():
+    repeated = (
+        trigger.kind == "heartbeat"
+        and not suppressed
+        and is_repeat_heartbeat_report(previous_report, text)
+    )
+    if not suppressed and not repeated and text.strip():
         await _surface_result(session, trigger, agent, text)
 
     trigger.last_run_at = now
-    trigger.last_status = "ok" if suppressed else "reported"
+    trigger.last_status = "ok" if suppressed else "unchanged" if repeated else "reported"
     trigger.next_run_at = compute_next_run(trigger, now)
     if trigger.kind == "once":
         trigger.enabled = False
     trigger.updated_at = now
     session.add(trigger)
     await session.commit()
-    return {"run_id": str(run.id), "status": trigger.last_status, "suppressed": suppressed}
+    return {
+        "run_id": str(run.id),
+        "status": trigger.last_status,
+        "suppressed": suppressed or repeated,
+    }
 
 
 # ── planned moments (read by services.time_items) ────────────────────

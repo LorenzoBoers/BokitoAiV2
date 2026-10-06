@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isStoredDraftStale,
   nextUnreadId,
   parseComposerDraft,
   parseQuickFilterParam,
@@ -77,5 +78,58 @@ describe('composer draft json', () => {
     expect(parseComposerDraft('hello')).toEqual({ body: 'hello', cc: '', bcc: '' })
     const packed = serializeComposerDraft({ body: 'hi', cc: 'a@b.c', bcc: '' })
     expect(parseComposerDraft(packed)).toEqual({ body: 'hi', cc: 'a@b.c', bcc: '' })
+  })
+
+  it('keeps the proposal anchor and drops empty anchors', () => {
+    const packed = serializeComposerDraft({
+      body: 'hi',
+      cc: '',
+      bcc: '',
+      decisionMessageId: 'card-1',
+      basedOnMessageId: 'msg-1',
+    })
+    expect(packed.startsWith('{')).toBe(true)
+    expect(parseComposerDraft(packed)).toEqual({
+      body: 'hi',
+      cc: '',
+      bcc: '',
+      decisionMessageId: 'card-1',
+      basedOnMessageId: 'msg-1',
+    })
+    // A plain body without anchors stays plain text for older readers.
+    expect(serializeComposerDraft({ body: 'plain', cc: '', bcc: '' })).toBe('plain')
+    expect(parseComposerDraft('{"body":"x","basedOnMessageId":""}')).toEqual({ body: 'x', cc: '', bcc: '' })
+  })
+})
+
+describe('isStoredDraftStale', () => {
+  const draft = { body: 'Beste Harold, morgen.', cc: '', bcc: '', basedOnMessageId: 'msg-1' }
+
+  it('is fresh while the anchored message is still the newest inbound', () => {
+    expect(isStoredDraftStale(draft, { latestInboundMessageId: 'msg-1' })).toBe(false)
+  })
+
+  it('is stale once the customer wrote again', () => {
+    expect(isStoredDraftStale(draft, { latestInboundMessageId: 'msg-2' })).toBe(true)
+  })
+
+  it('is stale when the proposal it came from was resolved or set aside', () => {
+    const fromCard = { ...draft, decisionMessageId: 'card-1' }
+    expect(
+      isStoredDraftStale(fromCard, { latestInboundMessageId: 'msg-1', proposalOpen: () => false }),
+    ).toBe(true)
+    expect(
+      isStoredDraftStale(fromCard, { latestInboundMessageId: 'msg-1', proposalOpen: () => true }),
+    ).toBe(false)
+    // Unknown card state (not loaded yet) falls back to the anchor.
+    expect(
+      isStoredDraftStale(fromCard, { latestInboundMessageId: 'msg-1', proposalOpen: () => undefined }),
+    ).toBe(false)
+  })
+
+  it('never flags legacy drafts without an anchor or empty bodies', () => {
+    expect(isStoredDraftStale({ body: 'old text', cc: '', bcc: '' }, { latestInboundMessageId: 'msg-9' })).toBe(false)
+    expect(isStoredDraftStale({ ...draft, body: '  ' }, { latestInboundMessageId: 'msg-2' })).toBe(false)
+    expect(isStoredDraftStale(draft, { latestInboundMessageId: null })).toBe(false)
   })
 })

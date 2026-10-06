@@ -16,10 +16,10 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 ![Agenda-weekweergave](/api/docs/assets/agenda/week.png)
 *Week toont afspraken, check-ups, kijkmomenten en agenttaken per dag.*
 
-1. Open **Agenda**. **Week** is de standaard; wissel bovenaan naar **Dag**, **Maand** of **Lijst**, of druk op D, W, M of L.
-2. Gebruik **Vandaag** en de pijlen (of de pijltjestoetsen) om door de tijd te bewegen.
+1. Open **Agenda**. Het hulp-icoon naast de titel in de bovenbalk opent deze gids. **Week** is de standaard; wissel op dezelfde rij als **Nieuw** naar **Dag**, **Maand** of **Lijst**, of druk op D, W, M of L.
+2. Gebruik **Vandaag** en de pijlen (of de pijltjestoetsen) om door de tijd te bewegen. In **Lijst** begint de huidige dag bovenaan; scroll omhoog voor eerdere dagen, kies een datum in de minikalender links, of gebruik **Terug naar boven** als je verder naar beneden bent gescrolld. **Wie** en **Tonen** blijven in beeld terwijl de lijst scrollt.
 3. Kies links **Wie** (**Iedereen**, **Alleen ik**, **Mensen**, **Agents**) en een project, en zet lagen aan of uit onder **Tonen**: **Agenda**, **Kijkmomenten**, **Check-ups**, **Agenttaken**, **Routines** en **Activiteit**.
-4. Kies een item om rechts de details te openen, met links naar het gesprek, project of de agent.
+4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, project of de agent.
 
 ## Pak op wat aandacht vraagt
 
@@ -38,8 +38,8 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 ## Plan iets nieuws
 
 1. Kies **Nieuw** en daarna **Agenttaak** (een agent pakt het één keer op), **Herinnering** (gaat af op een datum of bij een platformgebeurtenis), **Routine** (een agent herhaalt het in een ritme) of **Agendablok** (zet een blok in een gekoppelde agenda).
-2. Vul de naam, de agent, het moment en de instructies in. Kies **Opslaan**.
-3. Routines blijven uit het rooster zodat belangrijke momenten opvallen. Beheer ze links onder **Routines**.
+2. Vul de naam, de agent, het moment en de instructies in. Voor een kalenderblok kies je de kalender, titel, start en einde. Zet **Hele dag** aan om het in de bovenste rij onder de datums te zetten. Kies **Opslaan** of **Aanmaken**.
+3. Elke laag die onder **Tonen** aan staat, ook **Routines** en **Activiteit**, staat in het rooster op zijn eigen tijd; alleen items voor de hele dag staan in de bovenste rij. Elk blok toont wie verantwoordelijk is met een merkteken van persoon, team of agent. Zet een laag uit om hem te verbergen. Beheer routines links onder **Routines**.
 4. Snelkoppelingen: **Agenttaak plannen** en **Nieuwe herinnering** in het opdrachtenpalet (Ctrl+K), of **Plannen op Agenda** op de pagina van een agent. Die opent Agenda gefilterd op die agent, met het formulier klaar.
 
 Agents plannen ook zelf: vraag er een in een gesprek om "dit vrijdag opnieuw te checken". Afhankelijk van je [autonomie-houding](/docs/govern/autonomy) wordt de planning direct gemaakt of komt die eerst als beslissing in Communicatie.

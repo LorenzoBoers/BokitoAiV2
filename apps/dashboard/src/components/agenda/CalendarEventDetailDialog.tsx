@@ -77,6 +77,9 @@ export default function CalendarEventDetailDialog({
       location: item.location || '',
       description: item.instructions || '',
       connectionId: item.connection_id || undefined,
+      allDay: Boolean(item.all_day),
+      startIso: item.start,
+      endIso: item.end ?? null,
     })
   }
 
@@ -89,9 +92,9 @@ export default function CalendarEventDetailDialog({
         <div className="space-y-2 text-sm">
           <p className="text-text-muted">
             {formatAppDate(start, i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })}
-            {' · '}
-            {formatAppTime(start, i18n.language)}
-            {end ? ` – ${formatAppTime(end, i18n.language)}` : ''}
+            {item.all_day
+              ? ` · ${t('agendaPage.grid.allDay')}`
+              : ` · ${formatAppTime(start, i18n.language)}${end ? ` – ${formatAppTime(end, i18n.language)}` : ''}`}
           </p>
           {provider ? (
             <p>

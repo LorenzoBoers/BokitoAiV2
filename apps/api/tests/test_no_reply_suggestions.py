@@ -143,6 +143,36 @@ def test_extract_no_reply_sentinel():
     assert extract_no_reply_summary("") is None
 
 
+def test_extract_no_reply_sentinel_after_reasoning():
+    """A model that thinks out loud first still ends in an action card, not a draft."""
+    from app.services.automated_mail import mentions_no_reply_sentinel
+
+    chatty = (
+        "Dit is een inkomende e-mail van GitHub over een geslaagde deploy.\n"
+        "Er wordt geen reactie verwacht.\n\n"
+        "**NO_REPLY_NEEDED: GitHub deploy succeeded**"
+    )
+    assert extract_no_reply_summary(chatty) == "GitHub deploy succeeded"
+    assert mentions_no_reply_sentinel(chatty) is True
+    assert mentions_no_reply_sentinel("Beste klant, bedankt voor uw bericht.") is False
+    # Sentinel with a markdown bullet and a dash separator.
+    assert extract_no_reply_summary("Analyse.\n- NO_REPLY_NEEDED - factuur van Stripe") == (
+        "factuur van Stripe"
+    )
+
+
+def test_meta_draft_guard_catches_mail_analysis():
+    """Text that describes the mail instead of answering the customer is never a draft."""
+    from app.services.inbound_agent import looks_like_meta_draft
+
+    assert looks_like_meta_draft("Dit is een inkomende e-mail van een klant over een factuur.")
+    assert looks_like_meta_draft("This is an inbound email from Stripe about a receipt.")
+    assert looks_like_meta_draft("Harold is de afzender en vraagt om uitstel.")
+    assert looks_like_meta_draft("Reasoning: NO_REPLY_NEEDED because this is a receipt.")
+    assert not looks_like_meta_draft("Beste Harold, uitstel tot donderdag is prima.")
+    assert not looks_like_meta_draft("Hi Harold, Thursday works for us.")
+
+
 @pytest.mark.asyncio
 async def test_acknowledge_automated_mail_has_no_decision(client: AsyncClient, session_override):
     from app.models.agent import Agent

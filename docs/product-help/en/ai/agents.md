@@ -1,7 +1,7 @@
 ---
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
-description: Brief company agents, set chat access, deactivate them, add a signature, and set initials or icon.
+description: Brief company agents, set chat access, deactivate them, add a signature, and set name, description or icon.
 keywords: agents, ai workforce, deactivate, reactivate, chat access, signature, avatar, icon, default agent, ceiling, rules, try out, ask questions to
 sort: 10
 related: govern,knowledge,communication,agenda
@@ -9,7 +9,7 @@ related: govern,knowledge,communication,agenda
 
 # How Agents works
 
-Agents are the AI workers for this workspace. Every agent has one shape: name, purpose, model, allowed tools, owner, and optional defaults. Bokito is the system agent that acts for the signed-in user; it is not part of the worker library.
+Agents are the AI workers for this workspace. Every agent has one shape: name, description, instructions, model, allowed tools, owner, and optional defaults. Bokito is the system agent that acts for the signed-in user; it is not part of the worker library.
 
 ## Browse the library
 
@@ -17,7 +17,7 @@ Agents are the AI workers for this workspace. Every agent has one shape: name, p
 *Each agent is a card. The default agent is marked quietly as Default.*
 
 1. Open **Agents**. Company agents appear as cards. Each card can show **open** conversations (the agent's detail, **Open conversations**) and threads that **need a decision** (**For you**, filtered to that agent). Search and the pills **All** and **Working** narrow the grid. Above the cards, **Activity** is a now-centered timeline of even-sized points. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time, not a from–to range. Choose a point to open the run, conversation or Agenda item. The same timeline sits on each agent page for that agent alone.
-2. Choose **New agent**. Enter a **Name**, select a **Model**, describe the **Purpose**, then choose **Create agent**.
+2. Choose **New agent**. Enter a **Name**, an optional **Description**, select a **Model**, add **Instructions**, then choose **Create agent**. The description is the short role others see on the card; instructions are the brief the agent follows.
 3. Open a card for instructions, model and chat access. Use **Chat with this agent** to start an internal thread. Agenda and conversations are quiet links on the detail page. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
@@ -36,6 +36,7 @@ New chats in Communication require a **company agent**. If none are available fo
 1. Open the agent. The **Instructions** card shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model**.
 2. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
 3. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
+4. A new workspace's front desk agent ships with a description and brief already filled in. During the first chat it asks what the company does and proposes its own updated description and instructions as a Govern draft; approve it under [Govern](/docs/govern/govern) **Pending reviews** or edit the brief here yourself.
 
 ## Set when the agent acts on its own
 
@@ -63,7 +64,7 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 ## Limit who can chat
 
 1. An idle agent shows **Ready**. Open **Communication** on the agent page (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.
-2. **Nobody** keeps background work (Agenda, AI handling) without a direct chat from Communication.
+2. **Nobody** keeps background work (Agenda, AI handling) without a direct chat from Communication. Front desk, project and other lead agents start on **Everyone** so the whole team can ask them directly.
 3. To take an agent out of the library, use **Deactivate** under the ··· menu. Status becomes **Deactivated**. Use **Reactivate** there or on [Workforce](/docs/getting-started/team) under **Deactivated**. History stays.
 
 ## Add an agent signature
@@ -74,11 +75,11 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 4. Save. Approvals for this agent use that default until you pick another Send as on the card.
 
 
-## Set name or icon
+## Set name, description or icon
 
 1. Open a company agent.
 2. Choose **Edit** at the top right of the header.
-3. Change the **name**, pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker.
+3. Change the **name**, fill in the **Description** (the short role on the library card), pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker. Instructions stay on the agent page; they are not this description.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.
 

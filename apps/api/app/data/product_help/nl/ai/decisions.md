@@ -2,7 +2,7 @@
 title: Beslissingen goedkeuren en afwijzen
 intro: Agents vragen in het gesprek om jouw oordeel. Elke open goedkeuring staat in Communicatie onder Beslissingen.
 description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via de map Beslissingen, Cockpit of een notificatie.
-keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop
+keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop, alles afwijzen, dubbele vragen
 sort: 20
 related: communication,agent-runs,autonomy,govern
 ---
@@ -28,6 +28,15 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Wat nu** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
 3. Een voorgesteld chatantwoord kan uit meerdere korte berichten bestaan. De kaart toont ze als **Bericht 1**, **Bericht 2** enzovoort. Kies **Bericht verwijderen** bij een bericht dat je niet wilt, of **Bewerken** om ze als één tekst te herschrijven; een lege regel start een nieuw bericht. **Versturen** levert ze op volgorde af.
 4. Hover over een agentbericht: naast de bubbel verschijnen iconen voor **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent. Hover een icoon voor het label. Escaleren zet het gesprek op Handmatig en wijst jou toe.
+
+## Wijs dezelfde vraag in bulk af
+
+Wanneer een check-in of agent dezelfde vraag vaak heeft gesteld (bijvoorbeeld *Google Sheets-integratie instellen?* bij elke run), hoef je niet elke kaart apart af te wijzen.
+
+1. Open **Communicatie**, dan **Beslissingen**. Boven de lijst toont de banner **Dezelfde vraag, veel kaarten** elke vraag die twee of meer keer wacht, met het aantal.
+2. Kies **Alles afwijzen** op een rij. Elke open kaart met die titel wordt uitgesteld en verdwijnt uit Beslissingen en het belmenu; er wordt niets uitgevoerd.
+3. De agent ziet een afwijzing als een nee voor dat onderwerp en stelt de vraag voorlopig niet opnieuw. Kaarten in een gesprek blijven daar zichtbaar als beantwoord; het gesprek zelf blijft open.
+4. Een vraag die niet over een gesprek gaat en geen actie heeft om uit te voeren wordt niet meer als kaart gesteld: de agent schrijft die in zijn eigen kanaal. Vraagt een agent iets over een gesprek, dan noemt hij het onderwerp en landt de kaart op dat gesprek.
 
 ## Leer de agent voor de volgende keer
 

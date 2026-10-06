@@ -28,15 +28,17 @@ type Props = {
   onOpenChange: (open: boolean) => void
   onCreated: (agentId: string) => void
   /** Prefill when duplicating an existing agent. */
-  prefill?: { name?: string; model?: string; purpose?: string } | null
+  prefill?: { name?: string; model?: string; purpose?: string; description?: string } | null
 }
 
 const WORKSPACE_DEFAULT = '__default__'
+const MAX_DESCRIPTION = 280
 
 export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }: Props) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [model, setModel] = useState('')
   const [purpose, setPurpose] = useState('')
   const [models, setModels] = useState<SelectableChatModel[]>([])
@@ -58,6 +60,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
   useEffect(() => {
     if (!open || !token) return
     setName(prefill?.name ?? '')
+    setDescription(prefill?.description ?? '')
     setModel(prefill?.model ?? '')
     setPurpose(prefill?.purpose ?? '')
     setError(null)
@@ -77,6 +80,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
     try {
       const res = await bokitoCreateAgent(token, {
         name: name.trim(),
+        description: description.trim() || undefined,
         model: model || undefined,
         purpose: purpose.trim() || undefined,
       })
@@ -110,6 +114,18 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="agent-description">{t('workforce.agents.create.description')}</Label>
+            <Textarea
+              id="agent-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION))}
+              placeholder={t('workforce.agents.create.descriptionPlaceholder')}
+              rows={2}
+              maxLength={MAX_DESCRIPTION}
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="agent-model">{t('workforce.agents.create.model')}</Label>
             <Select
               value={model || WORKSPACE_DEFAULT}
@@ -139,7 +155,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="agent-prompt">Purpose</Label>
+            <Label htmlFor="agent-prompt">{t('workforce.agents.create.prompt')}</Label>
             <Textarea
               id="agent-prompt"
               value={purpose}

@@ -5,6 +5,7 @@
   become ``signal_tags`` with a playbook, cases become ``signals.ticket_*``,
   playbook projects move to ``workstream_projects``; ``cases``,
   ``case_types`` and ``inbox_folders`` are dropped.
+- 079: partial unique index on ``integration_connections.instance_key``.
 """
 
 from __future__ import annotations
@@ -60,6 +61,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
     _normalize_tag_names(connection)
     _workstream_projects(connection)
     _cases_to_tickets(connection)
+    _connection_instance_index(connection)
     inspector = inspect(connection)
     for table in _DROPPED_TABLES:
         if inspector.has_table(table):
@@ -78,6 +80,23 @@ def converge_sqlite_schema(connection: Connection) -> None:
                     connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
                 except Exception:  # noqa: BLE001
                     pass
+
+
+def _connection_instance_index(connection: Connection) -> None:
+    """079: partial unique index on existing dev tables (create_all skips them)."""
+    inspector = inspect(connection)
+    if not inspector.has_table("integration_connections"):
+        return
+    columns = {c["name"] for c in inspector.get_columns("integration_connections")}
+    if "instance_key" not in columns:
+        return
+    connection.execute(
+        text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_integration_connection_instance "
+            "ON integration_connections (tenant_id, provider, instance_key) "
+            "WHERE instance_key <> '' AND status = 'active'"
+        )
+    )
 
 
 def _tags_to_links(connection: Connection) -> None:

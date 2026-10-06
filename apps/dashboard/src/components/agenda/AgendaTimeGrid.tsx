@@ -5,6 +5,7 @@ import {
   dayKey,
   isAllDay,
   itemEnd,
+  itemOwner,
   itemStart,
   layerOf,
   layoutDay,
@@ -12,13 +13,11 @@ import {
 } from '../../lib/agenda-layout'
 import type { TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
-import { LAYER_BLOCK, LAYER_DOT, LAYER_ICON, LAYER_TEXT, isFailed } from './agenda-style'
+import { agendaChipState, LAYER_BLOCK, LAYER_DOT, LAYER_ICON, LAYER_TEXT, isFailed } from './agenda-style'
+import { AgendaOwnerMark } from './AgendaOwnerMark'
 
 const HOUR_PX = 48
 const GUTTER = '3.25rem'
-
-/** Layers that collapse into one chip per day instead of blocks. */
-const SUMMARY_LAYERS: AgendaLayer[] = ['routines', 'activity']
 
 export type AgendaSelection = { kind: 'item'; item: TimeItem } | { kind: 'group'; title: string; items: TimeItem[] }
 
@@ -51,17 +50,13 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
           return dayKey(itemStart(item)) === key
         })
         const allDay = mine.filter((item) => isAllDay(item))
-        const summaries = SUMMARY_LAYERS.map((layer) => ({
-          layer,
-          items: mine.filter((item) => !isAllDay(item) && layerOf(item) === layer),
-        })).filter((group) => group.items.length > 0)
-        const timed = mine.filter((item) => !isAllDay(item) && !SUMMARY_LAYERS.includes(layerOf(item)))
-        return { day, key, allDay, summaries, placed: layoutDay(timed, day) }
+        const timed = mine.filter((item) => !isAllDay(item))
+        return { day, key, allDay, placed: layoutDay(timed, day) }
       }),
     [days, items],
   )
 
-  const hasTop = perDay.some((col) => col.allDay.length > 0 || col.summaries.length > 0)
+  const hasTop = perDay.some((col) => col.allDay.length > 0)
 
   useEffect(() => {
     const el = scrollRef.current
@@ -106,43 +101,24 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
           {hasTop ? (
             <div className="grid border-b border-border/60 bg-bg-elevated/30" style={{ gridTemplateColumns: columns }}>
               <div className="px-1 py-1.5 text-right text-2xs text-text-muted">{t('agendaPage.grid.allDay')}</div>
-              {perDay.map(({ key, allDay, summaries }) => (
+              {perDay.map(({ key, allDay }) => (
                 <div key={key} className="flex min-w-0 flex-col gap-1 border-l border-border/40 p-1">
-                  {allDay.map((item) => (
+                  {allDay.map((item) => {
+                    const owner = itemOwner(item)
+                    return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => onSelect({ kind: 'item', item })}
                       className={cn(
-                        'truncate rounded-md border-l-2 px-1.5 py-0.5 text-left text-xs font-medium text-text-heading',
+                        'flex min-w-0 items-center gap-1 truncate rounded-md border-l-2 px-1.5 py-0.5 text-left text-xs font-medium text-text-heading',
                         LAYER_BLOCK[layerOf(item)],
-                        selectedId === item.id && 'ring-2 ring-accent/60',
+                        agendaChipState({ selected: selectedId === item.id }),
                       )}
                     >
-                      {item.title}
+                      <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                      {owner ? <AgendaOwnerMark owner={owner} size={14} /> : null}
                     </button>
-                  ))}
-                  {summaries.map(({ layer, items: group }) => {
-                    const Icon = LAYER_ICON[layer]
-                    const failed = group.some((item) => isFailed(item.status))
-                    return (
-                      <button
-                        key={layer}
-                        type="button"
-                        onClick={() =>
-                          onSelect({
-                            kind: 'group',
-                            title: t(`agendaPage.layers.${layer}`),
-                            items: group,
-                          })
-                        }
-                        className="flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-left text-2xs text-text-muted hover:bg-bg-elevated hover:text-text-heading"
-                      >
-                        <Icon className={cn('h-3 w-3 shrink-0', LAYER_TEXT[layer])} aria-hidden />
-                        <span className="truncate">{t(`agendaPage.layers.${layer}`)}</span>
-                        <span className="ml-auto tabular-nums">{group.length}</span>
-                        {failed ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-error" aria-hidden /> : null}
-                      </button>
                     )
                   })}
                 </div>
@@ -189,7 +165,8 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                       const Icon = LAYER_ICON[layer]
                       const px = (height / 60) * HOUR_PX
                       const past = itemStart(item).getTime() + height * 60_000 < nowMs
-                      const who = item.owner_name || item.agent_name || item.actor_name
+                      const selected = selectedId === item.id
+                      const owner = itemOwner(item)
                       return (
                         <button
                           key={item.id}
@@ -198,10 +175,8 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                           className={cn(
                             'absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-0.5 text-left text-xs shadow-sm transition-colors',
                             LAYER_BLOCK[layer],
-                            past && 'opacity-60',
-                            item.enabled === false && 'opacity-40',
-                            isFailed(item.status) && 'ring-1 ring-status-error/60',
-                            selectedId === item.id && 'z-10 ring-2 ring-accent/70',
+                            agendaChipState({ selected, past, paused: item.enabled === false }),
+                            isFailed(item.status) && !selected && 'ring-1 ring-status-error/60',
                           )}
                           style={{
                             top: (top / 60) * HOUR_PX + 1,
@@ -212,12 +187,15 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                         >
                           <span className="flex items-center gap-1 font-medium text-text-heading">
                             <Icon className={cn('h-3 w-3 shrink-0', LAYER_TEXT[layer])} aria-hidden />
-                            <span className="truncate">{item.title}</span>
+                            <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                            {owner ? <AgendaOwnerMark owner={owner} size={14} /> : null}
                           </span>
                           {px >= 36 ? (
-                            <span className="block truncate text-2xs text-text-muted">
-                              {formatAppTime(itemStart(item), i18n.language)}
-                              {who ? ` · ${who}` : ''}
+                            <span className="flex min-w-0 items-center gap-1 text-2xs text-text-muted">
+                              <span className="shrink-0 tabular-nums">{formatAppTime(itemStart(item), i18n.language)}</span>
+                              {owner?.name ? (
+                                <span className="min-w-0 truncate">· {owner.name}</span>
+                              ) : null}
                             </span>
                           ) : null}
                         </button>
@@ -247,7 +225,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
 
 function Legend() {
   const { t } = useTranslation('nav')
-  const layers: AgendaLayer[] = ['calendar', 'reminders', 'checkups', 'agents']
+  const layers: AgendaLayer[] = ['calendar', 'reminders', 'checkups', 'agents', 'routines', 'activity']
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 px-3 py-1.5 text-2xs text-text-muted">
       {layers.map((layer) => (

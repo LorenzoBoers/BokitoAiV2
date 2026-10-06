@@ -470,7 +470,9 @@ async def get_module_connections(
         raise HTTPException(status_code=404, detail="Unknown module")
     await _ensure_module_access(session, auth, slug)
     try:
-        return await list_module_connections(session, auth.tenant.id, slug)
+        return await list_module_connections(
+            session, auth.tenant.id, slug, user_id=auth.user.id, role=auth.role
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -771,6 +773,22 @@ async def delete_connection(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Disconnect a registration (requires Manage).
+
+    Module defaults pointing at it are cleared and its project links removed.
+    """
+    from app.services.connection_access import require_manage
+    from app.services.connection_scope import set_connection_projects
+    from app.services.provider_connections import clear_module_defaults_for
+
+    conn = await session.get(IntegrationConnection, connection_id)
+    if conn is None or conn.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    await require_manage(session, conn, user_id=auth.user.id, role=auth.role)
+    await clear_module_defaults_for(session, auth.tenant.id, conn)
+    await set_connection_projects(
+        session, auth.tenant.id, conn, [], actor_user_id=auth.user.id
+    )
     await revoke_connection(session, auth.tenant.id, connection_id)
     from app.services.audit import record_audit
 
@@ -784,6 +802,297 @@ async def delete_connection(
         resource_id=connection_id,
     )
     return {"ok": True}
+
+
+# --- Provider-scoped connection management (provider modal) ---
+
+
+class ConnectionProjectRef(BaseModel):
+    id: str
+    name: str = ""
+
+
+class AccessEntry(BaseModel):
+    kind: str
+    id: str
+    level: str
+
+
+class ProviderConnectionRow(BaseModel):
+    id: str
+    connection_id: str | None = None
+    mcp_server_id: str | None = None
+    kind: str
+    provider: str
+    vendor: str
+    display_name: str
+    created_at: str | None = None
+    ready: bool
+    status: str
+    identity: str | None = None
+    last_verified_at: str | None = None
+    verify_error: str | None = None
+    can_verify: bool = True
+    can_disconnect: bool = True
+    can_manage: bool = False
+    can_use: bool = True
+    instance_key: str | None = None
+    projects: list[ConnectionProjectRef] = Field(default_factory=list)
+    attached_modules: list[str] = Field(default_factory=list)
+    access_restricted: bool = False
+    access: list[AccessEntry] = Field(default_factory=list)
+
+
+class ProviderConnectionList(BaseModel):
+    provider: str
+    connections: list[ProviderConnectionRow]
+
+
+class ConnectionRenameBody(BaseModel):
+    display_name: str
+
+
+class ConnectionRenameResult(BaseModel):
+    id: str
+    display_name: str
+
+
+class ConnectionVerifyResult(BaseModel):
+    ok: bool
+    id: str
+    kind: str
+    identity: str | None = None
+    last_verified_at: str | None = None
+    error: str | None = None
+    status: str
+    merged_into: str | None = None
+
+
+class ConnectionProjectsBody(BaseModel):
+    project_ids: list[str] = Field(default_factory=list)
+
+
+class ConnectionProjects(BaseModel):
+    connection_id: str
+    projects: list[ConnectionProjectRef]
+
+
+class ConnectionAccessBody(BaseModel):
+    # None restores the default (All people and All agents may use it).
+    entries: list[AccessEntry] | None = None
+
+
+class ConnectionAccess(BaseModel):
+    connection_id: str
+    is_default: bool
+    entries: list[AccessEntry]
+
+
+async def _managed_connection(
+    session: AsyncSession, auth: AuthContext, connection_id: UUID
+) -> IntegrationConnection:
+    from app.services.connection_access import require_manage
+    from app.services.provider_connections import get_tenant_connection
+
+    conn = await get_tenant_connection(session, auth.tenant.id, connection_id)
+    await require_manage(session, conn, user_id=auth.user.id, role=auth.role)
+    return conn
+
+
+async def _connection_projects(
+    session: AsyncSession, tenant_id: UUID, conn: IntegrationConnection
+) -> ConnectionProjects:
+    from app.services.connection_scope import project_links, project_names
+
+    ids = (await project_links(session, tenant_id, [conn.id])).get(str(conn.id), [])
+    names = await project_names(session, tenant_id, ids)
+    return ConnectionProjects(
+        connection_id=str(conn.id),
+        projects=[ConnectionProjectRef(id=p, name=names.get(p, "")) for p in ids],
+    )
+
+
+@router.get("/providers/{provider}/connections", response_model=ProviderConnectionList)
+async def get_provider_connections(
+    provider: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Every active registration to one provider, with status and scope.
+
+    Rows carry verify status, identity, the vendor ``instance_key``, linked
+    projects, attached modules, the access list and whether the caller may
+    manage the row. Members only see rows they may use.
+    """
+    from app.services.provider_connections import list_provider_connections
+
+    rows = await list_provider_connections(
+        session, auth.tenant.id, provider, user_id=auth.user.id, role=auth.role
+    )
+    return {"provider": provider, "connections": [r for r in rows if r.get("can_use")]}
+
+
+@router.patch("/connections/{connection_id}", response_model=ConnectionRenameResult)
+async def patch_connection(
+    connection_id: UUID,
+    body: ConnectionRenameBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Rename a registration (display label only; requires Manage)."""
+    from app.services.audit import record_audit
+    from app.services.provider_connections import rename_connection
+
+    conn = await _managed_connection(session, auth, connection_id)
+    try:
+        result = await rename_connection(session, auth.tenant.id, conn, body.display_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="integration:renamed",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="connection",
+        resource_id=conn.id,
+        summary=result["display_name"],
+    )
+    return result
+
+
+@router.post("/connections/{connection_id}/verify", response_model=ConnectionVerifyResult)
+async def post_connection_verify(
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Live-verify a registration against the vendor (requires Manage).
+
+    A verify that discovers the same vendor account as another row merges
+    into that row; ``merged_into`` names the surviving connection.
+    """
+    from app.services.module_connections import verify_connection
+
+    conn = await _managed_connection(session, auth, connection_id)
+    try:
+        return await verify_connection(session, auth.tenant.id, conn.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/connections/{connection_id}/projects", response_model=ConnectionProjects)
+async def get_connection_projects(
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Projects this connection is exclusive to; empty means workspace-wide."""
+    from app.services.provider_connections import get_tenant_connection
+
+    conn = await get_tenant_connection(session, auth.tenant.id, connection_id)
+    return await _connection_projects(session, auth.tenant.id, conn)
+
+
+@router.put("/connections/{connection_id}/projects", response_model=ConnectionProjects)
+async def put_connection_projects(
+    connection_id: UUID,
+    body: ConnectionProjectsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Replace the project links (requires Manage).
+
+    With one or more projects, agents reach the connection only inside those
+    projects. An empty list makes it workspace-wide again.
+    """
+    from app.services.audit import record_audit
+    from app.services.connection_scope import set_connection_projects
+
+    conn = await _managed_connection(session, auth, connection_id)
+    before = await _connection_projects(session, auth.tenant.id, conn)
+    try:
+        await set_connection_projects(
+            session, auth.tenant.id, conn, body.project_ids, actor_user_id=auth.user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    after = await _connection_projects(session, auth.tenant.id, conn)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="integration:projects_set",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="connection",
+        resource_id=conn.id,
+        before={"project_ids": [p.id for p in before.projects]},
+        after={"project_ids": [p.id for p in after.projects]},
+    )
+    return after
+
+
+@router.get("/connections/{connection_id}/access", response_model=ConnectionAccess)
+async def get_connection_access(
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Who may use and manage this connection (people, agents, teams)."""
+    from app.services.connection_access import connection_access, is_default_access
+    from app.services.provider_connections import get_tenant_connection
+
+    conn = await get_tenant_connection(session, auth.tenant.id, connection_id)
+    return {
+        "connection_id": str(conn.id),
+        "is_default": is_default_access(conn),
+        "entries": connection_access(conn),
+    }
+
+
+@router.put("/connections/{connection_id}/access", response_model=ConnectionAccess)
+async def put_connection_access(
+    connection_id: UUID,
+    body: ConnectionAccessBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Replace the access list (requires Manage). Levels: ``use`` < ``manage``.
+
+    Send ``entries: null`` to restore the default. Owners and admins always
+    manage, whatever the list says.
+    """
+    from app.services.audit import record_audit
+    from app.services.connection_access import (
+        connection_access,
+        is_default_access,
+        set_connection_access,
+    )
+
+    conn = await _managed_connection(session, auth, connection_id)
+    before = connection_access(conn)
+    try:
+        entries = await set_connection_access(
+            session,
+            conn,
+            [e.model_dump() for e in body.entries] if body.entries is not None else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="integration:access_set",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="connection",
+        resource_id=conn.id,
+        before={"entries": before},
+        after={"entries": entries},
+    )
+    return {"connection_id": str(conn.id), "is_default": is_default_access(conn), "entries": entries}
 
 
 @router.get("/connections/{connection_id}/resources")

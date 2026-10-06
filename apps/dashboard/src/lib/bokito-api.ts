@@ -231,6 +231,7 @@ export async function bokitoPatchBudget(
 
 export type CreateAgentInput = {
   name: string
+  description?: string
   purpose?: string
   model?: string
   tools?: string[]
@@ -252,6 +253,7 @@ export async function bokitoUpdateAgent(
   agentId: string,
   input: {
     name?: string
+    description?: string
     purpose?: string
       tools?: string[]
     system_prompt?: string

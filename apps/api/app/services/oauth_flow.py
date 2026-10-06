@@ -134,6 +134,7 @@ async def _store_email_credentials(
     from app.services.crypto import set_connection_credentials
     from app.services.email_sync import (
         DEFAULT_SYNC_WINDOW_DAYS,
+        clear_sync_pause,
         set_account_sync_window,
         sync_account,
     )
@@ -152,8 +153,7 @@ async def _store_email_credentials(
     if not isinstance(settings, dict):
         settings = {}
     settings.pop("last_sync_at", None)
-    settings.pop("last_error", None)
-    settings.pop("sync_error_count", None)
+    clear_sync_pause(settings)
     account.settings_json = json.dumps(settings)
     session.add(account)
     await session.commit()
@@ -199,7 +199,8 @@ async def _store_integration_credentials(
     tokens: dict[str, Any],
     *,
     return_url: str = "",
-) -> None:
+) -> bool:
+    """Persist tokens; True when they landed on an already-connected account."""
     if provider == oauth_providers.GITHUB:
         conn = await ensure_github_connection(
             session, tenant_id, login=identity.get("login") or "github-user"
@@ -240,9 +241,11 @@ async def _store_integration_credentials(
         meta["identity"] = identity["email"]
     meta.pop("mock", None)
     meta.pop("verify_error", None)
+    instance_key = ""
     if provider == "moneybird":
         from datetime import datetime, timezone
 
+        from app.services.connection_instance import instance_key_for
         from app.services.moneybird import list_administrations, validate_credentials
 
         check = await validate_credentials(creds)
@@ -252,6 +255,7 @@ async def _store_integration_credentials(
                 admins = await list_administrations(creds)
                 if admins:
                     meta["identity"] = str(admins[0].get("name") or admins[0].get("id") or "")
+                    instance_key = instance_key_for("moneybird", administrations=admins)
             except Exception:
                 pass
         else:
@@ -296,6 +300,13 @@ async def _store_integration_credentials(
     conn.metadata_json = json.dumps(meta)
     conn.status = "active"
     session.add(conn)
+    reused = False
+    if instance_key:
+        from app.services.connection_instance import claim_instance_key
+
+        survivor = await claim_instance_key(session, tenant_id, conn, instance_key)
+        reused = survivor.id != conn.id
+        conn = survivor
     from app.services.module_attach import maybe_auto_attach_from_return_url
 
     await maybe_auto_attach_from_return_url(session, tenant_id, conn, return_url)
@@ -307,6 +318,7 @@ async def _store_integration_credentials(
             await sync_connection(session, conn)
         except Exception:
             logger.exception("initial calendar sync failed for %s", provider)
+    return reused
 
 
 async def _complete_sso_login(
@@ -488,7 +500,7 @@ async def complete_oauth(
                 else None,
             )
         else:
-            await _store_integration_credentials(
+            reused = await _store_integration_credentials(
                 session,
                 tenant_id,
                 provider,
@@ -505,9 +517,10 @@ async def complete_oauth(
             return _error_redirect(return_url, flow, provider, reason), None
         return _error_redirect(return_url, flow, provider, reason), None
 
+    params = _success_params(flow, provider)
+    if flow != "email" and reused:
+        params["connection_reused"] = "1"
     return (
-        _append_query(
-            return_url or get_settings().public_app_url, _success_params(flow, provider)
-        ),
+        _append_query(return_url or get_settings().public_app_url, params),
         None,
     )

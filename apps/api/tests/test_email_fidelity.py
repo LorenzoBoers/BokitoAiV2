@@ -640,3 +640,185 @@ def test_html_to_text_skips_style_script_and_head():
     assert "Alert" not in text
     assert "A new sign-in was detected." in text
     assert "If this was you, no action is needed." in text
+
+
+# --- Sent items: a colleague's reply from their own mailbox -------------------
+
+
+async def _test_tenant(session: AsyncSession) -> Tenant:
+    return (await session.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+
+def test_parse_address_list_and_sent_folder_default():
+    from app.services.email_sync import (
+        DEFAULT_SYNC_FOLDERS,
+        account_sync_folders,
+        ensure_sent_folder_default,
+        parse_address_list,
+    )
+
+    assert parse_address_list('"Harold Jansen" <Harold@Klant.nl>, info@shop.nl', "cc@x.nl") == [
+        "harold@klant.nl",
+        "info@shop.nl",
+        "cc@x.nl",
+    ]
+    assert parse_address_list("", None) == []
+
+    # Sent is on by default for Graph and Gmail, never for plain IMAP.
+    sent = next(f for f in DEFAULT_SYNC_FOLDERS if f["id"] == "sent")
+    assert sent["is_selected"] is True
+    settings = ensure_sent_folder_default({}, "outlook")
+    assert isinstance(settings, dict)
+    assert any(f["id"] == "sent" and f["is_selected"] for f in account_sync_folders(settings, provider="outlook"))
+    assert [f["id"] for f in account_sync_folders({}, provider="smtp_imap")] == ["inbox"]
+
+
+@pytest.mark.asyncio
+async def test_sent_copy_logs_team_reply_on_customer_thread(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """A mail the colleague sent from Outlook lands as an outbound team reply."""
+    from app.channels.base import InboundMessage, ingest_inbound
+
+    headers = await _login(client)
+    tenant = await _test_tenant(session_override)
+    customer = f"klant-{uuid4().hex[:6]}@gmail.com"
+    inbound = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=customer,
+        sender_name="Klant",
+        subject="Levering week 40",
+        body_text="Kan de levering een week later?",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-sent-1",
+        metadata={"rfc_message_id": "<q1@gmail.com>"},
+    )
+    signal, should_process = await ingest_inbound(session_override, tenant.id, inbound)
+    assert should_process is True
+    assert signal.has_unread is True
+
+    copy = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address="lorenzo@bokito.test",
+        sender_name="Lorenzo",
+        subject="RE: Levering week 40",
+        body_text="Ja hoor, dat regelen we. Groet, Lorenzo",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-sent-1",
+        direction="outbound",
+        recipient_addresses=[customer],
+        metadata={"rfc_message_id": "<a1@outlook.com>", "in_reply_to": "<q1@gmail.com>"},
+    )
+    same, should_process = await ingest_inbound(session_override, tenant.id, copy)
+    assert should_process is False  # outbound copies never enqueue the agent
+    assert same.id == signal.id
+
+    rows = (
+        await session_override.execute(
+            select(SignalMessage)
+            .where(SignalMessage.signal_id == signal.id)
+            .order_by(SignalMessage.created_at)
+        )
+    ).scalars().all()
+    assert [m.direction for m in rows] == ["inbound", "outbound"]
+    reply = rows[-1]
+    assert reply.kind == "user_message"
+    assert reply.to_addresses == customer
+    meta = json.loads(reply.metadata_json)
+    assert meta["origin"] == "external_mailbox"
+    assert meta["provider"] == "outlook"
+
+    await session_override.refresh(signal)
+    assert signal.has_unread is False
+
+    # Team spoke last: the thread leaves the needs-reply list.
+    needs = await client.get(
+        "/api/signals?view=all_open&folder=inbox&needs_reply=1", headers=headers
+    )
+    assert str(signal.id) not in {row["id"] for row in needs.json()["items"]}
+
+    # The timeline marks the bubble as sent from the colleague's own mailbox.
+    detail = await client.get(f"/api/signals/{signal.id}", headers=headers)
+    outbound = [m for m in detail.json()["messages"] if m["direction"] == "outbound"]
+    assert outbound[0]["payload"]["origin"] == "external_mailbox"
+    assert outbound[0]["payload"]["mailbox_provider"] == "outlook"
+
+    # Same provider id again: nothing is duplicated.
+    again, _ = await ingest_inbound(session_override, tenant.id, copy)
+    assert again.id == signal.id
+    count = (
+        await session_override.execute(
+            select(SignalMessage).where(SignalMessage.signal_id == signal.id)
+        )
+    ).scalars().all()
+    assert len(count) == 2
+
+
+@pytest.mark.asyncio
+async def test_sent_copy_to_unknown_recipient_is_skipped(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """Mail to a supplier or a private address never becomes a conversation."""
+    from app.channels.base import InboundMessage, UnknownRecipientError, ingest_inbound
+
+    await _login(client)
+    tenant = await _test_tenant(session_override)
+    copy = InboundMessage(
+        channel="email",
+        source="gmail",
+        sender_address="lorenzo@bokito.test",
+        subject="Offerte aanvraag",
+        body_text="Kunnen jullie een offerte sturen?",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-unknown",
+        direction="outbound",
+        recipient_addresses=[f"leverancier-{uuid4().hex[:6]}@supplier.example"],
+    )
+    with pytest.raises(UnknownRecipientError):
+        await ingest_inbound(session_override, tenant.id, copy)
+    found = (
+        await session_override.execute(
+            select(Signal).where(Signal.tenant_id == tenant.id, Signal.external_id == "conv-unknown")
+        )
+    ).scalars().all()
+    assert found == []
+
+
+@pytest.mark.asyncio
+async def test_sent_copy_to_known_contact_starts_conversation(
+    client: AsyncClient, session_override: AsyncSession
+):
+    from app.channels.base import InboundMessage, ingest_inbound
+    from app.models.channel import Contact
+
+    await _login(client)
+    tenant = await _test_tenant(session_override)
+    address = f"bekend-{uuid4().hex[:6]}@klant.nl"
+    session_override.add(
+        Contact(tenant_id=tenant.id, address=address, display_name="Bekende Klant", status="approved")
+    )
+    await session_override.commit()
+
+    copy = InboundMessage(
+        channel="email",
+        source="gmail",
+        sender_address="lorenzo@bokito.test",
+        subject="Even een update",
+        body_text="Uw bestelling is onderweg.",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id=f"conv-{uuid4().hex[:8]}",
+        direction="outbound",
+        recipient_addresses=[address],
+    )
+    signal, should_process = await ingest_inbound(session_override, tenant.id, copy)
+    assert should_process is False  # outbound copies never enqueue the agent
+    assert signal.contact_email == address
+    assert signal.has_unread is False
+    rows = (
+        await session_override.execute(
+            select(SignalMessage).where(SignalMessage.signal_id == signal.id)
+        )
+    ).scalars().all()
+    assert len(rows) == 1 and rows[0].direction == "outbound"

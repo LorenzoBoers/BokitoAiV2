@@ -22,9 +22,7 @@ import { Switch } from '../components/ui/switch'
 import { useAutosave } from '../hooks/useAutosave'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
-import { authRoutes } from '../api/routes/auth.routes'
 import { policyRoutes } from '../api/routes/policy.routes'
-import { AUTH_API_BASE } from '../lib/api'
 import {
   CHAT_WIDGET_SCRIPT_PATH,
   DASHBOARD_CHAT_AGENT_SLUG,
@@ -37,13 +35,13 @@ import {
   MESSENGER_MODULE_KEYS,
   appearanceToBrandingJson,
   messengerAppearanceEquals,
+  normalizeMessengerAppearance,
   resolveWidgetName,
   serializeAppearanceForWidgetPreview,
   welcomeDefaultsForLocale,
   type MessengerAppearance,
 } from '../lib/messenger-appearance'
 import {
-  assistantSettingsCanonicalPath,
   assistantSettingsPath,
   parseAssistantSettingsParams,
   type AssistantAudience,
@@ -51,12 +49,16 @@ import {
 } from '../lib/assistant-settings-path'
 import {
   getAiCommunicationSettings,
-  getWidgetSettings,
-  saveWidgetSettings,
   type WidgetSettings,
 } from '../lib/inbox-api'
 import { listAgents } from '../lib/agents-api'
 import { listChannelAccounts, type ChannelAccountRow } from '../lib/channel-accounts-api'
+import {
+  getChannelWidget,
+  listChannels,
+  saveChannelWidget,
+  channelSettingsPath,
+} from '../lib/channels-api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import AgentBindingPicker from '../components/settings/AgentBindingPicker'
 import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
@@ -178,13 +180,19 @@ function FoldableSection({
 
 function MessengerSettingsContent({
   section,
+  channelId,
+  embedded,
+  onSectionChange,
 }: {
-  audience: AssistantAudience
+  audience?: AssistantAudience
   section: AssistantSection
+  channelId: string
+  embedded?: boolean
+  onSectionChange?: (section: AssistantSection) => void
 }) {
   const { t, i18n } = useTranslation('nav')
   const navigate = useNavigate()
-  const { currentWorkspace, refreshWorkspaces } = useWorkspace()
+  const { currentWorkspace } = useWorkspace()
   const { token } = useAuth()
   const previewHostRef = useRef<HTMLDivElement>(null)
   const previewWidgetRef = useRef<HTMLElement | null>(null)
@@ -228,6 +236,7 @@ function MessengerSettingsContent({
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const tenantSlug = (currentWorkspace?.slug || '').trim().toLowerCase()
     const tenantAttr = tenantSlug ? `  data-tenant="${tenantSlug}"\n` : ''
+    const channelAttr = channelId ? `  data-channel-id="${channelId}"\n` : ''
     const site = (
       `<!-- Bokito chat widget for anonymous website visitors. -->\n` +
       `<script\n` +
@@ -236,6 +245,7 @@ function MessengerSettingsContent({
       `  data-agent-slug="${slug}"\n` +
       `  data-api-url="${apiOrigin}"\n` +
       tenantAttr +
+      channelAttr +
       `  data-auth-mode="anonymous"\n` +
       `  defer\n` +
       `></script>`
@@ -250,12 +260,13 @@ function MessengerSettingsContent({
       `  data-agent-slug="${slug}"\n` +
       `  data-api-url="${apiOrigin}"\n` +
       tenantAttr +
+      channelAttr +
       `  data-auth-mode="required"\n` +
       `  defer\n` +
       `></script>`
     )
     return { site, signedIn }
-  }, [currentWorkspace?.slug])
+  }, [currentWorkspace?.slug, channelId])
 
   const snippetUsesLocalOrigin = useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -280,15 +291,38 @@ function MessengerSettingsContent({
   }, [t])
 
   useEffect(() => {
-    const base = currentWorkspace?.messengerAppearance ?? DEFAULT_MESSENGER_APPEARANCE
-    setDraft({ ...base })
-    setSaved({ ...base })
-    setWidgetFaviconFile(null)
-    setFaviconPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return null
-    })
-  }, [currentWorkspace?.id, JSON.stringify(currentWorkspace?.messengerAppearance ?? null)])
+    if (!token || !channelId) return
+    void getChannelWidget(token, channelId)
+      .then((cfg) => {
+        const next = normalizeMessengerAppearance(
+          { appearance: cfg.appearance },
+          { brandColorFallback: currentWorkspace?.brand_color },
+        )
+        setDraft(next)
+        setSaved(next)
+        setWidgetFaviconFile(null)
+        setFaviconPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return null
+        })
+        const behaviour: WidgetSettings = {
+          preChatForm: cfg.preChatForm,
+          offlineMessage: cfg.offlineMessage,
+          teamAvailable: cfg.teamAvailable,
+          whatsappHandover: cfg.whatsappHandover,
+        }
+        setWidgetBehaviour(behaviour)
+        setSavedWidgetBehaviour(behaviour)
+      })
+      .catch(() => {
+        // keep defaults
+      })
+    listChannelAccounts(token)
+      .then((rows) => setWhatsappAccounts(rows.filter((row) => row.channel === 'whatsapp')))
+      .catch(() => {
+        // no WhatsApp option without the list
+      })
+  }, [token, channelId, currentWorkspace?.brand_color])
 
   useEffect(() => {
     if (!token) return
@@ -315,23 +349,6 @@ function MessengerSettingsContent({
 
   useEffect(() => {
     if (!token) return
-    getWidgetSettings(token)
-      .then((settings) => {
-        setWidgetBehaviour(settings)
-        setSavedWidgetBehaviour(settings)
-      })
-      .catch(() => {
-        // keep defaults; the section shows a loading placeholder
-      })
-    listChannelAccounts(token)
-      .then((rows) => setWhatsappAccounts(rows.filter((row) => row.channel === 'whatsapp')))
-      .catch(() => {
-        // no WhatsApp option without the list
-      })
-  }, [token])
-
-  useEffect(() => {
-    if (!token) return
     listAgents()
       .then((agents) => {
         const assistant = agents.find((a) => a.role_slug === 'assistant')
@@ -348,19 +365,26 @@ function MessengerSettingsContent({
   }, [token])
 
   const handleSaveWidgetBehaviour = useCallback(async () => {
-    if (!token || !widgetBehaviour) return
+    if (!token || !widgetBehaviour || !channelId) return
     try {
-      const next = await saveWidgetSettings(token, {
+      const next = await saveChannelWidget(token, channelId, {
         preChatForm: widgetBehaviour.preChatForm,
+        offlineMessage: widgetBehaviour.offlineMessage,
         whatsappHandover: widgetBehaviour.whatsappHandover,
       })
-      setWidgetBehaviour(next)
-      setSavedWidgetBehaviour(next)
+      const behaviour: WidgetSettings = {
+        preChatForm: next.preChatForm,
+        offlineMessage: next.offlineMessage,
+        teamAvailable: next.teamAvailable,
+        whatsappHandover: next.whatsappHandover,
+      }
+      setWidgetBehaviour(behaviour)
+      setSavedWidgetBehaviour(behaviour)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('messengerPage.availabilityError'))
       throw err
     }
-  }, [token, widgetBehaviour, t])
+  }, [token, widgetBehaviour, t, channelId])
 
   const behaviourDirty = useMemo(
     () =>
@@ -421,6 +445,7 @@ function MessengerSettingsContent({
         el.dataset.apiUrl = livechatWidgetHttpOrigin()
         el.dataset.authMode = 'optional'
         if (currentWorkspace?.slug) el.dataset.tenant = currentWorkspace.slug
+        if (channelId) el.dataset.channelId = channelId
         el.dataset.previewMode = 'true'
         el.dataset.previewOverrides = previewOverridesJson
         el.dataset.locale = (i18n.language || 'en').slice(0, 2)
@@ -437,7 +462,7 @@ function MessengerSettingsContent({
       previewWidgetRef.current = null
       el?.remove()
     }
-  }, [token, previewPanelActive, currentWorkspace?.slug, i18n.language])
+  }, [token, previewPanelActive, currentWorkspace?.slug, i18n.language, channelId])
 
   useEffect(() => {
     const w = previewWidgetRef.current
@@ -480,58 +505,49 @@ function MessengerSettingsContent({
   }
 
   const handleSave = useCallback(async () => {
-    if (!token || !currentWorkspace?.id) {
+    if (!token || !channelId) {
       const message = t('messengerPage.noWorkspace')
       setSaveError(message)
       throw new Error(message)
     }
     setSaveError(null)
     try {
-      const form = new FormData()
-      form.append('name', (currentWorkspace.name || '').trim())
-      form.append('subdomain', (currentWorkspace.slug || '').trim().toLowerCase())
-      form.append('brand_color', (currentWorkspace.brand_color || DEFAULT_BRAND_COLOR).trim())
-      form.append('appearance_json', JSON.stringify(appearanceToBrandingJson(draft)))
-      if (widgetFaviconFile) {
-        form.append('widget_favicon', widgetFaviconFile)
-      }
-
-      const res = await fetch(`${AUTH_API_BASE}${authRoutes.workspaceBranding(currentWorkspace.id)}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-        body: form,
+      const next = await saveChannelWidget(token, channelId, {
+        appearance: appearanceToBrandingJson(draft),
+        widgetFavicon: widgetFaviconFile,
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Unknown error' }))
-        throw new Error(typeof err?.message === 'string' ? err.message : `HTTP ${res.status}`)
-      }
-
-      await refreshWorkspaces()
+      const savedAppearance = normalizeMessengerAppearance(
+        { appearance: next.appearance },
+        { brandColorFallback: currentWorkspace?.brand_color },
+      )
       setWidgetFaviconFile(null)
       setFaviconPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev)
         return null
       })
-      setSaved({ ...draft })
-      setDraft({ ...draft })
-      const personaRes = await fetch(`/api${policyRoutes.persona()}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          tone: personaTone,
-          do_text: personaDo,
-          dont_text: personaDont,
-        }),
-      })
-      if (!personaRes.ok) {
-        throw new Error(t('messengerPage.personaError'))
+      setSaved(savedAppearance)
+      setDraft(savedAppearance)
+      const personaDirty =
+        personaTone !== savedPersona.tone || personaDo !== savedPersona.do || personaDont !== savedPersona.dont
+      if (personaDirty) {
+        const personaRes = await fetch(`/api${policyRoutes.persona()}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            tone: personaTone,
+            do_text: personaDo,
+            dont_text: personaDont,
+          }),
+        })
+        if (!personaRes.ok) {
+          throw new Error(t('messengerPage.personaError'))
+        }
+        setSavedPersona({ tone: personaTone, do: personaDo, dont: personaDont })
       }
-      setSavedPersona({ tone: personaTone, do: personaDo, dont: personaDont })
     } catch (err) {
       const message = err instanceof Error ? err.message : t('messengerPage.saveFailed')
       setSaveError(message)
@@ -539,19 +555,20 @@ function MessengerSettingsContent({
     }
   }, [
     token,
-    currentWorkspace,
+    channelId,
+    currentWorkspace?.brand_color,
     draft,
     widgetFaviconFile,
     personaTone,
     personaDo,
     personaDont,
-    refreshWorkspaces,
+    savedPersona,
     t,
   ])
 
   const { phase, lastSavedAt, error: autosaveError, flush } = useAutosave({
     dirty,
-    enabled: Boolean(token && currentWorkspace?.id),
+    enabled: Boolean(token && channelId),
     save: handleSave,
     delayMs: 900,
   })
@@ -585,18 +602,20 @@ function MessengerSettingsContent({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
+      <div className={cn('flex flex-col gap-3 border-b border-border/60 pb-4', embedded ? 'lg:flex-row lg:items-center lg:justify-end' : 'lg:flex-row lg:flex-wrap lg:items-start lg:justify-between')}>
+        {embedded ? null : (
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
           <h2 className="shrink-0 text-lg font-semibold leading-none tracking-[-0.01em] text-text-heading">{t('messengerPage.title')}</h2>
           <SegmentedControl
             value={section}
-            onChange={(v) => navigate(assistantSettingsPath('external', v))}
+            onChange={(v) => (onSectionChange ? onSectionChange(v) : navigate(assistantSettingsPath('external', v)))}
             options={mainOptions}
             className="max-w-xl"
           />
         </div>
+        )}
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-          <PageGuideLink page="widget" />
+          {embedded ? null : <PageGuideLink page="widget" />}
           <AutosaveStatus
             phase={phase}
             lastSavedAt={lastSavedAt}
@@ -676,6 +695,7 @@ function MessengerSettingsContent({
                           <p className="mt-0.5 text-xs text-text-muted">{t('messengerPage.handlingAgentHint')}</p>
                           <AgentBindingPicker
                             channel="widget"
+                            channelAccountId={channelId}
                             className="mt-2 h-9 w-full max-w-sm rounded-md border border-border/60 bg-bg-elevated px-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
                           />
                         </div>
@@ -1052,19 +1072,41 @@ function MessengerSettingsContent({
   )
 }
 
-export default function MessengerSettings() {
-  const params = useParams<{ audience: string; section: string }>()
-  const parsed = useMemo(
-    () => parseAssistantSettingsParams(params.audience, params.section),
-    [params.audience, params.section],
+export function ChannelWidgetEditor({
+  channelId,
+  section,
+  onSectionChange,
+}: {
+  channelId: string
+  section: AssistantSection
+  onSectionChange?: (section: AssistantSection) => void
+}) {
+  return (
+    <MessengerSettingsContent
+      channelId={channelId}
+      section={section}
+      onSectionChange={onSectionChange}
+      embedded
+    />
   )
-  const canonical = assistantSettingsCanonicalPath(params.audience, params.section)
-  const current = `/ai/assistant/${params.audience}/${params.section}`
-  if (!parsed) {
-    return <Navigate to={canonical} replace />
-  }
-  if (current !== canonical) {
-    return <Navigate to={canonical} replace />
-  }
-  return <MessengerSettingsContent audience={parsed.audience} section={parsed.section} />
+}
+
+export default function MessengerSettings() {
+  const { token } = useAuth()
+  const params = useParams<{ audience: string; section: string }>()
+  const parsed = parseAssistantSettingsParams(params.audience, params.section)
+  const [target, setTarget] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!token) return
+    void listChannels(token).then((rows) => {
+      const widget = rows.find((row) => row.kind === 'widget')
+      const tab =
+        parsed?.section === 'hours' ? 'hours' : parsed?.section === 'installation' ? 'install' : 'look'
+      setTarget(widget ? channelSettingsPath(widget.id, tab) : '/settings/channels')
+    })
+  }, [token, parsed?.section])
+
+  if (!target) return null
+  return <Navigate to={target} replace />
 }
