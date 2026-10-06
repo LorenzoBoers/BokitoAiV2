@@ -375,7 +375,6 @@ async def list_time_items(
     ``project_id`` keeps items tied to that project's conversations or runs.
     ``connection_ids`` limits calendar events to those connections (None = all).
     """
-    from app.models.signal import Signal
     from app.services.triggers import _planned_occurrences
 
     # Legacy clients may still ask for follow_up; map to task.
