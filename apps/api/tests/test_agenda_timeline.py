@@ -107,8 +107,6 @@ async def test_agenda_excludes_on_demand_runs(session_override: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_time_items_sessions_and_wakes_for_one_agent(session_override: AsyncSession):
-    from app.models.signal import Signal
-
     tenant, agent = await _tenant_and_agent(session_override)
     now = datetime.utcnow().replace(microsecond=0)
     session_override.add(
@@ -133,16 +131,6 @@ async def test_time_items_sessions_and_wakes_for_one_agent(session_override: Asy
             instructions="Scan the platform.",
         )
     )
-    session_override.add(
-        Signal(
-            tenant_id=tenant.id,
-            channel="email",
-            source="email",
-            subject="Owned look-at",
-            agent_id=agent.id,
-            follow_up_at=now + timedelta(hours=2),
-        )
-    )
     await session_override.commit()
 
     items = await list_time_items(
@@ -154,12 +142,11 @@ async def test_time_items_sessions_and_wakes_for_one_agent(session_override: Asy
     )
     session_row = next(row for row in items if row["title"] == "Reply to visitor")
     wake_row = next(row for row in items if row["title"] == "Morning scan")
-    follow_row = next(row for row in items if row["kind"] == "follow_up")
     assert session_row["kind"] == "session"
     assert session_row["end"]
     assert wake_row["kind"] == "wake"
     assert wake_row["end"] is None
-    assert follow_row["agent_id"] == str(agent.id)
+    assert not any(row["kind"] == "follow_up" for row in items)
 
 
 @pytest.mark.asyncio
@@ -289,7 +276,7 @@ async def test_create_task_rejects_foreign_signal(session_override: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSession):
+async def test_agenda_includes_scheduled_human_tasks_only(session_override: AsyncSession):
     from app.models.signal import Signal
     from app.services.orchestration.dispatcher import complete_agent_task, create_agent_task
 
@@ -305,7 +292,7 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
     await session_override.commit()
     await session_override.refresh(signal)
 
-    await create_agent_task(
+    scheduled = await create_agent_task(
         session_override,
         tenant.id,
         title="Call customer Friday",
@@ -315,7 +302,7 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
         auto_start=False,
         origin="conversation",
     )
-    due_now = await create_agent_task(
+    unscheduled = await create_agent_task(
         session_override,
         tenant.id,
         title="Reply to invoice question",
@@ -324,7 +311,7 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
         auto_start=False,
         origin="conversation",
     )
-    assert due_now.status == "awaiting_human"
+    assert unscheduled.status == "awaiting_human"
 
     items = await list_time_items(
         session_override,
@@ -332,9 +319,12 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
         start=now - timedelta(hours=1),
         end=now + timedelta(days=1),
     )
-    assert not [i for i in items if i.get("source") == "task"]
+    tasks = [i for i in items if i.get("source") == "task"]
+    assert len(tasks) == 1
+    assert tasks[0]["title"] == "Call customer Friday"
+    assert tasks[0]["signal_id"] == str(signal.id)
 
-    completed = await complete_agent_task(session_override, tenant.id, due_now.id)
+    completed = await complete_agent_task(session_override, tenant.id, scheduled.id)
     assert completed.status == "completed"
     items_after = await list_time_items(
         session_override,
@@ -346,8 +336,9 @@ async def test_agenda_excludes_agent_task_follow_ups(session_override: AsyncSess
 
 
 @pytest.mark.asyncio
-async def test_agenda_includes_conversation_follow_ups(session_override: AsyncSession):
+async def test_agenda_includes_conversation_tasks(session_override: AsyncSession):
     from app.models.signal import Signal
+    from app.services.orchestration.dispatcher import create_agent_task
 
     tenant, _agent = await _tenant_and_agent(session_override)
     now = datetime.utcnow()
@@ -357,11 +348,21 @@ async def test_agenda_includes_conversation_follow_ups(session_override: AsyncSe
         source="email",
         subject="IB application",
         contact_name="Interactive Brokers",
-        follow_up_at=now + timedelta(hours=3),
-        follow_up_title="Complete trading account",
     )
     session_override.add(signal)
     await session_override.commit()
+    await session_override.refresh(signal)
+
+    await create_agent_task(
+        session_override,
+        tenant.id,
+        title="Complete trading account",
+        signal_id=signal.id,
+        assignee_kind="human",
+        scheduled_for=now + timedelta(hours=3),
+        auto_start=False,
+        origin="conversation",
+    )
 
     items = await list_time_items(
         session_override,
@@ -369,12 +370,12 @@ async def test_agenda_includes_conversation_follow_ups(session_override: AsyncSe
         start=now - timedelta(hours=1),
         end=now + timedelta(days=1),
     )
-    follow_ups = [i for i in items if i.get("source") == "follow_up"]
-    assert len(follow_ups) == 1
-    assert follow_ups[0]["kind"] == "follow_up"
-    assert follow_ups[0]["title"] == "Complete trading account"
-    assert follow_ups[0]["signal_id"] == str(signal.id)
-    assert follow_ups[0]["actor_kind"] == "person"
+    tasks = [i for i in items if i.get("source") == "task"]
+    assert len(tasks) == 1
+    assert tasks[0]["kind"] == "task"
+    assert tasks[0]["title"] == "Complete trading account"
+    assert tasks[0]["signal_id"] == str(signal.id)
+    assert tasks[0]["actor_kind"] == "person"
 
 
 @pytest.mark.asyncio

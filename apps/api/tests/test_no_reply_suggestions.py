@@ -341,7 +341,7 @@ async def test_action_suggestion_card_options(client: AsyncClient, session_overr
     by_id = {o["id"]: o for o in options}
     assert by_id["close"]["action_type"] == "close_thread"
     assert by_id["close"]["payload"]["signal_id"] == str(signal.id)
-    assert by_id["look_at"]["action_type"] == "look_at"
+    assert by_id["look_at"]["action_type"] == "create_task"
     assert by_id["keep_open"]["action_type"] == "defer"
 
     # No reply option anywhere on the card.
@@ -611,7 +611,8 @@ async def test_close_threads_by_age(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
-async def test_create_task_option_sets_conversation_look_at(client: AsyncClient, session_override):
+async def test_create_task_option_creates_agent_task(client: AsyncClient, session_override):
+    from app.models.orchestration import AgentTask
     from app.services.inbound_agent import create_action_suggestion
 
     headers = await _auth_headers(client)
@@ -655,8 +656,13 @@ async def test_create_task_option_sets_conversation_look_at(client: AsyncClient,
         json={"action": "approved", "option_id": "look_at"},
     )
     assert resolve.status_code == 200, resolve.text
-    assert resolve.json().get("task_id") == str(signal.id)
+    task_id = resolve.json().get("task_id")
+    assert task_id
+    assert task_id != str(signal.id)
+    task = await session_override.get(AgentTask, UUID(task_id))
+    assert task is not None
+    assert task.signal_id == signal.id
+    assert "Follow up" in (task.title or "")
     await session_override.refresh(signal)
-    assert signal.follow_up_at is not None
-    assert "Follow up" in (signal.follow_up_title or "")
+    assert signal.follow_up_at is None
 

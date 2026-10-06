@@ -261,7 +261,7 @@ def set_conversation_look_at(
     """
     del title, when
     signal.follow_up_at = None
-    signal.follow_up_title = None
+    signal.follow_up_title = ""
     signal.updated_at = datetime.utcnow()
 
 
@@ -1648,7 +1648,7 @@ async def patch_thread(
     # POST /orchestration/tasks. Clear leftover stamps if a client still sends them.
     if follow_up_at_set or follow_up_title is not None:
         signal.follow_up_at = None
-        signal.follow_up_title = None
+        signal.follow_up_title = ""
     if status is not None:
         signal.status = status
         if status != "pending":
@@ -3100,7 +3100,7 @@ async def resolve_message_decision(
             title = f"Follow up: {signal.subject or who}"[:120]
             # Clear any leftover look-at stamp from older builds.
             signal.follow_up_at = None
-            signal.follow_up_title = None
+            signal.follow_up_title = ""
             session.add(signal)
             task = await create_agent_task(
                 session,

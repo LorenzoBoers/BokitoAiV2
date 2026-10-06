@@ -104,7 +104,7 @@ async def test_create_task_tool_creates_agent_task(session_override):
 
 
 @pytest.mark.asyncio
-async def test_create_task_on_conversation_sets_look_at(session_override):
+async def test_create_task_on_conversation_creates_human_task(session_override):
     from app.models.signal import Signal
     from app.tools import execute_tool
 
@@ -127,13 +127,14 @@ async def test_create_task_on_conversation_sets_look_at(session_override):
         signal_id=signal.id,
         approved=True,
     )
-    assert result.get("kind") == "look_at"
+    assert result.get("kind") == "task"
     assert result.get("signal_id") == str(signal.id)
-    assert "task_id" not in result
+    assert result.get("task_id")
     await session_override.refresh(signal)
-    assert signal.follow_up_title == "Call them back"
-    assert signal.follow_up_at is not None
-    leftover = (
+    assert signal.follow_up_at is None
+    task = (
         await session_override.execute(select(AgentTask).where(AgentTask.signal_id == signal.id))
-    ).scalars().all()
-    assert leftover == []
+    ).scalars().one()
+    assert task.title == "Call them back"
+    assert task.assignee_kind == "human"
+    assert task.scheduled_for is not None

@@ -78,7 +78,8 @@ async def test_search_matches_contact_name(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_snooze_sets_pending_and_wake_time(client: AsyncClient):
+async def test_snooze_marks_unread_keeps_open(client: AsyncClient):
+    """Snooze is retired: the patch marks unread and leaves the thread open."""
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     signal_id = await _create_thread(client, owner)
 
@@ -88,21 +89,17 @@ async def test_snooze_sets_pending_and_wake_time(client: AsyncClient):
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["status"] == "pending"
-    assert body["snoozed_until"] is not None
+    assert body["status"] == "open"
+    assert body["snoozed_until"] is None
+    assert body["has_unread"] is True
 
-    # Shows up in the snoozed view.
+    # No longer parked in the snoozed view.
     items = await _list(client, owner, view="snoozed")
-    assert signal_id in [t["id"] for t in items]
-
-    # Reopening clears the wake time.
-    r = await client.patch(f"/api/signals/{signal_id}", headers=owner, json={"status": "open"})
-    assert r.status_code == 200
-    assert r.json()["snoozed_until"] is None
+    assert signal_id not in [t["id"] for t in items]
 
 
 @pytest.mark.asyncio
-async def test_reply_send_and_pending_with_snooze_minutes(client: AsyncClient):
+async def test_reply_send_and_pending_keeps_open(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     signal_id = await _create_thread(client, owner)
 
@@ -115,12 +112,13 @@ async def test_reply_send_and_pending_with_snooze_minutes(client: AsyncClient):
 
     r = await client.get(f"/api/signals/{signal_id}", headers=owner)
     thread = r.json()["thread"]
-    assert thread["status"] == "pending"
-    assert thread["snoozed_until"] is not None
+    assert thread["status"] == "open"
+    assert thread["snoozed_until"] is None
+    assert thread["has_unread"] is True
 
 
 @pytest.mark.asyncio
-async def test_wake_snoozed_threads_reopens_due(client: AsyncClient, session_override):
+async def test_wake_snoozed_threads_noops_when_snooze_retired(client: AsyncClient, session_override):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     signal_id = await _create_thread(client, owner)
 
@@ -133,7 +131,7 @@ async def test_wake_snoozed_threads_reopens_due(client: AsyncClient, session_ove
     from app.services.signal_threads import wake_snoozed_threads
 
     woken = await wake_snoozed_threads(session_override)
-    assert woken == 1
+    assert woken == 0
 
     r = await client.get(f"/api/signals/{signal_id}", headers=owner)
     thread = r.json()["thread"]
@@ -241,7 +239,7 @@ async def test_bulk_close_and_spam(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_bulk_snooze(client: AsyncClient):
+async def test_bulk_snooze_marks_unread(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     a = await _create_thread(client, owner, subject="Snooze me")
     wake = "2026-09-01T07:00:00Z"
@@ -252,10 +250,13 @@ async def test_bulk_snooze(client: AsyncClient):
     )
     assert r.status_code == 200, r.text
     assert r.json()["updated"] == 1
-    pending = await _list(client, owner, view="snoozed")
-    row = next(t for t in pending if t["id"] == a)
-    assert row["status"] == "pending"
-    assert row["snoozed_until"]
+    open_threads = await _list(client, owner, view="open")
+    row = next(t for t in open_threads if t["id"] == a)
+    assert row["status"] == "open"
+    assert row["has_unread"] is True
+    assert row["snoozed_until"] is None
+    snoozed = await _list(client, owner, view="snoozed")
+    assert a not in [t["id"] for t in snoozed]
 
 
 @pytest.mark.asyncio
