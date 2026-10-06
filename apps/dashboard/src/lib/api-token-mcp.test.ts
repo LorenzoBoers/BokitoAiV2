@@ -74,6 +74,6 @@ describe('api-token-mcp', () => {
     expect(mcpEndpointUrl('https://x.test/')).toBe('https://x.test/api/mcp')
     expect(buildMcpToolsListCurl('bok_y', 'https://x.test')).toContain('tools/list')
     expect(TOKEN_SCOPE_PRESETS.find((p) => p.id === 'full')?.scopes).toEqual([])
-    expect(TOKEN_SCOPE_PRESETS.find((p) => p.id === 'ops')?.scopes).toContain('cases')
+    expect(TOKEN_SCOPE_PRESETS.find((p) => p.id === 'ops')?.scopes).toContain('tickets')
   })
 })

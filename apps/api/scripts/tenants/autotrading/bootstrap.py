@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.auth import Membership, Tenant, User, UserPreference
 from app.models.integration import McpServer
-from app.models.orchestra import Workstream, WorkstreamStep
+from app.models.orchestra import Workstream, WorkstreamProject
 from app.models.project import Project
 from app.models.signal import Signal
 from app.models.trigger import Trigger
@@ -596,6 +596,17 @@ async def get_or_create_session_digest_trigger(
     return trigger
 
 
+async def _attach_playbook(
+    session: AsyncSession, tenant_id: UUID, workstream_id: UUID, project_id: UUID
+) -> None:
+    exists = await session.get(WorkstreamProject, (workstream_id, project_id))
+    if exists is None:
+        session.add(
+            WorkstreamProject(tenant_id=tenant_id, workstream_id=workstream_id, project_id=project_id)
+        )
+        await session.flush()
+
+
 async def get_or_create_strategy_workstream(
     session: AsyncSession,
     tenant_id: UUID,
@@ -617,63 +628,12 @@ async def get_or_create_strategy_workstream(
             name=STRATEGY_WORKSTREAM_NAME,
             description="Collect outcomes, analyze performance, propose strategy doc updates.",
             enabled=True,
-            project_id=project_id,
         )
         session.add(ws)
         await session.flush()
-    elif project_id and ws.project_id != project_id:
-        ws.project_id = project_id
-        session.add(ws)
+    if project_id:
+        await _attach_playbook(session, tenant_id, ws.id, project_id)
 
-    existing_steps = (
-        await session.execute(
-            select(WorkstreamStep).where(WorkstreamStep.workstream_id == ws.id)
-        )
-    ).scalars().all()
-    if existing_steps:
-        return ws
-
-    steps_spec = [
-        (
-            0,
-            "Collect outcomes",
-            "agent",
-            "Gather last 7 days of operational outcomes and MCP risk_status / performance metrics.\n\n{{task_description}}",
-        ),
-        (
-            1,
-            "Analyze patterns",
-            "agent",
-            "Analyze win/loss patterns, rule violations, and recurring blockers from prior step output.\n\n{{step_outputs}}",
-        ),
-        (
-            2,
-            "Propose strategy update",
-            "agent",
-            "Draft strategy/mmxm-review.md updates via write_doc. Default to assisted posture (Govern draft).\n\n{{step_outputs}}",
-        ),
-        (
-            3,
-            "Operator approval",
-            "human_gate",
-            "Review proposed strategy changes and approve or reject before apply.",
-        ),
-    ]
-    for order, name, kind, template in steps_spec:
-        session.add(
-            WorkstreamStep(
-                tenant_id=tenant_id,
-                workstream_id=ws.id,
-                order=order,
-                agent_id=orchestrator_id if kind != "human_gate" else None,
-                name=name,
-                step_kind=kind,
-                handoff_template=template,
-                success_criteria_json=json.dumps({"min_length": 20}) if kind == "agent" else "{}",
-                eval_kind="rubric" if kind == "agent" else "none",
-            )
-        )
-    await session.flush()
     return ws
 
 
@@ -698,57 +658,12 @@ async def get_or_create_intraday_workstream(
             name=INTRADAY_WORKSTREAM_NAME,
             description="Risk check, setup validation, enter/skip, manage open risk, report.",
             enabled=True,
-            project_id=project_id,
         )
         session.add(ws)
         await session.flush()
-    elif project_id and ws.project_id != project_id:
-        ws.project_id = project_id
-        session.add(ws)
+    if project_id:
+        await _attach_playbook(session, tenant_id, ws.id, project_id)
 
-    existing_steps = (
-        await session.execute(select(WorkstreamStep).where(WorkstreamStep.workstream_id == ws.id))
-    ).scalars().all()
-    if existing_steps:
-        return ws
-
-    steps_spec = [
-        (
-            0,
-            "Risk status",
-            "Call Trading pipeline MCP risk_status. Report execution_mode, caps, kill_switch, blockers.\n\n{{task_description}}",
-        ),
-        (
-            1,
-            "Setup scan",
-            "list_setups / get_setup / get_market_context. Filter with lessons (AM bias, PM PurgeLunch veto).\n\nPrior:\n{{step_outputs}}",
-        ),
-        (
-            2,
-            "Decide",
-            "Enter or skip with reason. place_live_order only when risk_status and AM window allow; else shadow/skip.\n\nPrior:\n{{step_outputs}}",
-        ),
-        (
-            3,
-            "Manage and report",
-            "If open risk: update_stop or flatten when warranted. Post concise status to operations thread.\n\nPrior:\n{{step_outputs}}",
-        ),
-    ]
-    for order, name, template in steps_spec:
-        session.add(
-            WorkstreamStep(
-                tenant_id=tenant_id,
-                workstream_id=ws.id,
-                order=order,
-                agent_id=trader_id,
-                name=name,
-                step_kind="agent",
-                handoff_template=template,
-                success_criteria_json=json.dumps({"min_length": 20}),
-                eval_kind="rubric",
-            )
-        )
-    await session.flush()
     return ws
 
 

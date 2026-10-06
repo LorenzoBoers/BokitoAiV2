@@ -49,7 +49,7 @@ DEFAULT_CONSENT_SCOPES = (
     "messaging",
     "agents",
     "delegation",
-    "cases",
+    "tickets",
     "triggers",
 )
 

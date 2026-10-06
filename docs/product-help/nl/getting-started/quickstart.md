@@ -28,7 +28,7 @@ Dit is de kortste weg van een verse workspace naar echt werk. Na signup ronden o
 
 ## 3. Laat de assistent concepten maken
 
-1. Open **Instellingen** en daarna **AI-antwoorden**.
+1. Open **Instellingen** en daarna **AI-afhandeling**.
 2. Kies onder **Workspace-standaard** **Geassisteerd**. De AI maakt concepten; jij beoordeelt en verstuurt.
 3. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
 

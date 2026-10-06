@@ -52,7 +52,7 @@ curl -X POST -H "Authorization: Bearer bok_..." -H "Content-Type: application/js
   "https://your-bokito-host/api/public/v1/signals"
 ```
 
-Requires `signals:write`. `subject` (max 200 characters) and `body` are required; `priority` is one of `low`, `normal`, `high`, `urgent` (default `normal`); up to 10 `tags` (lower case, at most 40 characters each; new names join the workspace tag list, and each conversation's category stays separate, see [Categories and tickets](/docs/ai/cases)). Signal responses return the current `tags` of the conversation. Optional `contact_name` and `contact_email` create or match a [contact](/docs/inbox/contacts).
+Requires `signals:write`. `subject` (max 200 characters) and `body` are required; `priority` is one of `low`, `normal`, `high`, `urgent` (default `normal`); up to 10 `tags` (lower case, at most 40 characters each; new names join the workspace hashtag list; a category's hashtag sent here is added as a tag but does not file a ticket, see [Categories and tickets](/docs/ai/categories)). Signal responses return the current `tags` of the conversation. Optional `contact_name` and `contact_email` create or match a [contact](/docs/inbox/contacts).
 
 The signal lands in the inbox on the `api` channel. You cannot pick another channel here. Agents and routing rules treat it like any other inbound message, and a `signal.created` webhook fires. This is the standard way to route alerts, form submissions or events from other systems into the same flow as customer mail.
 

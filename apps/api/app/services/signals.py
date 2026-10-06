@@ -595,7 +595,7 @@ async def apply_triage(
 ) -> Signal:
     """Persist triage scores on the thread.
 
-    Intent classification files the conversation's category (a Case, see
+    Intent classification files the conversation's ticket (see
     `interpretation.triage_signal`). Priority, urgency, sentiment and the
     other scores stay on the conversation.
     """

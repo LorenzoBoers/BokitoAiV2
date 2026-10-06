@@ -27,6 +27,8 @@ type CalendarConnectBarProps = {
   loading?: boolean
   onConnectionsChange: (rows: CalendarConnection[]) => void
   onSynced: () => void
+  /** ``rail``: a compact list for the Agenda side rail. */
+  variant?: 'bar' | 'rail'
 }
 
 export function CalendarConnectBar({
@@ -34,6 +36,7 @@ export function CalendarConnectBar({
   loading,
   onConnectionsChange,
   onSynced,
+  variant = 'bar',
 }: CalendarConnectBarProps) {
   const { t } = useTranslation('nav')
   const [busy, setBusy] = useState<string | null>(null)
@@ -70,6 +73,49 @@ export function CalendarConnectBar({
   }
 
   if (loading) return null
+
+  if (variant === 'rail') {
+    return (
+      <div className="space-y-1.5">
+        {connections.map((connection) => (
+          <p key={connection.id} className="flex min-w-0 items-center gap-2 text-xs text-text-heading">
+            <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
+            <span className="truncate">{connection.display_name}</span>
+          </p>
+        ))}
+        {connections.length > 0 ? (
+          <button
+            type="button"
+            disabled={busy != null}
+            onClick={() => void sync()}
+            className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-accent disabled:opacity-60"
+          >
+            <RefreshCw className={cn('h-3 w-3', busy === 'sync' && 'animate-spin')} aria-hidden />
+            {t('agendaPage.calendar.syncNow')}
+          </button>
+        ) : (
+          <>
+            <p className="text-xs text-text-muted">{t('agendaPage.rail.calendarsEmpty')}</p>
+            <div className="flex flex-col gap-1">
+              {(['google_calendar', 'outlook_calendar'] as const).map((slug) => (
+                <button
+                  key={slug}
+                  type="button"
+                  disabled={busy != null}
+                  onClick={() => void connect(slug)}
+                  className="inline-flex items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs text-text-heading hover:bg-bg-elevated disabled:opacity-60"
+                >
+                  <BrandMark slug={calendarBrandSlug(slug)} size={14} />
+                  {slug === 'google_calendar' ? t('agendaPage.calendar.connectGoogle') : t('agendaPage.calendar.connectOutlook')}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {error ? <p className="text-xs text-status-error">{error}</p> : null}
+      </div>
+    )
+  }
 
   if (connections.length === 0) {
     return (

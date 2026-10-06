@@ -689,8 +689,16 @@ export type SignalTag = {
   id: string
   name: string
   description: string
-  /** Conversations carrying the tag. */
+  /** Conversations carrying the tag (as a link or as their category). */
   count: number
+  /** Has a playbook: filing it makes the conversation a ticket. */
+  isCategory: boolean
+  workstreamId: string | null
+  workstreamName: string | null
+  /** Free tag shown in the Communication rail. */
+  pinned: boolean
+  /** Category shown in the Communication rail. */
+  showInNav: boolean
 }
 
 function normalizeSignalTag(raw: unknown): SignalTag | null {
@@ -702,6 +710,11 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     name: row.name,
     description: typeof row.description === 'string' ? row.description : '',
     count: typeof row.count === 'number' ? row.count : 0,
+    isCategory: row.is_category === true,
+    workstreamId: typeof row.workstream_id === 'string' ? row.workstream_id : null,
+    workstreamName: typeof row.workstream_name === 'string' ? row.workstream_name : null,
+    pinned: row.pinned === true,
+    showInNav: row.show_in_nav === true,
   }
 }
 
@@ -714,21 +727,21 @@ export async function listSignalTags(token: string): Promise<SignalTag[]> {
 
 export async function createSignalTag(
   token: string,
-  input: { name: string; description?: string },
+  input: { name: string; description?: string; pinned?: boolean },
 ): Promise<SignalTag | null> {
   const payload = await apiPost<unknown>(
     appRoutes.signals.tags,
-    { name: input.name, description: input.description ?? '' },
+    { name: input.name, description: input.description ?? '', pinned: input.pinned ?? false },
     token,
   )
   return normalizeSignalTag(payload)
 }
 
-/** Rename or describe a tag. Renaming onto an existing name merges the two tags. */
+/** Rename, describe, pin or show a tag. Renaming onto an existing free tag merges the two. */
 export async function updateSignalTag(
   token: string,
   tagId: string,
-  patch: { name?: string; description?: string },
+  patch: { name?: string; description?: string; pinned?: boolean; show_in_nav?: boolean },
 ): Promise<SignalTag | null> {
   const payload = await apiPatch<unknown>(appRoutes.signals.tag(tagId), patch, token)
   return normalizeSignalTag(payload)
@@ -738,101 +751,60 @@ export async function deleteSignalTag(token: string, tagId: string): Promise<voi
   await apiDelete(appRoutes.signals.tag(tagId), token)
 }
 
-/** Folder filter keys; the same names are conversation list query parameters. */
-export const FOLDER_FILTER_KEYS = ['project_id', 'category_id', 'tag', 'stage'] as const
-export type FolderFilterKey = (typeof FOLDER_FILTER_KEYS)[number]
-export type FolderFilter = Partial<Record<FolderFilterKey, string>>
+/** Conversation list filters a rail row or deep link may set. */
+export const LIST_FILTER_KEYS = ['project_id', 'category_id', 'tag', 'stage'] as const
+export type ListFilterKey = (typeof LIST_FILTER_KEYS)[number]
+export type ListFilter = Partial<Record<ListFilterKey, string>>
 
-export type InboxFolder = {
-  id: string
-  /** `saved` folders are rows; `project` folders are computed per project. */
-  kind: 'saved' | 'project'
-  name: string
-  filter: FolderFilter
-  scope: 'workspace' | 'personal'
-  position: number | null
-  /** Open conversations in the folder. */
-  count: number
-}
-
-function normalizeFolderFilter(raw: unknown): FolderFilter {
-  const out: FolderFilter = {}
-  if (!raw || typeof raw !== 'object') return out
-  const row = raw as Record<string, unknown>
-  for (const key of FOLDER_FILTER_KEYS) {
-    if (typeof row[key] === 'string' && row[key]) out[key] = row[key] as string
-  }
-  return out
-}
-
-function normalizeInboxFolder(raw: unknown): InboxFolder | null {
-  if (!raw || typeof raw !== 'object') return null
-  const row = raw as Record<string, unknown>
-  if (typeof row.id !== 'string' || typeof row.name !== 'string') return null
-  return {
-    id: row.id,
-    kind: row.kind === 'project' ? 'project' : 'saved',
-    name: row.name,
-    filter: normalizeFolderFilter(row.filter),
-    scope: row.scope === 'personal' ? 'personal' : 'workspace',
-    position: typeof row.position === 'number' ? row.position : null,
-    count: typeof row.count === 'number' ? row.count : 0,
-  }
-}
-
-/** Read the folder filter from a Communication URL's query string. */
-export function folderFilterFromParams(params: URLSearchParams): FolderFilter {
-  const out: FolderFilter = {}
-  for (const key of FOLDER_FILTER_KEYS) {
+/** Read the list filter from a Communication URL's query string. */
+export function listFilterFromParams(params: URLSearchParams): ListFilter {
+  const out: ListFilter = {}
+  for (const key of LIST_FILTER_KEYS) {
     const value = params.get(key)?.trim()
     if (value) out[key] = value
   }
   return out
 }
 
-export function folderFilterQuery(filter: FolderFilter): string {
+/** `?project_id=…&tag=…` for a list filter, or an empty string. */
+export function listFilterQuery(filter: ListFilter): string {
   const params = new URLSearchParams()
-  for (const key of FOLDER_FILTER_KEYS) {
-    if (filter[key]) params.set(key, filter[key] as string)
+  for (const key of LIST_FILTER_KEYS) {
+    const value = filter[key]
+    if (value) params.set(key, value)
   }
   const query = params.toString()
   return query ? `?${query}` : ''
 }
 
-export function sameFolderFilter(a: FolderFilter, b: FolderFilter): boolean {
-  return FOLDER_FILTER_KEYS.every((key) => (a[key] ?? '') === (b[key] ?? ''))
+export type NavRow = { id: string; name: string; count: number }
+
+/** Communication rail beyond channels, with open counts. */
+export type CommunicationNav = {
+  /** Categories with show_in_nav. */
+  ticketTags: NavRow[]
+  /** Pinned free tags. */
+  tags: NavRow[]
+  projects: NavRow[]
 }
 
-export async function listInboxFolders(token: string): Promise<InboxFolder[]> {
-  const payload = await apiGet<unknown>(appRoutes.signals.folders, token)
-  return (Array.isArray(payload) ? payload : [])
-    .map(normalizeInboxFolder)
-    .filter((folder): folder is InboxFolder => folder !== null)
+function normalizeNavRows(raw: unknown): NavRow[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Record<string, unknown>
+    if (typeof row.id !== 'string' || typeof row.name !== 'string') return []
+    return [{ id: row.id, name: row.name, count: typeof row.count === 'number' ? row.count : 0 }]
+  })
 }
 
-export async function createInboxFolder(
-  token: string,
-  input: { name: string; filter: FolderFilter; scope?: InboxFolder['scope'] },
-): Promise<InboxFolder | null> {
-  const payload = await apiPost<unknown>(
-    appRoutes.signals.folders,
-    { name: input.name, filter: input.filter, scope: input.scope ?? 'workspace' },
-    token,
-  )
-  return normalizeInboxFolder(payload)
-}
-
-export async function updateInboxFolder(
-  token: string,
-  folderId: string,
-  patch: { name?: string; filter?: FolderFilter; position?: number },
-): Promise<InboxFolder | null> {
-  const payload = await apiPatch<unknown>(appRoutes.signals.folder(folderId), patch, token)
-  return normalizeInboxFolder(payload)
-}
-
-export async function deleteInboxFolder(token: string, folderId: string): Promise<void> {
-  await apiDelete(appRoutes.signals.folder(folderId), token)
+export async function getCommunicationNav(token: string): Promise<CommunicationNav> {
+  const payload = await apiGet<Record<string, unknown>>(appRoutes.signals.nav, token)
+  return {
+    ticketTags: normalizeNavRows(payload?.ticket_tags),
+    tags: normalizeNavRows(payload?.tags),
+    projects: normalizeNavRows(payload?.projects),
+  }
 }
 
 export type ResolveDecisionResult = {
@@ -1026,6 +998,7 @@ export type SignalBadgeCounts = {
   by_team: Record<string, number>
   agents_attention: number
   no_reply_suggestions: number
+  agenda_due: number
 }
 
 export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadgeCounts> {
@@ -1046,6 +1019,7 @@ export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadge
     by_team: Object.fromEntries(Object.entries(byTeamRaw).map(([k, v]) => [k, Number(v ?? 0)])),
     agents_attention: Number(raw.agents_attention ?? 0),
     no_reply_suggestions: Number(raw.no_reply_suggestions ?? 0),
+    agenda_due: Number(raw.agenda_due ?? 0),
   }
 }
 

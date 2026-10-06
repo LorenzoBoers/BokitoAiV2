@@ -29,7 +29,6 @@ RESOURCE_TYPE_ALIASES = {
     "doc": "knowledge",
     "workstream": "playbook",
     "draaiboek": "playbook",
-    "signal_type": "case_type",
     "organization": "company",
     "organisation": "company",
 }
@@ -473,13 +472,6 @@ async def restore_entry(
             if new_path != row.path:
                 hint["path"] = new_path
                 row.path = new_path
-        if item.resource_type == "case_type" and getattr(row, "slug", None):
-            from app.models.case import CaseType
-
-            new_slug = await _unique_slug(session, CaseType, tenant.id, "slug", row.slug)
-            if new_slug != row.slug:
-                hint["slug"] = new_slug
-                row.slug = new_slug
         unstamp_row(row)
         session.add(row)
         await session.delete(item)
@@ -764,12 +756,6 @@ async def _purge_saved_reply(session: AsyncSession, tenant_id: UUID, resource_id
         await session.delete(row)
 
 
-async def _purge_case_type(session: AsyncSession, tenant_id: UUID, resource_id: UUID) -> None:
-    from app.services.cases import delete_case_type
-
-    await delete_case_type(session, tenant_id, resource_id, permanent=True, commit=False)
-
-
 async def _purge_project_resource(session: AsyncSession, tenant_id: UUID, resource_id: UUID) -> None:
     from app.models.project_work import ProjectResource
 
@@ -808,14 +794,12 @@ _PURGE_HANDLERS = {
     "team": _purge_team,
     "inbox_rule": _purge_inbox_rule,
     "saved_reply": _purge_saved_reply,
-    "case_type": _purge_case_type,
     "project_resource": _purge_project_resource,
     "queue_item": _purge_queue_item,
 }
 
 
 def _bind_models() -> dict[str, type]:
-    from app.models.case import CaseType
     from app.models.channel import Company, Contact
     from app.models.learning import InboxRule
     from app.models.orchestra import Workstream
@@ -840,7 +824,6 @@ def _bind_models() -> dict[str, type]:
         "team": Team,
         "inbox_rule": InboxRule,
         "saved_reply": SavedReply,
-        "case_type": CaseType,
         "project_resource": ProjectResource,
         "queue_item": AgentTask,
     }

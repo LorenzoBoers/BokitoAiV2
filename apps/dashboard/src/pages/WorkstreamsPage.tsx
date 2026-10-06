@@ -1,34 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronRight, Loader2, Plus, Workflow } from 'lucide-react'
+import { ChevronRight, FolderKanban, Loader2, Plus, Workflow } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
+import { Hashtag } from '../components/ui/HashtagMark'
+import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { formatAppDateTime } from '../lib/app-locale'
+import { flowTitle } from '../lib/flow-title'
+import { normalizeHashtag, stripHash } from '../lib/hashtag'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
-import {
-  createWorkstream,
-  listWorkstreamRuns,
-  listWorkstreams,
-  type WorkstreamRow,
-  type WorkstreamRunRow,
-} from '../lib/workstreams-api'
-import { runStatusBadgeVariant, workstreamRunPath, workstreamPath } from '../lib/workstream-ui'
+import { stageLabel } from '../lib/tickets-api'
+import { timeAgo } from '../lib/time-ago'
+import { cn } from '../lib/utils'
+import { createWorkstream, listWorkstreams, type WorkstreamRow } from '../lib/workstreams-api'
+import { workstreamPath } from '../lib/workstream-ui'
 
+/** Flows: one row per action tag pipeline, with live ticket load per stage. */
 export default function WorkstreamsPage() {
-  const { t, i18n } = useTranslation('nav')
+  const { t } = useTranslation('nav')
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const isAdmin = useIsAdmin()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [workstreams, setWorkstreams] = useState<WorkstreamRow[]>([])
-  const [runs, setRuns] = useState<WorkstreamRunRow[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -37,13 +38,11 @@ export default function WorkstreamsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [wsRows, runRows, projectRows] = await Promise.all([
+      const [wsRows, projectRows] = await Promise.all([
         listWorkstreams(),
-        listWorkstreamRuns({ limit: 25 }).catch(() => []),
-        listProjects().catch(() => []),
+        listProjects().catch(() => [] as ProjectRow[]),
       ])
       setWorkstreams(wsRows)
-      setRuns(runRows)
       setProjects(projectRows)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('workstreamsPage.loadError')))
@@ -56,20 +55,17 @@ export default function WorkstreamsPage() {
     void load()
   }, [load])
 
-  const projectNames = useMemo(
-    () => new Map(projects.map((p) => [p.id, p.name])),
-    [projects],
-  )
+  const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
 
   const create = async () => {
-    const name = newName.trim()
+    const name = normalizeHashtag(newName)
     if (!name) return
     setCreating(true)
     try {
-      await createWorkstream({ name })
+      const created = await createWorkstream({ name })
       setNewName('')
       toast.success(t('workstreamsPage.created'))
-      await load()
+      navigate(workstreamPath(created.id))
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('workstreamsPage.createError')))
     } finally {
@@ -89,15 +85,22 @@ export default function WorkstreamsPage() {
         </div>
         {isAdmin ? (
           <div className="flex items-center gap-2">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void create()
-              }}
-              placeholder={t('workstreamsPage.newPlaceholder')}
-              className="h-9 w-56 text-sm"
-            />
+            <span className="relative">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-accent">
+                #
+              </span>
+              <Input
+                autoFocus={searchParams.get('new') === '1'}
+                value={newName}
+                onChange={(e) => setNewName(stripHash(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void create()
+                }}
+                placeholder={t('workstreamsPage.newPlaceholder')}
+                aria-label={t('workstreamsPage.newPlaceholder')}
+                className="h-9 w-56 pl-6 text-sm"
+              />
+            </span>
             <Button type="button" size="sm" disabled={creating || !newName.trim()} onClick={() => void create()}>
               {creating ? <Loader2 size={13} className="mr-1 animate-spin" /> : <Plus size={13} className="mr-1" />}
               {t('workstreamsPage.create')}
@@ -110,105 +113,92 @@ export default function WorkstreamsPage() {
 
       {loading ? (
         <TableRowsSkeleton rows={6} />
+      ) : workstreams.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-text-muted">
+          {t('workstreamsPage.empty')}
+        </p>
       ) : (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t('workstreamsPage.allWorkstreams')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5">
-              {workstreams.length === 0 ? (
-                <p className="text-sm text-text-muted">{t('workstreamsPage.empty')}</p>
-              ) : (
-                workstreams.map((ws) => (
-                  <Link
-                    key={ws.id}
-                    to={workstreamPath(ws.id)}
-                    className="row-interactive flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-bg-muted/40"
-                  >
-                    <span className="min-w-0">
-                      <span
-                        className={
-                          ws.enabled
-                            ? 'block truncate-fade font-medium text-text-heading'
-                            : 'block truncate-fade font-medium text-text-muted opacity-70'
-                        }
-                      >
-                        {ws.name}
-                      </span>
-                      <span className="block truncate-fade text-xs text-text-muted">
-                        {t('workstreamsPage.stepCount', { count: ws.steps_count ?? 0 })}
-                        {ws.project_id && projectNames.get(ws.project_id)
-                          ? ` · ${projectNames.get(ws.project_id)}`
-                          : ''}
-                        {ws.description ? ` · ${ws.description}` : ''}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      {ws.is_default ? (
-                        <Badge variant="outline" className="text-2xs">
-                          {t('workstreamsPage.default')}
-                        </Badge>
-                      ) : null}
-                      {!ws.enabled ? (
-                        <Badge variant="outline" className="border-border text-2xs text-text-muted">
-                          {t('workstreamsPage.paused')}
-                        </Badge>
-                      ) : null}
-                      <ChevronRight size={14} className="text-text-muted" />
-                    </span>
-                  </Link>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {isAdmin ? (
-            <p className="text-xs text-text-muted">
-              {t('casesPage.manageInCases', {
-                defaultValue: 'Intake types are managed with Signals.',
-              })}{' '}
-              <Link to="/settings/signals" className="font-medium text-accent hover:underline">
-                {t('casesPage.openTypes', { defaultValue: 'Open signal types' })}
-              </Link>
-            </p>
-          ) : null}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t('workstreamsPage.recentRuns')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5">
-              {runs.length === 0 ? (
-                <p className="text-sm text-text-muted">{t('workstreamsPage.noRuns')}</p>
-              ) : (
-                runs.map((run) => (
-                  <Link
-                    key={run.id}
-                    to={workstreamRunPath(run.id)}
-                    className="row-interactive flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm transition-colors hover:border-border hover:bg-bg-muted/40"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate-fade font-medium text-text-heading">
-                        {run.workstream_name || t('workstreamsPage.runFallbackTitle')}
-                      </span>
-                      <span className="block truncate-fade text-xs text-text-muted">
-                        {run.started_at
-                          ? formatAppDateTime(new Date(run.started_at), i18n.language)
-                          : ''}
-                        {run.summary ? ` · ${run.summary}` : run.input_text ? ` · ${run.input_text}` : ''}
-                      </span>
-                    </span>
-                    <Badge variant={runStatusBadgeVariant(run.status)} className="shrink-0">
-                      {t(`workstreamsPage.status.${run.status}`, { defaultValue: run.status })}
-                    </Badge>
-                  </Link>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </>
+        <ul className="space-y-2" data-testid="flows-list">
+          {workstreams.map((ws) => (
+            <li key={ws.id}>
+              <FlowRow ws={ws} projectNames={projectNames} />
+            </li>
+          ))}
+        </ul>
       )}
+
+      {isAdmin && !loading ? (
+        <p className="text-xs text-text-muted">
+          {t('workstreamsPage.categoriesHint')}{' '}
+          <Link to="/settings/action-tags" className="font-medium text-accent hover:underline">
+            {t('workstreamsPage.openCategories')}
+          </Link>
+        </p>
+      ) : null}
     </PageContent>
+  )
+}
+
+function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<string, string> }) {
+  const { t } = useTranslation('nav')
+  const counts = ws.ticket_counts ?? {}
+  const total = Object.values(counts).reduce((sum, n) => sum + n, 0)
+  const names = ws.project_ids.map((id) => projectNames.get(id)).filter((n): n is string => Boolean(n))
+
+  return (
+    <Link
+      to={workstreamPath(ws.id)}
+      className={cn(
+        'group flex items-center gap-4 rounded-xl border border-border/50 bg-bg-elevated/40 px-4 py-3 transition',
+        'hover:border-border hover:bg-bg-muted/40',
+        !ws.enabled && 'opacity-70',
+      )}
+    >
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-text-heading">
+            <Hashtag name={flowTitle(ws)} category />
+          </span>
+          {!ws.enabled ? (
+            <Badge variant="secondary" className="text-2xs">
+              {t('workstreamsPage.deactivated')}
+            </Badge>
+          ) : null}
+          {ws.description ? (
+            <span className="hidden min-w-0 truncate text-xs text-text-muted md:inline" title={ws.description}>
+              {ws.description}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-1" aria-label={t('workstreamsPage.list.stagesAria')}>
+          {ws.stages.map((stage) => (
+            <span
+              key={stage.key}
+              className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-bg-input/30 px-1.5 py-0.5 text-2xs text-text-secondary"
+              title={stageLabel(stage, t)}
+            >
+              <StageProgressIcon kind={stage.kind} size={11} />
+              <span className="max-w-[7rem] truncate">{stageLabel(stage, t)}</span>
+              <span className="font-semibold tabular-nums text-text-heading">{counts[stage.key] ?? 0}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="hidden shrink-0 flex-col items-end gap-1 text-2xs text-text-muted sm:flex">
+        <span className="tabular-nums">
+          {t('workstreamsPage.list.tickets', { count: total })}
+          {ws.last_activity_at ? ` · ${timeAgo(ws.last_activity_at, t)}` : ''}
+        </span>
+        {names.length > 0 ? (
+          <span className="inline-flex max-w-[16rem] items-center gap-1 truncate">
+            <FolderKanban size={11} aria-hidden />
+            <span className="truncate">{names.join(', ')}</span>
+          </span>
+        ) : (
+          <span className="italic">{t('workstreamsPage.meta.noProjects')}</span>
+        )}
+      </div>
+      <ChevronRight size={15} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" />
+    </Link>
   )
 }

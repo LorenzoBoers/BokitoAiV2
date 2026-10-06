@@ -87,13 +87,12 @@ export function threadMatchesFilters(
   if (filters.folder === 'assistant') return null
 
   if (filters.channel && channel !== filters.channel) return false
-  // A conversation also joins a project through its ticket, which the row does not carry.
-  if (filters.projectId && (thread.projectId ?? '') !== filters.projectId) return null
+  if (filters.projectId && (thread.projectId ?? '') !== filters.projectId) return false
   if (filters.categoryId || filters.stage) {
-    const ticket = thread.categoryCase
+    const ticket = thread.ticket
     if (ticket === undefined) return null
     if (!ticket || ticket.status === 'proposed') return false
-    if (filters.categoryId && ticket.categoryId !== filters.categoryId) return false
+    if (filters.categoryId && ticket.tagId !== filters.categoryId) return false
     if (filters.stage) {
       const byKind = filters.stage === 'open' || filters.stage === 'waiting' || filters.stage === 'done'
       if (byKind ? ticket.status !== filters.stage : ticket.stage?.key !== filters.stage) return false
@@ -101,6 +100,7 @@ export function threadMatchesFilters(
   }
   if (filters.agentId && (thread.agentId ?? '') !== filters.agentId) return false
   if (filters.tag) {
+    if (thread.ticket?.name === filters.tag) return true
     if (!thread.tags) return null
     if (!thread.tags.includes(filters.tag)) return false
   }
@@ -186,7 +186,7 @@ export function mergeThreadRow(existing: InboxThread, row: InboxThread): InboxTh
     agentName: row.agentName ?? existing.agentName,
     agentKind: row.agentKind ?? existing.agentKind,
     aiHandling: row.aiHandling ?? existing.aiHandling,
-    categoryCase: row.categoryCase === undefined ? existing.categoryCase : row.categoryCase,
+    ticket: row.ticket === undefined ? existing.ticket : row.ticket,
     tags: row.tags ?? existing.tags,
   }
 }

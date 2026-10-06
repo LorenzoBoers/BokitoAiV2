@@ -250,10 +250,10 @@ async def test_mcp_resolve_decision_always_asks_a_human(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_mcp_cases_scope_exposes_case_tools(client: AsyncClient):
-    token = await _make_token(client, scopes=["cases"])
+async def test_mcp_tickets_scope_exposes_ticket_tools(client: AsyncClient):
+    token = await _make_token(client, scopes=["tickets"])
     names = await _tool_names(client, {"Authorization": f"Bearer {token}"})
-    assert {"list_case_types", "list_cases", "create_case", "update_case"} <= names
+    assert {"list_categories", "get_ticket", "file_ticket", "update_ticket"} <= names
     assert "search_index" not in names
     assert "create_agent" not in names
 

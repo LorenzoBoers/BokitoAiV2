@@ -4,18 +4,19 @@
  * Fixed at the top (never customizable): New chat + All communication.
  * Pinned at the bottom: Contacts and a single Settings link
  * (the 'settings' section flag only controls the link's visibility).
- * Middle sections (folders, channels, agents, teams) can be reordered, hidden, collapsed.
+ * Middle sections (hashtags, projects, channels, agents, teams) can be reordered, hidden, collapsed.
  *
  * Note: the former chip model (channels/agents above the list) is gone — those
  * are folders again. Stored prefs that list unknown ids are repaired by
  * normalizeSidebarPrefs.
  */
 
-export type SidebarSection = 'folders' | 'channels' | 'agents' | 'teams' | 'settings'
+export type SidebarSection = 'hashtags' | 'projects' | 'channels' | 'agents' | 'teams' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
 export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
-  'folders',
+  'hashtags',
+  'projects',
   'channels',
   'agents',
   'teams',
@@ -44,7 +45,7 @@ export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
 }
 
 // v4: channels + agents folders restored alongside pinned teams.
-const STORAGE_KEY = 'communication-sidebar-prefs-v4'
+const STORAGE_KEY = 'communication-sidebar-prefs-v5'
 
 function isSection(value: unknown): value is SidebarSection {
   return typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)

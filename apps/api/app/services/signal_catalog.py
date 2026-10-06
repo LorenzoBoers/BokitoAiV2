@@ -1,17 +1,17 @@
-"""Workspace policy for the signal catalog, plus the backlog of missing types.
+"""Workspace policy for categories, plus the backlog of missing categories.
 
 Two things live here, both on ``Tenant.settings_json`` so no extra tables are
 needed:
 
-- ``signals.accept_roles`` — who may accept a proposed signal on a thread
+- ``signals.accept_roles`` - who may accept a proposed ticket on a thread
   (``admins`` = owner/admin only, ``members`` = anyone in the workspace).
-- ``signals.backlog`` — patterns interpretation keeps seeing that no CaseType
+- ``signals.backlog`` - patterns interpretation keeps seeing that no hashtag
   covers. Each entry holds a short name, one sentence, an example quote and a
   count. At ``BACKLOG_THRESHOLD`` sightings the entry is ready to become a
-  type; an owner/admin promotes or dismisses it on `/settings/signals`.
+  category; an owner/admin promotes or dismisses it on `/settings/action-tags`.
 
-Interpretation never invents types on a thread — unknown patterns land here
-instead, so the catalog only grows through a human decision.
+Interpretation never invents hashtags on a thread - unknown patterns land here
+instead, so the vocabulary only grows through a human decision.
 """
 
 from __future__ import annotations
@@ -101,9 +101,9 @@ async def update_signal_policy(
 
 
 def _slug_key(value: str) -> str:
-    from app.services.cases import slugify
+    from app.services.signal_tags import normalize_tag
 
-    return slugify(value)
+    return normalize_tag(value)
 
 
 def read_backlog(tenant: Tenant | None) -> list[dict[str, Any]]:
@@ -156,7 +156,7 @@ async def record_unknown(
     """Count one sighting of a pattern the catalog does not cover yet.
 
     Returns the stored entry, or ``None`` when the input is too thin to be
-    useful (no name) or the pattern already matches an existing type slug.
+    useful (no name) or the pattern already matches an existing hashtag.
     """
     name = (name or "").strip()
     if len(name) < 3:
@@ -171,16 +171,13 @@ async def record_unknown(
 
     from sqlalchemy import select
 
-    from app.models.case import CaseType
+    from app.models.signal import SignalTag
 
-    known = {
-        row
-        for row in (
-            await session.execute(
-                select(CaseType.slug).where(CaseType.tenant_id == tenant_id)
-            )
+    known = set(
+        (
+            await session.execute(select(SignalTag.name).where(SignalTag.tenant_id == tenant_id))
         ).scalars()
-    }
+    )
     if key in known:
         return None
 
@@ -231,20 +228,24 @@ async def promote_backlog_entry(
     name: str | None = None,
     description: str | None = None,
 ):
-    """Turn a backlog entry into a real CaseType and drop it from the backlog."""
+    """Turn a backlog entry into a category with a new playbook and drop it from the backlog."""
     from fastapi import HTTPException
 
-    from app.services.cases import create_case_type
+    from app.services.signal_tags import create_tag, promote_tag
 
     entry = next((row for row in read_backlog(tenant) if row["key"] == key), None)
     if entry is None:
         raise HTTPException(status_code=404, detail="Backlog entry not found")
-    row = await create_case_type(
-        session,
-        tenant.id,
-        name=(name or entry["name"]).strip(),
-        slug=entry["key"],
-        description=(description if description is not None else entry["sentence"]),
-    )
+    try:
+        tag = await create_tag(
+            session,
+            tenant.id,
+            name or entry["key"],
+            description=(description if description is not None else entry["sentence"]),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if tag.workstream_id is None:
+        tag = await promote_tag(session, tenant.id, tag.id, playbook_name=entry["name"])
     await dismiss_backlog_entry(session, tenant, key)
-    return row
+    return tag

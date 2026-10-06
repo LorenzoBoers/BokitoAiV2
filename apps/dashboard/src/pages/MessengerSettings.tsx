@@ -7,7 +7,6 @@ import {
   Copy,
   Globe,
   Image,
-  Loader2,
   Moon,
   Palette,
   Sun,
@@ -16,9 +15,11 @@ import {
   Users,
 } from 'lucide-react'
 import { PageGuideLink } from '../components/layout/PageGuideLink'
+import { AutosaveStatus } from '../components/ui/AutosaveStatus'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
+import { useAutosave } from '../hooks/useAutosave'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
@@ -62,7 +63,6 @@ import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
 import { inboxPath } from '../lib/messages-paths'
 import { toast } from 'sonner'
-import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 
 type CustomizationPanel = 'content' | 'styling'
 type PreviewTheme = 'light' | 'dark'
@@ -198,9 +198,7 @@ function MessengerSettingsContent({
   const [saved, setSaved] = useState<MessengerAppearance>(DEFAULT_MESSENGER_APPEARANCE)
   const [widgetFaviconFile, setWidgetFaviconFile] = useState<File | null>(null)
   const [faviconPreviewUrl, setFaviconPreviewUrl] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [saveOk, setSaveOk] = useState(false)
 
   const [personaTone, setPersonaTone] = useState('')
   const [personaDo, setPersonaDo] = useState('')
@@ -210,7 +208,6 @@ function MessengerSettingsContent({
   const [installSnippetCopied, setInstallSnippetCopied] = useState(false)
 
   const [widgetBehaviour, setWidgetBehaviour] = useState<WidgetSettings | null>(null)
-  const [widgetBehaviourSaving, setWidgetBehaviourSaving] = useState(false)
   const [whatsappAccounts, setWhatsappAccounts] = useState<ChannelAccountRow[]>([])
 
   // Placeholders mirror what the widget really shows when a field is empty:
@@ -352,7 +349,6 @@ function MessengerSettingsContent({
 
   const handleSaveWidgetBehaviour = useCallback(async () => {
     if (!token || !widgetBehaviour) return
-    setWidgetBehaviourSaving(true)
     try {
       const next = await saveWidgetSettings(token, {
         preChatForm: widgetBehaviour.preChatForm,
@@ -360,25 +356,37 @@ function MessengerSettingsContent({
       })
       setWidgetBehaviour(next)
       setSavedWidgetBehaviour(next)
-      toast.success(t('messengerPage.availabilitySaved'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('messengerPage.availabilityError'))
-    } finally {
-      setWidgetBehaviourSaving(false)
+      throw err
     }
   }, [token, widgetBehaviour, t])
+
+  const behaviourDirty = useMemo(
+    () =>
+      widgetBehaviour != null &&
+      savedWidgetBehaviour != null &&
+      JSON.stringify(widgetBehaviour) !== JSON.stringify(savedWidgetBehaviour),
+    [widgetBehaviour, savedWidgetBehaviour],
+  )
+
+  const {
+    phase: behaviourPhase,
+    lastSavedAt: behaviourSavedAt,
+    error: behaviourError,
+  } = useAutosave({
+    dirty: behaviourDirty,
+    enabled: Boolean(token && widgetBehaviour),
+    save: handleSaveWidgetBehaviour,
+    delayMs: 900,
+  })
 
   const dirty = useMemo(() => {
     if (widgetFaviconFile) return true
     const personaDirty =
       personaTone !== savedPersona.tone || personaDo !== savedPersona.do || personaDont !== savedPersona.dont
-    const behaviourDirty =
-      widgetBehaviour != null &&
-      savedWidgetBehaviour != null &&
-      JSON.stringify(widgetBehaviour) !== JSON.stringify(savedWidgetBehaviour)
-    return !messengerAppearanceEquals(draft, saved) || personaDirty || behaviourDirty
-  }, [draft, saved, widgetFaviconFile, personaTone, personaDo, personaDont, savedPersona, widgetBehaviour, savedWidgetBehaviour])
-  useUnsavedChangesGuard(dirty && !saving && !widgetBehaviourSaving, t('messengerPage.unsavedLeave'))
+    return !messengerAppearanceEquals(draft, saved) || personaDirty
+  }, [draft, saved, widgetFaviconFile, personaTone, personaDo, personaDont, savedPersona])
 
   const previewOverridesJson = useMemo(() => {
     const url = faviconPreviewUrl || draft.widget_favicon_url || ''
@@ -471,14 +479,13 @@ function MessengerSettingsContent({
     patchDraft({ widget_favicon_url: null })
   }
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!token || !currentWorkspace?.id) {
-      setSaveError(t('messengerPage.noWorkspace'))
-      return
+      const message = t('messengerPage.noWorkspace')
+      setSaveError(message)
+      throw new Error(message)
     }
-    setSaving(true)
     setSaveError(null)
-    setSaveOk(false)
     try {
       const form = new FormData()
       form.append('name', (currentWorkspace.name || '').trim())
@@ -525,26 +532,40 @@ function MessengerSettingsContent({
         throw new Error(t('messengerPage.personaError'))
       }
       setSavedPersona({ tone: personaTone, do: personaDo, dont: personaDont })
-
-      setSaveOk(true)
-      window.setTimeout(() => setSaveOk(false), 2200)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('messengerPage.saveFailed'))
-    } finally {
-      setSaving(false)
+      const message = err instanceof Error ? err.message : t('messengerPage.saveFailed')
+      setSaveError(message)
+      throw err instanceof Error ? err : new Error(message)
     }
-  }
+  }, [
+    token,
+    currentWorkspace,
+    draft,
+    widgetFaviconFile,
+    personaTone,
+    personaDo,
+    personaDont,
+    refreshWorkspaces,
+    t,
+  ])
+
+  const { phase, lastSavedAt, error: autosaveError, flush } = useAutosave({
+    dirty,
+    enabled: Boolean(token && currentWorkspace?.id),
+    save: handleSave,
+    delayMs: 900,
+  })
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return
-      if (!dirty || saving) return
+      if (!dirty) return
       event.preventDefault()
-      void handleSave()
+      void flush()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [dirty, saving, handleSave])
+  }, [dirty, flush])
 
   const mainOptions: { value: AssistantSection; label: string }[] = [
     { value: 'customization', label: t('messengerPage.customization') },
@@ -576,19 +597,11 @@ function MessengerSettingsContent({
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
           <PageGuideLink page="widget" />
-          {saveError ? <p className="order-last w-full text-xs text-status-error sm:order-none sm:w-auto">{saveError}</p> : null}
-          <Button size="sm" disabled={!dirty || saving} onClick={() => void handleSave()}>
-            {saving ? (
-              <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                {t('messengerPage.saving')}
-              </>
-            ) : saveOk ? (
-              t('messengerPage.saved')
-            ) : (
-              t('messengerPage.saveChanges')
-            )}
-          </Button>
+          <AutosaveStatus
+            phase={phase}
+            lastSavedAt={lastSavedAt}
+            error={autosaveError || saveError}
+          />
         </div>
       </div>
 
@@ -897,20 +910,11 @@ function MessengerSettingsContent({
                           </div>
                         ) : null}
                       </div>
-                      <Button
-                        size="sm"
-                        disabled={widgetBehaviourSaving}
-                        onClick={() => void handleSaveWidgetBehaviour()}
-                      >
-                        {widgetBehaviourSaving ? (
-                          <>
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                            {t('messengerPage.saving')}
-                          </>
-                        ) : (
-                          t('messengerPage.saveAvailability')
-                        )}
-                      </Button>
+                      <AutosaveStatus
+                        phase={behaviourPhase}
+                        lastSavedAt={behaviourSavedAt}
+                        error={behaviourError}
+                      />
                     </div>
                   )}
                 </FoldableSection>

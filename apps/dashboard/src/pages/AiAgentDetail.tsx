@@ -29,6 +29,7 @@ import { listAgents } from '../lib/agents-api'
 import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
 import { activityTerminalPath, agentChatPath } from '../lib/messages-paths'
+import { withNavReveal } from '../lib/nav-reveal'
 import { openEntityPath, runThreadPath } from '../lib/open-entity'
 import { agendaKindOf, listTimeItems, parseTimelineMs, timeItemHref, type TimeItem } from '../lib/time-items'
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
@@ -84,7 +85,7 @@ export default function AiAgentDetail() {
           from: new Date(Date.now() - 60_000).toISOString(),
           to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
           agentId,
-          sources: ['wake', 'follow_up'],
+          sources: ['wake', 'checkup', 'follow_up'],
         })
           .then((window) => window.items)
           .catch(() => [] as TimeItem[]),
@@ -339,7 +340,7 @@ export default function AiAgentDetail() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {agent.kind !== 'personal' && agent.is_active !== false ? (
                 <Button type="button" size="sm" variant="outline" asChild>
-                  <Link to={agentChatPath(agent.id)}>
+                  <Link to={withNavReveal(agentChatPath(agent.id))}>
                     <MessageSquare size={14} className="mr-1.5" aria-hidden />
                     {t('workforce.agents.chatWith')}
                   </Link>
@@ -507,7 +508,7 @@ export default function AiAgentDetail() {
                   </div>
                   <div className="mt-3 border-t border-border/50 pt-3">
                     <Button type="button" size="sm" variant="outline" className="w-full" asChild>
-                      <Link to={agentChatPath(agent.id)}>
+                      <Link to={withNavReveal(agentChatPath(agent.id))}>
                         {t('workforce.agents.viewAllConversations', {
                           count: openConversationsTotal,
                           defaultValue: 'View all ({{count}})',
@@ -534,7 +535,7 @@ export default function AiAgentDetail() {
                   <div className="mt-auto border-t border-border/50 pt-3">
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" size="sm" variant="outline" className="flex-1" asChild>
-                        <Link to={`/agenda?agent=${agent.id}`}>
+                        <Link to={`/agenda?agent=${agent.id}&new=once`}>
                           {t('workforce.agents.scheduleOnAgenda')}
                         </Link>
                       </Button>
@@ -671,7 +672,7 @@ export default function AiAgentDetail() {
                 action={
                   agent.kind !== 'personal' ? (
                     <Button size="sm" asChild>
-                      <Link to={agentChatPath(agent.id)}>{t('workforce.agents.chatWith')}</Link>
+                      <Link to={withNavReveal(agentChatPath(agent.id))}>{t('workforce.agents.chatWith')}</Link>
                     </Button>
                   ) : (
                     <Button size="sm" asChild>

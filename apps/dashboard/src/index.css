@@ -1118,3 +1118,28 @@
     opacity: 1;
   }
 }
+
+/* Deep-link into a Communication folder: 2s accent flash so the row is findable. */
+.nav-row[data-nav-reveal='true'] {
+  animation: nav-reveal 2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-row[data-nav-reveal='true'] {
+    animation: none;
+    background-color: rgb(var(--color-accent) / 0.18);
+  }
+}
+@keyframes nav-reveal {
+  0% {
+    background-color: rgb(var(--color-accent) / 0.38);
+    box-shadow: 0 0 0 1px rgb(var(--color-accent) / 0.55) inset;
+  }
+  55% {
+    background-color: rgb(var(--color-accent) / 0.2);
+    box-shadow: 0 0 0 1px rgb(var(--color-accent) / 0.32) inset;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}

@@ -433,7 +433,13 @@
       "awaiting_human": "Voor jou",
       "overdue": "Achterstallig",
       "planned": "Gepland",
-      "due": "Verlopen"
+      "due": "Open",
+      "started": "Gestart",
+      "reported": "Gerapporteerd",
+      "skipped": "Overgeslagen",
+      "error": "Fout",
+      "ok": "Klaar",
+      "done": "Klaar"
     },
     "agendaKind": {
       "wake": "Agent-wake",
@@ -445,7 +451,10 @@
       "cron": "Terugkerend",
       "interval": "Herhalend",
       "heartbeat": "Check-in",
-      "calendar": "Kalender"
+      "calendar": "Kalender",
+      "checkup": "Check-up",
+      "session": "Agentrun",
+      "activity": "Activiteit"
     },
     "agentRuntime": {
       "active": "Actief",
@@ -455,7 +464,7 @@
     },
     "flow": {
       "active": "Actief",
-      "paused": "Gepauzeerd"
+      "paused": "Gedeactiveerd"
     },
     "index": {
       "indexed": "Geindexeerd",
@@ -660,7 +669,6 @@
     "whatsNextTitle": "Wat nu",
     "whatsNextHint": "Plan een kijkmoment op dit gesprek, of open een typisch Signaal.",
     "whatsNextRemind": "Opnieuw kijken",
-    "whatsNextSignal": "Signaal openen",
     "whatsNextSave": "Opslaan",
     "whatsNextLoadingTypes": "Signaaltypes laden…",
     "whatsNextNoTypes": "Nog geen signaaltypes. Voeg ze toe onder Instellingen, Signaaltypes.",
@@ -724,15 +732,6 @@
     "blockContact": "{{name}} blokkeren",
     "blockContactDone": "{{name}} is geblokkeerd. Nieuwe berichten van hen worden gedropt.",
     "blockContactError": "Kon dat contact niet blokkeren.",
-    "closeWithSignalsTitle": "Open signalen op dit gesprek",
-    "closeWithSignalsBody": "{{count}} signaal/signalen staan nog open: {{names}}. Sluit ze mee met het gesprek, of laat ze open voor opvolging.",
-    "closeWithSignalsFallback": "Signaal",
-    "closeWithSignalsCancel": "Gesprek open houden",
-    "closeWithSignalsLeaveOpen": "Alleen gesprek sluiten",
-    "closeWithSignalsResolve": "Signalen en gesprek sluiten",
-    "closeWithSignalsError": "Kon die signalen niet bijwerken.",
-    "closeWithSignalsShortcutConfirm": "Dit gesprek heeft {{count}} open signaal/signalen. Gesprek toch sluiten?",
-    "closeWithSignalsShortcutResolve": "Die {{count}} signaal/signalen ook afronden?",
     "pinThread": "Gesprek pinnen",
     "unpinThread": "Gesprek losmaken",
     "assign": "Toewijzen",
@@ -793,7 +792,17 @@
     "handoverHintTeam": "Schrijf een bericht voor het team. Het team pakt het op zoals ingesteld bij Wie pakt het op.",
     "handoverPlaceholder": "Bericht (optioneel)",
     "handoverCancel": "Annuleren",
-    "handoverConfirm": "Toewijzen"
+    "handoverConfirm": "Toewijzen",
+    "whatsNextTicket": "Ticket vastleggen",
+    "closeWithTicketTitle": "Dit gesprek is een open ticket",
+    "closeWithTicketBody": "{{names}} staat nog open. Zet het mee in de klaar-fase met het gesprek, of laat het open voor opvolging.",
+    "closeWithTicketFallback": "Ticket",
+    "closeWithTicketCancel": "Gesprek open houden",
+    "closeWithTicketLeaveOpen": "Alleen gesprek sluiten",
+    "closeWithTicketResolve": "Ticket en gesprek sluiten",
+    "closeWithTicketError": "Kon het ticket niet bijwerken.",
+    "closeWithTicketShortcutConfirm": "Dit gesprek is een open ticket. Gesprek toch sluiten?",
+    "closeWithTicketShortcutResolve": "Het ticket ook in de klaar-fase zetten?"
   },
   "addToProject": {
     "title": "Koppelen aan project",
@@ -845,7 +854,7 @@
     "nextLookAtClearError": "Kijkmoment wissen lukte niet.",
     "relatedWork": "Gerelateerd werk",
     "linkAgents": "Agents",
-    "linkPlaybooks": "Draaiboeken",
+    "linkPlaybooks": "Flows",
     "linkProjects": "Projecten",
     "linkKnowledge": "Kennis",
     "noContact": "Geen contact gekoppeld",
@@ -1145,9 +1154,9 @@
       "splitIn": "Afgesplitst van een eerder gesprek",
       "splitOut": "Nieuwe vraag verplaatst naar een eigen gesprek",
       "splitOutCategory": "Nieuwe vraag verplaatst naar een eigen gesprek: {{category}}",
-      "categorySet": "Categorie ingesteld op {{category}}",
-      "categoryProposed": "Categorie voorgesteld: {{category}}",
-      "categoryChanged": "Categorie gewijzigd van {{previous}} naar {{category}}",
+      "categorySet": "Actietag ingesteld op {{category}}",
+      "categoryProposed": "Actietag voorgesteld: {{category}}",
+      "categoryChanged": "Actietag gewijzigd van {{previous}} naar {{category}}",
       "ticketStageChanged": "Ticket verplaatst naar {{stage}}",
       "escalated": "Doorgestuurd naar het team",
       "aiPaused": "AI gepauzeerd op dit gesprek",
@@ -1164,7 +1173,7 @@
       "downgradeReasons": {
         "low_certainty": "lage zekerheid",
         "new_contact": "nieuw contact",
-        "signal_type": "signaaltype vraagt om controle"
+        "category": "actietag vraagt om controle"
       },
       "approvedBy": "Goedgekeurd door {{name}}",
       "suggestionApproved": "Suggestie goedgekeurd",
@@ -1262,7 +1271,7 @@
     "action": "Hier splitsen",
     "title": "Splitsen naar een nieuw gesprek",
     "hint": "Dit bericht en alles erna gaan naar een nieuw gesprek met hetzelfde contact. Antwoorden op deze thread komen daar binnen.",
-    "category": "Categorie voor het nieuwe gesprek",
+    "category": "Actietag voor het nieuwe gesprek",
     "noCategory": "Later bepalen",
     "cancel": "Annuleren",
     "confirm": "Splitsen",
@@ -1289,9 +1298,33 @@
   },
   "tags": {
     "title": "Tags",
-    "add": "Tag toevoegen",
-    "placeholder": "Naam van de tag",
-    "remove": "Tag {{tag}} verwijderen",
-    "categoryLocked": "Categorie. Wijzig die onder Categorie."
+    "add": "Hashtags toevoegen",
+    "hint": "Actietags starten een ticketflow",
+    "placeholder": "Naam",
+    "remove": "Hashtag {{tag}} verwijderen",
+    "categoryLocked": "Actietag. Wijzig die door te vervangen of te splitsen.",
+    "modalTitle": "Hashtags aan dit gesprek",
+    "modalHint": "Vrije hashtags labelen het gesprek. Een actietag start een ticketflow.",
+    "searchPlaceholder": "Zoek of typ een naam",
+    "actionTag": "Actietag",
+    "freeHashtag": "Hashtag",
+    "noMatches": "Geen passende hashtags",
+    "applyFree": "Toevoegen als hashtag",
+    "makeActionTag": "Actietag maken",
+    "makeActionTagHint": "Maakt een flow met titel #{{name}} en legt dit gesprek vast als ticket.",
+    "applyFreeHint": "Alleen een label op het gesprek. Start geen ticketflow.",
+    "chooseProject": "Bij welk project hoort dit?",
+    "noProject": "Geen project",
+    "intakeTitle": "Gegevens invullen",
+    "intakeHint": "Optionele velden voor deze actietag. Verplichte velden zijn gemarkeerd.",
+    "intakeContinue": "Ticket vastleggen",
+    "intakeRequired": "Verplicht",
+    "replaceTitle": "Actietag vervangen?",
+    "replaceBody": "Dit gesprek heeft al #{{current}}. Vastleggen van #{{next}} vervangt die.",
+    "replaceConfirm": "Vervangen",
+    "cancel": "Annuleren",
+    "fileError": "Kon deze actietag niet vastleggen.",
+    "createError": "Kon deze hashtag niet maken.",
+    "busy": "Bezig…"
   }
 }

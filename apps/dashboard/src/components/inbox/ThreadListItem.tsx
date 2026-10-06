@@ -40,8 +40,9 @@ import {
 import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
-import { STAGE_KIND_DOT } from '../../lib/cases-api'
-import { signalTypeLabel } from '../../lib/signal-type-catalog'
+import { stageLabel } from '../../lib/tickets-api'
+import { HashtagMark } from '../ui/HashtagMark'
+import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 
 type Props = {
   thread: InboxThread
@@ -117,6 +118,9 @@ const ROW_ICON_BUTTON = cn(
 /**
  * One conversation in the list: lead slot · avatar · name + time · preview.
  *
+ * Assignee, ticket and free hashtags sit on a bottom row. Compact density
+ * keeps that row collapsed until hover, keyboard focus, or selection.
+ *
  * The lead slot carries one 8px state dot (unread, status, pinned). When the
  * list can bulk-select, the same slot turns into the checkbox on hover or
  * while a selection is active, so the avatar never shifts. Row actions
@@ -157,10 +161,8 @@ function ThreadListItem({
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
   const isAgentThread = isInternalThread(thread)
   const ticket =
-    !isAgentThread && thread.categoryCase && thread.categoryCase.status !== 'proposed'
-      ? thread.categoryCase
-      : null
-  const ticketName = ticket ? signalTypeLabel(ticket, i18n.language) : ''
+    !isAgentThread && thread.ticket && thread.ticket.status !== 'proposed' ? thread.ticket : null
+  const ticketName = ticket ? `#${ticket.name}` : ''
   const visitorLabel = t('contactPanel.widgetVisitor')
   const contactLabel = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel)
   const readableEmail = isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail?.trim()
@@ -226,6 +228,9 @@ function ThreadListItem({
   const selectable = Boolean(onToggleChecked)
   const checkboxVisible = selectable && (selectionActive || Boolean(checked))
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+  const ticketNameLower = ticket?.name.trim().toLowerCase() ?? ''
+  const freeTags = (thread.tags ?? []).filter((tag) => tag.trim().toLowerCase() !== ticketNameLower)
+  const hasMeta = Boolean((assigneeName && !isDirect) || ticket || freeTags.length > 0)
 
   return (
     <div
@@ -425,18 +430,6 @@ function ThreadListItem({
             <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-secondary">
               {secondaryLabel}
             </span>
-            {ticket ? (
-              <span
-                className="inline-flex max-w-[45%] shrink-0 items-center gap-1 rounded-full border border-border/70 px-1.5 text-2xs text-text-muted"
-                title={ticket.stage ? `${ticketName} · ${ticket.stage.name}` : ticketName}
-                data-testid="thread-row-ticket"
-              >
-                {ticket.stage ? (
-                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STAGE_KIND_DOT[ticket.stage.kind])} />
-                ) : null}
-                <span className="truncate">{ticket.stage?.name ?? ticketName}</span>
-              </span>
-            ) : null}
             {handlingOverride ? (
               <span
                 title={tc(`aiHandling.modes.${handlingOverride}.label`)}
@@ -465,54 +458,97 @@ function ThreadListItem({
             ) : null}
           </div>
 
-          {assigneeName && !isDirect ? (
-            <div className="mt-1 flex items-center gap-1">
-              {assigneeKind === 'team' ? (
-                <TeamAvatar
-                  {...toTeamAvatarProps({
-                    id: assigneeSeed,
-                    name: assigneeName,
-                    avatar_kind: assigneeAvatarKind,
-                    avatar_icon: assigneeAvatarIcon,
-                    avatar_color: assigneeAvatarColor,
-                    avatar_image_url: assigneeAvatarImageUrl,
-                  })}
-                  size={14}
-                  decorative
-                  presence={assigneePresence}
-                />
-              ) : assigneeKind === 'agent' ? (
-                <AiAvatar
-                  {...toAiAvatarProps({
-                    id: assigneeSeed,
-                    name: assigneeName,
-                    avatar_kind: assigneeAvatarKind,
-                    avatar_icon: assigneeAvatarIcon,
-                    avatar_image_url: assigneeAvatarImageUrl,
-                  })}
-                  size={14}
-                  decorative
-                  activity={assigneeSeed ? agentPresenceOf(assigneeSeed) : 'standby'}
-                />
-              ) : (
-                <UserAvatar
-                  name={assigneeName ?? '?'}
-                  email={assigneeEmail ?? assigneeName ?? ''}
-                  avatarUrl={assigneeAvatarUrl}
-                  size={14}
-                  decorative
-                  presence={
-                    assigneePresence === 'available' ||
-                    assigneePresence === 'away' ||
-                    assigneePresence === 'offline'
-                      ? assigneePresence
-                      : undefined
-                  }
-                />
+          {hasMeta ? (
+            <div
+              className={cn(
+                'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+                compact && !isSelected
+                  ? 'grid-rows-[0fr] group-hover/thread:grid-rows-[1fr] group-focus-within/thread:grid-rows-[1fr]'
+                  : 'grid-rows-[1fr]',
               )}
-              <span className="truncate-fade text-xs text-text-muted">
-                {assigneeName ?? t('listItem.assigned')}
-              </span>
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="mt-1 flex min-w-0 items-center gap-2">
+                  {assigneeName && !isDirect ? (
+                    <div className="flex min-w-0 shrink items-center gap-1">
+                      {assigneeKind === 'team' ? (
+                        <TeamAvatar
+                          {...toTeamAvatarProps({
+                            id: assigneeSeed,
+                            name: assigneeName,
+                            avatar_kind: assigneeAvatarKind,
+                            avatar_icon: assigneeAvatarIcon,
+                            avatar_color: assigneeAvatarColor,
+                            avatar_image_url: assigneeAvatarImageUrl,
+                          })}
+                          size={14}
+                          decorative
+                          presence={assigneePresence}
+                        />
+                      ) : assigneeKind === 'agent' ? (
+                        <AiAvatar
+                          {...toAiAvatarProps({
+                            id: assigneeSeed,
+                            name: assigneeName,
+                            avatar_kind: assigneeAvatarKind,
+                            avatar_icon: assigneeAvatarIcon,
+                            avatar_image_url: assigneeAvatarImageUrl,
+                          })}
+                          size={14}
+                          decorative
+                          activity={assigneeSeed ? agentPresenceOf(assigneeSeed) : 'standby'}
+                        />
+                      ) : (
+                        <UserAvatar
+                          name={assigneeName ?? '?'}
+                          email={assigneeEmail ?? assigneeName ?? ''}
+                          avatarUrl={assigneeAvatarUrl}
+                          size={14}
+                          decorative
+                          presence={
+                            assigneePresence === 'available' ||
+                            assigneePresence === 'away' ||
+                            assigneePresence === 'offline'
+                              ? assigneePresence
+                              : undefined
+                          }
+                        />
+                      )}
+                      <span className="truncate-fade text-xs text-text-muted">
+                        {assigneeName ?? t('listItem.assigned')}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="flex min-w-0 flex-wrap items-center gap-1">
+                    {ticket ? (
+                      <span
+                        className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/70 px-1.5 text-2xs text-text-muted"
+                        title={ticket.stage ? `${ticketName} · ${stageLabel(ticket.stage, t)}` : ticketName}
+                        data-testid="thread-row-ticket"
+                      >
+                        <HashtagMark category />
+                        <span className="truncate">{ticket.name}</span>
+                        {ticket.stage ? (
+                          <>
+                            <StageProgressIcon kind={ticket.stage.kind} className="size-3" />
+                            <span className="truncate">{stageLabel(ticket.stage, t)}</span>
+                          </>
+                        ) : null}
+                      </span>
+                    ) : null}
+                    {freeTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex max-w-[7rem] items-center gap-0.5 text-2xs text-text-muted"
+                        title={`#${tag}`}
+                      >
+                        <HashtagMark />
+                        <span className="truncate">{tag}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           ) : null}
         </div>

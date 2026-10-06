@@ -20,7 +20,6 @@ RESOURCE_TYPES = (
     "team",
     "inbox_rule",
     "saved_reply",
-    "case_type",
     "project_resource",
     "queue_item",
 )

@@ -1,0 +1,40 @@
+---
+description: Use the shared styled Select — never browser-native select
+globs: apps/dashboard/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Styled selects (dashboard)
+
+Never use a browser-native `<select>` / `<option>` in `apps/dashboard`.
+
+Use the shared Radix select from `apps/dashboard/src/components/ui/select.tsx`:
+
+- `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem`
+
+## Do
+
+```tsx
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+
+<Select value={value} onValueChange={setValue} disabled={disabled}>
+  <SelectTrigger className="h-8 text-xs" aria-label={label}>
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    {options.map((opt) => (
+      <SelectItem key={opt.value} value={opt.value}>
+        {opt.label}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+```
+
+## Do not
+
+- `<select className=...><option>...`
+- One-off custom dropdowns that reimplement the same pattern
+- Leaving native selects when touching a file — convert them in the same change
+
+Exceptions: none for product UI. Tests may assert on the styled control via roles/labels.

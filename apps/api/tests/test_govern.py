@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.models.case import CaseType
+from app.models.signal import SignalTag
 from app.models.orchestra import Workstream
 from app.services.audit import search_audit
 from app.tools import execute_tool
@@ -45,18 +45,20 @@ async def test_passports_endpoint_lists_agents(client: AsyncClient, session_over
 async def test_autonomy_scopes_list_and_update(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    case_type = CaseType(tenant_id=tenant.id, slug="support", name="Support")
     workstream = Workstream(tenant_id=tenant.id, name="Resolve support")
-    session_override.add_all([case_type, workstream])
+    session_override.add(workstream)
+    await session_override.flush()
+    case_type = SignalTag(tenant_id=tenant.id, name="support", workstream_id=workstream.id)
+    session_override.add(case_type)
     await session_override.commit()
 
     listed = await client.get("/api/govern/autonomy-scopes", headers=headers)
     assert listed.status_code == 200
-    assert any(row["id"] == str(case_type.id) for row in listed.json()["case_types"])
+    assert any(row["id"] == str(case_type.id) for row in listed.json()["categories"])
     assert any(row["id"] == str(workstream.id) for row in listed.json()["workstreams"])
 
     updated = await client.patch(
-        f"/api/govern/autonomy-scopes/case_type/{case_type.id}",
+        f"/api/govern/autonomy-scopes/category/{case_type.id}",
         headers=headers,
         json={"autonomy_level": "auto"},
     )
@@ -64,7 +66,7 @@ async def test_autonomy_scopes_list_and_update(client: AsyncClient, session_over
     assert updated.json()["autonomy_level"] == "autonomous"
 
     listed_again = await client.get("/api/govern/autonomy-scopes", headers=headers)
-    row = next(item for item in listed_again.json()["case_types"] if item["id"] == str(case_type.id))
+    row = next(item for item in listed_again.json()["categories"] if item["id"] == str(case_type.id))
     assert row["autonomy_level"] == "autonomous"
 
     canon = await client.patch(

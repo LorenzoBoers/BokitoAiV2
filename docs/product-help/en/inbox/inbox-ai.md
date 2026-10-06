@@ -18,7 +18,7 @@ The same icons appear everywhere: a lightning bolt for Autonomous and a pen for 
 ![Workspace default for AI handling](/api/docs/assets/inbox-ai/workspace-default.png)
 *Three cards: Autonomous, Assisted and Manual.*
 
-1. Open **Settings**, then **AI replies**.
+1. Open **Settings**, then **AI handling**.
 2. Under **Workspace default**, pick **Autonomous**, **Assisted** or **Manual**. The change saves at once.
 3. Turning on **Autonomous** shows a confirmation with how many open conversations follow this setting and how often drafts were sent unedited recently. Only an owner or admin can turn on Autonomous.
 4. If Govern caps conversations lower, the card shows the cap. Open Govern from the note under the cards to change it.
@@ -39,7 +39,7 @@ A conversation exception lasts until the conversation closes. Channel and contac
 2. Set the **Certainty threshold** (1–10, from **permissive** to **strict**). Below that certainty, the reply becomes a draft.
 3. Turn on **Review replies to new contacts** to draft instead of send while a contact awaits approval. Website chat visitors are exempt.
 4. Turn on **Disclose AI replies** to add a short note to autonomous replies. Change the **Note text** or leave it empty for the default; the preview shows what customers see.
-5. Choose **Save** in the bar at the bottom.
+5. Changes save automatically. **Last modified** in the page header shows when the last save finished.
 
 The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies.
 

@@ -21,7 +21,7 @@ export interface ProjectRow {
   repo_index_status?: RepoIndexStatus
   repo_indexed_at?: string | null
   repo_index_error?: string | null
-  open_signals_count?: number
+  open_tickets_count?: number
   doc_sections_total?: number
   doc_sections_done?: number
   po_agent_id?: string | null

@@ -17,6 +17,7 @@ import PersonalAssistantWidget from './PersonalAssistantWidget'
 import { TourProvider } from '../tour/TourContext'
 import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
 import { useShellLiveBus } from '../../hooks/useShellLiveBus'
+import { cn } from '../../lib/utils'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -62,6 +63,11 @@ function isFullBleed(pathname: string): boolean {
     pathname.startsWith('/settings') ||
     pathname.startsWith('/ai/')
   )
+}
+
+/** Calendar-style pages use the whole width of the content pane. */
+function isWide(pathname: string): boolean {
+  return pathname.startsWith('/agenda')
 }
 
 /** Coarse key so thread/doc leaf switches do not replay the shell enter. */
@@ -179,7 +185,7 @@ export default function AppShell() {
                   </div>
                 ) : (
                   <div className="h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-4">
-                    <div className="mx-auto w-full max-w-[1240px]">
+                    <div className={cn('mx-auto w-full', isWide(pathname) ? 'max-w-[1800px]' : 'max-w-[1240px]')}>
                       <Outlet />
                     </div>
                   </div>

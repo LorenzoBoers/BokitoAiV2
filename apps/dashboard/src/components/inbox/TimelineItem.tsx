@@ -37,6 +37,7 @@ import { isCustomerChannel } from '../../lib/chatMessages'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
 import { inboxPath } from '../../lib/messages-paths'
+import { stageLabel, type TicketStageKind } from '../../lib/tickets-api'
 import { SplitConversationAction } from './SplitConversationAction'
 
 type MessageLayout = 'chat' | 'email'
@@ -755,8 +756,12 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
       ? t('timeline.events.splitOutCategory', { category })
       : t('timeline.events.splitOut')
   },
-  ticket_stage_changed: (t, p) =>
-    t('timeline.events.ticketStageChanged', { stage: String(p.to_stage ?? '') }),
+  ticket_stage_changed: (t, p) => {
+    const kind = p.to_kind as TicketStageKind | undefined
+    const name = String(p.to_stage ?? '')
+    const stage = kind ? stageLabel({ key: String(p.to_key ?? kind), name, kind }, t) : name
+    return t('timeline.events.ticketStageChanged', { stage })
+  },
   escalated: (t) => t('timeline.events.escalated'),
   ai_paused: (t) => t('timeline.events.aiPaused'),
   ai_resumed: (t) => t('timeline.events.aiResumed'),

@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AutosaveStatus } from '../ui/AutosaveStatus'
 import { Card } from '../ui/card'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
+import { useAutosave } from '../../hooks/useAutosave'
 import { useAuth } from '../../context/AuthContext'
 import { bokitoUpdateAgent } from '../../lib/bokito-api'
 import {
@@ -44,7 +45,6 @@ export function AgentSignatureCard({
   const { token } = useAuth()
   const [sendAs, setSendAs] = useState<ReplySendAs>(replySendAs)
   const [text, setText] = useState(signatureText)
-  const [busy, setBusy] = useState(false)
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
@@ -68,25 +68,28 @@ export function AgentSignatureCard({
     return body
   }, [text, sendAs, agentName, companyName, i18n.language])
 
-  const save = async () => {
-    if (!token || busy) return
-    setBusy(true)
+  const save = useCallback(async () => {
+    if (!token) return
     try {
       await bokitoUpdateAgent(token, agentId, {
         email_signature_text: text,
         reply_send_as: sendAs,
       })
-      toast.success(t('workforce.agents.signatureSaved'))
       setDirty(false)
       onChanged?.()
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : t('workforce.agents.signatureSaveError'),
       )
-    } finally {
-      setBusy(false)
+      throw err
     }
-  }
+  }, [token, agentId, text, sendAs, onChanged, t])
+
+  const { phase, lastSavedAt, error } = useAutosave({
+    dirty,
+    enabled: canEdit && Boolean(token),
+    save,
+  })
 
   return (
     <Card className="px-4 py-3">
@@ -193,16 +196,13 @@ export function AgentSignatureCard({
 
         {canEdit ? (
           <div className="flex items-center gap-2">
-            <Button type="button" size="sm" disabled={busy || !dirty} onClick={() => void save()}>
-              {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
-              {t('workforce.agents.signatureSave')}
-            </Button>
+            <AutosaveStatus phase={phase} lastSavedAt={lastSavedAt} error={error} />
             {dirty ? (
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
-                disabled={busy}
+                disabled={phase === 'saving'}
                 onClick={() => {
                   setSendAs(replySendAs)
                   setText(signatureText)

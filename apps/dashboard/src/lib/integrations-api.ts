@@ -264,7 +264,7 @@ export async function installModuleTemplate(
   return apiPost(integrationsRoutes.platform.moduleTemplateInstall(slug, templateSlug), {})
 }
 
-export type ModuleCaseTypeTemplate = {
+export type ModuleTagTemplate = {
   slug: string
   module_slug: string
   name: string
@@ -274,20 +274,16 @@ export type ModuleCaseTypeTemplate = {
   already_installed: boolean
 }
 
-export async function listModuleCaseTypeTemplates(
-  slug: string,
-): Promise<ModuleCaseTypeTemplate[]> {
-  const res = await apiGet<{ items: ModuleCaseTypeTemplate[] }>(
-    integrationsRoutes.platform.moduleCaseTypeTemplates(slug),
-  )
+export async function listModuleTagTemplates(slug: string): Promise<ModuleTagTemplate[]> {
+  const res = await apiGet<{ items: ModuleTagTemplate[] }>(integrationsRoutes.platform.moduleTagTemplates(slug))
   return res.items ?? []
 }
 
-export async function installModuleCaseTypeTemplate(
+export async function installModuleTagTemplate(
   slug: string,
   templateSlug: string,
-): Promise<{ case_type: { id: string; name: string } }> {
-  return apiPost(integrationsRoutes.platform.moduleCaseTypeTemplateInstall(slug, templateSlug), {})
+): Promise<{ tag: { id: string; name: string } }> {
+  return apiPost(integrationsRoutes.platform.moduleTagTemplateInstall(slug, templateSlug), {})
 }
 
 export async function listModuleAgents(slug: string): Promise<ModuleAgentRow[]> {

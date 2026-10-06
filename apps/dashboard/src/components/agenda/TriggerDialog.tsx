@@ -37,6 +37,10 @@ type TriggerDialogProps = {
   workstreams: TargetOption[]
   /** Preselected moment for new items (from clicking a calendar day). */
   initialRunAt?: Date | null
+  /** Kind for a new item (a reminder is ``event``, a routine ``cron``). */
+  initialKind?: TriggerKind
+  /** Agent to target for a new item (Agenda filtered to one agent). */
+  initialAgentId?: string | null
   onSaved: () => void
 }
 
@@ -69,6 +73,8 @@ export default function TriggerDialog({
   agents,
   workstreams,
   initialRunAt,
+  initialKind = 'once',
+  initialAgentId = null,
   onSaved,
 }: TriggerDialogProps) {
   const { t } = useTranslation('nav')
@@ -106,17 +112,19 @@ export default function TriggerDialog({
     } else {
       const base = initialRunAt ?? new Date(Date.now() + 60 * 60 * 1000)
       setName('')
-      setKind('once')
+      setKind(initialKind)
       setRunAt(dateToLocalInputValue(base))
       setCronExpr('0 9 * * 1-5')
       setIntervalMinutes(60)
-      setTarget(agents[0] ? `agent:${agents[0].id}` : workstreams[0] ? `ws:${workstreams[0].id}` : 'none')
+      const preferred = initialAgentId ? agents.find((agent) => agent.id === initialAgentId) : undefined
+      const firstAgent = preferred ?? agents[0]
+      setTarget(firstAgent ? `agent:${firstAgent.id}` : workstreams[0] ? `ws:${workstreams[0].id}` : 'none')
       setInstructions('')
       setEnabled(true)
     }
     setSavedWebhook(null)
     setRevealedSecret(null)
-  }, [open, trigger, initialRunAt, agents, workstreams])
+  }, [open, trigger, initialRunAt, initialKind, initialAgentId, agents, workstreams])
 
   const kindHint = t(`triggerDialog.hints.${kind}`)
   const needsRunAt = kind === 'once' || kind === 'event'

@@ -68,13 +68,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
     "channel_accounts": {
         "default_agent_id": "VARCHAR",
     },
-    "case_types": {
-        "fields_schema_json": "VARCHAR DEFAULT '[]'",
-        "default_project_id": "VARCHAR",
-    },
-    "cases": {
-        "fields_json": "VARCHAR DEFAULT '{}'",
-    },
     "signals": {
         "agent_id": "VARCHAR",
         "context_signal_id": "VARCHAR",
@@ -109,20 +102,13 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "checkpoint_json": "VARCHAR DEFAULT '{}'",
         "pause_reason": "VARCHAR",
     },
+    "triggers": {
+        "purpose": "VARCHAR DEFAULT ''",
+        "stage_key": "VARCHAR DEFAULT ''",
+    },
     "run_events": {
         "sequence": "INTEGER DEFAULT 0",
         "detail_level": "VARCHAR DEFAULT 'summary'",
-    },
-    "workstream_steps": {
-        "agent_id": "VARCHAR",
-        "step_kind": "VARCHAR DEFAULT 'agent'",
-        "prompt_template": "VARCHAR DEFAULT ''",
-        "handoff_template": "VARCHAR DEFAULT ''",
-        "input_from_steps_json": "VARCHAR DEFAULT '[]'",
-        "success_criteria_json": "VARCHAR DEFAULT '{}'",
-        "eval_kind": "VARCHAR DEFAULT 'rubric'",
-        "on_eval_fail_step": "VARCHAR",
-        "max_retries": "INTEGER DEFAULT 2",
     },
 }
 
@@ -892,15 +878,6 @@ def _ensure_trash_partial_uniques(connection: Connection) -> None:
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_canvas_owner_slug_alive "
                 "ON project_canvases (tenant_id, owner_kind, owner_id, slug) "
                 "WHERE deleted_at IS NULL"
-            )
-        )
-    if inspector.has_table("case_types"):
-        if dialect == "sqlite":
-            connection.execute(text("DROP INDEX IF EXISTS uq_case_types_tenant_slug"))
-        connection.execute(
-            text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_case_types_tenant_slug_alive "
-                "ON case_types (tenant_id, slug) WHERE deleted_at IS NULL"
             )
         )
 

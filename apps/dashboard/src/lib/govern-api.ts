@@ -108,16 +108,14 @@ export function normalizeAutonomyScopeLevel(value: string | null | undefined): A
 
 export type AutonomyScopeRow = {
   id: string
-  /** Present on case_type scopes for shared catalog labels. */
-  slug?: string
   name: string
   autonomy_level: AutonomyScopeLevel
-  /** Case types only: draft/ask means replies are never sent autonomously. */
+  /** Categories only: draft/ask means replies are never sent autonomously. */
   send_mode?: 'draft' | 'ask' | 'send'
 }
 
 export type AutonomyScopesResponse = {
-  case_types: AutonomyScopeRow[]
+  categories: AutonomyScopeRow[]
   workstreams: AutonomyScopeRow[]
 }
 
@@ -197,7 +195,7 @@ export async function getAutonomyScopes() {
 }
 
 export async function setAutonomyScope(
-  kind: 'case_type' | 'workstream',
+  kind: 'category' | 'workstream',
   id: string,
   autonomyLevel: AutonomyScopeLevel,
 ) {

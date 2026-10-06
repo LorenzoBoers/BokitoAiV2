@@ -1,47 +1,45 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, CircleDollarSign, Play } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CalendarClock, CircleDollarSign, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { CockpitPanelsSkeleton } from '../ui/skeleton'
-import { listCases, listCaseTypes, type CaseRow, type CaseTypeRow } from '../../lib/cases-api'
 import { listGovernChanges, type PlatformChangeRow } from '../../lib/govern-api'
 import { listThreads, type InboxThread } from '../../lib/inbox-api'
-import { attentionThreadPath, forYouPath, inboxPath } from '../../lib/messages-paths'
-import { folderFilterQuery } from '../../lib/signals-api'
+import { attentionThreadPath, forYouPath, tagPath } from '../../lib/messages-paths'
+import { withNavReveal } from '../../lib/nav-reveal'
+import { listCategories, type CategoryRow } from '../../lib/tickets-api'
 import { listWorkLogs, type WorkLogRow } from '../../lib/work-logs-api'
 import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/workstreams-api'
 import { workstreamRunPath } from '../../lib/workstream-ui'
 import { openEntityPath } from '../../lib/open-entity'
 import { bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
 import { formatAppUsdCents } from '../../lib/app-number'
+import { formatAppTime } from '../../lib/app-locale'
+import { attentionOf, layerOf } from '../../lib/agenda-layout'
+import { agendaKindLabel } from '../../lib/status-labels'
+import { agendaKindOf, listTimeItems, parseTimelineMs, timeItemHref, type TimeItem } from '../../lib/time-items'
 import AiHandlingMetricsBlock from './AiHandlingMetricsBlock'
 import ThreadListItem from '../inbox/ThreadListItem'
 
-type SignalTypeSummary = {
-  type: CaseTypeRow
-  open: number
-  waiting: number
-}
-
 type OverviewData = {
   needsYou: InboxThread[]
-  cases: CaseRow[]
-  types: CaseTypeRow[]
+  categories: CategoryRow[]
   playbookRuns: WorkstreamRunRow[]
   jobs: WorkLogRow[]
   govern: PlatformChangeRow[]
   usage: UsageBreakdown | null
+  agenda: TimeItem[]
 }
 
 const EMPTY: OverviewData = {
   needsYou: [],
-  cases: [],
-  types: [],
+  categories: [],
   playbookRuns: [],
   jobs: [],
   govern: [],
   usage: null,
+  agenda: [],
 }
 
 function startOfWeek(offset = 0): Date {
@@ -130,60 +128,66 @@ function Metric({
 
 export default function OverviewFourBlocks() {
   const { token } = useAuth()
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation('nav')
   const navigate = useNavigate()
   const nl = i18n.language.toLowerCase().startsWith('nl')
   const copy = nl
     ? {
         needs: 'Jij bent nodig',
         needsHint: 'Open beslissingen en gesprekken die aan jou zijn toegewezen.',
-        signals: 'Open signalen per type',
-        signalsHint: 'Open en wachtend werk. Open een rij om Communicatie te filteren.',
-        running: 'Lopend',
-        runningHint: 'Draaiboekruns en workbench-taken die nu bezig zijn.',
+        signals: 'Open tickets per actietag',
+        signalsHint: 'Open en wachtend werk. Open een rij om de actietag in Communicatie te openen.',
+        running: 'Lopend en straks',
+        runningHint: 'Wat nu draait, en wat de komende 24 uur op de agenda staat.',
+        agendaDue: 'Nu aan de beurt op de agenda',
+        agendaDueDetail: 'Check-ups en verlopen kijkmomenten',
+        openAgenda: 'Agenda openen',
         trajectory: 'Traject',
         trajectoryHint: 'Deze week, met het verschil ten opzichte van vorige week.',
         emptyNeeds: 'Niets wacht op jou.',
-        emptySignals: 'Geen open signalen.',
-        emptyRunning: 'Er draait nu niets.',
+        emptySignals: 'Geen open tickets.',
+        emptyRunning: 'Er draait nu niets en er staat niets gepland.',
         decisions: 'Beslissing nodig',
         assigned: 'Aan jou toegewezen',
         open: 'Open',
         waiting: 'Wachtend',
-        playbook: 'Draaiboek',
+        playbook: 'Flow',
         workbench: 'Workbench',
-        autoSignals: 'Automatisch vastgelegde signalen',
-        handSignals: 'Handmatig vastgelegde signalen',
+        filedTickets: 'Tickets vastgelegd (7 dagen)',
+        proposedTickets: 'Voorstellen wachten op bevestiging',
         finishedRuns: 'Runs afgerond zonder beslissing',
         governWaiting: 'Voorstellen wachten in Govern',
-        cost: 'Kosten per signaaltype',
-        costUnavailable: 'Nog niet toewijsbaar; workbench-gebruik mist een signaaltype.',
+        cost: 'Kosten per categorie',
+        costUnavailable: 'Nog niet toewijsbaar; workbench-gebruik mist een categorie.',
         loadError: 'Een deel van Overview kon niet worden geladen.',
       }
     : {
         needs: 'Needs you',
         needsHint: 'Open decisions and conversations assigned to you.',
-        signals: 'Open signals by type',
-        signalsHint: 'Open and waiting work. Open a row to filter Communication.',
-        running: 'Running',
-        runningHint: 'Playbook runs and workbench jobs currently in progress.',
+        signals: 'Open tickets by action tag',
+        signalsHint: 'Open and waiting work. Open a row to see the action tag in Communication.',
+        running: 'Running and next up',
+        runningHint: 'What runs now, and what is on the agenda in the next 24 hours.',
+        agendaDue: 'Due now on the agenda',
+        agendaDueDetail: 'Check-ups and overdue look-ats',
+        openAgenda: 'Open Agenda',
         trajectory: 'Trajectory',
         trajectoryHint: 'This week, with the change from last week.',
         emptyNeeds: 'Nothing is waiting on you.',
-        emptySignals: 'No open signals.',
-        emptyRunning: 'Nothing is running.',
+        emptySignals: 'No open tickets.',
+        emptyRunning: 'Nothing is running or planned.',
         decisions: 'Decision needed',
         assigned: 'Assigned to you',
         open: 'Open',
         waiting: 'Waiting',
-        playbook: 'Playbook',
+        playbook: 'Flow',
         workbench: 'Workbench',
-        autoSignals: 'Signals filed automatically',
-        handSignals: 'Signals filed by hand',
+        filedTickets: 'Tickets filed (7 days)',
+        proposedTickets: 'Proposals waiting for a confirm',
         finishedRuns: 'Runs finished without a decision',
         governWaiting: 'Proposals waiting in Govern',
-        cost: 'Cost per signal type',
-        costUnavailable: 'Not attributable yet; workbench usage has no signal type.',
+        cost: 'Cost per category',
+        costUnavailable: 'Not attributable yet; workbench usage has no category.',
         loadError: 'Some Overview data could not be loaded.',
       }
   const [data, setData] = useState<OverviewData>(EMPTY)
@@ -199,12 +203,16 @@ export default function OverviewFourBlocks() {
         listThreads(token, { view: 'awaiting_decision', perPage: 10 }),
         listThreads(token, { view: 'for_you', perPage: 10 }),
       ]),
-      listCases({ ticketsOnly: true, limit: 500 }),
-      listCaseTypes(),
+      listCategories(),
       listWorkstreamRuns({ limit: 100 }),
       listWorkLogs({ status: 'running', limit: 100 }),
       listGovernChanges('pending_review').then((value) => value.items ?? []),
       bokitoGetUsageBreakdown(token, 7),
+      listTimeItems({
+        from: new Date(Date.now() - 30 * 86_400_000).toISOString(),
+        to: new Date(Date.now() + 86_400_000).toISOString(),
+        sources: ['checkup', 'follow_up', 'wake', 'calendar'],
+      }).then((window) => window.items),
     ])
     const value = <T,>(index: number, fallback: T): T =>
       settled[index]?.status === 'fulfilled' ? (settled[index] as PromiseFulfilledResult<T>).value : fallback
@@ -219,12 +227,12 @@ export default function OverviewFourBlocks() {
       needsYou: [...uniqueThreads.values()]
         .sort((a, b) => new Date(b.lastMessageAt ?? b.createdAt).getTime() - new Date(a.lastMessageAt ?? a.createdAt).getTime())
         .slice(0, 5),
-      cases: value(1, [] as CaseRow[]),
-      types: value(2, [] as CaseTypeRow[]),
-      playbookRuns: value(3, [] as WorkstreamRunRow[]),
-      jobs: value(4, [] as WorkLogRow[]),
-      govern: value(5, [] as PlatformChangeRow[]),
-      usage: value(6, null as UsageBreakdown | null),
+      categories: value(1, [] as CategoryRow[]),
+      playbookRuns: value(2, [] as WorkstreamRunRow[]),
+      jobs: value(3, [] as WorkLogRow[]),
+      govern: value(4, [] as PlatformChangeRow[]),
+      usage: value(5, null as UsageBreakdown | null),
+      agenda: value(6, [] as TimeItem[]),
     })
     setError(settled.some((result) => result.status === 'rejected'))
     setLoading(false)
@@ -234,16 +242,13 @@ export default function OverviewFourBlocks() {
     void load()
   }, [load])
 
-  const signalTypes = useMemo<SignalTypeSummary[]>(() => {
-    const byType = new Map(data.types.map((type) => [type.id, { type, open: 0, waiting: 0 }]))
-    for (const item of data.cases) {
-      const row = byType.get(item.case_type_id)
-      if (!row) continue
-      if (item.status === 'open' || item.status === 'proposed') row.open += 1
-      if (item.status === 'waiting') row.waiting += 1
-    }
-    return [...byType.values()].filter((row) => row.open + row.waiting > 0).sort((a, b) => b.open + b.waiting - a.open - a.waiting)
-  }, [data.cases, data.types])
+  const openCategories = useMemo(
+    () =>
+      data.categories
+        .filter((row) => row.open + row.waiting > 0)
+        .sort((a, b) => b.open + b.waiting - a.open - a.waiting),
+    [data.categories],
+  )
 
   const running = useMemo(() => {
     const playbooks = data.playbookRuns
@@ -267,26 +272,33 @@ export default function OverviewFourBlocks() {
     return [...playbooks, ...jobs].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 5)
   }, [data.jobs, data.playbookRuns, copy.playbook, copy.workbench])
 
+  const agenda = useMemo(() => {
+    const now = Date.now()
+    const due = attentionOf(data.agenda, now)
+    const upcoming = data.agenda
+      .filter((item) => parseTimelineMs(item.start) > now && layerOf(item) !== 'routines')
+      .sort((a, b) => parseTimelineMs(a.start) - parseTimelineMs(b.start))
+      .slice(0, 3)
+    return { due: due.checkups.length + due.lookats.length, upcoming }
+  }, [data.agenda])
+
   const trajectory = useMemo(() => {
     const thisWeek = startOfWeek()
     const nextWeek = startOfWeek(1)
     const lastWeek = startOfWeek(-1)
-    const cases = (from: Date, to: Date) => data.cases.filter((item) => inRange(item.created_at, from, to))
-    const currentCases = cases(thisWeek, nextWeek)
-    const previousCases = cases(lastWeek, thisWeek)
-    const isAuto = (item: CaseRow) => item.case_type?.create_mode === 'auto'
+    const sum = (pick: (row: CategoryRow) => number) => data.categories.reduce((total, row) => total + pick(row), 0)
     const completed = (from: Date, to: Date) =>
       data.playbookRuns.filter((run) => run.status === 'completed' && inRange(run.completed_at, from, to)).length
     return {
-      auto: [currentCases.filter(isAuto).length, previousCases.filter(isAuto).length],
-      hand: [currentCases.filter((item) => !isAuto(item)).length, previousCases.filter((item) => !isAuto(item)).length],
+      filed: [sum((row) => row.filed_7d), sum((row) => row.filed_prev_7d)],
       completed: [completed(thisWeek, nextWeek), completed(lastWeek, thisWeek)],
     }
-  }, [data.cases, data.playbookRuns])
+  }, [data.categories, data.playbookRuns])
+
+  const proposedCount = data.categories.reduce((total, row) => total + row.proposed, 0)
 
   const trajectoryRows = [
-    { label: copy.autoSignals, values: trajectory.auto, to: '/settings/signals?origin=auto' },
-    { label: copy.handSignals, values: trajectory.hand, to: '/settings/signals?origin=manual' },
+    { label: copy.filedTickets, values: trajectory.filed, to: '/settings/action-tags' },
     { label: copy.finishedRuns, values: trajectory.completed, to: '/workstreams?view=runs&status=completed' },
   ] as const
 
@@ -320,19 +332,58 @@ export default function OverviewFourBlocks() {
         </Block>
 
         <Block title={copy.signals} hint={copy.signalsHint} index={1}>
-          {signalTypes.length === 0 ? <EmptyRow>{copy.emptySignals}</EmptyRow> : signalTypes.map((row) => (
+          {openCategories.length === 0 ? <EmptyRow>{copy.emptySignals}</EmptyRow> : openCategories.map((row) => (
             <Metric
-              key={row.type.id}
-              label={row.type.name}
+              key={row.id}
+              label={`#${row.name}`}
               value={String(row.open + row.waiting)}
               detail={`${copy.open} ${row.open} · ${copy.waiting} ${row.waiting}`}
-              to={`${inboxPath('open')}${folderFilterQuery({ category_id: row.type.id })}`}
+              to={withNavReveal(tagPath(row.name, 'open'))}
             />
           ))}
+          {proposedCount > 0 ? (
+            <Metric
+              label={copy.proposedTickets}
+              value={String(proposedCount)}
+              detail={nl ? 'Bevestig op het gesprek' : 'Confirm on the conversation'}
+              to={forYouPath()}
+            />
+          ) : null}
         </Block>
 
         <Block title={copy.running} hint={copy.runningHint} index={2}>
-          {running.length === 0 ? <EmptyRow>{copy.emptyRunning}</EmptyRow> : running.map((row) => (
+          {agenda.due > 0 ? (
+            <Link
+              to="/agenda?view=list"
+              className="row-interactive group flex items-center gap-3 rounded-md border border-status-warning/30 bg-status-warning/5 px-3 py-2.5 transition-colors hover:bg-status-warning/10"
+            >
+              <AlertTriangle size={13} className="shrink-0 text-status-warning" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate-fade text-sm font-medium text-text-primary">{copy.agendaDue}</span>
+                <span className="block truncate-fade text-xs text-text-muted">{copy.agendaDueDetail}</span>
+              </span>
+              <span className="shrink-0 tabular-nums text-base font-semibold text-text-heading">{agenda.due}</span>
+              <ArrowRight size={12} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent" />
+            </Link>
+          ) : null}
+          {running.length === 0 && agenda.upcoming.length === 0 && agenda.due === 0 ? <EmptyRow>{copy.emptyRunning}</EmptyRow> : null}
+          {agenda.upcoming.map((item) => (
+            <Link
+              key={item.id}
+              to={timeItemHref(item)}
+              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
+            >
+              <CalendarClock size={13} className="shrink-0 text-text-muted" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate-fade text-sm font-medium text-text-primary">{item.title}</span>
+                <span className="block truncate-fade text-xs text-text-muted">
+                  {formatAppTime(new Date(parseTimelineMs(item.start)), i18n.language)} · {agendaKindLabel(agendaKindOf(item), t)}
+                </span>
+              </span>
+              <ArrowRight size={12} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent" />
+            </Link>
+          ))}
+          {running.map((row) => (
             <Link
               key={row.id}
               to={row.to}
@@ -352,6 +403,9 @@ export default function OverviewFourBlocks() {
               />
             </Link>
           ))}
+          <Link to="/agenda" className="link-draw block pt-1 text-right text-xs font-medium text-accent">
+            {copy.openAgenda}
+          </Link>
         </Block>
 
         <Block title={copy.trajectory} hint={copy.trajectoryHint} index={3}>

@@ -16,7 +16,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 ![Algemene workspace-instellingen](/api/docs/assets/setup-guide/workspace.png)
 *Zet eerst naam, logo en taal.*
 
-1. Open **Instellingen** en daarna **Algemeen**. Zet **Workspace naam** en **Tijdzone**. **Jouw taal** is persoonlijk (Nederlands of Engels), geen workspacestandaard. Onder **Beveiliging** kunnen owners **Verplichte 2FA voor alle leden** aanzetten. Kies **Instellingen opslaan**. Eigenaren verwijderen de workspace in de **Gevaarlijke acties** onderaan deze pagina (type de workspacenaam ter bevestiging).
+1. Open **Instellingen** en daarna **Algemeen**. Zet **Workspace naam** en kies **Instellingen opslaan**. Taal is persoonlijk (Nederlands of Engels) en staat onder **Profiel en beveiliging**, niet hier. **Platform support** bepaalt of Bokito-support deze workspace mag openen. Eigenaren verwijderen de workspace in de **Gevaarlijke acties** onderaan deze pagina (type de workspacenaam ter bevestiging).
 2. Open **Branding**. Zet **Naam**, **Logo**, **Favicon**, **Merkkleur** en **Workspace-subdomein**, en kies **Wijzigingen opslaan**. Die komen terug in de [websitewidget](/docs/inbox/widget) en uitgaande mail.
 3. Doe branding voordat iets klantgericht live gaat, zodat concepten en de launcher al op jullie lijken.
 
@@ -30,7 +30,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instell
 
 1. Maak een Bokito-adres aan of koppel elke mailbox onder **Instellingen** en daarna **Kanalen**. Zie [Kanalen](/docs/inbox/channels).
 2. Voeg routing, handtekeningen en een paar opgeslagen antwoorden toe.
-3. Open [AI-afhandeling](/docs/inbox/inbox-ai) onder **Instellingen** → **AI-antwoorden**. Begin de workspace op **Geassisteerd**. Websitechat kan wachten tot de widget erop staat.
+3. Open [AI-afhandeling](/docs/inbox/inbox-ai) onder **Instellingen** → **AI-afhandeling**. Begin de workspace op **Geassisteerd**. Websitechat kan wachten tot de widget erop staat.
 4. Websitechat en WhatsApp kunnen wachten tot mail loopt.
 
 ## Laad kennis en agents

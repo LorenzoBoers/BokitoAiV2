@@ -143,7 +143,7 @@ Each tool comes back with a name, a description prefixed with its category, and 
 - `messaging` - read and summarize threads (`list_threads`), reply or close them, and work the CRM with `list_contacts`, `get_contact` and `upsert_contact`
 - `agents` - inspect the workforce with `list_agents`, `get_agent`, `list_playbooks` and `get_playbook`; create or update agents and playbooks
 - `triggers` - `list_triggers` for the Agenda, plus scheduling new wakes
-- `cases` - typed intake: `list_case_types`, `list_cases`, `create_case`
+- `tickets` - action tags and tickets: `list_categories` (lists action tags), `get_ticket`, `file_ticket` (same path as the Hashtags picker; pass one of the action tag's projects, `null` for No project, or leave `project_id` out to keep the ticket proposed for the team) and `update_ticket` to move a stage. Free hashtags use `set_thread_tags`, not `file_ticket`.
 - `govern` - `get_tenant_overview`, `get_usage_summary` and `resolve_decision` to answer a pending decision card
 - `workspace` - knowledge: `search_index`, `list_docs`, `read_doc`, `write_doc`; Bin: `list_trash`, `restore_trash_item` (restore always asks; agents never purge)
 

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ChevronDown, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useAuth } from '../../context/AuthContext'
 import {
   createSmtpImapAccount,
@@ -391,20 +392,24 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                   label={t('channelsPage.email.smtp.imapSsl')}
                   hint={t('channelsPage.email.smtp.imapSslHint')}
                 >
-                  <select
+                  <Select
                     value={imapSsl ? 'ssl' : 'none'}
-                    onChange={(e) => {
+                    onValueChange={(value) => {
                       markCustomIfEdited()
-                      const nextSsl = e.target.value === 'ssl'
+                      const nextSsl = value === 'ssl'
                       setImapSsl(nextSsl)
                       if (nextSsl && (imapPort === '143' || !imapPort)) setImapPort('993')
                       if (!nextSsl && (imapPort === '993' || !imapPort)) setImapPort('143')
                     }}
-                    className={fieldClass}
                   >
-                    <option value="ssl">SSL</option>
-                    <option value="none">{t('channelsPage.email.smtp.securityNone')}</option>
-                  </select>
+                    <SelectTrigger aria-label={t('channelsPage.email.smtp.imapSsl')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ssl">SSL</SelectItem>
+                      <SelectItem value="none">{t('channelsPage.email.smtp.securityNone')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </Field>
               </div>
             </ServerCard>
@@ -465,20 +470,24 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                   label={t('channelsPage.email.smtp.smtpSecurity')}
                   hint={t('channelsPage.email.smtp.smtpSecurityHint')}
                 >
-                  <select
+                  <Select
                     value={smtpMode}
-                    onChange={(e) => {
+                    onValueChange={(value) => {
                       markCustomIfEdited()
-                      const mode = e.target.value === 'ssl' ? 'ssl' : 'starttls'
+                      const mode = value === 'ssl' ? 'ssl' : 'starttls'
                       setSmtpMode(mode)
                       if (mode === 'ssl' && (smtpPort === '587' || !smtpPort)) setSmtpPort('465')
                       if (mode === 'starttls' && (smtpPort === '465' || !smtpPort)) setSmtpPort('587')
                     }}
-                    className={fieldClass}
                   >
-                    <option value="starttls">STARTTLS</option>
-                    <option value="ssl">SSL</option>
-                  </select>
+                    <SelectTrigger aria-label={t('channelsPage.email.smtp.smtpSecurity')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="starttls">STARTTLS</SelectItem>
+                      <SelectItem value="ssl">SSL</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </Field>
               </div>
             </ServerCard>

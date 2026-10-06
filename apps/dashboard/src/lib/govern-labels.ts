@@ -12,8 +12,7 @@ export const RESOURCE_TYPE_LABELS: Record<string, string> = {
   canvas_edge: 'Canvas connection',
   autonomy_posture: 'How much agents can do',
   persona_review: 'Voice review',
-  case_type: 'Intake type',
-  case_type_binding: 'Intake routing',
+  signal_tag: 'Hashtag',
 }
 
 export const CHANGE_KIND_LABELS: Record<string, string> = {
@@ -49,7 +48,7 @@ export const TOOL_CATEGORY_LABELS: Record<string, { label: string; hint: string 
   triggers: { label: 'Triggers', hint: 'Schedules, check-ins, and incoming triggers.' },
   integrations: { label: 'Integrations', hint: 'External connections and connected tools.' },
   govern: { label: 'Govern', hint: 'Policy and governance changes.' },
-  cases: { label: 'Cases', hint: 'Opening and linking typed intake on a conversation.' },
+  tickets: { label: 'Tickets', hint: 'Filing a conversation on a category, and moving its ticket through stages.' },
 }
 
 const DIFF_FIELD_LABELS: Record<string, string> = {

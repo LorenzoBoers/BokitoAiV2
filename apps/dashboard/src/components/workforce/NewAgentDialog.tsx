@@ -12,6 +12,7 @@ import {
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { useAuth } from '../../context/AuthContext'
 import { bokitoCreateAgent } from '../../lib/bokito-api'
@@ -30,8 +31,7 @@ type Props = {
   prefill?: { name?: string; model?: string; purpose?: string } | null
 }
 
-const SELECT_CLASS =
-  'w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-primary disabled:opacity-50'
+const WORKSPACE_DEFAULT = '__default__'
 
 export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }: Props) {
   const { t } = useTranslation('nav')
@@ -111,19 +111,22 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
 
           <div className="space-y-1.5">
             <Label htmlFor="agent-model">{t('workforce.agents.create.model')}</Label>
-            <select
-              id="agent-model"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className={SELECT_CLASS}
+            <Select
+              value={model || WORKSPACE_DEFAULT}
+              onValueChange={(value) => setModel(value === WORKSPACE_DEFAULT ? '' : value)}
             >
-              <option value="">{t('workforce.agents.create.workspaceDefault')}</option>
-              {models.map((m) => (
-                <option key={m.slug} value={m.slug}>
-                  {m.display_name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="agent-model" className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={WORKSPACE_DEFAULT}>{t('workforce.agents.create.workspaceDefault')}</SelectItem>
+                {models.map((m) => (
+                  <SelectItem key={m.slug} value={m.slug}>
+                    {m.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {modelsError ? (
               <button
                 type="button"

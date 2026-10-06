@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -22,13 +22,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.auth import Tenant
-from app.models.case import Case
 from app.models.orchestra import (
     WORKSTREAM_INPUT_KINDS,
     WORKSTREAM_ON_DEADLINE,
     WORKSTREAM_STEP_KINDS,
     WORKSTREAM_WAIT_KINDS,
     Workstream,
+    WorkstreamProject,
     WorkstreamRun,
     WorkstreamStep,
 )
@@ -99,57 +99,16 @@ async def _source_signal(
         ref_id = UUID(run.input_ref)
     except ValueError:
         return None
-    if run.input_kind == "signal":
+    if run.input_kind in ("signal", "ticket"):
         return (
             await session.execute(
                 select(Signal).where(Signal.id == ref_id, Signal.tenant_id == tenant_id)
             )
         ).scalar_one_or_none()
-    if run.input_kind == "case":
-        case = (
-            await session.execute(
-                select(Case).where(Case.id == ref_id, Case.tenant_id == tenant_id)
-            )
-        ).scalar_one_or_none()
-        if case:
-            return (
-                await session.execute(
-                    select(Signal).where(
-                        Signal.id == case.signal_id, Signal.tenant_id == tenant_id
-                    )
-                )
-            ).scalar_one_or_none()
     return None
 
 
-async def _source_cases(session: AsyncSession, tenant_id: UUID, run: WorkstreamRun) -> list[Case]:
-    if run.input_kind != "case":
-        return []
-    rows = list(
-        (
-            await session.execute(
-                select(Case).where(
-                    Case.tenant_id == tenant_id,
-                    Case.workstream_run_id == run.id,
-                )
-            )
-        ).scalars()
-    )
-    if rows or not run.input_ref:
-        return rows
-    try:
-        case_id = UUID(run.input_ref)
-    except ValueError:
-        return []
-    case = (
-        await session.execute(
-            select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id)
-        )
-    ).scalar_one_or_none()
-    return [case] if case else []
-
-
-async def _set_source_case_status(
+async def _set_ticket_status(
     session: AsyncSession,
     tenant_id: UUID,
     run: WorkstreamRun,
@@ -157,23 +116,16 @@ async def _set_source_case_status(
     *,
     stage_key: str | None = None,
 ) -> None:
-    """Move the run's tickets to a stage, or to the first stage of a status kind."""
-    from app.services.ticket_stages import move_case_stage
+    """Move the run's ticket to a stage, or to the first stage of a status kind."""
+    from app.services.tickets import set_ticket_status_for_run
 
-    for case in await _source_cases(session, tenant_id, run):
-        try:
-            await move_case_stage(
-                session,
-                tenant_id,
-                case,
-                status=status,
-                stage_key=stage_key,
-                actor_type="workstream_run",
-                actor_id=str(run.id),
-            )
-        except HTTPException:
-            # A step names a stage the ticket's workstream no longer has.
-            logger.warning("Unknown stage %s on run %s", stage_key, run.id)
+    try:
+        await set_ticket_status_for_run(
+            session, tenant_id, run, status=status, stage_key=stage_key
+        )
+    except HTTPException:
+        # A step names a stage the ticket's playbook no longer has.
+        logger.warning("Unknown stage %s on run %s", stage_key, run.id)
 
 
 def _parse_ids(raw: str | None) -> list[str]:
@@ -211,24 +163,57 @@ def _template_fields(run: WorkstreamRun) -> dict[str, Any]:
 # Serialization
 
 
-def serialize_workstream(ws: Workstream, *, steps_count: int | None = None) -> dict[str, Any]:
-    from app.services.ticket_stages import workstream_stages
+def serialize_workstream(
+    ws: Workstream,
+    *,
+    stages_count: int | None = None,
+    project_ids: list[str] | None = None,
+    tags: list[dict[str, str]] | None = None,
+    steps_count: int | None = None,  # deprecated alias ignored
+) -> dict[str, Any]:
+    from app.services.tickets import workstream_stages
 
+    stages = workstream_stages(ws)
+    tag_rows = tags or []
+    # Operator-facing Flow title is the first action-tag hashtag when present.
+    display_name = tag_rows[0]["name"] if tag_rows else ws.name
     out = {
         "id": str(ws.id),
-        "project_id": str(ws.project_id) if ws.project_id else None,
-        "name": ws.name,
+        "project_ids": project_ids or [],
+        "name": display_name,
         "description": ws.description,
         "enabled": ws.enabled,
-        "is_default": ws.is_default,
         "module_slug": ws.module_slug,
         "template_slug": ws.template_slug,
-        "stages": workstream_stages(ws),
+        "stages": stages,
+        "stages_count": stages_count if stages_count is not None else len(stages),
+        "tags": tag_rows,
         "created_at": _iso(ws.created_at),
         "updated_at": _iso(ws.updated_at),
     }
-    if steps_count is not None:
-        out["steps_count"] = steps_count
+    return out
+
+
+async def playbook_tags_map(
+    session: AsyncSession, tenant_id: UUID, workstream_ids: list[UUID]
+) -> dict[UUID, list[dict[str, str]]]:
+    if not workstream_ids:
+        return {}
+    from app.models.signal import SignalTag
+
+    rows = await session.execute(
+        select(SignalTag.workstream_id, SignalTag.id, SignalTag.name)
+        .where(
+            SignalTag.tenant_id == tenant_id,
+            SignalTag.workstream_id.in_(workstream_ids),
+        )
+        .order_by(SignalTag.name)
+    )
+    out: dict[UUID, list[dict[str, str]]] = {}
+    for ws_id, tag_id, name in rows.all():
+        if ws_id is None:
+            continue
+        out.setdefault(ws_id, []).append({"id": str(tag_id), "name": name})
     return out
 
 
@@ -280,6 +265,84 @@ def serialize_run(run: WorkstreamRun, *, workstream_name: str | None = None) -> 
 # Definition CRUD
 
 
+async def playbook_project_map(
+    session: AsyncSession, tenant_id: UUID, workstream_ids: list[UUID]
+) -> dict[UUID, list[str]]:
+    if not workstream_ids:
+        return {}
+    rows = await session.execute(
+        select(WorkstreamProject.workstream_id, WorkstreamProject.project_id)
+        .where(
+            WorkstreamProject.tenant_id == tenant_id,
+            WorkstreamProject.workstream_id.in_(workstream_ids),
+        )
+        .order_by(WorkstreamProject.created_at)
+    )
+    out: dict[UUID, list[str]] = {}
+    for ws_id, project_id in rows.all():
+        out.setdefault(ws_id, []).append(str(project_id))
+    return out
+
+
+async def serialize_workstream_full(
+    session: AsyncSession, ws: Workstream, *, stages_count: int | None = None
+) -> dict[str, Any]:
+    projects = await playbook_project_map(session, ws.tenant_id, [ws.id])
+    tags = await playbook_tags_map(session, ws.tenant_id, [ws.id])
+    return serialize_workstream(
+        ws,
+        stages_count=stages_count,
+        project_ids=projects.get(ws.id, []),
+        tags=tags.get(ws.id, []),
+    )
+
+
+async def set_playbook_projects(
+    session: AsyncSession, tenant_id: UUID, ws: Workstream, project_ids: list[UUID]
+) -> None:
+    """Replace the projects a playbook is attached to.
+
+    Tickets filed on a detached project keep their project_id but leave that
+    project's board, because the board only shows attached playbooks.
+    """
+    from app.models.project import Project
+
+    wanted = list(dict.fromkeys(project_ids))
+    if wanted:
+        found = set(
+            (
+                await session.execute(
+                    select(Project.id).where(
+                        Project.tenant_id == tenant_id,
+                        Project.id.in_(wanted),
+                        Project.deleted_at.is_(None),
+                    )
+                )
+            ).scalars()
+        )
+        missing = [str(pid) for pid in wanted if pid not in found]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Unknown project: {missing[0]}")
+    existing = {
+        row.project_id: row
+        for row in (
+            await session.execute(
+                select(WorkstreamProject).where(
+                    WorkstreamProject.tenant_id == tenant_id,
+                    WorkstreamProject.workstream_id == ws.id,
+                )
+            )
+        ).scalars()
+    }
+    for pid, row in existing.items():
+        if pid not in wanted:
+            await session.delete(row)
+    for pid in wanted:
+        if pid not in existing:
+            session.add(WorkstreamProject(tenant_id=tenant_id, workstream_id=ws.id, project_id=pid))
+    await session.flush()
+
+
 async def get_workstream(
     session: AsyncSession, tenant_id: UUID, workstream_id: UUID
 ) -> Workstream:
@@ -302,37 +365,83 @@ async def get_workstream(
 async def list_workstreams(
     session: AsyncSession, tenant_id: UUID, *, project_id: UUID | None = None
 ) -> list[dict[str, Any]]:
-    from sqlalchemy import func
-
     from app.services.trash import alive
 
     query = select(Workstream).where(Workstream.tenant_id == tenant_id, alive(Workstream))
     if project_id is not None:
-        query = query.where(Workstream.project_id == project_id)
-    rows = list((await session.execute(query.order_by(Workstream.name))).scalars().all())
-    counts: dict[UUID, int] = {}
-    if rows:
-        count_rows = await session.execute(
-            select(WorkstreamStep.workstream_id, func.count())
-            .where(WorkstreamStep.workstream_id.in_([w.id for w in rows]))
-            .group_by(WorkstreamStep.workstream_id)
+        query = query.where(
+            Workstream.id.in_(
+                select(WorkstreamProject.workstream_id).where(
+                    WorkstreamProject.project_id == project_id
+                )
+            )
         )
-        counts = {r[0]: int(r[1]) for r in count_rows.all()}
-    return [serialize_workstream(w, steps_count=counts.get(w.id, 0)) for w in rows]
+    rows = list((await session.execute(query.order_by(Workstream.name))).scalars().all())
+    ids = [w.id for w in rows]
+    projects = await playbook_project_map(session, tenant_id, ids)
+    tags = await playbook_tags_map(session, tenant_id, ids)
+    activity = await playbook_ticket_activity(session, tenant_id, rows)
+    out = []
+    for w in rows:
+        row = serialize_workstream(w, project_ids=projects.get(w.id, []), tags=tags.get(w.id, []))
+        counts, last_at = activity.get(w.id, ({}, None))
+        row["ticket_counts"] = counts
+        row["last_activity_at"] = _iso(last_at)
+        out.append(row)
+    return out
+
+
+async def playbook_ticket_activity(
+    session: AsyncSession, tenant_id: UUID, flows: list[Workstream]
+) -> dict[UUID, tuple[dict[str, int], datetime | None]]:
+    """Live tickets per stage key and the latest ticket message, per flow.
+
+    A ticket on a stage the flow no longer has counts on its first stage, the
+    same place the board shows it.
+    """
+    if not flows:
+        return {}
+    from sqlalchemy import func
+
+    from app.models.signal import Signal, SignalTag
+    from app.services.tickets import workstream_stages
+
+    rows = await session.execute(
+        select(
+            SignalTag.workstream_id,
+            Signal.stage_key,
+            func.count(Signal.id),
+            func.max(Signal.last_message_at),
+        )
+        .join(SignalTag, SignalTag.id == Signal.ticket_tag_id)
+        .where(
+            Signal.tenant_id == tenant_id,
+            SignalTag.workstream_id.in_([w.id for w in flows]),
+            Signal.ticket_status != "proposed",
+            Signal.deleted_at.is_(None),
+        )
+        .group_by(SignalTag.workstream_id, Signal.stage_key)
+    )
+    stages_by_ws = {w.id: [s["key"] for s in workstream_stages(w)] for w in flows}
+    out: dict[UUID, tuple[dict[str, int], datetime | None]] = {}
+    for ws_id, stage_key, count, last_at in rows.all():
+        keys = stages_by_ws.get(ws_id) or []
+        if not keys:
+            continue
+        key = stage_key if stage_key in keys else keys[0]
+        counts, latest = out.get(ws_id, ({}, None))
+        counts[key] = counts.get(key, 0) + int(count)
+        if last_at is not None and (latest is None or last_at > latest):
+            latest = last_at
+        out[ws_id] = (counts, latest)
+    return out
 
 
 async def list_steps(
     session: AsyncSession, tenant_id: UUID, workstream_id: UUID
 ) -> list[WorkstreamStep]:
-    result = await session.execute(
-        select(WorkstreamStep)
-        .where(
-            WorkstreamStep.workstream_id == workstream_id,
-            WorkstreamStep.tenant_id == tenant_id,
-        )
-        .order_by(WorkstreamStep.position)
-    )
-    return list(result.scalars().all())
+    """Step engine retired — playbooks are stages-only."""
+    return []
 
 
 def _validate_step_payload(payload: dict[str, Any]) -> None:
@@ -359,6 +468,7 @@ async def replace_steps(
     workstream_id: UUID,
     steps: list[dict[str, Any]],
 ) -> list[WorkstreamStep]:
+    raise HTTPException(status_code=410, detail="Workstream steps are retired; use stages.")
     """Replace the step list. Steps with a known id keep it (running runs
     reference steps by id), removed steps are deleted, positions follow the
     submitted order."""
@@ -442,9 +552,6 @@ async def delete_workstream(
         .where(WorkstreamRun.workstream_id == ws.id)
         .values(workstream_id=None)
     )
-    await session.execute(
-        sa_delete(WorkstreamStep).where(WorkstreamStep.workstream_id == ws.id)
-    )
     await session.delete(ws)
     await session.flush()
 
@@ -452,53 +559,46 @@ async def delete_workstream(
 async def ensure_default_workstream(
     session: AsyncSession, tenant_id: UUID, project_id: UUID, *, commit: bool = True
 ) -> Workstream:
-    """Return the project's default workstream, creating it when missing.
+    """Return the project's default playbook, creating it when missing.
 
-    Every project must have at least one workstream: agent edits to project
-    docs run exclusively through workstream runs.
+    Every project must have at least one playbook: agent edits to project
+    docs run exclusively through playbook runs.
     """
-    rows = list(
-        (
-            await session.execute(
-                select(Workstream).where(
-                    Workstream.tenant_id == tenant_id,
-                    Workstream.project_id == project_id,
-                    Workstream.deleted_at.is_(None),
-                )
+    links = (
+        await session.execute(
+            select(WorkstreamProject, Workstream)
+            .join(Workstream, Workstream.id == WorkstreamProject.workstream_id)
+            .where(
+                WorkstreamProject.tenant_id == tenant_id,
+                WorkstreamProject.project_id == project_id,
+                Workstream.deleted_at.is_(None),
             )
+            .order_by(WorkstreamProject.created_at)
         )
-        .scalars()
-        .all()
-    )
-    default = next((w for w in rows if w.is_default), None)
+    ).all()
+    default = next((ws for link, ws in links if link.is_default), None)
     if default:
         return default
-    if rows:
-        rows[0].is_default = True
-        session.add(rows[0])
+    if links:
+        link, ws = links[0]
+        link.is_default = True
+        session.add(link)
         if commit:
             await session.commit()
         else:
             await session.flush()
-        return rows[0]
+        return ws
     ws = Workstream(
         tenant_id=tenant_id,
-        project_id=project_id,
         name=DEFAULT_WORKSTREAM_NAME,
         description=DEFAULT_WORKSTREAM_DESCRIPTION,
         enabled=True,
-        is_default=True,
     )
     session.add(ws)
     await session.flush()
     session.add(
-        WorkstreamStep(
-            tenant_id=tenant_id,
-            workstream_id=ws.id,
-            position=0,
-            name="Assess and execute",
-            kind="agent_task",
-            goal=DEFAULT_STEP_GOAL,
+        WorkstreamProject(
+            tenant_id=tenant_id, workstream_id=ws.id, project_id=project_id, is_default=True
         )
     )
     if commit:
@@ -538,7 +638,6 @@ async def install_template(
     )
     session.add(ws)
     await session.flush()
-    await replace_steps(session, tenant_id, ws.id, [dict(s) for s in template.steps])
     await session.commit()
     await session.refresh(ws)
     return ws
@@ -565,23 +664,22 @@ async def choose_workstream_for_input(
     ties and serves as fallback. Creates the default when the project has no
     workstreams at all.
     """
-    rows = list(
-        (
-            await session.execute(
-                select(Workstream).where(
-                    Workstream.tenant_id == tenant_id,
-                    Workstream.project_id == project_id,
-                    Workstream.enabled.is_(True),
-                )
+    rows = (
+        await session.execute(
+            select(WorkstreamProject.is_default, Workstream)
+            .join(Workstream, Workstream.id == WorkstreamProject.workstream_id)
+            .where(
+                WorkstreamProject.tenant_id == tenant_id,
+                WorkstreamProject.project_id == project_id,
+                Workstream.enabled.is_(True),
+                Workstream.deleted_at.is_(None),
             )
         )
-        .scalars()
-        .all()
-    )
+    ).all()
     if not rows:
         return await ensure_default_workstream(session, tenant_id, project_id)
-    best = max(rows, key=lambda w: (_keyword_score(text, w), w.is_default))
-    return best
+    best = max(rows, key=lambda r: (_keyword_score(text, r[1]), r[0]))
+    return best[1]
 
 
 # ---------------------------------------------------------------------------
@@ -610,6 +708,7 @@ async def start_run(
     input_text: str = "",
     input_ref: str = "",
     signal_id: UUID | None = None,
+    project_id: UUID | None = None,
     triggered_by_type: str = "user",
     triggered_by_id: str = "",
     advance: bool = True,
@@ -624,11 +723,6 @@ async def start_run(
     ws = await get_workstream(session, tenant_id, workstream_id)
     if not ws.enabled:
         raise HTTPException(status_code=400, detail="Workstream is disabled.")
-    steps = await list_steps(session, tenant_id, workstream_id)
-    if not steps:
-        raise HTTPException(
-            status_code=400, detail="Add at least one step before running this workstream."
-        )
     if signal_id is not None:
         existing = (
             await session.execute(
@@ -643,27 +737,26 @@ async def start_run(
         ).scalars().first()
         if existing is not None:
             return existing
+    now = datetime.utcnow()
     run = WorkstreamRun(
         tenant_id=tenant_id,
         workstream_id=ws.id,
-        project_id=ws.project_id,
+        project_id=project_id,
         signal_id=signal_id,
-        status="running",
+        status="completed",
         input_kind=input_kind,
         input_ref=input_ref,
         input_text=input_text,
-        current_step_id=steps[0].id,
+        current_step_id=None,
+        summary="Stages-only playbook (step engine retired).",
         triggered_by_type=triggered_by_type,
         triggered_by_id=triggered_by_id,
+        completed_at=now,
+        updated_at=now,
     )
     session.add(run)
     await session.commit()
-    if advance:
-        from app.services.orchestration.queue import enqueue_workstream_run_advance
-
-        if not await enqueue_workstream_run_advance(str(tenant_id), str(run.id)):
-            await advance_run(session, tenant_id, run.id)
-        await session.refresh(run)
+    await session.refresh(run)
     return run
 
 
@@ -805,22 +898,17 @@ async def _execute_agent_step(
 
     snapshot = resolve_runtime_snapshot(agent)
     runtime_agent = apply_snapshot_to_agent(agent, snapshot)
-    signal_type_id = None
-    if run.input_kind == "case" and run.input_ref:
-        from app.models.case import Case
-
-        try:
-            case = await session.get(Case, UUID(run.input_ref))
-        except ValueError:
-            case = None
-        if case and case.tenant_id == tenant_id:
-            signal_type_id = case.case_type_id
+    ticket_tag_id = None
+    if run.input_kind == "ticket" and run.signal_id:
+        source = await session.get(Signal, run.signal_id)
+        if source and source.tenant_id == tenant_id:
+            ticket_tag_id = source.ticket_tag_id
     agent_run = AgentRun(
         tenant_id=tenant_id,
         agent_id=agent.id,
         project_id=run.project_id,
         workstream_run_id=run.id,
-        signal_type_id=signal_type_id,
+        ticket_tag_id=ticket_tag_id,
         step_id=step.id,
         status="running",
         trigger_type="workstream",
@@ -1083,7 +1171,7 @@ async def _raise_failure_decision(
         source_type="workstream_failure",
         source_id=str(run.id),
     )
-    await _set_source_case_status(session, tenant_id, run, "waiting")
+    await _set_ticket_status(session, tenant_id, run, "waiting")
 
 
 def _worklog_lines(run: WorkstreamRun) -> str:
@@ -1130,18 +1218,9 @@ async def _announce_completion(
 async def _next_step(
     session: AsyncSession, tenant_id: UUID, run: WorkstreamRun, current: WorkstreamStep
 ) -> WorkstreamStep | None:
-    return (
-        await session.execute(
-            select(WorkstreamStep)
-            .where(
-                WorkstreamStep.workstream_id == run.workstream_id,
-                WorkstreamStep.tenant_id == tenant_id,
-                WorkstreamStep.position > current.position,
-            )
-            .order_by(WorkstreamStep.position)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    """Step engine retired."""
+    _ = (session, tenant_id, run, current)
+    return None
 
 
 async def _sync_queue_item(
@@ -1242,7 +1321,7 @@ async def _complete_run(
     run.updated_at = run.completed_at
     session.add(run)
     await session.flush()
-    await _set_source_case_status(session, tenant_id, run, "done")
+    await _set_ticket_status(session, tenant_id, run, "done")
     await _sync_queue_item(session, tenant_id, run)
     await _announce_completion(session, tenant_id, ws, run)
 
@@ -1250,148 +1329,19 @@ async def _complete_run(
 async def advance_run(
     session: AsyncSession, tenant_id: UUID, run_id: UUID
 ) -> dict[str, Any]:
-    """Process steps from the current position until the run waits, gates,
-    completes, or fails. Commits its own progress."""
+    """Step engine retired — complete any leftover running runs."""
     run = await get_run(session, tenant_id, run_id)
     if run.status not in ("running",):
         return {"skipped": True, "status": run.status}
-    ws = await get_workstream(session, tenant_id, run.workstream_id)
-
-    # Integrity check before executing: agents available, module requirements
-    # still met, linked sections present. A failing check pauses the run with
-    # a retry/cancel decision instead of failing silently mid-step.
-    from app.services.workstream_integrity import check_run_readiness
-
-    steps_for_check = await list_steps(session, tenant_id, ws.id)
-    problems = await check_run_readiness(session, tenant_id, ws, steps_for_check)
-    if problems:
-        error = "Integrity check failed: " + " ".join(problems)
-        run.status = "failed"
-        run.error = error[:1000]
-        run.updated_at = datetime.utcnow()
-        session.add(run)
-        await _sync_queue_item(session, tenant_id, run)
-        await _raise_failure_decision(session, tenant_id, ws, run, error)
-        await session.commit()
-        return {"failed": True, "error": error}
-
-    for _ in range(MAX_STEPS_PER_ADVANCE):
-        if run.current_step_id is None:
-            await _complete_run(session, tenant_id, ws, run)
-            await session.commit()
-            return {"completed": True}
-        step = (
-            await session.execute(
-                select(WorkstreamStep).where(
-                    WorkstreamStep.id == run.current_step_id,
-                    WorkstreamStep.tenant_id == tenant_id,
-                )
-            )
-        ).scalar_one_or_none()
-        if step is None:
-            await _complete_run(session, tenant_id, ws, run)
-            await session.commit()
-            return {"completed": True}
-        if step.stage_key:
-            await _set_source_case_status(session, tenant_id, run, stage_key=step.stage_key)
-
-        if step.kind in ("wait_for_reply", "schedule"):
-            run.status = "waiting"
-            run.wait_until = (
-                datetime.utcnow() + timedelta(hours=step.deadline_hours)
-                if step.deadline_hours > 0
-                else None
-            )
-            run.reminded_at = None
-            run.updated_at = datetime.utcnow()
-            session.add(run)
-            if not step.stage_key:
-                await _set_source_case_status(session, tenant_id, run, "waiting")
-            await session.commit()
-            return {"waiting": True, "wait_kind": "reply" if step.kind == "wait_for_reply" else "time"}
-
-        if step.kind == "ask_decision":
-            run.status = "awaiting_gate"
-            run.updated_at = datetime.utcnow()
-            session.add(run)
-            if not step.stage_key:
-                await _set_source_case_status(session, tenant_id, run, "waiting")
-            await _raise_gate_decision(session, tenant_id, ws, run, step)
-            await session.commit()
-            return {"awaiting_gate": True, "step_id": str(step.id)}
-
-        try:
-            if step.kind == "agent_task":
-                text = await _execute_agent_step(session, tenant_id, ws, run, step)
-            elif step.kind == "send_message":
-                text = await _execute_send_message_step(session, tenant_id, run, step)
-            elif step.kind == "call_tool":
-                text = await _execute_tool_step(session, tenant_id, run, step)
-            else:
-                raise RuntimeError(f"Unsupported step kind: {step.kind}")
-        except Exception as exc:  # noqa: BLE001 — a failed run must never be silent
-            logger.exception("Workstream run %s failed on step %s", run.id, step.id)
-            await session.rollback()
-            run = await get_run(session, tenant_id, run_id)
-            ws = await get_workstream(session, tenant_id, run.workstream_id)
-            context = _parse_json(run.context_json)
-            retries = context.get("step_retries")
-            if not isinstance(retries, dict):
-                retries = {}
-            retry_count = int(retries.get(str(step.id)) or 0)
-            retry_limit = await _step_retry_limit(session, tenant_id)
-            if retry_count < retry_limit:
-                retries[str(step.id)] = retry_count + 1
-                context["step_retries"] = retries
-                run.context_json = json.dumps(context)
-                run.error = str(exc)[:1000]
-                run.updated_at = datetime.utcnow()
-                session.add(run)
-                await session.commit()
-                continue
-            run.status = "failed"
-            run.error = str(exc)[:1000]
-            run.updated_at = datetime.utcnow()
-            session.add(run)
-            await _sync_queue_item(session, tenant_id, run)
-            await _raise_failure_decision(session, tenant_id, ws, run, str(exc))
-            await session.commit()
-
-            from app.services.ops_alerts import alert_run_failure
-
-            await alert_run_failure(
-                session, tenant_id, subject=ws.name, error=exc, task_id=None
-            )
-            return {"failed": True, "error": str(exc)}
-
-        outputs = _step_outputs(run)
-        context = _parse_json(run.context_json)
-        retries = context.get("step_retries")
-        if isinstance(retries, dict) and str(step.id) in retries:
-            retries.pop(str(step.id), None)
-            context["step_retries"] = retries
-            run.context_json = json.dumps(context)
-        agent_id = None
-        if step.agent_id:
-            agent_id = str(step.agent_id)
-        outputs.append(
-            {
-                "step_id": str(step.id),
-                "name": step.name,
-                "kind": step.kind,
-                "text": text[:6000],
-                "agent_id": agent_id,
-            }
-        )
-        _append_context(run, "step_outputs", outputs)
-
-        nxt = await _next_step(session, tenant_id, run, step)
-        run.current_step_id = nxt.id if nxt else None
-        run.updated_at = datetime.utcnow()
-        session.add(run)
-        await session.commit()
-
-    return {"paused": True, "reason": "max_steps_per_advance"}
+    await get_workstream(session, tenant_id, run.workstream_id)
+    run.status = "completed"
+    run.current_step_id = None
+    run.summary = run.summary or "Stages-only playbook (step engine retired)."
+    run.completed_at = datetime.utcnow()
+    run.updated_at = run.completed_at
+    session.add(run)
+    await session.commit()
+    return {"completed": True, "retired": True}
 
 
 async def resume_run(
@@ -1405,142 +1355,35 @@ async def resume_run(
     next_step_position: int | None = None,
     advance: bool = True,
 ) -> WorkstreamRun:
-    """Resume a waiting or gated run past its current step.
-
-    For failed runs this retries the current step instead of skipping it.
-    """
+    """Step engine retired — complete waiting/gated/failed runs."""
+    _ = (next_step_id, next_step_name, next_step_position, advance)
     run = await get_run(session, tenant_id, run_id)
-    if run.status not in ("waiting", "awaiting_gate", "failed"):
+    if run.status not in ("waiting", "awaiting_gate", "failed", "running"):
         raise HTTPException(
             status_code=400, detail=f"Cannot resume a run in status {run.status}"
         )
-    retry = run.status == "failed"
-    if run.status == "awaiting_gate":
-        # Gate approval: the human vouched for the work, so the sections
-        # written during this run graduate to final.
-        await _finalize_run_sections(session, tenant_id, run)
     if input_text.strip():
         received = _parse_json(run.context_json).get("wait_inputs") or []
         received.append({"at": datetime.utcnow().isoformat(), "text": input_text.strip()[:4000]})
         _append_context(run, "wait_inputs", received)
-
-    if not retry and run.current_step_id is not None:
-        step = (
-            await session.execute(
-                select(WorkstreamStep).where(WorkstreamStep.id == run.current_step_id)
-            )
-        ).scalar_one_or_none()
-        if step is not None:
-            branch_id = next_step_id
-            branch_name = next_step_name
-            branch_position = next_step_position
-            if branch_id is None and step.kind == "wait_for_reply" and input_text.strip():
-                config = _parse_json(step.config_json)
-                for branch in config.get("reply_branches") or []:
-                    if not isinstance(branch, dict):
-                        continue
-                    contains = str(branch.get("contains") or "").strip().lower()
-                    if contains and contains in input_text.lower():
-                        try:
-                            branch_id = UUID(str(branch.get("next_step_id")))
-                        except (TypeError, ValueError):
-                            branch_id = None
-                        branch_name = str(branch.get("next_step_name") or "")
-                        raw_position = branch.get("next_step_position")
-                        branch_position = int(raw_position) if raw_position is not None else None
-                        break
-            nxt = None
-            if branch_id is not None:
-                nxt = (
-                    await session.execute(
-                        select(WorkstreamStep).where(
-                            WorkstreamStep.id == branch_id,
-                            WorkstreamStep.workstream_id == run.workstream_id,
-                            WorkstreamStep.tenant_id == tenant_id,
-                        )
-                    )
-                ).scalar_one_or_none()
-            if nxt is None and branch_name.strip():
-                nxt = (
-                    await session.execute(
-                        select(WorkstreamStep).where(
-                            WorkstreamStep.workstream_id == run.workstream_id,
-                            WorkstreamStep.tenant_id == tenant_id,
-                            WorkstreamStep.name == branch_name.strip(),
-                        )
-                    )
-                ).scalars().first()
-            if nxt is None and branch_position is not None:
-                nxt = (
-                    await session.execute(
-                        select(WorkstreamStep).where(
-                            WorkstreamStep.workstream_id == run.workstream_id,
-                            WorkstreamStep.tenant_id == tenant_id,
-                            WorkstreamStep.position == branch_position,
-                        )
-                    )
-                ).scalar_one_or_none()
-            if nxt is None:
-                nxt = await _next_step(session, tenant_id, run, step)
-            run.current_step_id = nxt.id if nxt else None
-
-    run.status = "running"
+    now = datetime.utcnow()
+    run.status = "completed"
+    run.current_step_id = None
     run.error = ""
     run.wait_until = None
     run.reminded_at = None
-    run.updated_at = datetime.utcnow()
+    run.summary = run.summary or "Stages-only playbook (step engine retired)."
+    run.completed_at = now
+    run.updated_at = now
     session.add(run)
-    await _set_source_case_status(session, tenant_id, run, "open")
     await session.commit()
-    if advance:
-        from app.services.orchestration.queue import enqueue_workstream_run_advance
-
-        if not await enqueue_workstream_run_advance(str(tenant_id), str(run.id)):
-            await advance_run(session, tenant_id, run.id)
-        await session.refresh(run)
+    await session.refresh(run)
     return run
 
 
 async def skip_step_run(session: AsyncSession, tenant_id: UUID, run_id: UUID) -> WorkstreamRun:
-    """Skip the current step after a failure decision and continue the playbook."""
-    run = await get_run(session, tenant_id, run_id)
-    if run.status not in ("waiting", "awaiting_gate", "failed"):
-        raise HTTPException(
-            status_code=400, detail=f"Cannot skip a step on a run in status {run.status}"
-        )
-    if run.current_step_id is not None:
-        step = (
-            await session.execute(
-                select(WorkstreamStep).where(WorkstreamStep.id == run.current_step_id)
-            )
-        ).scalar_one_or_none()
-        if step is not None:
-            nxt = await _next_step(session, tenant_id, run, step)
-            run.current_step_id = nxt.id if nxt else None
-            outputs = _step_outputs(run)
-            outputs.append(
-                {
-                    "step_id": str(step.id),
-                    "name": step.name,
-                    "kind": step.kind,
-                    "text": "Skipped after failure decision",
-                }
-            )
-            _append_context(run, "step_outputs", outputs)
-    run.status = "running"
-    run.error = ""
-    run.wait_until = None
-    run.reminded_at = None
-    run.updated_at = datetime.utcnow()
-    session.add(run)
-    await _set_source_case_status(session, tenant_id, run, "open")
-    await session.commit()
-    from app.services.orchestration.queue import enqueue_workstream_run_advance
-
-    if not await enqueue_workstream_run_advance(str(tenant_id), str(run.id)):
-        await advance_run(session, tenant_id, run.id)
-    await session.refresh(run)
-    return run
+    """Step engine retired — same as resume/complete."""
+    return await resume_run(session, tenant_id, run_id)
 
 
 async def cancel_run(session: AsyncSession, tenant_id: UUID, run_id: UUID) -> WorkstreamRun:
@@ -1552,119 +1395,15 @@ async def cancel_run(session: AsyncSession, tenant_id: UUID, run_id: UUID) -> Wo
     run.completed_at = datetime.utcnow()
     run.updated_at = run.completed_at
     session.add(run)
-    await _set_source_case_status(session, tenant_id, run, "done")
+    await _set_ticket_status(session, tenant_id, run, "done")
     await _sync_queue_item(session, tenant_id, run)
     await session.commit()
     return run
 
 
 async def process_due_run_deadlines(session: AsyncSession) -> int:
-    """Scheduler sweep: wake waiting runs whose deadline passed.
-
-    Time waits simply continue. Input/event waits follow the step's
-    `on_deadline`: continue, remind (in the agent channel) then continue,
-    or fail with a decision.
-    """
-    now = datetime.utcnow()
-    due_ids = [
-        row[0]
-        for row in (
-            await session.execute(
-                select(WorkstreamRun.id).where(
-                    WorkstreamRun.status == "waiting",
-                    WorkstreamRun.wait_until.is_not(None),
-                    WorkstreamRun.wait_until <= now,
-                )
-            )
-        ).all()
-    ]
-    woken = 0
-    for run_id in due_ids:
-        run = (
-            await session.execute(
-                select(WorkstreamRun).where(WorkstreamRun.id == run_id)
-            )
-        ).scalar_one_or_none()
-        if run is None or run.status != "waiting":
-            continue
-        step = (
-            await session.execute(
-                select(WorkstreamStep).where(WorkstreamStep.id == run.current_step_id)
-            )
-        ).scalar_one_or_none()
-        ws = (
-            await session.execute(
-                select(Workstream).where(Workstream.id == run.workstream_id)
-            )
-        ).scalar_one_or_none()
-        if step is None or ws is None:
-            run.status = "cancelled"
-            run.completed_at = now
-            session.add(run)
-            await session.commit()
-            continue
-        on_deadline = step.on_deadline if step.kind == "wait_for_reply" else "continue"
-        if on_deadline == "fail":
-            context = _parse_json(run.context_json)
-            retries = context.get("step_retries")
-            if not isinstance(retries, dict):
-                retries = {}
-            retry_count = int(retries.get(str(step.id)) or 0)
-            retry_limit = await _step_retry_limit(session, run.tenant_id)
-            if retry_count < retry_limit:
-                retries[str(step.id)] = retry_count + 1
-                context["step_retries"] = retries
-                run.context_json = json.dumps(context)
-                run.wait_until = now + timedelta(hours=max(1, step.deadline_hours))
-                run.reminded_at = None
-                run.updated_at = now
-                session.add(run)
-                await session.commit()
-                woken += 1
-                continue
-            run.status = "failed"
-            run.error = f"Deadline passed while waiting on step '{step.name}'."
-            run.updated_at = now
-            session.add(run)
-            await _raise_failure_decision(session, run.tenant_id, ws, run, run.error)
-            await session.commit()
-            woken += 1
-            continue
-        if on_deadline == "remind_then_continue" and run.reminded_at is None:
-            from app.services.assistant_threads import append_signal_chat_message
-            from app.services.platform_watch import ensure_agent_channel
-
-            try:
-                channel = await ensure_agent_channel(session, run.tenant_id)
-                await append_signal_chat_message(
-                    session,
-                    channel,
-                    role="assistant",
-                    content=(
-                        f"Reminder: workstream '{ws.name}' waited on step "
-                        f"'{step.name}' past its deadline and continues now."
-                    ),
-                    metadata={"workstream_run_id": str(run.id)},
-                )
-            except ValueError:
-                pass
-            run.reminded_at = now
-            session.add(run)
-        # Continue past the wait step.
-        nxt = await _next_step(session, run.tenant_id, run, step)
-        run.current_step_id = nxt.id if nxt else None
-        run.status = "running"
-        run.wait_until = None
-        run.updated_at = now
-        session.add(run)
-        await session.commit()
-        await advance_run(session, run.tenant_id, run.id)
-        woken += 1
-    return woken
-
-
-# ---------------------------------------------------------------------------
-# Run detail (worklog)
+    """Step engine retired — no waiting step deadlines to process."""
+    return 0
 
 
 async def run_detail(session: AsyncSession, tenant_id: UUID, run_id: UUID) -> dict[str, Any]:

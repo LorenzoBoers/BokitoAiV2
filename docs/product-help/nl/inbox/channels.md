@@ -108,12 +108,15 @@ Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI
 2. Maak een titel en tekst, of sla een concept op vanuit de composer in een gesprek.
 3. Iedereen kan een opgeslagen antwoord invoegen tijdens het antwoorden in Communicatie.
 
-## Kies standaard submappen, mappen en tags
+## Kies submappen en beheer hashtags
 
-1. Scroll naar **Mappen en tags** op dezelfde pagina.
-2. Elke kanaal- en agentmap in Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Submappen verschijnen pas als je op de map klikt. Kies de **Standaard submap** waarmee een map opent, en wijk daar per kanaal of assistent van af.
-3. Bewaar onder **Mappen** een filter op project, categorie, tag en fase als map in de zijbalk van Communicatie. Houd onder **Tags** de taglijst van de workspace bij waaruit agents en regels kiezen. Zie [Communicatie](/docs/inbox/communication).
-4. De categorie van een gesprek is geen tag; beheer categorieën onder **Instellingen** → **Signaaltypes**. Zie [Categorieën en tickets](/docs/ai/cases).
+![Tags en Communicatie op de pagina Kanalen](/api/docs/assets/channels/communication-tags.png)
+*Elke rij in Communicatie met de submap waarmee hij opent.*
+
+1. Scroll naar **Tags en Communicatie** op dezelfde pagina. Elke rij in de zijbalk van Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies de **Standaard submap**, en wijk daar per team, kanaal, hashtag of project van af.
+2. Scroll naar **Hashtags** voor de lijst van de workspace waaruit agents en regels kiezen. Kies **Nieuwe hashtag**, typ een naam en voeg een omschrijving toe die agents lezen.
+3. Hashtags en actietags staan onder **Instellingen** → **Actietags**: zet daar een vrije hashtag vast voor een rij onder **Tags** in Communicatie, of kies **Maak actietag** om er een flow aan te koppelen.
+4. Zie [Actietags en tickets](/docs/ai/categories).
 
 ## Wat nu
 

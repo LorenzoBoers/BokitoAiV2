@@ -141,9 +141,9 @@
     "autonomousTitle": "Draait autonoom",
     "autonomousNone": "Er draait nu niets autonoom.",
     "autonomousWorkspace": "Workspace-standaard (elk kanaal zonder eigen instelling)",
-    "reviewedTypesTitle": "Signaaltypes die altijd controle nodig hebben",
-    "reviewedTypesHint": "Antwoorden in een gesprek met een van deze signaaltypes worden een concept, ook als het gesprek autonoom is.",
-    "noTypes": "Nog geen signaaltypes.",
+    "reviewedTypesTitle": "Actietags die altijd controle nodig hebben",
+    "reviewedTypesHint": "Antwoorden op een ticket met een van deze actietags worden een concept, ook als het gesprek autonoom is.",
+    "noTypes": "Nog geen actietags.",
     "alwaysReview": "Altijd controleren",
     "mayAutoSend": "Mag versturen",
     "breakerTitle": "Noodrem",
@@ -154,10 +154,10 @@
     "breakerSaved": "Grenzen noodrem opgeslagen."
   },
   "scopes": {
-    "title": "Autonomie per type en draaiboek",
-    "intro": "Stel een bovengrens in per Signaaltype en draaiboek. Deze instellingen blijven onder de workspacehouding.",
-    "types": "Signaaltypen",
-    "playbooks": "Draaiboeken",
+    "title": "Autonomie per actietag en flow",
+    "intro": "Stel een plafond in per actietag en flow. Deze instellingen blijven onder de houding van de workspace.",
+    "types": "Actietags",
+    "playbooks": "Flows",
     "empty": "Geen actieve items.",
     "saved": "Autonomieniveau bijgewerkt.",
     "saveError": "Kon dit autonomieniveau niet bijwerken.",
@@ -178,7 +178,7 @@
     },
     "agents": {
       "label": "Agents",
-      "hint": "Agents en draaiboeken aanmaken of bijwerken."
+      "hint": "Agents en flows aanmaken of bijwerken."
     },
     "delegation": {
       "label": "Delegeren",
@@ -204,9 +204,9 @@
       "label": "Projecten",
       "hint": "Projectdocumenten, queue-items en repositorywerk."
     },
-    "cases": {
-      "label": "Signalen",
-      "hint": "Getypte intake op een gesprek openen en koppelen."
+    "tickets": {
+      "label": "Tickets",
+      "hint": "Een gesprek op een actietag vastleggen, en het ticket door de fasen bewegen."
     }
   },
   "tokens": {
@@ -255,10 +255,9 @@
       "canvas_edge": "Canvas-verbinding",
       "autonomy_posture": "Hoeveel agents mogen doen",
       "persona_review": "Stemreview",
-      "case_type": "Intake-type",
-      "case_type_binding": "Intake-routing",
       "agent_rule": "Agentregel",
-      "routing_rule": "Routeringsregel"
+      "routing_rule": "Routeringsregel",
+      "signal_tag": "Hashtag"
     },
     "changeKind": {
       "create": "Aanmaken",

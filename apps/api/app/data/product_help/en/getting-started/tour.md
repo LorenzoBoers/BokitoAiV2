@@ -35,7 +35,7 @@ At the bottom of the rail, **Organization** groups the workspace itself:
 
 - **Workforce** — the people, the agents and the teams they form, with who is available now. See [Workforce](/docs/getting-started/team).
 - **Connections** — marketplace installs, partner logins and tools. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Integrations](/docs/integrations/integrations).
-- **Settings** — **Channels**, **AI replies**, chat widget, **Providers & models** and **Govern**. **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. Categories for conversations live under **Signal types**; see [Categories and tickets](/docs/ai/cases).
+- **Settings** — grouped as Personal, Workspace, Communication (**Channels**, **Chat widget**, **AI handling**, **Action tags**), AI and control (**Govern**, **Models**, **Data & privacy**) and Advanced (**Developers**). **Help** at the bottom opens the setup guide, product tour, docs, API reference and support. See [Action tags and tickets](/docs/ai/categories).
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 

@@ -42,6 +42,6 @@ Scopes restrict what a token may do. Details in [Authentication](/docs/developer
 
 - Bokito's seven public objects are Conversation, Signal, Playbook, Project, Contact, Agent and Decision. Conversation/Signal REST is the first stable v1 resource; existing authenticated routers cover Playbooks, Projects, Contacts, Agents and Decisions for the dashboard.
 - Webhooks publish lifecycle events, and the MCP endpoint exposes governed actions around the same objects. It is the preferred integration surface for richer behavior instead of duplicating a large REST API.
-- LLM usage is metered by model, agent and initiating user. Run metadata also attributes usage to Signal Type and Playbook run when that context is known. Workspace membership is the seat boundary.
+- LLM usage is metered by model, agent and initiating user. Run metadata also attributes usage to category and playbook run when that context is known. Workspace membership is the seat boundary.
 - Everything is tenant-scoped by the token. There is no cross-tenant access.
 - Rate limits apply per client IP; see [Rate limits](/docs/developers/rate-limits).

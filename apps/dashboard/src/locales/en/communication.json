@@ -433,7 +433,13 @@
       "awaiting_human": "For you",
       "overdue": "Overdue",
       "planned": "Planned",
-      "due": "Due"
+      "due": "Due",
+      "started": "Started",
+      "reported": "Reported",
+      "skipped": "Skipped",
+      "error": "Error",
+      "ok": "Done",
+      "done": "Done"
     },
     "agendaKind": {
       "wake": "Agent wake",
@@ -445,7 +451,10 @@
       "cron": "Recurring",
       "interval": "Repeating",
       "heartbeat": "Check-in",
-      "calendar": "Calendar"
+      "calendar": "Calendar",
+      "checkup": "Check-up",
+      "session": "Agent run",
+      "activity": "Activity"
     },
     "agentRuntime": {
       "active": "Active",
@@ -455,7 +464,7 @@
     },
     "flow": {
       "active": "Active",
-      "paused": "Paused"
+      "paused": "Deactivated"
     },
     "index": {
       "indexed": "Indexed",
@@ -660,7 +669,6 @@
     "whatsNextTitle": "What next",
     "whatsNextHint": "Schedule a look-at on this conversation, or open a typed Signal.",
     "whatsNextRemind": "Look again",
-    "whatsNextSignal": "Open a Signal",
     "whatsNextSave": "Save",
     "whatsNextLoadingTypes": "Loading signal types…",
     "whatsNextNoTypes": "No signal types yet. Add them under Settings, Signal types.",
@@ -724,15 +732,6 @@
     "blockContact": "Block {{name}}",
     "blockContactDone": "{{name}} is blocked. New messages from them will be dropped.",
     "blockContactError": "Could not block that contact.",
-    "closeWithSignalsTitle": "Open signals on this conversation",
-    "closeWithSignalsBody": "{{count}} signal(s) are still open: {{names}}. Close them with the conversation, or leave them open for follow-up.",
-    "closeWithSignalsFallback": "Signal",
-    "closeWithSignalsCancel": "Keep conversation open",
-    "closeWithSignalsLeaveOpen": "Close conversation only",
-    "closeWithSignalsResolve": "Close signals and conversation",
-    "closeWithSignalsError": "Could not update those signals.",
-    "closeWithSignalsShortcutConfirm": "This conversation has {{count}} open signal(s). Close the conversation anyway?",
-    "closeWithSignalsShortcutResolve": "Also mark those {{count}} signal(s) done?",
     "pinThread": "Pin thread",
     "unpinThread": "Unpin thread",
     "assign": "Assign",
@@ -793,7 +792,17 @@
     "handoverHintTeam": "Add a message for the team. The team picks it up the way it is set to pick up work.",
     "handoverPlaceholder": "Message (optional)",
     "handoverCancel": "Cancel",
-    "handoverConfirm": "Assign"
+    "handoverConfirm": "Assign",
+    "whatsNextTicket": "File a ticket",
+    "closeWithTicketTitle": "This conversation is an open ticket",
+    "closeWithTicketBody": "{{names}} is still open. Move it to its done stage with the conversation, or leave it open for follow-up.",
+    "closeWithTicketFallback": "Ticket",
+    "closeWithTicketCancel": "Keep conversation open",
+    "closeWithTicketLeaveOpen": "Close conversation only",
+    "closeWithTicketResolve": "Close ticket and conversation",
+    "closeWithTicketError": "Could not update the ticket.",
+    "closeWithTicketShortcutConfirm": "This conversation is an open ticket. Close the conversation anyway?",
+    "closeWithTicketShortcutResolve": "Also move the ticket to its done stage?"
   },
   "addToProject": {
     "title": "Link to project",
@@ -845,7 +854,7 @@
     "nextLookAtClearError": "Could not clear the look-at.",
     "relatedWork": "Related work",
     "linkAgents": "Agents",
-    "linkPlaybooks": "Playbooks",
+    "linkPlaybooks": "Flows",
     "linkProjects": "Projects",
     "linkKnowledge": "Knowledge",
     "noContact": "No contact linked",
@@ -1145,9 +1154,9 @@
       "splitIn": "Split from an earlier conversation",
       "splitOut": "New request moved to its own conversation",
       "splitOutCategory": "New request moved to its own conversation: {{category}}",
-      "categorySet": "Category set to {{category}}",
-      "categoryProposed": "Category proposed: {{category}}",
-      "categoryChanged": "Category changed from {{previous}} to {{category}}",
+      "categorySet": "Action tag set to {{category}}",
+      "categoryProposed": "Action tag proposed: {{category}}",
+      "categoryChanged": "Action tag changed from {{previous}} to {{category}}",
       "ticketStageChanged": "Ticket moved to {{stage}}",
       "escalated": "Escalated to the team",
       "aiPaused": "AI paused on this thread",
@@ -1164,7 +1173,7 @@
       "downgradeReasons": {
         "low_certainty": "low certainty",
         "new_contact": "new contact",
-        "signal_type": "signal type asks for review"
+        "category": "action tag asks for review"
       },
       "approvedBy": "Approved by {{name}}",
       "suggestionApproved": "Suggestion approved",
@@ -1262,7 +1271,7 @@
     "action": "Split from here",
     "title": "Split into a new conversation",
     "hint": "This message and everything after it move into a new conversation with the same contact. Replies on this thread land there.",
-    "category": "Category for the new conversation",
+    "category": "Action tag for the new conversation",
     "noCategory": "Decide later",
     "cancel": "Cancel",
     "confirm": "Split",
@@ -1289,9 +1298,33 @@
   },
   "tags": {
     "title": "Tags",
-    "add": "Add tag",
-    "placeholder": "Tag name",
-    "remove": "Remove tag {{tag}}",
-    "categoryLocked": "Category. Change it under Category."
+    "add": "Add hashtags",
+    "hint": "Action tags start a ticket flow",
+    "placeholder": "Name",
+    "remove": "Remove hashtag {{tag}}",
+    "categoryLocked": "Action tag. Change it by replacing or splitting.",
+    "modalTitle": "Hashtags on this conversation",
+    "modalHint": "Free hashtags label the conversation. An action tag starts a ticket flow.",
+    "searchPlaceholder": "Search or type a name",
+    "actionTag": "Action tag",
+    "freeHashtag": "Hashtag",
+    "noMatches": "No matching hashtags",
+    "applyFree": "Add as hashtag",
+    "makeActionTag": "Make action tag",
+    "makeActionTagHint": "Creates a flow titled #{{name}} and files this conversation as a ticket.",
+    "applyFreeHint": "Labels the conversation only. Does not start a ticket flow.",
+    "chooseProject": "Which project does this belong to?",
+    "noProject": "No project",
+    "intakeTitle": "Fill in details",
+    "intakeHint": "Optional fields for this action tag. Required fields are marked.",
+    "intakeContinue": "File ticket",
+    "intakeRequired": "Required",
+    "replaceTitle": "Replace action tag?",
+    "replaceBody": "This conversation already has #{{current}}. Filing #{{next}} replaces it.",
+    "replaceConfirm": "Replace",
+    "cancel": "Cancel",
+    "fileError": "Could not file this action tag.",
+    "createError": "Could not create this hashtag.",
+    "busy": "Saving…"
   }
 }

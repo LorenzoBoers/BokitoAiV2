@@ -1,6 +1,6 @@
 import type { NavBadgeCounts } from '../context/NavBadgeContext'
 
-export type NavBadgeSlot = 'inbox' | 'agents' | 'home' | 'messages'
+export type NavBadgeSlot = 'inbox' | 'agents' | 'agenda' | 'home' | 'messages'
 
 export function countForBadgeSlot(counts: NavBadgeCounts, slot: NavBadgeSlot | undefined): number {
   if (!slot) return 0
@@ -9,6 +9,8 @@ export function countForBadgeSlot(counts: NavBadgeCounts, slot: NavBadgeSlot | u
       return counts.inboxUnread
     case 'agents':
       return counts.agentsAttention
+    case 'agenda':
+      return counts.agendaDue
     case 'messages':
       return counts.inboxUnread
     default:

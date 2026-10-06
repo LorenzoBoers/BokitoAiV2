@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
 import { folderScopeKey } from '../../lib/inbox-folder-prefs'
+import { useNavFlashKey } from '../../hooks/useNavReveal'
 import {
   leafKey,
   leafPath,
@@ -102,8 +103,10 @@ export function SidebarFolder({
 }: SidebarFolderProps) {
   const navigate = useNavigate()
   const { prefs, setLeafExpanded } = useSidebarPrefs()
+  const flashKey = useNavFlashKey()
 
   const scopeKey = folderScopeKey(baseLeaf)
+  const revealed = flashKey === scopeKey
   const scopeActive = sameLeafScope(activeLeaf, baseLeaf)
   const expanded = prefs.expandedLeaves.includes(scopeKey)
   const headerActive =
@@ -133,7 +136,9 @@ export function SidebarFolder({
           type="button"
           onClick={toggleFolder}
           aria-expanded={expanded}
+          data-nav-folder={scopeKey}
           data-active={headerActive || (scopeActive && !expanded) ? 'true' : undefined}
+          data-nav-reveal={revealed ? 'true' : undefined}
           className={cn('nav-row group text-left')}
         >
           <span className="flex h-4 w-4 shrink-0 items-center justify-center text-text-muted">{icon}</span>

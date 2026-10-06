@@ -14,6 +14,7 @@ import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
 import { inboxPath } from '../../lib/messages-paths'
 import { AGENDA_AUTOMATIONS_PATH } from '../../lib/navigation'
@@ -242,16 +243,16 @@ export default function AutomationRulesManager() {
         {creating ? (
           <div className="space-y-2 px-4 py-3">
             <div className="flex flex-wrap gap-2">
-              <select
-                value={matchType}
-                onChange={(e) => setMatchType(e.target.value as InboxRule['matchType'])}
-                aria-label={t('automationRules.matchSender')}
-                className="h-8 rounded-md border border-border bg-bg-surface px-2 text-sm text-text-primary focus:border-accent/50 focus:outline-none"
-              >
-                <option value="sender">{t('automationRules.matchSenderAddr')}</option>
-                <option value="domain">{t('automationRules.matchDomainOpt')}</option>
-                <option value="list_id">{t('automationRules.matchListIdOpt')}</option>
-              </select>
+              <Select value={matchType} onValueChange={(value) => setMatchType(value as InboxRule['matchType'])}>
+                <SelectTrigger className="h-8 w-auto min-w-[9rem] text-sm" aria-label={t('automationRules.matchSender')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sender">{t('automationRules.matchSenderAddr')}</SelectItem>
+                  <SelectItem value="domain">{t('automationRules.matchDomainOpt')}</SelectItem>
+                  <SelectItem value="list_id">{t('automationRules.matchListIdOpt')}</SelectItem>
+                </SelectContent>
+              </Select>
               <Input
                 value={matchValue}
                 onChange={(e) => setMatchValue(e.target.value)}
@@ -264,17 +265,17 @@ export default function AutomationRulesManager() {
                 }
                 className="h-8 max-w-64 text-sm"
               />
-              <select
-                value={action}
-                onChange={(e) => setAction(e.target.value as InboxRule['action'])}
-                aria-label={t('automationRules.actionClose')}
-                className="h-8 rounded-md border border-border bg-bg-surface px-2 text-sm text-text-primary focus:border-accent/50 focus:outline-none"
-              >
-                <option value="auto_close">{t('automationRules.actionCloseThread')}</option>
-                <option value="auto_task">{t('automationRules.actionCreateTask')}</option>
-                <option value="mute_ai">{t('automationRules.actionSkipAi')}</option>
-                <option value="tag">{t('automationRules.actionAddTags')}</option>
-              </select>
+              <Select value={action} onValueChange={(value) => setAction(value as InboxRule['action'])}>
+                <SelectTrigger className="h-8 w-auto min-w-[9rem] text-sm" aria-label={t('automationRules.actionClose')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto_close">{t('automationRules.actionCloseThread')}</SelectItem>
+                  <SelectItem value="auto_task">{t('automationRules.actionCreateTask')}</SelectItem>
+                  <SelectItem value="mute_ai">{t('automationRules.actionSkipAi')}</SelectItem>
+                  <SelectItem value="tag">{t('automationRules.actionAddTags')}</SelectItem>
+                </SelectContent>
+              </Select>
               {action === 'tag' ? (
                 <Input
                   value={tagsDraft}

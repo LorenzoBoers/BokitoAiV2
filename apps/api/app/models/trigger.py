@@ -42,6 +42,12 @@ class Trigger(SQLModel, table=True):
     # every fire so a recurring trigger never floods Messages with new threads.
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id")
 
+    # "" for operator/agent wakes; "stage_checkup" for the recurring look at a
+    # ticket in a flow stage. It goes to the conversation's owner at fire time
+    # (lifecycle lives in services/stage_checkups.py).
+    purpose: str = Field(default="", index=True)
+    stage_key: str = ""
+
     enabled: bool = True
     last_run_at: Optional[datetime] = None
     next_run_at: Optional[datetime] = Field(default=None, index=True)

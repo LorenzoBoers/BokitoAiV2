@@ -4,7 +4,7 @@ export const PAGE_GUIDE_SLUGS = [
   'contacts',
   'agenda',
   'team',
-  'cases',
+  'categories',
   'agents',
   'projects',
   'knowledge',
@@ -24,7 +24,7 @@ export const PAGE_GUIDE_BACK: Record<PageGuideSlug, string> = {
   contacts: '/contacts',
   agenda: '/agenda',
   team: '/team',
-  cases: '/settings/signals',
+  categories: '/settings/action-tags',
   agents: '/agents',
   projects: '/projects',
   knowledge: '/knowledge',
@@ -66,7 +66,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
     { to: '/settings/channels', labelKey: 'pageGuides.related.channels' },
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
   ],
-  cases: [
+  categories: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/workstreams', labelKey: 'pageGuides.related.workstreams' },
     { to: '/projects', labelKey: 'pageGuides.related.projects' },
@@ -78,7 +78,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
   projects: [
     { to: '/workstreams', labelKey: 'pageGuides.related.workstreams' },
-    { to: '/settings/signals', labelKey: 'pageGuides.related.cases' },
+    { to: '/settings/action-tags', labelKey: 'pageGuides.related.categories' },
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
   ],

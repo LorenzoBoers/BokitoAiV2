@@ -49,7 +49,6 @@ import {
   summarizeDiff,
 } from '../lib/govern-labels'
 import { agentAutonomyLevelLabel } from '../lib/labels'
-import { signalTypeLabel } from '../lib/signal-type-catalog'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { formatPermissionScopes } from '../lib/permission-scope-label'
 import { cn } from '../lib/utils'
@@ -160,7 +159,7 @@ export default function GovernPage() {
   const [tools, setTools] = useState<GovernToolRow[]>([])
   const [learningHistory, setLearningHistory] = useState<LearningAllowanceNote[]>([])
   const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
-  const [caseTypeScopes, setCaseTypeScopes] = useState<AutonomyScopeRow[]>([])
+  const [categoryScopes, setCategoryScopes] = useState<AutonomyScopeRow[]>([])
   const [workstreamScopes, setWorkstreamScopes] = useState<AutonomyScopeRow[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -207,7 +206,7 @@ export default function GovernPage() {
         setTools(allowanceResp.tools)
         setLearningHistory(allowanceResp.learning_history ?? [])
         setPostureState(allowanceResp.posture)
-        setCaseTypeScopes(scopeResp.case_types)
+        setCategoryScopes(scopeResp.categories)
         setWorkstreamScopes(scopeResp.workstreams)
         setRefreshedAt(new Date())
       })
@@ -319,7 +318,7 @@ export default function GovernPage() {
   }
 
   async function handleScopeChange(
-    kind: 'case_type' | 'workstream',
+    kind: 'category' | 'workstream',
     row: AutonomyScopeRow,
     level: AutonomyScopeLevel,
   ) {
@@ -327,7 +326,7 @@ export default function GovernPage() {
     setBusyId(row.id)
     try {
       const updated = await setAutonomyScope(kind, row.id, level)
-      const setter = kind === 'case_type' ? setCaseTypeScopes : setWorkstreamScopes
+      const setter = kind === 'category' ? setCategoryScopes : setWorkstreamScopes
       setter((current) => current.map((item) => (item.id === updated.id ? updated : item)))
       toast.success(t('scopes.saved'))
     } catch (err) {
@@ -625,9 +624,9 @@ export default function GovernPage() {
             <GovernConversationsCard
               messagingMode={allowances.messaging}
               onMessagingChange={(mode) => handleAllowanceChange('messaging', mode)}
-              caseTypes={caseTypeScopes}
-              onCaseTypeChanged={(row) =>
-                setCaseTypeScopes((current) => current.map((item) => (item.id === row.id ? row : item)))
+              categories={categoryScopes}
+              onCategoryChanged={(row) =>
+                setCategoryScopes((current) => current.map((item) => (item.id === row.id ? row : item)))
               }
               saving={savingModes}
             />
@@ -640,7 +639,7 @@ export default function GovernPage() {
                 <p className="text-xs text-text-muted">{t('scopes.intro')}</p>
                 {(
                   [
-                    ['case_type', t('scopes.types'), caseTypeScopes],
+                    ['category', t('scopes.types'), categoryScopes],
                     ['workstream', t('scopes.playbooks'), workstreamScopes],
                   ] as const
                 ).map(([kind, title, rows]) => (
@@ -655,9 +654,7 @@ export default function GovernPage() {
                           className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <span className="text-sm font-medium text-text-heading">
-                            {kind === 'case_type'
-                              ? signalTypeLabel({ slug: row.slug, name: row.name }, i18n.language)
-                              : row.name}
+                            {kind === 'category' ? `#${row.name}` : row.name}
                           </span>
                           <div className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5" role="radiogroup">
                             {SCOPE_LEVELS.map((level) => (

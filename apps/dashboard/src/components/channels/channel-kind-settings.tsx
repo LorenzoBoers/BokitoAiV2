@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ArrowRight, Check, Copy, Star, Wifi } from 'lucide-react'
 import { Button } from '../ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChannelSetting } from './ChannelSetting'
 import { CHANNEL_SYNC_WINDOW_OPTIONS } from '../inbox/MailboxSyncWindowField'
 import {
@@ -121,23 +122,26 @@ function MailboxSettings(props: KindSettingsProps) {
       <SignatureSetting {...props} />
       <PrimarySetting {...props} />
       <ChannelSetting label={t('channelsPage.history')} hint={t('channelsPage.historyAdvancedHint')}>
-        <select
+        <Select
           value={String(row.syncWindowDays)}
           disabled={busy}
-          onChange={(e) => actions.setSyncWindow(row, Number(e.target.value))}
-          aria-label={t('channelsPage.historyAria')}
-          className="h-8 rounded-md border border-border/60 bg-bg-elevated/60 px-2 text-xs text-text-primary outline-none focus:border-accent/60"
+          onValueChange={(value) => actions.setSyncWindow(row, Number(value))}
         >
-          {CHANNEL_SYNC_WINDOW_OPTIONS.map((days) => (
-            <option key={days} value={days}>
-              {days === 0
-                ? t('channelsPage.everything')
-                : days === 365
-                  ? t('channelsPage.oneYear')
-                  : t('channelsPage.days', { count: days })}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs" aria-label={t('channelsPage.historyAria')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CHANNEL_SYNC_WINDOW_OPTIONS.map((days) => (
+              <SelectItem key={days} value={String(days)}>
+                {days === 0
+                  ? t('channelsPage.everything')
+                  : days === 365
+                    ? t('channelsPage.oneYear')
+                    : t('channelsPage.days', { count: days })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </ChannelSetting>
       <ReconnectSetting {...props} />
     </>

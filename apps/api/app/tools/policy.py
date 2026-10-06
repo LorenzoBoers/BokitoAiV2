@@ -53,7 +53,7 @@ AUTONOMY_POSTURES: dict[str, dict[str, Any]] = {
             "triggers": "ask",
             "integrations": "ask",
             "govern": "ask",
-            "cases": "allow",
+            "tickets": "allow",
         },
     },
     "autonomous": {
@@ -69,7 +69,7 @@ AUTONOMY_POSTURES: dict[str, dict[str, Any]] = {
             "triggers": "allow",
             "integrations": "ask",
             "govern": "allow",
-            "cases": "allow",
+            "tickets": "allow",
         },
     },
 }
@@ -216,8 +216,8 @@ async def resolve_tool_mode(
     if hard is not None and mode != "deny":
         mode, reason = mode_to_allowance(hard["mode"]), f"rule:{hard['id']}"
 
-    # Sending to an external party is additionally governed by the Signal
-    # Type attached to the thread. No type, or draft mode, safely asks.
+    # Sending to an external party is additionally governed by the category
+    # filed on the thread. No category, or draft mode, safely asks.
     if spec.name == "send_reply":
         signal_id = None
         raw_signal_id = (tool_input or {}).get("signal_id")
@@ -227,24 +227,22 @@ async def resolve_tool_mode(
             except ValueError:
                 signal_id = None
         if signal_id:
-            from app.models.case import Case, CaseType
+            from app.models.signal import Signal, SignalTag
 
             send_mode = (
                 await session.execute(
-                    select(CaseType.send_mode)
-                    .join(Case, Case.case_type_id == CaseType.id)
+                    select(SignalTag.send_mode)
+                    .join(Signal, Signal.ticket_tag_id == SignalTag.id)
                     .where(
-                        Case.tenant_id == tenant.id,
-                        Case.signal_id == signal_id,
+                        Signal.tenant_id == tenant.id,
+                        Signal.id == signal_id,
                         # An unaccepted proposal must not widen what may be sent.
-                        Case.status.in_(("open", "waiting")),
+                        Signal.ticket_status.in_(("open", "waiting")),
                     )
-                    .order_by(Case.created_at.desc())
-                    .limit(1)
                 )
             ).scalar_one_or_none() or "draft"
             if send_mode in ("draft", "ask"):
-                mode, reason = "ask", f"signal_type:{send_mode}"
+                mode, reason = "ask", f"category:{send_mode}"
 
     # Trust clamp is absolute: external sessions never auto-mutate.
     if trust == "external":
@@ -252,10 +250,10 @@ async def resolve_tool_mode(
             return "allow", "customer_read"
         if spec.category in EXTERNAL_DENY_CATEGORIES:
             return "deny", "external_trust"
-        # Operational case tools own their own gate (type.mode + certainty).
+        # Ticket tools own their own gate (category mode + certainty).
         # The generic allow→ask clamp would turn every widget intake into a
-        # DecisionRequest and hide the type's ask_customer / auto path.
-        if spec.category != "cases" and mode == "allow":
+        # DecisionRequest and hide the category's ask_customer / auto path.
+        if spec.category != "tickets" and mode == "allow":
             mode, reason = "ask", "external_trust"
 
     return mode, reason  # type: ignore[return-value]

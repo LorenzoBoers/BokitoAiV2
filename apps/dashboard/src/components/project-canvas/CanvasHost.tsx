@@ -6,6 +6,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
   Dialog,
   DialogContent,
@@ -188,18 +189,22 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {canEdit ? (
-                      <select
-                        className="h-8 rounded-md border border-border bg-bg-surface px-2 text-xs"
+                      <Select
                         value={row.refresh_cadence || 'manual'}
                         disabled={busy}
-                        onChange={(e) => void onCadenceChange(row.id, e.target.value as RefreshCadence)}
+                        onValueChange={(value) => void onCadenceChange(row.id, value as RefreshCadence)}
                       >
-                        {REFRESH_CADENCES.map((cadence) => (
-                          <option key={cadence} value={cadence}>
-                            {t(`projects.canvas.cadence.${cadence}`)}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs" aria-label={t('projects.canvas.refreshLabel')}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {REFRESH_CADENCES.map((cadence) => (
+                            <SelectItem key={cadence} value={cadence}>
+                              {t(`projects.canvas.cadence.${cadence}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ) : null}
                     <Button type="button" size="sm" variant="outline" asChild>
                       <Link to={askHref}>
@@ -273,18 +278,18 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
             </div>
             <div>
               <Label htmlFor="canvas-refresh">{t('projects.canvas.refreshLabel')}</Label>
-              <select
-                id="canvas-refresh"
-                className="mt-1 h-9 w-full rounded-md border border-border bg-bg-surface px-2 text-sm"
-                value={newCadence}
-                onChange={(e) => setNewCadence(e.target.value as RefreshCadence)}
-              >
-                {REFRESH_CADENCES.map((cadence) => (
-                  <option key={cadence} value={cadence}>
-                    {t(`projects.canvas.cadence.${cadence}`)}
-                  </option>
-                ))}
-              </select>
+              <Select value={newCadence} onValueChange={(value) => setNewCadence(value as RefreshCadence)}>
+                <SelectTrigger id="canvas-refresh" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REFRESH_CADENCES.map((cadence) => (
+                    <SelectItem key={cadence} value={cadence}>
+                      {t(`projects.canvas.cadence.${cadence}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

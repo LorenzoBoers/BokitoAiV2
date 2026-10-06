@@ -34,7 +34,7 @@ describe('navigation', () => {
 
   it('no longer resolves a rail tab for the retired /cases hub', () => {
     expect(tabFromPath('/cases')).toBeNull()
-    expect(tabFromPath('/settings/signals')).toBe('settings')
+    expect(tabFromPath('/settings/action-tags')).toBe('settings')
     expect(tabFromPath('/workstreams')).toBe('workstreams')
     expect(tabFromPath('/projects')).toBe('projects')
   })

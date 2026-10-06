@@ -4,19 +4,25 @@ Agenda, the agent activity timeline and the agent detail strip all read
 ``list_time_items``. Every row has the same shape:
 
 ``{id, kind, trigger_kind, run_type, start, end, title, status, agent_id, agent_name,
-agent_role, actor_kind, actor_id, actor_name, instructions, enabled,
-trigger_id, run_id, signal_id, source}`` plus calendar extras.
+agent_role, actor_kind, actor_id, actor_name, owner_kind, owner_id, owner_name,
+project_id, series_id, instructions, enabled, trigger_id, run_id, signal_id, source}``
+plus calendar and check-up extras.
 
 ``kind`` is one of:
 
 - ``session``: an ``AgentRun`` (past or running work).
 - ``wake``: a planned trigger moment, or a fired one-shot without a run.
-- ``calendar``: an external calendar event.
+- ``checkup``: a planned stage check-up of a ticket (``Trigger.purpose``).
+- ``calendar``: an external calendar event (merged across connections).
 - ``follow_up``: a conversation look-at (``Signal.follow_up_at``).
+- ``activity``: something that happened (ticket filed or moved, owner
+  changed, conversation closed, decision asked or answered). Only returned
+  when asked for, so planning views stay calm.
 """
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, Iterable
 from uuid import UUID
@@ -27,14 +33,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent, AgentRun
 from app.models.trigger import Trigger
 
-TIME_KINDS = frozenset({"session", "wake", "calendar", "follow_up"})
+TIME_KINDS = frozenset({"session", "wake", "checkup", "calendar", "follow_up", "activity"})
+DEFAULT_KINDS = TIME_KINDS - {"activity"}
 
 MAX_SESSIONS = 400
+MAX_ACTIVITY = 400
 
 # On-demand runs whose ``trigger_id`` is the conversation they answered.
 _CONVERSATION_TRIGGERS = frozenset(
     {"chat", "email", "widget", "inbound", "webchat", "whatsapp", "customer_widget"}
 )
+
+# Conversation events worth a row on the Agenda, with the status they carry.
+_ACTIVITY_EVENTS = {
+    "category_set": "filed",
+    "ticket_stage_changed": "stage",
+    "assigned": "assigned",
+    "thread_updated": "closed",
+}
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -65,7 +81,11 @@ def _row(
     agent_name: str | None = None,
     agent_role: str = "",
     actor_kind: str = "agent",
+    actor_id: UUID | str | None = None,
     actor_name: str | None = None,
+    owner: tuple[str | None, str | None, str | None] = (None, None, None),
+    project_id: UUID | str | None = None,
+    series_id: str | None = None,
     instructions: str = "",
     enabled: bool = True,
     trigger_id: str | None = None,
@@ -75,6 +95,7 @@ def _row(
     run_type: str | None = None,
 ) -> dict[str, Any]:
     agent = str(agent_id) if agent_id else None
+    actor = str(actor_id) if actor_id else (agent if actor_kind == "agent" else None)
     return {
         "id": id,
         "kind": kind,
@@ -87,8 +108,13 @@ def _row(
         "agent_name": agent_name,
         "agent_role": agent_role,
         "actor_kind": actor_kind,
-        "actor_id": agent if actor_kind == "agent" else None,
+        "actor_id": actor,
         "actor_name": actor_name or agent_name,
+        "owner_kind": owner[0],
+        "owner_id": owner[1],
+        "owner_name": owner[2],
+        "project_id": str(project_id) if project_id else None,
+        "series_id": series_id,
         "instructions": instructions,
         "enabled": enabled,
         "trigger_id": trigger_id,
@@ -103,6 +129,67 @@ def _trigger_actor(trigger: Trigger, agent_name: str | None) -> tuple[str, str]:
     actor_kind = "person" if trigger.kind == "event" else "agent"
     actor_name = agent_name or (trigger.agent_role if actor_kind == "agent" else "Person")
     return actor_kind, actor_name
+
+
+class _Names:
+    """Display names for the people, agents and teams of one workspace."""
+
+    def __init__(self, agents: dict[UUID, str], users: dict[UUID, str], teams: dict[UUID, str]):
+        self.agents, self.users, self.teams = agents, users, teams
+
+    def owner(self, signal: Any) -> tuple[str | None, str | None, str | None]:
+        kind = getattr(signal, "assignee_kind", "") or ""
+        if kind == "user" and signal.assigned_user_id:
+            return "user", str(signal.assigned_user_id), self.users.get(signal.assigned_user_id)
+        if kind == "agent" and signal.agent_id:
+            return "agent", str(signal.agent_id), self.agents.get(signal.agent_id)
+        if kind == "team" and signal.assignee_team_id:
+            return "team", str(signal.assignee_team_id), self.teams.get(signal.assignee_team_id)
+        return None, None, None
+
+    def payload_owner(self, raw: Any) -> str:
+        """Name in an ``owner_payload`` dict (``assigned`` events)."""
+        if not isinstance(raw, dict):
+            return ""
+        kind = raw.get("kind")
+        table = {"user": self.users, "agent": self.agents, "team": self.teams}.get(kind or "", {})
+        ref = _uuid(raw.get(f"{kind}_id"))
+        return table.get(ref, "") if ref else ""
+
+    def actor(self, actor_type: str, actor_id: str) -> tuple[str, str | None, str | None]:
+        ref = _uuid(actor_id)
+        if actor_type in ("agent", "workstream_run") and ref in self.agents:
+            return "agent", str(ref), self.agents[ref]
+        if actor_type == "user" and ref in self.users:
+            return "person", str(ref), self.users[ref]
+        if ref in self.users:
+            return "person", str(ref), self.users[ref]
+        if ref in self.agents:
+            return "agent", str(ref), self.agents[ref]
+        return "system", None, None
+
+
+async def _names(session: AsyncSession, tenant_id: UUID, agents: Iterable[Agent]) -> _Names:
+    from app.models.auth import Membership, User
+    from app.models.team import Team
+
+    users = {
+        uid: (name or email)
+        for uid, name, email in (
+            await session.execute(
+                select(User.id, User.display_name, User.email)
+                .join(Membership, Membership.user_id == User.id)
+                .where(Membership.tenant_id == tenant_id)
+            )
+        ).all()
+    }
+    teams = {
+        tid: name
+        for tid, name in (
+            await session.execute(select(Team.id, Team.name).where(Team.tenant_id == tenant_id))
+        ).all()
+    }
+    return _Names({a.id: a.name for a in agents}, users, teams)
 
 
 async def _session_signal_ids(
@@ -132,6 +219,91 @@ async def _session_signal_ids(
     return out
 
 
+async def _signals(session: AsyncSession, tenant_id: UUID, ids: Iterable[UUID]) -> dict[UUID, Any]:
+    from app.models.signal import Signal
+
+    wanted = {i for i in ids if i}
+    if not wanted:
+        return {}
+    rows = await session.execute(
+        select(Signal).where(Signal.tenant_id == tenant_id, Signal.id.in_(wanted))
+    )
+    return {s.id: s for s in rows.scalars().all()}
+
+
+def merge_calendar_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One row per real meeting: the same event synced through two connections
+    (or listed in two calendars) collapses into the first, which keeps every
+    calendar name in ``calendars``."""
+    merged: dict[tuple[str, str, str], dict[str, Any]] = {}
+    out: list[dict[str, Any]] = []
+    for event in events:
+        key = (
+            (event.get("title") or "").strip().lower(),
+            str(event.get("start") or ""),
+            str(event.get("end") or ""),
+        )
+        name = event.get("calendar_name") or event.get("provider_label") or ""
+        first = merged.get(key)
+        if first is None:
+            event = dict(event)
+            event["calendars"] = [name] if name else []
+            merged[key] = event
+            out.append(event)
+        elif name and name not in first["calendars"]:
+            first["calendars"].append(name)
+    return out
+
+
+DUE_WINDOW_DAYS = 30
+
+
+async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> int:
+    """Agenda items waiting on this person now: overdue look-ats and due
+    check-ups on open conversations assigned to them (last 30 days, like the
+    Agenda attention strip)."""
+    from datetime import timedelta
+
+    from sqlalchemy import func
+
+    from app.models.signal import Signal
+
+    now = datetime.utcnow()
+    mine = (
+        Signal.tenant_id == tenant_id,
+        Signal.assignee_kind == "user",
+        Signal.assigned_user_id == user_id,
+        Signal.status == "open",
+    )
+    lookats = (
+        await session.execute(
+            select(func.count()).select_from(Signal).where(
+                *mine,
+                Signal.follow_up_at.is_not(None),
+                Signal.follow_up_at <= now,
+                Signal.follow_up_at >= now - timedelta(days=DUE_WINDOW_DAYS),
+            )
+        )
+    ).scalar_one()
+    checkups = (
+        await session.execute(
+            select(func.count(func.distinct(Trigger.signal_id)))
+            .select_from(Trigger)
+            .join(Signal, Signal.id == Trigger.signal_id)
+            .where(
+                *mine,
+                Trigger.tenant_id == tenant_id,
+                Trigger.purpose == "stage_checkup",
+                Trigger.deleted_at.is_(None),
+                Trigger.enabled.is_(True),
+                Trigger.next_run_at.is_not(None),
+                Trigger.next_run_at <= now,
+            )
+        )
+    ).scalar_one()
+    return int(lookats or 0) + int(checkups or 0)
+
+
 async def list_time_items(
     session: AsyncSession,
     tenant_id: UUID,
@@ -141,26 +313,36 @@ async def list_time_items(
     agent_id: UUID | None = None,
     sources: Iterable[str] | None = None,
     scheduled_only: bool = False,
+    project_id: UUID | None = None,
 ) -> list[dict[str, Any]]:
     """Every time item in [start, end], sorted by start.
 
-    ``sources`` limits the kinds returned. ``scheduled_only`` keeps only
-    sessions fired by a trigger (planning view); on-demand work such as email
-    replies stays on the activity timeline.
+    ``sources`` limits the kinds returned (``activity`` only when listed).
+    ``scheduled_only`` keeps only sessions fired by a trigger (planning view);
+    on-demand work such as email replies stays on the activity timeline.
+    ``project_id`` keeps items tied to that project's conversations or runs.
     """
+    from app.models.signal import Signal
     from app.services.triggers import _planned_occurrences
 
-    wanted = TIME_KINDS & set(sources) if sources else set(TIME_KINDS)
+    wanted = TIME_KINDS & set(sources) if sources else set(DEFAULT_KINDS)
     now = datetime.utcnow()
 
     agents = (await session.execute(select(Agent).where(Agent.tenant_id == tenant_id))).scalars().all()
-    agent_names = {a.id: a.name for a in agents}
+    names = await _names(session, tenant_id, agents)
+    agent_names = names.agents
 
     trigger_stmt = select(Trigger).where(Trigger.tenant_id == tenant_id, Trigger.deleted_at.is_(None))
-    if agent_id:
-        trigger_stmt = trigger_stmt.where(Trigger.agent_id == agent_id)
     triggers = list((await session.execute(trigger_stmt)).scalars().all())
     trigger_by_id = {str(t.id): t for t in triggers}
+    checkups = [t for t in triggers if t.purpose == "stage_checkup"]
+    wakes = [t for t in triggers if t.purpose != "stage_checkup"]
+    if agent_id:
+        wakes = [t for t in wakes if t.agent_id == agent_id]
+
+    linked = await _signals(
+        session, tenant_id, [t.signal_id for t in triggers if t.signal_id]
+    )
 
     items: list[dict[str, Any]] = []
     session_trigger_ids: set[str] = set()
@@ -173,6 +355,8 @@ async def list_time_items(
         )
         if agent_id:
             run_stmt = run_stmt.where(AgentRun.agent_id == agent_id)
+        if project_id:
+            run_stmt = run_stmt.where(AgentRun.project_id == project_id)
         if scheduled_only:
             if not trigger_by_id:
                 run_stmt = None
@@ -201,6 +385,9 @@ async def list_time_items(
                     agent_id=run.agent_id,
                     agent_name=name,
                     agent_role=trigger.agent_role if trigger is not None else "",
+                    owner=("agent", str(run.agent_id), name),
+                    project_id=run.project_id,
+                    series_id=str(trigger.id) if trigger is not None else None,
                     instructions=trigger.instructions if trigger is not None else "",
                     enabled=trigger.enabled if trigger is not None else True,
                     trigger_id=str(trigger.id) if trigger is not None else None,
@@ -211,8 +398,8 @@ async def list_time_items(
                 )
             )
 
-    if "wake" in wanted:
-        for trigger in triggers:
+    if "wake" in wanted and not project_id:
+        for trigger in wakes:
             name = agent_names.get(trigger.agent_id) if trigger.agent_id else None
             actor_kind, actor_name = _trigger_actor(trigger, name)
             base = dict(
@@ -224,6 +411,8 @@ async def list_time_items(
                 agent_role=trigger.agent_role,
                 actor_kind=actor_kind,
                 actor_name=actor_name,
+                owner=("agent", str(trigger.agent_id), name) if trigger.agent_id else (None, None, None),
+                series_id=str(trigger.id),
                 instructions=trigger.instructions,
                 enabled=trigger.enabled,
                 trigger_id=str(trigger.id),
@@ -249,10 +438,57 @@ async def list_time_items(
                     )
                 )
 
-    if "calendar" in wanted and agent_id is None:
+    if "checkup" in wanted:
+        for trigger in checkups:
+            signal = linked.get(trigger.signal_id) if trigger.signal_id else None
+            if signal is None:
+                continue
+            if project_id and signal.project_id != project_id:
+                continue
+            owner = names.owner(signal)
+            if agent_id and owner[1] != str(agent_id):
+                continue
+            base = dict(
+                kind="checkup",
+                trigger_kind="interval",
+                title=signal.subject or trigger.name,
+                agent_id=_uuid(owner[1]) if owner[0] == "agent" else None,
+                agent_name=owner[2] if owner[0] == "agent" else None,
+                actor_kind="agent" if owner[0] == "agent" else "person",
+                actor_name=owner[2],
+                owner=owner,
+                project_id=signal.project_id,
+                series_id=str(trigger.id),
+                instructions=trigger.name,
+                enabled=trigger.enabled,
+                trigger_id=str(trigger.id),
+                signal_id=str(signal.id),
+                source="checkup",
+            )
+            moments = _planned_occurrences(trigger, max(start, now), end)
+            # An overdue check-up (scheduler not yet run) shows at now, once.
+            if trigger.enabled and trigger.next_run_at and trigger.next_run_at < now <= end:
+                moments = [now, *[m for m in moments if m > now]]
+            for moment in moments:
+                status = "due" if moment <= now else "planned"
+                items.append(_row(id=f"{trigger.id}:{moment.isoformat()}", start=moment, status=status, **base))
+            if trigger.last_run_at and start <= trigger.last_run_at <= min(end, now):
+                items.append(
+                    _row(
+                        id=f"{trigger.id}:last",
+                        start=trigger.last_run_at,
+                        status=trigger.last_status or "done",
+                        **base,
+                    )
+                )
+
+    if "calendar" in wanted and agent_id is None and not project_id:
         from app.services.calendar_sync import calendar_events_in_window
 
-        for event in await calendar_events_in_window(session, tenant_id, start=start, end=end):
+        events = merge_calendar_events(
+            await calendar_events_in_window(session, tenant_id, start=start, end=end)
+        )
+        for event in events:
             row = _row(
                 id=event["id"],
                 kind="calendar",
@@ -270,6 +506,7 @@ async def list_time_items(
                 "provider_label",
                 "calendar_id",
                 "calendar_name",
+                "calendars",
                 "location",
                 "html_link",
                 "all_day",
@@ -280,8 +517,6 @@ async def list_time_items(
             items.append(row)
 
     if "follow_up" in wanted:
-        from app.models.signal import Signal
-
         follow_stmt = select(Signal).where(
             Signal.tenant_id == tenant_id,
             Signal.follow_up_at.is_not(None),
@@ -291,11 +526,13 @@ async def list_time_items(
         )
         if agent_id:
             follow_stmt = follow_stmt.where(Signal.agent_id == agent_id)
+        if project_id:
+            follow_stmt = follow_stmt.where(Signal.project_id == project_id)
         for signal in (await session.execute(follow_stmt)).scalars().all():
             at = signal.follow_up_at
             assert at is not None
             title = (signal.follow_up_title or "").strip() or signal.subject or "Follow up"
-            owner = signal.agent_id if agent_id else None
+            owner_agent = signal.agent_id if agent_id else None
             items.append(
                 _row(
                     id=f"follow_up:{signal.id}",
@@ -303,14 +540,165 @@ async def list_time_items(
                     start=at,
                     title=title,
                     status="due" if at <= now else "planned",
-                    agent_id=owner,
-                    agent_name=agent_names.get(owner) if owner else None,
+                    agent_id=owner_agent,
+                    agent_name=agent_names.get(owner_agent) if owner_agent else None,
                     actor_kind="person",
                     actor_name=signal.contact_name or signal.contact_email or "You",
+                    owner=names.owner(signal),
+                    project_id=signal.project_id,
                     signal_id=str(signal.id),
                     source="follow_up",
                 )
             )
 
+    if "activity" in wanted:
+        items.extend(
+            await _activity(
+                session,
+                tenant_id,
+                names,
+                start=start,
+                end=min(end, now),
+                agent_id=agent_id,
+                project_id=project_id,
+            )
+        )
+
     items.sort(key=lambda item: item["start"] or "")
     return items
+
+
+async def _activity(
+    session: AsyncSession,
+    tenant_id: UUID,
+    names: _Names,
+    *,
+    start: datetime,
+    end: datetime,
+    agent_id: UUID | None,
+    project_id: UUID | None,
+) -> list[dict[str, Any]]:
+    """What happened: ticket and ownership changes, closes, and decisions."""
+    from app.models.notification import DecisionRequest
+    from app.models.signal import SignalEvent
+
+    if end <= start:
+        return []
+    events = list(
+        (
+            await session.execute(
+                select(SignalEvent)
+                .where(
+                    SignalEvent.tenant_id == tenant_id,
+                    SignalEvent.event_type.in_(list(_ACTIVITY_EVENTS)),
+                    SignalEvent.created_at >= start,
+                    SignalEvent.created_at <= end,
+                )
+                .order_by(SignalEvent.created_at.desc())
+                .limit(MAX_ACTIVITY)
+            )
+        ).scalars()
+    )
+    decisions = list(
+        (
+            await session.execute(
+                select(DecisionRequest)
+                .where(
+                    DecisionRequest.tenant_id == tenant_id,
+                    or_(
+                        (DecisionRequest.created_at >= start) & (DecisionRequest.created_at <= end),
+                        (DecisionRequest.resolved_at >= start) & (DecisionRequest.resolved_at <= end),
+                    ),
+                )
+                .order_by(DecisionRequest.created_at.desc())
+                .limit(MAX_ACTIVITY)
+            )
+        ).scalars()
+    )
+    signals = await _signals(
+        session,
+        tenant_id,
+        [e.signal_id for e in events] + [d.signal_id for d in decisions if d.signal_id],
+    )
+
+    out: list[dict[str, Any]] = []
+    for event in events:
+        try:
+            payload = json.loads(event.payload_json or "{}")
+        except json.JSONDecodeError:
+            payload = {}
+        if event.event_type == "thread_updated" and payload.get("status") != "closed":
+            continue
+        signal = signals.get(event.signal_id)
+        if signal is None or (project_id and signal.project_id != project_id):
+            continue
+        actor_kind, actor_id, actor_name = names.actor(event.actor_type, event.actor_id)
+        if agent_id and actor_id != str(agent_id):
+            continue
+        status = _ACTIVITY_EVENTS[event.event_type]
+        detail = {
+            "filed": f"#{payload.get('category')}" if payload.get("category") else "",
+            "stage": payload.get("to_stage") or "",
+            "assigned": names.payload_owner(payload.get("after")),
+            "closed": "",
+        }[status]
+        row = _row(
+            id=f"activity:{event.id}",
+            kind="activity",
+            start=event.created_at,
+            title=signal.subject or "Conversation",
+            status=status,
+            actor_kind=actor_kind,
+            actor_id=actor_id,
+            actor_name=actor_name,
+            agent_id=actor_id if actor_kind == "agent" else None,
+            agent_name=actor_name if actor_kind == "agent" else None,
+            owner=names.owner(signal),
+            project_id=signal.project_id,
+            signal_id=str(signal.id),
+            source="activity",
+        )
+        row["detail"] = detail
+        out.append(row)
+
+    for decision in decisions:
+        signal = signals.get(decision.signal_id) if decision.signal_id else None
+        dec_project = decision.project_id or (signal.project_id if signal else None)
+        if project_id and dec_project != project_id:
+            continue
+        moments: list[tuple[str, datetime, tuple[str, str | None, str | None]]] = []
+        if start <= decision.created_at <= end:
+            moments.append(("asked", decision.created_at, ("system", None, None)))
+        if decision.resolved_at and start <= decision.resolved_at <= end:
+            resolver = decision.resolved_by_user_id
+            moments.append(
+                (
+                    "answered",
+                    decision.resolved_at,
+                    ("person", str(resolver), names.users.get(resolver)) if resolver else ("system", None, None),
+                )
+            )
+        for status, at, actor in moments:
+            if agent_id:
+                continue
+            row = _row(
+                id=f"decision:{decision.id}:{status}",
+                kind="activity",
+                start=at,
+                title=decision.title,
+                status=f"decision_{status}",
+                actor_kind=actor[0],
+                actor_id=actor[1],
+                actor_name=actor[2],
+                owner=(
+                    ("user", str(decision.addressee_user_id), names.users.get(decision.addressee_user_id))
+                    if decision.addressee_user_id
+                    else (None, None, None)
+                ),
+                project_id=dec_project,
+                signal_id=str(decision.signal_id) if decision.signal_id else None,
+                source="activity",
+            )
+            row["detail"] = decision.status if status == "answered" else ""
+            out.append(row)
+    return out

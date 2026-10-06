@@ -239,9 +239,9 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # the widget is embedded, so it gets a row to carry state and an off switch.
     await ensure_widget_default_agent(session, tenant_id, front_desk, commit=False)
     await seed_default_triggers(session, tenant_id)
-    from app.services.cases import ensure_platform_case_types
+    from app.services.tickets import ensure_platform_tags
 
-    await ensure_platform_case_types(session, tenant_id, commit=False)
+    await ensure_platform_tags(session, tenant_id, commit=False)
 
 
 async def ensure_widget_channel(

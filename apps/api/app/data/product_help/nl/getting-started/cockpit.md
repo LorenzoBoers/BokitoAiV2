@@ -4,12 +4,12 @@ intro: Begin hier als je wilt weten of werk doorloopt en waar aandacht nodig is.
 description: Gebruik Overview voor de dagelijkse scan, Canvas voor workspace-dashboards, Activiteit voor het eventlog en Verbruik voor tokenbudget en kosten.
 keywords: overview, rapportages, cockpit, dashboard, overzicht, verbruik, budget, activiteit
 sort: 50
-related: communication,agent-runs,decisions,agenda
+related: communication,categories,agent-runs,decisions,agenda
 ---
 
 # Zo werkt Overview
 
-Overview is de ochtendscan. Open die in de linkerrail om te zien waar jij nodig bent, welke signalen openstaan, wat loopt en hoe het traject zich ontwikkelt, en spring daarna in het onderliggende gesprek of de run. Onder **Instellingen → Profiel** kun je Overview als startpagina na inloggen kiezen; Communicatie blijft de standaard.
+Overview is de ochtendscan. Open die in de linkerrail om te zien waar jij nodig bent, welke tickets openstaan, wat loopt en hoe het traject zich ontwikkelt, en spring daarna in het onderliggende gesprek of de run. Onder **Instellingen → Profiel** kun je Overview als startpagina na inloggen kiezen; Communicatie blijft de standaard.
 
 ## Scan de dag op Overview
 
@@ -17,8 +17,9 @@ Overview is de ochtendscan. Open die in de linkerrail om te zien waar jij nodig 
 *Overview toont open werk, beslissingen en recente runs.*
 
 1. Open **Overview** in de linkerrail. Je landt op de scan. De ondertitel begroet je en toont de datum van vandaag. De grijze regel `environment · tenant-slug · Live` is voor support (API-environment, deze tenant, websocket). Klik de slug om te kopiëren. Dezelfde regel staat onderaan het accountmenu. Een dashboard-build-id verschijnt daar alleen op een uitgerolde release.
-2. Scan de vier vaste blokken: **Jij bent nodig**, **Open signalen per type**, **Lopend** en **Traject**. Traject vergelijkt deze week met vorige week en linkt naar afgeronde runs, Govern-voorstellen en Verbruik.
-3. Klik een rij in de vier blokken om het gesprek, de run of een gefilterde lijst te openen. Een rij onder **Open signalen per type** opent Communicatie gefilterd op die categorie.4. **AI-afhandeling** telt open gesprekken per modus (**Autonoom**, **Geassisteerd**, **Handmatig**) en toont **Autonome antwoorden**, **Doorgegeven aan een persoon** en **Concepten aangepast voor verzenden** over de afgelopen 30 dagen. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+2. Scan de vier vaste blokken: **Jij bent nodig**, **Open tickets per categorie**, **Lopend en straks** en **Traject**. **Lopend en straks** waarschuwt voor openstaande check-ups en verlopen kijkmomenten, toont de eerstvolgende items uit [Agenda](/docs/ai/agenda), daarna de lopende runs, en eindigt met **Agenda openen**. Traject vergelijkt deze week met vorige week: **Tickets vastgelegd (7 dagen)** telt alleen bevestigde tickets, en het blok linkt naar afgeronde runs, Govern-voorstellen en Verbruik.
+3. Klik een rij in de vier blokken om het gesprek, de run of een gefilterde lijst te openen. Een rij onder **Open tickets per categorie** opent de rij van die categorie in Communicatie.
+4. **AI-afhandeling** telt open gesprekken per modus (**Autonoom**, **Geassisteerd**, **Handmatig**) en toont **Autonome antwoorden**, **Doorgegeven aan een persoon** en **Concepten aangepast voor verzenden** over de afgelopen 30 dagen. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
 
 In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via de [setupgids](/docs/getting-started/setup-guide).
 

@@ -35,7 +35,7 @@ Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 - **Workforce** — de mensen, de agents en de teams die ze vormen, met wie nu beschikbaar is. Zie [Workforce](/docs/getting-started/team).
 - **Koppelingen** — marketplace-installaties, partnerlogins en tools. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Integraties](/docs/integrations/integrations).
-- **Instellingen** — **Kanalen**, **AI-antwoorden**, **Chatwidget**, **Providers en modellen** en **Govern**. **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Categorieën voor gesprekken staan onder **Signaaltypes**; zie [Categorieën en tickets](/docs/ai/cases).
+- **Instellingen** — gegroepeerd als Persoonlijk, Organisatie, Communicatie (**Kanalen**, **Chatwidget**, **AI-afhandeling**, **Actietags**), AI en controle (**Govern**, **Modellen**, **Data en privacy**) en Geavanceerd (**Voor ontwikkelaars**). **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Zie [Actietags en tickets](/docs/ai/categories).
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).
 

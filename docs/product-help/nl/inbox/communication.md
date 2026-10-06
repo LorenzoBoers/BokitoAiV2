@@ -4,7 +4,7 @@ intro: De hub voor elk gesprek — klanten en agents op één plek.
 description: Werk klantmail, chat en interne gesprekken af in Communicatie, inclusief opstellen, notities, uitstellen en sjablonen.
 keywords: inbox, communicatie, gesprekken, email, chat, opstellen, uitstellen, sjablonen, beslissingen
 sort: 10
-related: agent-runs,channels,inbox-ai,contacts,decisions,cases
+related: agent-runs,channels,inbox-ai,contacts,decisions,categories
 ---
 
 # Zo werkt Communicatie
@@ -18,10 +18,10 @@ Open is gesprekswerk dat nog jou nodig heeft — klantkanalen én agentchats. Ac
 ![Wachtrij Open in Communicatie](/api/docs/assets/communication/open-queue.png)
 *Open toont gesprekswerk dat nog jou nodig heeft, inclusief agentchats.*
 
-1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Die lijst bevat chats met bedrijfsagents naast klantmail en websitechat. Daaronder staan de secties **Mappen**, **Kanalen**, **Chat met agents** en **Teams** (volgorde en zichtbaarheid kun je aanpassen). **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Mappen) — meestal **Open**, of **Voor jou** als je dat zo hebt gezet.
+1. Open **Communicatie**. Bovenaan staat **Alle communicatie** als map: klik om **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** uit te klappen (plus **Uitgesteld** en **Spam**). Die lijst bevat chats met bedrijfsagents naast klantmail en websitechat. Daaronder staan de secties **Teams**, **Kanalen**, **Chat met agents**, **Tags** en **Projecten** (volgorde en zichtbaarheid kun je aanpassen). **Contacten** en **Instellingen** staan vastgezet onderin. De eerste keer openen gaat naar de standaard-submap uit **Instellingen** → **Kanalen** (Communicatie-menu) — meestal **Open**, of **Voor jou** als je dat zo hebt gezet.
 2. Wissel naar **Voor jou** voor jouw werk: gesprekken die van jou zijn, gesprekken waar jij of je team aan de beurt is, vragen aan iedereen, vermeldingen en open beslissingskaarten. Rijen waar jij nu iets moet doen staan bovenaan. **Niet toegewezen** bevat gesprekken van een team die nog niemand oppakte. Teams die in de zijbalk staan krijgen een eigen map onder **Teams** (zie [Team](/docs/getting-started/team)); **Groepschat** in die map opent het vaste interne gesprek van het team.
-3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde en **AI:** als een agent het stuurde. Openen van een gesprek landt bij de nieuwste berichten. Een nieuwe inkomende e-mail opent bij het begin van die mail, niet bij de handtekening. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Voor jou, Open of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen.
-4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per kanaal) onder **Instellingen**, dan **Kanalen** (Mappen). De sectie **Chat met agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde, plus een rij **Activiteit** naar het werklog van die agent. Elk gesprek heeft één categorie, zichtbaar onder **Dit gesprek** en als chip op de rij in de lijst; zie [Categorieën en tickets](/docs/ai/cases).
+3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde en **AI:** als een agent het stuurde. Naast **Filters** wisselt de lijstweergave tussen **Compacte lijst** en **Ruime lijst**. Compact houdt toegewezene, ticket en hashtags op een onderste rij die alleen verschijnt als je een gesprek aanwijst, focust of selecteert; **Ruime lijst** houdt die rij zichtbaar. Openen van een gesprek landt bij de nieuwste berichten. Een nieuwe inkomende e-mail opent bij het begin van die mail, niet bij de handtekening. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Voor jou, Open of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen.
+4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per rij) onder **Instellingen**, dan **Kanalen** (Tags en Communicatie). De sectie **Chat met agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde, plus een rij **Activiteit** naar het werklog van die agent. Een gesprek kan één categorie hebben, die er een ticket van maakt, zichtbaar onder **Ticket** en als chip op de rij in de lijst; zie [Categorieën en tickets](/docs/ai/categories).
 5. Pin wat telt, kies **Toewijzen** of **Aan mij toewijzen**, of **Uitstellen** (klok in de toolbar). Presets zijn **1 uur**, **4 uur**, **Morgen 9:00**, **Volgende maandag 9:00**, **Tot de klant antwoordt**, of **Kies datum en tijd**. Na een antwoord biedt het pijltje naast **Versturen** de opties **Versturen en sluiten** en **Versturen en uitstellen** om in één stap af te ronden. **Geladen als gelezen markeren** wist ongelezen op de gesprekken die al in de lijst staan.
 6. Selecteer meerdere rijen voor bulk **Gelezen**, **Sluiten**, **Vastzetten**, **Markeer als spam**, **Aan mij toewijzen**, **Toewijzen**, **Heropenen**, **Markeer ongelezen** of **Uitstellen tot morgen 9:00**. Shift-klik een selectievakje om het bereik vanaf de laatste selectie te nemen. Rijacties (sluiten, uitstellen, toewijzen) zitten in het rijmenu en de thread-toolbar. **Meer** bevat Uitgesteld, Gesloten en Spam. Het commandopalet springt ook naar Gesloten, Spam, Activiteit, Assistent, Jij aan zet en Beslissingen, en kan een gesprek of run openen op ID.
 
@@ -95,7 +95,7 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 
 1. Een keuzebubbel verschijnt wanneer een agent jouw oordeel nodig heeft.
 2. Lees het voorstel. Bij meerdere concrete keuzes houdt elke knop z’n eigen label (bijvoorbeeld versturen vs annuleren vs klant vragen). Keur goed, pas aan of wijs af. **Later** / **Niet nu** parkeert het gesprek tot morgen 9:00, zodat het uit Open verdwijnt. De enkele knop **Ik doe het zelf** zet het gesprek op Handmatig en wijst het aan jou toe.
-3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Wat nu** goedkeuren (of de oude keuze Taak aanmaken) zet een kijkmoment op dit gesprek — titel en wanneer — en toont het op de [Agenda](/docs/ai/agenda). Kies in het gespreksmenu **Wat nu** om een kijkmoment te plannen of een typisch Signaal te openen. Wis het kijkmoment onder **Dit gesprek** in het zijpaneel wanneer je klaar bent. Kies **Toevoegen aan project** in hetzelfde menu om het gesprek aan een project te koppelen. Zie [Beslissingen](/docs/ai/decisions).
+3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Wat nu** goedkeuren (of de oude keuze Taak aanmaken) zet een kijkmoment op dit gesprek — titel en wanneer — en toont het op de [Agenda](/docs/ai/agenda). Kies in het gespreksmenu **Wat nu** om een kijkmoment te plannen of een ticket vast te leggen. Wis het kijkmoment onder **Dit gesprek** in het zijpaneel wanneer je klaar bent. Kies **Toevoegen aan project** in hetzelfde menu om het gesprek aan een project te koppelen. Zie [Beslissingen](/docs/ai/decisions).
 
 ## Koppel een bezoeker aan een contact
 
@@ -103,26 +103,26 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 2. Kies in het contactpaneel **+ Contact**, typ hun e-mail of telefoonnummer (en een naam als je die hebt), daarna **Koppelen**. Bokito koppelt de chat aan het bestaande contact met dat adres, of maakt er een aan. Zie [Een gesprek aan een contact koppelen](/docs/inbox/contacts).
 3. Onbekende bezoekers tonen **Onbekende chatter**. Een opgeslagen persoon toont **Contact**. Mail van een workspace-lid toont **Teamlid** (geen Goedkeuren) — dat is een collega, geen klantcontact. Een niet-gekoppelde afzender heeft in het zijpaneel één **Contact**-actie plus **Markeer als spam** (of **Geen spam** als het dat al is). Geen tweede knop om toe te voegen, geen Mailen en geen Contacten openen. Om iemand te blokkeren gebruik je het gespreksmenu (⋯) of de contactpagina. Niet-opgeslagen notities blijven gemarkeerd tot je ze opslaat, en bij wegklikken vraagt Bokito om te bevestigen.
 
-## Een gesprek taggen en de categorie zetten
+## Een gesprek taggen en een ticket vastleggen
 
-1. Open een klantgesprek. Onder **Dit gesprek** toont **Categorie** waar het over gaat; bij een ticket ook de fase. Kies **Categorie wijzigen** om een andere te kiezen. Zie [Categorieën en tickets](/docs/ai/cases).
-2. De rij **Tags** begint met de categoriechip (met een slotje: wijzig die onder **Categorie**, niet hier), daarna de tags. Kies **Tag toevoegen**, typ een naam en druk op Enter. Bestaande tags worden voorgesteld terwijl je typt; een nieuwe naam komt in de taglijst van de workspace.
-3. Kies de **x** op een tag om hem te verwijderen. Agents voegen ook tags toe, maar alleen namen uit de taglijst van de workspace.
-4. Beheer de lijst onder **Instellingen** → **Kanalen** → **Tags**: hernoem een tag (hernoemen naar een bestaande naam voegt de twee samen), voeg een omschrijving toe die agents lezen, of verwijder hem van alle gesprekken.
+1. Open een klantgesprek. Onder **Dit gesprek** kies je **Hashtags toevoegen**. De modal dekt vrije hashtags én actietags (actietags starten een ticketflow); zie [Actietags en tickets](/docs/ai/categories).
+2. Typ met een zachte `#`. Kies een vrije hashtag of een actietag (accent-`#`, label **Actietag**). Een onbekende naam vraagt of je die als hashtag toevoegt of **Actietag maakt**. Als de flow projecten heeft, kies er een of **Geen project**.
+3. De actietag-chip is vergrendeld op het gesprek. Wijzig die door te vervangen in de picker, of **Splits** als een tweede verzoek een eigen ticket nodig heeft. Vrije hashtags tonen een gedempte `#` en een **x** om te verwijderen.
+4. Beheer de lijst onder **Instellingen** → **Actietags** → **Hashtags**: hernoem een hashtag, voeg een omschrijving toe die agents lezen, zet hem vast in Communicatie, maak er een actietag van, of verwijder hem van alle gesprekken.
 5. Om automatisch te taggen voeg je onder **Instellingen** → **Kanalen** een automatiseringsregel toe met de actie **Tags toevoegen**. De regel tagt passende gesprekken en de normale afhandeling gaat door; de tijdlijn toont een regel zoals **Getagd met factuur door regel**.
-6. Duikt er een tweede verzoek op in hetzelfde gesprek, kies dan **Hier splitsen** op het bericht waar het begint, zodat elk gesprek één categorie houdt.
+6. Duikt er een tweede verzoek op in hetzelfde gesprek, kies dan **Hier splitsen** op het bericht waar het begint, zodat elk gesprek één ticket houdt.
 
-## Werk vinden met mappen
+## Werk vinden op hashtag of project
 
-Een map is een bewaard filter op project, categorie, tag en fase. Mappen staan onder **Mappen** in de zijbalk, met het aantal open gesprekken.
+Vastgezette hashtags, actietags die in Communicatie getoond worden en projecten krijgen elk een rij in de zijbalk, met het aantal open gesprekken.
 
-![Mappen in de zijbalk van Communicatie](/api/docs/assets/communication/folders.png)
-*Bewaarde mappen en projectmappen met hun aantal open gesprekken.*
+![Tags in de zijbalk van Communicatie](/api/docs/assets/communication/hashtags.png)
+*Actietags met een accent-#, een vastgezette hashtag en een project, elk met het aantal open.*
 
-1. Elk project met gesprekken krijgt vanzelf een map. Klik erop voor de open gesprekken die aan dat project of aan zijn tickets gekoppeld zijn.
-2. Om er zelf een te bewaren open je **Instellingen** → **Kanalen** → **Mappen** en kies je **Nieuwe map**. Vul een naam in en kies een combinatie van **Project**, **Categorie**, **Tag** en **Fase** (Open, Wachtend of Klaar). Zet **Alleen voor mij** aan om hem uit de zijbalk van je collega's te houden.
-3. Gebruik de pijlen om bewaarde mappen te ordenen, het potlood om de naam of het filter te wijzigen, en de prullenbak om er een te verwijderen. Een map verwijderen raakt de gesprekken nooit.
-4. Een open map toont een balk boven de lijst, bijvoorbeeld **Map: Open reparaties**. Kies **x** op die balk of **Alle gesprekken tonen** om het filter weg te halen. Links vanuit Overview openen dezelfde gefilterde lijst.
+1. Klik onder **Tags** op een rij voor de gesprekken met die hashtag. Hij klapt uit in dezelfde submappen als een kanaal: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**.
+2. Klik onder **Projecten** op een project voor de gesprekken die erop zijn vastgelegd.
+3. Zet een vrije hashtag vast met de punaise onder **Instellingen** → **Actietags** → **Hashtags**. Een actietag krijgt een rij als **In Communicatie** aan staat.
+4. Kies onder **Instellingen** → **Kanalen** → **Tags en Communicatie** met welke submap elke rij opent.
 
 ## Wat nu
 

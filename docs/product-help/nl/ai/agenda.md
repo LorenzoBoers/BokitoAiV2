@@ -1,55 +1,55 @@
 ---
 title: Zo werkt Agenda
-intro: Geplande check-ins, eenmalige wakes, kijkmomenten op gesprekken en kalenderblokken delen één tijdlijn, met wie kijkt op elk item.
-description: Bekijk wat er gepland staat, plan agent-wakes en toon gekoppelde kalenderafspraken naast kijkmomenten.
-keywords: agenda, planning, check-in, wake, kijkmoment, google calendar, outlook calendar
+intro: Alles wat er in de workspace gebeurt, door mensen en agents, in één agenda naast je eigen Google- of Outlook-afspraken.
+description: Zie wat er gebeurde, wat openstaat en wat gepland is, volg check-ups op en plan agenttaken, herinneringen en routines.
+keywords: agenda, kalender, planning, check-up, wake, kijkmoment, routine, google calendar, outlook calendar
 sort: 50
-related: agents,projects,communication,agent-runs,integrations,workstreams
+related: agents,projects,workstreams,communication,agent-runs,integrations
 ---
 
 # Zo werkt Agenda
 
-Agenda is wat er gepland staat. Die combineert aankomende momenten met voorbije uitvoeringen en noemt de verantwoordelijke agent of persoon.
+Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en agents. Je gekoppelde agenda's staan in hetzelfde rooster, zodat afspraken en werk niet om aandacht strijden.
 
-## Bekijk wat er gepland staat
+## Zie wat er wanneer gebeurt
 
 ![Agenda-weekweergave](/api/docs/assets/agenda/week.png)
-*Week toont geplande wakes, kijkmomenten en kalenderafspraken per dag.*
+*Week toont afspraken, check-ups, kijkmomenten en agenttaken per dag.*
 
-1. Open **Agenda**. **Tijdlijn** toont de vorige zeven dagen en de volgende drie weken.
-2. Elk item toont status en actor: **Agent** voor een geplande wake of **Persoon** voor een menselijk kijkmoment of kalenderblok. Kies een item om de run, het gesprek, de kalenderafspraak of het schema te openen.
-3. Filter met **Alles**, **Wakes**, **Kijkmomenten** of **Kalender**. Kies **Week** wanneer een dagrooster handiger is.
+1. Open **Agenda**. **Week** is de standaard; wissel bovenaan naar **Dag**, **Maand** of **Lijst**, of druk op D, W, M of L.
+2. Gebruik **Vandaag** en de pijlen (of de pijltjestoetsen) om door de tijd te bewegen.
+3. Kies links **Wie** (**Iedereen**, **Alleen ik**, **Mensen**, **Agents**) en een project, en zet lagen aan of uit onder **Tonen**: **Agenda**, **Kijkmomenten**, **Check-ups**, **Agenttaken**, **Routines** en **Activiteit**.
+4. Kies een item om rechts de details te openen, met links naar het gesprek, project of de agent.
 
-## Sync Google of Outlook Calendar
+## Pak op wat aandacht vraagt
 
-1. Kies op Agenda **Google Calendar** of **Outlook Calendar** in de connect-strip, of open **Marketplace** en filter op **Kalender**.
-2. Rond OAuth af. Afspraken verschijnen op het weekrooster (in lokale development verschijnen demo-events).
-3. Kies **Sync** om te verversen. De gekoppelde balk toont het Google- en Outlook-logo naast elke kalender. Kies **Kalenderblok** om een afspraak op een gekoppelde kalender te zetten. Klik op een kalenderchip voor details — **Bewerken** voor titel, tijden, locatie of beschrijving, of **Verwijderen** om te wissen.
+1. Het getal naast **Agenda** in de linkerrail telt de verlopen kijkmomenten en openstaande check-ups op open gesprekken die aan jou zijn toegewezen. **Overview** toont dezelfde items onder **Lopend en straks**.
+2. De balk **Vraagt aandacht** boven de agenda telt openstaande check-ups, verlopen kijkmomenten en mislukte runs. Kies een telling om die items samen te zien.
+3. Open een check-up om het ticket, de eigenaar en het ritme te zien. Kies **Nu checken** om hem direct te starten, of **Pauzeren** om hem te stoppen.
+4. Druk overal op Ctrl+K (Cmd+K op Mac) en kies **Openstaande check-ups en kijkmomenten**.
 
-Agents met kalendertools kunnen aankomende afspraken tonen (met vaste ids) en nieuwe blokken of verplaatsingen voorstellen die op jouw goedkeuring in Communicatie wachten.
+## Volg tickets op met check-ups
 
-## Hang een wake aan een agent
+1. Open een Flow en kies **Bewerken**. Elke fase heeft een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme (**Uit**, uren, dagen of een week).
+2. Komt een ticket in die fase, dan krijgt de eigenaar in dat ritme een check-up op Agenda. Agents pakken hem op als wake; mensen zien hem in hun agenda en op het ticket.
+3. Het ticketpaneel in Communicatie toont wanneer de volgende check-up is. Een Flow met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Flows](/docs/ai/workstreams).
+4. Op een contactpagina toont elk gesprek zijn actietag, fase en geplande kijkmoment.
 
-1. Kies **Plannen**. De dialoog heet **Nieuw schema**. Je kunt ook **Plannen** openen vanuit [Agents](/docs/ai/agents). Later bewerken opent **Schema bewerken**.
-2. Vul **Naam** in, kies een **Type**, een **Doel**-agent, **Wanneer**, en **Instructies voor de agent** (behalve **Event**, dat geen run start). Kies **Opslaan**. **Verwijderen** haalt het item weg.
-3. Types:
-   - **Eenmalig** — wekt één keer op het moment dat je zet, en is daarna klaar.
-   - **Event** — een herinnering op de agenda. Geen agent-run.
-   - **Terugkerend schema** — **Cron-expressie (UTC)** (bijvoorbeeld ochtenden op weekdagen).
-   - **Herhalend** — **Elke (minuten)**.
-   - **Check-in** — een heartbeat. De gezaaide check-in is hoe de assistent de workspace bewaakt. Die meldt zich alleen wanneer iets aandacht nodig heeft, in het eigen kanaal van die assistent in Communicatie.
-   - **Inkomend** — een extern systeem POSTet JSON naar de **Hook-URL**. Na opslaan kopieer je **Inkomend geheim (eenmalig zichtbaar)**. Stuur het als header `X-Bokito-Secret` of `?secret=`. Gebruik later **Testping** en **Geheim vernieuwen**. Inkomende hooks zijn beperkt tot 60 POSTs per minuut.
+## Plan iets nieuws
 
-Laat **Ingeschakeld** aan. Uitgeschakelde items blijven op de agenda maar starten nooit.
+1. Kies **Nieuw** en daarna **Agenttaak** (een agent pakt het één keer op), **Herinnering** (gaat af op een datum of bij een platformgebeurtenis), **Routine** (een agent herhaalt het in een ritme) of **Agendablok** (zet een blok in een gekoppelde agenda).
+2. Vul de naam, de agent, het moment en de instructies in. Kies **Opslaan**.
+3. Routines blijven uit het rooster zodat belangrijke momenten opvallen. Beheer ze links onder **Routines**.
+4. Snelkoppelingen: **Agenttaak plannen** en **Nieuwe herinnering** in het opdrachtenpalet (Ctrl+K), of **Plannen op Agenda** op de pagina van een agent. Die opent Agenda gefilterd op die agent, met het formulier klaar.
 
-## Laat agents hun eigen opvolging plannen
+Agents plannen ook zelf: vraag er een in een gesprek om "dit vrijdag opnieuw te checken". Afhankelijk van je [autonomie-houding](/docs/govern/autonomy) wordt de planning direct gemaakt of komt die eerst als beslissing in Communicatie.
 
-Agents kunnen zelf werk plannen: vraag in een gesprek aan een agent om "dit vrijdag opnieuw te checken" of "het team te herinneren aan het voorstel".
+## Toon je Google- of Outlook-agenda
 
-1. De agent kan een latere run voor zichzelf plannen, of een kijkmoment op dit gesprek zetten zodat het op Agenda als persoonsitem verschijnt — niet als een aparte taak.
-2. Afhankelijk van je [autonomie-houding](/docs/govern/autonomy) wordt de planning direct gemaakt of verschijnt die eerst als beslissingskaart in Communicatie ter goedkeuring.
-3. Goedgekeurde wakes verschijnen op de Agenda-tijdlijn. Kijkmomenten van **Wat nu** op een gesprek verschijnen hier ook als persoonsitems — open ze om terug te gaan naar dat gesprek.
+1. Koppel links onder **Agenda's** Google Calendar of Outlook Calendar, of open **Koppelingen** en filter op **Kalender**.
+2. Rond het inloggen af. Afspraken verschijnen in het rooster naast het werk.
+3. Kies een afspraak om details te zien, te bewerken of te verwijderen.
 
 ## Wat daarna
 
-Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Langer werk over dagen hoort in [Projects](/docs/ai/projects). Meer apps koppelen via [Integraties](/docs/integrations/integrations).
+Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Elk [project](/docs/ai/projects) toont zijn eigen agenda op de projectpagina.

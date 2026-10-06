@@ -13,6 +13,12 @@
     "retry": "Retry",
     "close": "Close"
   },
+  "autosave": {
+    "saving": "Saving…",
+    "lastModified": "Last modified {{time}}",
+    "error": "Could not save"
+  },
+
   "aiHandling": {
     "title": "AI handling",
     "modes": {

@@ -344,23 +344,14 @@ async def apply_safeguards(
     ):
         reason = "new_contact"
     else:
-        from app.models.case import Case, CaseType
+        from app.models.signal import SignalTag
 
-        send_mode = (
-            await session.execute(
-                select(CaseType.send_mode)
-                .join(Case, Case.case_type_id == CaseType.id)
-                .where(
-                    Case.tenant_id == signal.tenant_id,
-                    Case.signal_id == signal.id,
-                    Case.status.in_(("open", "waiting")),
-                    CaseType.send_mode.in_(("draft", "ask")),
-                )
-                .limit(1)
-            )
-        ).scalar_one_or_none()
+        send_mode = None
+        if signal.ticket_tag_id and signal.ticket_status in ("open", "waiting"):
+            tag = await session.get(SignalTag, signal.ticket_tag_id)
+            send_mode = tag.send_mode if tag and tag.send_mode in ("draft", "ask") else None
         if send_mode:
-            reason = "signal_type"
+            reason = "category"
     if reason is None:
         return "autonomous", None
     session.add(

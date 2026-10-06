@@ -64,68 +64,39 @@ async def test_tag_folder_lists_only_tagged_threads(client: AsyncClient, session
 
 
 @pytest.mark.asyncio
-async def test_triage_intent_creates_case_not_tag(client: AsyncClient, session_override):
-    """Catalog hits from triage become Cases; the conversation gets no tags."""
+async def test_triage_files_the_category_as_ticket_not_tag(client: AsyncClient, session_override):
+    """A triage category hit files the ticket; it is not repeated as a free tag."""
     headers = await _auth_headers(client)
     signal_id = await _ingest(client, headers, "Refund request")
 
-    from uuid import UUID
-
     from app.models.auth import Tenant
-    from app.models.case import Case
-    from app.services.cases import create_case_type
-    from app.services.interpretation import _create_cases_from_triage
+    from app.services.interpretation import _file_from_triage
 
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    case_type = await create_case_type(
-        session_override,
-        tenant.id,
-        name="Refund request",
-        slug="refund_request",
-        description="Customer explicitly asks for money back.",
-        create_mode="auto",
-        auto_threshold=5,
+    created = await client.post("/api/categories", headers=headers, json={"name": "refund"})
+    category_id = UUID(created.json()["id"])
+    await client.patch(
+        f"/api/categories/{category_id}", headers=headers, json={"create_mode": "auto", "auto_threshold": 5}
     )
+    from app.models.signal import SignalTag
 
-    await _create_cases_from_triage(
-        session_override,
-        tenant.id,
-        signal_id=UUID(signal_id),
-        slugs=["refund_request"],
-        enabled_types=[case_type],
-        summary="Customer wants a refund for order 123.",
-        certainty=90,
-    )
+    category = await session_override.get(SignalTag, category_id)
+    await session_override.refresh(category)
 
-    cases = (
-        await session_override.execute(
-            select(Case).where(Case.signal_id == UUID(signal_id))
+    for _ in range(2):
+        await _file_from_triage(
+            session_override,
+            tenant.id,
+            signal_id=UUID(signal_id),
+            category=category,
+            summary="Customer wants a refund for order 123.",
+            certainty=90,
         )
-    ).scalars().all()
-    assert len(cases) == 1
-    assert cases[0].case_type_id == case_type.id
-    # No workstream binding: the category labels the conversation and is done.
-    assert cases[0].status == "done"
-    assert cases[0].created_by_type == "triage"
-
+    signal = await session_override.get(Signal, UUID(signal_id))
+    await session_override.refresh(signal)
+    assert signal.ticket_tag_id == category_id
+    assert signal.ticket_status == "open"
     assert await signal_tag_names(session_override, UUID(signal_id)) == []
-
-    # Idempotent: a second triage pass never duplicates the case.
-    await _create_cases_from_triage(
-        session_override,
-        tenant.id,
-        signal_id=UUID(signal_id),
-        slugs=["refund_request"],
-        enabled_types=[case_type],
-        summary="Customer wants a refund for order 123.",
-        certainty=90,
-    )
-    cases = (
-        await session_override.execute(
-            select(Case).where(Case.signal_id == UUID(signal_id))
-        )
-    ).scalars().all()
-    assert len(cases) == 1
 
 
 @pytest.mark.asyncio
@@ -173,7 +144,7 @@ async def test_tag_rule_tags_and_keeps_flow(client: AsyncClient, session_overrid
         json={"match_type": "domain", "match_value": "acme.test", "action": "tag", "tags": ["Key account"]},
     )
     assert rule.status_code == 200, rule.text
-    assert rule.json()["labels"] == ["key account"]
+    assert rule.json()["labels"] == ["key-account"]
 
     missing = await client.post(
         "/api/signals/rules",
@@ -197,8 +168,8 @@ async def test_tag_rule_tags_and_keeps_flow(client: AsyncClient, session_overrid
     rules = await inbox_rules.find_tag_rules(session_override, tenant.id, "anna@acme.test")
     assert [r.action for r in rules] == ["tag"]
     added = await inbox_rules.apply_tag_rules(session_override, tenant.id, signal, rules)
-    assert added == ["key account"]
-    assert await signal_tag_names(session_override, signal.id) == ["key account"]
+    assert added == ["key-account"]
+    assert await signal_tag_names(session_override, signal.id) == ["key-account"]
     hit = await session_override.get(InboxRule, rules[0].id)
     assert hit.hit_count == 1
 

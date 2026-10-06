@@ -13,7 +13,8 @@ import { onGatewayEvent, onGatewayStatus, type GatewayEvent } from './gateway'
 
 export type EntityKind =
   | 'trigger'
-  | 'case'
+  | 'ticket'
+  | 'tag'
   | 'project'
   | 'agent'
   | 'module_source'

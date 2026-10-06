@@ -233,6 +233,50 @@ async def test_signal_badge_counts(client: AsyncClient):
     assert "agents_attention" in body
     assert set(body["inbox_by_queue"].keys()) == {"for_you", "for_you_unread", "unassigned", "all"}
     assert body["by_team"] == {}
+    assert body["agenda_due"] == 0
+
+
+@pytest.mark.asyncio
+async def test_agenda_due_counts_overdue_lookats_for_assignee(session_override):
+    from datetime import datetime, timedelta
+
+    from app.models.auth import Tenant, User
+    from app.services.time_items import due_for_user
+
+    tenant = Tenant(slug="agenda-due", name="Agenda Due")
+    user = User(email="due@test.local", password_hash="x", display_name="Due")
+    session_override.add_all([tenant, user])
+    await session_override.flush()
+    now = datetime.utcnow()
+
+    def thread(subject: str, **kw) -> Signal:
+        return Signal(
+            tenant_id=tenant.id,
+            channel="email",
+            subject=subject,
+            status="open",
+            assignee_kind="user",
+            assigned_user_id=user.id,
+            **kw,
+        )
+
+    session_override.add_all(
+        [
+            thread("overdue", follow_up_at=now - timedelta(hours=2)),
+            thread("later", follow_up_at=now + timedelta(days=1)),
+            thread("stale", follow_up_at=now - timedelta(days=60)),
+            Signal(
+                tenant_id=tenant.id,
+                channel="email",
+                subject="someone else",
+                status="open",
+                follow_up_at=now - timedelta(hours=1),
+            ),
+        ]
+    )
+    await session_override.commit()
+
+    assert await due_for_user(session_override, tenant.id, user.id) == 1
 
 
 @pytest.mark.asyncio

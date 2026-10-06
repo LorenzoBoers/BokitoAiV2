@@ -468,11 +468,11 @@ class AgentLoop:
                 memory = await user_memory_block(self.session, self.user_id)
                 if memory:
                     parts.append(memory)
-        from app.services.assistant_context import case_binding_map_block
+        from app.services.assistant_context import category_map_block
 
-        binding_map = await case_binding_map_block(self.session, self.tenant_id)
-        if binding_map:
-            parts.append(binding_map)
+        category_map = await category_map_block(self.session, self.tenant_id)
+        if category_map:
+            parts.append(category_map)
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
@@ -737,7 +737,7 @@ class AgentLoop:
             call_type=self.usage_call_type,
             agent_id=self.agent.id if self.agent else None,
             run_id=self.run.id if self.run else None,
-            signal_type_id=getattr(self.run, "signal_type_id", None) if self.run else None,
+            ticket_tag_id=getattr(self.run, "ticket_tag_id", None) if self.run else None,
             workstream_run_id=(
                 getattr(self.run, "workstream_run_id", None) if self.run else None
             ),

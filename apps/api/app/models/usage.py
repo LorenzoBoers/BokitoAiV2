@@ -31,8 +31,8 @@ class UsageLedger(SQLModel, table=True):
     cost_cents: int = 0
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id", index=True)
     run_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_runs.id", index=True)
-    signal_type_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="case_types.id", index=True
+    ticket_tag_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="signal_tags.id", index=True
     )
     workstream_run_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="workstream_runs.id", index=True

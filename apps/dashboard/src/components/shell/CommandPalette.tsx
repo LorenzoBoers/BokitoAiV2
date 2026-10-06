@@ -10,6 +10,7 @@ import {
   CornerDownLeft,
   FileText,
   FolderKanban,
+  Hash,
   Inbox,
   Mail,
   MessageSquare,
@@ -27,7 +28,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { PINNED_TABS, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
-import { activityTerminalPath, agentChatPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
+import { activityTerminalPath, agentChatPath, inboxPath, newConversationPath, tagPath } from '../../lib/messages-paths'
+import { withNavReveal } from '../../lib/nav-reveal'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
 import { openEntityPath } from '../../lib/open-entity'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
@@ -36,12 +38,11 @@ import { composeEmailPath, newAgentPath, newContactPath } from '../../lib/compos
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { listRecentPages } from '../../lib/recent-pages'
-import { listSignalThreads, patchSignalThread } from '../../lib/signals-api'
+import { listSignalTags, listSignalThreads, patchSignalThread, type SignalTag } from '../../lib/signals-api'
 import { listContacts, type ContactRow } from '../../lib/contacts-api'
 import { listInboxMembers, type InboxThread } from '../../lib/inbox-api'
 import { searchWorkspace, type WorkspaceSearchHit } from '../../lib/workspace-api'
 import { humanizeKnowledgeTitle } from '../../lib/knowledge-title'
-import { listCases, type CaseRow } from '../../lib/cases-api'
 import { listAgents } from '../../lib/agents-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
@@ -80,7 +81,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [threadResults, setThreadResults] = useState<InboxThread[]>([])
   const [contactResults, setContactResults] = useState<ContactRow[]>([])
   const [docResults, setDocResults] = useState<WorkspaceSearchHit[]>([])
-  const [caseResults, setCaseResults] = useState<CaseRow[]>([])
+  const [hashtags, setHashtags] = useState<SignalTag[]>([])
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [workstreams, setWorkstreams] = useState<WorkstreamRow[]>([])
@@ -95,7 +96,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       setThreadResults([])
       setContactResults([])
       setDocResults([])
-      setCaseResults([])
       return
     }
     let cancelled = false
@@ -121,13 +121,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .catch(() => {
           if (!cancelled) setDocResults([])
         })
-      void listCases({ q, limit: 8 })
-        .then((rows) => {
-          if (!cancelled) setCaseResults(rows)
-        })
-        .catch(() => {
-          if (!cancelled) setCaseResults([])
-        })
     }, 200)
     return () => {
       cancelled = true
@@ -142,16 +135,18 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       listAgents().catch(() => [] as RuntimeAgent[]),
       listProjects().catch(() => [] as ProjectRow[]),
       listWorkstreams().catch(() => [] as WorkstreamRow[]),
-    ]).then(([nextAgents, nextProjects, nextWorkstreams]) => {
+      token ? listSignalTags(token).catch(() => [] as SignalTag[]) : Promise.resolve([] as SignalTag[]),
+    ]).then(([nextAgents, nextProjects, nextWorkstreams, nextTags]) => {
       if (cancelled) return
       setAgents(nextAgents)
       setProjects(nextProjects)
       setWorkstreams(nextWorkstreams)
+      setHashtags(nextTags)
     })
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, token])
 
   const catalog = useMemo(() => {
     const navTabs = [...PINNED_TABS, ...TAB_GROUPS.flatMap((group) => group.tabs)]
@@ -324,6 +319,41 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         group: t('palette.groupActions'),
         icon: CalendarDays,
         run: () => navigate('/agenda'),
+      },
+      {
+        id: 'action-plan-agent-task',
+        label: t('palette.planAgentTask'),
+        group: t('palette.groupActions'),
+        icon: CalendarDays,
+        run: () => navigate('/agenda?new=once'),
+      },
+      {
+        id: 'action-new-reminder',
+        label: t('palette.newReminder'),
+        group: t('palette.groupActions'),
+        icon: CalendarDays,
+        run: () => navigate('/agenda?new=event'),
+      },
+      {
+        id: 'action-checkups-due',
+        label: t('palette.checkupsDue'),
+        group: t('palette.groupActions'),
+        icon: CalendarDays,
+        run: () => navigate('/agenda?view=list&layers=checkups,reminders'),
+      },
+      {
+        id: 'action-new-flow',
+        label: t('palette.newFlow'),
+        group: t('palette.groupActions'),
+        icon: Workflow,
+        run: () => navigate('/workstreams?new=1'),
+      },
+      {
+        id: 'action-open-action-tags',
+        label: t('palette.openActionTags'),
+        group: t('palette.groupActions'),
+        icon: Hash,
+        run: () => navigate('/settings/action-tags'),
       },
       {
         id: 'action-open-agent',
@@ -501,14 +531,22 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       icon: Users,
       run: () => navigate(`/contacts?company=${encodeURIComponent(contact.company!)}`),
     }))
-    const signals: PaletteItem[] = caseResults.map((item) => ({
-      id: `signal-${item.id}`,
-      label: item.title || item.summary || item.case_type?.name || t('palette.signal', { defaultValue: 'Signal' }),
-      hint: item.case_type?.name,
-      group: t('palette.groupThreads'),
-      icon: Inbox,
-      run: () => navigate(item.signal_id ? inboxPath('open', item.signal_id) : `/settings/signals?q=${encodeURIComponent(q)}`),
-    }))
+    const hashtagQuery = q.replace(/^#/, '').toLowerCase()
+    const signals: PaletteItem[] = hashtagQuery
+      ? hashtags
+          .filter((item) => item.name.includes(hashtagQuery))
+          .slice(0, 6)
+          .map((item) => ({
+            id: `hashtag-${item.id}`,
+            label: `#${item.name}`,
+            hint: item.isCategory
+              ? t('palette.category', { defaultValue: 'Category' })
+              : t('palette.hashtag', { defaultValue: 'Hashtag' }),
+            group: t('palette.groupThreads'),
+            icon: Hash,
+            run: () => navigate(withNavReveal(tagPath(item.name, 'open'))),
+          }))
+      : []
     const matchingAgents: PaletteItem[] = agents
       .filter((item) => `${item.name} ${item.role_name ?? ''} ${item.purpose ?? ''}`.toLowerCase().includes(q.toLowerCase()))
       .slice(0, 5)
@@ -578,7 +616,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     threadResults,
     contactResults,
     docResults,
-    caseResults,
+    hashtags,
     agents,
     projects,
     workstreams,

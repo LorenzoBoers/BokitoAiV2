@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card } from '../ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useAuth } from '../../context/AuthContext'
 import {
   getTenantModels,
@@ -78,20 +79,23 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {canEdit ? (
-          <select
-            value={current?.slug ?? ''}
-            onChange={(e) => void onSelect(e.target.value)}
+          <Select
+            value={current?.slug}
+            onValueChange={(slug) => void onSelect(slug)}
             disabled={busy || models.length <= 1}
-            className="min-w-[220px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-primary disabled:opacity-50"
           >
-            {!current ? <option value="">{currentLabel || t('workforce.agents.selectModel')}</option> : null}
-            {models.map((m) => (
-              <option key={m.slug} value={m.slug}>
-                {m.display_name}
-                {m.region === 'eu' ? ' (EU)' : m.region === 'us' ? ' (US)' : ''}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 min-w-[220px] w-auto text-sm" aria-label={t('workforce.agents.modelTitle')}>
+              <SelectValue placeholder={currentLabel || t('workforce.agents.selectModel')} />
+            </SelectTrigger>
+            <SelectContent>
+              {models.map((m) => (
+                <SelectItem key={m.slug} value={m.slug}>
+                  {m.display_name}
+                  {m.region === 'eu' ? ' (EU)' : m.region === 'us' ? ' (US)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : (
           <p className="text-sm text-text-primary">
             {currentLabel}

@@ -72,6 +72,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const badgeForTab = (tab: Tab): number => {
     if (tab === 'communication') return countForBadgeSlot(counts, 'inbox')
     if (tab === 'agents') return countForBadgeSlot(counts, 'agents')
+    if (tab === 'agenda') return countForBadgeSlot(counts, 'agenda')
     return 0
   }
 

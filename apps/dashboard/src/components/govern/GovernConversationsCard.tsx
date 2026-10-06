@@ -18,32 +18,32 @@ import {
   type AiHandlingBreaker,
   type AiHandlingOverview,
 } from '../../lib/ai-handling-api'
-import { patchCaseType } from '../../lib/cases-api'
 import type { AllowanceMode, AutonomyScopeRow } from '../../lib/govern-api'
-import { signalTypeLabel } from '../../lib/signal-type-catalog'
+import { patchCategory } from '../../lib/tickets-api'
+import { Hashtag } from '../ui/HashtagMark'
 import { inboxPath } from '../../lib/messages-paths'
 
 type Props = {
   messagingMode: AllowanceMode | undefined
   onMessagingChange: (mode: AllowanceMode) => void | Promise<void>
-  caseTypes: AutonomyScopeRow[]
-  onCaseTypeChanged: (row: AutonomyScopeRow) => void
+  categories: AutonomyScopeRow[]
+  onCategoryChanged: (row: AutonomyScopeRow) => void
   saving?: boolean
 }
 
 /**
  * Govern view of AI handling: the ceiling every conversation sits under, what
- * currently runs autonomously, which signal types never send on their own,
+ * currently runs autonomously, which categories never send on their own,
  * and the circuit breaker.
  */
 export default function GovernConversationsCard({
   messagingMode,
   onMessagingChange,
-  caseTypes,
-  onCaseTypeChanged,
+  categories,
+  onCategoryChanged,
   saving = false,
 }: Props) {
-  const { t, i18n } = useTranslation('govern')
+  const { t } = useTranslation('govern')
   const { t: tc } = useTranslation('common')
   const { token } = useAuth()
   const [overview, setOverview] = useState<AiHandlingOverview | null>(null)
@@ -96,8 +96,8 @@ export default function GovernConversationsCard({
   const toggleSendMode = async (row: AutonomyScopeRow, reviewed: boolean) => {
     setBusyTypeId(row.id)
     try {
-      const updated = await patchCaseType(row.id, { send_mode: reviewed ? 'draft' : 'send' })
-      onCaseTypeChanged({ ...row, send_mode: updated.send_mode })
+      const updated = await patchCategory(row.id, { send_mode: reviewed ? 'draft' : 'send' })
+      onCategoryChanged({ ...row, send_mode: updated.send_mode })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tc('aiHandling.saveError'))
     } finally {
@@ -115,7 +115,7 @@ export default function GovernConversationsCard({
       ]
     : []
   const tripped = overview?.exceptions.channels.filter((row) => row.breakerTrippedAt) ?? []
-  const customerTypes = caseTypes.filter((row) => row.send_mode)
+  const customerTypes = categories.filter((row) => row.send_mode)
 
   return (
     <Card data-testid="govern-conversations">
@@ -206,9 +206,7 @@ export default function GovernConversationsCard({
                 const reviewed = row.send_mode !== 'send'
                 return (
                   <li key={row.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                    <span className="min-w-0 truncate-fade text-sm text-text-primary">
-                      {signalTypeLabel({ slug: row.slug, name: row.name }, i18n.language)}
-                    </span>
+                    <Hashtag name={row.name} category className="min-w-0 text-sm text-text-primary" />
                     <span className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
                       {reviewed ? t('conversations.alwaysReview') : t('conversations.mayAutoSend')}
                       <Switch

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { dayKey } from '../../lib/agenda-layout'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
 import { scheduledForIso, type FollowUpWhen } from './WhatsNextDialog'
 
@@ -35,13 +36,14 @@ export function useFollowUpPlanner({ thread, onPatch, onRefresh }: Args) {
       if (!thread || saving) return
       setSaving(true)
       try {
-        await onPatch({ followUpAt: scheduledForIso(input.when), followUpTitle: input.title })
+        const at = scheduledForIso(input.when)
+        await onPatch({ followUpAt: at, followUpTitle: input.title })
         setOpen(false)
         toast.success(t('threadChrome.taskCreated', { title: input.title }), {
           description: t('threadChrome.taskCreatedHint'),
           action: {
             label: t('threadChrome.openAgenda'),
-            onClick: () => navigate('/agenda?view=timeline&source=wakes'),
+            onClick: () => navigate(`/agenda?view=list${at ? `&date=${dayKey(new Date(at))}` : ''}`),
           },
         })
         onRefresh?.()

@@ -11,10 +11,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.auth import Tenant
-from app.models.case import Case, CaseType
 from app.models.notification import DecisionRequest
-from app.models.signal import Signal, SignalEvent, SignalMessage
-from app.services.cases import ensure_platform_case_types
+from app.models.signal import Signal, SignalEvent, SignalMessage, SignalTag
+from app.services.signal_tags import create_tag, promote_tag
 from app.services.conversation_split import SPLIT_DECISION_SOURCE, split_or_propose
 from app.services.notifications import resolve_decision
 from app.services.signals import _open_thread_for_inbound
@@ -33,13 +32,9 @@ async def _tenant(session) -> Tenant:
     return (await session.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
 
 
-async def _type(session, tenant_id, slug: str) -> CaseType:
-    await ensure_platform_case_types(session, tenant_id)
-    return (
-        await session.execute(
-            select(CaseType).where(CaseType.tenant_id == tenant_id, CaseType.slug == slug)
-        )
-    ).scalar_one()
+async def _type(session, tenant_id, name: str) -> SignalTag:
+    tag = await create_tag(session, tenant_id, name)
+    return await promote_tag(session, tenant_id, tag.id)
 
 
 async def _thread(session, tenant_id, *, ai_handling: str | None = None):
@@ -80,7 +75,7 @@ async def _thread(session, tenant_id, *, ai_handling: str | None = None):
 async def test_operator_split_moves_messages_and_routes_replies(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
-    complaint = await _type(session_override, tenant.id, "complaint")
+    complaint = await _type(session_override, tenant.id, "klacht")
     signal, rows = await _thread(session_override, tenant.id)
 
     res = await client.post(
@@ -113,8 +108,7 @@ async def test_operator_split_moves_messages_and_routes_replies(client: AsyncCli
     ).scalars().all()
     assert len(kept) == 2
 
-    case = (await session_override.execute(select(Case).where(Case.signal_id == child.id))).scalar_one()
-    assert case.case_type_id == complaint.id
+    assert child.ticket_tag_id == complaint.id
     events = (
         await session_override.execute(
             select(SignalEvent).where(
@@ -155,26 +149,25 @@ async def test_split_needs_an_earlier_message(client: AsyncClient, session_overr
 @pytest.mark.asyncio
 async def test_triage_proposes_a_split_for_a_new_category(client: AsyncClient, session_override):
     _ = client
-    from app.services.cases import create_case
-    from app.services.interpretation import _create_cases_from_triage
+    from app.services.interpretation import _file_from_triage
+    from app.services.tickets import file_ticket
 
     tenant = await _tenant(session_override)
-    bug = await _type(session_override, tenant.id, "bug_report")
-    complaint = await _type(session_override, tenant.id, "complaint")
+    bug = await _type(session_override, tenant.id, "storing")
+    complaint = await _type(session_override, tenant.id, "klacht")
     signal, _rows = await _thread(session_override, tenant.id, ai_handling="assisted")
     signal_id = signal.id
-    await create_case(
-        session_override, tenant.id, case_type_id=bug.id, signal_id=signal_id, actor="operator"
+    await file_ticket(
+        session_override, tenant.id, signal_id=signal_id, tag_id=bug.id, actor="operator"
     )
-    enabled = [bug, complaint]
 
-    await _create_cases_from_triage(
-        session_override, tenant.id, signal_id=signal_id, slugs=[complaint.slug],
-        enabled_types=enabled, summary="Invoice is wrong", certainty=40, certain=False,
+    await _file_from_triage(
+        session_override, tenant.id, signal_id=signal_id, category=complaint,
+        summary="Invoice is wrong", certainty=40, certain=False,
     )
-    await _create_cases_from_triage(
-        session_override, tenant.id, signal_id=signal_id, slugs=[bug.slug, complaint.slug],
-        enabled_types=enabled, summary="Invoice is wrong", certainty=90, certain=True,
+    await _file_from_triage(
+        session_override, tenant.id, signal_id=signal_id, category=bug,
+        summary="Invoice is wrong", certainty=90, certain=True,
     )
     cards = (
         await session_override.execute(
@@ -183,9 +176,9 @@ async def test_triage_proposes_a_split_for_a_new_category(client: AsyncClient, s
     ).scalars().all()
     assert cards == []
 
-    await _create_cases_from_triage(
-        session_override, tenant.id, signal_id=signal_id, slugs=[complaint.slug],
-        enabled_types=enabled, summary="Invoice is wrong", certainty=90, certain=True,
+    await _file_from_triage(
+        session_override, tenant.id, signal_id=signal_id, category=complaint,
+        summary="Invoice is wrong", certainty=90, certain=True,
     )
     card = (
         await session_override.execute(
@@ -200,17 +193,17 @@ async def test_triage_proposes_a_split_for_a_new_category(client: AsyncClient, s
 async def test_ai_split_follows_ai_handling(client: AsyncClient, session_override, monkeypatch):
     _ = client
     tenant = await _tenant(session_override)
-    complaint = await _type(session_override, tenant.id, "complaint")
+    complaint = await _type(session_override, tenant.id, "klacht")
 
     manual, _rows = await _thread(session_override, tenant.id, ai_handling="manual")
-    out = await split_or_propose(session_override, tenant.id, manual, case_type=complaint)
+    out = await split_or_propose(session_override, tenant.id, manual, category=complaint)
     assert out["status"] == "manual"
 
     assisted, _rows = await _thread(session_override, tenant.id, ai_handling="assisted")
     assisted_id = assisted.id
-    out = await split_or_propose(session_override, tenant.id, assisted, case_type=complaint)
+    out = await split_or_propose(session_override, tenant.id, assisted, category=complaint)
     assert out["status"] == "proposed"
-    again = await split_or_propose(session_override, tenant.id, assisted, case_type=complaint)
+    again = await split_or_propose(session_override, tenant.id, assisted, category=complaint)
     assert again["status"] == "pending"
     decision_id = UUID(out["decision_id"])
     await resolve_decision(session_override, tenant.id, decision_id, "split", "approved")
@@ -227,7 +220,7 @@ async def test_ai_split_follows_ai_handling(client: AsyncClient, session_overrid
     monkeypatch.setattr("app.services.ai_handling.resolve_for_signal", _autonomous)
     auto, _rows = await _thread(session_override, tenant.id)
     auto_id = auto.id
-    out = await split_or_propose(session_override, tenant.id, auto, case_type=complaint)
+    out = await split_or_propose(session_override, tenant.id, auto, category=complaint)
     assert out["status"] == "split"
     session_override.expunge_all()
     assert (await session_override.get(Signal, auto_id)).superseded_by_id is not None

@@ -4,9 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Split } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
-import { listCaseTypes, type CaseTypeRow } from '../../lib/cases-api'
 import { inboxPath } from '../../lib/messages-paths'
-import { signalTypeLabel } from '../../lib/signal-type-catalog'
+import { listCategories, type CategoryRow } from '../../lib/tickets-api'
 import { splitSignalThread } from '../../lib/signals-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
@@ -18,10 +17,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { BubbleAction } from './ChatBubble'
 
-const selectClass =
-  'h-9 w-full rounded-md border border-border/60 bg-bg-input/80 px-2 text-sm text-text-primary'
+const NONE = '__none__'
 
 /** "Split from here": the message and everything after it become a new conversation. */
 export function SplitConversationAction({
@@ -31,11 +30,11 @@ export function SplitConversationAction({
   threadId: string
   messageId: string
 }) {
-  const { t, i18n } = useTranslation('communication')
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const [types, setTypes] = useState<CaseTypeRow[]>([])
+  const [types, setTypes] = useState<CategoryRow[]>([])
   const [categoryId, setCategoryId] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -43,9 +42,9 @@ export function SplitConversationAction({
     if (!open) return
     setCategoryId('')
     let cancelled = false
-    void listCaseTypes()
+    void listCategories()
       .then((rows) => {
-        if (!cancelled) setTypes(rows.filter((row) => row.enabled !== false))
+        if (!cancelled) setTypes(rows)
       })
       .catch(() => {
         if (!cancelled) setTypes([])
@@ -83,18 +82,22 @@ export function SplitConversationAction({
           </DialogHeader>
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-text-muted">{t('splitConversation.category')}</span>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className={selectClass}
+            <Select
+              value={categoryId || NONE}
+              onValueChange={(value) => setCategoryId(value === NONE ? '' : value)}
             >
-              <option value="">{t('splitConversation.noCategory')}</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {signalTypeLabel(type, i18n.language)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 text-sm" aria-label={t('splitConversation.category')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t('splitConversation.noCategory')}</SelectItem>
+                {types.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    #{type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

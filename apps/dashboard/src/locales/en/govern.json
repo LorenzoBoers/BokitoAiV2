@@ -141,9 +141,9 @@
     "autonomousTitle": "Running autonomously",
     "autonomousNone": "Nothing runs autonomously right now.",
     "autonomousWorkspace": "Workspace default (every channel without its own setting)",
-    "reviewedTypesTitle": "Signal types that always need review",
-    "reviewedTypesHint": "Replies on a conversation with one of these signal types become a draft, even when the conversation is autonomous.",
-    "noTypes": "No signal types yet.",
+    "reviewedTypesTitle": "Action tags that always need review",
+    "reviewedTypesHint": "Replies on a ticket with one of these action tags become a draft, even when the conversation is autonomous.",
+    "noTypes": "No action tags yet.",
     "alwaysReview": "Always review",
     "mayAutoSend": "May send",
     "breakerTitle": "Circuit breaker",
@@ -154,10 +154,10 @@
     "breakerSaved": "Breaker limits saved."
   },
   "scopes": {
-    "title": "Type and playbook autonomy",
-    "intro": "Set a ceiling for each Signal type and playbook. These settings stay below the workspace posture.",
-    "types": "Signal types",
-    "playbooks": "Playbooks",
+    "title": "Autonomy per action tag and flow",
+    "intro": "Set a ceiling for each action tag and flow. These settings stay below the workspace posture.",
+    "types": "Action tags",
+    "playbooks": "Flows",
     "empty": "No active items.",
     "saved": "Autonomy level updated.",
     "saveError": "Could not update this autonomy level.",
@@ -178,7 +178,7 @@
     },
     "agents": {
       "label": "Agents",
-      "hint": "Creating and updating agents and playbooks."
+      "hint": "Creating and updating agents and flows."
     },
     "delegation": {
       "label": "Delegation",
@@ -204,9 +204,9 @@
       "label": "Projects",
       "hint": "Project docs, queue items, and repository work."
     },
-    "cases": {
-      "label": "Signals",
-      "hint": "Opening and linking typed intake on a conversation."
+    "tickets": {
+      "label": "Tickets",
+      "hint": "Filing a conversation on an action tag, and moving its ticket through stages."
     }
   },
   "tokens": {
@@ -255,10 +255,9 @@
       "canvas_edge": "Canvas connection",
       "autonomy_posture": "How much agents can do",
       "persona_review": "Voice review",
-      "case_type": "Intake type",
-      "case_type_binding": "Intake routing",
       "agent_rule": "Agent rule",
-      "routing_rule": "Routing rule"
+      "routing_rule": "Routing rule",
+      "signal_tag": "Hashtag"
     },
     "changeKind": {
       "create": "Create",

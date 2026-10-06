@@ -45,6 +45,8 @@ def serialize_trigger(row: Trigger) -> dict[str, Any]:
         "agent_id": str(row.agent_id) if row.agent_id else None,
         "agent_role": row.agent_role,
         "workstream_id": str(row.workstream_id) if row.workstream_id else None,
+        "signal_id": str(row.signal_id) if row.signal_id else None,
+        "purpose": row.purpose or None,
         "instructions": row.instructions,
         "has_webhook_secret": bool(row.webhook_secret),
         "enabled": row.enabled,
@@ -372,6 +374,11 @@ async def fire_trigger(
 
     if trigger.kind == "event":
         return await _fire_event(session, trigger, now)
+
+    if trigger.purpose == "stage_checkup":
+        from app.services.stage_checkups import fire_checkup
+
+        return await fire_checkup(session, trigger)
 
     if trigger.workstream_id:
         from app.services.outcomes import list_recent_outcomes, summarize_outcomes

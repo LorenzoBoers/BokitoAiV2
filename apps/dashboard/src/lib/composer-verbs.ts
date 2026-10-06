@@ -2,12 +2,12 @@
  * Composer slash verbs — typed commands that resolve to the same services
  * the thread buttons call. Plain language still goes through Bokito.
  *
- * Implemented: /assign, /signal, /approve, /manual, /assisted, /autonomous
+ * Implemented: /assign, /ticket, /approve, /manual, /assisted, /autonomous
  */
 
 import type { AiHandlingMode } from './ai-handling'
 
-export type ComposerVerb = 'assign' | 'signal' | 'approve' | AiHandlingMode
+export type ComposerVerb = 'assign' | 'ticket' | 'approve' | AiHandlingMode
 
 export type ParsedComposerVerb = {
   verb: ComposerVerb
@@ -17,7 +17,7 @@ export type ParsedComposerVerb = {
   rest: string
 }
 
-const VERBS: ComposerVerb[] = ['assign', 'signal', 'approve', 'manual', 'assisted', 'autonomous']
+const VERBS: ComposerVerb[] = ['assign', 'ticket', 'approve', 'manual', 'assisted', 'autonomous']
 
 const VERB_SET = new Set<string>(VERBS)
 
@@ -55,7 +55,7 @@ export function parseComposerVerb(body: string): ParsedComposerVerb | null {
 
 export function composerVerbHelp(locale: 'en' | 'nl' = 'en'): string {
   if (locale === 'nl') {
-    return 'Commando’s: /assign <naam>, /signal <type>, /approve, /handmatig, /geassisteerd, /autonoom'
+    return 'Commando’s: /assign <naam>, /ticket #hashtag, /approve, /handmatig, /geassisteerd, /autonoom'
   }
-  return 'Commands: /assign <name>, /signal <type>, /approve, /manual, /assisted, /autonomous'
+  return 'Commands: /assign <name>, /ticket #hashtag, /approve, /manual, /assisted, /autonomous'
 }

@@ -38,7 +38,8 @@ import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { inboxPath } from '../lib/messages-paths'
+import { projectHubPath } from '../lib/messages-paths'
+import { withNavReveal } from '../lib/nav-reveal'
 import {
   createProject,
   deleteProject,
@@ -78,7 +79,7 @@ function ProjectCard({
 }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
-  const threadsHref = `${inboxPath('all')}?project_id=${encodeURIComponent(project.id)}`
+  const threadsHref = withNavReveal(projectHubPath(project.id, 'open'))
 
   return (
     <Card
@@ -99,7 +100,8 @@ function ProjectCard({
       className="group flex flex-col gap-3 p-4"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <FolderKanban size={16} className="shrink-0 text-text-muted" aria-hidden />
           <p className="truncate-fade font-medium text-text-heading group-hover:text-accent">
             {project.name}
           </p>
@@ -145,7 +147,7 @@ function ProjectCard({
                 onSelect={() => navigate(threadsHref)}
               >
                 <MessageSquare size={14} />
-                {t('projects.page.openThreads')}
+                {t('projects.page.openInCommunication')}
               </DropdownMenu.Item>
               {canManage ? (
                 <>
@@ -207,11 +209,11 @@ function ProjectCard({
             ) : null}
           </div>
         ) : null}
-        {(project.open_signals_count ?? 0) > 0 || (project.doc_sections_total ?? 0) > 0 ? (
+        {(project.open_tickets_count ?? 0) > 0 || (project.doc_sections_total ?? 0) > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-text-secondary">
-            {(project.open_signals_count ?? 0) > 0 ? (
+            {(project.open_tickets_count ?? 0) > 0 ? (
               <Badge variant="info" className="px-1.5 py-0 text-2xs">
-                {t('projects.page.openSignals', { count: project.open_signals_count })}
+                {t('projects.page.openTickets', { count: project.open_tickets_count })}
               </Badge>
             ) : null}
             {(project.doc_sections_total ?? 0) > 0 ? (
@@ -229,24 +231,20 @@ function ProjectCard({
             ) : null}
           </div>
         ) : null}
-        <div className="flex items-center gap-2 text-xs text-text-secondary">
-          <GitBranch size={13} className="shrink-0 text-text-muted" />
-          {project.github_repo_full_name ? (
-            <>
-              <span className="truncate-fade">{project.github_repo_full_name}</span>
-              {project.repo_index_status && project.repo_index_status !== 'none' ? (
-                <Badge
-                  variant={REPO_STATUS_VARIANT[project.repo_index_status] ?? 'outline'}
-                  className="px-1.5 py-0 text-2xs"
-                >
-                  {indexStatusLabel(project.repo_index_status, t)}
-                </Badge>
-              ) : null}
-            </>
-          ) : (
-            <span className="text-text-muted">{t('projects.page.noRepo')}</span>
-          )}
-        </div>
+        {project.github_repo_full_name ? (
+          <div className="flex items-center gap-2 text-xs text-text-secondary">
+            <GitBranch size={13} className="shrink-0 text-text-muted" />
+            <span className="truncate-fade">{project.github_repo_full_name}</span>
+            {project.repo_index_status && project.repo_index_status !== 'none' ? (
+              <Badge
+                variant={REPO_STATUS_VARIANT[project.repo_index_status] ?? 'outline'}
+                className="px-1.5 py-0 text-2xs"
+              >
+                {indexStatusLabel(project.repo_index_status, t)}
+              </Badge>
+            ) : null}
+          </div>
+        ) : null}
         {budget ? <ProjectBudgetBar budget={budget} /> : null}
         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
           {project.po_agent ? (
@@ -272,7 +270,7 @@ function ProjectCard({
             onClick={(event) => event.stopPropagation()}
             className="text-xs text-text-muted hover:text-text-primary hover:underline"
           >
-            {t('projects.page.openThreads')}
+            {t('projects.page.openInCommunication')}
           </Link>
         </div>
       </div>
@@ -582,7 +580,7 @@ export default function ProjectsPage() {
       <PageRelatedLinks
         links={[
           { to: '/workstreams', label: t('pageGuides.related.workstreams') },
-          { to: '/settings/signals', label: t('pageGuides.related.cases') },
+          { to: '/settings/action-tags', label: t('pageGuides.related.categories') },
           { to: '/agents', label: t('pageGuides.related.agents') },
           { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
         ]}

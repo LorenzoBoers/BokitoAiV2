@@ -88,8 +88,10 @@ export const appRoutes = {
     rule: (ruleId: string) => `/signals/rules/${ruleId}`,
     tags: '/signals/tags',
     tag: (tagId: string) => `/signals/tags/${tagId}`,
-    folders: '/signals/folders',
-    folder: (folderId: string) => `/signals/folders/${folderId}`,
+    /** Attach a playbook to a free tag: it becomes a category. */
+    tagPromote: (tagId: string) => `/signals/tags/${tagId}/promote`,
+    /** Communication rail rows: categories, pinned tags, projects. */
+    nav: '/signals/nav',
     note: (threadId: string, messageId: string) => `/signals/${threadId}/notes/${messageId}`,
     messageFeedback: (messageId: string) => `/messages/${messageId}/feedback`,
   },

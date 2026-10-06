@@ -5,7 +5,9 @@ import { agentChatPath, inboxPath } from './messages-paths'
 import { openEntityPath, pickClosestThreadBySubject } from './open-entity'
 
 /** One shape for everything over time: Agenda, the agent timeline and agent detail. */
-export type TimeItemKind = 'session' | 'wake' | 'calendar' | 'follow_up'
+export type TimeItemKind = 'session' | 'wake' | 'checkup' | 'calendar' | 'follow_up' | 'activity'
+
+export type OwnerKind = 'user' | 'agent' | 'team'
 
 export type TimeItem = {
   id: string
@@ -21,9 +23,18 @@ export type TimeItem = {
   agent_id: string | null
   agent_name: string | null
   agent_role?: string
-  actor_kind?: 'agent' | 'person'
+  actor_kind?: 'agent' | 'person' | 'system'
   actor_id?: string | null
   actor_name?: string | null
+  /** Who is responsible: the conversation owner for look-ats, check-ups and activity. */
+  owner_kind?: OwnerKind | null
+  owner_id?: string | null
+  owner_name?: string | null
+  project_id?: string | null
+  /** The trigger behind a recurring item; equal for every moment of one routine. */
+  series_id?: string | null
+  /** Activity: the stage, action tag or new owner involved. */
+  detail?: string | null
   instructions?: string
   enabled?: boolean
   trigger_id?: string | null
@@ -34,6 +45,8 @@ export type TimeItem = {
   provider_label?: string | null
   calendar_id?: string | null
   calendar_name?: string | null
+  /** Every calendar that lists this meeting (merged across connections). */
+  calendars?: string[] | null
   location?: string | null
   html_link?: string | null
   all_day?: boolean
@@ -54,11 +67,13 @@ export async function listTimeItems(params: {
   agentId?: string
   sources?: TimeItemKind[]
   scheduledOnly?: boolean
+  projectId?: string
 }): Promise<TimeWindow> {
   const query = new URLSearchParams()
   if (params.from) query.set('from', params.from)
   if (params.to) query.set('to', params.to)
   if (params.agentId) query.set('agent_id', params.agentId)
+  if (params.projectId) query.set('project_id', params.projectId)
   if (params.sources?.length) query.set('sources', params.sources.join(','))
   if (params.scheduledOnly) query.set('scheduled_only', 'true')
   const res = await apiGet<Partial<TimeWindow>>(appRoutes.agenda.occurrencesQuery(query))
@@ -234,7 +249,9 @@ export function timeItemHref(
   threads: ThreadLike[] = [],
   nowMs: number = Date.now(),
 ): string {
-  if (item.kind === 'follow_up' && item.signal_id) return inboxPath('all', item.signal_id)
+  if ((item.kind === 'follow_up' || item.kind === 'checkup' || item.kind === 'activity') && item.signal_id) {
+    return inboxPath('all', item.signal_id)
+  }
   if (item.kind === 'calendar') return '/agenda'
   const atMs = parseTimelineMs(item.start)
   const isFuture = item.kind === 'wake' && Number.isFinite(atMs) && atMs > nowMs

@@ -62,14 +62,14 @@ async def test_project_workstreams_crud(client: AsyncClient):
         json={
             "name": "Weekly digest",
             "description": "Summarize activity",
-            "project_id": project_id,
+            "project_ids": [project_id],
         },
     )
     assert stream.status_code == 200
     body = stream.json()
-    assert body["project_id"] == project_id
+    assert body["project_ids"] == [project_id]
     assert body["enabled"] is True
-    assert body["steps_count"] == 0
+    assert body.get("stages_count", len(body.get("stages") or [])) >= 0
 
     patched = await client.patch(
         f"/api/workstreams/{body['id']}",

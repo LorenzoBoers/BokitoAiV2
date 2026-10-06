@@ -1,181 +1,212 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  Loader2,
-  Play,
-  Plus,
-  Trash2,
-} from 'lucide-react'
+import { ArrowLeft, CalendarClock, Check, FolderKanban, Loader2, MessageSquare, Pencil, Trash2 } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { Input } from '../components/ui/input'
-import { Label } from '../components/ui/label'
-import { Switch } from '../components/ui/switch'
-import { Textarea } from '../components/ui/textarea'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { Hashtag, HashtagMark } from '../components/ui/HashtagMark'
+import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/workstreams/FlowTicketBoard'
+import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
+import { WorkstreamStagesCard, type StagesDraft } from '../components/workstreams/WorkstreamStagesCard'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
+import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { listAgents } from '../lib/agents-api'
-import { formatAppDateTime } from '../lib/app-locale'
+import { flowTitle } from '../lib/flow-title'
+import { normalizeHashtag, stripHash } from '../lib/hashtag'
+import { useEntityRefresh } from '../lib/live-store'
+import { inboxPath, tagPath } from '../lib/messages-paths'
+import { withNavReveal } from '../lib/nav-reveal'
+import { listProjects, type ProjectRow } from '../lib/projects-api'
+import { listSignalTags, updateSignalTag, type SignalTag } from '../lib/signals-api'
+import { cn } from '../lib/utils'
+import type { FlowBoard, TicketStageKind } from '../lib/tickets-api'
+import { timeAgo } from '../lib/time-ago'
 import {
   deleteWorkstream,
   getWorkstream,
-  listWorkstreamRuns,
+  getWorkstreamBoard,
   patchWorkstream,
-  replaceWorkstreamSteps,
-  startWorkstreamRun,
   type WorkstreamDetail as WorkstreamDetailPayload,
-  type WorkstreamOnDeadline,
-  type WorkstreamRunRow,
-  type WorkstreamStepInput,
-  type WorkstreamStepKind,
-  type WorkstreamWaitKind,
 } from '../lib/workstreams-api'
-import { runStatusBadgeVariant, workstreamRunPath } from '../lib/workstream-ui'
-import { CaseBindingsCard } from '../components/workstreams/CaseBindingsCard'
-import { WorkstreamStagesCard } from '../components/workstreams/WorkstreamStagesCard'
 
-type AgentOption = { id: string; name: string }
+const KIND_ORDER: TicketStageKind[] = ['open', 'waiting', 'done', 'closed']
 
-type StepDraft = {
-  /** Existing step id, or null for a new step. */
-  id: string | null
-  /** Local list key (stable while editing). */
-  key: string
-  name: string
-  kind: WorkstreamStepKind
-  goal: string
-  agent_id: string
-  agent_role: string
-  wait_kind: WorkstreamWaitKind
-  deadline_hours: number
-  on_deadline: WorkstreamOnDeadline
-  stage_key: string
-  config_text: string
-}
-
-let draftKeySeq = 0
-function nextDraftKey(): string {
-  draftKeySeq += 1
-  return `draft-${draftKeySeq}`
-}
-
-function emptyStep(): StepDraft {
-  return {
-    id: null,
-    key: nextDraftKey(),
-    name: '',
-    kind: 'agent_task',
-    goal: '',
-    agent_id: '',
-    agent_role: '',
-    wait_kind: 'input',
-    deadline_hours: 0,
-    on_deadline: 'continue',
-    stage_key: '',
-    config_text: '{}',
-  }
-}
-
-const selectClass =
-  'h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs text-text-primary'
-
+/**
+ * A flow: the stage pipeline of one action tag. View mode is the live ticket
+ * board (stages x projects); edit mode (admins) unlocks the definition.
+ * Projects attach flows from the project page; here they are only shown.
+ */
 export default function WorkstreamDetail() {
-  const { t, i18n } = useTranslation('nav')
+  const { t } = useTranslation('nav')
   const { workstreamId } = useParams<{ workstreamId: string }>()
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
+  const { token } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [workstream, setWorkstream] = useState<WorkstreamDetailPayload | null>(null)
-  const [runs, setRuns] = useState<WorkstreamRunRow[]>([])
-  const [agents, setAgents] = useState<AgentOption[]>([])
+  const [projects, setProjects] = useState<ProjectRow[]>([])
+  const [board, setBoard] = useState<FlowBoard | null>(null)
+  const [boardError, setBoardError] = useState<string | null>(null)
 
+  const [searchParams] = useSearchParams()
+  const [editing, setEditing] = useState(() => searchParams.get('edit') === '1')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
   const [togglingEnabled, setTogglingEnabled] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [freeTags, setFreeTags] = useState<SignalTag[]>([])
+  const [bindingTag, setBindingTag] = useState(false)
+  const [stagesDraft, setStagesDraft] = useState<StagesDraft | null>(null)
+  const [discardOpen, setDiscardOpen] = useState(false)
 
-  const [steps, setSteps] = useState<StepDraft[]>([])
-  const [stepsDirty, setStepsDirty] = useState(false)
-  const [savingSteps, setSavingSteps] = useState(false)
-
-  const [runInput, setRunInput] = useState('')
-  const [starting, setStarting] = useState(false)
+  const loadBoard = useCallback(async () => {
+    if (!workstreamId) return
+    try {
+      setBoard(await getWorkstreamBoard(workstreamId))
+      setBoardError(null)
+    } catch (err) {
+      setBoardError(formatApiErrorMessage(err, t('workstreamsPage.board.loadError')))
+    }
+  }, [workstreamId, t])
 
   const load = useCallback(async () => {
     if (!workstreamId) return
     setLoading(true)
     setError(null)
     try {
-      const [detail, runRows, agentRows] = await Promise.all([
+      const [detail, projectRows] = await Promise.all([
         getWorkstream(workstreamId),
-        listWorkstreamRuns({ workstreamId, limit: 25 }).catch(() => []),
-        listAgents().catch(() => []),
+        listProjects().catch(() => [] as ProjectRow[]),
       ])
       setWorkstream(detail)
-      setName(detail.name)
+      setProjects(projectRows)
+      setName(flowTitle(detail))
       setDescription(detail.description ?? '')
-      setRuns(runRows)
-      setAgents(agentRows.map((a) => ({ id: a.id, name: a.name })))
-      setSteps(
-        detail.steps.map((s) => ({
-          id: s.id,
-          key: s.id,
-          name: s.name,
-          kind: s.kind,
-          goal: s.goal,
-          agent_id: s.agent_id ?? '',
-          agent_role: s.agent_role ?? '',
-          wait_kind: s.wait_kind,
-          deadline_hours: s.deadline_hours,
-          on_deadline: s.on_deadline,
-          stage_key: s.stage_key ?? '',
-          config_text: JSON.stringify(s.config ?? {}, null, 2),
-        })),
-      )
-      setStepsDirty(false)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('workstreamsPage.loadError')))
     } finally {
       setLoading(false)
     }
-  }, [workstreamId, t])
+    void loadBoard()
+  }, [workstreamId, t, loadBoard])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const metaDirty = useMemo(() => {
-    if (!workstream) return false
-    return name.trim() !== workstream.name || description.trim() !== (workstream.description ?? '')
-  }, [workstream, name, description])
+  useEntityRefresh(['ticket', 'project', 'tag'], () => void loadBoard(), { debounceMs: 800 })
 
-  const saveMeta = async () => {
-    if (!workstream || !name.trim()) return
+  const tag = workstream?.tags?.[0] ?? null
+  const titleName = workstream ? flowTitle(workstream) : name
+  const canEdit = isAdmin && editing
+
+  useEffect(() => {
+    if (!canEdit || tag || !token) return
+    void listSignalTags(token)
+      .then((rows) => setFreeTags(rows.filter((row) => !row.workstreamId)))
+      .catch(() => setFreeTags([]))
+  }, [canEdit, tag, token])
+
+  const linkedProjects = useMemo(() => {
+    const ids = new Set(workstream?.project_ids ?? [])
+    return projects.filter((p) => ids.has(p.id))
+  }, [projects, workstream?.project_ids])
+
+  const nextName = normalizeHashtag(name)
+  const nameDirty = Boolean(workstream) && nextName !== normalizeHashtag(titleName)
+  const descriptionDirty = Boolean(workstream) && description.trim() !== (workstream?.description ?? '')
+  const dirty = nameDirty || descriptionDirty || Boolean(stagesDraft?.dirty)
+  const valid = Boolean(nextName) && (stagesDraft?.valid ?? true)
+
+  useEffect(() => {
+    if (!canEdit || !dirty) return
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [canEdit, dirty])
+
+  const startEditing = () => {
+    if (!workstream) return
+    setName(titleName)
+    setDescription(workstream.description ?? '')
+    setStagesDraft(null)
+    setEditing(true)
+  }
+
+  const leaveEditing = () => {
+    setDiscardOpen(false)
+    setEditing(false)
+    setStagesDraft(null)
+    if (workstream) {
+      setName(flowTitle(workstream))
+      setDescription(workstream.description ?? '')
+    }
+  }
+
+  const cancelEditing = () => {
+    if (dirty) setDiscardOpen(true)
+    else leaveEditing()
+  }
+
+  const saveEdits = async () => {
+    if (!workstream || !dirty || !valid) return
     setSavingMeta(true)
     try {
-      const updated = await patchWorkstream(workstream.id, {
-        name: name.trim(),
-        description: description.trim(),
+      if (nameDirty && tag) {
+        if (!token) throw new Error('Not signed in')
+        await updateSignalTag(token, tag.id, { name: nextName })
+      }
+      await patchWorkstream(workstream.id, {
+        ...(nameDirty && !tag ? { name: nextName } : {}),
+        ...(descriptionDirty ? { description: description.trim() } : {}),
+        ...(stagesDraft?.dirty ? { stages: stagesDraft.stages } : {}),
       })
-      setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
-      toast.success(t('workstreamsPage.saved'))
+      const fresh = await getWorkstream(workstream.id)
+      setWorkstream(fresh)
+      setName(flowTitle(fresh))
+      setDescription(fresh.description ?? '')
+      setStagesDraft(null)
+      setEditing(false)
+      toast.success(t('workstreamsPage.editBar.saved'))
+      void loadBoard()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
     } finally {
       setSavingMeta(false)
+    }
+  }
+
+  const bindTag = async (tagId: string) => {
+    if (!workstream) return
+    setBindingTag(true)
+    try {
+      const updated = await patchWorkstream(workstream.id, { tag_ids: [tagId] })
+      setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
+      setName(flowTitle(updated))
+      void loadBoard()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
+    } finally {
+      setBindingTag(false)
     }
   }
 
@@ -206,115 +237,8 @@ export default function WorkstreamDetail() {
     }
   }
 
-  const updateStep = (key: string, patch: Partial<StepDraft>) => {
-    setSteps((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)))
-    setStepsDirty(true)
-  }
-
-  const moveStep = (index: number, delta: -1 | 1) => {
-    setSteps((prev) => {
-      const next = [...prev]
-      const target = index + delta
-      if (target < 0 || target >= next.length) return prev
-      const [row] = next.splice(index, 1)
-      next.splice(target, 0, row)
-      return next
-    })
-    setStepsDirty(true)
-  }
-
-  const removeStep = (key: string) => {
-    setSteps((prev) => prev.filter((s) => s.key !== key))
-    setStepsDirty(true)
-  }
-
-  const addStep = () => {
-    setSteps((prev) => [...prev, emptyStep()])
-    setStepsDirty(true)
-  }
-
-  const saveSteps = async () => {
-    if (!workstream) return
-    if (steps.some((s) => !s.name.trim())) {
-      toast.error(t('workstreamsPage.stepNameRequired'))
-      return
-    }
-    let configs: Record<string, unknown>[]
-    try {
-      configs = steps.map((step) => JSON.parse(step.config_text || '{}') as Record<string, unknown>)
-    } catch {
-      toast.error(t('workstreamsPage.configInvalid'))
-      return
-    }
-    setSavingSteps(true)
-    try {
-      const payload: WorkstreamStepInput[] = steps.map((s, index) => ({
-        id: s.id,
-        name: s.name.trim(),
-        kind: s.kind,
-        goal: s.goal,
-        agent_id: ['agent_task', 'send_message', 'call_tool'].includes(s.kind) && s.agent_id ? s.agent_id : null,
-        agent_role: s.agent_role,
-        wait_kind: s.wait_kind,
-        deadline_hours: s.deadline_hours,
-        on_deadline: s.on_deadline,
-        stage_key: s.stage_key,
-        config: configs[index],
-      }))
-      const savedSteps = await replaceWorkstreamSteps(workstream.id, payload)
-      setSteps(
-        savedSteps.map((s) => ({
-          id: s.id,
-          key: s.id,
-          name: s.name,
-          kind: s.kind,
-          goal: s.goal,
-          agent_id: s.agent_id ?? '',
-          agent_role: s.agent_role ?? '',
-          wait_kind: s.wait_kind,
-          deadline_hours: s.deadline_hours,
-          on_deadline: s.on_deadline,
-          stage_key: s.stage_key ?? '',
-          config_text: JSON.stringify(s.config ?? {}, null, 2),
-        })),
-      )
-      setStepsDirty(false)
-      toast.success(t('workstreamsPage.stepsSaved'))
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('workstreamsPage.stepsSaveError')))
-    } finally {
-      setSavingSteps(false)
-    }
-  }
-
-  const startRun = async () => {
-    if (!workstream) return
-    if (steps.length === 0) {
-      toast.error(t('workstreamsPage.needStep'))
-      return
-    }
-    if (stepsDirty) {
-      toast.error(t('workstreamsPage.saveStepsFirst'))
-      return
-    }
-    setStarting(true)
-    try {
-      const run = await startWorkstreamRun(workstream.id, {
-        input_kind: 'manual',
-        input_text: runInput.trim(),
-      })
-      setRunInput('')
-      toast.success(t('workstreamsPage.runStarted'))
-      navigate(workstreamRunPath(run.id))
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('workstreamsPage.runStartError')))
-    } finally {
-      setStarting(false)
-    }
-  }
-
   return (
-    <PageContent width="xl" className="space-y-4 py-1">
+    <PageContent width="full" className="space-y-4 py-1">
       <Link
         to="/workstreams"
         className="inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
@@ -329,374 +253,318 @@ export default function WorkstreamDetail() {
         <ApiErrorBanner message={error ?? t('workstreamsPage.notFound')} onRetry={() => void load()} />
       ) : (
         <>
-          <header className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">{workstream.name}</h1>
-                {workstream.is_default ? (
-                  <Badge variant="outline">{t('workstreamsPage.default')}</Badge>
-                ) : null}
+          <header className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                {canEdit ? (
+                  <span
+                    className={cn(
+                      'inline-flex max-w-md items-center gap-0.5 rounded-md border bg-bg-input/60 px-1.5 py-0.5 focus-within:ring-1',
+                      nextName
+                        ? 'border-border/70 focus-within:border-border focus-within:ring-border/60'
+                        : 'border-status-error/60 focus-within:ring-status-error/30',
+                    )}
+                  >
+                    <HashtagMark category className="text-xl" />
+                    <input
+                      value={name}
+                      onChange={(e) => setName(stripHash(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void saveEdits()
+                        if (e.key === 'Escape') cancelEditing()
+                      }}
+                      placeholder={t('workstreamsPage.nameLabel')}
+                      aria-label={tag ? t('workstreamsPage.editBar.renameTag') : t('workstreamsPage.nameLabel')}
+                      disabled={savingMeta}
+                      size={Math.max(name.trim().length, 8) + 2}
+                      className="bg-transparent text-xl font-semibold tracking-[-0.01em] text-text-heading outline-none"
+                    />
+                  </span>
+                ) : (
+                  <h1 className="min-w-0 text-xl font-semibold tracking-[-0.01em] text-text-heading">
+                    <Hashtag name={titleName} category />
+                  </h1>
+                )}
+                <Badge variant={workstream.enabled ? 'success' : 'secondary'}>
+                  {workstream.enabled ? t('workstreamsPage.active') : t('workstreamsPage.deactivated')}
+                </Badge>
+                {savingMeta ? <Loader2 size={14} className="shrink-0 animate-spin text-text-muted" /> : null}
               </div>
-              {workstream.description ? (
-                <p className="mt-1 max-w-2xl text-sm text-text-muted">{workstream.description}</p>
+              {isAdmin ? (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {editing ? null : (
+                    <Button type="button" size="sm" variant="outline" onClick={startEditing}>
+                      <Pencil size={13} className="mr-1" />
+                      {t('workstreamsPage.edit')}
+                    </Button>
+                  )}
+                  {workstream.enabled ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={togglingEnabled}
+                      onClick={() => void toggleEnabled(false)}
+                    >
+                      {togglingEnabled ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                      {t('workstreamsPage.deactivate')}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={togglingEnabled}
+                        onClick={() => void toggleEnabled(true)}
+                      >
+                        {togglingEnabled ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                        {t('workstreamsPage.activate')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-status-error hover:text-status-error"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 size={14} className="mr-1" />
+                        {t('workstreamsPage.delete')}
+                      </Button>
+                    </>
+                  )}
+                </div>
               ) : null}
             </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-text-muted">
-                {workstream.enabled ? t('workstreamsPage.active') : t('workstreamsPage.paused')}
-                <Switch
-                  checked={workstream.enabled}
-                  disabled={!isAdmin || togglingEnabled}
-                  onCheckedChange={(checked) => void toggleEnabled(checked)}
-                  aria-label={t('workstreamsPage.enabledToggle')}
-                />
-              </label>
-              {isAdmin ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-status-error hover:text-status-error"
-                  onClick={() => setDeleteOpen(true)}
+
+            {canEdit ? (
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={t('workstreamsPage.descriptionPlaceholder')}
+                aria-label={t('workstreamsPage.descriptionLabel')}
+                disabled={savingMeta}
+                rows={2}
+                className="w-full max-w-2xl resize-none rounded-md border border-border/70 bg-bg-input/60 px-2 py-1.5 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted/45 focus:border-border focus:ring-1 focus:ring-border/60"
+              />
+            ) : workstream.description ? (
+              <p className="max-w-3xl truncate text-sm text-text-muted" title={workstream.description}>
+                {workstream.description}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 text-text-muted">
+                {t('workstreamsPage.meta.actionTag')}
+                {tag ? (
+                  <Link
+                    to={withNavReveal(tagPath(tag.name, 'open'))}
+                    className="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-text-heading hover:border-accent/60"
+                  >
+                    <Hashtag name={tag.name} category />
+                  </Link>
+                ) : canEdit ? (
+                  <Select value="" onValueChange={(value) => void bindTag(value)} disabled={bindingTag}>
+                    <SelectTrigger className="h-7 w-52 text-xs" aria-label={t('workstreamsPage.meta.bindTag')}>
+                      <SelectValue placeholder={t('workstreamsPage.meta.bindTag')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {freeTags.length === 0 ? (
+                        <SelectItem value="__none__" disabled>
+                          {t('workstreamsPage.meta.noFreeTags')}
+                        </SelectItem>
+                      ) : (
+                        freeTags.map((row) => (
+                          <SelectItem key={row.id} value={row.id}>
+                            #{row.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="italic">{t('workstreamsPage.meta.noActionTag')}</span>
+                )}
+              </span>
+              <span className="inline-flex flex-wrap items-center gap-1.5 text-text-muted">
+                {t('workstreamsPage.meta.usedIn')}
+                {linkedProjects.length === 0 ? (
+                  <span className="italic">{t('workstreamsPage.meta.noProjects')}</span>
+                ) : (
+                  linkedProjects.map((project) => (
+                    <Link
+                      key={project.id}
+                      to={`/projects/${encodeURIComponent(project.id)}`}
+                      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-muted/40 px-1.5 py-0.5 text-text-heading hover:border-border"
+                    >
+                      <FolderKanban size={12} className="text-text-muted" aria-hidden />
+                      {project.name}
+                    </Link>
+                  ))
+                )}
+              </span>
+              {workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
+                <Link
+                  to="/agenda?view=list&layers=checkups"
+                  className="inline-flex items-center gap-1 text-text-muted hover:text-text-heading"
                 >
-                  <Trash2 size={14} className="mr-1" />
-                  {t('workstreamsPage.delete')}
-                </Button>
+                  <CalendarClock size={12} aria-hidden />
+                  {t('workstreamsPage.meta.checkupsOnAgenda')}
+                </Link>
               ) : null}
             </div>
           </header>
 
-          <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-            <div className="space-y-4">
-              <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0">
-                  <CardTitle className="text-base">{t('workstreamsPage.stepsTitle')}</CardTitle>
-                  {isAdmin ? (
-                    <div className="flex items-center gap-2">
-                      <Button type="button" size="sm" variant="outline" onClick={addStep}>
-                        <Plus size={13} className="mr-1" />
-                        {t('workstreamsPage.addStep')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!stepsDirty || savingSteps}
-                        onClick={() => void saveSteps()}
-                      >
-                        {savingSteps ? <Loader2 size={13} className="mr-1 animate-spin" /> : null}
-                        {t('workstreamsPage.saveSteps')}
-                      </Button>
-                    </div>
+          {canEdit ? (
+            <>
+              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/30 bg-bg-surface/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-accent/5">
+                <div className="min-w-0 space-y-0.5">
+                  <p className="flex items-center gap-2 text-sm text-text-primary">
+                    <Pencil size={14} className="text-accent" aria-hidden />
+                    {t('workstreamsPage.editBar.title')}
+                    {dirty ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-status-warning">
+                        <span className="h-1.5 w-1.5 rounded-full bg-status-warning" aria-hidden />
+                        {t('workstreamsPage.editBar.unsaved')}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-text-muted">{t('workstreamsPage.editBar.hint')}</span>
+                    )}
+                  </p>
+                  {nameDirty && tag && nextName ? (
+                    <p className="text-xs text-text-muted">
+                      {t('workstreamsPage.editBar.renameHint', { from: tag.name, to: nextName })}
+                    </p>
                   ) : null}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {steps.length === 0 ? (
-                    <p className="text-sm text-text-muted">{t('workstreamsPage.noStepsYet')}</p>
-                  ) : (
-                    steps.map((step, index) => (
-                      <div key={step.key} className="rounded-lg border border-border/60 p-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="w-5 text-sm tabular-nums text-text-muted">{index + 1}.</span>
-                          <Input
-                            value={step.name}
-                            disabled={!isAdmin}
-                            onChange={(e) => updateStep(step.key, { name: e.target.value })}
-                            placeholder={t('workstreamsPage.stepNamePlaceholder')}
-                            className="h-8 min-w-[10rem] flex-1 text-sm"
-                          />
-                          <select
-                            value={step.kind}
-                            disabled={!isAdmin}
-                            onChange={(e) =>
-                              updateStep(step.key, { kind: e.target.value as WorkstreamStepKind })
-                            }
-                            className={selectClass}
-                            aria-label={t('workstreamsPage.stepKind')}
-                          >
-                            <option value="send_message">{t('workstreamsPage.kinds.send_message')}</option>
-                            <option value="agent_task">{t('workstreamsPage.kinds.agent_task')}</option>
-                            <option value="wait_for_reply">{t('workstreamsPage.kinds.wait_for_reply')}</option>
-                            <option value="ask_decision">{t('workstreamsPage.kinds.ask_decision')}</option>
-                            <option value="call_tool">{t('workstreamsPage.kinds.call_tool')}</option>
-                            <option value="schedule">{t('workstreamsPage.kinds.schedule')}</option>
-                          </select>
-                          <select
-                            value={step.stage_key}
-                            disabled={!isAdmin}
-                            onChange={(e) => updateStep(step.key, { stage_key: e.target.value })}
-                            className={selectClass}
-                            aria-label={t('workstreamsPage.stages.stepStage')}
-                            title={t('workstreamsPage.stages.stepStageHint')}
-                          >
-                            <option value="">{t('workstreamsPage.stages.keepStage')}</option>
-                            {workstream.stages.map((stage) => (
-                              <option key={stage.key} value={stage.key}>
-                                {stage.name}
-                              </option>
-                            ))}
-                          </select>
-                          {isAdmin ? (
-                            <span className="flex items-center gap-0.5">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                disabled={index === 0}
-                                aria-label={t('workstreamsPage.moveUp')}
-                                onClick={() => moveStep(index, -1)}
-                              >
-                                <ArrowUp size={13} />
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                disabled={index === steps.length - 1}
-                                aria-label={t('workstreamsPage.moveDown')}
-                                onClick={() => moveStep(index, 1)}
-                              >
-                                <ArrowDown size={13} />
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0 text-status-error"
-                                aria-label={t('workstreamsPage.removeStep')}
-                                onClick={() => removeStep(step.key)}
-                              >
-                                <Trash2 size={13} />
-                              </Button>
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {!['wait_for_reply', 'schedule'].includes(step.kind) ? (
-                          <Textarea
-                            value={step.goal}
-                            disabled={!isAdmin}
-                            onChange={(e) => updateStep(step.key, { goal: e.target.value })}
-                            placeholder={
-                              step.kind === 'ask_decision'
-                                ? t('workstreamsPage.gateGoalPlaceholder')
-                                : step.kind === 'send_message'
-                                  ? t('workstreamsPage.messagePlaceholder')
-                                : t('workstreamsPage.goalPlaceholder')
-                            }
-                            className="mt-2 min-h-[64px] text-sm"
-                          />
-                        ) : null}
-
-                        {['agent_task', 'send_message', 'call_tool'].includes(step.kind) ? (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                            <span>{t('workstreamsPage.agentLabel')}</span>
-                            <select
-                              value={step.agent_id}
-                              disabled={!isAdmin}
-                              onChange={(e) => updateStep(step.key, { agent_id: e.target.value })}
-                              className={selectClass}
-                              aria-label={t('workstreamsPage.agentLabel')}
-                            >
-                              <option value="">{t('workstreamsPage.agentAuto')}</option>
-                              {agents.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : null}
-
-                        {['wait_for_reply', 'schedule'].includes(step.kind) ? (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                            {step.kind === 'wait_for_reply' ? <span>{t('workstreamsPage.waitForReplyHint')}</span> : null}
-                            <span>{t('workstreamsPage.deadlineHours')}</span>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={step.deadline_hours}
-                              disabled={!isAdmin}
-                              onChange={(e) =>
-                                updateStep(step.key, {
-                                  deadline_hours: Math.max(0, Number(e.target.value) || 0),
-                                })
-                              }
-                              className="h-8 w-20 text-xs"
-                            />
-                            {step.kind === 'wait_for_reply' ? (
-                              <>
-                                <span>{t('workstreamsPage.onDeadline')}</span>
-                                <select
-                                  value={step.on_deadline}
-                                  disabled={!isAdmin}
-                                  onChange={(e) =>
-                                    updateStep(step.key, {
-                                      on_deadline: e.target.value as WorkstreamOnDeadline,
-                                    })
-                                  }
-                                  className={selectClass}
-                                  aria-label={t('workstreamsPage.onDeadline')}
-                                >
-                                  <option value="continue">{t('workstreamsPage.onDeadlineOptions.continue')}</option>
-                                  <option value="remind_then_continue">
-                                    {t('workstreamsPage.onDeadlineOptions.remind_then_continue')}
-                                  </option>
-                                  <option value="fail">{t('workstreamsPage.onDeadlineOptions.fail')}</option>
-                                </select>
-                              </>
-                            ) : null}
-                          </div>
-                        ) : null}
-
-                        {['wait_for_reply', 'ask_decision', 'call_tool'].includes(step.kind) ? (
-                          <Textarea
-                            value={step.config_text}
-                            disabled={!isAdmin}
-                            onChange={(e) => updateStep(step.key, { config_text: e.target.value })}
-                            placeholder={t(`workstreamsPage.configPlaceholders.${step.kind}`)}
-                            className="mt-2 min-h-[72px] font-mono text-xs"
-                            aria-label={t('workstreamsPage.configLabel')}
-                          />
-                        ) : null}
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">{t('workstreamsPage.runsTitle')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1.5">
-                  {runs.length === 0 ? (
-                    <p className="text-sm text-text-muted">{t('workstreamsPage.noRuns')}</p>
-                  ) : (
-                    runs.map((run) => (
-                      <Link
-                        key={run.id}
-                        to={workstreamRunPath(run.id)}
-                        className="row-interactive flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm transition-colors hover:border-border hover:bg-bg-muted/40"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate-fade text-text-heading">
-                            {run.started_at
-                              ? formatAppDateTime(new Date(run.started_at), i18n.language)
-                              : run.id.slice(0, 8)}
-                          </span>
-                          <span className="block truncate-fade text-xs text-text-muted">
-                            {run.summary || run.input_text || run.input_kind}
-                          </span>
-                        </span>
-                        <Badge variant={runStatusBadgeVariant(run.status)} className="shrink-0">
-                          {t(`workstreamsPage.status.${run.status}`, { defaultValue: run.status })}
-                        </Badge>
-                      </Link>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-4">
-              <WorkstreamStagesCard
-                workstreamId={workstream.id}
-                stages={workstream.stages}
-                canEdit={isAdmin}
-                onSaved={(row) => setWorkstream((prev) => (prev ? { ...prev, ...row } : prev))}
-              />
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">{t('workstreamsPage.startRunTitle')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Textarea
-                    value={runInput}
-                    onChange={(e) => setRunInput(e.target.value)}
-                    placeholder={t('workstreamsPage.runInputPlaceholder')}
-                    className="min-h-[88px] text-sm"
-                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" variant="ghost" disabled={savingMeta} onClick={cancelEditing}>
+                    {t('workstreamsPage.editBar.cancel')}
+                  </Button>
                   <Button
                     type="button"
                     size="sm"
-                    disabled={starting || !workstream.enabled || steps.length === 0}
-                    title={
-                      steps.length === 0
-                        ? t('workstreamsPage.needStep')
-                        : !workstream.enabled
-                          ? t('workstreamsPage.pausedHint')
-                          : undefined
-                    }
-                    onClick={() => void startRun()}
+                    disabled={savingMeta || !dirty || !valid}
+                    onClick={() => void saveEdits()}
                   >
-                    {starting ? (
+                    {savingMeta ? (
                       <Loader2 size={13} className="mr-1 animate-spin" />
                     ) : (
-                      <Play size={13} className="mr-1" />
+                      <Check size={13} className="mr-1" />
                     )}
-                    {t('workstreamsPage.startRun')}
+                    {t('workstreamsPage.editBar.save')}
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
+              <WorkstreamStagesCard
+                stages={workstream.stages}
+                canEdit={canEdit}
+                onDraftChange={setStagesDraft}
+              />
+            </>
+          ) : (
+            <FlowViewBody
+              board={board}
+              boardError={boardError}
+              onRetry={() => void loadBoard()}
+              onChange={setBoard}
+              tagName={tag?.name ?? titleName}
+            />
+          )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">{t('workstreamsPage.aboutTitle')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="workstream-name">{t('workstreamsPage.nameLabel')}</Label>
-                    <Input
-                      id="workstream-name"
-                      value={name}
-                      disabled={!isAdmin}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="workstream-description">{t('workstreamsPage.descriptionLabel')}</Label>
-                    <Textarea
-                      id="workstream-description"
-                      value={description}
-                      disabled={!isAdmin}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="min-h-[64px] text-sm"
-                    />
-                  </div>
-                  {isAdmin ? (
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!metaDirty || savingMeta || !name.trim()}
-                        onClick={() => void saveMeta()}
-                      >
-                        {savingMeta ? <Loader2 size={13} className="mr-1 animate-spin" /> : null}
-                        {t('workstreamsPage.save')}
-                      </Button>
-                    </div>
-                  ) : null}
-                  <CaseBindingsCard targetKind="workstream" targetId={workstream.id} canEdit={isAdmin} />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          {deleteOpen ? (
+            <ConfirmDeleteDialog
+              title={t('workstreamsPage.deleteTitle')}
+              itemLabel={t('workstreamsPage.deleteItem')}
+              itemName={`#${titleName}`}
+              impactText={t('workstreamsPage.deleteImpact')}
+              isDeleting={deleting}
+              onCancel={() => setDeleteOpen(false)}
+              onConfirm={() => void confirmDelete()}
+            />
+          ) : null}
+
+          <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>{t('workstreamsPage.editBar.discardTitle')}</DialogTitle>
+                <DialogDescription>{t('workstreamsPage.editBar.discardBody')}</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setDiscardOpen(false)}>
+                  {t('workstreamsPage.editBar.keepEditing')}
+                </Button>
+                <Button type="button" variant="destructive" onClick={leaveEditing}>
+                  {t('workstreamsPage.editBar.discard')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
-
-      {deleteOpen && workstream ? (
-        <ConfirmDeleteDialog
-          title={t('workstreamsPage.deleteTitle')}
-          itemLabel={t('workstreamsPage.deleteItem')}
-          itemName={workstream.name}
-          impactText={t('workstreamsPage.deleteImpact')}
-          isDeleting={deleting}
-          onCancel={() => setDeleteOpen(false)}
-          onConfirm={confirmDelete}
-        />
-      ) : null}
     </PageContent>
+  )
+}
+
+function FlowViewBody({
+  board,
+  boardError,
+  onRetry,
+  onChange,
+  tagName,
+}: {
+  board: FlowBoard | null
+  boardError: string | null
+  onRetry: () => void
+  onChange: (board: FlowBoard) => void
+  tagName: string
+}) {
+  const { t } = useTranslation('nav')
+  if (boardError) return <ApiErrorBanner message={boardError} onRetry={onRetry} />
+  if (!board) return <FlowTicketBoardSkeleton />
+
+  const kinds = KIND_ORDER.filter((kind) => board.stages.some((stage) => stage.kind === kind))
+  const byKind = (kind: TicketStageKind) => board.tickets.filter((ticket) => ticket.status === kind).length
+  const idle = board.tickets
+    .filter((ticket) => ticket.status === 'open' || ticket.status === 'waiting')
+    .map((ticket) => ticket.last_message_at)
+    .filter((at): at is string => Boolean(at))
+    .sort()[0]
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2" data-testid="flow-stats">
+        <Stat label={t('workstreamsPage.stats.total')} value={board.tickets.length} />
+        {kinds.map((kind) => (
+          <Stat
+            key={kind}
+            icon={<StageProgressIcon kind={kind} size={13} />}
+            label={t(`workstreamsPage.stages.kinds.${kind}`)}
+            value={byKind(kind)}
+          />
+        ))}
+        {idle ? <Stat label={t('workstreamsPage.stats.longestIdle')} value={timeAgo(idle, t)} /> : null}
+      </div>
+      {board.tickets.length === 0 ? (
+        <p className="flex flex-wrap items-center gap-1.5 text-sm text-text-muted">
+          <MessageSquare size={14} aria-hidden />
+          {t('workstreamsPage.board.empty', { tag: tagName })}
+          <Link to={inboxPath('all')} className="font-medium text-accent hover:underline">
+            {t('workstreamsPage.board.openCommunication')}
+          </Link>
+        </p>
+      ) : null}
+      <FlowTicketBoard board={board} canMove onChange={onChange} />
+    </section>
+  )
+}
+
+function Stat({ label, value, icon }: { label: string; value: number | string; icon?: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-bg-elevated/60 px-2.5 py-1 text-xs">
+      {icon}
+      <span className="text-text-muted">{label}</span>
+      <span className="font-semibold tabular-nums text-text-heading">{value}</span>
+    </span>
   )
 }

@@ -87,7 +87,7 @@ const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const HelpHubPage = lazy(() => import('./pages/HelpHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
-const SignalTypesSettings = lazy(() => import('./pages/SignalTypesSettings'))
+const CategoriesSettings = lazy(() => import('./pages/CategoriesSettings'))
 
 // Control plane hub
 const Workspaces = lazy(() => import('./pages/Workspaces'))
@@ -363,6 +363,16 @@ export default function App() {
             <Route path="/communication/agent/:agentId/:queue" element={<Communication />} />
             <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<Communication />} />
 
+            {/* Hashtag and project rows */}
+            <Route path="/communication/tag/:tag" element={<Communication />} />
+            <Route path="/communication/tag/:tag/t/:threadId" element={<Communication />} />
+            <Route path="/communication/tag/:tag/:queue" element={<Communication />} />
+            <Route path="/communication/tag/:tag/:queue/t/:threadId" element={<Communication />} />
+            <Route path="/communication/project/:projectId" element={<Communication />} />
+            <Route path="/communication/project/:projectId/t/:threadId" element={<Communication />} />
+            <Route path="/communication/project/:projectId/:queue" element={<Communication />} />
+            <Route path="/communication/project/:projectId/:queue/t/:threadId" element={<Communication />} />
+
             {/* Retired Decisions / Runs leaves → For you / Activity */}
             <Route path="/communication/decisions/*" element={<LegacyHubRedirect />} />
             <Route path="/communication/decisions" element={<LegacyHubRedirect />} />
@@ -401,8 +411,8 @@ export default function App() {
           <Route path="/team" element={<TeamPage />} />
           {/* Cases hub retired: a typed signal lives on its conversation. The
               type catalog moved to Settings. */}
-          <Route path="/cases" element={<Navigate to="/settings/signals" replace />} />
-          <Route path="/cases/*" element={<Navigate to="/settings/signals" replace />} />
+          <Route path="/cases" element={<Navigate to="/settings/action-tags" replace />} />
+          <Route path="/cases/*" element={<Navigate to="/settings/action-tags" replace />} />
           <Route path="/learn" element={<LearnPage />} />
           <Route path="/learn/:slug" element={<LearnPage />} />
           <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />
@@ -449,7 +459,8 @@ export default function App() {
             <Route path="/settings/teams" element={<Navigate to="/team#teams" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
-            <Route path="/settings/signals" element={<SignalTypesSettings />} />
+            <Route path="/settings/action-tags" element={<CategoriesSettings />} />
+            <Route path="/settings/categories" element={<Navigate to="/settings/action-tags" replace />} />
             <Route path="/settings/help-centers" element={<Navigate to="/knowledge" replace />} />
             <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/connections" />} />
             <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
@@ -499,7 +510,8 @@ export default function App() {
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
           <Route path="/settings/privacy" element={<Navigate to="/settings/trust" replace />} />
           <Route path="/settings/providers" element={<Navigate to="/settings/models" replace />} />
-          <Route path="/settings/signal-types" element={<Navigate to="/settings/signals" replace />} />
+          <Route path="/settings/signal-types" element={<Navigate to="/settings/action-tags" replace />} />
+          <Route path="/settings/signals" element={<Navigate to="/settings/action-tags" replace />} />
           <Route path="/settings/widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
           <Route path="/settings/chat-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
           <Route path="/settings/website-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />

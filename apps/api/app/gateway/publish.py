@@ -55,15 +55,15 @@ async def _row_extras(signal: "Signal") -> dict[str, Any]:
     try:
         from app.db.session import async_session_factory
         from app.services.signal_tags import signal_tag_names
-        from app.services.ticket_stages import category_by_signal
+        from app.services.tickets import tickets_by_signal
 
         async with async_session_factory() as session:
-            categories = await category_by_signal(session, signal.tenant_id, [signal.id])
+            tickets = await tickets_by_signal(session, signal.tenant_id, [signal])
             return {
                 "tags": await signal_tag_names(session, signal.id),
-                "category_case": categories.get(signal.id),
+                "ticket": tickets.get(signal.id),
             }
-    except Exception:  # noqa: BLE001 ? publishing never breaks business logic
+    except Exception:  # noqa: BLE001 - publishing never breaks business logic
         return {}
 
 
@@ -340,7 +340,18 @@ async def publish_agent_status(
 
 
 ENTITY_KINDS = frozenset(
-    {"trigger", "case", "project", "agent", "module_source", "calendar", "trash", "workstream_run", "team"}
+    {
+        "trigger",
+        "ticket",
+        "tag",
+        "project",
+        "agent",
+        "module_source",
+        "calendar",
+        "trash",
+        "workstream_run",
+        "team",
+    }
 )
 ENTITY_OPS = frozenset({"created", "updated", "deleted"})
 

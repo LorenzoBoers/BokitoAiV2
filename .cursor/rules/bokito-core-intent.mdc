@@ -18,10 +18,10 @@ Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on 
 ## Decision rules
 
 1. **Everything is reachable from a conversation** — pages for browsing; every action also has a chat path
-2. **One object per idea** — Conversation, Category (Ticket), Playbook, Project, Contact (+ Organization), Agent, Decision
-3. **Modules add types and playbooks; never screens**
+2. **One object per idea** — Conversation, Action tag (Ticket), Flow, Project, Contact (+ Organization), Agent, Decision
+3. **Modules add types and flows; never screens**
 4. **The system reads first; people correct**
-5. **Autonomy is one dial in Govern** (workspace ceiling; type/playbook may sit below)
+5. **Autonomy is one dial in Govern** (workspace ceiling; type/flow may sit below)
 6. **The thread is the log**
 7. **Ask inline; record in Govern**
 8. **Delete the old surface in the same change**
@@ -29,15 +29,15 @@ Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on 
 
 ## Operator vocabulary (Set C)
 
-Conversation/Gesprek · Category/Categorie (Ticket when a Playbook serves it) · Playbook/Draaiboek · Project · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: AI handling/AI-afhandeling (Autonomous · Assisted · Manual).
+Conversation/Gesprek · Action tag/Actietag (a hashtag that starts a ticket flow; filing it makes the conversation a Ticket) · Flow (page title always `#name`) · Project · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: AI handling/AI-afhandeling (Autonomous · Assisted · Manual). Avoid Smarttag / Smartflow.
 
 ## What we are building
 
 A **node-based agentic OS** for AI-driven SMBs. Canonical entities:
 
 - **Sensing:** `Signal` / `SignalMessage` — Communication hub (external + internal threads)
-- **Signals (product):** `Case` / `CaseType` — the conversation's category, one per conversation; a Ticket when bound to a Workstream, with stages
-- **Orchestration:** `Agent`, `Workstream` (Playbook), Agenda triggers; AI OS canvas at `/os`
+- **Tickets:** the conversation is the ticket (`Signal.ticket_tag_id`, `stage_key`, `project_id`); at most one action tag per conversation. An action tag is a `SignalTag` with `workstream_id`; free hashtags sit next to it. Flows are reusable stage pipelines linked many-to-many to projects (`workstream_projects`); a project shows them as stacked boards. Filing always settles a project (one of the flow's, or none), for people and agents alike
+- **Orchestration:** `Agent`, `Workstream` (Flow, titled `#hashtag`), Agenda triggers; AI OS canvas at `/os`
 - **Knowledge:** docs + examples + connected sources
 - **Decisions:** `DecisionRequest` as messages **in** threads
 - **Govern:** `PlatformChange`, `AuditEvent`, apply modes, Autonomy Posture

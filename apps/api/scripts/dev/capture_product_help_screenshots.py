@@ -35,12 +35,15 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/communication/inbox/open", "decisions", "approve"),
     ("/communication/inbox/open", "communication", "handling-picker"),
     ("/communication/inbox/open", "communication", "agent-turn"),
-    ("/communication/inbox/open", "communication", "folders"),
+    ("/communication/inbox/open", "communication", "hashtags"),
+    ("/settings/action-tags", "categories", "catalog"),
+    ("/communication/tag/klacht/all", "categories", "ticket-panel"),
     ("/communication/runs/all", "agent-runs", "runs-list"),
     ("/contacts", "contacts", "contact-card"),
     ("/contacts", "contacts", "contact-handling"),
     ("/communication/inbox/open", "contacts", "link-conversation"),
     ("/settings/channels", "channels", "mailbox-status"),
+    ("/settings/channels", "channels", "communication-tags"),
     ("/settings/channels", "quickstart", "mailbox"),
     ("/settings/communication", "inbox-ai", "workspace-default"),
     ("/ai/assistant/external/installation", "widget", "installation"),
@@ -48,6 +51,8 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/agents", "agents", "library"),
     ("/agenda?view=week", "agenda", "week"),
     ("/projects", "projects", "project"),
+    ("/projects", "projects", "boards"),
+    ("/workstreams", "workstreams", "board"),
     ("/knowledge", "knowledge", "add-doc"),
     ("/settings/govern", "govern", "posture"),
     ("/settings/govern", "govern", "drafts"),
@@ -79,9 +84,24 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ("communication", "agent-turn"): [
         ("click", 'main [role="button"][tabindex="0"]:has-text("Bokito Assistant")'),
     ],
-    ("communication", "folders"): [
-        ("click", '[data-section="folders"] a.nav-row'),
+    ("communication", "hashtags"): [
+        ("click", '[data-section="hashtags"] button.nav-row'),
         ("wait", '[data-testid="thread-row-ticket"]'),
+    ],
+    ("categories", "ticket-panel"): [
+        ("click", 'main [role="button"][tabindex="0"]'),
+        ("wait", '[data-testid="thread-ticket"]'),
+    ],
+    ("channels", "communication-tags"): [
+        ("scroll", "#communication-tags"),
+    ],
+    ("projects", "boards"): [
+        ("click", 'main [role="link"]:has-text("Bokito Platform")'),
+        ("scroll", '[data-testid="project-playbook-boards"]'),
+    ],
+    ("workstreams", "board"): [
+        ("click", 'main a[href^="/workstreams/"]:has-text("klacht")'),
+        ("wait", '[data-testid="flow-ticket-board"]'),
     ],
     ("contacts", "contact-handling"): [
         ("click", "main tbody tr"),

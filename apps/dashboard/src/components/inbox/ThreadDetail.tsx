@@ -18,10 +18,11 @@ import {
   humanizeContactName,
   isPlaceholderContactAddress,
 } from '../../lib/contact-label'
-import { listCaseTypes, createCase, type CaseRow } from '../../lib/cases-api'
+import { fileTicket, listCategories, stageLabel, type Ticket } from '../../lib/tickets-api'
+import { normalizeHashtag } from '../../lib/hashtag'
 import {
-  loadOpenSignalCases,
-  resolveOpenSignalCases,
+  loadOpenTickets,
+  resolveOpenTickets,
 } from '../../lib/close-thread-signals'
 import {
   Dialog,
@@ -170,7 +171,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [askAgentId, setAskAgentId] = useState<string | null>(null)
   // Close-the-loop prompt when typed Signals are still Open (F-49).
   const [closeSignalsPrompt, setCloseSignalsPrompt] = useState<{
-    cases: CaseRow[]
+    tickets: Ticket[]
     afterResolve?: () => Promise<void>
   } | null>(null)
   const [closeSignalsBusy, setCloseSignalsBusy] = useState(false)
@@ -499,12 +500,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [blockingContact, setBlockingContact] = useState(false)
   // An open ticket or a category waiting for a confirm: feeds the count on the
   // panel toggle while the right panel is closed. Internal threads carry none.
-  const categoryCase = detail && !isInternalThread(detail.thread) ? detail.thread.categoryCase : null
-  const openSignalCount =
-    categoryCase &&
-    (categoryCase.status === 'proposed' || (categoryCase.isTicket && categoryCase.status !== 'done'))
-      ? 1
-      : 0
+  const threadTicket = detail && !isInternalThread(detail.thread) ? detail.thread.ticket : null
+  const openSignalCount = threadTicket && threadTicket.status !== 'done' ? 1 : 0
 
   useEffect(() => {
     if (!token || !detail?.thread.contactId) {
@@ -633,29 +630,27 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const handleComposerVerb = useCallback(
     async (verb: ParsedComposerVerb): Promise<boolean> => {
       if (!token || !threadIdString) return false
-      if (verb.verb === 'signal') {
-        const types = await listCaseTypes().catch(() => [])
-        const q = verb.arg.trim().toLowerCase()
+      if (verb.verb === 'ticket') {
+        const categories = await listCategories().catch(() => [])
+        const q = normalizeHashtag(verb.arg)
         if (!q) {
           toast.message(
-            types.map((t) => t.name).join(', ') ||
-              t('cases.manageTypes', { ns: 'nav', defaultValue: 'Set up signal types' }),
+            categories.map((row) => `#${row.name}`).join(', ') || t('tickets.setUp', { ns: 'nav' }),
           )
           return true
         }
-        const match = types.find(
-          (row) =>
-            row.enabled &&
-            (row.name.toLowerCase() === q ||
-              row.slug.toLowerCase() === q ||
-              row.name.toLowerCase().includes(q)),
-        )
+        const match =
+          categories.find((row) => row.name === q) ?? categories.find((row) => row.name.includes(q))
         if (!match) {
-          toast.error(t('cases.createTypeError', { ns: 'nav', defaultValue: 'Unknown signal type.' }))
+          toast.error(t('tickets.unknownCategory', { ns: 'nav', name: q }))
           return true
         }
-        await createCase({ case_type_id: match.id, signal_id: threadIdString })
-        toast.success(match.name)
+        if (match.project_choices.length > 0) {
+          toast.message(t('tickets.chooseProjectInPanel', { ns: 'nav', name: match.name }))
+          return true
+        }
+        await fileTicket(threadIdString, match.id)
+        toast.success(`#${match.name}`)
         return true
       }
       if (verb.verb === 'assign') {
@@ -827,14 +822,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         if (afterClose) await afterClose()
         return
       }
-      const openCases = await loadOpenSignalCases(String(detail.thread.id))
-      if (openCases.length === 0) {
+      const openTickets = await loadOpenTickets(String(detail.thread.id))
+      if (openTickets.length === 0) {
         await onPatch({ status: 'closed' })
         if (afterClose) await afterClose()
         return
       }
       setCloseSignalsPrompt({
-        cases: openCases,
+        tickets: openTickets,
         afterResolve: afterClose,
       })
     },
@@ -847,13 +842,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setCloseSignalsBusy(true)
       try {
         if (mode === 'resolve') {
-          await resolveOpenSignalCases(closeSignalsPrompt.cases)
+          await resolveOpenTickets(closeSignalsPrompt.tickets)
         }
         await onPatch({ status: 'closed' })
         if (closeSignalsPrompt.afterResolve) await closeSignalsPrompt.afterResolve()
         setCloseSignalsPrompt(null)
       } catch (err) {
-        toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithSignalsError')))
+        toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
       } finally {
         setCloseSignalsBusy(false)
       }
@@ -1209,23 +1204,24 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('threadChrome.closeWithSignalsTitle')}</DialogTitle>
+            <DialogTitle>{t('threadChrome.closeWithTicketTitle')}</DialogTitle>
             <DialogDescription>
-              {t('threadChrome.closeWithSignalsBody', {
-                count: closeSignalsPrompt?.cases.length ?? 0,
+              {t('threadChrome.closeWithTicketBody', {
+                count: closeSignalsPrompt?.tickets.length ?? 0,
                 names:
-                  (closeSignalsPrompt?.cases ?? [])
-                    .map((row) => row.title || row.case_type?.name)
+                  (closeSignalsPrompt?.tickets ?? [])
+                    .map((row) => `#${row.name}`)
                     .filter(Boolean)
                     .slice(0, 3)
-                    .join(', ') || t('threadChrome.closeWithSignalsFallback'),
+                    .join(', ') || t('threadChrome.closeWithTicketFallback'),
               })}
             </DialogDescription>
           </DialogHeader>
           <ul className="max-h-40 space-y-1 overflow-y-auto text-sm text-text-secondary">
-            {(closeSignalsPrompt?.cases ?? []).map((row) => (
-              <li key={row.id} className="truncate-fade rounded-md border border-border/50 px-2.5 py-1.5">
-                {row.title || row.case_type?.name || t('threadChrome.closeWithSignalsFallback')}
+            {(closeSignalsPrompt?.tickets ?? []).map((row) => (
+              <li key={row.signal_id} className="truncate-fade rounded-md border border-border/50 px-2.5 py-1.5">
+                #{row.name}
+                {row.stage ? ` · ${stageLabel(row.stage, t)}` : ''}
               </li>
             ))}
           </ul>
@@ -1236,7 +1232,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               disabled={closeSignalsBusy}
               onClick={() => setCloseSignalsPrompt(null)}
             >
-              {t('threadChrome.closeWithSignalsCancel')}
+              {t('threadChrome.closeWithTicketCancel')}
             </Button>
             <Button
               type="button"
@@ -1244,14 +1240,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               disabled={closeSignalsBusy}
               onClick={() => void confirmCloseWithSignals('leave')}
             >
-              {t('threadChrome.closeWithSignalsLeaveOpen')}
+              {t('threadChrome.closeWithTicketLeaveOpen')}
             </Button>
             <Button
               type="button"
               disabled={closeSignalsBusy}
               onClick={() => void confirmCloseWithSignals('resolve')}
             >
-              {t('threadChrome.closeWithSignalsResolve')}
+              {t('threadChrome.closeWithTicketResolve')}
             </Button>
           </DialogFooter>
         </DialogContent>

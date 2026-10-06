@@ -193,8 +193,8 @@ export function useThreadDetail(
       if (event.event === 'thread') {
         const threadRow = extractLiveThreadRow(event)
         if (threadRow && String(threadRow.id) === String(threadId)) {
-          const before = detailRef.current?.thread.categoryCase
-          const after = threadRow.categoryCase
+          const before = detailRef.current?.thread.ticket
+          const after = threadRow.ticket
           setRawDetail((prev) => {
             if (!prev || String(prev.thread.id) !== String(threadId)) return prev
             return { ...prev, thread: mergeThreadRow(prev.thread, threadRow) }
@@ -202,8 +202,8 @@ export function useThreadDetail(
           // A category or stage change also wrote a timeline event.
           if (
             after !== undefined &&
-            `${before?.caseId}|${before?.status}|${before?.stage?.key}` !==
-              `${after?.caseId}|${after?.status}|${after?.stage?.key}`
+            `${before?.tagId}|${before?.status}|${before?.stage?.key}|${before?.projectId}` !==
+              `${after?.tagId}|${after?.status}|${after?.stage?.key}|${after?.projectId}`
           ) {
             scheduleQuietRefetch()
           }

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 
 /** Install presets: 7 / 30 / 90 / 365 days. “Everything” stays in advanced channel settings only. */
 export const INSTALL_SYNC_WINDOW_OPTIONS = [7, 30, 90, 365] as const
@@ -32,25 +33,24 @@ export default function MailboxSyncWindowField({
         {t('channelsPage.installHistory')}
       </label>
       <p className="text-xs leading-snug text-text-secondary">{t('channelsPage.installHistoryHint')}</p>
-      <select
-        id={id}
-        value={String(value)}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent/60 disabled:opacity-60"
-      >
-        {options.map((days) => (
-          <option key={days} value={days}>
-            {days === 0
-              ? t('channelsPage.everything')
-              : days === 365
-                ? t('channelsPage.oneYear')
-                : days === 30
-                  ? t('channelsPage.daysRecommended', { count: days })
-                  : t('channelsPage.days', { count: days })}
-          </option>
-        ))}
-      </select>
+      <Select value={String(value)} disabled={disabled} onValueChange={(next) => onChange(Number(next))}>
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((days) => (
+            <SelectItem key={days} value={String(days)}>
+              {days === 0
+                ? t('channelsPage.everything')
+                : days === 365
+                  ? t('channelsPage.oneYear')
+                  : days === 30
+                    ? t('channelsPage.daysRecommended', { count: days })
+                    : t('channelsPage.days', { count: days })}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

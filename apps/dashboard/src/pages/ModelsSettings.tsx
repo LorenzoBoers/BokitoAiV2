@@ -8,6 +8,7 @@ import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { providerTypeLabel } from '../lib/model-label'
 import {
   createProvider,
@@ -401,17 +402,18 @@ export default function ModelsSettings() {
                     <div className="space-y-3">
                       <div>
                         <Label>{t('modelsPage.providerType')}</Label>
-                        <select
-                          value={providerType}
-                          onChange={(e) => setProviderType(e.target.value as ProviderType)}
-                          className="mt-1 w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm"
-                        >
-                          {PROVIDER_TYPE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {t(opt.labelKey)}
-                            </option>
-                          ))}
-                        </select>
+                        <Select value={providerType} onValueChange={(value) => setProviderType(value as ProviderType)}>
+                          <SelectTrigger className="mt-1" aria-label={t('modelsPage.providerType')}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PROVIDER_TYPE_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {t(opt.labelKey)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label>
@@ -486,25 +488,26 @@ export default function ModelsSettings() {
                     <div className="space-y-3">
                       <div>
                         <Label>{t('modelsPage.custom.pickPreset')}</Label>
-                        <select
-                          value={pickedModelId}
-                          onChange={(e) => {
-                            setPickedModelId(e.target.value)
+                        <Select
+                          value={pickedModelId || undefined}
+                          onValueChange={(value) => {
+                            setPickedModelId(value)
                             setCustomModelId('')
-                            const preset = presetModels.find(
-                              (m) => m.model_id === e.target.value || m.slug === e.target.value,
-                            )
+                            const preset = presetModels.find((m) => m.model_id === value || m.slug === value)
                             if (preset) setDisplayName(preset.display_name)
                           }}
-                          className="mt-1 w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm"
                         >
-                          <option value="">{t('modelsPage.custom.pickPresetPlaceholder')}</option>
-                          {presetModels.map((m) => (
-                            <option key={m.slug} value={m.model_id}>
-                              {m.display_name} ({m.model_id})
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="mt-1" aria-label={t('modelsPage.custom.pickPreset')}>
+                            <SelectValue placeholder={t('modelsPage.custom.pickPresetPlaceholder')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {presetModels.map((m) => (
+                              <SelectItem key={m.slug} value={m.model_id}>
+                                {m.display_name} ({m.model_id})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label>{t('modelsPage.custom.orCustomId')}</Label>

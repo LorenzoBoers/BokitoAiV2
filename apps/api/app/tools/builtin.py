@@ -1352,7 +1352,7 @@ async def _snapshot_before(
             }
     if resource_type == "workstream" and after.get("workstream_id"):
         from app.models.orchestra import Workstream
-        from app.services.workstreams import list_steps, serialize_step
+        from app.services.workstreams import serialize_workstream
 
         row = (
             await ctx.session.execute(
@@ -1363,39 +1363,17 @@ async def _snapshot_before(
             )
         ).scalar_one_or_none()
         if row:
-            return {
-                "workstream_id": str(row.id),
-                "name": row.name,
-                "description": row.description,
-                "enabled": row.enabled,
-                "steps": [
-                    serialize_step(step)
-                    for step in await list_steps(ctx.session, ctx.tenant_id, row.id)
-                ],
-            }
-    if resource_type == "case_type" and after.get("case_type_id"):
-        from app.models.case import CaseType
+            return serialize_workstream(row)
+    if resource_type == "category" and after.get("tag_id"):
+        from app.models.signal import SignalTag
+        from app.services.tickets import serialize_category
 
-        row = (
-            await ctx.session.execute(
-                select(CaseType).where(
-                    CaseType.id == UUID(str(after["case_type_id"])),
-                    CaseType.tenant_id == ctx.tenant_id,
-                )
-            )
-        ).scalar_one_or_none()
-        if row:
-            return {
-                "case_type_id": str(row.id),
-                "name": row.name,
-                "description": row.description,
-                "create_mode": row.create_mode,
-                "ask_threshold": row.ask_threshold,
-                "auto_threshold": row.auto_threshold,
-                "requires_verification": row.requires_verification,
-                "audience": row.audience,
-                "enabled": row.enabled,
-            }
+        try:
+            row = await ctx.session.get(SignalTag, UUID(str(after["tag_id"])))
+        except ValueError:
+            row = None
+        if row is not None and row.tenant_id == ctx.tenant_id:
+            return serialize_category(row)
     return None
 
 
@@ -1822,8 +1800,10 @@ register_tool(
     ToolSpec(
         name="set_thread_tags",
         description=(
-            "Add tags to a conversation thread. Only tags that already exist in the "
-            "workspace tag catalog are applied; existing tags are never removed."
+            "Add free hashtags to a conversation. Only names that already exist in the "
+            "workspace hashtag catalog are applied; existing hashtags are never removed. "
+            "To start a ticket flow, use file_ticket with an action tag instead — do not "
+            "treat action tags as ordinary labels here."
         ),
         category="messaging",
         input_schema={
@@ -1859,7 +1839,7 @@ async def _split_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     if signal is None or signal.tenant_id != ctx.tenant_id:
         return {"error": "Conversation not found"}
     try:
-        case_type = await resolve_category(ctx.session, ctx.tenant_id, tool_input.get("category"))
+        category = await resolve_category(ctx.session, ctx.tenant_id, tool_input.get("category"))
         if ctx.agent is None:
             # A person ran this (or approved the split card): no AI handling gate.
             child = await split_conversation(
@@ -1867,18 +1847,18 @@ async def _split_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
                 ctx.tenant_id,
                 signal_id,
                 from_message_id=from_message_id,
-                case_type=case_type,
+                category=category,
                 actor_type="user" if ctx.user_id else "system",
                 actor_id=str(ctx.user_id or ""),
             )
             return {"status": "split", "signal_id": str(child.id)}
-        if case_type is None:
+        if category is None:
             return {"error": "category is required: name the new request's category"}
         return await split_or_propose(
             ctx.session,
             ctx.tenant_id,
             signal,
-            case_type=case_type,
+            category=category,
             from_message_id=from_message_id,
             agent_id=ctx.agent.id,
             reason=str(tool_input.get("reason") or ""),
@@ -1892,8 +1872,8 @@ register_tool(
         name="split_conversation",
         description=(
             "Move a new request into its own conversation. A conversation has one "
-            "category; when the customer raises something with a different category, "
-            "split from the message where it starts. The conversation's AI handling "
+            "action tag; when the customer raises something with a different action "
+            "tag, split from the message where it starts. The conversation's AI handling "
             "decides the outcome: autonomous splits, assisted asks the team, manual "
             "leaves it to a person."
         ),
@@ -1906,7 +1886,10 @@ register_tool(
                     "type": "string",
                     "description": "First message of the new request; defaults to the newest customer message",
                 },
-                "category": {"type": "string", "description": "Category slug or id for the new conversation"},
+                "category": {
+                    "type": "string",
+                    "description": "Action-tag hashtag (name without #) or id for the new conversation",
+                },
                 "reason": {"type": "string", "description": "One sentence for the team"},
             },
             "required": ["category"],
@@ -2502,28 +2485,32 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="create_case_type",
-        description="Propose a new intake type (complaint, bug, billing, …). Structural — goes through Govern.",
+        name="create_category",
+        description=(
+            "Propose a new category: a hashtag with a playbook, so conversations filed "
+            "under it become tickets. Pass workstream_id to reuse a playbook, or leave "
+            "it out to create one with the default stages. Structural - goes through Govern."
+        ),
         category="govern",
         input_schema={
             "type": "object",
             "properties": {
-                "name": {"type": "string"},
-                "slug": {"type": "string"},
-                "description": {"type": "string"},
+                "name": {"type": "string", "description": "Hashtag name without #"},
+                "description": {"type": "string", "description": "When agents should file it"},
+                "workstream_id": {"type": "string"},
                 "create_mode": {
                     "type": "string",
                     "enum": ["ask_customer", "ask_operator", "auto", "manual_only"],
                 },
                 "ask_threshold": {"type": "integer"},
                 "auto_threshold": {"type": "integer"},
+                "send_mode": {"type": "string", "enum": ["draft", "ask", "send"]},
                 "requires_verification": {"type": "boolean"},
-                "audience": {"type": "string", "enum": ["customer", "internal", "both"]},
             },
             "required": ["name"],
         },
         handler=_make_platform_handler(
-            "create_case_type", "case_type", "create", lambda i: f"Create intake type {i.get('name')}"
+            "create_category", "category", "create", lambda i: f"Create category #{i.get('name')}"
         ),
         handles_ask=True,
     )
@@ -2531,53 +2518,30 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="update_case_type",
-        description="Propose an update to an intake type (mode, thresholds, enabled).",
+        name="update_category",
+        description=(
+            "Propose an update to a category: description, playbook (workstream_id; "
+            "null makes it a free tag), intake mode, thresholds, send mode or rail visibility."
+        ),
         category="govern",
         input_schema={
             "type": "object",
             "properties": {
-                "case_type_id": {"type": "string"},
-                "name": {"type": "string"},
+                "tag_id": {"type": "string"},
                 "description": {"type": "string"},
+                "workstream_id": {"type": ["string", "null"]},
                 "create_mode": {"type": "string"},
                 "ask_threshold": {"type": "integer"},
                 "auto_threshold": {"type": "integer"},
+                "send_mode": {"type": "string"},
+                "autonomy_level": {"type": "string"},
                 "requires_verification": {"type": "boolean"},
-                "enabled": {"type": "boolean"},
-                "audience": {"type": "string"},
+                "show_in_nav": {"type": "boolean"},
             },
-            "required": ["case_type_id"],
+            "required": ["tag_id"],
         },
         handler=_make_platform_handler(
-            "update_case_type", "case_type", "update", lambda i: f"Update intake type {i.get('case_type_id')}"
-        ),
-        handles_ask=True,
-    )
-)
-
-register_tool(
-    ToolSpec(
-        name="bind_case_type",
-        description="Propose routing an intake type to a workstream or project.",
-        category="govern",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "case_type_id": {"type": "string"},
-                "target_kind": {"type": "string", "enum": ["workstream", "project"]},
-                "target_id": {"type": "string"},
-                "priority": {"type": "integer"},
-                "auto_link": {"type": "boolean"},
-                "auto_start_run": {"type": "boolean"},
-            },
-            "required": ["case_type_id", "target_kind", "target_id"],
-        },
-        handler=_make_platform_handler(
-            "bind_case_type",
-            "case_type_binding",
-            "create",
-            lambda i: f"Bind intake type {i.get('case_type_id')} to {i.get('target_kind')}",
+            "update_category", "category", "update", lambda i: f"Update category {i.get('tag_id')}"
         ),
         handles_ask=True,
     )
@@ -3170,7 +3134,6 @@ async def _dispatch_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         brief=brief,
         context_packet={
             "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
-            "case_id": tool_input.get("case_id"),
             "project_id": tool_input.get("project_id"),
             "acceptance": tool_input.get("acceptance"),
         },
@@ -3188,7 +3151,6 @@ async def _dispatch_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     )
     links = JobLinks(
         signal_id=ctx.signal_id,
-        case_id=_UUID(str(tool_input["case_id"])) if tool_input.get("case_id") else None,
         project_id=_UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
         agent_id=ctx.agent.id if ctx.agent else None,
         decision_id=None,
@@ -3232,7 +3194,6 @@ register_tool(
                 "ref": {"type": "string"},
                 "brief": {"type": "string"},
                 "goal": {"type": "string"},
-                "case_id": {"type": "string"},
                 "project_id": {"type": "string"},
                 "workbench_connection_id": {"type": "string"},
                 "acceptance": {"type": "string"},
@@ -3568,8 +3529,6 @@ async def _get_playbook(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
 
     from app.services.workstreams import (
         get_workstream,
-        list_steps,
-        serialize_step,
         serialize_workstream,
     )
 
@@ -3584,11 +3543,7 @@ async def _get_playbook(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         workstream = await get_workstream(ctx.session, ctx.tenant_id, playbook_id)
     except HTTPException as exc:
         return {"error": str(exc.detail)}
-    steps = await list_steps(ctx.session, ctx.tenant_id, workstream.id)
-    return {
-        **serialize_workstream(workstream, steps_count=len(steps)),
-        "steps": [serialize_step(step) for step in steps],
-    }
+    return serialize_workstream(workstream)
 
 
 async def _list_triggers(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -3852,7 +3807,7 @@ register_tool(
             "List items currently in the workspace Bin (soft-deleted, recoverable). "
             "Omit type to see every kind. Conversations are type 'conversation' "
             "(also accept signal/thread). Other types: project, canvas, knowledge, "
-            "contact, company, playbook, trigger, team, inbox_rule, saved_reply, case_type."
+            "contact, company, playbook, trigger, team, inbox_rule, saved_reply."
         ),
         category="workspace",
         input_schema={

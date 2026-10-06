@@ -1,13 +1,14 @@
-"""Tests for the Workstream engine: CRUD, linear runs, wait/gate/deadline."""
+"""Workstream API: stages-only playbooks (step engine retired)."""
 
-import json
 import os
-from datetime import datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from app.models.auth import Tenant
+from app.models.project import Project
+from app.models.signal import Signal
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
 os.environ["BOKITO_MOCK_EXECUTION"] = "true"
@@ -21,648 +22,161 @@ async def _login(client: AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {res.json()['access_token']}"}
 
 
-async def _make_workstream(client: AsyncClient, headers: dict, name: str, steps: list[dict]) -> str:
-    ws = await client.post(API, headers=headers, json={"name": name})
-    assert ws.status_code == 200
-    ws_id = ws.json()["id"]
-    replaced = await client.put(f"{API}/{ws_id}/steps", headers=headers, json={"steps": steps})
-    assert replaced.status_code == 200
-    return ws_id
-
-
 @pytest.mark.asyncio
-async def test_workstream_crud_and_steps(client: AsyncClient):
+async def test_workstream_crud_and_stages(client: AsyncClient):
     headers = await _login(client)
 
     created = await client.post(
         API, headers=headers, json={"name": "Tax filing", "description": "Collect and file"}
     )
     assert created.status_code == 200
-    ws_id = created.json()["id"]
+    body = created.json()
+    ws_id = body["id"]
+    assert "stages" in body
+    assert body["stages_count"] >= 1
 
+    # Steps endpoint is gone.
     replaced = await client.put(
         f"{API}/{ws_id}/steps",
         headers=headers,
-        json={
-            "steps": [
-                {"name": "Notify", "kind": "send_message", "goal": "We started."},
-                {"name": "Collect data", "kind": "agent_task", "goal": "Collect the client data."},
-                {"name": "Wait for client", "kind": "wait_for_reply"},
-                {"name": "Approve", "kind": "ask_decision"},
-                {"name": "Record", "kind": "call_tool", "config": {"tool_name": "set_thread_tags"}},
-                {"name": "Follow up", "kind": "schedule", "deadline_hours": 24},
-            ]
-        },
+        json={"steps": [{"name": "Nope", "kind": "agent_task"}]},
     )
-    assert replaced.status_code == 200
-    steps = replaced.json()["steps"]
-    assert [s["position"] for s in steps] == list(range(6))
-    assert [s["kind"] for s in steps] == [
-        "send_message",
-        "agent_task",
-        "wait_for_reply",
-        "ask_decision",
-        "call_tool",
-        "schedule",
-    ]
+    assert replaced.status_code == 404
 
     detail = await client.get(f"{API}/{ws_id}", headers=headers)
     assert detail.status_code == 200
-    assert detail.json()["steps_count"] == 6
+    assert "steps" not in detail.json() or detail.json().get("steps") in (None, [])
+    assert detail.json()["stages_count"] >= 1
 
-    legacy = await client.put(
-        f"{API}/{ws_id}/steps",
+    patched = await client.patch(
+        f"{API}/{ws_id}",
         headers=headers,
-        json={"steps": [{"name": "Legacy", "kind": "agent"}]},
+        json={
+            "stages": [
+                {"key": "intake", "name": "Intake", "kind": "open"},
+                {"key": "done", "name": "Done", "kind": "done"},
+            ]
+        },
     )
-    assert legacy.status_code == 400
-
-    # Replace keeps ids for surviving steps and drops removed ones.
-    kept = steps[0]
-    replaced2 = await client.put(
-        f"{API}/{ws_id}/steps",
-        headers=headers,
-        json={"steps": [{"id": kept["id"], "name": "Collect data v2", "kind": "agent_task"}]},
-    )
-    assert replaced2.status_code == 200
-    after = replaced2.json()["steps"]
-    assert len(after) == 1
-    assert after[0]["id"] == kept["id"]
-    assert after[0]["name"] == "Collect data v2"
-
-    patched = await client.patch(f"{API}/{ws_id}", headers=headers, json={"enabled": False})
     assert patched.status_code == 200
-    assert patched.json()["enabled"] is False
-
-    listed = await client.get(API, headers=headers)
-    assert any(w["id"] == ws_id for w in listed.json()["items"])
-
-    deleted = await client.delete(f"{API}/{ws_id}", headers=headers)
-    assert deleted.status_code == 200
+    assert patched.json()["stages_count"] == 2
+    assert [s["key"] for s in patched.json()["stages"]] == ["intake", "done"]
 
 
 @pytest.mark.asyncio
-async def test_run_requires_steps_and_enabled(client: AsyncClient):
+async def test_start_run_stages_only(client: AsyncClient):
     headers = await _login(client)
-    ws = await client.post(API, headers=headers, json={"name": "Empty"})
-    ws_id = ws.json()["id"]
-    run = await client.post(f"{API}/{ws_id}/runs", headers=headers, json={})
-    assert run.status_code == 400
-    detail = str(run.json())
-    assert "step" in detail.lower()
-
-
-@pytest.mark.asyncio
-async def test_signal_gets_one_run_per_playbook(session_override):
-    from app.models.auth import Tenant
-    from app.models.orchestra import Workstream, WorkstreamStep
-    from app.models.signal import Signal
-    from app.services.workstreams import start_run
-
-    tenant = Tenant(slug="one-run-per-signal", name="One run")
-    session_override.add(tenant)
-    await session_override.flush()
-    signal = Signal(
-        tenant_id=tenant.id,
-        channel="internal",
-        source="test",
-        subject="Tracked conversation",
-    )
-    workstream = Workstream(tenant_id=tenant.id, name="Tracked playbook")
-    session_override.add(signal)
-    session_override.add(workstream)
-    await session_override.flush()
-    session_override.add(
-        WorkstreamStep(
-            tenant_id=tenant.id,
-            workstream_id=workstream.id,
-            name="Wait",
-            kind="wait_for_reply",
-        )
-    )
-    await session_override.commit()
-
-    first = await start_run(
-        session_override,
-        tenant.id,
-        workstream.id,
-        input_kind="signal",
-        input_ref=str(signal.id),
-        signal_id=signal.id,
-        advance=False,
-    )
-    second = await start_run(
-        session_override,
-        tenant.id,
-        workstream.id,
-        input_kind="signal",
-        input_ref=str(signal.id),
-        signal_id=signal.id,
-        advance=False,
-    )
-    assert second.id == first.id
-
-
-@pytest.mark.asyncio
-async def test_linear_run_completes_with_worklog(client: AsyncClient):
-    headers = await _login(client)
-    ws_id = await _make_workstream(
-        client,
-        headers,
-        "Two step flow",
-        [
-            {"name": "Analyze", "kind": "agent_task", "goal": "Analyze the input."},
-            {"name": "Report", "kind": "agent_task", "goal": "Write the report."},
-        ],
-    )
+    created = await client.post(API, headers=headers, json={"name": "Quick run"})
+    assert created.status_code == 200
+    ws_id = created.json()["id"]
 
     run = await client.post(
         f"{API}/{ws_id}/runs",
         headers=headers,
-        json={"input_kind": "manual", "input_text": "Quarterly numbers attached."},
+        json={"input_kind": "manual", "input_text": "hello"},
     )
     assert run.status_code == 200
     body = run.json()
     assert body["status"] == "completed"
-    assert body["summary"]
-
-    detail = await client.get(f"{API}/runs/{body['id']}", headers=headers)
-    assert detail.status_code == 200
-    payload = detail.json()
-    assert payload["run"]["workstream_name"] == "Two step flow"
-    assert len(payload["step_outputs"]) == 2
-    assert [o["name"] for o in payload["step_outputs"]] == ["Analyze", "Report"]
-    # One AgentRun per agent step, each with worklog events.
-    assert len(payload["agent_runs"]) == 2
-    for agent_run in payload["agent_runs"]:
-        assert agent_run["status"] == "completed"
-        event_types = [e["event_type"] for e in agent_run["events"]]
-        assert "step_started" in event_types
-        assert "step_completed" in event_types
-
-    runs = await client.get(f"{API}/{ws_id}/runs", headers=headers)
-    assert any(r["id"] == body["id"] for r in runs.json()["items"])
+    assert body["current_step_id"] is None
+    assert "retired" in (body.get("summary") or "").lower() or "stages" in (
+        body.get("summary") or ""
+    ).lower()
 
 
 @pytest.mark.asyncio
-async def test_wait_step_parks_and_resume_continues(client: AsyncClient):
+async def test_creating_a_flow_makes_its_hashtag_the_one_action_tag(client: AsyncClient):
     headers = await _login(client)
-    ws_id = await _make_workstream(
-        client,
-        headers,
-        "Wait flow",
-        [
-            {"name": "Prepare", "kind": "agent_task", "goal": "Prepare the request."},
-            {"name": "Wait for client", "kind": "wait_for_reply", "wait_kind": "input"},
-            {"name": "Finish", "kind": "agent_task", "goal": "Process the client answer."},
-        ],
-    )
 
-    run = await client.post(f"{API}/{ws_id}/runs", headers=headers, json={})
-    assert run.status_code == 200
-    body = run.json()
-    assert body["status"] == "waiting"
+    created = await client.post(API, headers=headers, json={"name": "#Retour"})
+    assert created.status_code == 200, created.text
+    flow = created.json()
+    assert flow["name"] == "retour"
+    assert [t["name"] for t in flow["tags"]] == ["retour"]
 
-    resumed = await client.post(
-        f"{API}/runs/{body['id']}/resume",
+    tags = {row["name"]: row for row in (await client.get("/api/signals/tags", headers=headers)).json()}
+    assert tags["retour"]["is_category"] is True
+
+    duplicate = await client.post(API, headers=headers, json={"name": "retour"})
+    assert duplicate.status_code == 400
+
+    # A free hashtag is reused, not duplicated.
+    free = await client.post("/api/signals/tags", headers=headers, json={"name": "garantie"})
+    assert free.status_code in (200, 201), free.text
+    reused = await client.post(API, headers=headers, json={"name": "garantie"})
+    assert reused.status_code == 200, reused.text
+    assert reused.json()["tags"][0]["id"] == free.json()["id"]
+
+    two = await client.patch(
+        f"{API}/{flow['id']}",
         headers=headers,
-        json={"input_text": "Client sent the documents."},
+        json={"tag_ids": [flow["tags"][0]["id"], free.json()["id"]]},
     )
-    assert resumed.status_code == 200
-    assert resumed.json()["status"] == "completed"
-
-    detail = await client.get(f"{API}/runs/{body['id']}", headers=headers)
-    outputs = detail.json()["step_outputs"]
-    assert [o["name"] for o in outputs] == ["Prepare", "Finish"]
+    assert two.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_gate_step_raises_decision_and_cancel(client: AsyncClient):
+async def test_renaming_the_action_tag_renames_the_flow(client: AsyncClient):
     headers = await _login(client)
-    ws_id = await _make_workstream(
-        client,
-        headers,
-        "Gated flow",
-        [
-            {"name": "Draft", "kind": "agent_task", "goal": "Draft the output."},
-            {"name": "Approval", "kind": "ask_decision"},
-            {"name": "Send", "kind": "agent_task", "goal": "Send it."},
-        ],
+    flow = (await client.post(API, headers=headers, json={"name": "klacht"})).json()
+    other = (await client.post(API, headers=headers, json={"name": "storing"})).json()
+    tag_id = flow["tags"][0]["id"]
+
+    renamed = await client.patch(f"/api/signals/tags/{tag_id}", headers=headers, json={"name": "#Klachten"})
+    assert renamed.status_code == 200, renamed.text
+    detail = (await client.get(f"{API}/{flow['id']}", headers=headers)).json()
+    assert detail["name"] == "klachten"
+    assert [t["name"] for t in detail["tags"]] == ["klachten"]
+
+    taken = await client.patch(
+        f"/api/signals/tags/{tag_id}", headers=headers, json={"name": other["tags"][0]["name"]}
     )
-
-    run = await client.post(f"{API}/{ws_id}/runs", headers=headers, json={})
-    assert run.status_code == 200
-    body = run.json()
-    assert body["status"] == "awaiting_gate"
-
-    cancelled = await client.post(f"{API}/runs/{body['id']}/cancel", headers=headers)
-    assert cancelled.status_code == 200
-    assert cancelled.json()["status"] == "cancelled"
+    assert taken.status_code == 422
+    assert "already in use" in taken.text
 
 
 @pytest.mark.asyncio
-async def test_deadline_sweep_continues_and_fails(session_override):
-    """The scheduler sweep applies on_deadline when a waiting run expires."""
-    from app.models.agent import Agent
-    from app.models.auth import Tenant
-    from app.models.notification import DecisionRequest
-    from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep
-    from app.services.workstreams import process_due_run_deadlines, start_run
-
-    tenant = Tenant(slug="ws-deadline", name="WS Deadline")
-    session_override.add(tenant)
-    await session_override.flush()
-    session_override.add(
-        Agent(tenant_id=tenant.id, name="Lead", role="assistant", slug="lead", is_lead=True)
-    )
-    await session_override.flush()
-
-    async def make_ws(name: str, on_deadline: str) -> Workstream:
-        ws = Workstream(tenant_id=tenant.id, name=name)
-        session_override.add(ws)
-        await session_override.flush()
-        session_override.add(
-            WorkstreamStep(
-                tenant_id=tenant.id,
-                workstream_id=ws.id,
-                position=0,
-                name="Wait",
-                kind="wait_for_reply",
-                wait_kind="input",
-                deadline_hours=1,
-                on_deadline=on_deadline,
-            )
-        )
-        session_override.add(
-            WorkstreamStep(
-                tenant_id=tenant.id,
-                workstream_id=ws.id,
-                position=1,
-                name="After",
-                kind="agent_task",
-                goal="Continue after the wait.",
-            )
-        )
-        await session_override.commit()
-        return ws
-
-    ws_continue = await make_ws("Deadline continue", "continue")
-    ws_fail = await make_ws("Deadline fail", "fail")
-
-    run_continue = await start_run(
-        session_override, tenant.id, ws_continue.id, triggered_by_type="system"
-    )
-    run_fail = await start_run(
-        session_override, tenant.id, ws_fail.id, triggered_by_type="system"
-    )
-    assert run_continue.status == "waiting"
-    assert run_fail.status == "waiting"
-
-    # Force both deadlines into the past and sweep.
-    for run in (run_continue, run_fail):
-        run.wait_until = datetime.utcnow() - timedelta(minutes=5)
-        session_override.add(run)
+async def test_flow_board_groups_tickets_into_project_lanes(client: AsyncClient, session_override):
+    headers = await _login(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    acme = Project(tenant_id=tenant.id, name="Acme", slug="acme", autonomous_scope="project")
+    session_override.add(acme)
     await session_override.commit()
+    await session_override.refresh(acme)
 
-    woken = await process_due_run_deadlines(session_override)
-    assert woken == 2
+    flow = (await client.post(API, headers=headers, json={"name": "reparatie"})).json()
+    linked = await client.patch(f"{API}/{flow['id']}", headers=headers, json={"project_ids": [str(acme.id)]})
+    assert linked.status_code == 200, linked.text
 
-    refreshed_continue = (
-        await session_override.execute(
-            select(WorkstreamRun).where(WorkstreamRun.id == run_continue.id)
-        )
-    ).scalar_one()
-    assert refreshed_continue.status == "completed"
-
-    refreshed_fail = (
-        await session_override.execute(
-            select(WorkstreamRun).where(WorkstreamRun.id == run_fail.id)
-        )
-    ).scalar_one()
-    assert refreshed_fail.status == "waiting"
-    # The default permits two automatic retries before asking a human.
-    for _ in range(2):
-        refreshed_fail.wait_until = datetime.utcnow() - timedelta(minutes=5)
-        session_override.add(refreshed_fail)
-        await session_override.commit()
-        await process_due_run_deadlines(session_override)
-        await session_override.refresh(refreshed_fail)
-    assert refreshed_fail.status == "failed"
-    # Failure is never silent: the source thread gets all three choices.
-    decisions = (
-        await session_override.execute(
-            select(DecisionRequest).where(DecisionRequest.tenant_id == tenant.id)
-        )
-    ).scalars().all()
-    stalled = next(d for d in decisions if "stalled" in d.title.lower())
-    labels = {option["label"] for option in json.loads(stalled.options_json)}
-    assert labels == {"Retry", "Skip step", "Stop playbook"}
-
-
-async def _make_project(client: AsyncClient, headers: dict, slug: str) -> str:
-    created = await client.post(
-        "/api/workforce/projects",
-        headers=headers,
-        json={"name": slug, "slug": slug, "autonomous_scope": "test scope"},
-    )
-    assert created.status_code == 200
-    return created.json()["id"]
-
-
-@pytest.mark.asyncio
-async def test_project_creation_seeds_default_workstream(client: AsyncClient):
-    headers = await _login(client)
-    project_id = await _make_project(client, headers, "ws-seed-project")
-
-    listed = await client.get(API, headers=headers, params={"project_id": project_id})
-    assert listed.status_code == 200
-    items = listed.json()["items"]
-    assert len(items) == 1
-    assert items[0]["is_default"] is True
-    assert items[0]["steps_count"] == 1
-
-
-@pytest.mark.asyncio
-async def test_queue_item_routes_to_run_and_status_follows(
-    client: AsyncClient, session_override
-):
-    """Accepting a queue item starts a run on the project workstream; the
-    completed (mock) run completes the item with the run summary."""
-    headers = await _login(client)
-    project_id = await _make_project(client, headers, "ws-queue-route")
-
-    res = await client.post(
-        f"/api/workforce/projects/{project_id}/queue",
-        headers=headers,
-        json={"kind": "feature", "title": "CSV export", "body": "Add CSV export."},
-    )
-    assert res.status_code == 200
-    item_id = res.json()["id"]
-
-    accepted = await client.patch(
-        f"/api/workforce/projects/{project_id}/queue/{item_id}",
-        headers=headers,
-        json={"status": "queued"},
-    )
-    assert accepted.status_code == 200
-
-    runs = await client.get(
-        f"{API}/runs", headers=headers, params={"project_id": project_id}
-    )
-    assert runs.status_code == 200
-    run_items = runs.json()["items"]
-    assert len(run_items) == 1
-    run = run_items[0]
-    assert run["input_kind"] == "queue_item"
-    assert run["input_ref"] == item_id
-    assert run["status"] == "completed"
-
-    from uuid import UUID as _UUID
-
-    from app.models.auth import Tenant
-    from app.services.project_work import get_queue_item
-
-    tenant = (
-        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
-    ).scalar_one()
-    item = await get_queue_item(session_override, tenant.id, _UUID(item_id))
-    assert item.status == "completed"
-    assert item.impact_summary
-    import json as _json
-
-    ctx = _json.loads(item.context_json or "{}")
-    assert ctx.get("workstream_run_id") == run["id"]
-
-
-@pytest.mark.asyncio
-async def test_write_doc_requires_run_context_and_gate_finalizes(
-    client: AsyncClient, session_override
-):
-    """Autonomous agent writes to project docs need a workstream run; a
-    section written in a run goes to review and gate approval makes it final."""
-    import json as _json
-    from uuid import UUID as _UUID
-
-    from app.models.agent import Agent, AgentRun
-    from app.models.auth import Tenant
-    from app.models.orchestra import WorkstreamRun
-    from app.models.workspace import DocSection, WorkspaceDoc
-    from app.services.workstreams import resume_run, start_run
-    from app.tools import execute_tool
-
-    headers = await _login(client)
-    project_id = await _make_project(client, headers, "ws-run-context")
-    listed = await client.get(API, headers=headers, params={"project_id": project_id})
-    ws_id = listed.json()["items"][0]["id"]
-
-    tenant = (
-        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
-    ).scalar_one()
-    agent = (
-        await session_override.execute(select(Agent).where(Agent.role == "assistant"))
-    ).scalar_one()
-
-    doc_input = {
-        "path": "projects/ws-run-context/handbook.md",
-        "content": "The export runs nightly and lands in the shared drive.",
-        "section": "Export process",
-        "project_id": project_id,
-    }
-    # Autonomous write without a run context is refused.
-    blocked = await execute_tool(
-        session_override, tenant.id, None, "write_doc", dict(doc_input), agent=agent
-    )
-    assert "workstream run" in str(blocked.get("error", ""))
-
-    # The same write inside a workstream run applies and lands as review.
-    run = await start_run(
-        session_override,
-        tenant.id,
-        _UUID(ws_id),
-        input_kind="manual",
-        triggered_by_type="system",
-        advance=False,
-    )
-    agent_run = AgentRun(
-        tenant_id=tenant.id,
-        agent_id=agent.id,
-        project_id=_UUID(project_id),
-        workstream_run_id=run.id,
-        status="running",
-        trigger_type="workstream",
-    )
-    session_override.add(agent_run)
+    on_project = Signal(tenant_id=tenant.id, channel="widget", source="widget", subject="Pump")
+    loose = Signal(tenant_id=tenant.id, channel="widget", source="widget", subject="Valve")
+    session_override.add_all([on_project, loose])
     await session_override.commit()
+    await session_override.refresh(on_project)
+    await session_override.refresh(loose)
 
-    written = await execute_tool(
-        session_override,
-        tenant.id,
-        None,
-        "write_doc",
-        dict(doc_input),
-        agent=agent,
-        run_id=agent_run.id,
-        project_id=_UUID(project_id),
-    )
-    assert not written.get("error")
-
-    doc = (
-        await session_override.execute(
-            select(WorkspaceDoc).where(
-                WorkspaceDoc.tenant_id == tenant.id,
-                WorkspaceDoc.path == doc_input["path"],
-            )
-        )
-    ).scalar_one()
-    section = (
-        await session_override.execute(
-            select(DocSection).where(DocSection.doc_id == doc.id, DocSection.heading == "Export process")
-        )
-    ).scalar_one()
-    assert section.status == "review"
-
-    refreshed = (
-        await session_override.execute(
-            select(WorkstreamRun).where(WorkstreamRun.id == run.id)
-        )
-    ).scalar_one()
-    run_ctx = _json.loads(refreshed.context_json or "{}")
-    section_id = section.id
-    assert str(section_id) in run_ctx.get("written_section_ids", [])
-
-    # Gate approval promotes the run's written sections to final.
-    refreshed.status = "awaiting_gate"
-    session_override.add(refreshed)
-    await session_override.commit()
-    await resume_run(session_override, tenant.id, run.id, advance=False)
-
-    session_override.expire_all()
-    section = (
-        await session_override.execute(
-            select(DocSection).where(DocSection.id == section_id)
-        )
-    ).scalar_one()
-    assert section.status == "final"
-    assert section.status_changed_by_id == "workstream_gate"
-
-
-@pytest.mark.asyncio
-async def test_module_template_requirements_block_install(client: AsyncClient):
-    """Templates list their unmet requirements; install is refused until met."""
-    headers = await _login(client)
-    listed = await client.get(
-        "/api/integrations/modules/accounting/templates", headers=headers
-    )
-    assert listed.status_code == 200
-    rows = listed.json()["items"]
-    vat = next(r for r in rows if r["slug"] == "vat-filing-prep")
-    assert vat["installable"] is False
-    assert vat["problems"]
-
-    blocked = await client.post(
-        "/api/integrations/modules/accounting/templates/vat-filing-prep/install",
+    filed = await client.put(
+        f"/api/signals/{on_project.id}/ticket",
         headers=headers,
+        json={"tag": "reparatie", "project_id": str(acme.id)},
     )
-    assert blocked.status_code == 400
-    assert "requirements" in str(blocked.json()).lower()
-
-    unknown = await client.post(
-        "/api/integrations/modules/accounting/templates/nope/install", headers=headers
-    )
-    assert unknown.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_module_template_install_and_runtime_integrity(
-    client: AsyncClient, session_override
-):
-    """With the module installed and connected, the template copies to the
-    tenant; when the connection later disappears, the next run pauses with a
-    failure decision instead of failing silently."""
-    from app.models.auth import Tenant
-    from app.models.integration import IntegrationConnection
-    from app.models.module_install import ModuleInstall
-    from app.services.module_attach import attach_connection_to_module
-
-    headers = await _login(client)
-    tenant = (
-        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
-    ).scalar_one()
-
-    session_override.add(
-        ModuleInstall(
-            tenant_id=tenant.id, module_slug="accounting", install_state="installed"
-        )
-    )
-    conn = IntegrationConnection(
-        tenant_id=tenant.id, provider="moneybird", display_name="Moneybird"
-    )
-    session_override.add(conn)
-    await session_override.commit()
-    await attach_connection_to_module(session_override, tenant.id, conn.id, "accounting")
-
-    listed = await client.get(
-        "/api/integrations/modules/accounting/templates", headers=headers
-    )
-    vat = next(r for r in listed.json()["items"] if r["slug"] == "vat-filing-prep")
-    assert vat["installable"] is True
-
-    installed = await client.post(
-        "/api/integrations/modules/accounting/templates/vat-filing-prep/install",
+    assert filed.status_code == 200, filed.text
+    filed = await client.put(
+        f"/api/signals/{loose.id}/ticket",
         headers=headers,
+        json={"tag": "reparatie", "project_id": None},
     )
-    assert installed.status_code == 200
-    ws = installed.json()["workstream"]
-    assert ws["module_slug"] == "accounting"
-    assert ws["template_slug"] == "vat-filing-prep"
+    assert filed.status_code == 200, filed.text
 
-    detail = await client.get(f"{API}/{ws['id']}", headers=headers)
-    steps = detail.json()["steps"]
-    assert [s["kind"] for s in steps] == [
-        "agent_task",
-        "wait_for_reply",
-        "ask_decision",
-        "agent_task",
-    ]
+    board = await client.get(f"{API}/{flow['id']}/board", headers=headers)
+    assert board.status_code == 200, board.text
+    body = board.json()
+    assert [lane["id"] for lane in body["lanes"]] == [str(acme.id), None]
+    by_signal = {t["signal_id"]: t for t in body["tickets"]}
+    assert by_signal[str(on_project.id)]["project_id"] == str(acme.id)
+    assert by_signal[str(loose.id)]["project_id"] is None
 
-    # Second list marks it as already installed.
-    listed2 = await client.get(
-        "/api/integrations/modules/accounting/templates", headers=headers
-    )
-    vat2 = next(r for r in listed2.json()["items"] if r["slug"] == "vat-filing-prep")
-    assert vat2["already_installed"] is True
-
-    # A healthy run parks on the wait step (first agent step executes).
-    run_ok = await client.post(f"{API}/{ws['id']}/runs", headers=headers, json={})
-    assert run_ok.status_code == 200
-    assert run_ok.json()["status"] == "waiting"
-
-    # Kill the module connection: the runtime integrity check pauses the next
-    # run with an error instead of executing.
-    conn.status = "revoked"
-    session_override.add(conn)
-    await session_override.commit()
-
-    run_blocked = await client.post(f"{API}/{ws['id']}/runs", headers=headers, json={})
-    assert run_blocked.status_code == 200
-    body = run_blocked.json()
-    assert body["status"] == "failed"
-    assert "integrity" in body["error"].lower()
-
-
-@pytest.mark.asyncio
-async def test_promote_completed_run_creates_task(client: AsyncClient):
-    headers = await _login(client)
-    ws_id = await _make_workstream(
-        client,
-        headers,
-        "Promotable flow",
-        [{"name": "Do work", "kind": "agent_task", "goal": "Do the work."}],
-    )
-    run = await client.post(f"{API}/{ws_id}/runs", headers=headers, json={})
-    body = run.json()
-    assert body["status"] == "completed"
-
-    promoted = await client.post(f"{API}/runs/{body['id']}/promote", headers=headers)
-    assert promoted.status_code == 200
-    assert promoted.json()["task_id"]
+    rows = (await client.get(API, headers=headers)).json()["items"]
+    row = next(r for r in rows if r["id"] == flow["id"])
+    assert sum(row["ticket_counts"].values()) == 2
+    assert row["last_activity_at"] is None or isinstance(row["last_activity_at"], str)

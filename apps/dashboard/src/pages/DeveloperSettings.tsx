@@ -56,7 +56,7 @@ const TOKEN_SCOPE_GROUPS: { labelKey: 'restApi' | 'mcpTools'; scopes: string[] }
       'projects',
       'agents',
       'delegation',
-      'cases',
+      'tickets',
       'triggers',
       'integrations',
       'govern',

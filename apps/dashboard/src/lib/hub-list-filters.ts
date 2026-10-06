@@ -25,7 +25,7 @@ const INBOX_QUEUE_TO_VIEW: Record<InboxQueue, View> = {
 }
 
 export type LeafConfig = {
-  filters: Omit<ThreadFilters, 'search' | 'projectId'>
+  filters: Omit<ThreadFilters, 'search'>
   mode: 'customer' | 'agent'
   variant: 'customer' | 'direct'
 }
@@ -99,12 +99,28 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         mode: 'customer',
         variant: 'direct',
       }
+    case 'tag':
+      return {
+        filters: { folder: 'inbox', view: leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all_open', tag: leaf.tag },
+        mode: 'customer',
+        variant: 'customer',
+      }
+    case 'project':
+      return {
+        filters: {
+          folder: 'inbox',
+          view: leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all_open',
+          projectId: leaf.projectId,
+        },
+        mode: 'customer',
+        variant: 'customer',
+      }
   }
 }
 
 /** Merge leaf-scoped filters with list toolbar extras. */
 export function mergeHubThreadFilters(
-  leafFilters: Omit<ThreadFilters, 'search' | 'projectId'>,
+  leafFilters: Omit<ThreadFilters, 'search'>,
   extras: {
     search?: string
     projectId?: string
@@ -124,7 +140,7 @@ export function mergeHubThreadFilters(
   return {
     ...leafFilters,
     search: extras.search,
-    projectId: extras.projectId,
+    projectId: extras.projectId ?? leafFilters.projectId,
     categoryId: extras.categoryId,
     tag: extras.tag ?? leafFilters.tag,
     stage: extras.stage,

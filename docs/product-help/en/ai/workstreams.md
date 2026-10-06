@@ -1,72 +1,52 @@
 ---
-title: How Playbooks work
-intro: A playbook is a repeatable step-by-step process agents execute — with a full worklog per run.
-description: Define playbooks with six ordered step kinds, one run per tracked signal, and a readable worklog.
-keywords: workstreams, playbooks, steps, runs, worklog, decision, reply, schedule, templates
+title: How Flows work
+intro: A flow is the stage pipeline of exactly one action tag. The page is titled with that hashtag (`#klacht`) and shows a live board of its tickets, with a lane per project.
+description: Create a flow for an action tag, follow its tickets per stage and project, edit the stages in edit mode, and deactivate or delete it.
+keywords: flows, workstreams, playbooks, stages, owner, check-up, pipeline, tickets, hashtags, action tags, projects, board, lanes, edit mode
 sort: 45
-related: projects,agenda,agents,knowledge,cases
+related: categories,projects,agenda,agents,knowledge
 ---
 
-# How Playbooks work
+# How Flows work
 
-A playbook is a defined process for work that comes back: collecting figures for a filing, closing the month, updating a report. Open **Playbooks** (Work group) to define the steps once and let agents execute them, run after run, with a worklog you can read back.
+A flow is the pipeline for work that comes back under one action tag: a complaint, a repair, a filing. Each flow has exactly one action tag and is titled with its hashtag (`#klacht`); the flow page shows its tickets per stage, and projects show the same stages as a board.
 
-## Create a playbook
+## Create a flow
 
-1. Open **Playbooks** and choose **New playbook**. Name the process and press Enter.
-2. Optionally bind it to a project. A project-bound playbook may edit that project's documentation; agent edits to project docs only happen inside playbook runs.
-3. Keep **Enabled** on. A disabled playbook keeps its definition and history but cannot start new runs.
+1. Open **Flows** (Work group) and type a hashtag in **New flow hashtag**, then choose **Create**. That hashtag becomes the flow's action tag; an existing free hashtag is reused.
+2. A hashtag that already belongs to another flow cannot start a second one. You can also make an action tag from **Add hashtags** on a conversation or under Settings, which creates its flow.
+3. The **Flows** list shows each flow with its stages, the number of open tickets per stage, the projects it is used in, and the last activity.
 
-## Define the steps
+## Follow tickets on the flow board
 
-1. Open the playbook and choose **Add step**. A playbook needs at least one step; steps run in order.
-2. Pick one of six kinds per step:
-   - **Send message** — send a message in the tracked conversation. Fields such as `{amount}` use values from the run input.
-   - **Agent task** — give an agent a goal. Pick a specific agent or let Bokito resolve the lead agent.
-   - **Wait for reply** — park the run until the contact replies; optional reply branches route matching answers to another step.
-   - **Ask decision** — show an inline decision in the conversation; each option may branch to another step.
-   - **Call tool** — run a named Bokito tool with JSON arguments. Arguments support the same field templates.
-   - **Schedule** — wait the configured number of hours, then continue.
-3. Link knowledge sections to a step so the agent reads exactly the handbook material that step needs.
-4. Reorder or remove steps at any time; running runs keep the step list they started with.
+![Flow board with stages as columns and a lane per project](/api/docs/assets/workstreams/board.png)
+*Stages are the columns; each project that uses the flow is a lane.*
 
-## Give tickets stages
+1. Open a flow. Under the title you see its **Action tag**, the projects it is **Used in**, and counts such as **Open tickets** and **Longest idle**.
+2. The board has a column per stage and a lane per project, plus **No project** for tickets filed without one. Collapse a lane with its header, or choose **Open project** to go to that project.
+3. A card shows the conversation title, contact, up to two intake fields, the channel, the time of the last message, the assignee and the next check-up. Click a card to open the conversation.
+4. Drag a card to another stage in the same lane. The move shows in the conversation's timeline; the project only changes from the conversation.
 
-A category bound to this playbook turns its conversations into tickets. The playbook decides which stages those tickets move through.
+## Edit the stages in edit mode
 
-1. Open the playbook and find the **Ticket stages** card.
-2. Choose **Add stage** for each step a ticket passes (for example New, Waiting for parts, Fixed). Set each **Stage kind** to open, waiting or done; keep at least one done stage.
-3. In a step, pick a **Stage** so the ticket moves there when the step starts, or leave **Keep stage**.
-4. The ticket's status follows the kind of its stage, and every move shows in the conversation's timeline. See [Categories and tickets](/docs/ai/cases).
+1. Admins choose **Edit** at the top right. The board hides and the **Edit mode** bar appears; title, description and stages become editable. Changing the title renames the action tag on every conversation; the bar shows the old and new hashtag before you save.
+2. In **Ticket stages**, choose **Add new stage** for each step (for example New, Waiting for parts, Fixed). Set each **Stage kind** to open, waiting, done or closed, and keep at least one done stage. Drag stages to reorder.
+3. On a done stage, turn on **Auto-close conversation** when entering it should close the thread.
+4. Open **Intake fields** on a stage to add text, long text, number or choice-list fields. Fields on the first stage are asked when someone files the action tag.
+5. Pick an **Owner** per stage (a person, agent or team, or **Keep current owner**) and a **Check-up** rhythm. Tickets in that stage get a check-up on [Agenda](/docs/ai/agenda) for their owner; done stages never check up.
+6. Nothing saves until you choose **Save**; the bar shows **Unsaved changes** meanwhile. **Cancel** asks to **Discard** your changes and returns to the board unchanged. A hashtag that another tag already uses cannot be saved.
 
-## Start and follow a run
+## Show the flow on a project
 
-1. **Start run** stays disabled until the playbook has at least one step and is **Enabled** (not paused). Add a step first, then choose **Start run**, type the input (the request, period, or context this run is about), and confirm. Auto-start comes from the category (**Start the playbook right away** under [Categories and tickets](/docs/ai/cases)) or from accepted intake on the About card — at most one run per ticket and playbook.
-2. The run detail shows the status (**Running**, **Waiting**, **Awaiting gate**, **Completed**, **Failed**, **Cancelled**), the input, and a step-by-step worklog: what each agent step did, when the run waited, and which decisions were taken.
-3. A waiting run continues when you **Resume** it with the reply it waits for. A decision resolves inline in the tracked conversation; the selected branch determines the next step.
-4. **Cancel** stops a run; the worklog stays.
+1. Projects pick their flows; the flow page only shows where it is used. Open the [project](/docs/ai/projects) and choose **Add flow**.
+2. **Unlink** on a project board removes the flow from that project. Its tickets keep their project but leave that board.
+3. Filing a ticket asks which of the flow's projects it belongs to, or **No project**.
 
-## Handle a failed step
+## Deactivate or delete a flow
 
-1. Bokito retries a failed or stalled step automatically. The workspace default is two retries.
-2. After the retry limit, the tracked signal becomes **Waiting** and a decision card appears in the same conversation.
-3. Choose **Retry**, **Skip step** or **Stop playbook**. Completed agent runs appear as agent-authored messages in that conversation, so the thread remains the worklog.
-
-## Promote a run to knowledge
-
-1. Open a completed run.
-2. Choose **Promote to knowledge**. The agent distills the outcome into a knowledge section, so the next run starts smarter.
-
-## Install a playbook from a module
-
-Modules ship pre-built playbooks (for example VAT filing preparation on Accounting). Install one from the module page under **Playbook templates**; the copy is yours to edit. Before every run, Bokito re-checks that the module is installed, the connection works, and the agents exist — a run with a broken requirement pauses with a decision instead of failing silently.
-
-## Draft a playbook from chat
-
-1. Tell an agent which playbook to create or how to change its ordered steps.
-2. The agent proposes `create_workstream` or `update_workstream` as a PlatformChange with the complete step list.
-3. Review the draft in Govern. Applying it updates the same playbook shown on **Playbooks**. The live map of that playbook is the Playbooks page, not a separate OS overlay.
+1. Choose **Deactivate** at the top right to stop new work on the flow. Its status shows **Deactivated**.
+2. A deactivated flow shows **Activate** and **Delete**. Delete moves it to the trash; it is not available while the flow is active.
 
 ## What to do next
 
-Route recurring queue work through playbooks on [Projects](/docs/ai/projects). Accept chat intake on the About card — see [Categories and tickets](/docs/ai/cases). Schedule a playbook with a trigger on the [Agenda](/docs/ai/agenda). Templates come from [Integrations](/docs/integrations/integrations).
+File an action tag from **Add hashtags** on a conversation in [Communication](/docs/inbox/communication); see [Action tags and tickets](/docs/ai/categories).

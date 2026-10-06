@@ -13,7 +13,7 @@ import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import SignatureEditor from '../components/inbox/SignatureEditor'
-import FoldersAndTagsManager from '../components/inbox/FoldersAndTagsManager'
+import CommunicationTagsCard from '../components/inbox/CommunicationTagsCard'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import ChannelList, { type ChannelListProps } from '../components/channels/ChannelList'
@@ -506,7 +506,7 @@ export default function InboxSettings() {
         <AutomationRulesManager />
       </div>
 
-      <FoldersAndTagsManager />
+      <CommunicationTagsCard />
 
       <SavedRepliesManager />
 

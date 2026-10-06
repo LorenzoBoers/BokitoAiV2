@@ -25,10 +25,10 @@ Long-term aim: an operational **digital twin** the business can run on, observe 
 Apply these to every feature request.
 
 1. **Everything is reachable from a conversation.** Pages stay for browsing and for tools people use side by side with chat (a calendar, a list of agents). But nothing may exist only on a page: every agent, playbook, project, contact, and setting must also open from the thread that needs it, and every action a page offers must have a chat path.
-2. **One object per idea.** Operators name seven things: Conversation, Signal, Playbook, Project, Contact (with its Organization), Agent, Decision. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the seven cannot give.
-3. **Modules add types and playbooks. They never add screens.** Installing accounting adds signal types, a playbook, and tools. It does not add a rail item, a queue, or a settings page.
+2. **One object per idea.** Operators name seven things: Conversation, Action tag (a hashtag that starts a ticket flow; the conversation is then a Ticket), Flow, Project, Contact (with its Organization), Agent, Decision. A free hashtag is a label on a conversation, not an eighth object. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the seven cannot give.
+3. **Modules add types and flows. They never add screens.** Installing accounting adds hashtags, a flow, and tools. It does not add a rail item, a queue, or a settings page.
 4. **The system reads first, people correct.** Every message is interpreted. Manual actions exist to fix a miss, not as the normal path.
-5. **Autonomy is one dial in one place.** Govern owns manual / assisted / autonomous as the workspace ceiling; a signal type or playbook may sit below it, also in Govern. No per-project, per-channel, or per-page copy of it.
+5. **Autonomy is one dial in one place.** Govern owns manual / assisted / autonomous as the workspace ceiling; an action tag or flow may sit below it, also in Govern. No per-project, per-channel, or per-page copy of it.
 6. **The thread is the log.** What an agent did on a conversation appears in that conversation as a message. Govern keeps the full trace; nobody has to go there to know what happened.
 7. **Ask inline, record in Govern.** A human gate is a decision card in the thread. Govern is the ledger, not a second inbox.
 8. **Delete the old surface in the same change.** No compatibility twin.
@@ -39,14 +39,16 @@ Apply these to every feature request.
 | EN | NL | Role | Table (internal) |
 |----|----|------|------------------|
 | Conversation | Gesprek | The chat | `signals` |
-| Category | Categorie | What the conversation is about (one per conversation); a category served by a playbook makes it a **Ticket** that moves through that playbook's stages | `cases` / `case_types` |
-| Playbook | Draaiboek | What runs | `workstreams` |
-| Project | Project | Optional home for that work | `projects` |
+| Action tag | Actietag | A hashtag that starts a ticket flow, shown with an accent `#`. A conversation carries at most one; filing it makes the conversation a **Ticket** that moves through the flow's stages. Free hashtags sit next to it | `signal_tags` (`workstream_id`) |
+| Flow | Flow | The stage pipeline for an action tag. The page title is always the hashtag (`#klacht`); there is no independent playbook display name. Linked many-to-many to projects | `workstreams`, `workstream_projects` |
+| Project | Project | Shows each of its flows as a stacked ticket board. Filing a ticket always asks for one of the flow's projects or No project, for people and agents alike | `projects` |
 | Contact | Contact | Person you are talking to | `contacts` |
 | Agent | Agent | AI or company agent | `agents` |
 | Decision | Beslissing | Question in the thread | `decision_requests` |
 
-Do **not** add Task as an eighth operator noun. A free "look again later" is a dated next look-at on the Conversation (`Signal.follow_up_at`); typed work is a Ticket (a Case whose Category is served by a Playbook). Snooze parks the conversation; a look-at stays visible. `AgentTask` remains internal ledger plumbing.
+Do **not** add Task as an eighth operator noun. A free "look again later" is a dated next look-at on the Conversation (`Signal.follow_up_at`); typed work is a Ticket (a Conversation filed under an Action tag). Snooze parks the conversation; a look-at stays visible. `AgentTask` remains internal ledger plumbing.
+
+Avoid operator-facing words such as Smarttag, Smartflow, Ticket-hashtag, or a separate Draaiboek/Playbook title next to `#name`. Internally keep `SignalTag` + `Workstream`; do not add an eighth schema noun. Older docs may still say Category/Playbook for the same nodes.
 
 Overview, Govern, and Agents stay English loanwords in the Dutch UI. Communication / Communicatie is the rail hub name (not Messages / Berichten).
 
@@ -111,12 +113,12 @@ Intelligence Stack layers are **conceptual lanes** on the canvas and in metrics 
 Everything important should map to a **small set of canonical entity types**. Prefer extending:
 
 - `Signal` / `SignalMessage` — conversation context (external and internal)
-- `Case` / `CaseType` — the conversation's category (one per conversation, `uq_cases_signal`); operator word **Category**. A category bound to a `Workstream` makes the case a **Ticket** with a stage from `Workstream.stages_json`
+- `SignalTag` — the hashtag registry; a hashtag with `workstream_id` is an **Action tag** (actietag). The conversation carries the ticket itself (`Signal.ticket_tag_id`, `ticket_status`, `stage_key`, `project_id`); there is no separate Case object
 - `ChannelAccount` — one entity for every channel (mailbox, Bokito relay address, website chat, WhatsApp, Slack); lifecycle **state**, **capabilities** and **checks** are derived per kind in `services/channel_registry.py`
-- `Agent`, `Workstream` (operator: Playbook), `AgentRun` — orchestration
+- `Agent`, `Workstream` (operator: Flow, titled `#hashtag`), `AgentRun` — orchestration
 - `DecisionRequest` — human action objects **within** threads, not parallel list UIs
 - `WorkspaceDoc`, `DocChunk` — workspace knowledge
-- `Project` — container of signals and conversations; optional workbench connection for coding tools
+- `Project` — shows the boards of its flows (`workstream_projects`) and the conversations filed on it; optional workbench connection for coding tools
 - `os_canvas_nodes` / `os_canvas_edges` — visual graph overlay
 - `PlatformChange`, `AuditEvent` — governable mutations
 
@@ -153,7 +155,7 @@ V1 uses **heuristics**, not ML fine-tuning — but the **hook must exist**. A fe
 
 Agent autonomy is only valuable if it stays **trustworthy**:
 
-- **Autonomy posture** (tenant preset): `manual` | `assisted` | `autonomous` — workspace ceiling; a signal type or playbook may sit below it
+- **Autonomy posture** (tenant preset): `manual` | `assisted` | `autonomous` — workspace ceiling; a category or playbook may sit below it
 - **Permissions** per agent (tool allowlist)
 - **Apply modes** per resource type: `draft`, `yolo`, or `decision`
 - **Trace** via `AuditEvent` and the Govern Ledger
@@ -187,7 +189,7 @@ The product is in the **initial building phase**. Prefer the cleanest design tha
 
 Prefer the **simplest design** that fits the node model. If a feature needs a second mental model for users or a parallel schema for agents, reconsider before building.
 
-**Example (wrong direction):** separate Cases hub and Decisions tab for the same conversation context. **Right direction:** Communication hub with signal labels on rows and inline decision cards.
+**Example (wrong direction):** separate Cases hub and Decisions tab for the same conversation context. **Right direction:** Communication hub with hashtags and ticket stages on rows, rail rows per category and project, and inline decision cards.
 
 ### Minimalist UI
 

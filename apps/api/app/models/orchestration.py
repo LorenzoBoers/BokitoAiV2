@@ -76,7 +76,7 @@ class AgentTask(SQLModel, table=True):
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     message_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signal_messages.id")
     workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
-    current_step_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_steps.id")
+    current_step_id: Optional[uuid.UUID] = Field(default=None)  # legacy; step engine retired
 
     kind: str = Field(default="job", index=True)  # job | feature | bug | task | idea | risk
     title: str
@@ -131,7 +131,7 @@ class EvalCheckpoint(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     agent_task_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_tasks.id", index=True)
     run_id: uuid.UUID = Field(foreign_key="agent_runs.id", index=True)
-    step_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_steps.id")
+    step_id: Optional[uuid.UUID] = Field(default=None)  # legacy; step engine retired
     eval_kind: str = Field(default="rubric")  # rubric | tool_assert | llm_judge
     criteria_json: str = Field(default="{}")
     result_json: str = Field(default="{}")

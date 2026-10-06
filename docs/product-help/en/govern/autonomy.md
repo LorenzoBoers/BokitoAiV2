@@ -18,12 +18,12 @@ Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/
 
 1. Open **Settings**, then **Govern**, then **Policy**. The card is **How much agents can do**.
 2. Choose **Manual** (agents draft, you apply), **Assisted** (low-risk actions go through, the rest asks), or **Autonomous** (agents act within allowances). Choosing **Autonomous** asks **Switch to Autonomous?** before it applies. **Autonomous** stays unavailable until the workspace has a live model under **Providers & models** and at least one send-ready channel — the UI shows **Connect a live model under Models before Autonomous.** or **Connect a send-ready channel before Autonomous.** when a gate is missing.
-3. The setting saves as you pick it. A per-type or playbook policy may be stricter, never broader. Without a live model, AI replies are placeholders and are never labeled as sent to the customer.
+3. The setting saves as you pick it. A per action tag or flow policy may be stricter, never broader. Without a live model, AI replies are placeholders and are never labeled as sent to the customer.
 
 ## Set the three layers
 
 1. Stay on Govern, then **Policy**.
-2. Set the workspace posture first, then a stricter policy on a Signal type or Playbook where needed.
+2. Set the workspace posture first, then a stricter policy on a category or playbook where needed.
 3. On each agent, set **Autonomy level** (**Manual — always ask**, **Approval — gated actions**, **Auto — act independently**, or **Workspace default**) and the tool allowlist. There are no per-tool autonomy overrides.
 4. **Ask first** creates a [decision](/docs/ai/decisions) card in the thread.
 

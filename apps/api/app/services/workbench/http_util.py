@@ -75,7 +75,6 @@ def build_prompt(spec: Any) -> str:
         for key in (
             "acceptance",
             "signal_id",
-            "case_id",
             "project_id",
             "job_ref",
             "thread_excerpt",
@@ -87,8 +86,7 @@ def build_prompt(spec: Any) -> str:
             if key in {
                 "acceptance",
                 "signal_id",
-                "case_id",
-                "project_id",
+                    "project_id",
                 "job_ref",
                 "thread_excerpt",
                 "repo_resource",

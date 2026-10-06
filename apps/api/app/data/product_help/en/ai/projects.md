@@ -1,32 +1,36 @@
 ---
 title: How Projects works
 intro: A project holds a goal — its home, snapshot canvas, documentation, who leads it, and how much it may spend.
-description: Land on the project Home for the signals board and links, ask an agent to write the snapshot canvas, keep documentation, and cap spend.
-keywords: projects, canvas, dashboard, snapshot, signals, documentation, sections, resources, repository, budget, orchestration
+description: Land on the project Home for the flow boards and links, ask an agent to write the snapshot canvas, keep documentation, and cap spend.
+keywords: projects, canvas, dashboard, snapshot, tickets, flows, boards, documentation, sections, resources, repository, budget, orchestration
 sort: 40
-related: agenda,knowledge,communication,workstreams
+related: workstreams,categories,agenda,knowledge,communication
 ---
 
 # How Projects works
 
-A project is work that spans days. Open **Projects** when a goal should have a home instead of living only in chat. A project detail has four tabs: **Project** (landing: metadata, signals board, linked surfaces), **Canvas** (snapshot dashboard written by agents), **Documentation** (what is true), and **Settings** (who runs it and what it works on). The URL keeps the tab (`?tab=canvas`, `?tab=docs`, `?tab=settings`) so you can share that surface.
+A project is work that spans days. Open **Projects** when a goal should have a home instead of living only in chat. A project detail has four tabs: **Project** (landing: metadata, flow boards, linked surfaces), **Canvas** (snapshot dashboard written by agents), **Documentation** (what is true), and **Settings** (who runs it and what it works on). The URL keeps the tab (`?tab=canvas`, `?tab=docs`, `?tab=settings`) so you can share that surface.
 
 ## Create or open a project
 
 ![Projects list](/api/docs/assets/projects/project.png)
-*Each card shows the project agent, open signals, and budget.*
+*Each card shows the project agent, open tickets, and budget.*
 
 1. Open **Projects**. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
-2. Read the card: project agent, open signals (the same board as Project Home), documentation health, repo status, remaining budget. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
+2. Read the card: project agent, open tickets (the same boards as Project Home), documentation health, repo status, remaining budget. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
 3. Open it. You land on the **Project** tab. Click the project agent to open it. Admins choose the pencil in the card header to pick another company agent as the project default, or create one. Members can read a project; they cannot delete it or edit the name.
 
-## Read Home and move a signal
+## Read Home and move a ticket
 
-The **Project** tab is the landing: the project agent (avatar, status, last active; click opens the agent, admins change it from the header pencil), remaining budget with a pencil in the card header, linked playbooks, one **Signals** kanban, and attached resources. **Settings** holds the name, repository, playbooks, and resources — not a second copy of the agent or budget.
+The **Project** tab is the landing. The top row shows the project agent (click opens it; admins change it with the pencil), the project **Agenda** (check-ups that are due and planned look-ats for this project's tickets; **Open in Agenda** shows them all), and the remaining budget. Below are the **Tickets** boards and **Recent activity**. **Settings** holds the agents, repository, resources and the name.
 
-1. Open the **Project** tab. The **Signals** board is the typed work for this project, left to right: **Proposed**, **Open**, **Waiting**, **Done**.
-2. Drag a card to the next stage, or open the thread icon on a card to return to that conversation in [Communication](/docs/inbox/communication).
-3. Refresh the snapshot on the **Canvas** tab if the board should match the new state.
+![Flow boards on a project](/api/docs/assets/projects/boards.png)
+*One board per flow on the project, with that flow's stages as columns.*
+
+1. Open the **Project** tab. Under **Tickets**, every flow on this project is one board, stacked, titled with its action tag. Its columns are the flow's stages, for example Open, Waiting and Done.
+2. Drag a card to another column to move the ticket to that stage. The move shows in the conversation's timeline.
+3. Click a card to open that conversation in [Communication](/docs/inbox/communication). **Open in Communication** on the project header opens this project's folder in the Communication sidebar (it unhides the Projects section if you hid it, scrolls the folder into view, and highlights it briefly).
+4. No board yet? Admins choose **Add flow** above the boards and pick a flow; **Unlink** on a board removes it again. See [Flows](/docs/ai/workstreams).
 
 ## Ask an agent to write a canvas
 
@@ -36,18 +40,19 @@ A project can have several snapshot canvases (not live tiles). You add, delete a
 2. Canvases appear as tabs from left to right. While the document is empty, the tab shows that the agent is writing. After apply you see cards, stats, tables or charts from the last write.
 3. Admins can **Show source**. Choose **Ask agent to update** for a one-off rewrite, or change Refresh so Agenda keeps waking the agent. Workspace canvases live on Overview **Canvas**.
 
-## Link conversations so signals land on the board
+## Get tickets onto a project
 
-1. Link a thread to a project in the conversation's detail panel (**Project**).
-2. When the agent types that work as a signal, the card appears on the **Signals** board in **Proposed**.
-3. Drag it through **Open**, **Waiting**, and **Done**. How much an agent may do without asking is one workspace-wide dial: see [Autonomy](/docs/govern/autonomy).
+1. On the **Project** tab, choose **Add flow** and pick the flow. Flows are attached from the project; the flow page only shows where it is used.
+2. File a conversation with that flow's action tag. Filing asks which project it belongs to; pick this project. Agents make the same choice. See [Action tags and tickets](/docs/ai/categories).
+3. The ticket appears on that flow's board in its first stage, and under **Projects** in the Communication sidebar.
+4. How much an agent may do without asking is one workspace-wide dial: see [Autonomy](/docs/govern/autonomy).
 
 ## Track project documentation
 
 1. Open the **Documentation** tab (a contextual view of the same docs as Knowledge filtered to this project). Choose **New document**, give it a name, and write in **Write** or **Markdown**. Content always saves as markdown.
 2. Active linked queue requests show as chips on the document. Request status stays on the queue item.
-3. Expand **Sections** to work per `##` section, each with a status: **Draft**, **Review**, or **Final**. A section an agent writes during a workstream run moves to **Review**; gate approval promotes it to **Final**.
-4. You edit directly; agents may only edit project documentation inside a [workstream](/docs/ai/workstreams) run, so every agent change has a worklog behind it.
+3. Expand **Sections** to work per `##` section, each with a status: **Draft**, **Review**, or **Final**. A section an agent writes during a flow run moves to **Review**; gate approval promotes it to **Final**.
+4. You edit directly; agents may only edit project documentation inside a [flow](/docs/ai/workstreams) run, so every agent change has a worklog behind it.
 5. Choose **Open in Knowledge hub** to edit the same document under Knowledge → Projects.
 
 ## Link resources
@@ -64,4 +69,4 @@ A project can have several snapshot canvases (not live tiles). You add, delete a
 
 ## What to do next
 
-Define the recurring processes behind the project under [Workstreams](/docs/ai/workstreams). Attach a schedule on the [Agenda](/docs/ai/agenda). Browse the same project docs under [Knowledge](/docs/ai/knowledge) by clicking that project name; organization-wide knowledge stays on the workspace chip.
+Define the recurring processes behind the project under [Flows](/docs/ai/workstreams), with an owner and check-up per stage. Everything planned for the project shows on the [Agenda](/docs/ai/agenda) when you pick the project there. Browse the same project docs under [Knowledge](/docs/ai/knowledge) by clicking that project name; organization-wide knowledge stays on the workspace chip.

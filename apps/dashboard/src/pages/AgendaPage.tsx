@@ -1,934 +1,489 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bell,
+  Bot,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  Plus,
+  RefreshCw,
+  Repeat,
+} from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
-import { Badge } from '../components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { CardGridSkeleton } from '../components/ui/skeleton'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import TriggerDialog, { type TargetOption } from '../components/agenda/TriggerDialog'
-import { CalendarConnectBar } from '../components/agenda/CalendarConnectBar'
-import CalendarEventDialog, {
-  type CalendarEventEditSeed,
-} from '../components/agenda/CalendarEventDialog'
+import CalendarEventDialog, { type CalendarEventEditSeed } from '../components/agenda/CalendarEventDialog'
 import CalendarEventDetailDialog from '../components/agenda/CalendarEventDetailDialog'
+import AgendaRail from '../components/agenda/AgendaRail'
+import AgendaTimeGrid, { type AgendaSelection } from '../components/agenda/AgendaTimeGrid'
+import AgendaMonthGrid from '../components/agenda/AgendaMonthGrid'
+import AgendaList from '../components/agenda/AgendaList'
+import AgendaItemPanel from '../components/agenda/AgendaItemPanel'
+import RoutinesDialog from '../components/agenda/RoutinesDialog'
 import { useAuth } from '../context/AuthContext'
+import { useMembers } from '../hooks/useMembers'
+import { isTypingTarget } from '../hooks/useInboxListShortcuts'
 import { listAgents } from '../lib/agents-api'
-import {
-  listCalendarConnections,
-  type CalendarConnection,
-} from '../lib/calendars-api'
-import { listTriggers, type Trigger } from '../lib/orchestration-api'
-import {
-  agendaKindOf,
-  isAgentAutomation,
-  listTimeItems,
-  triggerThreadPath,
-  type TimeItem,
-} from '../lib/time-items'
+import { listCalendarConnections, type CalendarConnection } from '../lib/calendars-api'
+import { listTriggers, type Trigger, type TriggerKind } from '../lib/orchestration-api'
+import { listProjects } from '../lib/projects-api'
+import { listTimeItems, type TimeItem, type TimeItemKind } from '../lib/time-items'
 import { listWorkstreams } from '../lib/workstreams-api'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
-import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda-week'
-import { isTypingTarget } from '../hooks/useInboxListShortcuts'
-import { Input } from '../components/ui/input'
-import { inboxPath } from '../lib/messages-paths'
-import { resolveAgendaAgentId, resolveAgendaAgentName, humanizeAgendaActorName } from '../lib/agenda-label'
-import { openEntityPath, pickClosestThreadBySubject } from '../lib/open-entity'
-import { translateDecisionText } from '../lib/activity-labels'
-import { AGENDA_KIND_FILTERS, agendaKindLabel, agendaStatusLabel } from '../lib/status-labels'
-import { humanizeContactName } from '../lib/contact-label'
+import {
+  AGENDA_LAYERS,
+  addDays,
+  attentionOf,
+  dayKey,
+  itemStart,
+  layerOf,
+  layersParam,
+  matchesWho,
+  parseDayKey,
+  parseLayers,
+  parseView,
+  parseWho,
+  shiftAnchor,
+  startOfDay,
+  viewRange,
+  type AgendaLayer,
+  type AgendaView,
+  type AgendaWho,
+} from '../lib/agenda-layout'
 import { cn } from '../lib/utils'
-import { listThreads } from '../lib/inbox-api'
 
-type ViewTab = 'timeline' | 'week'
-
-function parseAgendaView(raw: string | null): ViewTab {
-  if (raw === 'week') return 'week'
-  return 'timeline'
-}
-
-type SourceFilter = 'tasks' | 'all' | 'wakes' | 'calendar'
-
-function parseSourceFilter(raw: string | null): SourceFilter {
-  if (raw === 'all' || raw === 'wakes' || raw === 'calendar' || raw === 'tasks') return raw
-  // Default: everything on one list; agent automations sit in a lighter group.
-  return 'all'
-}
-
-function isCalendarItem(item: TimeItem): boolean {
-  return item.kind === 'calendar'
-}
-
-function isLookbackItem(item: TimeItem): boolean {
-  return item.kind === 'follow_up' || item.actor_kind === 'person'
-}
-
-function isAgentAutomationItem(item: TimeItem): boolean {
-  if (isCalendarItem(item) || isLookbackItem(item)) return false
-  return isAgentAutomation(item)
-}
-
-function isWakeItem(item: TimeItem): boolean {
-  return item.kind === 'wake' || item.kind === 'session'
-}
-
-function lookbackSortRank(item: TimeItem): number {
-  if (isLookbackItem(item)) return 0
-  if (isCalendarItem(item)) return 1
-  if (isAgentAutomationItem(item)) return 3
-  return 2
-}
-
-function itemIsClickable(item: TimeItem): boolean {
-  return (
-    isCalendarItem(item) ||
-    Boolean(item.run_id) ||
-    Boolean(item.trigger_id) ||
-    Boolean(item.signal_id)
-  )
-}
-
-function startOfDay(d: Date): Date {
-  const out = new Date(d)
-  out.setHours(0, 0, 0, 0)
-  return out
-}
-
-/** Monday-based start of week. */
-function startOfWeek(d: Date): Date {
-  const out = startOfDay(d)
-  const day = (out.getDay() + 6) % 7
-  out.setDate(out.getDate() - day)
-  return out
-}
-
-function addDays(d: Date, days: number): Date {
-  const out = new Date(d)
-  out.setDate(out.getDate() + days)
-  return out
-}
-
-function dayKey(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
-function parseAt(iso: string): Date {
-  return new Date(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`)
-}
-
-function formatTime(d: Date, language?: string | null): string {
-  return formatAppTime(d, language)
-}
-
-function statusStyle(status: string, kind?: string): string {
-  if (kind === 'calendar' || status === 'calendar') {
-    return 'border-sky-500/35 bg-sky-500/8 text-text-heading'
-  }
-  const s = status.toLowerCase()
-  if (s === 'planned') return 'border-border/60 bg-bg-elevated text-text'
-  if (s === 'awaiting_human' || s === 'overdue' || s === 'due') return 'border-status-warning/40 bg-status-warning/10 text-status-warning'
-  if (s === 'running' || s === 'active') return 'border-accent/40 bg-accent/10 text-accent'
-  if (s === 'failed' || s === 'error') return 'border-status-error/40 bg-status-error/10 text-status-error'
-  return 'border-status-success/40 bg-status-success/10 text-status-success'
-}
-
-function AgendaChip({
-  item,
-  onClick,
-  showDate,
-}: {
-  item: TimeItem
-  onClick?: () => void
-  showDate?: boolean
-}) {
-  const { t, i18n } = useTranslation('nav')
-  const at = parseAt(item.start)
-  return (
-    <div
-      className={cn(
-        'w-full rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors',
-        statusStyle(item.status, agendaKindOf(item)),
-        !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
-      )}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={!onClick}
-        className={cn('w-full text-left', onClick ? 'hover:opacity-90' : 'cursor-default')}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-medium tabular-nums">
-            {showDate ? `${formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })} ` : ''}
-            {formatTime(at, i18n.language)}
-          </span>
-          <span className="rounded border border-current/30 px-1 py-px text-2xs opacity-80">
-            {agendaKindLabel(agendaKindOf(item), t)}
-          </span>
-        </div>
-        <p className="mt-0.5 truncate-fade font-medium">{translateDecisionText(item.title, t) || item.title}</p>
-        {item.actor_name || item.agent_name ? (
-          <p className="truncate-fade opacity-75">
-            {t(`agendaPage.actor.${item.actor_kind === 'person' ? 'person' : 'agent'}`)}
-            {' · '}
-            {item.actor_kind === 'person'
-              ? humanizeContactName(item.actor_name, null, t('contactsPage.widgetVisitor'))
-              : item.agent_name || humanizeAgendaActorName(item.actor_name)}
-          </p>
-        ) : null}
-        {isCalendarItem(item) && item.provider_label ? (
-          <p className="truncate-fade opacity-75">{item.provider_label}</p>
-        ) : null}
-        {item.status !== 'planned' && item.status !== 'calendar' ? (
-          <p className="mt-0.5 text-2xs opacity-75">{agendaStatusLabel(item.status, t)}</p>
-        ) : null}
-      </button>
-    </div>
-  )
-}
+const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'calendar', 'follow_up', 'activity']
+const VIEW_KEYS: Record<string, AgendaView> = { d: 'day', w: 'week', m: 'month', l: 'list' }
+const NEW_KINDS: TriggerKind[] = ['once', 'event', 'cron']
 
 export default function AgendaPage() {
   const { t, i18n } = useTranslation('nav')
-  const { token } = useAuth()
-  const navigate = useNavigate()
+  const { token, user } = useAuth()
+  const { members } = useMembers()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [view, setView] = useState<ViewTab>(() => parseAgendaView(searchParams.get('view')))
-  const [weekOffset, setWeekOffset] = useState(() => parseWeekOffset(searchParams.get('week')))
-  const [agentFilter, setAgentFilter] = useState(() => searchParams.get('agent') ?? 'all')
-  const [kindFilter, setKindFilter] = useState(() => searchParams.get('kind') ?? 'all')
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(() =>
-    parseSourceFilter(searchParams.get('source')),
+
+  const view = parseView(searchParams.get('view'))
+  const anchor = useMemo(
+    () => parseDayKey(searchParams.get('date')) ?? startOfDay(new Date()),
+    [searchParams],
   )
-  const [listQuery, setListQuery] = useState('')
-  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
+  const who = parseWho(searchParams.get('who'))
+  const projectId = searchParams.get('project') ?? ''
+  const layers = useMemo(() => parseLayers(searchParams.get('layers')), [searchParams])
+
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const [items, setItems] = useState<TimeItem[]>([])
+  const [attentionItems, setAttentionItems] = useState<TimeItem[]>([])
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [agents, setAgents] = useState<TargetOption[]>([])
   const [workstreams, setWorkstreams] = useState<TargetOption[]>([])
-  const [calendarConnections, setCalendarConnections] = useState<CalendarConnection[]>([])
-  const [calendarLoading, setCalendarLoading] = useState(true)
+  const [projects, setProjects] = useState<TargetOption[]>([])
+  const [calendars, setCalendars] = useState<CalendarConnection[]>([])
+  const [calendarsLoading, setCalendarsLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [selection, setSelection] = useState<AgendaSelection | null>(null)
+
+  const [triggerDialog, setTriggerDialog] = useState<{
+    trigger: Trigger | null
+    at: Date | null
+    kind: TriggerKind
+  } | null>(null)
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false)
   const [calendarEditEvent, setCalendarEditEvent] = useState<CalendarEventEditSeed | null>(null)
+  const [calendarSeedAt, setCalendarSeedAt] = useState<Date | null>(null)
   const [calendarDetailItem, setCalendarDetailItem] = useState<TimeItem | null>(null)
-  const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null)
-  const [initialRunAt, setInitialRunAt] = useState<Date | null>(null)
-  const [reloadKey, setReloadKey] = useState(0)
-  const [automationsExpanded, setAutomationsExpanded] = useState(true)
+  const [routinesOpen, setRoutinesOpen] = useState(false)
 
-  const handleViewChange = useCallback(
-    (next: ViewTab) => {
-      setView(next)
-      const params = new URLSearchParams(searchParams)
-      if (next === 'timeline') params.delete('view')
-      else params.set('view', next)
-      setSearchParams(params, { replace: true })
+  const setParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams)
+      for (const [key, value] of Object.entries(patch)) {
+        if (value == null || value === '') next.delete(key)
+        else next.set(key, value)
+      }
+      setSearchParams(next, { replace: true })
     },
     [searchParams, setSearchParams],
   )
+
+  // Deep links from elsewhere: `agent` narrows to one agent, `new` opens the
+  // create dialog, `trigger` opens that item once the data is in.
+  const agentParam = searchParams.get('agent')
+  const newParam = searchParams.get('new')
+  const triggerParam = searchParams.get('trigger')
+  useEffect(() => {
+    if (!agentParam && !newParam && !searchParams.has('source')) return
+    if (newParam === 'calendar') {
+      setCalendarEditEvent(null)
+      setCalendarSeedAt(null)
+      setCalendarDialogOpen(true)
+    } else if (newParam && NEW_KINDS.includes(newParam as TriggerKind)) {
+      setTriggerDialog({ trigger: null, at: null, kind: newParam as TriggerKind })
+    }
+    setParams({
+      agent: null,
+      new: null,
+      source: null,
+      ...(agentParam ? { who: `agent:${agentParam}` } : {}),
+    })
+  }, [agentParam, newParam, searchParams, setParams])
+
+  const setView = (next: AgendaView) => setParams({ view: next === 'week' ? null : next })
+  const setAnchor = (next: Date) =>
+    setParams({ date: dayKey(next) === dayKey(new Date()) ? null : dayKey(next) })
+  const toggleLayer = (layer: AgendaLayer) => {
+    const next = new Set(layers)
+    if (next.has(layer)) next.delete(layer)
+    else next.add(layer)
+    setParams({ layers: next.size === 0 ? AGENDA_LAYERS.join(',') : layersParam(next) })
+  }
+
+  const range = useMemo(() => viewRange(view, anchor), [view, anchor])
 
   useEffect(() => {
-    const fromUrl = parseAgendaView(searchParams.get('view'))
-    setView((current) => (current === fromUrl ? current : fromUrl))
-    const agentFromUrl = searchParams.get('agent') ?? 'all'
-    setAgentFilter((current) => (current === agentFromUrl ? current : agentFromUrl))
-    const kindFromUrl = searchParams.get('kind') ?? 'all'
-    setKindFilter((current) => (current === kindFromUrl ? current : kindFromUrl))
-    const sourceFromUrl = parseSourceFilter(searchParams.get('source'))
-    setSourceFilter((current) => (current === sourceFromUrl ? current : sourceFromUrl))
-    const weekFromUrl = parseWeekOffset(searchParams.get('week'))
-    setWeekOffset((current) => (current === weekFromUrl ? current : weekFromUrl))
-  }, [searchParams])
-
-  const applyWeekOffset = useCallback(
-    (next: number) => {
-      const value = clampWeekOffset(next)
-      setWeekOffset(value)
-      const params = new URLSearchParams(searchParams)
-      const encoded = weekOffsetParam(value)
-      if (encoded) params.set('week', encoded)
-      else params.delete('week')
-      setSearchParams(params, { replace: true })
-    },
-    [searchParams, setSearchParams],
-  )
-
-  const handleAgentFilterChange = (next: string) => {
-    setAgentFilter(next)
-    const params = new URLSearchParams(searchParams)
-    if (next === 'all') params.delete('agent')
-    else params.set('agent', next)
-    setSearchParams(params, { replace: true })
-  }
-
-  const handleKindFilterChange = (next: string) => {
-    setKindFilter(next)
-    const params = new URLSearchParams(searchParams)
-    if (next === 'all') params.delete('kind')
-    else params.set('kind', next)
-    setSearchParams(params, { replace: true })
-  }
-
-  const handleSourceFilterChange = (next: SourceFilter) => {
-    setSourceFilter(next)
-    const params = new URLSearchParams(searchParams)
-    if (next === 'all') params.delete('source')
-    else params.set('source', next)
-    setSearchParams(params, { replace: true })
-  }
-
-  const weekStart = useMemo(() => addDays(startOfWeek(new Date()), weekOffset * 7), [weekOffset])
-
-  const dateWindow = useMemo(() => {
-    if (view === 'week') {
-      // Pull recent overdue look-ats so the week grid can flag them above the days.
-      return { from: addDays(weekStart, -28), to: addDays(weekStart, 7) }
-    }
-    return { from: addDays(startOfDay(new Date()), -7), to: addDays(startOfDay(new Date()), 21) }
-  }, [view, weekStart])
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   const load = useCallback(async () => {
     if (!token) return
     setLoading(true)
     setError(null)
     try {
-      const [timeWindow, triggerRows] = await Promise.all([
+      const now = Date.now()
+      const [window_, attention, triggerRows] = await Promise.all([
         listTimeItems({
-          from: dateWindow.from.toISOString(),
-          to: dateWindow.to.toISOString(),
-          agentId: agentFilter !== 'all' ? agentFilter : undefined,
+          from: range.from.toISOString(),
+          to: range.to.toISOString(),
+          sources: ALL_SOURCES,
+          projectId: projectId || undefined,
+        }),
+        listTimeItems({
+          from: new Date(now - 30 * 86_400_000).toISOString(),
+          to: new Date(now + 60_000).toISOString(),
+          sources: ['follow_up', 'checkup', 'session'],
           scheduledOnly: true,
+          projectId: projectId || undefined,
         }),
         listTriggers(),
       ])
-      setItems(timeWindow.items)
+      setItems(window_.items)
+      setAttentionItems(attention.items)
       setTriggers(triggerRows)
-      setRefreshedAt(new Date())
+      setNowMs(Date.now())
     } catch (err) {
       setError(formatApiErrorMessage(err, t('agendaPage.loadError')))
     } finally {
       setLoading(false)
     }
-  }, [token, view, dateWindow, agentFilter, t])
+  }, [token, range, projectId, t])
 
   useEffect(() => {
     void load()
   }, [load, reloadKey])
 
   useEffect(() => {
-    if (view !== 'week') return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (isTypingTarget(event.target)) return
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault()
-        applyWeekOffset(weekOffset - 1)
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault()
-        applyWeekOffset(weekOffset + 1)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [view, weekOffset, applyWeekOffset])
-
-  useEffect(() => {
     if (!token) return
-    void (async () => {
-      setCalendarLoading(true)
-      try {
-        const rows = await listCalendarConnections()
-        setCalendarConnections(rows)
-      } catch {
-        setCalendarConnections([])
-      } finally {
-        setCalendarLoading(false)
-      }
-    })()
+    setCalendarsLoading(true)
+    listCalendarConnections()
+      .then(setCalendars)
+      .catch(() => setCalendars([]))
+      .finally(() => setCalendarsLoading(false))
   }, [token, reloadKey])
 
   useEffect(() => {
     if (!token) return
-    void (async () => {
-      try {
-        const [agentRows, wsRes] = await Promise.all([
-          listAgents().catch(() => []),
-          listWorkstreams().catch(() => []),
-        ])
-        setAgents(agentRows.map((a) => ({ id: a.id, name: a.name, role_slug: a.role_slug ?? null })))
-        setWorkstreams((Array.isArray(wsRes) ? wsRes : []).map((w) => ({ id: w.id, name: w.name })))
-      } catch {
-        // target pickers stay empty; dialog still works without a target
-      }
-    })()
+    void Promise.all([
+      listAgents().catch(() => []),
+      listWorkstreams().catch(() => []),
+      listProjects().catch(() => []),
+    ]).then(([agentRows, wsRows, projectRows]) => {
+      setAgents(agentRows.map((a) => ({ id: a.id, name: a.name })))
+      setWorkstreams((Array.isArray(wsRows) ? wsRows : []).map((w) => ({ id: w.id, name: w.name })))
+      setProjects(projectRows.map((p) => ({ id: p.id, name: p.name })))
+    })
   }, [token])
 
-  const filtered = useMemo(() => {
-    let out = items
-    if (sourceFilter === 'tasks') out = out.filter((i) => isLookbackItem(i) || isCalendarItem(i))
-    if (sourceFilter === 'wakes') out = out.filter((i) => isWakeItem(i))
-    if (sourceFilter === 'calendar') out = out.filter((i) => isCalendarItem(i))
-    if (kindFilter !== 'all') out = out.filter((i) => agendaKindOf(i) === kindFilter)
-    const q = listQuery.trim().toLowerCase()
-    if (q) {
-      out = out.filter((i) => {
-        const hay = `${i.title} ${i.agent_name ?? ''} ${i.provider_label ?? ''} ${agendaKindOf(i)} ${i.status}`.toLowerCase()
-        return hay.includes(q)
-      })
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return
+      if (document.querySelector('[role="dialog"]')) return
+      if (event.key === 'ArrowLeft') setAnchor(shiftAnchor(view, anchor, -1))
+      else if (event.key === 'ArrowRight') setAnchor(shiftAnchor(view, anchor, 1))
+      else if (event.key === 't') setAnchor(new Date())
+      else if (event.key === 'Escape') setSelection(null)
+      else if (VIEW_KEYS[event.key]) setView(VIEW_KEYS[event.key])
+      else return
+      event.preventDefault()
     }
-    return [...out].sort((a, b) => {
-      const byRank = lookbackSortRank(a) - lookbackSortRank(b)
-      if (byRank !== 0) return byRank
-      return parseAt(a.start).getTime() - parseAt(b.start).getTime()
-    })
-  }, [items, kindFilter, sourceFilter, listQuery])
-
-  const primaryFiltered = useMemo(
-    () => (sourceFilter === 'all' ? filtered.filter((i) => !isAgentAutomationItem(i)) : filtered),
-    [filtered, sourceFilter],
-  )
-
-  const automationFiltered = useMemo(
-    () => (sourceFilter === 'all' ? filtered.filter((i) => isAgentAutomationItem(i)) : []),
-    [filtered, sourceFilter],
-  )
-
-  const primaryByDay = useMemo(() => {
-    const map = new Map<string, TimeItem[]>()
-    for (const item of primaryFiltered) {
-      const key = dayKey(parseAt(item.start))
-      const list = map.get(key) ?? []
-      list.push(item)
-      map.set(key, list)
-    }
-    return map
-  }, [primaryFiltered])
-
-  const byDay = useMemo(() => {
-    // Week grid uses the human-first list; automations stay out of the day cells
-    // when browsing "All" so cron scans do not bury look-ats (F-80).
-    const map = new Map<string, TimeItem[]>()
-    for (const item of primaryFiltered) {
-      const key = dayKey(parseAt(item.start))
-      const list = map.get(key) ?? []
-      list.push(item)
-      map.set(key, list)
-    }
-    return map
-  }, [primaryFiltered])
-
-  const overdueOutsideWeek = useMemo(() => {
-    const start = weekStart.getTime()
-    const end = addDays(weekStart, 7).getTime()
-    return primaryFiltered.filter((item) => {
-      const status = item.status.toLowerCase()
-      if (status !== 'due' && status !== 'overdue') return false
-      const at = parseAt(item.start).getTime()
-      return at < start || at >= end
-    })
-  }, [primaryFiltered, weekStart])
-
-  const openCreate = (at?: Date) => {
-    setEditingTrigger(null)
-    setInitialRunAt(at ?? null)
-    setDialogOpen(true)
-  }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   useEffect(() => {
-    const triggerId = searchParams.get('trigger')
-    if (!triggerId || triggers.length === 0) return
-    const trigger = triggers.find((t) => t.id === triggerId)
-    if (!trigger) return
-    setEditingTrigger(trigger)
-    setInitialRunAt(null)
-    setDialogOpen(true)
-  }, [searchParams, triggers])
+    if (!triggerParam || loading) return
+    const item = items.find((row) => row.series_id === triggerParam || row.trigger_id === triggerParam)
+    const trigger = triggers.find((row) => row.id === triggerParam)
+    if (item) setSelection({ kind: 'item', item })
+    else if (trigger) setTriggerDialog({ trigger, at: null, kind: trigger.kind })
+    setParams({ trigger: null })
+  }, [triggerParam, loading, items, triggers, setParams])
 
-  const openItem = (item: TimeItem) => {
-    if (isCalendarItem(item)) {
-      setCalendarDetailItem(item)
-      return
-    }
-    if (item.kind === 'follow_up') {
-      if (item.signal_id) {
-        navigate(inboxPath('open', item.signal_id))
-        return
-      }
-    }
-    void (async () => {
-      // The trigger knows its own thread; only older rows need a subject search.
-      const direct = item.status !== 'planned' || item.run_id ? triggerThreadPath(item) : null
-      if (direct) {
-        navigate(direct)
-        return
-      }
-      if (token && item.title.trim()) {
-        try {
-          const found = await listThreads(token, {
-            search: item.title,
-            perPage: 8,
-          })
-          const match = pickClosestThreadBySubject(found.items, item.title, item.start)
-          if (match) {
-            if (match.folder === 'internal' || match.channel === 'internal') {
-              navigate(inboxPath('all', String(match.id)))
-            } else {
-              navigate(inboxPath(match.status === 'pending' ? 'snoozed' : 'open', String(match.id)))
-            }
-            return
-          }
-        } catch {
-          // Fall through to the technical run log when search is unavailable.
-        }
-      }
-      if (item.run_id && item.agent_id) {
-        navigate(openEntityPath({ type: 'run', id: item.run_id, agentId: item.agent_id }))
-        return
-      }
-      if (item.trigger_id) openEdit(item)
-    })()
-  }
-
-  const openEdit = (item: TimeItem) => {
-    if (!item.trigger_id) return
-    const trigger = triggers.find((t) => t.id === item.trigger_id)
-    if (!trigger) {
-      setError(t('agendaPage.editLoadError'))
-      return
-    }
-    setEditingTrigger(trigger)
-    setInitialRunAt(null)
-    setDialogOpen(true)
-  }
-
-  const onSaved = () => setReloadKey((k) => k + 1)
-
-  const todayKey = dayKey(new Date())
-  const weekDays = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
-    [weekStart],
+  const meId = user?.uuid ?? null
+  const byWho = useMemo(() => items.filter((item) => matchesWho(item, who, meId)), [items, who, meId])
+  const visible = useMemo(() => byWho.filter((item) => layers.has(layerOf(item))), [byWho, layers])
+  const counts = useMemo(() => {
+    const out = Object.fromEntries(AGENDA_LAYERS.map((layer) => [layer, 0])) as Record<AgendaLayer, number>
+    for (const item of byWho) out[layerOf(item)] += 1
+    return out
+  }, [byWho])
+  const attention = useMemo(
+    () => attentionOf(attentionItems.filter((item) => matchesWho(item, who, meId)), nowMs),
+    [attentionItems, who, meId, nowMs],
+  )
+  const busyDays = useMemo(
+    () => new Set(visible.filter((item) => !['routines', 'activity'].includes(layerOf(item))).map((item) => dayKey(itemStart(item)))),
+    [visible],
+  )
+  const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
+  const agentNames = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents])
+  const people = useMemo(
+    () => members.filter((m) => m.uuid).map((m) => ({ id: m.uuid, name: m.name || m.email })),
+    [members],
   )
 
-  const weekLabel = `${formatAppDate(weekStart, i18n.language, { day: 'numeric', month: 'short' })} – ${formatAppDate(addDays(weekStart, 6), i18n.language, { day: 'numeric', month: 'short' })}`
+  const reload = () => setReloadKey((k) => k + 1)
+  const openNew = (kind: TriggerKind, at: Date | null = null) => setTriggerDialog({ trigger: null, at, kind })
+  const openCalendarNew = (at: Date | null = null) => {
+    setCalendarEditEvent(null)
+    setCalendarSeedAt(at)
+    setCalendarDialogOpen(true)
+  }
+
+  const rangeLabel = useMemo(() => {
+    const lang = i18n.language
+    if (view === 'day') return formatAppDate(anchor, lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    if (view === 'month') return formatAppDate(anchor, lang, { month: 'long', year: 'numeric' })
+    const last = addDays(range.to, -1)
+    return `${formatAppDate(range.from, lang, { day: 'numeric', month: 'short' })} – ${formatAppDate(last, lang, { day: 'numeric', month: 'short', year: 'numeric' })}`
+  }, [view, anchor, range, i18n.language])
+
+  const selectedId = selection?.kind === 'item' ? selection.item.id : null
+  const attentionTotal = attention.checkups.length + attention.lookats.length + attention.failed.length
 
   return (
-    <PageContent width="xl" className="space-y-4">
+    <PageContent width="full" className="space-y-4">
       <ContentHeader
         guide="agenda"
         title={t('tabs.agenda.title')}
         subtitle={t('tabs.agenda.subtitle')}
         meta={
           <div className="flex flex-wrap items-center gap-2">
-            {refreshedAt ? (
-              <span className="text-xs text-text-muted">
-                {t('agendaPage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
-              </span>
-            ) : null}
             <Button
               type="button"
               size="sm"
               variant="outline"
               aria-label={t('agendaPage.refresh')}
-              onClick={() => {
-                setReloadKey((k) => k + 1)
-                void load()
-              }}
+              title={t('agendaPage.refreshedAt', { time: formatAppTime(new Date(nowMs), i18n.language) })}
+              onClick={reload}
               disabled={loading}
             >
               <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} aria-hidden />
             </Button>
-            {calendarConnections.length > 0 ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setCalendarEditEvent(null)
-                  setCalendarDialogOpen(true)
-                }}
-              >
-                <CalendarDays className="mr-1.5 h-4 w-4" aria-hidden />
-                {t('agendaPage.calendar.newBlock')}
-              </Button>
-            ) : null}
-            <Button type="button" size="sm" onClick={() => openCreate()}>
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden />
-              {t('agendaPage.new')}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm">
+                  <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                  {t('agendaPage.new')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <NewItem icon={Bot} title={t('agendaPage.newMenu.agent')} body={t('agendaPage.newMenu.agentBody')} onSelect={() => openNew('once')} />
+                <NewItem icon={Bell} title={t('agendaPage.newMenu.reminder')} body={t('agendaPage.newMenu.reminderBody')} onSelect={() => openNew('event')} />
+                <NewItem icon={Repeat} title={t('agendaPage.newMenu.routine')} body={t('agendaPage.newMenu.routineBody')} onSelect={() => openNew('cron')} />
+                <NewItem
+                  icon={CalendarDays}
+                  title={t('agendaPage.newMenu.calendar')}
+                  body={calendars.length ? t('agendaPage.newMenu.calendarBody') : t('agendaPage.newMenu.calendarNeedsConnect')}
+                  disabled={calendars.length === 0}
+                  onSelect={() => openCalendarNew()}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
 
-      <CalendarConnectBar
-        connections={calendarConnections}
-        loading={calendarLoading}
-        onConnectionsChange={setCalendarConnections}
-        onSynced={() => {
-          setReloadKey((k) => k + 1)
-          void load()
-        }}
-      />
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <Tabs value={view} onValueChange={(v) => handleViewChange(v as ViewTab)}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => setAnchor(new Date())}>
+            {t('agendaPage.today')}
+          </Button>
+          <div className="flex">
+            <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.previous')} onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}>
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </Button>
+            <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.next')} onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}>
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
+          <h2 className="text-base font-semibold text-text-heading first-letter:uppercase">
+            {view === 'list' ? t('agendaPage.list.range', { from: formatAppDate(range.from, i18n.language, { day: 'numeric', month: 'short' }) }) : rangeLabel}
+          </h2>
+        </div>
+        <Tabs value={view} onValueChange={(value) => setView(value as AgendaView)}>
           <TabsList>
-            <TabsTrigger value="timeline">{t('agendaPage.timeline')}</TabsTrigger>
-            <TabsTrigger value="week">{t('agendaPage.week')}</TabsTrigger>
+            {(['day', 'week', 'month', 'list'] as AgendaView[]).map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {t(`agendaPage.views.${value}`)}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
-
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {view === 'week' ? (
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  aria-label={t('agendaPage.prevWeek')}
-                  onClick={() => applyWeekOffset(weekOffset - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden />
-                </Button>
-                <span className="min-w-[9rem] px-1 text-center text-xs font-medium text-text-heading">
-                  {weekLabel}
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  aria-label={t('agendaPage.nextWeek')}
-                  onClick={() => applyWeekOffset(weekOffset + 1)}
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={weekOffset === 0}
-                  onClick={() => applyWeekOffset(0)}
-                >
-                  {t('agendaPage.thisWeek')}
-                </Button>
-              </div>
-            ) : null}
-            {view === 'timeline' ? (
-              <Input
-                value={listQuery}
-                onChange={(event) => setListQuery(event.target.value)}
-                placeholder={t('agendaPage.listSearch')}
-                className="h-8 w-full min-w-[8rem] max-w-[12rem] text-xs"
-                aria-label={t('agendaPage.listSearch')}
-              />
-            ) : null}
-            <Select value={sourceFilter} onValueChange={(v) => handleSourceFilterChange(v as SourceFilter)}>
-              <SelectTrigger className="h-8 w-auto min-w-[8rem] max-w-[11rem] text-xs">
-                <SelectValue placeholder={t('agendaPage.sourceTasks')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tasks">{t('agendaPage.sourceTasks')}</SelectItem>
-                <SelectItem value="all">{t('agendaPage.allSources')}</SelectItem>
-                <SelectItem value="wakes">{t('agendaPage.sourceWakes')}</SelectItem>
-                <SelectItem value="calendar">{t('agendaPage.sourceCalendar')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={agentFilter} onValueChange={handleAgentFilterChange}>
-              <SelectTrigger className="h-8 w-auto min-w-[8rem] max-w-[11rem] text-xs">
-                <SelectValue placeholder={t('agendaPage.allAgents')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('agendaPage.allAgents')}</SelectItem>
-                {agents.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {sourceFilter !== 'calendar' ? (
-              <Select value={kindFilter} onValueChange={handleKindFilterChange}>
-                <SelectTrigger className="h-8 w-auto min-w-[7rem] max-w-[10rem] text-xs">
-                  <SelectValue placeholder={t('agendaPage.allTypes')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('agendaPage.allTypes')}</SelectItem>
-                  {AGENDA_KIND_FILTERS.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {agendaKindLabel(value, t)}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-        </div>
       </div>
 
-      {view === 'week' && overdueOutsideWeek.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
-          <p>
-            {t('agendaPage.overdueBanner', { count: overdueOutsideWeek.length })}
-          </p>
-          <Button type="button" size="sm" variant="outline" onClick={() => handleViewChange('timeline')}>
-            {t('agendaPage.overdueBannerOpen')}
-          </Button>
+      {attentionTotal > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warning/30 bg-status-warning/5 px-3 py-2" data-testid="agenda-attention">
+          <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-text-heading">
+            <AlertTriangle className="h-4 w-4 text-status-warning" aria-hidden />
+            {t('agendaPage.attention.title')}
+          </span>
+          {attention.checkups.length > 0 ? (
+            <AttentionChip
+              icon={ClipboardCheck}
+              label={t('agendaPage.attention.checkups', { count: attention.checkups.length })}
+              onClick={() => setSelection({ kind: 'group', title: t('agendaPage.attention.checkupsTitle'), items: attention.checkups })}
+            />
+          ) : null}
+          {attention.lookats.length > 0 ? (
+            <AttentionChip
+              icon={Bell}
+              label={t('agendaPage.attention.lookats', { count: attention.lookats.length })}
+              onClick={() => setSelection({ kind: 'group', title: t('agendaPage.attention.lookatsTitle'), items: attention.lookats })}
+            />
+          ) : null}
+          {attention.failed.length > 0 ? (
+            <AttentionChip
+              icon={AlertTriangle}
+              tone="error"
+              label={t('agendaPage.attention.failed', { count: attention.failed.length })}
+              onClick={() => setSelection({ kind: 'group', title: t('agendaPage.attention.failedTitle'), items: attention.failed })}
+            />
+          ) : null}
         </div>
       ) : null}
 
-      {error ? (
-        <ApiErrorBanner message={error} onRetry={() => void load()} />
-      ) : loading ? (
-        <CardGridSkeleton cards={7} className="sm:grid-cols-2 lg:grid-cols-7" />
-      ) : view === 'week' ? (
-        <div className="overflow-x-auto">
-        <div className="grid min-w-[52rem] grid-cols-7 gap-2">
-          {weekDays.map((day) => {
-            const key = dayKey(day)
-            const dayItems = byDay.get(key) ?? []
-            const isToday = key === todayKey
-            return (
-              <div
-                key={key}
-                className={cn(
-                  'flex min-h-[10rem] flex-col gap-1.5 rounded-lg border p-2',
-                  isToday ? 'border-accent/50 bg-accent/[0.04]' : 'border-border/60 bg-bg-surface',
-                )}
-              >
-                <button
-                  type="button"
-                  className="flex items-baseline justify-between rounded px-1 text-left hover:text-accent"
-                  onClick={() => openCreate(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0))}
-                  title={t('agendaPage.scheduleDay')}
-                >
-                  <span className={cn('text-xs font-medium', isToday ? 'text-accent' : 'text-text-muted')}>
-                    {formatAppDate(day, i18n.language, { weekday: 'short' })}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    {isToday ? (
-                      <Badge variant="secondary" className="h-4 px-1 text-2xs">
-                        {t('agendaPage.today')}
-                      </Badge>
-                    ) : null}
-                    <span className={cn('text-sm font-semibold', isToday ? 'text-accent' : 'text-text-heading')}>
-                      {day.getDate()}
-                    </span>
-                  </span>
-                </button>
-                {dayItems.length === 0 ? (
-                  <button
-                    type="button"
-                    className="px-1 text-left text-xs font-medium text-accent hover:underline"
-                    onClick={() => openCreate(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0))}
-                  >
-                    + {t('agendaPage.scheduleEmptyDay')}
-                  </button>
-                ) : (
-                  dayItems.map((item) => (
-                    <AgendaChip
-                      key={item.id}
-                      item={{
-                        ...item,
-                        agent_name: resolveAgendaAgentName(item, agents, triggers, items) || item.agent_name,
-                      }}
-                      onClick={itemIsClickable(item) ? () => openItem(item) : undefined}
-                    />
-                  ))
-                )}
-              </div>
-            )
-          })}
-        </div>
-        </div>
-      ) : primaryFiltered.length === 0 && automationFiltered.length === 0 && listQuery.trim() ? (
-        <p className="rounded-lg border border-dashed border-border/60 p-8 text-center text-sm text-text-muted">
-          {t('agendaPage.listFilterEmpty')}
-        </p>
-      ) : primaryFiltered.length === 0 && automationFiltered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/60 p-10 text-center">
-          <CalendarDays className="mx-auto h-8 w-8 text-text-muted/50" aria-hidden />
-          <p className="mt-3 text-sm font-medium text-text-heading">
-            {sourceFilter === 'tasks' ? t('agendaPage.emptyLookbacksTitle') : t('agendaPage.emptyTitle')}
-          </p>
-          <p className="mt-1 text-sm text-text-muted">
-            {sourceFilter === 'tasks' ? t('agendaPage.emptyLookbacksBody') : t('agendaPage.emptyBody')}
-          </p>
-          <div className="mt-4 flex flex-col items-center gap-3">
-            {sourceFilter === 'tasks' ? (
-              <Button type="button" size="sm" variant="outline" onClick={() => handleSourceFilterChange('all')}>
-                {t('agendaPage.showAllIncludingAutomations')}
-              </Button>
-            ) : (
-              <Button type="button" size="sm" onClick={() => openCreate()}>
-                <Plus className="mr-1.5 h-4 w-4" aria-hidden />
-                {t('agendaPage.createRun')}
-              </Button>
-            )}
-            <Link to="/docs/ai/agenda" className="text-xs font-medium text-accent hover:underline">
-              {t('pageGuides.learnMore')}
-            </Link>
+      <div className={cn('grid gap-5 lg:grid-cols-[14.5rem_minmax(0,1fr)]', selection && 'xl:grid-cols-[14.5rem_minmax(0,1fr)_21rem]')}>
+        <AgendaRail
+          anchor={anchor}
+          nowMs={nowMs}
+          busyDays={busyDays}
+          onPickDay={(day) => setAnchor(day)}
+          who={who}
+          onWho={(next: AgendaWho) => setParams({ who: next === 'all' ? null : next })}
+          people={people}
+          agents={agents}
+          projectId={projectId}
+          onProject={(id) => setParams({ project: id || null })}
+          projects={projects}
+          layers={layers}
+          counts={counts}
+          onToggleLayer={toggleLayer}
+          calendars={calendars}
+          calendarsLoading={calendarsLoading}
+          onCalendars={setCalendars}
+          onSynced={reload}
+          routineCount={triggers.filter((row) => row.kind !== 'once' && row.kind !== 'event').length}
+          onOpenRoutines={() => setRoutinesOpen(true)}
+        />
+
+        <main className="min-w-0 space-y-3">
+          {error ? <ApiErrorBanner message={error} onRetry={reload} /> : null}
+          {view === 'day' || view === 'week' ? (
+            <AgendaTimeGrid
+              days={range.days}
+              items={visible}
+              nowMs={nowMs}
+              selectedId={selectedId}
+              onSelect={setSelection}
+              onCreateAt={(at) => openNew('once', at)}
+            />
+          ) : view === 'month' ? (
+            <AgendaMonthGrid
+              days={range.days}
+              month={anchor.getMonth()}
+              items={visible}
+              nowMs={nowMs}
+              onSelect={setSelection}
+              onOpenDay={(day) => setParams({ view: 'day', date: dayKey(day) })}
+            />
+          ) : visible.length === 0 && !loading ? (
+            <EmptyAgenda onPlan={() => openNew('once')} />
+          ) : (
+            <AgendaList
+              days={range.days}
+              items={visible}
+              nowMs={nowMs}
+              selectedId={selectedId}
+              projectNames={projectNames}
+              onSelect={setSelection}
+            />
+          )}
+        </main>
+
+        {selection ? (
+          <div className="fixed inset-y-4 right-4 z-40 w-[min(22rem,calc(100vw-2rem))] shadow-overlay xl:static xl:inset-auto xl:z-auto xl:w-auto xl:shadow-none">
+            <AgendaItemPanel
+              selection={selection}
+              nowMs={nowMs}
+              triggers={triggers}
+              projectNames={projectNames}
+              onSelect={setSelection}
+              onClose={() => setSelection(null)}
+              onEditTrigger={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind })}
+              onOpenCalendar={(item) => setCalendarDetailItem(item)}
+              onChanged={reload}
+            />
           </div>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {[...primaryByDay.entries()].map(([key, dayItems]) => {
-            const day = parseAt(`${key}T12:00:00`)
-            const isToday = key === todayKey
-            return (
-              <section key={key}>
-                <h2 className={cn('mb-2 text-sm font-semibold', isToday ? 'text-accent' : 'text-text-heading')}>
-                  {isToday
-                    ? t('agendaPage.today')
-                    : formatAppDate(day, i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })}
-                </h2>
-                <div className="space-y-1.5">
-                  {dayItems.map((item) => {
-                    const at = parseAt(item.start)
-                    const agentLabel = resolveAgendaAgentName(item, agents, triggers, items)
-                    const agentId = resolveAgendaAgentId(item, triggers, items, agents)
-                    const clickable = itemIsClickable(item)
-                    return (
-                      <div
-                        key={item.id}
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-sm transition-colors',
-                          isCalendarItem(item) ? 'border-sky-500/30' : '',
-                          isLookbackItem(item) ? 'border-status-warning/35' : '',
-                          !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
-                        )}
-                      >
-                        <button
-                          type="button"
-                          disabled={!clickable}
-                          onClick={clickable ? () => openItem(item) : undefined}
-                          className={cn(
-                            'flex min-w-0 flex-1 items-center gap-3 text-left',
-                            clickable ? 'hover:opacity-90' : 'cursor-default',
-                          )}
-                        >
-                          <span className="w-12 shrink-0 font-medium tabular-nums text-text-heading">
-                            {formatTime(at, i18n.language)}
-                          </span>
-                          <Badge variant="outline" className="shrink-0 text-2xs">
-                            {agendaKindLabel(agendaKindOf(item), t)}
-                          </Badge>
-                          <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
-                            {translateDecisionText(item.title, t) || item.title}
-                          </span>
-                          {item.actor_name || agentLabel ? (
-                            <span
-                              className={`hidden shrink-0 text-xs sm:inline ${agentId && item.actor_kind !== 'person' ? 'text-accent hover:underline' : 'text-text-muted'}`}
-                              onClick={
-                                agentId && item.actor_kind !== 'person'
-                                  ? (event) => {
-                                      event.stopPropagation()
-                                      navigate(`/agents/${agentId}`)
-                                    }
-                                  : undefined
-                              }
-                            >
-                              {t(`agendaPage.actor.${item.actor_kind === 'person' ? 'person' : 'agent'}`)}
-                              {' · '}
-                              {item.actor_kind === 'person'
-                                ? humanizeContactName(
-                                    item.actor_name,
-                                    null,
-                                    t('contactsPage.widgetVisitor'),
-                                  )
-                                : agentLabel || humanizeAgendaActorName(item.actor_name)}
-                            </span>
-                          ) : item.provider_label ? (
-                            <span className="hidden shrink-0 text-xs text-text-muted sm:inline">
-                              {item.provider_label}
-                            </span>
-                          ) : null}
-                          <span
-                            className={cn(
-                              'shrink-0 rounded-md border px-2 py-0.5 text-2xs ',
-                              statusStyle(item.status, agendaKindOf(item)),
-                            )}
-                          >
-                            {item.status === 'calendar'
-                              ? t('agendaPage.kinds.calendar')
-                              : agendaStatusLabel(item.status, t)}
-                          </span>
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-            )
-          })}
-          {automationFiltered.length > 0 ? (
-            <section className="rounded-lg border border-border/50 bg-bg-elevated/40">
-              <button
-                type="button"
-                onClick={() => setAutomationsExpanded((open) => !open)}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm"
-              >
-                <span className="font-medium text-text-heading">
-                  {t('agendaPage.automationsCollapsed', { count: automationFiltered.length })}
-                </span>
-                <span className="text-xs text-text-muted">
-                  {automationsExpanded ? t('agendaPage.automationsHide') : t('agendaPage.automationsShow')}
-                </span>
-              </button>
-              {automationsExpanded ? (
-                <div className="space-y-1.5 border-t border-border/40 px-3 py-2.5">
-                  {automationFiltered.map((item) => {
-                    const at = parseAt(item.start)
-                    const clickable = itemIsClickable(item)
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex w-full items-center gap-3 rounded-lg border border-border/40 bg-bg-surface/80 px-3 py-1.5 text-sm opacity-80"
-                      >
-                        <button
-                          type="button"
-                          disabled={!clickable}
-                          onClick={clickable ? () => openItem(item) : undefined}
-                          className={cn(
-                            'flex min-w-0 flex-1 items-center gap-3 text-left',
-                            clickable ? 'hover:opacity-90' : 'cursor-default',
-                          )}
-                        >
-                          <span className="w-12 shrink-0 tabular-nums text-text-muted">
-                            {formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })}{' '}
-                            {formatTime(at, i18n.language)}
-                          </span>
-                          <Badge variant="outline" className="shrink-0 text-2xs">
-                            {agendaKindLabel(agendaKindOf(item), t)}
-                          </Badge>
-                          <span className="min-w-0 flex-1 truncate-fade text-text-secondary">
-                            {translateDecisionText(item.title, t) || item.title}
-                          </span>
-                          <span className="shrink-0 text-2xs text-text-muted">
-                            {agendaStatusLabel(item.status, t)}
-                          </span>
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
-      )}
+        ) : null}
+      </div>
 
       <TriggerDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        trigger={editingTrigger}
+        open={triggerDialog != null}
+        onOpenChange={(open) => {
+          if (!open) setTriggerDialog(null)
+        }}
+        trigger={triggerDialog?.trigger ?? null}
         agents={agents}
         workstreams={workstreams}
-        initialRunAt={initialRunAt}
-        onSaved={onSaved}
+        initialRunAt={triggerDialog?.at ?? null}
+        initialKind={triggerDialog?.kind}
+        initialAgentId={who.startsWith('agent:') ? who.slice('agent:'.length) : null}
+        onSaved={reload}
+      />
+      <RoutinesDialog
+        open={routinesOpen}
+        onOpenChange={setRoutinesOpen}
+        triggers={triggers.filter((row) => row.kind !== 'once' && row.kind !== 'event')}
+        agentNames={agentNames}
+        onEdit={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind })}
+        onCreate={() => openNew('cron')}
+        onChanged={reload}
       />
       <CalendarEventDialog
         open={calendarDialogOpen}
@@ -936,10 +491,10 @@ export default function AgendaPage() {
           setCalendarDialogOpen(open)
           if (!open) setCalendarEditEvent(null)
         }}
-        connections={calendarConnections}
-        initialStart={initialRunAt}
+        connections={calendars}
+        initialStart={calendarSeedAt}
         editEvent={calendarEditEvent}
-        onCreated={onSaved}
+        onCreated={reload}
       />
       <CalendarEventDetailDialog
         open={calendarDetailItem != null}
@@ -947,7 +502,10 @@ export default function AgendaPage() {
           if (!open) setCalendarDetailItem(null)
         }}
         item={calendarDetailItem}
-        onDeleted={onSaved}
+        onDeleted={() => {
+          setSelection(null)
+          reload()
+        }}
         onEdit={(seed) => {
           setCalendarDetailItem(null)
           setCalendarEditEvent(seed)
@@ -955,5 +513,75 @@ export default function AgendaPage() {
         }}
       />
     </PageContent>
+  )
+}
+
+function NewItem({
+  icon: Icon,
+  title,
+  body,
+  disabled,
+  onSelect,
+}: {
+  icon: typeof Bot
+  title: string
+  body: string
+  disabled?: boolean
+  onSelect: () => void
+}) {
+  return (
+    <DropdownMenuItem disabled={disabled} onSelect={onSelect} className="items-start gap-2.5 py-2">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-text-heading">{title}</span>
+        <span className="block text-xs text-text-muted">{body}</span>
+      </span>
+    </DropdownMenuItem>
+  )
+}
+
+function AttentionChip({
+  icon: Icon,
+  label,
+  tone = 'warning',
+  onClick,
+}: {
+  icon: typeof Bell
+  label: string
+  tone?: 'warning' | 'error'
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border bg-bg-surface px-2.5 py-1 text-xs font-medium transition-colors hover:bg-bg-elevated',
+        tone === 'error' ? 'border-status-error/40 text-status-error' : 'border-status-warning/40 text-status-warning',
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </button>
+  )
+}
+
+function EmptyAgenda({ onPlan }: { onPlan: () => void }) {
+  const { t } = useTranslation('nav')
+  return (
+    <div className="rounded-xl border border-dashed border-border/60 p-10 text-center">
+      <CalendarDays className="mx-auto h-8 w-8 text-text-muted/50" aria-hidden />
+      <p className="mt-3 text-sm font-medium text-text-heading">{t('agendaPage.emptyTitle')}</p>
+      <p className="mt-1 text-sm text-text-muted">{t('agendaPage.emptyBody')}</p>
+      <div className="mt-4 flex flex-col items-center gap-3">
+        <Button type="button" size="sm" onClick={onPlan}>
+          <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+          {t('agendaPage.createRun')}
+        </Button>
+        <Link to="/docs/ai/agenda" className="text-xs font-medium text-accent hover:underline">
+          {t('pageGuides.learnMore')}
+        </Link>
+      </div>
+    </div>
   )
 }

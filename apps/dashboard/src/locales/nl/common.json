@@ -13,6 +13,12 @@
     "retry": "Opnieuw proberen",
     "close": "Sluiten"
   },
+  "autosave": {
+    "saving": "Opslaan…",
+    "lastModified": "Laatst gewijzigd {{time}}",
+    "error": "Kon niet opslaan"
+  },
+
   "aiHandling": {
     "title": "AI-afhandeling",
     "modes": {

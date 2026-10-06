@@ -36,10 +36,10 @@ export const integrationsRoutes = {
       `/integrations/modules/${encodeURIComponent(slug)}/templates`,
     moduleTemplateInstall: (slug: string, templateSlug: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/templates/${encodeURIComponent(templateSlug)}/install`,
-    moduleCaseTypeTemplates: (slug: string) =>
-      `/integrations/modules/${encodeURIComponent(slug)}/case-type-templates`,
-    moduleCaseTypeTemplateInstall: (slug: string, templateSlug: string) =>
-      `/integrations/modules/${encodeURIComponent(slug)}/case-type-templates/${encodeURIComponent(templateSlug)}/install`,
+    moduleTagTemplates: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/tag-templates`,
+    moduleTagTemplateInstall: (slug: string, templateSlug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/tag-templates/${encodeURIComponent(templateSlug)}/install`,
     calendars: {
       connections: '/calendars/connections',
       syncAll: '/calendars/sync',

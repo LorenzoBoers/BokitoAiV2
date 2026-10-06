@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { createCase, listCaseTypes, type CaseTypeRow } from '../../lib/cases-api'
-import { signalTypeLabel } from '../../lib/signal-type-catalog'
+import { ArrowLeft, FolderKanban } from 'lucide-react'
+import { fileTicket, listCategories, type CategoryRow } from '../../lib/tickets-api'
+import { Hashtag } from '../ui/HashtagMark'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -35,16 +36,20 @@ export function WhatsNextDialog({
   onSaveReminder,
   onSignalCreated,
 }: Props) {
-  const { t, i18n } = useTranslation('communication')
+  const { t } = useTranslation('communication')
+  const { t: tn } = useTranslation('nav')
   const [mode, setMode] = useState<'remind' | 'signal'>('remind')
   const [title, setTitle] = useState(defaultTitle)
   const [when, setWhen] = useState<FollowUpWhen>('today')
-  const [types, setTypes] = useState<CaseTypeRow[] | null>(null)
+  const [types, setTypes] = useState<CategoryRow[] | null>(null)
   const [creatingTypeId, setCreatingTypeId] = useState<string | null>(null)
+  /** Category picked whose playbook has projects: the project choice comes next. */
+  const [pickProjectFor, setPickProjectFor] = useState<CategoryRow | null>(null)
 
   useEffect(() => {
     if (!open) return
     setMode('remind')
+    setPickProjectFor(null)
     setTitle(defaultTitle)
     setWhen('today')
   }, [open, defaultTitle])
@@ -52,9 +57,9 @@ export function WhatsNextDialog({
   useEffect(() => {
     if (!open || mode !== 'signal') return
     let cancelled = false
-    void listCaseTypes()
+    void listCategories()
       .then((rows) => {
-        if (!cancelled) setTypes(rows.filter((row) => row.enabled !== false))
+        if (!cancelled) setTypes(rows)
       })
       .catch(() => {
         if (!cancelled) setTypes([])
@@ -71,11 +76,16 @@ export function WhatsNextDialog({
   }, [title, when, onSaveReminder])
 
   const handleSignal = useCallback(
-    async (type: CaseTypeRow) => {
+    async (type: CategoryRow, projectId?: string | null) => {
       if (creatingTypeId) return
+      if (projectId === undefined && type.project_choices.length > 0) {
+        setPickProjectFor(type)
+        return
+      }
       setCreatingTypeId(type.id)
       try {
-        await createCase({ case_type_id: type.id, signal_id: signalId })
+        await fileTicket(signalId, type.id, projectId)
+        setPickProjectFor(null)
         onOpenChange(false)
         onSignalCreated?.()
       } finally {
@@ -96,7 +106,7 @@ export function WhatsNextDialog({
           {(
             [
               ['remind', 'whatsNextRemind'],
-              ['signal', 'whatsNextSignal'],
+              ['signal', 'whatsNextTicket'],
             ] as const
           ).map(([value, key]) => (
             <button
@@ -151,6 +161,32 @@ export function WhatsNextDialog({
               </div>
             </div>
           </div>
+        ) : pickProjectFor ? (
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => setPickProjectFor(null)}
+              className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
+            >
+              <ArrowLeft size={12} />
+              <Hashtag name={pickProjectFor.name} category />
+            </button>
+            <p className="text-xs text-text-muted">{tn('tickets.chooseProject')}</p>
+            <div className="max-h-56 space-y-0.5 overflow-y-auto">
+              {[...pickProjectFor.project_choices, { id: '', name: tn('tickets.noProject') }].map((choice) => (
+                <button
+                  key={choice.id || 'none'}
+                  type="button"
+                  disabled={creatingTypeId != null}
+                  onClick={() => void handleSignal(pickProjectFor, choice.id || null)}
+                  className="flex w-full items-center gap-2 rounded-lg border border-transparent px-2.5 py-1.5 text-left text-sm text-text-primary transition-colors hover:border-border/60 hover:bg-bg-hover/60 disabled:opacity-50"
+                >
+                  {choice.id ? <FolderKanban size={13} className="shrink-0 text-text-muted" /> : null}
+                  <span className="min-w-0 flex-1 truncate-fade">{choice.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="max-h-56 space-y-0.5 overflow-y-auto">
             {types === null ? (
@@ -166,9 +202,7 @@ export function WhatsNextDialog({
                   onClick={() => void handleSignal(type)}
                   className="flex w-full items-center justify-between rounded-lg border border-transparent px-2.5 py-1.5 text-left text-sm text-text-primary transition-colors hover:border-border/60 hover:bg-bg-hover/60 disabled:opacity-50"
                 >
-                  <span className="min-w-0 flex-1 truncate-fade">
-                    {signalTypeLabel(type, i18n.language)}
-                  </span>
+                  <Hashtag name={type.name} category className="min-w-0 flex-1" />
                   {creatingTypeId === type.id ? (
                     <span className="text-2xs text-text-muted">{t('threadChrome.creating')}</span>
                   ) : null}

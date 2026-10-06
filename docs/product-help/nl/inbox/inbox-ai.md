@@ -18,7 +18,7 @@ Overal zie je dezelfde iconen: een bliksem voor Autonoom en een pen voor Geassis
 ![Workspace-standaard voor AI-afhandeling](/api/docs/assets/inbox-ai/workspace-default.png)
 *Drie kaarten: Autonoom, Geassisteerd en Handmatig.*
 
-1. Open **Instellingen** en daarna **AI-antwoorden**.
+1. Open **Instellingen** en daarna **AI-afhandeling**.
 2. Kies onder **Workspace-standaard** **Autonoom**, **Geassisteerd** of **Handmatig**. De wijziging wordt direct opgeslagen.
 3. Bij **Autonoom** zie je eerst een bevestiging met hoeveel open gesprekken deze instelling volgen en hoe vaak concepten recent ongewijzigd zijn verstuurd. Alleen een eigenaar of beheerder kan Autonoom aanzetten.
 4. Als Govern gesprekken lager begrenst, toont de kaart die grens. Open Govern via de notitie onder de kaarten om dat te wijzigen.
@@ -39,7 +39,7 @@ Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op k
 2. Stel de **Zekerheidsdrempel** in (1–10, van **soepel** tot **strikt**). Onder die zekerheid wordt het antwoord een concept.
 3. Zet **Antwoorden aan nieuwe contacten controleren** aan om concepten te maken zolang een contact op goedkeuring wacht. Websitechatbezoekers zijn uitgezonderd.
 4. Zet **AI-antwoorden vermelden** aan om autonome antwoorden een korte vermelding te geven. Pas de **Tekst van de vermelding** aan of laat leeg voor de standaardtekst; de preview toont wat klanten zien.
-5. Kies **Opslaan** in de balk onderaan.
+5. Wijzigingen worden automatisch opgeslagen. **Laatst gewijzigd** in de paginakop toont wanneer de laatste opslag klaar was.
 
 De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de reden wanneer een waarborg ingrijpt.
 

@@ -16,7 +16,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 ![Workspace general settings](/api/docs/assets/setup-guide/workspace.png)
 *Set the name, logo and language first.*
 
-1. Open **Settings**, then **General**. Set **Workspace name** and **Timezone**. **Your language** is personal (Dutch or English), not a workspace default. Under **Security**, owners can turn on **Require 2FA for all members**. Choose **Save settings**. Owners delete the workspace in the **Danger zone** at the bottom of this page (type the workspace name to confirm).
+1. Open **Settings**, then **General**. Set **Workspace name** and choose **Save settings**. Language is personal (Dutch or English) and lives under **Profile & security**, not here. **Platform support** decides whether Bokito support may open this workspace. Owners delete the workspace in the **Danger zone** at the bottom of this page (type the workspace name to confirm).
 2. Open **Branding**. Set **Name**, **Logo**, **Favicon**, **Brand color** and **Workspace subdomain**, then **Save changes**. They carry into the [website widget](/docs/inbox/widget) and outbound mail.
 3. Do branding before anything customer-facing goes live so drafts and the launcher already look like you.
 
@@ -30,7 +30,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 
 1. Create a Bokito address or connect every mailbox under **Settings**, then **Channels**. See [Channels](/docs/inbox/channels).
 2. Add routing, signatures and a few saved replies.
-3. Open [AI handling](/docs/inbox/inbox-ai) under **Settings** → **AI replies**. Start the workspace on **Assisted**. Website chat can wait until the widget is installed.
+3. Open [AI handling](/docs/inbox/inbox-ai) under **Settings** → **AI handling**. Start the workspace on **Assisted**. Website chat can wait until the widget is installed.
 4. Website chat and WhatsApp can wait until mail runs.
 
 ## Load knowledge and agents

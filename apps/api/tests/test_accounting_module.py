@@ -94,7 +94,7 @@ def test_module_catalog_has_prepared_modules():
     assert modules["accounting"]["needs_when"]
     package = modules["accounting"]["package"]
     assert package["module_slug"] == "accounting"
-    assert {row["slug"] for row in package["signal_types"]} == {"billing_inquiry"}
+    assert {row["slug"] for row in package["tags"]} == {"billing_inquiry"}
     assert {row["slug"] for row in package["playbooks"]} == {
         "vat-filing-prep",
         "monthly-close-review",

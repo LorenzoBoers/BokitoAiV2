@@ -62,11 +62,8 @@ export default function WorkstreamRunDetail() {
 
   const stepNames = useMemo(() => {
     const map = new Map<string, { name: string; position: number }>()
-    for (const step of detail?.steps ?? []) {
-      map.set(step.id, { name: step.name, position: step.position })
-    }
     return map
-  }, [detail])
+  }, [])
 
   const resume = async () => {
     if (!runId) return

@@ -4,20 +4,21 @@ import { useTranslation } from 'react-i18next'
 import { Workflow } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
-  installModuleCaseTypeTemplate,
+  installModuleTagTemplate,
   installModuleTemplate,
-  listModuleCaseTypeTemplates,
+  listModuleTagTemplates,
   listModuleTemplates,
-  type ModuleCaseTypeTemplate,
+  type ModuleTagTemplate,
   type ModuleWorkstreamTemplate,
 } from '../../lib/integrations-api'
 import { workstreamPath } from '../../lib/workstream-ui'
+import { Hashtag } from '../ui/HashtagMark'
 
 /** Workstream templates a module ships: install copies them to the tenant. */
 export function ModuleTemplatesPanel({ slug }: { slug: string }) {
   const { t } = useTranslation(['nav', 'common'])
   const [rows, setRows] = useState<ModuleWorkstreamTemplate[]>([])
-  const [caseTypes, setCaseTypes] = useState<ModuleCaseTypeTemplate[]>([])
+  const [tags, setTags] = useState<ModuleTagTemplate[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busySlug, setBusySlug] = useState<string | null>(null)
   const [installedId, setInstalledId] = useState<Record<string, string>>({})
@@ -25,12 +26,12 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
   const refresh = useCallback(async () => {
     try {
       setError(null)
-      const [ws, types] = await Promise.all([
+      const [ws, tagRows] = await Promise.all([
         listModuleTemplates(slug),
-        listModuleCaseTypeTemplates(slug).catch(() => []),
+        listModuleTagTemplates(slug).catch(() => []),
       ])
       setRows(ws)
-      setCaseTypes(types)
+      setTags(tagRows)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -53,10 +54,10 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
     }
   }
 
-  const installCaseType = async (templateSlug: string) => {
+  const installTag = async (templateSlug: string) => {
     setBusySlug(templateSlug)
     try {
-      await installModuleCaseTypeTemplate(slug, templateSlug)
+      await installModuleTagTemplate(slug, templateSlug)
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -65,7 +66,7 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
     }
   }
 
-  if (rows.length === 0 && caseTypes.length === 0 && !error) return null
+  if (rows.length === 0 && tags.length === 0 && !error) return null
 
   return (
     <section>
@@ -90,8 +91,8 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
               <div className="text-sm font-medium text-text-primary">{row.name}</div>
               <p className="mt-0.5 text-xs text-text-secondary">{row.description}</p>
               <p className="mt-1 text-xs text-text-muted">
-                {t('integrations.modules.templates.stepCount', {
-                  defaultValue: '{{count}} steps',
+                {t('integrations.modules.templates.stageCount', {
+                  defaultValue: 'Flow template',
                   count: row.steps_count,
                 })}
               </p>
@@ -128,25 +129,27 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
           </div>
         ))}
       </div>
-      {caseTypes.length > 0 ? (
+      {tags.length > 0 ? (
         <div className="mt-6 space-y-2">
           <h3 className="text-sm font-semibold text-text-primary">
-            {t('integrations.modules.templates.caseTypesTitle', { defaultValue: 'Intake types' })}
+            {t('integrations.modules.templates.hashtagsTitle', { defaultValue: 'Hashtags' })}
           </h3>
-          {caseTypes.map((row) => (
+          {tags.map((row) => (
             <div
               key={row.slug}
               className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/60 p-3"
             >
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-text-primary">{row.name}</div>
+                <div className="text-sm font-medium text-text-primary">
+                  <Hashtag name={row.name} />
+                </div>
                 <p className="mt-0.5 text-xs text-text-secondary">{row.description}</p>
               </div>
               <Button
                 type="button"
                 size="sm"
                 disabled={row.already_installed || busySlug === row.slug}
-                onClick={() => void installCaseType(row.slug)}
+                onClick={() => void installTag(row.slug)}
               >
                 {row.already_installed
                   ? t('integrations.modules.templates.installed', { defaultValue: 'Installed' })

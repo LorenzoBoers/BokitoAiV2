@@ -1,7 +1,3 @@
-"""Workstream API: definitions, steps, and runs with worklog."""
-
-from __future__ import annotations
-
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -20,36 +16,17 @@ router = APIRouter(prefix="/workstreams", tags=["workstreams"])
 class WorkstreamCreateBody(BaseModel):
     name: str
     description: str = ""
-    project_id: UUID | None = None
-    is_default: bool = False
+    project_ids: list[UUID] = []
+    stages: list[dict[str, Any]] | None = None
 
 
 class WorkstreamPatchBody(BaseModel):
     name: str | None = None
     description: str | None = None
     enabled: bool | None = None
-    is_default: bool | None = None
-    project_id: UUID | None = None
+    project_ids: list[UUID] | None = None
+    tag_ids: list[UUID] | None = None
     stages: list[dict[str, Any]] | None = None
-
-
-class StepBody(BaseModel):
-    id: UUID | None = None
-    name: str
-    kind: str = "agent_task"
-    goal: str = ""
-    agent_id: UUID | None = None
-    agent_role: str = ""
-    wait_kind: str = "input"
-    deadline_hours: int = 0
-    on_deadline: str = "continue"
-    knowledge_section_ids: list[UUID] = []
-    config: dict[str, Any] = {}
-    stage_key: str = ""
-
-
-class StepsReplaceBody(BaseModel):
-    steps: list[StepBody]
 
 
 class RunStartBody(BaseModel):
@@ -57,6 +34,7 @@ class RunStartBody(BaseModel):
     input_text: str = ""
     input_ref: str = ""
     signal_id: UUID | None = None
+    project_id: UUID | None = None
 
 
 class RunResumeBody(BaseModel):
@@ -78,18 +56,57 @@ async def create_workstream(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Create a flow and make its hashtag the flow's one action tag."""
     auth.require_role("owner", "admin")
+    from fastapi import HTTPException
+    from sqlalchemy import select
+
+    from app.models.signal import SignalTag
+    from app.services.signal_tags import normalize_tag
+    from app.services.tickets import validate_stages
+
+    tag_name = normalize_tag(body.name)
+    if not tag_name:
+        raise HTTPException(status_code=400, detail="A flow needs a hashtag name")
+    tag = (
+        await session.execute(
+            select(SignalTag).where(
+                SignalTag.tenant_id == auth.tenant.id, SignalTag.name == tag_name
+            )
+        )
+    ).scalar_one_or_none()
+    if tag is not None and tag.workstream_id is not None:
+        raise HTTPException(
+            status_code=400, detail=f"#{tag_name} is already the action tag of another flow"
+        )
+
     ws = Workstream(
         tenant_id=auth.tenant.id,
-        name=body.name.strip() or "Workstream",
+        name=tag_name[:120],
         description=body.description,
-        project_id=body.project_id,
-        is_default=body.is_default,
     )
+    if body.stages is not None:
+        from app.services.stage_checkups import validate_stage_owners
+
+        ws.stages_json = validate_stages(body.stages)
+        await validate_stage_owners(session, auth.tenant.id, ws.stages_json)
     session.add(ws)
+    await session.flush()
+    if tag is None:
+        tag = SignalTag(
+            tenant_id=auth.tenant.id,
+            name=tag_name,
+            description=body.description,
+            created_by_user_id=auth.user.id,
+        )
+    tag.workstream_id = ws.id
+    tag.show_in_nav = True
+    tag.pinned = False
+    session.add(tag)
+    await svc.set_playbook_projects(session, auth.tenant.id, ws, body.project_ids)
     await session.commit()
     await session.refresh(ws)
-    return svc.serialize_workstream(ws, steps_count=0)
+    return await svc.serialize_workstream_full(session, ws)
 
 
 @router.get("/runs")
@@ -127,7 +144,9 @@ async def resume_run(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    run = await svc.resume_run(session, auth.tenant.id, run_id, input_text=body.input_text)
+    run = await svc.resume_run(
+        session, auth.tenant.id, run_id, input_text=body.input_text
+    )
     return svc.serialize_run(run)
 
 
@@ -158,10 +177,20 @@ async def get_workstream(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ws = await svc.get_workstream(session, auth.tenant.id, workstream_id)
-    steps = await svc.list_steps(session, auth.tenant.id, workstream_id)
-    out = svc.serialize_workstream(ws, steps_count=len(steps))
-    out["steps"] = [svc.serialize_step(s) for s in steps]
-    return out
+    return await svc.serialize_workstream_full(session, ws)
+
+
+@router.get("/{workstream_id}/board")
+async def get_workstream_board(
+    workstream_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """The flow's live tickets: columns are its stages, lanes are its projects
+    (plus `id: null` for tickets filed without a project)."""
+    from app.services.tickets import workstream_board
+
+    return await workstream_board(session, auth.tenant.id, workstream_id)
 
 
 @router.patch("/{workstream_id}")
@@ -180,21 +209,82 @@ async def patch_workstream(
         ws.description = str(patch["description"])
     if "enabled" in patch and patch["enabled"] is not None:
         ws.enabled = bool(patch["enabled"])
-    if "is_default" in patch and patch["is_default"] is not None:
-        ws.is_default = bool(patch["is_default"])
-    if "project_id" in patch:
-        ws.project_id = patch["project_id"]
+    if patch.get("project_ids") is not None:
+        await svc.set_playbook_projects(session, auth.tenant.id, ws, patch["project_ids"])
+    stages_changed = False
     if patch.get("stages") is not None:
-        from app.services.ticket_stages import validate_stages
+        from app.services.stage_checkups import validate_stage_owners
+        from app.services.tickets import validate_stages
 
-        ws.stages_json = validate_stages(patch["stages"])
+        stages_json = validate_stages(patch["stages"])
+        await validate_stage_owners(session, auth.tenant.id, stages_json)
+        stages_changed = stages_json != ws.stages_json
+        ws.stages_json = stages_json
+    if patch.get("tag_ids") is not None:
+        await _set_playbook_tags(session, auth.tenant.id, ws, patch["tag_ids"])
     from datetime import datetime
 
     ws.updated_at = datetime.utcnow()
     session.add(ws)
+    if stages_changed:
+        from app.services.stage_checkups import resync_flow
+
+        await resync_flow(session, ws)
     await session.commit()
     await session.refresh(ws)
-    return svc.serialize_workstream(ws)
+    return await svc.serialize_workstream_full(session, ws)
+
+
+async def _set_playbook_tags(
+    session: AsyncSession, tenant_id: UUID, ws: Workstream, tag_ids: list[UUID]
+) -> None:
+    """The flow's one action tag. Setting a tag moves it here from any other
+    flow; an empty list turns the current one back into a free hashtag. The
+    flow title follows the action tag."""
+    from datetime import datetime
+
+    from fastapi import HTTPException
+    from sqlalchemy import select
+
+    from app.models.signal import SignalTag
+    from app.services.signal_tags import set_tag_playbook
+
+    wanted = set(tag_ids)
+    if len(wanted) > 1:
+        raise HTTPException(status_code=400, detail="A flow has exactly one action tag")
+    current = {
+        row.id
+        for row in (
+            await session.execute(
+                select(SignalTag).where(
+                    SignalTag.tenant_id == tenant_id, SignalTag.workstream_id == ws.id
+                )
+            )
+        ).scalars()
+    }
+    try:
+        for tag_id in current - wanted:
+            await set_tag_playbook(session, tenant_id, tag_id, workstream_id=None, commit=False)
+        for tag_id in wanted - current:
+            await set_tag_playbook(session, tenant_id, tag_id, workstream_id=ws.id, commit=False)
+            tag = await session.get(SignalTag, tag_id)
+            if tag is not None:
+                tag.show_in_nav = True
+                tag.pinned = False
+                session.add(tag)
+    except (ValueError, LookupError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    linked = (
+        await session.execute(
+            select(SignalTag.name)
+            .where(SignalTag.tenant_id == tenant_id, SignalTag.workstream_id == ws.id)
+            .order_by(SignalTag.name)
+        )
+    ).scalars().all()
+    if linked:
+        ws.name = str(linked[0])[:120]
+        ws.updated_at = datetime.utcnow()
+        session.add(ws)
 
 
 @router.delete("/{workstream_id}")
@@ -207,32 +297,6 @@ async def delete_workstream(
     await svc.delete_workstream(session, auth.tenant.id, workstream_id)
     await session.commit()
     return {"ok": True}
-
-
-@router.put("/{workstream_id}/steps")
-async def replace_steps(
-    workstream_id: UUID,
-    body: StepsReplaceBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    steps = await svc.replace_steps(
-        session,
-        auth.tenant.id,
-        workstream_id,
-        [
-            {
-                **s.model_dump(),
-                "id": str(s.id) if s.id else None,
-                "agent_id": str(s.agent_id) if s.agent_id else None,
-                "knowledge_section_ids": [str(v) for v in s.knowledge_section_ids],
-            }
-            for s in body.steps
-        ],
-    )
-    await session.commit()
-    return {"steps": [svc.serialize_step(s) for s in steps]}
 
 
 @router.post("/{workstream_id}/runs")
@@ -250,6 +314,7 @@ async def start_run(
         input_text=body.input_text,
         input_ref=body.input_ref,
         signal_id=body.signal_id,
+        project_id=body.project_id,
         triggered_by_type="user",
         triggered_by_id=str(auth.user.id),
     )

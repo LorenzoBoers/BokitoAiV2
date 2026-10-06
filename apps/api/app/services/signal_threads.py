@@ -270,7 +270,7 @@ def serialize_thread(
     last_by_agent: bool = False,
     has_open_decision: bool = False,
     ai_handling: dict[str, Any] | None = None,
-    category_case: dict[str, Any] | None | object = _OMIT,
+    ticket: dict[str, Any] | None | object = _OMIT,
     tags: list[str] | object = _OMIT,
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
@@ -333,11 +333,10 @@ def serialize_thread(
         "superseded_by_id": str(signal.superseded_by_id) if signal.superseded_by_id else None,
         "created_at": _iso(signal.created_at),
     }
-    # The conversation's category (Case, with the ticket stage) and its tags
-    # live in other tables. Rows built without them omit the keys so clients
+    # The conversation's ticket and its free tags are loaded in batches. Rows built without them omit the keys so clients
     # keep the known values.
-    if category_case is not _OMIT:
-        payload["category_case"] = category_case
+    if ticket is not _OMIT:
+        payload["ticket"] = ticket
     if tags is not _OMIT:
         payload["tags"] = tags
     if agent:
@@ -729,6 +728,7 @@ async def nav_badge_counts(
     no_reply_suggestions = attention["no_reply_suggestions"] if include_agents_attention else 0
 
     from app.models.team import Team
+    from app.services.time_items import due_for_user
 
     pinned_teams = (
         await session.execute(
@@ -761,6 +761,7 @@ async def nav_badge_counts(
         "by_team": by_team,
         "agents_attention": agents_attention,
         "no_reply_suggestions": no_reply_suggestions,
+        "agenda_due": await due_for_user(session, tenant_id, user_id),
     }
 
 
@@ -940,7 +941,7 @@ async def list_threads(
         else:
             query = query.where(Signal.channel == channel)
 
-    from app.services.inbox_folders import filter_predicates
+    from app.services.communication_nav import filter_predicates
 
     folder_filters = filter_predicates(
         tenant_id, {"project_id": project_id, "category_id": category_id, "tag": tag, "stage": stage}
@@ -1168,9 +1169,9 @@ async def list_threads(
             select(Contact).where(Contact.tenant_id == tenant_id, Contact.id.in_(contact_ids))
         )
         contacts_by_id = {c.id: c for c in contact_rows.scalars().all()}
-    from app.services.ticket_stages import category_by_signal
+    from app.services.tickets import tickets_by_signal
 
-    categories = await category_by_signal(session, tenant_id, [t.id for t in threads])
+    tickets = await tickets_by_signal(session, tenant_id, threads)
     from app.services.signal_tags import tags_by_signal
 
     tags_map = await tags_by_signal(session, [t.id for t in threads])
@@ -1197,7 +1198,7 @@ async def list_threads(
                 last_by_agent=by_agent,
                 has_open_decision=t.id in open_dec,
                 ai_handling=handling,
-                category_case=categories.get(t.id),
+                ticket=tickets.get(t.id),
                 tags=tags_map.get(t.id, []),
             )
         )
@@ -1384,10 +1385,8 @@ async def get_thread(
 
     tenant = await session.get(Tenant, tenant_id)
     handling = (await resolve_for_signal(session, tenant, signal)).to_payload()
-    from app.services.ticket_stages import category_by_signal
-
-    categories = await category_by_signal(session, tenant_id, [signal.id])
     from app.services.signal_tags import signal_tag_names
+    from app.services.tickets import ticket_payload
 
     thread_tags = await signal_tag_names(session, signal.id)
 
@@ -1398,7 +1397,7 @@ async def get_thread(
             agent=agent,
             has_open_decision=await _signal_has_open_decision(session, tenant_id, signal_id),
             ai_handling=handling,
-            category_case=categories.get(signal.id),
+            ticket=await ticket_payload(session, signal),
             tags=thread_tags,
         ),
         "messages": serialized_messages,
@@ -1747,14 +1746,14 @@ async def patch_thread(
         await _notify_assignment(session, tenant_id, signal, assignee_id=newly_assigned, actor_id=user_id)
     pinned = await _pinned_ids(session, tenant_id, user_id)
     from app.services.signal_tags import signal_tag_names
-    from app.services.ticket_stages import category_by_signal
+    from app.services.tickets import ticket_payload
 
     return serialize_thread(
         signal,
         is_pinned=signal_id in pinned,
         user_num=user_num,
         ai_handling=handling,
-        category_case=(await category_by_signal(session, tenant_id, [signal.id])).get(signal.id),
+        ticket=await ticket_payload(session, signal),
         tags=await signal_tag_names(session, signal.id),
     )
 

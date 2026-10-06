@@ -4,12 +4,12 @@ intro: Geef agents tools buiten Bokito — marketplace-apps en gekoppelde accoun
 description: Gebruik Koppelingen en Marketplace om modules te installeren, partnerlogins te koppelen en te sturen wat agents mogen aanroepen.
 keywords: integraties, marketplace, verbonden, github, mcp, modules, boekhouding, moneybird, koppelingen
 sort: 10
-related: mcp,models,channels,govern,cases
+related: mcp,models,channels,govern,categories
 ---
 
 # Integraties koppelen
 
-Integraties zijn partnerlogins. Een **module** is één pakket met Signaaltypen, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. De **Koppelingen**-hub in de zijbalk op `/connections` is de geïnstalleerde inventaris: modules die aan staan, partnerlogins en custom MCP-servers. **Marketplace** is de volledige catalogus — elke module en integratie, zonder filter Verbonden/Beschikbaar. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
+Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. De **Koppelingen**-hub in de zijbalk op `/connections` is de geïnstalleerde inventaris: modules die aan staan, partnerlogins en custom MCP-servers. **Marketplace** is de volledige catalogus — elke module en integratie, zonder filter Verbonden/Beschikbaar. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
 
 ## Zie wat gekoppeld is
 
@@ -38,7 +38,7 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De marketplace
 3. Wijs **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
 4. Bekijk **Wat agents kunnen doen**: elke module-actie toont een korte beschrijving, het universele pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is. Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de exacte MCP-toolnamen van die servers.
 5. Bovenaan de modulepagina, onder **Koppelingen**, kies je **Nieuwe registratie** om in één stap te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** voor een login die al op Koppelingen staat. Geplande pakketten (Exact Online, SnelStart) blijven grijs. De overige tabs zijn **Overzicht**, **Bronnen** en **Setup**.
-6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Inrichten afronden**. Status wordt **Installatie incompleet** tot er een partnerlogin hangt, daarna **Gekoppeld**. Signaaltypen en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
+6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Inrichten afronden**. Status wordt **Installatie incompleet** tot er een partnerlogin hangt, daarna **Gekoppeld**. Hashtags en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
 
 ## Koppel een optionele boekhoudintegratie
 
@@ -63,7 +63,7 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De marketplace
 
 ## Installeer een werkstroom-sjabloon
 
-Modules leveren één cataloguspakket met Signaaltypen, voorgebouwde draaiboeken en optioneel een Project. Voorbeelden zijn **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding en **Bankreconciliatie** op Bankieren.
+Modules leveren één cataloguspakket met hashtags, voorgebouwde draaiboeken en optioneel een Project. Voorbeelden zijn **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding en **Bankreconciliatie** op Bankieren.
 
 1. Open de modulepagina vanuit **Koppelingen**. Als de module aan staat, toont het paneel **Werkstroom-sjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
 2. Een sjabloon dat nog niet kan draaien, laat zien waarom (moduleverbinding ontbreekt, vereiste agentrol niet toegewezen). Los eerst die vereiste op.
@@ -83,11 +83,11 @@ Modules leveren één cataloguspakket met Signaaltypen, voorgebouwde draaiboeken
 3. De standaard toegewezen agent begeleidt optionele integraties, standaarden en bronnen, en kan beslissingen op de thread zetten wanneer goedkeuring nodig is.
 4. Ga terug naar de modulepagina en kies **Setup afronden** wanneer de checklist klaar is.
 
-## Zet klantchat-tools en intake-types aan
+## Zet klantchat-tools en modulehashtags aan
 
 1. Open een geïnstalleerde module zoals **Boekhouding**.
 2. Zet onder **Klantchat-tools** een actie alleen aan wanneer de websitewidget de eigen gegevens van die bezoeker mag opzoeken nadat ze een korte e-maillink bevestigen.
-3. Kies onder **Intake-types** **Installeren** bij een sjabloon (bijvoorbeeld billing inquiry). Koppel het type aan een [werkstroom](/docs/ai/workstreams) zodat chat een [signaal](/docs/ai/cases) kan openen.
+3. Kies onder **Hashtags** **Installeren** bij een sjabloon (bijvoorbeeld billing inquiry). Koppel een draaiboek aan de hashtag zodat chat er een ticket op kan vastleggen; zie [Categorieën en tickets](/docs/ai/categories).
 
 ## Zet wat agents mogen aanroepen
 

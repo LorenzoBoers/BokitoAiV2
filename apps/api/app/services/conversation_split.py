@@ -23,9 +23,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import Tenant
-from app.models.case import CaseType
 from app.models.notification import DecisionRequest
-from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.models.signal import Signal, SignalEvent, SignalMessage, SignalTag
 
 SPLIT_DECISION_SOURCE = "conversation_split"
 UNSPLITTABLE_CHANNELS = ("internal", "assistant", "team")
@@ -108,20 +107,15 @@ async def _anchor_message(
 
 async def resolve_category(
     session: AsyncSession, tenant_id: UUID, value: str | None
-) -> CaseType | None:
-    """A category by id or slug; ``None`` when no value is given."""
+) -> SignalTag | None:
+    """A category by id or hashtag name; ``None`` when no value is given."""
+    from app.services.tickets import find_category
+
     raw = (value or "").strip()
     if not raw:
         return None
-    from app.services.cases import slugify
-
-    query = select(CaseType).where(CaseType.tenant_id == tenant_id)
-    try:
-        query = query.where(CaseType.id == UUID(raw))
-    except ValueError:
-        query = query.where(CaseType.slug == slugify(raw))
-    row = (await session.execute(query)).scalar_one_or_none()
-    if row is None or not row.enabled:
+    row = await find_category(session, tenant_id, raw)
+    if row is None:
         raise HTTPException(status_code=404, detail=f"Category '{raw}' not found")
     return row
 
@@ -154,7 +148,7 @@ async def split_conversation(
     signal_id: UUID,
     *,
     from_message_id: UUID | None = None,
-    case_type: CaseType | None = None,
+    category: SignalTag | None = None,
     actor_type: str = "user",
     actor_id: str = "",
 ) -> Signal:
@@ -162,7 +156,8 @@ async def split_conversation(
 
     Without a message id the newest customer message starts the new
     conversation. The source keeps at least one message. Commits, then files
-    ``case_type`` (if any) as the new conversation's category.
+    ``category`` (if any) on the new conversation. Its project is the source's
+    when the playbook uses it; otherwise the ticket waits for a project choice.
     """
     from app.gateway.publish import publish_thread_update
     from app.services.audit import record_audit
@@ -245,16 +240,16 @@ async def split_conversation(
     source.updated_at = now
     session.add(source)
 
-    category = case_type.name if case_type else ""
+    category_name = category.name if category else ""
     session.add(
         _split_event(
-            source, child, direction="out", category=category, moved=len(moving),
+            source, child, direction="out", category=category_name, moved=len(moving),
             actor_type=actor_type, actor_id=actor_id,
         )
     )
     session.add(
         _split_event(
-            child, source, direction="in", category=category, moved=len(moving),
+            child, source, direction="in", category=category_name, moved=len(moving),
             actor_type=actor_type, actor_id=actor_id,
         )
     )
@@ -269,23 +264,26 @@ async def split_conversation(
         resource_type="conversation",
         resource_id=str(source.id),
         summary=f"Split {len(moving)} message(s) into a new conversation",
-        after={"signal_id": str(child.id), "category": category},
+        after={"signal_id": str(child.id), "category": category_name},
         commit=False,
     )
     await session.commit()
     await session.refresh(source)
     await session.refresh(child)
 
-    if case_type is not None:
-        from app.services.cases import create_case
+    if category is not None:
+        from app.services.tickets import file_ticket, playbook_project_ids
 
-        await create_case(
+        choices = await playbook_project_ids(session, tenant_id, category.workstream_id)
+        chosen = not choices or source.project_id in choices
+        await file_ticket(
             session,
             tenant_id,
-            case_type_id=case_type.id,
             signal_id=child.id,
-            title=case_type.name,
-            actor="operator" if actor_type == "user" else "agent",
+            tag_id=category.id,
+            project_id=source.project_id if choices and chosen else None,
+            project_chosen=chosen,
+            actor="operator" if actor_type == "user" and chosen else "agent",
             created_by_type=actor_type,
             created_by_id=actor_id,
         )
@@ -316,7 +314,7 @@ async def split_or_propose(
     tenant_id: UUID,
     signal: Signal,
     *,
-    case_type: CaseType,
+    category: SignalTag,
     from_message_id: UUID | None = None,
     agent_id: UUID | None = None,
     reason: str = "",
@@ -339,11 +337,11 @@ async def split_or_propose(
             tenant_id,
             signal.id,
             from_message_id=anchor.id,
-            case_type=case_type,
+            category=category,
             actor_type="agent",
             actor_id=actor_id,
         )
-        return {"status": "split", "signal_id": str(child.id), "category": case_type.name}
+        return {"status": "split", "signal_id": str(child.id), "category": category.name}
 
     pending = await _pending_split_decision(session, tenant_id, signal.id)
     if pending is not None:
@@ -353,15 +351,15 @@ async def split_or_propose(
     payload = {
         "signal_id": str(signal.id),
         "from_message_id": str(anchor.id),
-        "category": str(case_type.id),
+        "category": str(category.id),
     }
     decision, _ = await create_decision(
         session,
         tenant_id,
-        title=f"Split into new conversation: {case_type.name}",
+        title=f"Split into new conversation: #{category.name}",
         summary=reason.strip()
         or (
-            f"The customer started a new request ({case_type.name}). Move it and the "
+            f"The customer started a new request (#{category.name}). Move it and the "
             "messages after it into its own conversation?"
         ),
         options=[

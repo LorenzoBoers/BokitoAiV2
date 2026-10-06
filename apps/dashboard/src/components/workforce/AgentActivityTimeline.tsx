@@ -11,6 +11,7 @@ import {
   Webhook,
   Workflow,
 } from 'lucide-react'
+import { AiAvatar } from '../ui/AiAvatar'
 import { Card } from '../ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { cn } from '../../lib/utils'
@@ -31,7 +32,15 @@ import {
   type TimeWindow,
 } from '../../lib/time-items'
 
-type Lane = {
+type TimelineAgent = {
+  id: string
+  name: string
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_image_url?: string | null
+}
+
+type Lane = TimelineAgent & {
   agentId: string
   agentName: string
   items: TimeItem[]
@@ -92,7 +101,7 @@ function ActivityTypeIcon({
 function MarkerGlyph({ cluster }: { cluster: ActivityCluster }) {
   if (cluster.items.length > 1) {
     return (
-      <span className="pointer-events-none absolute inset-0 grid place-items-center text-[10px] font-semibold leading-none tabular-nums">
+      <span className="pointer-events-none absolute inset-0 grid place-items-center text-[10px] font-semibold leading-none tabular-nums tracking-tight">
         {cluster.items.length > 9 ? '9+' : cluster.items.length}
       </span>
     )
@@ -134,13 +143,16 @@ function ClusterMark({
     .join('. ')
 
   const markClass = cn(
-    'absolute top-1/2 z-[1] size-5 -translate-x-1/2 -translate-y-1/2 rounded-full p-0 leading-none transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ai [&_svg]:block',
+    'absolute top-1/2 z-[1] size-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full p-0 leading-none transition-[transform,box-shadow,filter] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ai/40 [&_svg]:block',
+    'hover:z-[2] hover:scale-110',
     tone === 'wake' &&
-      'border-[1.5px] border-ai bg-bg-surface text-ai-ink hover:bg-ai/15',
-    tone === 'session' && 'border border-ai/80 bg-ai text-white hover:brightness-110',
-    tone === 'mixed' && 'border border-ai bg-ai/90 text-white hover:brightness-110',
-    running && 'shadow-[0_0_10px_rgb(var(--color-ai)/0.55)]',
-    failed && 'opacity-50',
+      'border border-ai/70 bg-bg-surface text-ai-ink shadow-[0_0_0_3px_rgb(var(--color-ai)/0.08)] hover:bg-ai/10',
+    tone === 'session' &&
+      'border border-ai/30 bg-ai text-white shadow-[0_1px_2px_rgb(0_0_0/0.18)] hover:brightness-110',
+    tone === 'mixed' &&
+      'border border-ai/40 bg-ai/90 text-white shadow-[0_1px_2px_rgb(0_0_0/0.18)] hover:brightness-110',
+    running && 'ring-2 ring-ai/35',
+    failed && 'opacity-45',
   )
 
   const tipBody = cluster.items.map((item, index) => {
@@ -216,7 +228,7 @@ export function AgentActivityTimeline({
   className,
 }: {
   agentId?: string
-  agents?: Array<{ id: string; name: string }>
+  agents?: TimelineAgent[]
   className?: string
 }) {
   const { t, i18n } = useTranslation('nav')
@@ -262,6 +274,8 @@ export function AgentActivityTimeline({
     if (!combined) {
       return [
         {
+          id: agentId ?? '',
+          name: '',
           agentId: agentId ?? '',
           agentName: '',
           items,
@@ -270,7 +284,16 @@ export function AgentActivityTimeline({
     }
     const byId = new Map<string, Lane>()
     for (const agent of agents ?? []) {
-      byId.set(agent.id, { agentId: agent.id, agentName: agent.name, items: [] })
+      byId.set(agent.id, {
+        id: agent.id,
+        name: agent.name,
+        agentId: agent.id,
+        agentName: agent.name,
+        avatar_kind: agent.avatar_kind,
+        avatar_icon: agent.avatar_icon,
+        avatar_image_url: agent.avatar_image_url,
+        items: [],
+      })
     }
     for (const item of items) {
       const lane = item.agent_id ? byId.get(item.agent_id) : undefined
@@ -283,89 +306,109 @@ export function AgentActivityTimeline({
   const language = i18n.language
 
   return (
-    <Card className={cn('overflow-hidden px-4 py-3', className)}>
-      <div className="mb-2">
-        <p className="text-sm font-medium text-text-heading">{t('workforce.agents.timelineTitle')}</p>
-        <p className="text-xs text-text-muted">
-          {combined ? t('workforce.agents.timelineCombinedHint') : t('workforce.agents.timelineHint')}
-        </p>
-      </div>
-      {error ? <p className="mb-2 text-xs text-status-error">{error}</p> : null}
-      <div className={cn('flex gap-3', combined && 'max-h-[22rem]')}>
-        {combined ? (
-          <div className="flex w-[6.75rem] shrink-0 flex-col pt-5">
-            {lanes.map((lane) => (
-              <Link
-                key={lane.agentId}
-                to={`/agents/${lane.agentId}`}
-                className="flex h-8 items-center truncate text-xs font-medium text-text-secondary hover:text-text-heading hover:underline"
-                title={lane.agentName}
-              >
-                {lane.agentName}
-              </Link>
-            ))}
-          </div>
-        ) : null}
-        <div className="relative min-w-0 flex-1">
-          <div className="relative mb-1 h-4">
-            {ticks.map((ms, index) => {
-              const pct = timelinePct(ms, fromMs, toMs)
-              const isNow = Math.abs(ms - nowMs) < 60_000
-              const edge =
-                index === 0 ? 'translate-x-0' : index === ticks.length - 1 ? '-translate-x-full' : '-translate-x-1/2'
-              return (
-                <span
-                  key={ms}
-                  className={cn(
-                    'absolute top-0 whitespace-nowrap text-2xs',
-                    edge,
-                    isNow ? 'font-medium text-ai-ink' : 'text-text-muted',
-                  )}
-                  style={{ left: `${pct}%` }}
-                >
-                  {isNow ? t('workforce.agents.timelineNow') : formatTick(ms, nowMs, language)}
-                </span>
-              )
-            })}
-          </div>
-          <div className="relative">
-            <div
-              className="pointer-events-none absolute inset-y-0 z-10 w-px bg-ai/70"
-              style={{ left: `${nowPct}%` }}
-            />
-            <div
-              className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 text-ai-ink"
-              style={{ left: `${nowPct}%` }}
-              aria-hidden
-            >
-              <span className="block h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-current" />
-            </div>
-            {lanes.map((lane) => {
-              const clusters =
-                Number.isFinite(fromMs) && Number.isFinite(toMs)
-                  ? clusterTimelineItems(lane.items, fromMs, toMs)
-                  : []
-              return (
-                <div key={lane.agentId || 'one'} className="relative h-8">
-                  <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-ai/25" />
-                  {clusters.map((cluster) => (
-                    <ClusterMark
-                      key={cluster.id}
-                      cluster={cluster}
-                      combined={combined}
-                      language={language}
-                      t={t}
-                    />
-                  ))}
-                </div>
-              )
-            })}
-          </div>
+    <Card className={cn('overflow-hidden border-border/50 bg-bg-surface/80', className)}>
+      <div className="flex items-start justify-between gap-3 border-b border-border/40 px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold tracking-tight text-text-heading">
+            {t('workforce.agents.timelineTitle')}
+          </p>
+          <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-text-muted">
+            {combined ? t('workforce.agents.timelineCombinedHint') : t('workforce.agents.timelineHint')}
+          </p>
         </div>
       </div>
-      {!data || (data.items.length === 0 && !combined) ? (
-        <p className="mt-2 text-xs text-text-muted">{t('workforce.agents.timelineEmpty')}</p>
-      ) : null}
+      <div className="px-4 py-3">
+        {error ? <p className="mb-2 text-xs text-status-error">{error}</p> : null}
+        <div className={cn('flex gap-3', combined && 'max-h-[22rem]')}>
+          {combined ? (
+            <div className="flex w-[8.25rem] shrink-0 flex-col pt-6">
+              {lanes.map((lane) => (
+                <Link
+                  key={lane.agentId}
+                  to={`/agents/${lane.agentId}`}
+                  className="group flex h-9 items-center gap-2 truncate rounded-md px-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/50 hover:text-text-heading"
+                  title={lane.agentName}
+                >
+                  <AiAvatar
+                    name={lane.agentName}
+                    seed={lane.agentId}
+                    size={20}
+                    kind={lane.avatar_kind}
+                    icon={lane.avatar_icon}
+                    imageUrl={lane.avatar_image_url}
+                    decorative
+                  />
+                  <span className="min-w-0 truncate group-hover:underline">{lane.agentName}</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
+          <div className="relative min-w-0 flex-1">
+            <div className="relative mb-1.5 h-5">
+              {ticks.map((ms, index) => {
+                const pct = timelinePct(ms, fromMs, toMs)
+                const isNow = Math.abs(ms - nowMs) < 60_000
+                const edge =
+                  index === 0 ? 'translate-x-0' : index === ticks.length - 1 ? '-translate-x-full' : '-translate-x-1/2'
+                return (
+                  <span
+                    key={ms}
+                    className={cn(
+                      'absolute top-0 whitespace-nowrap text-2xs tabular-nums',
+                      edge,
+                      isNow ? 'font-semibold text-ai-ink' : 'text-text-muted/80',
+                    )}
+                    style={{ left: `${pct}%` }}
+                  >
+                    {isNow ? t('workforce.agents.timelineNow') : formatTick(ms, nowMs, language)}
+                  </span>
+                )
+              })}
+            </div>
+            <div className="relative">
+              <div
+                className="pointer-events-none absolute inset-y-1 z-10 w-px bg-gradient-to-b from-ai/20 via-ai/80 to-ai/20"
+                style={{ left: `${nowPct}%` }}
+              />
+              <div
+                className="pointer-events-none absolute -top-0.5 z-10 -translate-x-1/2"
+                style={{ left: `${nowPct}%` }}
+                aria-hidden
+              >
+                <span className="block size-1.5 rounded-full bg-ai shadow-[0_0_0_3px_rgb(var(--color-ai)/0.22)]" />
+              </div>
+              {lanes.map((lane) => {
+                const clusters =
+                  Number.isFinite(fromMs) && Number.isFinite(toMs)
+                    ? clusterTimelineItems(lane.items, fromMs, toMs)
+                    : []
+                return (
+                  <div key={lane.agentId || 'one'} className="relative h-9">
+                    <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-border/50">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-ai/20"
+                        style={{ width: `${nowPct}%` }}
+                      />
+                    </div>
+                    {clusters.map((cluster) => (
+                      <ClusterMark
+                        key={cluster.id}
+                        cluster={cluster}
+                        combined={combined}
+                        language={language}
+                        t={t}
+                      />
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+        {!data || (data.items.length === 0 && !combined) ? (
+          <p className="mt-3 text-xs text-text-muted">{t('workforce.agents.timelineEmpty')}</p>
+        ) : null}
+      </div>
     </Card>
   )
 }

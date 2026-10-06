@@ -24,10 +24,23 @@ describe('leaf path round-trips', () => {
     { type: 'channel', channelKey: 'webchat', queue: 'open' },
     { type: 'channel', channelKey: 'email', connectionId: '12', queue: 'for_you' },
     { type: 'agent', agentId: 'a1', queue: 'open' },
+    { type: 'tag', tag: 'refund-request', queue: 'open' },
+    { type: 'tag', tag: 'vip' },
+    { type: 'project', projectId: 'p-1', queue: 'unassigned' },
   ]
 
   it.each(leaves.map((leaf) => [leafKey(leaf), leaf] as const))('round-trips %s', (_key, leaf) => {
     expect(leafFromPath(leafPath(leaf))).toEqual(leaf)
+  })
+
+  it('builds hashtag and project paths', () => {
+    expect(leafPath({ type: 'tag', tag: 'refund-request', queue: 'open' })).toBe('/communication/tag/refund-request/open')
+    expect(leafPath({ type: 'project', projectId: 'p-1', queue: 'closed' }, 't-9')).toBe(
+      '/communication/project/p-1/closed/t/t-9',
+    )
+    expect(leafKey({ type: 'tag', tag: 'vip', queue: 'open' })).toBe('tag:vip:open')
+    expect(sameLeafScope({ type: 'tag', tag: 'vip', queue: 'open' }, { type: 'tag', tag: 'vip' })).toBe(true)
+    expect(sameLeafScope({ type: 'tag', tag: 'vip' }, { type: 'tag', tag: 'billing' })).toBe(false)
   })
 
   it('round-trips with a thread id suffix', () => {

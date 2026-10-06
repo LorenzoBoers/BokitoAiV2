@@ -17,6 +17,7 @@ import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { formatAgentModelLine } from '../lib/model-label'
 import { activityTerminalPath, agentChatPath, forYouPath } from '../lib/messages-paths'
+import { withNavReveal } from '../lib/nav-reveal'
 import { openEntityPath } from '../lib/open-entity'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
@@ -36,47 +37,33 @@ function AgentQuickLinks({
   runsLabel: string
 }) {
   const navigate = useNavigate()
+  const actions = [
+    { label: chatLabel, icon: MessageSquare, go: () => navigate(withNavReveal(agentChatPath(agentId))) },
+    { label: runsLabel, icon: Inbox, go: () => navigate(activityTerminalPath(agentId)) },
+    {
+      label: scheduleLabel,
+      icon: CalendarDays,
+      go: () => navigate(`/agenda?agent=${encodeURIComponent(agentId)}`),
+    },
+  ] as const
   return (
-    <span className="flex items-center gap-1">
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-2 text-xs"
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          navigate(agentChatPath(agentId))
-        }}
-      >
-        <MessageSquare size={12} className="mr-1" />
-        {chatLabel}
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-2 text-xs"
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          navigate(activityTerminalPath(agentId))
-        }}
-      >
-        <Inbox size={12} className="mr-1" />
-        {runsLabel}
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-2 text-xs"
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          navigate(`/agenda?agent=${encodeURIComponent(agentId)}`)
-        }}
-      >
-        <CalendarDays size={12} className="mr-1" />
-        {scheduleLabel}
-      </Button>
+    <span className="flex items-center gap-0.5">
+      {actions.map(({ label, icon: Icon, go }) => (
+        <Button
+          key={label}
+          size="sm"
+          variant="ghost"
+          className="h-7 gap-1 px-2 text-xs text-text-secondary hover:text-text-heading"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            go()
+          }}
+        >
+          <Icon size={12} aria-hidden />
+          {label}
+        </Button>
+      ))}
     </span>
   )
 }
@@ -99,13 +86,16 @@ function AgentLibraryCard({
   const summary = view.current_activity_summary
 
   return (
-    <Link to={href} className="block h-full">
-      <Card interactive className="flex h-full flex-col gap-3 p-4">
+    <Link to={href} className="group block h-full">
+      <Card
+        interactive
+        className="flex h-full flex-col gap-3 border-border/50 p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
+      >
         <div className="flex items-start gap-3">
           <AiAvatar
             name={agent.name}
             seed={agent.id}
-            size={36}
+            size={40}
             className="mt-0.5"
             kind={agent.avatar_kind}
             icon={agent.avatar_icon}
@@ -117,10 +107,12 @@ function AgentLibraryCard({
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="truncate-fade font-medium text-text-heading">{agent.name}</p>
+              <p className="truncate-fade text-[15px] font-semibold tracking-tight text-text-heading">
+                {agent.name}
+              </p>
               {agent.managed ? (
                 <span
-                  className="shrink-0 rounded border border-border/70 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
+                  className="shrink-0 rounded-md bg-bg-hover/80 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
                   title={
                     agent.origin_label
                       ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
@@ -131,13 +123,26 @@ function AgentLibraryCard({
                 </span>
               ) : null}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className={cn('text-xs font-medium', presenceTextClass(work))}>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-md px-1.5 py-0.5 text-2xs font-medium',
+                  work === 'working' && 'bg-ai/12',
+                  work === 'error' && 'bg-status-error/10',
+                  work === 'standby' && 'bg-bg-hover/80',
+                  presenceTextClass(work),
+                )}
+              >
                 {presenceLabel(work, t)}
               </span>
+              {projectName ? (
+                <span className="truncate text-2xs text-text-muted">
+                  {t('workforce.agents.projectLink', { name: projectName })}
+                </span>
+              ) : null}
             </div>
             {openCount > 0 || decisionCount > 0 ? (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                 {openCount > 0 ? (
                   <button
                     type="button"
@@ -169,12 +174,9 @@ function AgentLibraryCard({
           </div>
         </div>
         {summary ? (
-          <p className="line-clamp-2 text-sm text-text-secondary">{summary}</p>
+          <p className="line-clamp-2 text-sm leading-snug text-text-secondary">{summary}</p>
         ) : null}
-        {projectName ? (
-          <p className="text-xs text-text-muted">{t('workforce.agents.projectLink', { name: projectName })}</p>
-        ) : null}
-        <div className="mt-auto flex items-center justify-between gap-2">
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/40 pt-2.5">
           <AgentQuickLinks
             agentId={agent.id}
             chatLabel={t('workforce.agents.chat')}
@@ -184,7 +186,7 @@ function AgentLibraryCard({
           {agent.model ? (
             <span
               title={agent.model}
-              className="truncate-fade text-2xs text-text-muted/80"
+              className="truncate-fade text-2xs text-text-muted/70"
             >
               {formatAgentModelLine(agent.model, agent.provider, t)}
             </span>
@@ -266,7 +268,7 @@ export default function AiAgents() {
   )
 
   return (
-    <PageContent width="xl" className="space-y-4 py-1">
+    <PageContent width="xl" className="space-y-5 py-1">
       <ContentHeader
         guide="agents"
         title={t('workforce.agents.title')}
@@ -297,13 +299,19 @@ export default function AiAgents() {
 
       {agents.length > 0 ? (
         <AgentActivityTimeline
-          agents={agents.map((agent) => ({ id: agent.id, name: agent.name }))}
+          agents={agents.map((agent) => ({
+            id: agent.id,
+            name: agent.name,
+            avatar_kind: agent.avatar_kind,
+            avatar_icon: agent.avatar_icon,
+            avatar_image_url: agent.avatar_image_url,
+          }))}
         />
       ) : null}
 
       {agents.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative max-w-sm flex-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[14rem] max-w-sm flex-1">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="search"
@@ -311,27 +319,34 @@ export default function AiAgents() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t('workforce.agents.searchPlaceholder')}
               aria-label={t('workforce.agents.searchPlaceholder')}
-              className="h-9 w-full rounded-lg border border-border/60 bg-bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
+              className="h-9 w-full rounded-lg border border-border/50 bg-bg-surface/80 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
             />
           </div>
-          {(['all', 'working'] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setStatusFilter(id)}
-              className={
-                statusFilter === id
-                  ? 'rounded-md bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-heading'
-                  : 'rounded-md border border-border/70 px-2 py-0.5 text-xs text-text-secondary hover:bg-bg-hover/60 hover:text-text-heading'
-              }
-            >
-              {t(`workforce.agents.filters.${id}`)}
-            </button>
-          ))}
+          <div
+            className="inline-flex h-9 items-center rounded-lg border border-border/50 bg-bg-surface/80 p-0.5"
+            role="group"
+            aria-label={t('workforce.agents.searchPlaceholder')}
+          >
+            {(['all', 'working'] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setStatusFilter(id)}
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs font-medium transition-colors',
+                  statusFilter === id
+                    ? 'bg-bg-hover text-text-heading shadow-sm'
+                    : 'text-text-secondary hover:text-text-heading',
+                )}
+              >
+                {t(`workforce.agents.filters.${id}`)}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 
-      <p className="text-xs text-text-muted">{t('workforce.agents.routingBody')}</p>
+      <p className="text-xs leading-relaxed text-text-muted/90">{t('workforce.agents.routingBody')}</p>
 
       {loading ? (
         <CardGridSkeleton />
@@ -383,7 +398,7 @@ export default function AiAgents() {
             </button>
           </div>
         ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
           {visibleAgents.map((agent) => (
             <AgentLibraryCard
               key={agent.id}

@@ -1128,7 +1128,7 @@ async def split_signal(
     """
     from app.services.conversation_split import resolve_category, split_conversation
 
-    case_type = (
+    category = (
         await resolve_category(session, auth.tenant.id, str(body.category_id))
         if body.category_id
         else None
@@ -1138,7 +1138,7 @@ async def split_signal(
         auth.tenant.id,
         signal_id,
         from_message_id=body.from_message_id,
-        case_type=case_type,
+        category=category,
         actor_type="user",
         actor_id=str(auth.user.id),
     )

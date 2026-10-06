@@ -127,8 +127,6 @@ async def apply_agent_change(
 async def apply_workstream_change(
     session: AsyncSession, tenant_id: UUID, change_kind: str, after: dict[str, Any], before: dict[str, Any]
 ) -> dict[str, Any]:
-    from app.services.workstreams import replace_steps
-
     if change_kind == "delete":
         ws_id = after.get("workstream_id") or before.get("workstream_id")
         result = await session.execute(
@@ -157,13 +155,12 @@ async def apply_workstream_change(
             ws.enabled = bool(after["enabled"])
         if "autonomy_level" in after:
             ws.autonomy_level = parse_autonomy_level(after["autonomy_level"])
-        if "steps" in after:
-            await replace_steps(session, tenant_id, ws.id, list(after["steps"] or []))
+        # steps retired — stages-only playbooks
         await session.flush()
         return {
             "workstream_id": str(ws.id),
             "status": "updated",
-            "steps_count": len(after.get("steps") or []) if "steps" in after else None,
+            "stages_count": None,
         }
 
     name = after.get("name", "Workstream")
@@ -175,8 +172,6 @@ async def apply_workstream_change(
     )
     session.add(ws)
     await session.flush()
-    if after.get("steps"):
-        await replace_steps(session, tenant_id, ws.id, list(after["steps"]))
     canvas = await sync_entity_to_canvas(
         session,
         tenant_id,
@@ -189,7 +184,7 @@ async def apply_workstream_change(
     return {
         "workstream_id": str(ws.id),
         "status": "created",
-        "steps_count": len(after.get("steps") or []),
+        "stages_count": 0,
         "canvas": canvas,
     }
 
@@ -450,10 +445,8 @@ async def apply_change_to_domain(
         return await apply_ai_handling_channel_change(session, tenant_id, after)
     if rt == "persona_review":
         return await apply_persona_review_change(session, tenant_id, after)
-    if rt == "case_type":
-        return await apply_case_type_change(session, tenant_id, ck, after, before)
-    if rt == "case_type_binding":
-        return await apply_case_type_binding_change(session, tenant_id, ck, after, before)
+    if rt == "category":
+        return await apply_category_change(session, tenant_id, ck, after, before)
     if rt == "project":
         return await apply_project_change(session, tenant_id, ck, after, before)
     if rt == "project_canvas":
@@ -548,83 +541,81 @@ def _as_uuid(raw: Any) -> UUID | None:
         return None
 
 
-async def apply_case_type_change(
+async def apply_category_change(
     session: AsyncSession,
     tenant_id: UUID,
     change_kind: str,
     after: dict[str, Any],
     before: dict[str, Any],
 ) -> dict[str, Any]:
-    from app.services.cases import create_case_type, delete_case_type, serialize_case_type, update_case_type
+    """Create, edit or remove a category (a hashtag with a playbook)."""
+    from app.models.orchestra import Workstream
+    from app.models.signal import SignalTag
+    from app.services.signal_tags import delete_tag, normalize_tag, set_tag_playbook
+    from app.services.tickets import apply_category_config, serialize_category
 
     if change_kind == "delete":
-        type_id = _as_uuid(after.get("case_type_id") or before.get("case_type_id"))
-        if type_id is None:
-            raise HTTPException(status_code=400, detail="case_type_id required for delete")
-        await delete_case_type(session, tenant_id, type_id, commit=False)
-        return {"case_type_id": str(type_id), "status": "deleted"}
+        tag_id = _as_uuid(after.get("tag_id") or before.get("tag_id"))
+        if tag_id is None:
+            raise HTTPException(status_code=400, detail="tag_id required for delete")
+        try:
+            await delete_tag(session, tenant_id, tag_id, commit=False)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"tag_id": str(tag_id), "status": "deleted"}
 
     if change_kind == "update":
-        type_id = _as_uuid(after.get("case_type_id") or before.get("case_type_id"))
-        if type_id is None:
-            raise HTTPException(status_code=400, detail="case_type_id required for update")
-        row = await update_case_type(session, tenant_id, type_id, after, commit=False)
-        return serialize_case_type(row)
+        tag_id = _as_uuid(after.get("tag_id") or before.get("tag_id"))
+        row = await session.get(SignalTag, tag_id) if tag_id else None
+        if row is None or row.tenant_id != tenant_id:
+            raise HTTPException(status_code=404, detail="Category not found")
+        if "workstream_id" in after:
+            try:
+                await set_tag_playbook(
+                    session, tenant_id, row.id, workstream_id=_as_uuid(after.get("workstream_id")), commit=False
+                )
+            except LookupError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+        apply_category_config(row, after)
+        if after.get("description") is not None:
+            row.description = str(after["description"]).strip()[:300]
+        if after.get("show_in_nav") is not None:
+            row.show_in_nav = bool(after["show_in_nav"])
+        session.add(row)
+        await session.flush()
+        return serialize_category(row)
 
-    row = await create_case_type(
-        session,
-        tenant_id,
-        name=str(after.get("name") or "New type"),
-        slug=str(after.get("slug") or ""),
-        description=str(after.get("description") or ""),
-        create_mode=str(after.get("create_mode") or "ask_customer"),
-        ask_threshold=int(after.get("ask_threshold") or 6),
-        auto_threshold=int(after.get("auto_threshold") or 9),
-        requires_verification=bool(after.get("requires_verification") or False),
-        allow_project_link=str(after.get("allow_project_link") or "optional"),
-        audience=str(after.get("audience") or "both"),
-        enabled=after.get("enabled", True),
-        sort_order=int(after.get("sort_order") or 0),
-        commit=False,
-    )
-    after["case_type_id"] = str(row.id)
-    return serialize_case_type(row)
-
-
-async def apply_case_type_binding_change(
-    session: AsyncSession,
-    tenant_id: UUID,
-    change_kind: str,
-    after: dict[str, Any],
-    before: dict[str, Any],
-) -> dict[str, Any]:
-    from app.services.cases import create_binding, delete_binding, serialize_binding
-
-    if change_kind == "delete":
-        binding_id = _as_uuid(after.get("binding_id") or before.get("binding_id"))
-        if binding_id is None:
-            raise HTTPException(status_code=400, detail="binding_id required for delete")
-        await delete_binding(session, tenant_id, binding_id, commit=False)
-        return {"binding_id": str(binding_id), "status": "deleted"}
-
-    type_id = _as_uuid(after.get("case_type_id"))
-    target_id = _as_uuid(after.get("target_id"))
-    if type_id is None or target_id is None:
-        raise HTTPException(status_code=400, detail="case_type_id and target_id are required")
-    row = await create_binding(
-        session,
-        tenant_id,
-        case_type_id=type_id,
-        target_kind=str(after.get("target_kind") or ""),
-        target_id=target_id,
-        priority=int(after.get("priority") or 0),
-        auto_link=bool(after.get("auto_link", True)),
-        auto_start_run=bool(after.get("auto_start_run") or False),
-        enabled=bool(after.get("enabled", True)),
-        commit=False,
-    )
-    after["binding_id"] = str(row.id)
-    return serialize_binding(row)
+    name = normalize_tag(str(after.get("name") or ""))
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    row = (
+        await session.execute(
+            select(SignalTag).where(SignalTag.tenant_id == tenant_id, SignalTag.name == name)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        row = SignalTag(tenant_id=tenant_id, name=name)
+        session.add(row)
+    workstream_id = _as_uuid(after.get("workstream_id"))
+    if workstream_id is None:
+        ws = Workstream(tenant_id=tenant_id, name=name.replace("-", " ").capitalize())
+        session.add(ws)
+        await session.flush()
+        workstream_id = ws.id
+    else:
+        ws = await session.get(Workstream, workstream_id)
+        if ws is None or ws.tenant_id != tenant_id:
+            raise HTTPException(status_code=404, detail="Playbook not found")
+    row.workstream_id = workstream_id
+    row.show_in_nav = True
+    row.pinned = False
+    if after.get("description"):
+        row.description = str(after["description"]).strip()[:300]
+    apply_category_config(row, after)
+    session.add(row)
+    await session.flush()
+    after["tag_id"] = str(row.id)
+    return serialize_category(row)
 
 
 async def apply_autonomy_posture_change(
@@ -782,14 +773,6 @@ async def rollback_change_to_domain(
         )
     if rt == "agent" and ck == "update" and before:
         return await apply_agent_change(session, tenant_id, "update", before, after)
-    if rt == "case_type" and ck == "create" and after.get("case_type_id"):
-        return await apply_case_type_change(
-            session, tenant_id, "delete", {"case_type_id": after["case_type_id"]}, before
-        )
-    if rt == "case_type" and ck == "update" and before:
-        return await apply_case_type_change(session, tenant_id, "update", before, after)
-    if rt == "case_type_binding" and ck == "create" and after.get("binding_id"):
-        return await apply_case_type_binding_change(
-            session, tenant_id, "delete", {"binding_id": after["binding_id"]}, before
-        )
+    if rt == "category" and ck == "update" and before:
+        return await apply_category_change(session, tenant_id, "update", before, after)
     return {"status": "rollback_unsupported", "resource_type": rt}

@@ -12,7 +12,7 @@ import {
 import { isMockAgentBody } from './activity-labels'
 import { normalizeMessageActivity, type ActivityItem } from './agentActivity'
 import { normalizeAiHandling, type AiHandling } from './ai-handling'
-import type { TicketStage } from './cases-api'
+import type { TicketStage, TicketStatus } from './tickets-api'
 import { plainChatText } from './chatText'
 import type { ResolveDecisionResult, ThreadSession } from './signals-api'
 
@@ -128,10 +128,10 @@ export type InboxThread = {
   certainty?: number | null
   aiSummary?: string | null
   /**
-   * The conversation's category and, for tickets, its stage. `undefined` when
+   * The conversation's ticket: its category hashtag and stage. `undefined` when
    * the row came from a live event that does not carry it (keep the known value).
    */
-  categoryCase?: ThreadCategoryCase | null
+  ticket?: ThreadTicket | null
   createdAt: string
   channel?: string
   /** Thread origin; `personal` is the in-app Bokito helper, not Communication. */
@@ -487,7 +487,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     urgency: typeof raw.urgency === 'number' ? raw.urgency : null,
     certainty: typeof raw.certainty === 'number' ? raw.certainty : null,
     aiSummary: asNullableString(raw.ai_summary),
-    categoryCase: 'category_case' in raw ? normalizeCategoryCase(raw.category_case) : undefined,
+    ticket: 'ticket' in raw ? normalizeThreadTicket(raw.ticket) : undefined,
     createdAt: asTimestampString(raw.created_at),
     channel: asString(raw.channel, 'email'),
     source: asString(raw.source),
@@ -496,33 +496,32 @@ function normalizeThread(row: unknown): InboxThread | null {
   }
 }
 
-export type ThreadCategoryCase = {
-  caseId: string
-  categoryId: string
+export type ThreadTicket = {
+  /** The category hashtag's id. */
+  tagId: string
   name: string
-  slug: string
-  status: string
-  isTicket: boolean
+  status: TicketStatus
   stage: TicketStage | null
+  projectId: string | null
 }
 
-function normalizeCategoryCase(raw: unknown): ThreadCategoryCase | null {
+function normalizeThreadTicket(raw: unknown): ThreadTicket | null {
   if (!raw || typeof raw !== 'object') return null
   const row = raw as Record<string, unknown>
   const stage = row.stage && typeof row.stage === 'object' ? (row.stage as Record<string, unknown>) : null
   return {
-    caseId: asString(row.case_id),
-    categoryId: asString(row.category_id),
+    tagId: asString(row.tag_id),
     name: asString(row.name),
-    slug: asString(row.slug),
-    status: asString(row.status),
-    isTicket: Boolean(row.is_ticket),
+    status: (asString(row.status) || 'open') as TicketStatus,
+    projectId: asNullableString(row.project_id),
     stage:
       stage && typeof stage.key === 'string'
         ? {
             key: stage.key,
             name: asString(stage.name),
             kind: (asString(stage.kind) || 'open') as TicketStage['kind'],
+            auto_close_conversation:
+              asString(stage.kind) === 'done' ? Boolean(stage.auto_close_conversation) : false,
           }
         : null,
   }

@@ -29,6 +29,7 @@ import { threadStatusLabel } from '../../lib/status-labels'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { formatAgentModelLine } from '../../lib/model-label'
 import { agentChatPath } from '../../lib/messages-paths'
+import { withNavReveal } from '../../lib/nav-reveal'
 import { openEntityPath } from '../../lib/open-entity'
 import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
@@ -314,7 +315,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
             <p className="text-xs text-text-muted">{t('agentContext.noOtherConversations')}</p>
             {agent?.id ? (
               <Link
-                to={agentChatPath(agent.id)}
+                to={withNavReveal(agentChatPath(agent.id))}
                 className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
               >
                 {t('agentContext.chatWithAgent')}

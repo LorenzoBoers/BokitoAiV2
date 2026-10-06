@@ -190,11 +190,6 @@ async def patch_wizard_state(
         block["wizard_completed_at"] = datetime.now(timezone.utc).isoformat()
         block["wizard_required"] = False
         await _append_intake_to_lead_prompt(session, tenant.id, serialize_intake(block))
-        # First-run conversation/setup completion installs the small starter
-        # Signal Type catalog idempotently.
-        from app.services.cases import ensure_platform_case_types
-
-        await ensure_platform_case_types(session, tenant.id, commit=False)
 
     settings[ONBOARDING_KEY] = block
     save_settings(tenant, settings)

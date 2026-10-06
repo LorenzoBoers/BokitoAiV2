@@ -1000,13 +1000,6 @@ async def start_queue_item_analysis(
         item.project_id,
         f"{item.kind} {item.title} {item.description}",
     )
-    steps = await ws_engine.list_steps(session, tenant_id, ws.id)
-    if not steps:
-        # A definable workstream without steps cannot run; fall back to the
-        # seeded default, which always has one agent step.
-        ws = await ws_engine.ensure_default_workstream(
-            session, tenant_id, item.project_id
-        )
     input_text = (
         f"Queue task (id: {item.id})\n"
         f"- kind: {item.kind}\n- priority: {item.priority}\n- title: {item.title}\n\n"
@@ -1023,6 +1016,7 @@ async def start_queue_item_analysis(
         input_kind="queue_item",
         input_text=input_text,
         input_ref=str(item.id),
+        project_id=item.project_id,
         triggered_by_type="agent" if agent else "system",
         triggered_by_id=str(agent.id) if agent else "queue_routing",
     )

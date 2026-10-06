@@ -1,5 +1,5 @@
 import { ChevronDown, ListPlus, Sparkles } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
 import { isInternalThread } from '../../lib/message-composer'
@@ -46,6 +46,7 @@ const VALUE_BUTTON =
  */
 export function ConversationWorkSection({ thread, saving = false, onPatch, onWhatsNext }: Props) {
   const { t, i18n } = useTranslation('communication')
+  const [ticketBump, setTicketBump] = useState(0)
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
   const triage = {
@@ -149,15 +150,20 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
         </div>
       ) : null}
 
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-text-muted">{t('tags.title')}</p>
+        <ThreadTags
+          thread={thread}
+          saving={saving}
+          onPatch={onPatch}
+          onTicketChanged={() => setTicketBump((n) => n + 1)}
+        />
+      </div>
+
       <ThreadCategory
         signalId={String(thread.id)}
-        version={`${thread.categoryCase?.caseId ?? ''}|${thread.categoryCase?.status ?? ''}|${thread.categoryCase?.stage?.key ?? ''}`}
+        version={`${thread.ticket?.tagId ?? ''}|${thread.ticket?.status ?? ''}|${thread.ticket?.stage?.key ?? ''}|${thread.ticket?.projectId ?? ''}|${ticketBump}`}
       />
-
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-text-muted">{t('tags.title', { defaultValue: 'Tags' })}</p>
-        <ThreadTags thread={thread} saving={saving} onPatch={onPatch} />
-      </div>
     </div>
   )
 }

@@ -4,12 +4,12 @@ intro: Give agents tools outside Bokito — marketplace apps and connected accou
 description: Use Connections and Marketplace to install modules, attach partner logins, and govern what agents may call.
 keywords: integrations, marketplace, connected, github, mcp, modules, accounting, moneybird, connections
 sort: 10
-related: mcp,models,channels,govern,cases
+related: mcp,models,channels,govern,categories
 ---
 
 # Connect integrations
 
-Integrations are partner logins. A **module** is one package of Signal types, playbooks, and an optional Project, plus the tools allowed for its listed partners. The **Connections** hub in the rail at `/connections` is the installed inventory: modules already on, partner logins, and custom MCP servers. **Marketplace** is the full catalog — every module and integration, with no connected/available status filter. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
+Integrations are partner logins. A **module** is one package of hashtags, playbooks, and an optional Project, plus the tools allowed for its listed partners. The **Connections** hub in the rail at `/connections` is the installed inventory: modules already on, partner logins, and custom MCP servers. **Marketplace** is the full catalog — every module and integration, with no connected/available status filter. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
 
 ## See what is connected
 
@@ -38,7 +38,7 @@ WhatsApp itself is configured under **Channels**, not only here. The marketplace
 3. Assign **at least one AI agent**. Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
 4. Review **What agents can do**: each module action shows a short description, the universal path (`accounting_list_companies`, …), and whether it is **Read** or **Needs approval**. When partners are attached, **Tools from connected MCP servers** lists the exact MCP tool names discovered from those servers.
 5. At the top of the module page, under **Connections**, choose **New registration** to connect and attach in one step, or **Use an existing connection** for a login that already lives on Connections. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Overview**, **Sources**, and **Setup**.
-6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installation incomplete** until a partner login is attached, then **Connected**. Its Signal types and playbooks remain available through their existing product surfaces; the module stays in Connections and adds no rail item.
+6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installation incomplete** until a partner login is attached, then **Connected**. Its hashtags and playbooks remain available through their existing product surfaces; the module stays in Connections and adds no rail item.
 
 ## Connect an optional accounting integration
 
@@ -63,7 +63,7 @@ WhatsApp itself is configured under **Channels**, not only here. The marketplace
 
 ## Install a workstream template
 
-Modules ship one catalog package containing Signal types, pre-built playbooks, and optionally a Project. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
+Modules ship one catalog package containing hashtags, pre-built playbooks, and optionally a Project. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
 
 1. Open the module page from **Connections**. When the module is on, the **Workstream templates** panel lists what it ships, with the step count per template.
 2. A template that cannot run yet shows why (module connection missing, required agent role not assigned). Fix the requirement first.
@@ -83,11 +83,11 @@ Modules ship one catalog package containing Signal types, pre-built playbooks, a
 3. The default assigned agent walks you through optional integrations, defaults and sources, and can put decisions on the thread when something needs approval.
 4. Return to the module page and choose **Finish setup** when the checklist is done.
 
-## Turn on customer chat tools and intake types
+## Turn on customer chat tools and module hashtags
 
 1. Open an installed module such as **Accounting**.
 2. Under **Customer chat tools**, turn a verb on only when the website widget may look up that visitor's own records after they confirm a short email link.
-3. Under **Intake types**, choose **Install** on a template (for example billing inquiry). Bind the type on a [workstream](/docs/ai/workstreams) so chat can open a [case](/docs/ai/cases).
+3. Under **Hashtags**, choose **Install** on a template (for example billing inquiry). Attach a playbook to the hashtag so chat can file a ticket on it; see [Categories and tickets](/docs/ai/categories).
 
 ## Set what agents may call
 

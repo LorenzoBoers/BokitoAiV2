@@ -4,7 +4,7 @@ intro: The helper in the corner of every page — it knows the screen you are on
 description: Bokito is a personal assistant for each member of a workspace. It explains screens, answers from the product help, sets things up within your role and delegates work to the workspace agents.
 keywords: assistant, bokito, helper, in-app chat, personal assistant, delegate
 sort: 45
-related: tour,agents,govern,cases,widget
+related: tour,agents,govern,categories,widget
 ---
 
 # Bokito, your assistant
@@ -51,4 +51,4 @@ Each chat stays inside the workspace where you had it. What Bokito remembers abo
 2. Read the facts Bokito stored about you. Choose **Forget** on one row or **Clear all**.
 3. Open the helper again with **Talk to assistant** if you want to tell it something new. Company agents and the website widget are separate — see [Agents](/docs/ai/agents) and [Chat widget](/docs/inbox/widget).
 
-The website chat widget is a different setting: **Settings**, then **Chat widget**. That page is for visitors on your site, not for this helper. The helper follows the dashboard light or dark theme. Visitor intake from that widget is a [case](/docs/ai/cases) on the conversation.
+The website chat widget is a different setting: **Settings**, then **Chat widget**. That page is for visitors on your site, not for this helper. The helper follows the dashboard light or dark theme. Visitor intake from that widget becomes a [ticket](/docs/ai/categories) on the conversation.

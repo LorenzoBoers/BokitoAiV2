@@ -74,7 +74,7 @@ type Props = {
   /** Controlled mode from the thread (ask sticky while an AI turn is active). */
   mode?: ComposerMode
   onModeChange?: (mode: ComposerMode) => void
-  /** Slash verbs (/assign, /signal, …). Return true when handled. */
+  /** Slash verbs (/assign, /ticket, …). Return true when handled. */
   onVerb?: (verb: import('../../lib/composer-verbs').ParsedComposerVerb) => Promise<boolean> | boolean
   /** Active AI label for the Ask chip. */
   agentModeName?: string | null

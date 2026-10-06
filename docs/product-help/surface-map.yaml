@@ -137,12 +137,13 @@ communication:
     - apps/dashboard/src/components/inbox/**
     - apps/dashboard/src/components/shell/MessagesHub.tsx
     - packages/shared/src/chat-layout.ts
-    - apps/api/app/services/inbox_folders.py
     - apps/api/app/services/signal_threads.py
     - apps/api/app/gateway/publish.py
     - apps/api/app/services/signal_tags.py
-    - apps/api/app/routers/inbox_folders.py
-    - apps/api/app/routers/signal_tags.py
+    - apps/api/app/services/communication_nav.py
+    - apps/api/app/routers/communication_nav.py
+    - apps/dashboard/src/hooks/useCommunicationNav.ts
+    - apps/dashboard/src/lib/messages-paths.ts
   screenshots:
     - decision-card
     - open-queue
@@ -150,7 +151,7 @@ communication:
     - composer-modes
     - handling-picker
     - agent-turn
-    - folders
+    - hashtags
 
 agent-runs:
   section: inbox
@@ -179,7 +180,8 @@ channels:
     - apps/dashboard/src/components/inbox/SmtpImapConnectForm.tsx
     - apps/dashboard/src/components/inbox/MailboxSyncWindowField.tsx
     - apps/dashboard/src/lib/channel-surface.ts
-    - apps/dashboard/src/components/inbox/FoldersAndTagsManager.tsx
+    - apps/dashboard/src/components/inbox/CommunicationTagsCard.tsx
+    - apps/dashboard/src/components/inbox/TagRegistrySection.tsx
     - apps/api/app/services/channel_registry.py
     - apps/api/app/services/email_relay.py
     - apps/api/app/services/smtp_imap.py
@@ -188,6 +190,7 @@ channels:
     - apps/api/app/routers/channels.py
   screenshots:
     - mailbox-status
+    - communication-tags
 
 contacts:
   section: inbox
@@ -296,6 +299,7 @@ projects:
     - apps/api/app/models/project_canvas.py
   screenshots:
     - project
+    - boards
 
 workstreams:
   section: ai
@@ -312,27 +316,31 @@ workstreams:
     - apps/api/app/services/workstreams.py
     - apps/api/app/services/workstream_integrity.py
     - apps/api/app/modules/catalog.py
-  screenshots: []
+    - apps/dashboard/src/components/workstreams/**
+    - apps/api/app/services/tickets.py
+  screenshots:
+    - board
 
-cases:
+categories:
   section: ai
   routes:
-    - /settings/signals
+    - /settings/action-tags
     - /communication
   code_globs:
-    - apps/dashboard/src/pages/SignalTypesSettings.tsx
+    - apps/dashboard/src/pages/CategoriesSettings.tsx
     - apps/dashboard/src/components/inbox/ThreadCategory.tsx
-    - apps/dashboard/src/components/workstreams/CaseBindingsCard.tsx
-    - apps/dashboard/src/components/workstreams/WorkstreamStagesCard.tsx
-    - apps/api/app/services/ticket_stages.py
+    - apps/dashboard/src/components/inbox/ThreadTags.tsx
+    - apps/dashboard/src/components/inbox/HashtagPickerModal.tsx
+    - apps/dashboard/src/components/inbox/TagRegistrySection.tsx
+    - apps/dashboard/src/lib/tickets-api.ts
+    - apps/dashboard/src/api/routes/categories.routes.ts
+    - apps/api/app/routers/categories.py
+    - apps/api/app/services/tickets.py
     - apps/api/app/services/conversation_split.py
-    - apps/dashboard/src/lib/cases-api.ts
-    - apps/dashboard/src/api/routes/cases.routes.ts
-    - apps/api/app/routers/cases.py
-    - apps/api/app/services/cases.py
-    - apps/api/app/tools/cases.py
-    - apps/api/app/models/case.py
-  screenshots: []
+    - apps/api/app/tools/tickets.py
+  screenshots:
+    - catalog
+    - ticket-panel
 
 agenda:
   section: ai

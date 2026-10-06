@@ -1,16 +1,7 @@
 import { workstreamsRoutes } from '../api/routes'
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
-import type { TicketStage } from './cases-api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import type { FlowBoard, TicketStage } from './tickets-api'
 
-export type WorkstreamStepKind =
-  | 'send_message'
-  | 'agent_task'
-  | 'wait_for_reply'
-  | 'ask_decision'
-  | 'call_tool'
-  | 'schedule'
-export type WorkstreamWaitKind = 'input' | 'event' | 'time'
-export type WorkstreamOnDeadline = 'continue' | 'remind_then_continue' | 'fail'
 export type WorkstreamRunStatus =
   | 'running'
   | 'waiting'
@@ -18,56 +9,31 @@ export type WorkstreamRunStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
-export type WorkstreamInputKind = 'manual' | 'queue_item' | 'signal' | 'trigger' | 'case'
+export type WorkstreamInputKind = 'manual' | 'queue_item' | 'signal' | 'trigger' | 'ticket'
 
+/** A flow: a reusable stage pipeline titled by its action-tag hashtag. */
 export type WorkstreamRow = {
   id: string
-  project_id: string | null
-  signal_id: string | null
+  signal_id?: string | null
+  /** Display name: first linked action tag when present, else stored name. */
   name: string
   description: string
   enabled: boolean
-  is_default: boolean
+  /** Projects this flow is on; its tickets can be filed on one of them or on none. */
+  project_ids: string[]
+  /** Action tags linked to this flow (hashtags with workstream_id). */
+  tags?: Array<{ id: string; name: string }>
   stages: TicketStage[]
-  steps_count?: number
+  stages_count?: number
+  /** List only: live tickets per stage key. */
+  ticket_counts?: Record<string, number>
+  /** List only: latest message on any of the flow's tickets. */
+  last_activity_at?: string | null
   created_at?: string | null
   updated_at?: string | null
 }
 
-export type WorkstreamStepRow = {
-  id: string
-  workstream_id: string
-  position: number
-  name: string
-  kind: WorkstreamStepKind
-  goal: string
-  agent_id: string | null
-  agent_role: string
-  wait_kind: WorkstreamWaitKind
-  deadline_hours: number
-  on_deadline: WorkstreamOnDeadline
-  knowledge_section_ids: string[]
-  stage_key: string
-  config: Record<string, unknown>
-}
-
-/** Step payload for the replace-steps call; `id` keeps existing step identity. */
-export type WorkstreamStepInput = {
-  id?: string | null
-  name: string
-  kind: WorkstreamStepKind
-  goal?: string
-  agent_id?: string | null
-  agent_role?: string
-  wait_kind?: WorkstreamWaitKind
-  deadline_hours?: number
-  on_deadline?: WorkstreamOnDeadline
-  knowledge_section_ids?: string[]
-  stage_key?: string
-  config?: Record<string, unknown>
-}
-
-export type WorkstreamDetail = WorkstreamRow & { steps: WorkstreamStepRow[] }
+export type WorkstreamDetail = WorkstreamRow
 
 export type WorkstreamRunRow = {
   id: string
@@ -121,7 +87,7 @@ export type WorkstreamStepOutput = {
 export type WorkstreamRunDetail = {
   run: WorkstreamRunRow
   workstream: WorkstreamRow
-  steps: WorkstreamStepRow[]
+  steps: unknown[]
   step_outputs: WorkstreamStepOutput[]
   agent_runs: WorkstreamRunAgentRun[]
 }
@@ -137,8 +103,8 @@ export async function listWorkstreams(opts?: { projectId?: string }): Promise<Wo
 export async function createWorkstream(body: {
   name: string
   description?: string
-  project_id?: string
-  is_default?: boolean
+  project_ids?: string[]
+  stages?: TicketStage[]
 }): Promise<WorkstreamRow> {
   return apiPost<WorkstreamRow>(workstreamsRoutes.list, body)
 }
@@ -149,30 +115,25 @@ export async function getWorkstream(workstreamId: string): Promise<WorkstreamDet
 
 export async function patchWorkstream(
   workstreamId: string,
-  patch: Partial<
-    Pick<WorkstreamRow, 'name' | 'description' | 'enabled' | 'is_default' | 'project_id' | 'stages'>
-  >,
+  patch: Partial<Pick<WorkstreamRow, 'name' | 'description' | 'enabled' | 'project_ids' | 'stages'>> & {
+    /** The flow's one action tag (at most one id); empty detaches it. */
+    tag_ids?: string[]
+  },
 ): Promise<WorkstreamRow> {
   return apiPatch<WorkstreamRow>(workstreamsRoutes.byId(workstreamId), patch)
+}
+
+export async function getWorkstreamBoard(workstreamId: string): Promise<FlowBoard> {
+  return apiGet<FlowBoard>(workstreamsRoutes.board(workstreamId))
 }
 
 export async function deleteWorkstream(workstreamId: string): Promise<void> {
   await apiDelete(workstreamsRoutes.byId(workstreamId))
 }
 
-export async function replaceWorkstreamSteps(
-  workstreamId: string,
-  steps: WorkstreamStepInput[],
-): Promise<WorkstreamStepRow[]> {
-  const res = await apiPut<{ steps: WorkstreamStepRow[] }>(workstreamsRoutes.steps(workstreamId), {
-    steps,
-  })
-  return res.steps ?? []
-}
-
 export async function startWorkstreamRun(
   workstreamId: string,
-  body?: { input_kind?: string; input_text?: string; input_ref?: string },
+  body?: { input_kind?: string; input_text?: string; input_ref?: string; project_id?: string | null },
 ): Promise<WorkstreamRunRow> {
   return apiPost<WorkstreamRunRow>(workstreamsRoutes.runs(workstreamId), body ?? {})
 }

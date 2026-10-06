@@ -16,7 +16,7 @@ const SCOPE_LABEL_KEYS: Record<string, string> = {
   projects: 'oauthMcp.scopeLabels.projects',
   agents: 'oauthMcp.scopeLabels.agents',
   delegation: 'oauthMcp.scopeLabels.delegation',
-  cases: 'oauthMcp.scopeLabels.cases',
+  tickets: 'oauthMcp.scopeLabels.tickets',
   triggers: 'oauthMcp.scopeLabels.triggers',
   channels: 'oauthMcp.scopeLabels.channels',
   integrations: 'oauthMcp.scopeLabels.integrations',

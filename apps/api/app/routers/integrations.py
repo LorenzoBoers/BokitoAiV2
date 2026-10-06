@@ -250,15 +250,15 @@ async def install_module_template(
     return {"workstream": ws_svc.serialize_workstream(ws)}
 
 
-@router.get("/modules/{slug}/case-type-templates")
-async def list_module_case_type_templates(
+@router.get("/modules/{slug}/tag-templates")
+async def list_module_tag_templates(
     slug: str,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Intake types this module ships."""
-    from app.models.case import CaseType
-    from app.modules.catalog import get_module, module_case_type_templates
+    """Hashtags this module ships. Attach a playbook to make one a category."""
+    from app.models.signal import SignalTag
+    from app.modules.catalog import get_module, module_tag_templates
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
@@ -266,39 +266,38 @@ async def list_module_case_type_templates(
     installed = set(
         (
             await session.execute(
-                select(CaseType.template_slug).where(
-                    CaseType.tenant_id == auth.tenant.id,
-                    CaseType.module_slug == slug,
+                select(SignalTag.template_slug).where(
+                    SignalTag.tenant_id == auth.tenant.id,
+                    SignalTag.module_slug == slug,
                 )
             )
         ).scalars()
     )
     items = []
-    for template in module_case_type_templates(slug):
+    for template in module_tag_templates(slug):
         row = template.serialize()
         row["already_installed"] = template.slug in installed
         items.append(row)
     return {"items": items}
 
 
-@router.post("/modules/{slug}/case-type-templates/{template_slug}/install")
-async def install_module_case_type_template(
+@router.post("/modules/{slug}/tag-templates/{template_slug}/install")
+async def install_module_tag_template(
     slug: str,
     template_slug: str,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     from app.modules.catalog import get_module
-    from app.services import cases as case_svc
+    from app.services.signal_tags import serialize_tag
+    from app.services.tickets import install_tag_template
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
     auth.require_role("owner", "admin")
     await _ensure_module_access(session, auth, slug)
-    row = await case_svc.install_case_type_template(
-        session, auth.tenant.id, slug, template_slug
-    )
-    return {"case_type": case_svc.serialize_case_type(row)}
+    row = await install_tag_template(session, auth.tenant.id, slug, template_slug)
+    return {"tag": serialize_tag(row)}
 
 
 class ModuleAgentAddBody(BaseModel):

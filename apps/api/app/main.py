@@ -46,7 +46,7 @@ from app.routers import (
     push,
     inbox_settings,
     ai_handling,
-    inbox_folders,
+    communication_nav,
     signal_tags,
     signals,
     teams,
@@ -58,7 +58,7 @@ from app.routers import (
     workspace,
     workstreams,
     customer_verify,
-    cases,
+    categories,
     canvases,
     orchestration,
     uploads,
@@ -275,7 +275,7 @@ app.include_router(oauth_as.mcp_well_known, prefix=api_prefix)
 app.include_router(oauth_as.well_known)
 app.include_router(partner_mcp.router, prefix=api_prefix)
 app.include_router(signal_tags.router, prefix=api_prefix)
-app.include_router(inbox_folders.router, prefix=api_prefix)
+app.include_router(communication_nav.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(teams.router, prefix=api_prefix)
 app.include_router(workbench.router, prefix=api_prefix)
@@ -290,8 +290,9 @@ app.include_router(public_api.router, prefix=api_prefix)
 app.include_router(orchestration.router, prefix=api_prefix)
 app.include_router(workstreams.router, prefix=api_prefix)
 app.include_router(customer_verify.router, prefix=api_prefix)
-app.include_router(cases.router, prefix=api_prefix)
-app.include_router(cases.signal_cases_router, prefix=api_prefix)
+app.include_router(categories.router, prefix=api_prefix)
+app.include_router(categories.ticket_router, prefix=api_prefix)
+app.include_router(categories.board_router, prefix=api_prefix)
 # Custom DB builder retired from core — Contact + Project + typed signal fields
 # replace it. The router module and its tables still exist so nothing migrates
 # out from under an existing tenant, but nothing is mounted: /api/app/custom-*

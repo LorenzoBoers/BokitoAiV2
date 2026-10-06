@@ -4,7 +4,7 @@ intro: Put Bokito chat on your site so visitors land in Communication next to em
 description: Install the Bokito chat widget, set Look and Voice, live handoff by availability, continuing on WhatsApp, and help articles next to chat.
 keywords: widget, website chat, livechat, install, appearance, availability, live handoff, whatsapp
 sort: 40
-related: channels,communication,widget-embed,cases,assistant
+related: channels,communication,widget-embed,categories,assistant
 ---
 
 # Install the website widget
@@ -27,13 +27,13 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 
 1. Open **Look** on the same page.
 2. Set **Handling agent** — that agent answers new widget conversations. New workspaces default to **Front desk** (the customer-facing agent). The widget name follows this agent unless you set **Assistant name**.
-3. Under **Welcome messages**, set **Welcome title** and **Welcome subtitle**. Under **Colors**, pick **Accent**. **Widget icon** follows Branding unless you upload an override. Under **What visitors see**, turn modules **Home**, **Messages**, **Help** or **Tools** on or off. Choose **Save changes** and reload the staging page. Leaving with unsaved Look changes asks you to confirm.
+3. Under **Welcome messages**, set **Welcome title** and **Welcome subtitle**. Under **Colors**, pick **Accent**. **Widget icon** follows Branding unless you upload an override. Under **What visitors see**, turn modules **Home**, **Messages**, **Help** or **Tools** on or off. Changes save automatically (**Last modified** shows in the header). Reload the staging page to see the live widget.
 
 The chat itself uses the same bubble design as [Communication](/docs/inbox/communication): messages from the same author within five minutes stack into one group, the first bubble of a group carries the avatar and name, and the last one carries the time. Assistant replies show the agent avatar with an **AI** chip; a reply from a colleague shows a **Team** chip instead, so visitors can see who answered.
 
 ## Set Voice, live handoff and the pre-chat form
 
-1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not**, then **Save changes**. The model itself is set on the agent page.
+1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not** — they save automatically. The model itself is set on the agent page.
 2. Under **Availability**, **Live handoff** shows **Someone is available** or **Nobody available**. There are no fixed hours: a visitor can ask for a person when someone with Handle access on the widget is available (see [Team](/docs/getting-started/team) for **Away**). Otherwise the agent says so and offers an email follow-up, a callback, or continuing on WhatsApp.
 3. Turn on **Pre-chat form** when you want a name and email before the first message. Those visitors become real [contacts](/docs/inbox/contacts) instead of anonymous website visitors.
 4. In the chat composer, visitors can dictate with the microphone when the browser supports speech recognition (same pattern on the website widget and the in-app assistant): hold to talk or click to start; while listening the button shows a green glow and animated wave bars, with a check on hover to confirm. Commit/dedupe rules and wave geometry are shared via `@bokito/shared` with the Messages composer.
@@ -60,4 +60,4 @@ A link works once and for seven days. A WhatsApp message without a valid link st
 
 ## What to do next
 
-Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [AI handling](/docs/inbox/inbox-ai) (website chat is often **Autonomous**). With **Disclose AI replies** on, autonomous answers show a short note under the bubble. Typed intake from chat is a [case](/docs/ai/cases), not a second inbox.
+Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [AI handling](/docs/inbox/inbox-ai) (website chat is often **Autonomous**). With **Disclose AI replies** on, autonomous answers show a short note under the bubble. A request recognized in chat becomes a [ticket](/docs/ai/categories) on the conversation, not a second inbox.

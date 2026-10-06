@@ -4,23 +4,20 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Bot,
+  CalendarClock,
   Copy,
-  FileText,
+  FolderKanban,
   GitBranch,
-  Loader2,
   MessageSquare,
   RefreshCw,
   Trash2,
-  Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
@@ -32,15 +29,16 @@ import { ProjectHome } from '../components/projects/ProjectHome'
 import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
 import { ProjectResourcesSection } from '../components/projects/ProjectResourcesSection'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
+import { AutosaveStatus } from '../components/ui/AutosaveStatus'
+import { useAutosave } from '../hooks/useAutosave'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { useAuth } from '../context/AuthContext'
 import { formatAppTime } from '../lib/app-locale'
 import { listAgents } from '../lib/agents-api'
 import { runThreadPath } from '../lib/open-entity'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
-import { inboxPath } from '../lib/messages-paths'
-import { flowStatusLabel } from '../lib/status-labels'
+import { projectHubPath } from '../lib/messages-paths'
+import { withNavReveal } from '../lib/nav-reveal'
 import {
   deleteProject,
   getProject,
@@ -50,10 +48,7 @@ import {
   type ProjectRow,
 } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
-import { listWorkstreams, type WorkstreamRow } from '../lib/workstreams-api'
-import { workstreamPath } from '../lib/workstream-ui'
 import type { RuntimeAgent } from '../lib/workforce-api'
-import { CaseBindingsCard } from '../components/workstreams/CaseBindingsCard'
 
 const PROJECT_TABS = ['home', 'canvas', 'docs', 'settings'] as const
 type ProjectTab = (typeof PROJECT_TABS)[number]
@@ -84,7 +79,6 @@ export default function ProjectDetail() {
 
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [budget, setBudget] = useState<ProjectBudgetResponse | null>(null)
-  const [workstreams, setWorkstreams] = useState<WorkstreamRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
@@ -93,7 +87,6 @@ export default function ProjectDetail() {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [saving, setSaving] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -110,15 +103,13 @@ export default function ProjectDetail() {
       setName(row.name)
       setDescription(row.description ?? '')
       // Secondary data may fail independently without blocking the page.
-      const [budgetResult, streamsResult, runsResult, agentsResult, threadsResult] = await Promise.allSettled([
+      const [budgetResult, runsResult, agentsResult, threadsResult] = await Promise.allSettled([
         getProjectBudget(projectId),
-        listWorkstreams({ projectId }),
         listWorkLogs({ project_id: projectId, limit: 10 }),
         listAgents(),
         token ? listThreads(token, { folder: 'internal', perPage: 80 }) : Promise.reject(new Error('signed out')),
       ])
       setBudget(budgetResult.status === 'fulfilled' ? budgetResult.value : null)
-      setWorkstreams(streamsResult.status === 'fulfilled' ? streamsResult.value : [])
       setRuns(runsResult.status === 'fulfilled' ? runsResult.value : [])
       setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
       setAgents(agentsResult.status === 'fulfilled' ? agentsResult.value : [])
@@ -138,11 +129,9 @@ export default function ProjectDetail() {
     if (!project) return false
     return name.trim() !== project.name || description.trim() !== (project.description ?? '')
   }, [project, name, description])
-  useUnsavedChangesGuard(dirty && !saving, t('projects.detail.unsavedLeave'))
 
   const saveAbout = useCallback(async () => {
     if (!project || !name.trim()) return
-    setSaving(true)
     try {
       const updated = await patchProject(project.id, {
         name: name.trim(),
@@ -151,24 +140,29 @@ export default function ProjectDetail() {
       setProject(updated)
       setName(updated.name)
       setDescription(updated.description ?? '')
-      toast.success(t('projects.detail.saved'))
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('projects.detail.saveError')))
-    } finally {
-      setSaving(false)
+      throw err
     }
   }, [project, name, description, t])
+
+  const { phase, lastSavedAt, error: autosaveError, flush } = useAutosave({
+    dirty,
+    enabled: isAdmin && Boolean(project),
+    canSave: Boolean(name.trim()),
+    save: saveAbout,
+  })
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return
-      if (!dirty || saving || !name.trim()) return
+      if (!dirty || !name.trim()) return
       event.preventDefault()
-      void saveAbout()
+      void flush()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [dirty, saving, name, saveAbout])
+  }, [dirty, name, flush])
 
   const confirmDelete = async () => {
     if (!project) return
@@ -185,8 +179,8 @@ export default function ProjectDetail() {
   }
 
   const threadsHref = project
-    ? `${inboxPath('all')}?project_id=${encodeURIComponent(project.id)}`
-    : inboxPath('all')
+    ? withNavReveal(projectHubPath(project.id, 'open'))
+    : '/communication'
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
@@ -206,33 +200,42 @@ export default function ProjectDetail() {
         <>
           <header className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">{project.name}</h1>
+              <div className="flex min-w-0 items-center gap-2">
+                <FolderKanban size={18} className="shrink-0 text-text-muted" aria-hidden />
+                <h1 className="truncate text-lg font-semibold tracking-[-0.01em] text-text-heading">
+                  {project.name}
+                </h1>
               </div>
               {project.description ? (
                 <p className="mt-1 max-w-2xl text-sm text-text-muted">{project.description}</p>
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              {refreshedAt ? (
-                <span className="text-xs text-text-muted">
-                  {t('projects.detail.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
-                </span>
-              ) : null}
-              <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
-                <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-                {t('projects.detail.refresh')}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void load()}
+                disabled={loading}
+                aria-label={t('projects.detail.refresh')}
+                title={
+                  refreshedAt
+                    ? t('projects.detail.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })
+                    : t('projects.detail.refresh')
+                }
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
               </Button>
               <Button asChild type="button" size="sm" variant="outline">
                 <Link to={threadsHref}>
                   <MessageSquare size={14} className="mr-1" />
-                  {t('projects.detail.viewThreads')}
+                  {t('projects.detail.openInCommunication')}
                 </Link>
               </Button>
               <Button asChild type="button" size="sm" variant="outline">
-                <Link to="/knowledge">
-                  <FileText size={14} className="mr-1" />
-                  {t('projects.detail.openKnowledge')}
+                <Link to={`/agenda?view=list&project=${encodeURIComponent(project.id)}`}>
+                  <CalendarClock size={14} className="mr-1" />
+                  {t('projects.home.agendaOpen')}
                 </Link>
               </Button>
               {isAdmin ? (
@@ -272,15 +275,43 @@ export default function ProjectDetail() {
               <TabsTrigger value="settings">{t('projects.detail.tabSettings')}</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="home">
+            <TabsContent value="home" className="space-y-4">
               <ProjectHome
                 project={project}
                 budget={budget}
-                workstreams={workstreams}
                 agents={agents}
                 canEdit={isAdmin}
                 onChanged={() => load({ silent: true })}
               />
+              <section className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-text-heading">{t('projects.detail.activity')}</h2>
+                  <Button asChild type="button" size="sm" variant="ghost">
+                    <Link to={threadsHref}>{t('projects.detail.openInCommunication')}</Link>
+                  </Button>
+                </div>
+                {runs.length === 0 ? (
+                  <Card className="p-4">
+                    <p className="text-sm text-text-muted">{t('projects.detail.noRuns')}</p>
+                  </Card>
+                ) : (
+                  <WorkLogsTable
+                    runs={runs}
+                    projects={[project]}
+                    runTo={(run) =>
+                      runThreadPath(
+                        run,
+                        internalThreads.map((row) => ({
+                          id: String(row.id),
+                          emailSubject: row.emailSubject,
+                          lastMessageAt: row.lastMessageAt,
+                        })),
+                      )
+                    }
+                    showProjectColumn={false}
+                  />
+                )}
+              </section>
             </TabsContent>
 
             <TabsContent value="canvas">
@@ -305,48 +336,7 @@ export default function ProjectDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-text-muted">{t('projects.detail.agentBudgetOnHome')}</p>
-                <Button type="button" size="sm" variant="outline" asChild>
-                  <Link to={`/projects/${project.id}`}>{t('projects.detail.openHome')}</Link>
-                </Button>
                 <ProjectAgentsSection projectId={project.id} agents={agents} />
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <Workflow size={12} />
-                    {t('projects.detail.workstreams')}
-                  </Label>
-                  {workstreams.length === 0 ? (
-                    <p className="text-sm text-text-muted">{t('projects.detail.noWorkstreams')}</p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {workstreams.map((stream) => (
-                        <li key={stream.id}>
-                          <Link
-                            to={workstreamPath(stream.id)}
-                            className="flex items-center justify-between gap-2 rounded-md border border-border/50 px-2.5 py-1.5 transition-colors hover:border-border hover:bg-bg-muted/40"
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate-fade text-sm text-text-primary">{stream.name}</span>
-                              <span className="block text-xs text-text-muted">
-                                {t('projects.detail.stepCount', { count: stream.steps_count ?? 0 })}
-                              </span>
-                            </span>
-                            <Badge
-                              variant={stream.enabled ? 'secondary' : 'outline'}
-                              className="shrink-0 px-1.5 py-0 text-2xs"
-                            >
-                              {flowStatusLabel(stream.enabled, t)}
-                            </Badge>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <Button type="button" size="sm" variant="outline" asChild>
-                    <Link to="/workstreams">{t('projects.detail.openWorkstreams')}</Link>
-                  </Button>
-                </div>
-                <CaseBindingsCard targetKind="project" targetId={project.id} canEdit={isAdmin} />
               </CardContent>
             </Card>
 
@@ -418,53 +408,12 @@ export default function ProjectDetail() {
                     {t('projects.detail.copySlug')}
                   </button>
                   {isAdmin ? (
-                  <Button type="button" size="sm" disabled={!dirty || saving || !name.trim()} onClick={() => void saveAbout()}>
-                    {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                    {t('projects.detail.save')}
-                  </Button>
+                    <AutosaveStatus phase={phase} lastSavedAt={lastSavedAt} error={autosaveError} />
                   ) : null}
                 </div>
               </CardContent>
             </Card>
           </div>
-
-          <section className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-text-heading">{t('projects.detail.activity')}</h2>
-              <Button asChild type="button" size="sm" variant="ghost">
-                <Link to={threadsHref}>{t('projects.detail.openThreads')}</Link>
-              </Button>
-            </div>
-            {runs.length === 0 ? (
-              <Card className="p-4">
-                <p className="text-sm text-text-muted">{t('projects.detail.noRuns')}</p>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  <Link to={AGENDA_AUTOMATIONS_PATH} className="text-sm font-medium text-accent hover:underline">
-                    {t('projects.detail.scheduleRun')}
-                  </Link>
-                  <Link to={threadsHref} className="text-sm font-medium text-accent hover:underline">
-                    {t('projects.detail.openThreads')}
-                  </Link>
-                </div>
-              </Card>
-            ) : (
-              <WorkLogsTable
-                runs={runs}
-                projects={[project]}
-                runTo={(run) =>
-                  runThreadPath(
-                    run,
-                    internalThreads.map((row) => ({
-                      id: String(row.id),
-                      emailSubject: row.emailSubject,
-                      lastMessageAt: row.lastMessageAt,
-                    })),
-                  )
-                }
-                showProjectColumn={false}
-              />
-            )}
-          </section>
             </TabsContent>
           </Tabs>
         </>

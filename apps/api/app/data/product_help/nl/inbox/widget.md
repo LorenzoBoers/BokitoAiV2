@@ -4,7 +4,7 @@ intro: Zet Bokito-chat op je site zodat bezoekers in Communicatie landen naast e
 description: Installeer de Bokito-chatwidget, zet Uiterlijk en Stem, live overdracht op beschikbaarheid, doorgaan op WhatsApp en hulpartikelen naast chat.
 keywords: widget, websitechat, livechat, installeren, uiterlijk, beschikbaarheid, live overdracht, whatsapp
 sort: 40
-related: channels,communication,widget-embed,cases,assistant
+related: channels,communication,widget-embed,categories,assistant
 ---
 
 # De websitewidget installeren
@@ -27,13 +27,13 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 
 1. Open **Uiterlijk** op dezelfde pagina.
 2. Zet **Behandelende agent** — die agent beantwoordt nieuwe widgetgesprekken. Nieuwe werkruimtes starten met **Front desk** (de klantgerichte agent). De widgetnaam volgt deze agent tenzij je **Assistentnaam** zet.
-3. Onder **Welkomstberichten** zet je **Welkomsttitel** en **Welkomstondertitel**. Onder **Kleuren** kies je **Accent**. **Widgetpictogram** volgt Branding tenzij je een override uploadt. Onder **Wat bezoekers zien** zet je **Home**, **Berichten**, **Help** of **Tools** aan of uit. Kies **Wijzigingen opslaan** en herlaad de stagingpagina. Wegnavigeren met niet-opgeslagen Look-wijzigingen vraagt om bevestiging.
+3. Onder **Welkomstberichten** zet je **Welkomsttitel** en **Welkomstondertitel**. Onder **Kleuren** kies je **Accent**. **Widgetpictogram** volgt Branding tenzij je een override uploadt. Onder **Wat bezoekers zien** zet je **Home**, **Berichten**, **Help** of **Tools** aan of uit. Wijzigingen worden automatisch opgeslagen (**Laatst gewijzigd** in de kop). Herlaad de stagingpagina om de live widget te zien.
 
 De chat gebruikt hetzelfde wolkjesontwerp als [Communicatie](/docs/inbox/communication): berichten van dezelfde afzender binnen vijf minuten stapelen tot één groep, het eerste wolkje draagt het avatar en de naam, het laatste de tijd. Antwoorden van de assistent tonen het agent-avatar met een **AI**-label; een antwoord van een collega toont een **Team**-label, zodat bezoekers zien wie antwoordde.
 
 ## Zet Stem, live overdracht en het vooraf-formulier
 
-1. Open **Stem en uren**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in, en kies **Wijzigingen opslaan**. Het model zelf zet je op de agentpagina.
+1. Open **Stem en uren**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in — ze worden automatisch opgeslagen. Het model zelf zet je op de agentpagina.
 2. Onder **Beschikbaarheid** toont **Live overdracht** **Iemand beschikbaar** of **Niemand beschikbaar**. Er zijn geen vaste uren: een bezoeker kan om een mens vragen zodra iemand met Afhandelen-toegang op de widget beschikbaar is (zie [Team](/docs/getting-started/team) voor **Afwezig**). Anders zegt de agent dat eerlijk en biedt opvolging per e-mail, een terugbelverzoek of doorgaan op WhatsApp aan.
 3. Zet **Vooraf-formulier** aan wanneer je naam en e-mail wilt vóór het eerste bericht. Die bezoekers worden echte [contacten](/docs/inbox/contacts) in plaats van anonieme websitebezoekers.
 4. In de chatcomposer kunnen bezoekers dicteren met de microfoon als de browser spraakherkenning ondersteunt (zelfde patroon op de websitewidget en de in-app-assistent): houd ingedrukt om te praten of klik om te starten; tijdens luisteren toont de knop een groene glow en golfbalken, met een vinkje bij hover om te bevestigen. Commit-/dedupe-regels en golfgeometrie delen Messages en de widget via `@bokito/shared`.
@@ -60,4 +60,4 @@ Een link werkt één keer en zeven dagen lang. Een WhatsApp-bericht zonder geldi
 
 ## Wat nu
 
-Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [AI-afhandeling](/docs/inbox/inbox-ai) (websitechat staat vaak op **Autonoom**). Met **AI-antwoorden vermelden** aan tonen autonome antwoorden een korte vermelding onder de bubbel. Getypte intake uit chat is een [signaal](/docs/ai/cases), geen tweede inbox.
+Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [AI-afhandeling](/docs/inbox/inbox-ai) (websitechat staat vaak op **Autonoom**). Met **AI-antwoorden vermelden** aan tonen autonome antwoorden een korte vermelding onder de bubbel. Een verzoek dat in de chat herkend wordt, wordt een [ticket](/docs/ai/categories) op het gesprek, geen tweede inbox.

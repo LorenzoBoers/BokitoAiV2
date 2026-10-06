@@ -36,6 +36,14 @@ SIGNAL_MESSAGE_KINDS = (
     "system_event",
     "internal_note",
 )
+# `proposed` sits before the lifecycle: an unsure read the operator still has
+# to accept. Accepted tickets carry the kind of their current stage.
+# Stage kinds map to ClickUp-style groups: open≈not started, waiting≈active,
+# done≈klaar, closed≈closed. `ticket_status` mirrors the current stage kind
+# (plus `proposed` before the pipeline).
+TICKET_STATUSES = ("proposed", "open", "waiting", "done", "closed")
+TICKET_STAGE_KINDS = ("open", "waiting", "done", "closed")
+CATEGORY_CREATE_MODES = ("ask_customer", "ask_operator", "auto", "manual_only")
 EXTERNAL_CHANNELS = (
     "email",
     "chat",
@@ -81,7 +89,7 @@ class Signal(SQLModel, table=True):
     # reopens the thread (status -> open, unread) once it passes.
     snoozed_until: Optional[datetime] = Field(default=None, index=True)
     # Free next look-at on this conversation (stays open). Not an AgentTask and
-    # not snooze: typed work opens a Case; this is only "look again at …".
+    # not snooze: typed work is a ticket; this is only "look again at …".
     follow_up_at: Optional[datetime] = Field(default=None, index=True)
     follow_up_title: str = Field(default="")
     priority: str = Field(default="normal", index=True)
@@ -141,6 +149,17 @@ class Signal(SQLModel, table=True):
     # parent points forward so inbound replies on that thread land in the child.
     parent_signal_id: Optional[uuid.UUID] = Field(default=None, index=True)
     superseded_by_id: Optional[uuid.UUID] = Field(default=None)
+
+    # The conversation is the ticket: at most one category per conversation,
+    # with its stage in that category's playbook. ``project_id`` above is the
+    # project chosen when the ticket was filed (null = no project).
+    ticket_tag_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signal_tags.id", index=True)
+    ticket_status: str = Field(default="", index=True)  # "" | proposed | open | waiting | done | closed
+    stage_key: str = ""
+    ticket_certainty: Optional[int] = None
+    ticket_filed_at: Optional[datetime] = None
+    # Values for optional intake fields defined on the flow's stages (JSON object).
+    ticket_fields_json: str = Field(default="{}")
 
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -228,22 +247,37 @@ class SavedReply(SQLModel, table=True):
 
 
 class SignalTag(SQLModel, table=True):
-    """Tenant tag registry: the curated vocabulary for conversation tags.
+    """A hashtag: the workspace vocabulary for finding and grouping conversations.
 
-    Conversations link to tags through `SignalTagLink`; this table is the list
-    operators manage (create, rename, remove) and the only vocabulary agents
-    and inbox rules may apply. Tagging a conversation with a new name registers
-    it here, so the list never drifts from what is actually in use.
+    Conversations link to free tags through `SignalTagLink`. A tag with a
+    ``workstream_id`` is a *category* (ticket-hashtag): filing it on a
+    conversation makes that conversation a ticket in the playbook's pipeline
+    (`Signal.ticket_tag_id`). The intake fields below only apply to categories.
+    Agents and inbox rules may only apply names the registry already has.
     """
 
     __tablename__ = "signal_tags"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    # Normalized (trimmed, lower-case) name; unique per tenant.
+    # Normalized hashtag name (lower case, hyphens, no leading #); unique per tenant.
     name: str = Field(default="", index=True)
     # When to use this tag. Shown in settings and fed to AI tagging.
     description: str = ""
+    workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
+    # A row in Communication's Tags and categories section.
+    pinned: bool = False
+    show_in_nav: bool = False
+    create_mode: str = "ask_customer"
+    ask_threshold: int = 6
+    auto_threshold: int = 9
+    # Outbound policy on a ticket of this category: draft | ask | send.
+    send_mode: str = "draft"
+    autonomy_level: str = "assisted"  # manual | assisted | autonomous
+    requires_verification: bool = False
+    module_slug: str = ""
+    template_slug: str = ""
+    sort_order: int = 0
     created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -258,28 +292,6 @@ class SignalTagLink(SQLModel, table=True):
     tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class InboxFolder(SQLModel, table=True):
-    """A saved filter in Communication's Folders group.
-
-    ``filter_json`` holds any of ``project_id``, ``category_id``, ``tag`` and
-    ``stage`` (a stage key, or a stage kind: open, waiting, done). Workspace
-    folders show for everyone; personal folders only for ``owner_user_id``.
-    Projects show as folders without a row here.
-    """
-
-    __tablename__ = "inbox_folders"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    name: str = ""
-    filter_json: str = Field(default="{}")
-    scope: str = Field(default="workspace")  # workspace | personal
-    owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-    position: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class SignalThreadPin(SQLModel, table=True):

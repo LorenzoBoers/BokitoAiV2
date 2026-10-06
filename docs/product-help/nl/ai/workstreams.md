@@ -1,72 +1,52 @@
 ---
-title: Zo werken Draaiboeken
-intro: Een draaiboek is een herhaalbaar stappenproces dat agents uitvoeren — met een volledig werklog per run.
-description: Definieer draaiboeken met zes geordende stapsoorten, één run per gevolgd signaal en een leesbaar werklog.
-keywords: werkstromen, draaiboeken, stappen, runs, werklog, beslissing, antwoord, planning, sjablonen
+title: Hoe Flows werken
+intro: Een flow is de fasenpijplijn van precies één actietag. De pagina heet naar die hashtag (`#klacht`) en toont een live bord met de tickets, met een baan per project.
+description: Maak een flow voor een actietag, volg de tickets per fase en project, bewerk de fasen in de bewerkmodus, en deactiveer of verwijder hem.
+keywords: flows, workstreams, draaiboeken, fasen, eigenaar, check-up, pijplijn, tickets, hashtags, actietags, projecten, bord, banen, bewerkmodus
 sort: 45
-related: projects,agenda,agents,knowledge,cases
+related: categories,projects,agenda,agents,knowledge
 ---
 
-# Zo werken Draaiboeken
+# Hoe Flows werken
 
-Een draaiboek is een gedefinieerd proces voor werk dat terugkomt: cijfers verzamelen voor een aangifte, de maand afsluiten, een rapport bijwerken. Open **Draaiboeken** (Werk-groep) om de stappen één keer te definiëren en agents ze run na run te laten uitvoeren, met een werklog dat je terugleest.
+Een flow is de pijplijn voor werk dat onder één actietag terugkomt: een klacht, een reparatie, een aangifte. Elke flow heeft precies één actietag en heet naar die hashtag (`#klacht`); de flowpagina toont de tickets per fase, en projecten tonen dezelfde fasen als bord.
 
-## Maak een draaiboek
+## Een flow aanmaken
 
-1. Open **Draaiboeken** en kies **Nieuw draaiboek**. Geef het proces een naam en druk op Enter.
-2. Koppel het draaiboek optioneel aan een project. Een projectgebonden draaiboek mag de documentatie van dat project bewerken; agent-bewerkingen aan projectdocumentatie gebeuren alleen binnen draaiboek-runs.
-3. Laat **Ingeschakeld** aan staan. Een uitgeschakeld draaiboek behoudt definitie en historie, maar kan geen nieuwe runs starten.
+1. Open **Flows** (groep Werk), typ een hashtag in **Hashtag voor nieuwe flow** en kies **Aanmaken**. Die hashtag wordt de actietag van de flow; een bestaande vrije hashtag wordt hergebruikt.
+2. Een hashtag die al bij een andere flow hoort, kan geen tweede flow starten. Je kunt ook een actietag maken via **Hashtags toevoegen** op een gesprek of onder Instellingen; dat maakt de flow.
+3. De lijst **Flows** toont per flow de fasen, het aantal open tickets per fase, de projecten waarin hij gebruikt wordt en de laatste activiteit.
 
-## Definieer de stappen
+## Tickets volgen op het flowbord
 
-1. Open het draaiboek en kies **Stap toevoegen**. Een draaiboek heeft minimaal één stap; stappen lopen op volgorde.
-2. Kies per stap één van zes soorten:
-   - **Bericht sturen** — stuur een bericht in het gevolgde gesprek. Velden zoals `{amount}` gebruiken waarden uit de runinput.
-   - **Agenttaak** — geef een agent een doel. Kies een specifieke agent of laat Bokito de lead-agent bepalen.
-   - **Wachten op antwoord** — parkeer de run tot het contact antwoordt; optionele antwoordtakken leiden passende antwoorden naar een andere stap.
-   - **Beslissing vragen** — toon een inline beslissing in het gesprek; elke optie kan naar een andere stap leiden.
-   - **Tool aanroepen** — voer een Bokito-tool uit met JSON-argumenten. Argumenten ondersteunen dezelfde veldsjablonen.
-   - **Inplannen** — wacht het ingestelde aantal uren en ga daarna verder.
-3. Koppel kennissecties aan een stap zodat de agent precies het handboekmateriaal leest dat die stap nodig heeft.
-4. Herschik of verwijder stappen wanneer je wilt; lopende runs houden de stappenlijst waarmee ze zijn gestart.
+![Flowbord met fasen als kolommen en een baan per project](/api/docs/assets/workstreams/board.png)
+*Fasen zijn de kolommen; elk project dat de flow gebruikt is een baan.*
 
-## Geef tickets fases
+1. Open een flow. Onder de titel zie je de **Actietag**, de projecten waarin hij **Gebruikt in** is, en tellers zoals **Open tickets** en **Langst stil**.
+2. Het bord heeft een kolom per fase en een baan per project, plus **Geen project** voor tickets zonder project. Klap een baan in via de kop, of kies **Project openen** om naar dat project te gaan.
+3. Een kaart toont de gesprekstitel, het contact, maximaal twee invoervelden, het kanaal, het tijdstip van het laatste bericht, de behandelaar en de volgende check-up. Klik op een kaart om het gesprek te openen.
+4. Sleep een kaart naar een andere fase in dezelfde baan. De verplaatsing staat in de tijdlijn van het gesprek; het project wijzig je alleen vanuit het gesprek.
 
-Een categorie die aan dit draaiboek gekoppeld is, maakt van haar gesprekken tickets. Het draaiboek bepaalt door welke fases die tickets gaan.
+## De fasen bewerken in de bewerkmodus
 
-1. Open het draaiboek en zoek de kaart **Ticketfases**.
-2. Kies **Fase toevoegen** voor elke stap die een ticket doorloopt (bijvoorbeeld Nieuw, Wacht op onderdelen, Opgelost). Zet elke **Soort fase** op open, wachtend of klaar; houd minstens één klaar-fase.
-3. Kies in een stap een **Fase** zodat het ticket daarheen gaat zodra de stap start, of laat **Fase behouden** staan.
-4. De status van het ticket volgt de soort van zijn fase, en elke verplaatsing staat in de tijdlijn van het gesprek. Zie [Categorieën en tickets](/docs/ai/cases).
+1. Beheerders kiezen rechtsboven **Bewerken**. Het bord verdwijnt en de balk **Bewerkmodus** verschijnt; titel, beschrijving en fasen zijn dan bewerkbaar. Een andere titel hernoemt de actietag op elk gesprek; de balk toont de oude en nieuwe hashtag voordat je opslaat.
+2. Kies in **Ticketfases** voor elke stap **Nieuwe fase toevoegen** (bijvoorbeeld Nieuw, Wacht op onderdelen, Gerepareerd). Zet elk **Soort fase** op open, waiting, done of closed, en houd minstens één klaar-fase. Sleep fasen om te herordenen.
+3. Op een klaar-fase zet je **Gesprek automatisch sluiten** aan als binnenkomen in die fase de thread moet sluiten.
+4. Open **Invoervelden** op een fase om tekst-, lange-tekst-, getal- of keuzelijstvelden toe te voegen. Velden op de eerste fase worden gevraagd bij het vastleggen van de actietag.
+5. Kies per fase een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme. Tickets in die fase krijgen een check-up op [Agenda](/docs/ai/agenda) voor hun eigenaar; klaar-fasen checken nooit.
+6. Er wordt niets opgeslagen tot je **Opslaan** kiest; intussen toont de balk **Niet-opgeslagen wijzigingen**. **Annuleren** vraagt of je wilt **Weggooien** en brengt je ongewijzigd terug naar het bord. Een hashtag die een andere tag al gebruikt, kun je niet opslaan.
 
-## Start en volg een run
+## De flow op een project tonen
 
-1. **Run starten** blijft uit tot het draaiboek minstens één stap heeft en **Ingeschakeld** is (niet gepauzeerd). Voeg eerst een stap toe, kies daarna **Run starten**, typ de input (het verzoek, de periode of de context waar deze run over gaat) en bevestig. Auto-start komt van de categorie (**Start het draaiboek direct** onder [Categorieën en tickets](/docs/ai/cases)) of van geaccepteerde intake op de Over-kaart — maximaal één run per ticket en draaiboek.
-2. Het run-detail toont de status (**Actief**, **Wachtend**, **Wacht op gate**, **Afgerond**, **Mislukt**, **Geannuleerd**), de input en een stap-voor-stap werklog: wat elke agent-stap deed, wanneer de run wachtte en welke beslissingen zijn genomen.
-3. Een wachtende run gaat verder wanneer je **Hervatten** kiest met het verwachte antwoord. Een beslissing wordt inline in het gevolgde gesprek opgelost; de gekozen tak bepaalt de volgende stap.
-4. **Annuleren** stopt een run; het werklog blijft bewaard.
+1. Projecten kiezen hun flows; de flowpagina toont alleen waar hij gebruikt wordt. Open het [project](/docs/ai/projects) en kies **Flow toevoegen**.
+2. **Ontkoppelen** op een projectbord haalt de flow van dat project af. De tickets houden hun project, maar staan niet meer op dat bord.
+3. Bij vastleggen van een ticket wordt gevraagd bij welk project van de flow het hoort, of **Geen project**.
 
-## Handel een mislukte stap af
+## Een flow deactiveren of verwijderen
 
-1. Bokito probeert een mislukte of vastgelopen stap automatisch opnieuw. De workspace-standaard is twee nieuwe pogingen.
-2. Na de limiet wordt het gevolgde signaal **Wachtend** en verschijnt een beslissingskaart in hetzelfde gesprek.
-3. Kies **Opnieuw proberen**, **Stap overslaan** of **Draaiboek stoppen**. Afgeronde agent-runs verschijnen als agentberichten in dat gesprek, zodat de thread het werklog blijft.
+1. Kies rechtsboven **Deactiveren** om nieuw werk op de flow te stoppen. De status toont **Gedeactiveerd**.
+2. Een gedeactiveerde flow toont **Activeren** en **Verwijderen**. Verwijderen zet hem in de prullenbak; zolang de flow actief is, kan dat niet.
 
-## Promoveer een run naar kennis
+## Wat daarna
 
-1. Open een afgeronde run.
-2. Kies **Promoveer naar kennis**. De agent destilleert de uitkomst tot een kennissectie, zodat de volgende run slimmer start.
-
-## Installeer een draaiboek vanuit een module
-
-Modules leveren voorgebouwde draaiboeken mee (bijvoorbeeld btw-aangifte voorbereiden op Boekhouding). Installeer er een vanaf de modulepagina onder **Draaiboeksjablonen**; de kopie is van jou en mag je bewerken. Voor elke run controleert Bokito opnieuw of de module is geïnstalleerd, de verbinding werkt en de agents bestaan — een run met een kapotte vereiste pauzeert met een beslissing in plaats van stil te falen.
-
-## Stel een draaiboek op vanuit chat
-
-1. Vertel een agent welk draaiboek je wilt maken of hoe de geordende stappen moeten veranderen.
-2. De agent stelt `create_workstream` of `update_workstream` voor als PlatformChange met de volledige stappenlijst.
-3. Beoordeel het concept in Govern. Toepassen werkt hetzelfde draaiboek op **Draaiboeken** bij. De live kaart van dat draaiboek is de Draaiboeken-pagina, geen aparte OS-overlay.
-
-## Wat nu
-
-Leid terugkerend queue-werk via draaiboeken op [Projecten](/docs/ai/projects). Accepteer chat-intake op de Over-kaart — zie [Categorieën en tickets](/docs/ai/cases). Plan een draaiboek met een trigger op de [Agenda](/docs/ai/agenda). Sjablonen komen uit [Integraties](/docs/integrations/integrations).
+Leg een actietag vast via **Hashtags toevoegen** op een gesprek in [Communicatie](/docs/inbox/communication); zie [Actietags en tickets](/docs/ai/categories).

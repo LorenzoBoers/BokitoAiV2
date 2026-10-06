@@ -42,6 +42,6 @@ Scopes beperken wat een token mag. Details in [Authenticatie](/docs/developers/a
 
 - De zeven publieke Bokito-objecten zijn Gesprek, Signaal, Draaiboek, Project, Contact, Agent en Beslissing. Gesprek/Signaal REST is de eerste stabiele v1-resource; bestaande geauthenticeerde routers dekken Draaiboeken, Projecten, Contacten, Agents en Beslissingen voor het dashboard.
 - Webhooks publiceren lifecycle-events en het MCP-endpoint biedt governed acties rond dezelfde objecten. Voor rijker gedrag is MCP het voorkeursoppervlak, zonder een grote dubbele REST-API te maken.
-- LLM-gebruik wordt gemeten per model, agent en startende gebruiker. Runmetadata schrijft gebruik ook toe aan Signaaltype en Draaiboekrun wanneer die context bekend is. Werkspacelidmaatschap vormt de seat-grens.
+- LLM-gebruik wordt gemeten per model, agent en startende gebruiker. Runmetadata schrijft gebruik ook toe aan categorie en draaiboekrun wanneer die context bekend is. Werkspacelidmaatschap vormt de seat-grens.
 - Alles is tenant-scoped via het token. Cross-tenant-toegang bestaat niet.
 - Rate limits gelden per client-IP; zie [Rate limits](/docs/developers/rate-limits).

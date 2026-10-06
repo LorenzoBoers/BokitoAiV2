@@ -672,8 +672,9 @@ def get_workstream_template(
 
 
 @dataclass(frozen=True)
-class CaseTypeTemplate:
-    """Intake type a module ships. Installing copies it to the tenant."""
+class TagTemplate:
+    """Hashtag a module ships. Installing registers it; attaching a playbook
+    makes it a category."""
 
     slug: str
     module_slug: str
@@ -683,7 +684,6 @@ class CaseTypeTemplate:
     ask_threshold: int = 6
     auto_threshold: int = 11
     requires_verification: bool = False
-    audience: str = "customer"
 
     def serialize(self) -> dict[str, Any]:
         return {
@@ -695,156 +695,64 @@ class CaseTypeTemplate:
             "ask_threshold": self.ask_threshold,
             "auto_threshold": self.auto_threshold,
             "requires_verification": self.requires_verification,
-            "audience": self.audience,
         }
 
 
-# Platform-owned Signal type seeds use the same catalog as module packages.
-# They are not an installable module, but keeping them here prevents intake
-# defaults and module-provided types from drifting into separate registries.
-# Labels are NL/MKB: the product shell for SMBs is Dutch. Slugs stay English
-# stable identifiers. Earlier EN seed names are listed in
-# PLATFORM_SIGNAL_TYPE_LEGACY_NAMES so ensure_platform_case_types can rename
-# in place without touching operator-customized names.
-PLATFORM_SIGNAL_TYPE_SEEDS: tuple[dict[str, Any], ...] = (
+# Starter hashtags for a new workspace. Free tags until an operator attaches a
+# playbook (promote), which makes them categories.
+PLATFORM_TAG_SEEDS: tuple[dict[str, Any], ...] = (
     {
-        "slug": "invoice_payment",
-        "name": "Factuur/betaling",
+        "name": "factuur",
         "description": "Vraag of geschil over een factuur, betaling of aanmaning.",
-        "create_mode": "ask_customer",
-        "ask_threshold": 6,
-        "auto_threshold": 11,
-        "audience": "customer",
         "sort_order": 5,
     },
     {
-        "slug": "complaint",
-        "name": "Klacht",
+        "name": "klacht",
         "description": "Een klant is ontevreden en wil dit vastgelegd hebben.",
-        "create_mode": "ask_customer",
-        "ask_threshold": 6,
-        "auto_threshold": 11,
-        "audience": "customer",
         "sort_order": 10,
     },
     {
-        "slug": "bug_report",
-        "name": "Storing",
+        "name": "storing",
         "description": "Iets werkt niet en moet bekeken worden.",
-        "create_mode": "ask_customer",
-        "ask_threshold": 6,
-        "auto_threshold": 9,
-        "audience": "both",
         "sort_order": 20,
     },
     {
-        "slug": "feature_request",
-        "name": "Functieverzoek",
+        "name": "functieverzoek",
         "description": "Een verzoek om een nieuwe of verbeterde mogelijkheid.",
-        "create_mode": "ask_customer",
-        "ask_threshold": 6,
-        "auto_threshold": 11,
-        "audience": "both",
         "sort_order": 30,
     },
     {
-        "slug": "spam_abuse",
-        "name": "Spam of misbruik",
+        "name": "spam",
         "description": "Ongewenst of misbruikend verkeer dat snel dicht mag.",
-        "create_mode": "auto",
-        "ask_threshold": 3,
-        "auto_threshold": 7,
-        "audience": "internal",
         "sort_order": 40,
     },
 )
 
-# Prior platform seed names (EN and earlier NL). Safe to overwrite when a
-# tenant row still carries one of these; leave any other name alone.
-PLATFORM_SIGNAL_TYPE_LEGACY_NAMES: dict[str, frozenset[str]] = {
-    "invoice_payment": frozenset({"Factuur/betaling", "Invoice/payment", "Invoice / payment"}),
-    "complaint": frozenset({"Complaint", "Klacht"}),
-    "bug_report": frozenset({"Bug report", "Storing"}),
-    "feature_request": frozenset({"Feature request", "Functieverzoek"}),
-    "spam_abuse": frozenset({"Spam or abuse", "Spam of misbruik"}),
-}
 
-PLATFORM_SIGNAL_TYPE_LEGACY_DESCRIPTIONS: dict[str, frozenset[str]] = {
-    "invoice_payment": frozenset(
-        {
-            "Vraag of geschil over een factuur, betaling of aanmaning.",
-            "A question or dispute about an invoice, payment, or dunning notice.",
-        }
-    ),
-    "complaint": frozenset(
-        {
-            "Een klant is ontevreden en wil dit vastgelegd hebben.",
-            "A customer is unhappy and wants this recorded.",
-        }
-    ),
-    "bug_report": frozenset(
-        {
-            "Iets werkt niet en moet bekeken worden.",
-            "Something is broken and should be looked at.",
-        }
-    ),
-    "feature_request": frozenset(
-        {
-            "Een verzoek om een nieuwe of verbeterde mogelijkheid.",
-            "A request for a new capability.",
-        }
-    ),
-    "spam_abuse": frozenset(
-        {
-            "Ongewenst of misbruikend verkeer dat snel dicht mag.",
-            "Unwanted or abusive inbound that should be closed quickly.",
-        }
-    ),
-}
-
-
-CASE_TYPE_TEMPLATES: dict[str, tuple[CaseTypeTemplate, ...]] = {
+TAG_TEMPLATES: dict[str, tuple[TagTemplate, ...]] = {
     "accounting": (
-        CaseTypeTemplate(
+        TagTemplate(
             slug="billing_inquiry",
             module_slug="accounting",
-            name="Factuurvraag",
+            name="factuurvraag",
             description=(
                 "Een klant vraagt naar een factuur, saldo of betaling. "
                 "Vereist een bevestigd e-mailadres voordat dossiers mogen worden opgezocht."
             ),
             create_mode="ask_customer",
             requires_verification=True,
-            audience="customer",
         ),
     ),
 }
 
-# Module template rows installed before the NL/MKB rename.
-MODULE_CASE_TYPE_LEGACY_NAMES: dict[str, frozenset[str]] = {
-    "billing_inquiry": frozenset({"Billing inquiry", "Factuurvraag"}),
-}
-MODULE_CASE_TYPE_LEGACY_DESCRIPTIONS: dict[str, frozenset[str]] = {
-    "billing_inquiry": frozenset(
-        {
-            "Een klant vraagt naar een factuur, saldo of betaling. "
-            "Vereist een bevestigd e-mailadres voordat dossiers mogen worden opgezocht.",
-            "A customer asks about an invoice, balance, or payment. "
-            "Requires a confirmed email before looking up their records.",
-        }
-    ),
-}
 
-
-def module_case_type_templates(module_slug: str) -> tuple[CaseTypeTemplate, ...]:
+def module_tag_templates(module_slug: str) -> tuple[TagTemplate, ...]:
     package = MODULE_PACKAGES.get(module_slug)
-    return package.signal_types if package else ()
+    return package.tags if package else ()
 
 
-def get_case_type_template(
-    module_slug: str, template_slug: str
-) -> CaseTypeTemplate | None:
-    for template in module_case_type_templates(module_slug):
+def get_tag_template(module_slug: str, template_slug: str) -> TagTemplate | None:
+    for template in module_tag_templates(module_slug):
         if template.slug == template_slug:
             return template
     return None
@@ -870,17 +778,17 @@ class ProjectTemplate:
 
 @dataclass(frozen=True)
 class ModulePackage:
-    """Installable module contents: Signal types, playbooks, optional Project."""
+    """Installable module contents: hashtags, playbooks, optional Project."""
 
     module_slug: str
-    signal_types: tuple[CaseTypeTemplate, ...]
+    tags: tuple[TagTemplate, ...]
     playbooks: tuple[WorkstreamTemplate, ...]
     project: ProjectTemplate | None = None
 
     def serialize(self) -> dict[str, Any]:
         return {
             "module_slug": self.module_slug,
-            "signal_types": [item.serialize() for item in self.signal_types],
+            "tags": [item.serialize() for item in self.tags],
             "playbooks": [item.serialize() for item in self.playbooks],
             "project": self.project.serialize() if self.project else None,
         }
@@ -889,7 +797,7 @@ class ModulePackage:
 MODULE_PACKAGES: dict[str, ModulePackage] = {
     module.slug: ModulePackage(
         module_slug=module.slug,
-        signal_types=CASE_TYPE_TEMPLATES.get(module.slug, ()),
+        tags=TAG_TEMPLATES.get(module.slug, ()),
         playbooks=WORKSTREAM_TEMPLATES.get(module.slug, ()),
     )
     for module in MODULES

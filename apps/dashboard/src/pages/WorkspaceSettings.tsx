@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe, Paintbrush, ArrowRight, Shield, ListChecks, Mail, Bot, Puzzle, MessageSquare } from 'lucide-react';
+import { Paintbrush, ArrowRight, Shield, ListChecks, Mail, Bot, Puzzle, MessageSquare } from 'lucide-react';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path';
 import { Switch } from '../components/ui/switch';
@@ -14,11 +14,9 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { PageContent } from '../components/layout/PageContent';
 import { SettingsSection } from '../components/layout/SettingsSection';
-import { persistUiLanguage } from '../lib/language-preference';
-
 export default function WorkspaceSettings() {
-  const { t, i18n } = useTranslation(['workspace', 'common', 'nav']);
-  const { user, token, isStaff } = useAuth();
+  const { t } = useTranslation(['workspace', 'common', 'nav']);
+  const { user, isStaff } = useAuth();
   const { currentWorkspace, updateWorkspace, deleteWorkspace } = useWorkspace();
   const canInviteMembers = usePermission('invite_members');
   const isOwner = usePermission('delete_workspace');
@@ -27,7 +25,6 @@ export default function WorkspaceSettings() {
   const canDeleteWorkspace = isOwner || Boolean(isStaff);
 
   const [workspaceName, setWorkspaceName] = useState(currentWorkspace?.name || user?.tenant.name || '');
-  const language = (i18n.resolvedLanguage === 'nl' ? 'nl' : 'en') as 'nl' | 'en';
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,9 +38,6 @@ export default function WorkspaceSettings() {
     if (currentWorkspace?.name) setWorkspaceName(currentWorkspace.name);
   }, [currentWorkspace?.id, currentWorkspace?.name]);
 
-  // The saved ui_language preference is applied app-wide by
-  // useLanguagePreferenceSync in App.tsx.
-
   const handleSave = async () => {
     if (!currentWorkspace) return;
     setSaving(true);
@@ -56,18 +50,6 @@ export default function WorkspaceSettings() {
       toast.error(error instanceof Error ? error.message : t('saveError'));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const setLanguage = async (next: 'nl' | 'en') => {
-    void i18n.changeLanguage(next);
-    document.documentElement.lang = next;
-    if (!token) return;
-    try {
-      await persistUiLanguage(token, next);
-    } catch {
-      // Applied locally for this session, but won't survive a reload.
-      toast.error(t('languageSaveError'));
     }
   };
 
@@ -231,34 +213,6 @@ export default function WorkspaceSettings() {
           </div>
         </SettingsSection>
       ) : null}
-
-      <SettingsSection title={t('languageSectionTitle')}>
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">
-            <Globe size={16} className="inline mr-2" />
-            {t('language')}
-          </label>
-          <p className="mb-3 text-xs text-text-muted">
-            {t('languageSectionHint')}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant={language === 'nl' ? 'default' : 'secondary'}
-              size="sm"
-              onClick={() => void setLanguage('nl')}
-            >
-              {t('languageDutch')}
-            </Button>
-            <Button
-              variant={language === 'en' ? 'default' : 'secondary'}
-              size="sm"
-              onClick={() => void setLanguage('en')}
-            >
-              {t('languageEnglish')}
-            </Button>
-          </div>
-        </div>
-      </SettingsSection>
 
       {canDeleteWorkspace && (
         <Card className="border-status-error/40 bg-status-error/5">

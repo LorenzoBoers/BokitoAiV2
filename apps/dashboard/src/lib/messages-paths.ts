@@ -6,6 +6,8 @@
  * - `team`    — a pinned team, same sub-folders
  * - `channel` — one connected channel (mailbox, website chat, WhatsApp, …)
  * - `agent`   — chats with one company agent (same sub-folders + Activity)
+ * - `tag`     — one hashtag: a category (its tickets) or a pinned free tag
+ * - `project` — conversations filed on one project
  */
 
 export const INBOX_QUEUES = ['all', 'for_you', 'open', 'unassigned', 'snoozed', 'closed', 'spam'] as const
@@ -34,6 +36,8 @@ export type HubLeaf =
   | { type: 'team'; teamId: string; queue?: SubQueue }
   | { type: 'channel'; channelKey: ChannelKey; connectionId?: string; queue?: SubQueue }
   | { type: 'agent'; agentId: string; queue?: AgentQueue }
+  | { type: 'tag'; tag: string; queue?: SubQueue }
+  | { type: 'project'; projectId: string; queue?: SubQueue }
 
 /** @deprecated Kept for callers that still pass chip-shaped values; prefer channel leaves. */
 export type ChannelChip = string
@@ -54,6 +58,18 @@ export function inboxPath(queue?: InboxQueue | null, threadId?: string | null): 
 
 export function teamPath(teamId: string, queue?: SubQueue | null, threadId?: string | null): string {
   let base = `/communication/team/${encodeURIComponent(teamId)}`
+  if (queue) base += `/${queue}`
+  return withThread(base, threadId)
+}
+
+export function tagPath(tag: string, queue?: SubQueue | null, threadId?: string | null): string {
+  let base = `/communication/tag/${encodeURIComponent(tag)}`
+  if (queue) base += `/${queue}`
+  return withThread(base, threadId)
+}
+
+export function projectHubPath(projectId: string, queue?: SubQueue | null, threadId?: string | null): string {
+  let base = `/communication/project/${encodeURIComponent(projectId)}`
   if (queue) base += `/${queue}`
   return withThread(base, threadId)
 }
@@ -174,6 +190,10 @@ export function leafPath(leaf: HubLeaf, threadId?: string | null): string {
       })
     case 'agent':
       return agentChatPath(leaf.agentId, { queue: leaf.queue, threadId })
+    case 'tag':
+      return tagPath(leaf.tag, leaf.queue, threadId)
+    case 'project':
+      return projectHubPath(leaf.projectId, leaf.queue, threadId)
   }
 }
 
@@ -226,6 +246,11 @@ export function leafFromPath(pathname: string): HubLeaf | null {
       teamId: decodeURIComponent(parts[0]),
       queue: parseSubQueue(raw),
     }
+  }
+  if ((head === 'tag' || head === 'project') && parts[0]) {
+    const id = decodeURIComponent(parts[0])
+    const queue = parseSubQueue(parts[1] ? decodeURIComponent(parts[1]) : undefined)
+    return head === 'tag' ? { type: 'tag', tag: id, queue } : { type: 'project', projectId: id, queue }
   }
   if (head === 'agent' && parts[0]) {
     const second = parts[1] ? decodeURIComponent(parts[1]) : undefined
@@ -295,6 +320,8 @@ export function sameLeafScope(a: HubLeaf | null, b: HubLeaf): boolean {
     return a.channelKey === b.channelKey && (a.connectionId ?? '') === (b.connectionId ?? '')
   }
   if (a.type === 'agent' && b.type === 'agent') return a.agentId === b.agentId
+  if (a.type === 'tag' && b.type === 'tag') return a.tag === b.tag
+  if (a.type === 'project' && b.type === 'project') return a.projectId === b.projectId
   return false
 }
 
@@ -309,6 +336,10 @@ export function leafKey(leaf: HubLeaf): string {
       return `channel:${leaf.channelKey}:${leaf.connectionId ?? ''}${leaf.queue ? `:${leaf.queue}` : ''}`
     case 'agent':
       return `agent:${leaf.agentId}${leaf.queue ? `:${leaf.queue}` : ''}`
+    case 'tag':
+      return `tag:${leaf.tag}${leaf.queue ? `:${leaf.queue}` : ''}`
+    case 'project':
+      return `project:${leaf.projectId}${leaf.queue ? `:${leaf.queue}` : ''}`
   }
 }
 

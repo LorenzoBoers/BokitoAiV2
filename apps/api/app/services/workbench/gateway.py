@@ -30,7 +30,6 @@ TERMINAL = frozenset({"finished", "failed", "cancelled"})
 @dataclass
 class JobLinks:
     signal_id: UUID | None = None
-    case_id: UUID | None = None
     project_id: UUID | None = None
     agent_id: UUID | None = None
     decision_id: UUID | None = None
@@ -108,7 +107,6 @@ async def dispatch(
     job = WorkJob(
         tenant_id=tenant_id,
         signal_id=links.signal_id,
-        case_id=links.case_id,
         project_id=links.project_id,
         workbench_connection_id=conn.id,
         agent_id=links.agent_id,

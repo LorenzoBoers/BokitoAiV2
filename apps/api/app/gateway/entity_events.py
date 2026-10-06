@@ -1,7 +1,7 @@
 """Publish ``entity.changed`` for every committed write on tracked models.
 
 One session hook instead of a publish call in every writer: whatever code
-path creates, updates or deletes a trigger, case, project, agent, module
+path creates, updates or deletes a trigger, ticket, tag, project, agent, module
 source, calendar event, bin entry, playbook run or team, operators see it
 live. A team membership change publishes as an update of its team.
 
@@ -41,18 +41,19 @@ _AGENT_RUNTIME_FIELDS = frozenset(
 def _entity_of(obj: Any) -> str | None:
     from app.models.agent import Agent
     from app.models.calendar import CalendarEvent
-    from app.models.case import Case
     from app.models.module_source import ModuleSource
-    from app.models.orchestra import WorkstreamRun
+    from app.models.orchestra import WorkstreamProject, WorkstreamRun
     from app.models.project import Project
+    from app.models.signal import Signal, SignalTag
     from app.models.team import Team, TeamMember
     from app.models.trash import TrashEntry
     from app.models.trigger import Trigger
 
     mapping: tuple[tuple[type, str], ...] = (
         (Trigger, "trigger"),
-        (Case, "case"),
+        (SignalTag, "tag"),
         (Project, "project"),
+        (WorkstreamProject, "project"),
         (Agent, "agent"),
         (ModuleSource, "module_source"),
         (CalendarEvent, "calendar"),
@@ -61,10 +62,22 @@ def _entity_of(obj: Any) -> str | None:
         (Team, "team"),
         (TeamMember, "team"),
     )
+    if isinstance(obj, Signal):
+        return "ticket" if _ticket_change(obj) else None
     for cls, name in mapping:
         if isinstance(obj, cls):
             return name
     return None
+
+
+def _ticket_change(obj: Any) -> bool:
+    state = inspect(obj)
+    if state.pending:
+        return getattr(obj, "ticket_tag_id", None) is not None
+    return any(
+        state.attrs[key].history.has_changes()
+        for key in ("ticket_tag_id", "ticket_status", "stage_key", "project_id")
+    )
 
 
 def _only_runtime_change(obj: Any) -> bool:
@@ -85,18 +98,25 @@ def _record(session: Session, obj: Any, op: str) -> None:
     if op == "updated" and getattr(obj, "deleted_at", None) is not None:
         op = "deleted"
     team_id = getattr(obj, "team_id", None) if entity == "team" else None
+    # A playbook attached to or detached from a project changes that project's board.
+    board_project_id = getattr(obj, "workstream_id", None) and getattr(obj, "project_id", None)
+    if entity == "ticket":
+        op = "updated"
     if team_id is not None:
         op = "updated"
         key_id: str | None = str(team_id)
+    elif entity == "project" and board_project_id:
+        op = "updated"
+        key_id = str(board_project_id)
     elif entity == "calendar":
         key_id = None
     else:
         key_id = str(getattr(obj, "id", "") or "")
     pending: dict[tuple[str, str, str | None], str] = session.info.setdefault(_PENDING_KEY, {})
-    if entity == "case":
+    if entity == "ticket":
         # The conversation list refreshes the row whose category or stage changed.
         hints: dict[str, dict[str, Any]] = session.info.setdefault(_HINTS_KEY, {})
-        hints[key_id or ""] = {"signal_id": str(getattr(obj, "signal_id", "") or "")}
+        hints[key_id or ""] = {"signal_id": key_id or ""}
     current = pending.get((str(tenant_id), entity, key_id))
     if current in ("created", "deleted"):
         return
@@ -131,7 +151,7 @@ def _flush_events(session: Session) -> None:
 
     signal_ids: set[str] = set()
     for (tenant_id, entity, entity_id), op in pending.items():
-        row = hints.get(entity_id or "") if entity == "case" else None
+        row = hints.get(entity_id or "") if entity == "ticket" else None
         loop.create_task(publish_entity(tenant_id, entity=entity, id=entity_id, op=op, row=row))
         if row and row.get("signal_id"):
             signal_ids.add(row["signal_id"])

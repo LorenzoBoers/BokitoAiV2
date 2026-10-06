@@ -10,11 +10,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.case import Case
 from app.models.orchestration import QUEUE_ITEM_KINDS, AgentTask
 from app.models.project import Project, ProjectAgent
 from app.models.project_work import ProjectResource
-from app.models.orchestra import Workstream
+from app.models.signal import Signal
 from app.models.usage import UsageLedger
 
 DEFAULT_TOKEN_BUDGET_DAILY = 100_000
@@ -189,21 +188,22 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             roster_by_project.setdefault(row.project_id, []).append(
                 {"agent_id": str(agent.id), "name": agent.name, "is_default": row.is_default}
             )
-    # Open Signals (Cases) on the project — the same board as Project Home.
-    open_cases_by_project: dict[UUID, int] = {}
+    # Open tickets filed on the project, the same cards as its board.
+    open_tickets_by_project: dict[UUID, int] = {}
     sections_by_project: dict[UUID, tuple[int, int]] = {}  # (total, verified-ish)
     if projects:
         project_ids = [p.id for p in projects]
-        case_result = await session.execute(
-            select(Case.project_id, func.count())
+        ticket_result = await session.execute(
+            select(Signal.project_id, func.count())
             .where(
-                Case.tenant_id == tenant_id,
-                Case.project_id.in_(project_ids),
-                Case.status.in_(("proposed", "open", "waiting")),
+                Signal.tenant_id == tenant_id,
+                Signal.project_id.in_(project_ids),
+                Signal.ticket_status.in_(("open", "waiting")),
+                Signal.deleted_at.is_(None),
             )
-            .group_by(Case.project_id)
+            .group_by(Signal.project_id)
         )
-        open_cases_by_project = {row[0]: row[1] for row in case_result.all()}
+        open_tickets_by_project = {row[0]: row[1] for row in ticket_result.all()}
         from app.models.workspace import DocSection, WorkspaceDoc
 
         section_result = await session.execute(
@@ -229,7 +229,7 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             repo_by_project.get(p.id),
         )
         item["agents"] = roster_by_project.get(p.id, [])
-        item["open_signals_count"] = open_cases_by_project.get(p.id, 0)
+        item["open_tickets_count"] = open_tickets_by_project.get(p.id, 0)
         total, done = sections_by_project.get(p.id, (0, 0))
         item["doc_sections_total"] = total
         item["doc_sections_done"] = done
@@ -403,16 +403,16 @@ async def delete_project(
             commit=commit,
         )
         return {"deleted": True}
-    # Detach (not delete) runnable workstreams: they may still be scheduled
-    # or referenced by past runs outside the project scope.
-    streams = await session.execute(
-        select(Workstream).where(
-            Workstream.project_id == project_id, Workstream.tenant_id == tenant_id
+    # Detach (not delete) playbooks: they are reusable across projects.
+    from sqlalchemy import delete as _sa_delete
+
+    from app.models.orchestra import WorkstreamProject
+
+    await session.execute(
+        _sa_delete(WorkstreamProject).where(
+            WorkstreamProject.project_id == project_id, WorkstreamProject.tenant_id == tenant_id
         )
     )
-    for stream in streams.scalars().all():
-        stream.project_id = None
-        session.add(stream)
     # Project-owned work: queue tasks, doc sections, links, resources, docs.
     from sqlalchemy import delete as sa_delete, update as sa_update
 

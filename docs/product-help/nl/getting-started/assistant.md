@@ -4,7 +4,7 @@ intro: De helper rechtsonder op elke pagina — hij kent het scherm waar je bent
 description: Bokito is de persoonlijke assistent van elk lid van een workspace. Hij legt schermen uit, antwoordt vanuit de producthelp, richt dingen in binnen jouw rol en delegeert werk aan de agents van de workspace.
 keywords: assistent, bokito, helper, in-app chat, persoonlijke assistent, delegeren
 sort: 45
-related: tour,agents,govern,cases,widget
+related: tour,agents,govern,categories,widget
 ---
 
 # Bokito, je assistent
@@ -51,4 +51,4 @@ Elk gesprek blijft in de workspace waar je het voerde. Wat Bokito over *jou* ont
 2. Lees de feiten die Bokito over jou bewaarde. Kies **Vergeten** bij één regel of **Alles wissen**.
 3. Open de helper opnieuw met **Praat met assistent** als je iets nieuws wilt laten onthouden. Bedrijfsagents en de websitewidget zijn apart — zie [Agents](/docs/ai/agents) en [Chatwidget](/docs/inbox/widget).
 
-De websitechatwidget is een andere instelling: **Instellingen**, daarna **Chatwidget**. Die pagina is voor bezoekers op je site, niet voor deze helper. De helper volgt het lichte of donkere thema van het dashboard. Intake van die widget is een [signaal](/docs/ai/cases) op het gesprek.
+De websitechatwidget is een andere instelling: **Instellingen**, daarna **Chatwidget**. Die pagina is voor bezoekers op je site, niet voor deze helper. De helper volgt het lichte of donkere thema van het dashboard. Intake van die widget wordt een [ticket](/docs/ai/categories) op het gesprek.

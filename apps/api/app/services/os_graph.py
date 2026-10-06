@@ -25,7 +25,7 @@ from app.models.os_graph import (
     OsCanvasEdge,
     OsCanvasNode,
 )
-from app.models.orchestra import Workstream
+from app.models.orchestra import Workstream, WorkstreamProject
 from app.models.project import Project
 from app.services.projects import serialize_po_agent
 from app.services.presence import agent_status
@@ -102,12 +102,10 @@ async def _resolve_node_summary(
             )
         )
         ws = result.scalar_one_or_none()
-        project_id = str(ws.project_id) if ws and ws.project_id else None
         base["title"] = ws.name if ws else node.label or "Workstream"
         base["subtitle"] = (ws.description or "")[:80] if ws else ""
         base["status"] = ("active" if ws.enabled else "paused") if ws else "draft"
-        base["href"] = f"/project/{project_id}/overview" if project_id else None
-        base["project_id"] = project_id
+        base["href"] = f"/workstreams/{ws.id}" if ws else None
         return base
 
     if node.node_type == "repo":
@@ -367,8 +365,8 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
             po_agent = po_result.scalar_one_or_none()
         ws_count = await session.execute(
             select(func.count())
-            .select_from(Workstream)
-            .where(Workstream.project_id == project.id)
+            .select_from(WorkstreamProject)
+            .where(WorkstreamProject.project_id == project.id)
         )
         pending = await session.execute(
             select(func.count())

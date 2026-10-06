@@ -14,9 +14,11 @@ import {
   UserRoundCheck,
   X,
 } from 'lucide-react'
+import { AutosaveStatus } from '../components/ui/AutosaveStatus'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import { useAutosave } from '../hooks/useAutosave'
 import { EmptyState } from '../components/ui/empty-state'
 import { Input } from '../components/ui/input'
 import { LoadingBlock } from '../components/ui/loading-block'
@@ -38,7 +40,6 @@ import { AiHandlingIcon } from '../components/ai/AiHandlingIcon'
 import { ChannelGlyph } from '../components/ui/ChannelGlyph'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
-import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { confirmAutonomousRaise } from '../hooks/useAiHandling'
 import { getAiConfig, saveAiConfig, type EmailConnection, type MailboxReplyLanguage } from '../lib/email-api'
 import {
@@ -162,8 +163,6 @@ export default function AiCommunicationSettings() {
   const [mailboxLoadError, setMailboxLoadError] = useState<string | null>(null)
   const [expandedMailboxId, setExpandedMailboxId] = useState<number | null>(null)
 
-  const [saving, setSaving] = useState(false)
-  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   const applyOverview = useCallback((next: AiHandlingOverview) => {
     setOverview(next)
@@ -262,7 +261,6 @@ export default function AiCommunicationSettings() {
     overview != null && disclosure != null && JSON.stringify(disclosure) !== JSON.stringify(overview.disclosure)
   const mailboxDirty = dirtyMailboxIds.length > 0
   const isDirty = tenantDirty || safeguardsDirty || disclosureDirty || mailboxDirty
-  useUnsavedChangesGuard(isDirty, t('ai.communication.unsavedLeave'))
 
   const changeWorkspaceMode = async (mode: AiHandlingMode | null) => {
     if (!token || !mode) return
@@ -294,8 +292,6 @@ export default function AiCommunicationSettings() {
 
   const handleSave = useCallback(async () => {
     if (!token) return
-    setSaving(true)
-    setSaveMessage(null)
     try {
       if (safeguardsDirty || disclosureDirty) {
         applyOverview(
@@ -320,11 +316,9 @@ export default function AiCommunicationSettings() {
           return next
         })
       }
-      setSaveMessage(t('ai.communication.saved'))
     } catch (err) {
-      setSaveMessage(err instanceof Error ? err.message : t('ai.communication.saveError'))
-    } finally {
-      setSaving(false)
+      toast.error(err instanceof Error ? err.message : t('ai.communication.saveError'))
+      throw err
     }
   }, [
     token,
@@ -338,8 +332,16 @@ export default function AiCommunicationSettings() {
     dirtyMailboxIds,
     mailboxDrafts,
     applyOverview,
+    resetTenantDefaultSendAs,
     t,
   ])
+
+  const { phase, lastSavedAt, error: autosaveError } = useAutosave({
+    dirty: isDirty,
+    enabled: Boolean(token),
+    save: handleSave,
+    delayMs: 900,
+  })
 
   const exceptionGroups: ExceptionGroup[] = overview
     ? ([
@@ -354,7 +356,10 @@ export default function AiCommunicationSettings() {
 
   return (
     <PageContent width="md" className="space-y-6">
-      <PageIntro description={t('ai.pageMeta.communication.description')} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <PageIntro description={t('ai.pageMeta.communication.description')} />
+        <AutosaveStatus phase={phase} lastSavedAt={lastSavedAt} error={autosaveError} />
+      </div>
 
       <section className="space-y-4" data-testid="ai-handling-settings">
         <div>
@@ -481,7 +486,6 @@ export default function AiCommunicationSettings() {
                   value={String(safeguards.certaintyThreshold)}
                   onValueChange={(v) => {
                     setSafeguards((prev) => (prev ? { ...prev, certaintyThreshold: Number(v) } : prev))
-                    setSaveMessage(null)
                   }}
                 >
                   <SelectTrigger id="ai-certainty-threshold" className="w-56">
@@ -512,7 +516,6 @@ export default function AiCommunicationSettings() {
                   checked={safeguards.newContacts}
                   onCheckedChange={(checked) => {
                     setSafeguards((prev) => (prev ? { ...prev, newContacts: checked } : prev))
-                    setSaveMessage(null)
                   }}
                 />
               </SettingRow>
@@ -527,7 +530,6 @@ export default function AiCommunicationSettings() {
                   checked={disclosure.enabled}
                   onCheckedChange={(checked) => {
                     setDisclosure((prev) => (prev ? { ...prev, enabled: checked } : prev))
-                    setSaveMessage(null)
                   }}
                 />
               </SettingRow>
@@ -544,7 +546,6 @@ export default function AiCommunicationSettings() {
                     onChange={(e) => {
                       const text = e.target.value
                       setDisclosure((prev) => (prev ? { ...prev, text } : prev))
-                      setSaveMessage(null)
                     }}
                   />
                   <p className="text-xs text-text-muted">
@@ -582,7 +583,6 @@ export default function AiCommunicationSettings() {
                   languages={REPLY_LANGUAGES}
                   onChange={(v) => {
                     setAiSettings((prev) => (prev ? { ...prev, replyLanguage: (v || 'auto') as ReplyLanguage } : prev))
-                    setSaveMessage(null)
                   }}
                 />
               </SettingRow>
@@ -600,7 +600,6 @@ export default function AiCommunicationSettings() {
                     setAiSettings((prev) =>
                       prev ? { ...prev, workspaceLanguage: (v || 'en') as WorkspaceLanguage } : prev,
                     )
-                    setSaveMessage(null)
                   }}
                 />
               </SettingRow>
@@ -614,7 +613,6 @@ export default function AiCommunicationSettings() {
                   value={aiSettings.replySendAs}
                   onValueChange={(v) => {
                     setAiSettings((prev) => (prev ? { ...prev, replySendAs: v as ReplySendAs } : prev))
-                    setSaveMessage(null)
                   }}
                 >
                   <SelectTrigger id="ai-reply-send-as" className="w-56">
@@ -666,7 +664,6 @@ export default function AiCommunicationSettings() {
                   onToggle={() => setExpandedMailboxId((prev) => (prev === mailbox.id ? null : mailbox.id))}
                   onChange={(value) => {
                     setMailboxDrafts((prev) => ({ ...prev, [mailbox.id]: value as MailboxReplyLanguage }))
-                    setSaveMessage(null)
                   }}
                 />
               ))}
@@ -674,20 +671,6 @@ export default function AiCommunicationSettings() {
           )}
         </Card>
       </section>
-
-      <div
-        className={
-          isDirty
-            ? 'sticky bottom-4 z-20 flex items-center gap-3 rounded-lg border border-accent/30 bg-bg-surface px-3 py-2 shadow-overlay'
-            : 'flex items-center gap-3'
-        }
-      >
-        {isDirty ? <p className="text-xs text-text-secondary">{t('ai.communication.unsavedBar')}</p> : null}
-        <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
-          {saving ? t('ai.communication.saving') : t('ai.communication.save')}
-        </Button>
-        {saveMessage ? <p className="text-xs text-text-secondary">{saveMessage}</p> : null}
-      </div>
 
       <section className="space-y-3">
         <div>

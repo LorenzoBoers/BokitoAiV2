@@ -44,6 +44,24 @@ describe('configForLeaf', () => {
   })
 })
 
+describe('configForLeaf hashtags and projects', () => {
+  it('scopes a hashtag row to its name', () => {
+    expect(configForLeaf({ type: 'tag', tag: 'refund-request', queue: 'open' }).filters).toEqual({
+      folder: 'inbox',
+      view: 'all_open',
+      tag: 'refund-request',
+    })
+  })
+
+  it('scopes a project row to its id', () => {
+    expect(configForLeaf({ type: 'project', projectId: 'p-1', queue: 'for_you' }).filters).toEqual({
+      folder: 'inbox',
+      view: 'for_you',
+      projectId: 'p-1',
+    })
+  })
+})
+
 describe('mergeHubThreadFilters', () => {
   it('keeps leaf channel when no chip is set', () => {
     const merged = mergeHubThreadFilters(

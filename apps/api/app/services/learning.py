@@ -84,9 +84,9 @@ async def process_feedback_batch(session: AsyncSession, tenant_id: UUID, limit: 
 async def propose_repeated_corrections(
     session: AsyncSession, tenant_id: UUID
 ) -> int:
-    """Three matching corrections propose a Signal Type description edit."""
-    from app.models.case import CaseType
+    """Three matching corrections propose a category description edit."""
     from app.models.platform_change import PlatformChange
+    from app.models.signal import SignalTag
 
     since = datetime.utcnow() - timedelta(days=30)
     grouped = (
@@ -107,7 +107,7 @@ async def propose_repeated_corrections(
     ).all()
     created = 0
     for key, count, comment in grouped:
-        # Convention: type:<uuid>:<stable correction label>.
+        # Convention: type:<category tag uuid>:<stable correction label>.
         parts = str(key).split(":", 2)
         if len(parts) < 2 or parts[0] != "type":
             continue
@@ -115,14 +115,14 @@ async def propose_repeated_corrections(
             type_id = UUID(parts[1])
         except ValueError:
             continue
-        case_type = await session.get(CaseType, type_id)
-        if case_type is None or case_type.tenant_id != tenant_id:
+        category = await session.get(SignalTag, type_id)
+        if category is None or category.tenant_id != tenant_id or category.workstream_id is None:
             continue
         duplicate = (
             await session.execute(
                 select(PlatformChange.id).where(
                     PlatformChange.tenant_id == tenant_id,
-                    PlatformChange.resource_type == "case_type",
+                    PlatformChange.resource_type == "category",
                     PlatformChange.resource_id == str(type_id),
                     PlatformChange.status.in_(("draft", "pending_review")),
                     PlatformChange.summary.contains(str(key)),
@@ -135,17 +135,17 @@ async def propose_repeated_corrections(
         session.add(
             PlatformChange(
                 tenant_id=tenant_id,
-                resource_type="case_type",
+                resource_type="category",
                 resource_id=str(type_id),
                 change_kind="update",
                 status="pending_review",
                 summary=f"Repeated correction {key} ({count} times)",
-                before_json=json.dumps({"description": case_type.description}),
+                before_json=json.dumps({"tag_id": str(type_id), "description": category.description}),
                 after_json=json.dumps(
                     {
-                        "case_type_id": str(type_id),
+                        "tag_id": str(type_id),
                         "description": (
-                            f"{case_type.description.rstrip()} "
+                            f"{category.description.rstrip()} "
                             f"Correction guidance: {proposed}"
                         ).strip(),
                     }
@@ -572,10 +572,10 @@ async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool
 async def propose_scoped_autonomy_growth(
     session: AsyncSession, tenant_id: UUID
 ) -> int:
-    """Strong outcomes propose, but never apply, per-type/playbook autonomy."""
-    from app.models.case import CaseType
+    """Strong outcomes propose, but never apply, per-category/playbook autonomy."""
     from app.models.orchestra import Workstream
     from app.models.platform_change import PlatformChange
+    from app.models.signal import SignalTag
 
     latest = (
         await session.execute(
@@ -594,13 +594,13 @@ async def propose_scoped_autonomy_growth(
     proposals = 0
     resources: list[tuple[str, Any]] = []
     resources.extend(
-        ("case_type", row)
+        ("category", row)
         for row in (
             await session.execute(
-                select(CaseType).where(
-                    CaseType.tenant_id == tenant_id,
-                    CaseType.enabled.is_(True),
-                    CaseType.autonomy_level.in_(("assisted", "approval")),
+                select(SignalTag).where(
+                    SignalTag.tenant_id == tenant_id,
+                    SignalTag.workstream_id.is_not(None),
+                    SignalTag.autonomy_level.in_(("assisted", "approval")),
                 )
             )
         ).scalars().all()
@@ -630,7 +630,7 @@ async def propose_scoped_autonomy_growth(
         ).first()
         if exists:
             continue
-        key = "case_type_id" if resource_type == "case_type" else "workstream_id"
+        key = "tag_id" if resource_type == "category" else "workstream_id"
         session.add(
             PlatformChange(
                 tenant_id=tenant_id,
@@ -642,7 +642,7 @@ async def propose_scoped_autonomy_growth(
                     f"Propose auto autonomy for {row.name}: "
                     f"{latest.value:.0f}% autonomy over {latest.sample_size} actions"
                 ),
-                before_json=json.dumps({"autonomy_level": "assisted"}),
+                before_json=json.dumps({key: str(row.id), "autonomy_level": "assisted"}),
                 after_json=json.dumps({key: str(row.id), "autonomy_level": "autonomous"}),
                 proposed_by_type="system",
             )

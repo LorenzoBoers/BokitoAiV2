@@ -108,12 +108,15 @@ Contacts and single conversations can still differ from the channel. See [AI han
 2. Create a title and body, or save a draft from the composer in a thread.
 3. Anyone can insert a saved reply while answering in Communication.
 
-## Choose default sub-views, folders and tags
+## Choose sub-views and manage hashtags
 
-1. Scroll to **Folders and tags** on the same page.
-2. Every channel and agent folder in Communication has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Sub-views appear only after you click the folder. Pick the **Default sub-view** a folder opens on, and override it per channel or assistant below.
-3. Under **Folders**, save a filter on project, category, tag and stage as a folder in the Communication sidebar. Under **Tags**, keep the workspace tag list that agents and rules pick from. See [Communication](/docs/inbox/communication).
-4. The category of a conversation is not a tag; manage categories under **Settings** → **Signal types**. See [Categories and tickets](/docs/ai/cases).
+![Tags and Communication on the Channels page](/api/docs/assets/channels/communication-tags.png)
+*Each Communication row with the sub-view it opens on.*
+
+1. Scroll to **Tags and Communication** on the same page. Every row in the Communication sidebar has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Pick the **Default sub-view**, and override it per team, channel, hashtag or project below.
+2. Scroll to **Hashtags** to keep the workspace list that agents and rules pick from. Choose **New hashtag**, type a name, and add a description agents read.
+3. Hashtags and action tags live under **Settings** → **Action tags**: pin a free hashtag there to give it a row under **Tags** in Communication, or choose **Make action tag** to attach a flow.
+4. See [Action tags and tickets](/docs/ai/categories).
 
 ## What to do next
 

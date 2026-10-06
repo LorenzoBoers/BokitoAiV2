@@ -143,7 +143,7 @@ Elke tool komt terug met een naam, een beschrijving met categorieprefix, en een 
 - `messaging` - threads lezen en samenvatten (`list_threads`), beantwoorden of sluiten, en CRM met `list_contacts`, `get_contact` en `upsert_contact`
 - `agents` - agents bekijken met `list_agents`, `get_agent`, `list_playbooks` en `get_playbook`; agents en draaiboeken aanmaken of bijwerken
 - `triggers` - `list_triggers` voor de Agenda, plus nieuwe wakes plannen
-- `cases` - getypeerde intake: `list_case_types`, `list_cases`, `create_case`
+- `tickets` - actietags en tickets: `list_categories` (lijst actietags), `get_ticket`, `file_ticket` (zelfde pad als Hashtags toevoegen; geef een van de projecten van de actietag, `null` voor Geen project, of laat `project_id` weg zodat het ticket voorgesteld blijft voor het team) en `update_ticket` om een fase te verplaatsen. Vrije hashtags gaan via `set_thread_tags`, niet via `file_ticket`.
 - `govern` - `get_tenant_overview`, `get_usage_summary` en `resolve_decision` voor een openstaande beslissingskaart
 - `workspace` - kennis: `search_index`, `list_docs`, `read_doc`, `write_doc`; Prullenbak: `list_trash`, `restore_trash_item` (herstellen vraagt altijd; agents purgen niet)
 

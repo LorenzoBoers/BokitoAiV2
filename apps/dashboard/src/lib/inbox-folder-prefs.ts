@@ -1,6 +1,7 @@
 /**
- * Default sub-view (For you / Open / Unassigned / Closed) for All communication
- * and pinned team folders in the Communication sidebar.
+ * Default sub-view (For you / Open / Unassigned / Closed) for every row in the
+ * Communication sidebar: All communication, channels, agents, teams, hashtags
+ * and projects.
  *
  * Stored per user in `/me/preferences` under `inbox_folders`, so the choice
  * roams across devices:
@@ -42,6 +43,10 @@ export function folderScopeKey(leaf: HubLeaf): string {
       return `channel:${leaf.channelKey}:${leaf.connectionId ?? ''}`
     case 'agent':
       return `agent:${leaf.agentId}`
+    case 'tag':
+      return `tag:${leaf.tag}`
+    case 'project':
+      return `project:${leaf.projectId}`
   }
 }
 

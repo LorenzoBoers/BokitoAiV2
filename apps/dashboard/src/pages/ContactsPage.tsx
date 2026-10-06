@@ -74,6 +74,7 @@ import { withoutParkedChannels } from '../lib/channel-surface'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import type { InboxThread } from '../lib/inbox-api'
 import { listSignalThreads } from '../lib/signals-api'
+import { ThreadLookAt, ThreadTicketPrefix } from '../components/contacts/ContactThreadMeta'
 
 const STATUS_STYLE: Record<ContactStatus, string> = {
   approved: 'bg-status-success/15 text-status-success',
@@ -514,10 +515,12 @@ function ContactDetail({ contactId }: { contactId: string }) {
                       {thread.emailSubject || t('contactsPage.noSubject')}
                     </span>
                     <span className="block truncate-fade text-xs text-text-muted">
+                      <ThreadTicketPrefix thread={thread} />
                       {threadStatusLabel(thread.status, t)}
                       {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                     </span>
                   </span>
+                  <ThreadLookAt thread={thread} />
                 </Link>
               ))
             )}
@@ -773,10 +776,12 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                       {thread.emailSubject || t('contactsPage.noSubject')}
                     </span>
                     <span className="block truncate-fade text-xs text-text-muted">
+                      <ThreadTicketPrefix thread={thread} />
                       {threadStatusLabel(thread.status, t)}
                       {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                     </span>
                   </span>
+                  <ThreadLookAt thread={thread} />
                 </Link>
               ))
             )}

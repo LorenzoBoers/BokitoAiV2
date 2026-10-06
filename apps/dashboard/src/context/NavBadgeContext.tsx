@@ -23,6 +23,8 @@ export type NavBadgeCounts = {
   byTeam: Record<string, number>
   agentsAttention: number
   noReplySuggestions: number
+  /** Overdue look-ats and due check-ups on conversations assigned to you. */
+  agendaDue: number
 }
 
 const EMPTY_COUNTS: NavBadgeCounts = {
@@ -31,6 +33,7 @@ const EMPTY_COUNTS: NavBadgeCounts = {
   byTeam: {},
   agentsAttention: 0,
   noReplySuggestions: 0,
+  agendaDue: 0,
 }
 
 function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCounts>>): NavBadgeCounts {
@@ -45,6 +48,7 @@ function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCount
     byTeam: payload.by_team,
     agentsAttention: payload.agents_attention,
     noReplySuggestions: payload.no_reply_suggestions,
+    agendaDue: payload.agenda_due,
   }
 }
 

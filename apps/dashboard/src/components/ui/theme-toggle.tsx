@@ -6,32 +6,11 @@ import { Tip } from './Tip'
 interface ThemeToggleProps {
   className?: string;
   showLabel?: boolean;
-  variant?: 'button' | 'dropdown' | 'segmented';
+  variant?: 'button' | 'segmented';
 }
 
 export function ThemeToggle({ className, showLabel = false, variant = 'button' }: ThemeToggleProps) {
   const { mode, setMode, toggleMode, isDark } = useTheme();
-
-  if (variant === 'dropdown') {
-    return (
-      <div className={cn('relative', className)}>
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value as 'light' | 'dark' | 'system')}
-          className="appearance-none bg-bg-surface border border-border rounded-md px-3 py-2 pr-8 text-sm text-text-primary focus:outline-none focus:border-border-focus transition-colors"
-        >
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="system">System</option>
-        </select>
-        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-          <svg className="h-4 w-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
-    );
-  }
 
   if (variant === 'segmented') {
     return (

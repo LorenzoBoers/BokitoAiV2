@@ -63,15 +63,22 @@ async def agenda(
     to: datetime | None = Query(None),
     agent_id: UUID | None = Query(None),
     sources: str | None = Query(
-        None, description="Comma list of session, wake, calendar, follow_up (default all)"
+        None,
+        description=(
+            "Comma list of session, wake, checkup, calendar, follow_up, activity "
+            "(default all but activity)"
+        ),
     ),
     scheduled_only: bool = Query(
         False, description="Only sessions fired by a trigger (planning view)"
     ),
+    project_id: UUID | None = Query(None, description="Only items tied to this project"),
 ):
-    """Time items in a window: agent sessions, planned wakes, calendar events
-    and conversation follow-ups, in one shape. Agenda, the agent activity
-    timeline and agent detail all read this endpoint."""
+    """Time items in a window, in one shape: agent sessions, planned wakes,
+    stage check-ups, calendar events (merged across connections), conversation
+    look-ats and, on request, activity (tickets filed or moved, owners changed,
+    conversations closed, decisions asked or answered). Agenda, the agent
+    activity timeline, agent detail and the project page all read this endpoint."""
     now = datetime.utcnow()
     start = _naive_utc(from_) or now - timedelta(days=1)
     end = _naive_utc(to) or now + timedelta(days=14)
@@ -90,6 +97,7 @@ async def agenda(
         agent_id=agent_id,
         sources=wanted,
         scheduled_only=scheduled_only,
+        project_id=project_id,
     )
     return {
         "items": items,
@@ -104,9 +112,14 @@ async def list_triggers(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     kind: str | None = Query(None),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(200, ge=1, le=500),
 ):
-    stmt = select(Trigger).where(Trigger.tenant_id == auth.tenant.id, Trigger.deleted_at.is_(None))
+    stmt = select(Trigger).where(
+        Trigger.tenant_id == auth.tenant.id,
+        Trigger.deleted_at.is_(None),
+        # Stage check-ups belong to their ticket; the routines list stays readable.
+        Trigger.purpose == "",
+    )
     if kind:
         stmt = stmt.where(Trigger.kind == kind)
     stmt = stmt.order_by(Trigger.created_at).limit(limit)

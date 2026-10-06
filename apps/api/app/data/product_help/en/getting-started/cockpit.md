@@ -4,12 +4,12 @@ intro: Start here when you want to know whether work is flowing and where attent
 description: Use Overview for the daily scan, Canvas for workspace dashboards, Activity for the event log and Usage for token budget caps and spend.
 keywords: overview, reports, cockpit, dashboard, usage, budget, activity
 sort: 50
-related: communication,agent-runs,decisions,agenda
+related: communication,categories,agent-runs,decisions,agenda
 ---
 
 # How Overview works
 
-Overview is the morning scan. Open it from the left rail to see what needs you, open signals, running work and weekly trajectory, then jump into the underlying conversation or run. Under **Settings → Profile** you can set Overview as your start page after sign-in; Communication remains the default.
+Overview is the morning scan. Open it from the left rail to see what needs you, open tickets, running work and weekly trajectory, then jump into the underlying conversation or run. Under **Settings → Profile** you can set Overview as your start page after sign-in; Communication remains the default.
 
 ## Scan the day on Overview
 
@@ -17,8 +17,8 @@ Overview is the morning scan. Open it from the left rail to see what needs you, 
 *Overview shows open work, decisions and recent runs.*
 
 1. Open **Overview** in the left rail. You land on the scan. The subtitle greets you and shows today's date. The gray line `environment · tenant-slug · Live` is for support (API environment, this tenant, websocket). Click the slug to copy. The same line sits at the bottom of the account menu. A dashboard build id appears there only on a deployed release.
-2. Scan the four fixed blocks: **Needs you**, **Open signals by type**, **Running**, and **Trajectory**. Trajectory compares this week with last week and links to completed runs, Govern proposals, and Usage.
-3. Click any row in the four blocks to open its conversation, run, or filtered list. A row under **Open signals by type** opens Communication filtered on that category. Overview itself does not change operational data.
+2. Scan the four fixed blocks: **Needs you**, **Open tickets by category**, **Running and next up**, and **Trajectory**. **Running and next up** warns about due check-ups and overdue look-ats, lists the next few [Agenda](/docs/ai/agenda) items, then the runs in progress, and ends with **Open Agenda**. Trajectory compares this week with last week: **Tickets filed (7 days)** counts confirmed tickets only, and the block links to completed runs, Govern proposals, and Usage.
+3. Click any row in the four blocks to open its conversation, run, or filtered list. A row under **Open tickets by category** opens that category's row in Communication. Overview itself does not change operational data.
 4. Below that, **AI handling** counts open conversations per mode (**Autonomous**, **Assisted**, **Manual**) and shows **Autonomous replies**, **Handed to a person** and **Drafts edited before sending** over the last 30 days.
 
 On a new workspace, Overview may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).

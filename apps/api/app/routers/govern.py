@@ -17,7 +17,7 @@ from app.dependencies import AuthContext, get_current_auth, tenant_settings
 from app.models.agent import Agent
 from app.models.api_token import ApiToken
 from app.models.auth import Tenant
-from app.models.case import CaseType
+from app.models.signal import SignalTag
 from app.models.orchestra import Workstream
 from app.services.agent_rules import (
     AUTONOMY_MODES,
@@ -198,16 +198,9 @@ async def list_autonomy_scopes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from app.services.cases import ensure_platform_case_types
+    from app.services.tickets import list_categories
 
-    await ensure_platform_case_types(session, auth.tenant.id)
-    case_types = (
-        await session.execute(
-            select(CaseType)
-            .where(CaseType.tenant_id == auth.tenant.id, CaseType.enabled.is_(True))
-            .order_by(CaseType.sort_order, CaseType.name)
-        )
-    ).scalars().all()
+    categories = await list_categories(session, auth.tenant.id)
     workstreams = (
         await session.execute(
             select(Workstream)
@@ -216,17 +209,16 @@ async def list_autonomy_scopes(
         )
     ).scalars().all()
     return {
-        "case_types": [
+        "categories": [
             {
                 "id": str(row.id),
-                "slug": row.slug,
                 "name": row.name,
                 "autonomy_level": normalize_autonomy(row.autonomy_level),
-                # draft/ask: replies on threads with this type never go out
+                # draft/ask: replies on tickets of this category never go out
                 # autonomously (AI handling safeguard).
                 "send_mode": row.send_mode,
             }
-            for row in case_types
+            for row in categories
         ],
         "workstreams": [
             {"id": str(row.id), "name": row.name, "autonomy_level": normalize_autonomy(row.autonomy_level)}
@@ -245,7 +237,7 @@ async def update_autonomy_scope(
 ):
     auth.require_role("owner", "admin")
     level = parse_autonomy_level(body.autonomy_level)
-    model = CaseType if scope_kind == "case_type" else Workstream if scope_kind == "workstream" else None
+    model = SignalTag if scope_kind == "category" else Workstream if scope_kind == "workstream" else None
     if model is None:
         raise HTTPException(status_code=400, detail="Invalid autonomy scope")
     row = (
@@ -274,10 +266,7 @@ async def update_autonomy_scope(
         commit=False,
     )
     await session.commit()
-    payload: dict = {"id": str(row.id), "name": row.name, "autonomy_level": level}
-    if scope_kind == "case_type":
-        payload["slug"] = getattr(row, "slug", "") or ""
-    return payload
+    return {"id": str(row.id), "name": row.name, "autonomy_level": level}
 
 
 @router.get("/allowances")

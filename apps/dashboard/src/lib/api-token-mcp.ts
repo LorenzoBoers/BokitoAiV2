@@ -132,7 +132,7 @@ export const TOKEN_SCOPE_PRESETS: TokenScopePreset[] = [
   },
   {
     id: 'ops',
-    scopes: ['workspace', 'projects', 'messaging', 'agents', 'delegation', 'cases', 'triggers'],
+    scopes: ['workspace', 'projects', 'messaging', 'agents', 'delegation', 'tickets', 'triggers'],
   },
   {
     id: 'full',

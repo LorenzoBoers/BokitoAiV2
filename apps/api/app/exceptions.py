@@ -39,6 +39,9 @@ async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
 
 
 async def operational_error_handler(_request: Request, exc: OperationalError) -> JSONResponse:
+    import logging
+
+    logging.getLogger("app").exception("OperationalError mapped to schema_out_of_date: %s", exc)
     return JSONResponse(
         status_code=503,
         content={

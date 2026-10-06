@@ -49,7 +49,7 @@ import {
   pickPreferredInboxThread,
   threadHubPath,
 } from '../lib/message-composer'
-import { loadOpenSignalCases, resolveOpenSignalCases } from '../lib/close-thread-signals'
+import { loadOpenTickets, resolveOpenTickets } from '../lib/close-thread-signals'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { InboxSplitSkeleton } from '../components/ui/skeleton'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
@@ -80,12 +80,11 @@ import {
 import {
   bulkUpdateSignalThreads,
   cancelScheduledMessage,
-  FOLDER_FILTER_KEYS,
-  folderFilterFromParams,
-  folderFilterQuery,
-  sameFolderFilter,
+  LIST_FILTER_KEYS,
+  listFilterFromParams,
+  listFilterQuery,
 } from '../lib/signals-api'
-import { useInboxFolders } from '../hooks/useInboxFolders'
+import { useCommunicationNav } from '../hooks/useCommunicationNav'
 import type { AiHandlingMode } from '../lib/ai-handling'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
@@ -127,7 +126,7 @@ export default function Communication() {
 
   const searchKey = searchParams.toString()
   const folderFilter = useMemo(
-    () => folderFilterFromParams(new URLSearchParams(searchKey)),
+    () => listFilterFromParams(new URLSearchParams(searchKey)),
     [searchKey],
   )
   const projectId = folderFilter.project_id
@@ -137,22 +136,23 @@ export default function Communication() {
   const hasFolderFilter = Boolean(projectId || categoryId || tagParam || stageParam)
   const agentParam = searchParams.get('agent')?.trim() || undefined
   const needsDecisionParam = searchParams.get('needs_decision') === '1'
-  const { folders: inboxFolders } = useInboxFolders(hasFolderFilter)
+  const { nav: communicationNav } = useCommunicationNav(hasFolderFilter)
 
   const scopeLabel = useMemo(() => {
     if (!hasFolderFilter) return null
-    const folder = inboxFolders.find((row) => sameFolderFilter(row.filter, folderFilter))
-    if (folder?.kind === 'project') return t('threadList.scopeProject', { name: folder.name })
-    if (folder) return t('threadList.scopeFolder', { name: folder.name })
-    if (projectId && !categoryId && !tagParam && !stageParam) {
-      return t('threadList.scopeProject', { name: t('threadList.scopeProjectFallback') })
+    const onlyProject = projectId && !categoryId && !tagParam && !stageParam
+    const onlyTag = tagParam && !projectId && !categoryId && !stageParam
+    if (onlyProject) {
+      const name = communicationNav.projects.find((row) => row.id === projectId)?.name
+      return t('threadList.scopeProject', { name: name ?? t('threadList.scopeProjectFallback') })
     }
+    if (onlyTag) return t('threadList.scopeFolder', { name: `#${tagParam}` })
     return t('threadList.scopeFiltered')
-  }, [hasFolderFilter, inboxFolders, folderFilter, projectId, categoryId, tagParam, stageParam, t])
+  }, [hasFolderFilter, communicationNav.projects, projectId, categoryId, tagParam, stageParam, t])
 
   const clearScope = useCallback(() => {
     const next = new URLSearchParams(searchParams)
-    for (const key of FOLDER_FILTER_KEYS) next.delete(key)
+    for (const key of LIST_FILTER_KEYS) next.delete(key)
     const query = next.toString()
     navigate(`${leafPath(leaf, threadIdParam ?? undefined)}${query ? `?${query}` : ''}`, {
       replace: true,
@@ -169,7 +169,7 @@ export default function Communication() {
   const { search, setSearch, listSearch, quickFilter, setQuickFilter, resetQuickFilter } =
     useInboxCommunication()
   const inboxQuery = useMemo(() => {
-    const params = new URLSearchParams(folderFilterQuery(folderFilter))
+    const params = new URLSearchParams(listFilterQuery(folderFilter))
     if (agentParam) params.set('agent', agentParam)
     if (needsDecisionParam) params.set('needs_decision', '1')
     const query = params.toString()
@@ -279,7 +279,7 @@ export default function Communication() {
     pinnedIds,
   )
 
-  const listContextKey = `${leafKey(leaf)}:${folderFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}`
+  const listContextKey = `${leafKey(leaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}`
 
   // The quick filter is per folder: every folder opens on "all", unless the
   // URL that opened it carries a deep-linked filter (consumed above).
@@ -631,24 +631,24 @@ export default function Communication() {
     async (id: ThreadId) => {
       if (!token) return
       try {
-        const openCases = await loadOpenSignalCases(String(id))
-        if (openCases.length > 0) {
+        const openTickets = await loadOpenTickets(String(id))
+        if (openTickets.length > 0) {
           if (
             !window.confirm(
-              t('threadChrome.closeWithSignalsShortcutConfirm', { count: openCases.length }),
+              t('threadChrome.closeWithTicketShortcutConfirm', { count: openTickets.length }),
             )
           ) {
             return
           }
           if (
             window.confirm(
-              t('threadChrome.closeWithSignalsShortcutResolve', { count: openCases.length }),
+              t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
             )
           ) {
             try {
-              await resolveOpenSignalCases(openCases)
+              await resolveOpenTickets(openTickets)
             } catch (err) {
-              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithSignalsError')))
+              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
               return
             }
           }
@@ -850,24 +850,24 @@ export default function Communication() {
     onClose: () => {
       void (async () => {
         if (selectedThreadId == null) return
-        const openCases = await loadOpenSignalCases(String(selectedThreadId))
-        if (openCases.length > 0) {
+        const openTickets = await loadOpenTickets(String(selectedThreadId))
+        if (openTickets.length > 0) {
           if (
             !window.confirm(
-              t('threadChrome.closeWithSignalsShortcutConfirm', { count: openCases.length }),
+              t('threadChrome.closeWithTicketShortcutConfirm', { count: openTickets.length }),
             )
           ) {
             return
           }
           if (
             window.confirm(
-              t('threadChrome.closeWithSignalsShortcutResolve', { count: openCases.length }),
+              t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
             )
           ) {
             try {
-              await resolveOpenSignalCases(openCases)
+              await resolveOpenTickets(openTickets)
             } catch (err) {
-              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithSignalsError')))
+              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
               return
             }
           }

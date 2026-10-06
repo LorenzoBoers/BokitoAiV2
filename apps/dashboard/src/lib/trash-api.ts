@@ -35,7 +35,6 @@ export const BIN_TYPES = [
   'team',
   'inbox_rule',
   'saved_reply',
-  'case_type',
 ] as const
 
 export function filterBinItems(

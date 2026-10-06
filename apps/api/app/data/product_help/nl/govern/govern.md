@@ -30,7 +30,7 @@ Govern heeft twee onderdelen: **Ledger** legt workspace-wijzigingen en auditgebe
 3. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Overschrijf één tool wanneer de categorie te breed is.
 4. Categorieën zijn onder meer Berichten, Workspace, Agents, Kanalen, Triggers, Integraties, Govern en Overdracht. Externe bezoekerssessies muteren nooit automatisch.
 5. Als learning veel geëscaleerde tool-gates of afgewezen toolbeslissingen ziet op een categorie die **Toestaan** stond, kan Bokito die slider automatisch aanscherpen naar **Eerst vragen**. Onder de sliders verschijnt een korte notitie. Losser maken blijft hier een handmatige edit.
-6. Zet onder **Autonomie per type en draaiboek** elk actief Signaaltype en draaiboek op **Handmatig**, **Ondersteund** of **Autonoom**.
+6. Zet onder **Autonomie per categorie en draaiboek** elke actieve categorie en elk draaiboek op **Handmatig**, **Ondersteund** of **Autonoom**.
 
 Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 
@@ -51,7 +51,7 @@ Versturen naar klanten vraagt altijd. Zie [Agents](/docs/ai/agents) voor regels 
 1. Open onder **Autonomie** het tabblad **Beleid** en zoek **Gesprekken**. Het **Plafond** volgt de Berichten-toestemming: **Eerst vragen** begrenst elk gesprek op Geassisteerd, **Weigeren** op Handmatig.
 2. Kies **Autonome antwoorden pauzeren** om in een stap alles op Geassisteerd te begrenzen. **Autonome antwoorden toestaan** heft dat weer op.
 3. **Draait autonoom** toont de workspace-standaard, kanalen, contacten en gesprekken die zelf antwoorden.
-4. Zet onder **Signaaltypes die altijd controle nodig hebben** een type op **Altijd controleren**. Antwoorden in een gesprek met dat signaaltype worden een concept, ook als het gesprek autonoom is.
+4. Zet onder **Categorieën die altijd controle nodig hebben** een categorie op **Altijd controleren**. Antwoorden op een ticket met die categorie worden een concept, ook als het gesprek autonoom is.
 5. Stel onder **Noodrem** **Autonome antwoorden per uur per kanaal** en **Negatieve signalen per uur per kanaal** in en kies **Grenzen noodrem opslaan**. Een geactiveerd kanaal draait Geassisteerd tot iemand het hervat vanaf het kanaal of vanaf deze kaart.
 
 Dagelijkse AI-afhandeling (workspace-standaard, uitzonderingen, waarborgen) staat onder [AI-afhandeling](/docs/inbox/inbox-ai).
